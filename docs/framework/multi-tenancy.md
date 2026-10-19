@@ -50,8 +50,14 @@ statement names, so all of these are scoped (#332):
   predicates in `ON` and adds `WHERE (pred OR <side's primary key> IS NULL)`
   per side, which is the same result as filtering both inputs first. The
   `select(...).outerjoin(Doc.__table__, onclause)` form is scoped the same
-  way; without an explicit `onclause` the predicate falls back to `WHERE`
-  (over-filters — the outer join behaves as inner — but never leaks).
+  way. A `full=True` step there also preserves the FROM built so far: the
+  plain tables on its left side get `(pred OR <pk> IS NULL)` in that step's
+  `ON` and in `WHERE`, so rows padded on the left survive instead of the
+  join collapsing into a RIGHT join. Without an explicit `onclause` the one
+  SQLAlchemy infers from the foreign keys is used. Two shapes still
+  over-filter (never leak): an ORM entity on a FULL step's left side, whose
+  loader criteria sit in `WHERE`, and a table with no primary key, whose
+  padding cannot be told apart from a real row.
 
 With no tenant under strict mode, a statement that *names* a tenant model, or
 reads a tenant table through Core anywhere in it, raises; an indirect ORM

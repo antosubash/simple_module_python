@@ -151,6 +151,8 @@ The flag is the `session_cookie_secure` host setting (`SM_SESSION_COOKIE_SECURE`
 | Browsers reach the app over plain HTTP on purpose (an internal network with no TLS) | `SM_SESSION_COOKIE_SECURE=false` — otherwise the browser drops the cookie and every sign-in bounces back to the login page. |
 | Local development (`make dev`, e2e) over `http://localhost` | Nothing: development and testing default to off. |
 
+**Symptom of a mismatch:** sign-in "succeeds" but every page bounces back to the login screen, and nothing fails in the request logs. The browser received a `Secure` cookie over `http://` and never sends it back. To make this visible, the app logs one `WARNING` per process (logger `simple_module_hosting.session`) the first time a request reaches it over `http` for a non-loopback host while the cookie is `Secure`. The warning names both fixes: `SM_TRUSTED_PROXY` if a TLS proxy sits in front and the app is not trusting its `X-Forwarded-Proto`, or `SM_SESSION_COOKIE_SECURE=false` if browsers really do use plain HTTP. `localhost`, `*.localhost` and loopback IPs never trigger it, because browsers keep `Secure` cookies on those.
+
 Rotate the secret by:
 
 1. Deploying with a new `SM_SECRET_KEY`.

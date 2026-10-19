@@ -34,6 +34,7 @@ from simple_module_db._core_joins import (
     _base_name,
     _is_orm,
     is_plain_leaf,
+    same_from,
     scope_joins,
 )
 from simple_module_db._outer_joins import is_excluded, orm_outer_join_tables
@@ -98,12 +99,6 @@ def _executable_options(stmt: Any) -> list[Any]:
     return [o for el in visitors.iterate(stmt) for o in getattr(el, "_with_options", ())]
 
 
-def _same_from(a: Any, b: Any) -> bool:
-    """One FROM occurrence: the same object, or clones of one (an alias the traversal
-    copied while a column still points at the original — SQL renders them as one)."""
-    return a is b or not a._cloned_set.isdisjoint(b._cloned_set)
-
-
 def _where_froms(stmt: Any) -> list[Any]:
     return [f for crit in stmt._where_criteria for f in crit._from_objects]
 
@@ -122,7 +117,7 @@ class _Visitor:
         preds: list[Any] = []
         seen: list[Any] = list(skip)
         for from_obj in candidates:
-            if not is_plain_leaf(from_obj) or any(_same_from(from_obj, s) for s in seen):
+            if not is_plain_leaf(from_obj) or any(same_from(from_obj, s) for s in seen):
                 continue
             seen.append(from_obj)
             preds.extend(self.predicates_for(from_obj))

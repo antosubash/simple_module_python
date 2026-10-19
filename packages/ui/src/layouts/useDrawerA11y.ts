@@ -4,12 +4,25 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
+ * Tailwind's `lg` breakpoint, where SidebarLayout docks the sidebar
+ * (`lg:translate-x-0`) and the drawer stops being a modal.
+ */
+export const DESKTOP_SIDEBAR_QUERY = '(min-width: 64rem)';
+
+/** Rendered and reachable: `lg:hidden` items and `[hidden]`/`[inert]` subtrees are not. */
+function isFocusable(el: HTMLElement): boolean {
+  return !el.closest('[hidden], [inert]') && el.getClientRects().length > 0;
+}
+
+/**
  * Modal-dialog behaviour for the mobile sidebar drawer (WAI-ARIA dialog
  * pattern): Escape closes it, focus moves in on open and is trapped while it is
  * open, and focus returns to whatever opened it on close.
  *
  * The drawer element stays mounted (it is the static sidebar on desktop), so
- * this is a hook rather than a Dialog primitive.
+ * this is a hook rather than a Dialog primitive. Crossing to the desktop
+ * breakpoint closes the drawer, which releases the trap and drops the dialog
+ * semantics the layout keys on `open`.
  */
 export function useDrawerA11y(
   open: boolean,
@@ -18,9 +31,20 @@ export function useDrawerA11y(
 ) {
   useEffect(() => {
     if (!open) return;
+    const desktop =
+      typeof window.matchMedia === 'function' ? window.matchMedia(DESKTOP_SIDEBAR_QUERY) : null;
+    if (desktop?.matches) {
+      onClose();
+      return;
+    }
+    const onBreakpoint = (e: MediaQueryListEvent) => {
+      if (e.matches) onClose();
+    };
+    desktop?.addEventListener('change', onBreakpoint);
     const drawer = drawerRef.current;
     const opener = document.activeElement as HTMLElement | null;
-    const items = () => (drawer ? Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE)) : []);
+    const items = () =>
+      drawer ? Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isFocusable) : [];
     items()[0]?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -53,6 +77,7 @@ export function useDrawerA11y(
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      desktop?.removeEventListener('change', onBreakpoint);
       document.removeEventListener('keydown', onKeyDown);
       if (opener?.isConnected) opener.focus();
     };

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@inertiajs/react', () => ({
   usePage: () => ({
@@ -72,6 +72,14 @@ function setup() {
 }
 
 describe('SidebarLayout mobile drawer', () => {
+  // jsdom lays nothing out, so every element would read as invisible to the
+  // trap's visibility filter.
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([
+      {},
+    ] as unknown as DOMRectList);
+  });
+
   it('is a plain sidebar (no dialog role) until opened', () => {
     render(
       <AdminLayout>

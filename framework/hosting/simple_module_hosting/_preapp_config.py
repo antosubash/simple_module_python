@@ -225,16 +225,24 @@ def apply_host_overrides(
     return values
 
 
-def merge_host_settings(bootstrap: BootstrapSettings | None = None) -> Settings:
+def merge_host_settings(
+    bootstrap: BootstrapSettings | None = None, *, strict: bool | None = None
+) -> Settings:
     """Build the ``Settings`` create_app runs on, with DB overrides applied.
 
     ``bootstrap`` is read from env first because it carries ``database_url``,
     which is the one value that cannot come from the database.
+
+    ``strict`` (default: on outside development and testing) refuses to build
+    on defaults / an ephemeral key when the stored settings cannot be read.
+    One-shot tooling that never serves requests (``smpy openapi export``)
+    passes ``strict=False``.
     """
     from simple_module_hosting._secret_key import SECRET_KEY_FIELD, ensure_secret_key
 
     bootstrap = bootstrap or BootstrapSettings()
-    strict = bootstrap.environment not in NON_PROD_ENVIRONMENTS
+    if strict is None:
+        strict = bootstrap.environment not in NON_PROD_ENVIRONMENTS
     overrides = load_host_overrides(bootstrap.database_url, strict=strict)
     stored = apply_host_overrides(overrides)
     # Resolved here rather than left to the field default so an install with

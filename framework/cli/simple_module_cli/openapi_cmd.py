@@ -71,7 +71,8 @@ def export(
             "empty); using environment and defaults for api_title / api_version.",
             err=True,
         )
-    settings = merge_host_settings()
+    # Never serves requests: an unreachable database must not fail the export.
+    settings = merge_host_settings(strict=False)
     schema = create_app(settings).openapi()
     if module:
         schema = _filter_modules(schema, module)

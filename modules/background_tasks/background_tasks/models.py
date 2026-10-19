@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
@@ -36,6 +36,16 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     """
 
     __tablename__ = TABLE_TASK_EXECUTION
+    # Audited for creation and status changes (#498), but not for the fields
+    # every signal and heartbeat rewrites: an update touching only these
+    # produces no audit row, which keeps a worker from doubling its writes.
+    __audit_exclude_fields__: ClassVar[set[str]] = {
+        "heartbeat_at",
+        "started_at",
+        "finished_at",
+        "queued_at",
+        "retries",
+    }
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
@@ -121,6 +131,9 @@ class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
     """
 
     __tablename__ = TABLE_OUTBOX
+    # Pure delivery bookkeeping: every claim, retry and delivery rewrites the
+    # row, and the event it carries is audited where it was published (#498).
+    __audit_exclude__ = True
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     event_key: str = Field(max_length=OUTBOX_KEY_MAX_LENGTH)

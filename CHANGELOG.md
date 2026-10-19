@@ -26,7 +26,9 @@ All notable changes to this project are documented in this file. The format is b
   and `false` only for installs that serve browsers plain HTTP on purpose.
 - **Behaviour change (#498):** with `audit_log` installed, writes made in Celery
   tasks and durable outbox handlers are audited (including `TaskExecution`
-  status changes). The audit callback is bound per engine instead of a
+  creation and status changes; its heartbeat, timestamps and retry counter are
+  excluded, so a heartbeat-only update writes no audit row, and the
+  `OutboxMessage` delivery bookkeeping is not audited at all). The audit callback is bound per engine instead of a
   process-global, through the new `simple_module.audit_sinks` entry-point
   group. Worker tests that build a database without the audit table need the
   sink off (see `background_tasks/tests/conftest.py`).

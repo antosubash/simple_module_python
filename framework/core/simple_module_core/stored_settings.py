@@ -78,22 +78,25 @@ def construct_leniently[T: BaseSettings](
     error that names no stored field re-raises.
     """
     fixed = fixed or {}
-    try:
-        return cls(**fixed, **stored)
-    except ValidationError as exc:
-        culprits = {name: err["type"] for err in exc.errors() for name in _culprits(err, stored)}
-        if not culprits:
-            raise
-        for name in sorted(culprits):
-            logger.log(
-                level,
-                "Ignoring stored value for %s.%s: it no longer validates (%s)",
-                cls.__name__,
-                name,
-                culprits[name],
-            )
-        kept = {k: v for k, v in stored.items() if k not in culprits}
-        return cls(**fixed, **kept)
+    kept = dict(stored)
+    while True:
+        try:
+            return cls(**fixed, **kept)
+        except ValidationError as exc:
+            culprits = {name: err["type"] for err in exc.errors() for name in _culprits(err, kept)}
+            if not culprits:
+                raise
+            for name in sorted(culprits):
+                logger.log(
+                    level,
+                    "Ignoring stored value for %s.%s: it no longer validates (%s)",
+                    cls.__name__,
+                    name,
+                    culprits[name],
+                )
+            # Each pass removes at least one stored field, so this ends; a second
+            # pass catches a rule that only fails once the first culprit is gone.
+            kept = {k: v for k, v in kept.items() if k not in culprits}
 
 
 def _culprits(error: ErrorDetails, stored: dict[str, Any]) -> list[str]:

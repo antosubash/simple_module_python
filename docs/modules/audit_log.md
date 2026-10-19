@@ -79,6 +79,8 @@ class Cache(Base, table=True):
     __audit_exclude__ = True
 ```
 
+An update whose changed columns are *all* excluded writes no audit row at all, so excluding a model's volatile columns is how to audit its meaningful transitions without one row per heartbeat. `background_tasks` does both: `OutboxMessage` (delivery bookkeeping) sets `__audit_exclude__ = True`, and `TaskExecution` excludes `heartbeat_at`, `queued_at`, `started_at`, `finished_at` and `retries`, so its creation and status changes are audited while the writes in between are not. This applies to request-path and Celery-worker writes alike.
+
 Primary-key columns and the bookkeeping fields injected by `AuditMixin` (`created_at`, `updated_at`, `created_by`, `updated_by`) and `SoftDeleteMixin` (`is_deleted`, `deleted_at`, `deleted_by`) are excluded from diffs automatically.
 
 ## Routes
