@@ -130,9 +130,14 @@ async def logout(request: Request) -> RedirectResponse:
 
 @router.get("/register", response_model=None)
 async def register_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
-    if not request.app.state.users.settings.allow_signup:
+    users_settings = request.app.state.users.settings
+    if not users_settings.allow_signup:
         raise HTTPException(status_code=404)
-    return await inertia.render(_PAGE_REGISTER, {})
+    # Drives the "verify your email" bullet and the success screen, so the
+    # page never promises an email that ``on_after_register`` won't send.
+    return await inertia.render(
+        _PAGE_REGISTER, {"require_verification": users_settings.require_verification}
+    )
 
 
 @router.get("/forgot-password", response_model=None)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from _api_tokens_support import FLAGS_URL, create_pat, load_token, update_token
 from api_tokens.constants import TokenKind
 from api_tokens.tokens import generate
@@ -19,6 +20,16 @@ async def test_valid_pat_reads_but_cannot_write(actor, bearer):
     assert (await bearer("GET", FLAGS_URL, token)).status_code == 200
     put = await bearer("PUT", f"{FLAGS_URL}anything", token, json={"enabled": True})
     assert put.status_code == 403
+
+
+@pytest.mark.parametrize("scheme", ["Bearer", "bearer", "BEARER"])
+async def test_scheme_is_case_insensitive(actor, bearer, scheme):
+    """GH #533: RFC 9110 auth schemes are case-insensitive."""
+    async with actor(admin=True) as a:
+        token = (await create_pat(a.client, ["feature_flags.view"]))["token"]
+
+    resp = await bearer("GET", FLAGS_URL, token, headers={"Authorization": f"{scheme} {token}"})
+    assert resp.status_code == 200
 
 
 async def test_revoke_takes_effect_on_the_next_request(actor, bearer):

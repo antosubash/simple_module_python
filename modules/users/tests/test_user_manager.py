@@ -127,7 +127,7 @@ class TestOnAfterRegister:
         # Pre-verified so the manager doesn't try to send a verify email.
         fake_user.is_verified = True
 
-        with patch.object(manager, "_attach_default_role", AsyncMock()):
+        with patch("users.manager.attach_default_role", AsyncMock()):
             await manager.on_after_register(fake_user, request)
 
         (event,) = bus.assert_published(UserRegistered)

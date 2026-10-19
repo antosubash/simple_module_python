@@ -1,0 +1,76 @@
+"""``users.require_verification`` decides whether a signup can sign in at once (GH #547).
+
+The setting was never read: every self-registered account was sent a
+verification email and refused at login until verified, so an install with no
+SMTP had signups nobody could use.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock
+
+import pytest
+from sqlalchemy import select
+from users.models import User
+
+_EMAIL = "signup@example.com"
+_PASSWORD = "SecurePass1!"
+_INERTIA_HEADERS = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
+
+
+def _configure(app, *, require_verification: bool) -> AsyncMock:
+    users = app.state.users
+    users.settings = users.settings.model_copy(
+        update={"require_verification": require_verification}
+    )
+    users.mailer.send_verification = AsyncMock()
+    return users.mailer.send_verification
+
+
+async def _register_then_login(client):
+    reg = await client.post(
+        "/api/users/auth/register", json={"email": _EMAIL, "password": _PASSWORD}
+    )
+    assert reg.status_code == 201, reg.text
+    return await client.post(
+        "/api/users/auth/login", data={"username": _EMAIL, "password": _PASSWORD}
+    )
+
+
+async def _stored(app) -> User:
+    async with app.state.sm.db.session_factory() as session:
+        return (await session.execute(select(User).where(User.email == _EMAIL))).scalar_one()
+
+
+@pytest.mark.anyio
+async def test_required_sends_the_email_and_refuses_login(users_app_signup, anon_client_signup):
+    sent = _configure(users_app_signup, require_verification=True)
+
+    login = await _register_then_login(anon_client_signup)
+
+    assert login.status_code == 400
+    assert login.json()["detail"] == "LOGIN_USER_NOT_VERIFIED"
+    sent.assert_awaited_once()
+    assert (await _stored(users_app_signup)).is_verified is False
+
+
+@pytest.mark.anyio
+async def test_not_required_verifies_and_allows_login(users_app_signup, anon_client_signup):
+    sent = _configure(users_app_signup, require_verification=False)
+
+    login = await _register_then_login(anon_client_signup)
+
+    assert login.status_code == 204, login.text
+    sent.assert_not_awaited()
+    assert (await _stored(users_app_signup)).is_verified is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("required", [True, False])
+async def test_register_page_receives_the_setting(users_app_signup, anon_client_signup, required):
+    _configure(users_app_signup, require_verification=required)
+
+    resp = await anon_client_signup.get("/users/register", headers=_INERTIA_HEADERS)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["props"]["require_verification"] is required
