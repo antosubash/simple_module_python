@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy.sql.elements import ColumnClause, ColumnElement
+from sqlalchemy.sql.elements import ClauseElement, ColumnClause, ColumnElement
 from sqlalchemy.sql.selectable import Alias, Join, Select, TableClause
 from sqlalchemy.sql.traversals import _get_children
 
@@ -63,7 +63,7 @@ def core_where_froms(stmt: Select) -> list[Any]:
     references are scoped where that select is visited).
     """
     found: list[Any] = []
-    stack = list(stmt._where_criteria)
+    stack: list[ClauseElement] = list(stmt._where_criteria)
     while stack:
         el = stack.pop()
         if _is_orm(el) or not el._from_objects:

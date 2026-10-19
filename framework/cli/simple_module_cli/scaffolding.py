@@ -19,6 +19,7 @@ import logging
 import shutil
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TypeGuard
 
 # The template engine lives in _templating.py; the private names are imported
 # here because long-standing tests monkeypatch them on this module.
@@ -91,7 +92,7 @@ def is_inside_existing_repo(dest: Path) -> bool:
     return False
 
 
-def _should_pin_framework_version(version: str | None) -> bool:
+def _should_pin_framework_version(version: str | None) -> TypeGuard[str]:
     """Whether ``version`` is a concrete pin rather than a skip sentinel.
 
     Both scaffolders skip pinning for ``None`` (a library caller that wants the

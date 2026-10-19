@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, MutableMapping
 from dataclasses import dataclass
 from typing import Any
+from uuid import UUID
 
 from simple_module_db import current_tenant_id, is_valid_tenant_id
 from starlette.datastructures import Headers, MutableHeaders
@@ -50,17 +51,33 @@ Return a :class:`TenantResolution` (or a ``(tenant_id, source)`` pair) to
 report the source and the headers consulted."""
 
 
+def _checked(value: object, what: str) -> str | None:
+    """A resolver value as ``str | None``; a UUID becomes its string form.
+
+    Anything else is a resolver bug (#507): an ``int`` or object tenant id
+    would reach string comparisons and tenant filters, so fail loudly here.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, UUID):
+        return str(value)
+    raise TypeError(f"tenant resolver returned a {type(value).__name__} {what}; expected str")
+
+
 def _normalise(result: object) -> TenantResolution:
     if isinstance(result, TenantResolution):
+        tenant_id = _checked(result.tenant_id, "tenant id")
         # No tenant, no source (#424) — whatever the resolver said. The vary
         # names stay: the header's absence was an input too.
-        if result.tenant_id is None and result.source is not None:
+        if tenant_id is None:
             return TenantResolution(None, None, result.vary)
-        return result
+        return TenantResolution(tenant_id, _checked(result.source, "source"), result.vary)
     if isinstance(result, tuple):
-        tenant_id, source = result[0], (result[1] if len(result) > 1 else None)
+        tenant_id = _checked(result[0] if result else None, "tenant id")
+        source = _checked(result[1], "source") if len(result) > 1 else None
         return TenantResolution(tenant_id, source if tenant_id is not None else None)
-    return TenantResolution(result, "resolver" if result is not None else None)
+    tenant_id = _checked(result, "tenant id")
+    return TenantResolution(tenant_id, "resolver" if tenant_id is not None else None)
 
 
 def _tokens(value: str) -> list[str]:
@@ -161,7 +178,8 @@ class TenantMiddleware:
                 if not any("*" in _tokens(line) for line in lines):
                     merged = merge_vary(", ".join(lines), tuple(names))
                     del headers["vary"]
-                    headers["vary"] = merged
+                    if merged is not None:
+                        headers["vary"] = merged
             await send(message)
 
         return wrapped

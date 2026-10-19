@@ -46,7 +46,13 @@ logger = logging.getLogger(__name__)
 # Matches alembic.context.configure's include_object signature exactly so
 # type-checkers accept the returned filter without casts or ignores.
 _SchemaItemType = Literal[
-    "schema", "table", "column", "index", "unique_constraint", "foreign_key_constraint"
+    "schema",
+    "table",
+    "column",
+    "index",
+    "unique_constraint",
+    "foreign_key_constraint",
+    "check_constraint",
 ]
 IncludeObjectFn = Callable[[SchemaItem, str | None, _SchemaItemType, bool, SchemaItem | None], bool]
 ProcessRevisionDirectivesFn = Callable[[object, object, list], None]

@@ -94,7 +94,7 @@ class _Scoper:
             on, owed = owed_right, owed_left
         if not on and left is node.left and right is node.right:
             return node, owed
-        onclause = and_(node.onclause, *_flatten(on)) if on else node.onclause
+        onclause = and_(node.onclause, *_flatten(on)) if on else node.onclause  # ty: ignore[invalid-argument-type]
         return Join(left, right, onclause, isouter=node.isouter, full=node.full), owed
 
 
@@ -181,7 +181,7 @@ def _scope_setup_join(stmt: Select, index: int, scoper: _Scoper, owed: list[tupl
     on = [*target_owed, *(_or_padded(o) for o in left_owed)]
     if full:
         owed.extend(target_owed)
-    return (target, and_(onclause, *_flatten(on)), from_, flags)
+    return (target, and_(onclause, *_flatten(on)), from_, flags)  # ty: ignore[invalid-argument-type]
 
 
 def _resolved_join(stmt: Select, index: int) -> Join | None:

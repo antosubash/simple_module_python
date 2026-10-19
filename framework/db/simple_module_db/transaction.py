@@ -28,6 +28,8 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import MutableMapping
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,7 +140,7 @@ async def rollback_session(session: AsyncSession) -> None:
     )
 
 
-def register_request_session(scope: dict, session: AsyncSession) -> None:
+def register_request_session(scope: MutableMapping[str, Any], session: AsyncSession) -> None:
     """Enlist ``session`` for commit-before-response, if the middleware is installed.
 
     A no-op when it isn't: ``get_db`` still commits in its own exit code, just
