@@ -16,7 +16,7 @@ interface Props {
   isActive: boolean;
   isVerified: boolean;
   /** When the login lockout lifts; `null` when the account is not locked. */
-  lockedUntil?: string | null;
+  lockedUntil: string | null;
   savingStatus: boolean;
   savingVerify: boolean;
   onDisable: () => void;
@@ -63,7 +63,7 @@ export function AccountCard({
   disabledAt,
   isActive,
   isVerified,
-  lockedUntil = null,
+  lockedUntil,
   savingStatus,
   savingVerify,
   onDisable,

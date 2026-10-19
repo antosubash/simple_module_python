@@ -14,7 +14,7 @@ export function useUserActions(
   userId: string,
   initialActive: boolean,
   initialVerified: boolean,
-  initialLockedUntil: string | null = null,
+  initialLockedUntil: string | null,
 ) {
   const { t } = useT();
   const [isActive, setIsActive] = useState(initialActive);

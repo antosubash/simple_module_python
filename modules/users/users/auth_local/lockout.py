@@ -98,10 +98,6 @@ class LoginAttempt:
         return f"login:acct:{self.username}"
 
     @property
-    def account_spec(self) -> RateSpec:
-        return RateSpec(self.threshold, self.settings.login_rate_limit_window_seconds)
-
-    @property
     def lock_key(self) -> str:
         return f"login:acct-lock:{self.username}"
 
@@ -194,14 +190,14 @@ async def _admit_account(
 
 async def _admit_unknown(attempt: LoginAttempt) -> Admission:
     # The account rules above, replayed on the store for a username with no row.
-    store = attempt.store
-    lock = await store.peek(attempt.lock_key, attempt.lock_spec)
+    lock = await attempt.store.peek(attempt.lock_key, attempt.lock_spec)
     if not lock.allowed:
         raise too_many_attempts(lock.retry_after)
-    counted = await store.hit(attempt.account_key, attempt.account_spec, sliding=True)
+    account_spec = RateSpec(attempt.threshold, attempt.settings.login_rate_limit_window_seconds)
+    counted = await attempt.store.hit(attempt.account_key, account_spec, sliding=True)
     if counted.count > attempt.threshold:
         raise too_many_attempts(attempt.cooldown)  # the last slot's lock is being written
-    lock = await store.peek(attempt.lock_key, attempt.lock_spec)
+    lock = await attempt.store.peek(attempt.lock_key, attempt.lock_spec)
     if not lock.allowed:  # locked while this attempt was counting
         raise too_many_attempts(lock.retry_after)
     return Admission((), counted.count)
