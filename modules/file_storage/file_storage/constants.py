@@ -152,6 +152,9 @@ DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
 SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
 
+# Largest byte count a browser's ``Number`` represents exactly (2**53 - 1).
+MAX_JS_SAFE_INTEGER: Final = 2**53 - 1
+
 # ── Resumable uploads (#454) ─────────────────────────────────────────
 MIB: Final = 1024 * 1024
 DEFAULT_DIRECT_UPLOAD_THRESHOLD_BYTES: Final = 64 * MIB
