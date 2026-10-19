@@ -22,7 +22,6 @@ silently, with nothing raising.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +30,7 @@ from typing import Any
 from pydantic_settings import BaseSettings
 from simple_module_core.dotenv import parse_dotenv
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.stored_settings import construct_leniently, parse_stored_value
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -76,26 +76,6 @@ def _settings_table() -> tuple[str, str, str] | None:
         )
     except Exception:
         return None
-
-
-def _parse(raw: str, value_type: str) -> Any:
-    """Decode a stored value according to its ``value_type`` label.
-
-    Deliberately a local reimplementation of ``settings.hydrate._parse``
-    rather than an import of it: this runs before the app exists, and the
-    framework should not depend on a plugin being importable to read its own
-    boot configuration. The five labels are a stable stored format, not an
-    internal detail.
-    """
-    if value_type == "bool":
-        return raw.lower() in ("1", "true", "yes", "on")
-    if value_type == "int":
-        return int(raw)
-    if value_type == "float":
-        return float(raw)
-    if value_type == "json":
-        return json.loads(raw)
-    return raw
 
 
 async def _read(database_url: str) -> dict[str, tuple[str, str]]:
@@ -144,9 +124,7 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]]:
     return out
 
 
-def load_host_overrides(
-    database_url: str, *, strict: bool = False
-) -> dict[str, tuple[str, str]]:
+def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str, tuple[str, str]]:
     """Return ``{field: (raw_value, value_type)}`` for host settings in the DB.
 
     Returns ``{}`` quietly when the settings module isn't installed, or when
@@ -232,8 +210,8 @@ def apply_host_overrides(
         if _env_var_for(field) in env:
             continue
         try:
-            values[field] = _parse(raw, value_type)
-        except (ValueError, json.JSONDecodeError):
+            values[field] = parse_stored_value(raw, value_type)
+        except ValueError:  # JSONDecodeError included
             # A single unparseable row must not take down the boot; the field
             # falls back to its default and the admin UI still shows the row.
             logger.warning("Ignoring unparseable host setting %r (%s)", field, value_type)
@@ -246,24 +224,32 @@ def merge_host_settings(bootstrap: BootstrapSettings | None = None) -> Settings:
     ``bootstrap`` is read from env first because it carries ``database_url``,
     which is the one value that cannot come from the database.
     """
-    from simple_module_hosting._secret_key import ensure_secret_key
+    from simple_module_hosting._secret_key import SECRET_KEY_FIELD, ensure_secret_key
 
     bootstrap = bootstrap or BootstrapSettings()
     overrides = load_host_overrides(
         bootstrap.database_url,
         strict=bootstrap.environment not in NON_PROD_ENVIRONMENTS,
     )
-    values = apply_host_overrides(overrides)
+    stored = apply_host_overrides(overrides)
     # Resolved here rather than left to the field default so an install with
     # no SM_SECRET_KEY gets a generated, persisted key instead of the shipped
     # placeholder. Passing the explicitly-set value through keeps env winning.
-    values["secret_key"] = ensure_secret_key(
+    # The stored key rode along in the read above (it is a ``host.*`` row), so
+    # an established install opens no second connection for it.
+    stored_key = overrides.get(SECRET_KEY_FIELD, (None, None))[0]
+    secret_key = ensure_secret_key(
         bootstrap.database_url,
         env_value=bootstrap.secret_key if "secret_key" in bootstrap.model_fields_set else None,
+        stored=stored_key,
     )
     # database_url is passed explicitly: BootstrapSettings.__init__ resolves
     # relative sqlite paths against the discovered project root, and
     # reconstructing Settings from env alone would redo that resolution
     # against whatever the cwd happens to be.
-    values["database_url"] = bootstrap.database_url
-    return Settings(**values)
+    fixed = {"secret_key": secret_key, "database_url": bootstrap.database_url}
+    # Lenient, like the lifespan hydration: a stored value that parses but no
+    # longer validates (a Literal narrowed in an upgrade) falls back to its
+    # default with a WARNING instead of taking down every worker — and with
+    # them the admin UI that could fix the row (#497).
+    return construct_leniently(Settings, stored, fixed=fixed)

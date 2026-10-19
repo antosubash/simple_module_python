@@ -16,8 +16,10 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.stored_settings import RELATED_FIELDS_CTX
 
 # Marks a field the running process cannot pick up without a restart, so the
 # admin UI can say so rather than letting the edit look like it took effect.
@@ -221,8 +223,16 @@ class HostSettings(BaseSettings):
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> HostSettings:
         if self.i18n_default_locale not in self.i18n_supported_locales:
-            raise ValueError(
-                f"i18n_default_locale '{self.i18n_default_locale}' is not in "
-                f"i18n_supported_locales {self.i18n_supported_locales}"
+            # Model-level, so the error has no field location: the context
+            # names both halves, letting lenient boot hydration drop whichever
+            # one came from the DB instead of refusing to boot (#497).
+            raise PydanticCustomError(
+                "default_locale_unsupported",
+                "i18n_default_locale '{default}' is not in i18n_supported_locales {supported}",
+                {
+                    "default": self.i18n_default_locale,
+                    "supported": self.i18n_supported_locales,
+                    RELATED_FIELDS_CTX: ["i18n_default_locale", "i18n_supported_locales"],
+                },
             )
         return self

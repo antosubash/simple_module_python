@@ -122,7 +122,9 @@ async def _ensure(database_url: str) -> str | None:
         await engine.dispose()
 
 
-def ensure_secret_key(database_url: str, *, env_value: str | None = None) -> str:
+def ensure_secret_key(
+    database_url: str, *, env_value: str | None = None, stored: str | None = None
+) -> str:
     """Return the key to sign sessions with, generating one if needed.
 
     Falls back to an ephemeral generated key when the database cannot be
@@ -130,11 +132,17 @@ def ensure_secret_key(database_url: str, *, env_value: str | None = None) -> str
     build the app at all, and an app that refuses to start cannot show the
     setup wizard that fixes the database. Sessions won't survive a restart in
     that state, which is why it warns.
+
+    ``stored`` is the value the caller already read from the settings table,
+    if any; a non-empty one is returned without touching the database again.
     """
     if env_value is None:
         env_value = os.environ.get(ENV_SECRET_KEY)
     if env_value:
         return env_value
+    # Already read by the caller's pre-app select: skip the extra round trip.
+    if stored:
+        return stored
 
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
