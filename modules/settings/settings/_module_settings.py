@@ -168,6 +168,7 @@ def _field_view(
         or named_secret
         or any(embeds_credential(v) for v in (raw_value, default, raw_env))
     )
+    group = extra.get("group")
     return ModuleSettingField(
         name=name,
         env_var=env_var,
@@ -177,7 +178,7 @@ def _field_view(
         is_secret=secret,
         type=value_type,
         requires_restart=bool(extra.get("requires_restart", False)),
-        group=group if isinstance(group := extra.get("group"), str) else None,
+        group=group if isinstance(group, str) else None,
         env_set=env_set,
         db_override=name in overridden,
         env_readable=live_env_var is not None,
