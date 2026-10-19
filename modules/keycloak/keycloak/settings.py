@@ -8,6 +8,7 @@ from simple_module_core.dotenv import env_bool, env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.stored_settings import field_error
 
 DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
@@ -60,16 +61,22 @@ class KeycloakSettings(DbBackedSettings):
         env = os.environ.get("SM_ENVIRONMENT", "development")
         if env in NON_PROD_ENVIRONMENTS:
             return self
-        missing = []
-        if not self.server_url:
-            missing.append("SM_KEYCLOAK_SERVER_URL")
-        if not self.realm:
-            missing.append("SM_KEYCLOAK_REALM")
-        if not self.client_id:
-            missing.append("SM_KEYCLOAK_CLIENT_ID")
-        if not self.client_secret:
-            missing.append("SM_KEYCLOAK_CLIENT_SECRET")
+        required = (
+            ("server_url", "SM_KEYCLOAK_SERVER_URL"),
+            ("realm", "SM_KEYCLOAK_REALM"),
+            ("client_id", "SM_KEYCLOAK_CLIENT_ID"),
+            ("client_secret", "SM_KEYCLOAK_CLIENT_SECRET"),
+        )
+        missing = [(field, var) for field, var in required if not getattr(self, field)]
         if missing:
-            msg = f"Keycloak settings required in production: {', '.join(missing)}"
-            raise ValueError(msg)
+            # Located on the first empty field so the form shows it there.
+            msg = f"Keycloak settings required in production: {', '.join(v for _, v in missing)}"
+            raise field_error(
+                type(self),
+                missing[0][0],
+                "keycloak_settings_required",
+                msg,
+                value="",
+                related=[field for field, _ in required],
+            )
         return self

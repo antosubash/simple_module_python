@@ -15,12 +15,14 @@ import logging
 from typing import Any
 
 from pydantic import ValidationError
-from pydantic_core import ErrorDetails
+from pydantic_core import ErrorDetails, InitErrorDetails, PydanticCustomError
+from pydantic_core import ValidationError as CoreValidationError
 from pydantic_settings import BaseSettings
 
 __all__ = [
     "RELATED_FIELDS_CTX",
     "construct_leniently",
+    "field_error",
     "parse_stored_value",
 ]
 
@@ -33,6 +35,34 @@ RELATED_FIELDS_CTX = "related_fields"
 
 _TRUE = frozenset({"1", "true", "yes", "on"})
 _FALSE = frozenset({"0", "false", "no", "off"})
+
+
+def field_error(
+    model: type,
+    field: str,
+    error_type: str,
+    message: str,
+    *,
+    value: Any = None,
+    related: list[str] | tuple[str, ...] = (),
+) -> CoreValidationError:
+    """A cross-field failure from a ``model_validator``, located on ``field``.
+
+    A bare ``ValueError`` from a model validator has ``loc=()``: the settings
+    form cannot show it and lenient hydration cannot tell which stored field to
+    drop (#558). This pins the error on ``field`` and names every field the rule
+    reads under ``ctx[RELATED_FIELDS_CTX]``. ``message`` is used verbatim.
+    """
+    return CoreValidationError.from_exception_data(
+        title=model.__name__,
+        line_errors=[
+            InitErrorDetails(
+                type=PydanticCustomError(error_type, message, {RELATED_FIELDS_CTX: list(related)}),
+                loc=(field,),
+                input=value,
+            )
+        ],
+    )
 
 
 def parse_stored_value(raw: str, value_type: str) -> Any:

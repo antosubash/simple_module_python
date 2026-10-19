@@ -19,6 +19,7 @@ from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.stored_settings import field_error
 
 from users.session_version_cache import SESSION_VERSION_TTL_SECONDS
 
@@ -226,14 +227,22 @@ class UsersSettings(DbBackedSettings):
             return self
         bad = []
         if self.reset_password_token_secret == _PLACEHOLDER_RESET_SECRET:
-            bad.append("RESET_PASSWORD_TOKEN_SECRET")
+            bad.append(("reset_password_token_secret", "RESET_PASSWORD_TOKEN_SECRET"))
         if self.verification_token_secret == _PLACEHOLDER_VERIFY_SECRET:
-            bad.append("VERIFICATION_TOKEN_SECRET")
+            bad.append(("verification_token_secret", "VERIFICATION_TOKEN_SECRET"))
         if bad:
-            names = ", ".join(bad)
-            raise ValueError(
+            names = ", ".join(label for _, label in bad)
+            # Located on the first placeholder field. Dropping a stored
+            # placeholder falls back to the same placeholder, so lenient boot
+            # still refuses: the check cannot be sidestepped.
+            raise field_error(
+                type(self),
+                bad[0][0],
+                "placeholder_token_secret",
                 f"users.{names} must be set to non-default value(s) when "
                 f"SM_ENVIRONMENT={env!r}. Generate with "
-                "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`."
+                "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`.",
+                value="",
+                related=["reset_password_token_secret", "verification_token_secret"],
             )
         return self
