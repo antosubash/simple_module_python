@@ -106,7 +106,7 @@ async def test_known_and_unknown_take_the_same_password_path(users_app, monkeypa
 
 async def test_parallel_burst_gets_at_most_threshold_password_checks(monkeypatch, tmp_path) -> None:
     url = f"sqlite+aiosqlite:///{tmp_path / 'burst.db'}"
-    overrides = {"login_lockout_account_failures": ("4", "int")}
+    overrides = {"login_lockout_account_failures": ("5", "int")}
     app, ctx = await _build_users_app(
         monkeypatch, allow_signup=False, database_url=url, overrides=overrides
     )
@@ -117,13 +117,14 @@ async def test_parallel_burst_gets_at_most_threshold_password_checks(monkeypatch
 
         async def counting(self, credentials):
             checks.append(credentials.username)
+            await asyncio.sleep(0)  # let the other requests interleave mid-check
             return await real(self, credentials)
 
         monkeypatch.setattr(UserManager, "authenticate", counting)
-        responses = await asyncio.gather(*(_login(app, f"10.0.0.{i}", ALICE) for i in range(16)))
+        responses = await asyncio.gather(*(_login(app, f"10.0.0.{i}", ALICE) for i in range(20)))
         codes = sorted(r.status_code for r in responses)
-        assert len(checks) <= 4
-        assert codes.count(400) == 3 and codes.count(429) == 13
+        assert len(checks) <= 5
+        assert codes.count(400) == 4 and codes.count(429) == 16
         async with app.state.sm.db.session_factory() as session:
             row = (await session.execute(select(User).where(User.email == ALICE))).scalar_one()
         assert row.locked_until is not None
