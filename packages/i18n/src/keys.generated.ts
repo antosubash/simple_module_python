@@ -1622,6 +1622,7 @@ export const keys = {
     },
     register: {
       bullet_close: 'users.register.bullet_close',
+      bullet_no_verification: 'users.register.bullet_no_verification',
       bullet_verification: 'users.register.bullet_verification',
       error_email_invalid: 'users.register.error_email_invalid',
       error_exists: 'users.register.error_exists',
@@ -1638,6 +1639,8 @@ export const keys = {
       submit: 'users.register.submit',
       submitting: 'users.register.submitting',
       success_body: 'users.register.success_body',
+      success_ready_body: 'users.register.success_ready_body',
+      success_ready_title: 'users.register.success_ready_title',
       success_title: 'users.register.success_title',
     },
     reset_password: {

@@ -4,7 +4,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
-import { MailCheck } from 'lucide-react';
+import { MailCheck, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { AuthField } from '../auth_local/components/AuthField';
 import { AuthIntro } from '../auth_local/components/AuthIntro';
@@ -19,7 +19,12 @@ import {
   type RegisterErrorCode,
 } from '../auth_local/registerErrors';
 
-function Register() {
+interface RegisterProps {
+  /** `users.require_verification`: whether a new account must confirm its email. */
+  require_verification?: boolean;
+}
+
+function Register({ require_verification = true }: RegisterProps) {
   const { t } = useT();
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -93,10 +98,18 @@ function Register() {
       <AuthCardShell>
         <Head title={t(keys.users.register.head_title)} />
         <AuthStateCard
-          icon={MailCheck}
+          icon={require_verification ? MailCheck : UserCheck}
           tone="primary"
-          title={t(keys.users.register.success_title)}
-          description={t(keys.users.register.success_body, { email })}
+          title={
+            require_verification
+              ? t(keys.users.register.success_title)
+              : t(keys.users.register.success_ready_title)
+          }
+          description={
+            require_verification
+              ? t(keys.users.register.success_body, { email })
+              : t(keys.users.register.success_ready_body, { email })
+          }
         >
           <Button asChild className="max-lg:min-h-11">
             <a href={LOGIN_PATH}>{t(keys.users.common.sign_in)}</a>
@@ -113,7 +126,9 @@ function Register() {
       heading={t(keys.users.register.heading)}
       body={t(keys.users.register.intro)}
       checks={[
-        t(keys.users.register.bullet_verification),
+        require_verification
+          ? t(keys.users.register.bullet_verification)
+          : t(keys.users.register.bullet_no_verification),
         ...(registrationNote ? [registrationNote] : []),
       ]}
     />
