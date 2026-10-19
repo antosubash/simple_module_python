@@ -94,6 +94,15 @@ class WindowStore(Protocol):
         """Count one request against *key* and report whether it is within budget."""
         ...
 
+    async def peek(self, key: str, spec: RateSpec) -> WindowResult:
+        """Report *key*'s current window without counting.
+
+        ``allowed`` answers "would one more hit be within budget", so a caller
+        can refuse before doing any work and count only what failed — the
+        login lockout counts wrong passwords, not attempts.
+        """
+        ...
+
 
 class InProcessWindowStore:
     """Per-process fixed-window counters. Not shared between workers."""
@@ -116,6 +125,15 @@ class InProcessWindowStore:
         self._windows[key] = (end_ms, count)
         retry = max(1, math.ceil(end_ms / 1000 - now))
         return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
+
+    async def peek(self, key: str, spec: RateSpec) -> WindowResult:
+        now = self._clock()
+        entry = self._windows.get(key)
+        if entry is None or entry[0] <= now * 1000:
+            return WindowResult(allowed=spec.limit > 0, retry_after=0, count=0)
+        end_ms, count = entry
+        retry = max(1, math.ceil(end_ms / 1000 - now))
+        return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
 
     def _sweep(self, now: float) -> None:
         now_ms = now * 1000

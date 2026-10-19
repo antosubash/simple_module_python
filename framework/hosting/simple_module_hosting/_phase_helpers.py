@@ -33,7 +33,7 @@ from simple_module_hosting._error_handlers import (
 )
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._module_routes import wire_module_routes
-from simple_module_hosting._rate_limit import RateLimitMiddleware, build_store
+from simple_module_hosting._rate_limit import RateLimitMiddleware
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.rate_limit import WindowStore
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,7 @@ def install_middleware(
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
     csp_registry: CspSourceRegistry,
+    rate_limit_store: WindowStore,
 ) -> None:
     """Install the full middleware pipeline.
 
@@ -139,7 +141,7 @@ def install_middleware(
         RateLimitMiddleware,
         public_rate=settings.rate_limit_public,
         authenticated_rate=settings.rate_limit_authenticated,
-        store=build_store(settings.redis_url),
+        store=rate_limit_store,
     )
     # Paired with InertiaLayoutDataMiddleware below, which is what puts this
     # user's auth, permissions and menus into every Inertia payload: this one

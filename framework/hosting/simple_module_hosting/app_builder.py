@@ -42,6 +42,7 @@ from simple_module_hosting._phase_helpers import (
 )
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
+from simple_module_hosting._rate_limit import build_store
 from simple_module_hosting._registrations import run_module_registrations
 from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting._settings_registration import (
@@ -248,8 +249,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_exception_handlers(app, modules)
 
     # ── Phase 8: Middleware pipeline ───────────────────────
+    # Shared with modules via app.state.sm (the users login lockout counts here).
+    rate_limit_store = build_store(settings.redis_url)
     install_middleware(
-        app, settings, modules, menu_registry, perm_registry, csp_registry=csp_registry
+        app, settings, modules, menu_registry, perm_registry, csp_registry, rate_limit_store
     )
 
     # ── Phase 9: Routes, health, static files ──────────────
@@ -288,6 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         diagnostics=diagnostics_state,
         tenancy=mode_for(settings),
         view_prefixes=view_prefixes,
+        rate_limit_store=rate_limit_store,
     )
 
     return app

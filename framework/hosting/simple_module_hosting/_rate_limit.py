@@ -58,6 +58,13 @@ end
 return {c, t}
 """
 
+# Read-only twin of ``_LUA``: a missing key is an empty window.
+_PEEK_LUA = """
+local c = redis.call('GET', KEYS[1])
+if not c then return {0, 0} end
+return {tonumber(c), redis.call('PTTL', KEYS[1])}
+"""
+
 
 class RedisWindowStore:
     """Fixed-window counters in Redis; shared across workers and processes.
@@ -84,11 +91,12 @@ class RedisWindowStore:
         client = aioredis.from_url(url, socket_connect_timeout=0.5, socket_timeout=0.5)
         return cls(client)
 
-    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
+    async def _eval(self, script: str, key: str, *args: Any) -> Any:
+        """Run *script* on *key*; ``None`` means "answer from the per-worker fallback"."""
         if self._clock() < self._down_until:
-            return await self._fallback.hit(key, spec)
+            return None
         try:
-            count, pttl = await self._client.eval(_LUA, 1, _KEY_PREFIX + key, spec.period * 1000)
+            return await self._client.eval(script, 1, _KEY_PREFIX + key, *args)
         except Exception as exc:
             now = self._clock()
             self._down_until = now + _BACKOFF
@@ -97,9 +105,23 @@ class RedisWindowStore:
                 logger.warning(
                     "Rate limiter Redis unavailable (%s); using per-worker counters", exc
                 )
+            return None
+
+    async def hit(self, key: str, spec: RateSpec) -> WindowResult:
+        reply = await self._eval(_LUA, key, spec.period * 1000)
+        if reply is None:
             return await self._fallback.hit(key, spec)
-        retry = max(1, -(-int(pttl) // 1000)) if int(pttl) > 0 else spec.period
-        return WindowResult(allowed=int(count) <= spec.limit, retry_after=retry, count=int(count))
+        count, pttl = int(reply[0]), int(reply[1])
+        retry = max(1, -(-pttl // 1000)) if pttl > 0 else spec.period
+        return WindowResult(allowed=count <= spec.limit, retry_after=retry, count=count)
+
+    async def peek(self, key: str, spec: RateSpec) -> WindowResult:
+        reply = await self._eval(_PEEK_LUA, key)
+        if reply is None:
+            return await self._fallback.peek(key, spec)
+        count, pttl = int(reply[0]), int(reply[1])
+        retry = max(1, -(-pttl // 1000)) if pttl > 0 else 0
+        return WindowResult(allowed=count < spec.limit, retry_after=retry, count=count)
 
 
 def build_store(redis_url: str | None) -> WindowStore:
