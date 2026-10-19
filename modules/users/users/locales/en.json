@@ -27,7 +27,8 @@
     "reset_confirm_title": "Generate reset link for {email}?",
     "reset_confirm_body": "A one-time password-reset URL will be copied to your clipboard. Any previously issued reset link for this user will be invalidated.",
     "reset_action": "Generate",
-    "external_note": "This account signs in through an external identity provider (SSO) and has no password, so there's no reset link to generate."
+    "external_note": "This account signs in through an external identity provider (SSO) and has no password, so there's no reset link to generate.",
+    "unlock_button": "Unlock"
   },
   "add_people": {
     "title": "Add people",
@@ -125,7 +126,9 @@
     "subtitle": "{email} · joined {joined} · last login {lastLogin}",
     "never": "never",
     "unsaved_changes_one": "{count} unsaved change",
-    "unsaved_changes_other": "{count} unsaved changes"
+    "unsaved_changes_other": "{count} unsaved changes",
+    "toast_unlocked": "Account unlocked",
+    "toast_unlock_failed": "Could not unlock the account"
   },
   "empty": {
     "solo_title": "You're the only account",
@@ -251,7 +254,8 @@
     "yes": "yes",
     "no": "no",
     "mark_verified": "Mark verified",
-    "external_value": "external · sso"
+    "external_value": "external · sso",
+    "locked_until": "Locked until"
   },
   "nav": {
     "logout": "Logout",
@@ -391,7 +395,8 @@
     "toast_reset_failed": "Failed to generate reset link",
     "toast_disabled": "User disabled",
     "toast_enabled": "User enabled",
-    "toast_status_failed": "Could not change the account status"
+    "toast_status_failed": "Could not change the account status",
+    "locked_badge": "locked"
   },
   "verify_email": {
     "head_title": "Verify email",

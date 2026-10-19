@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import func, or_, select
@@ -15,6 +15,17 @@ from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
+
+
+def _live_lock(locked_until: datetime | None) -> datetime | None:
+    """*locked_until* while the lock holds, else ``None``.
+
+    An expired lock stays on the row until the next failure or an unlock; it
+    refuses nothing any more, so the admin screens must not show it.
+    """
+    if locked_until is not None and locked_until > datetime.now(UTC):
+        return locked_until
+    return None
 
 
 class _UserServiceBase:
@@ -63,6 +74,7 @@ class _UserServiceBase:
             invited_at=user.invited_at,
             invite_expires_at=self._invite_expiry(user.invited_at),
             state=user_state(user.is_active, user.is_verified, user.invited_at),
+            locked_until=_live_lock(user.locked_until),
             roles=[r.name for r in user.roles],
         )
 
@@ -132,6 +144,7 @@ class _UserServiceBase:
             User.last_login_at,
             User.created_at,
             User.invited_at,
+            User.locked_until,
         )
         count_stmt = select(func.count()).select_from(User)
 
@@ -208,7 +221,7 @@ class _UserServiceBase:
         # roles): unpack directly.
         items = [
             UserListItem(
-                **r._mapping,
+                **{**r._mapping, "locked_until": _live_lock(r.locked_until)},
                 invite_expires_at=self._invite_expiry(r.invited_at),
                 state=user_state(r.is_active, r.is_verified, r.invited_at),
                 roles=roles_by_user.get(r.id, []),

@@ -35,6 +35,7 @@ export function UserCards({ users }: { users: UserListItem[] }) {
         invited: t(keys.users.user_row.status_invited),
         disabled: t(keys.users.user_row.status_disabled),
       }[user.state],
+      user.locked_until ? t(keys.users.user_row.locked_badge) : null,
       user.last_login_at ? ago(user.last_login_at) : null,
     ];
     return parts.filter(Boolean).join(' · ');

@@ -1,0 +1,94 @@
+"""Admin unlock and the locked state in the admin API (GH #530)."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import httpx
+import pytest
+from _users_app_builders import _make_standard_user
+from sqlalchemy import select
+from users.models import User
+
+ALICE = "alice@example.com"
+
+
+@pytest.fixture
+async def alice(users_app):
+    return await _make_standard_user(users_app, ALICE)
+
+
+async def _lock_by_failing(users_app) -> None:
+    for i in range(10):
+        transport = httpx.ASGITransport(app=users_app, client=(f"10.0.0.{i}", 1))
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+            r = await c.post("/api/users/auth/login", data={"username": ALICE, "password": "no"})
+            assert r.status_code == 400
+
+
+async def _row(users_app) -> User:
+    async with users_app.state.sm.db.session_factory() as session:
+        return (await session.execute(select(User).where(User.email == ALICE))).scalar_one()
+
+
+async def _list_item(admin_client, user_id) -> dict:
+    r = await admin_client.get("/api/users/admin", params={"q": "alice"})
+    assert r.status_code == 200
+    [item] = [u for u in r.json() if u["id"] == str(user_id)]
+    return item
+
+
+async def test_list_reports_locked_until(users_app, admin_client, alice) -> None:
+    assert (await _list_item(admin_client, alice.id))["locked_until"] is None
+    await _lock_by_failing(users_app)
+    assert (await _list_item(admin_client, alice.id))["locked_until"] is not None
+
+
+async def test_expired_lock_is_not_reported(users_app, admin_client, alice) -> None:
+    async with users_app.state.sm.db.session_factory() as session:
+        row = await session.get(User, alice.id)
+        assert row is not None
+        row.locked_until = datetime.now(UTC) - timedelta(seconds=1)
+        await session.commit()
+    assert (await _list_item(admin_client, alice.id))["locked_until"] is None
+
+
+async def test_unlock_clears_lock_and_is_audited(users_app, admin_client, alice) -> None:
+    from audit_log.models import AuditEntry
+
+    await _lock_by_failing(users_app)
+    r = await admin_client.patch(f"/api/users/admin/{alice.id}/unlock")
+    assert r.status_code == 200
+    assert r.json()["locked_until"] is None
+
+    row = await _row(users_app)
+    assert (row.locked_until, row.failed_login_count, row.last_failed_login_at) == (None, 0, None)
+
+    async with users_app.state.sm.db.session_factory() as session:
+        stmt = select(AuditEntry).where(
+            AuditEntry.entity_type == "User", AuditEntry.entity_id == str(alice.id)
+        )
+        entries = [e for e in (await session.execute(stmt)).scalars() if e.action == "updated"]
+    fields = [sorted(c["field"] for c in e.changes) for e in entries]
+    # One entry for the lock, one for the unlock, nothing for the nine plain failures.
+    assert [f for f in fields if "locked_until" in f] == [["locked_until"], ["locked_until"]]
+    assert all("failed_login_count" not in f for f in fields)
+    assert len(entries) == 2
+
+    # The account signs in again.
+    transport = httpx.ASGITransport(app=users_app, client=("9.9.9.9", 1))
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+        login = await c.post(
+            "/api/users/auth/login", data={"username": ALICE, "password": "UserPass1!"}
+        )
+    assert login.status_code == 204
+
+
+async def test_unlock_unknown_user_is_404(admin_client) -> None:
+    r = await admin_client.patch("/api/users/admin/00000000-0000-0000-0000-000000000000/unlock")
+    assert r.status_code == 404
+
+
+async def test_unlock_requires_manage(user_client, alice) -> None:
+    r = await user_client.patch(f"/api/users/admin/{alice.id}/unlock")
+    assert r.status_code == 403

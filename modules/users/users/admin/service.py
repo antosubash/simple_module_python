@@ -220,6 +220,15 @@ class UserService(_UserServiceBase):
         await self._db.flush()
         return user
 
+    async def unlock(self, user_id: uuid.UUID) -> User:
+        """Lift a login lockout early. An ORM write, so the audit log records it."""
+        user = await self._require_user(user_id)
+        user.locked_until = None
+        user.failed_login_count = 0
+        user.last_failed_login_at = None
+        await self._db.flush()
+        return user
+
     async def mark_verified(self, user_id: uuid.UUID) -> User:
         user = await self._require_user(user_id)
         if not user.is_verified:

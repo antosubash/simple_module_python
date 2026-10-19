@@ -150,6 +150,8 @@ class UserListItem(SQLModel):
     computed on read from the same setting that mints it."""
     state: str = "active"
     """One of :data:`USER_STATES`."""
+    locked_until: datetime | None = None
+    """When a login lockout lifts; ``None`` unless one holds right now."""
     roles: list[str] = []
 
 

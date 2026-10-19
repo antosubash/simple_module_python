@@ -10,10 +10,16 @@ import { toast } from 'sonner';
  * compromised account should not require finding a Save button. Keeping them
  * here leaves the page itself to own only the details/roles form.
  */
-export function useUserActions(userId: string, initialActive: boolean, initialVerified: boolean) {
+export function useUserActions(
+  userId: string,
+  initialActive: boolean,
+  initialVerified: boolean,
+  initialLockedUntil: string | null = null,
+) {
   const { t } = useT();
   const [isActive, setIsActive] = useState(initialActive);
   const [isVerified, setIsVerified] = useState(initialVerified);
+  const [lockedUntil, setLockedUntil] = useState(initialLockedUntil);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingVerify, setSavingVerify] = useState(false);
 
@@ -48,6 +54,14 @@ export function useUserActions(userId: string, initialActive: boolean, initialVe
       t(keys.users.edit.toast_enable_failed),
     );
 
+  const unlock = () =>
+    patch(
+      `/api/users/admin/${userId}/unlock`,
+      () => setLockedUntil(null),
+      t(keys.users.edit.toast_unlocked),
+      t(keys.users.edit.toast_unlock_failed),
+    );
+
   const markVerified = () => {
     setSavingVerify(true);
     fetch(`/api/users/admin/${userId}/verify`, { method: 'PATCH' })
@@ -80,10 +94,12 @@ export function useUserActions(userId: string, initialActive: boolean, initialVe
   return {
     isActive,
     isVerified,
+    lockedUntil,
     savingStatus,
     savingVerify,
     disable,
     enable,
+    unlock,
     markVerified,
     copyResetLink,
   };

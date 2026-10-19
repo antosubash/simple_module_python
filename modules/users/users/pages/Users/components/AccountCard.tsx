@@ -3,7 +3,7 @@ import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActi
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { formatDayMonthYear } from '@simple-module-py/ui/lib/date-format';
+import { formatDayMonthTime, formatDayMonthYear } from '@simple-module-py/ui/lib/date-format';
 import { Copy, KeyRound, UserX } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
@@ -15,10 +15,13 @@ interface Props {
   disabledAt: string | null;
   isActive: boolean;
   isVerified: boolean;
+  /** When the login lockout lifts; `null` when the account is not locked. */
+  lockedUntil?: string | null;
   savingStatus: boolean;
   savingVerify: boolean;
   onDisable: () => void;
   onEnable: () => void;
+  onUnlock?: () => void;
   onMarkVerified: () => void;
   onCopyResetLink: () => void;
 }
@@ -60,10 +63,12 @@ export function AccountCard({
   disabledAt,
   isActive,
   isVerified,
+  lockedUntil = null,
   savingStatus,
   savingVerify,
   onDisable,
   onEnable,
+  onUnlock,
   onMarkVerified,
   onCopyResetLink,
 }: Props) {
@@ -111,6 +116,24 @@ export function AccountCard({
           <Row label={t(keys.users.metadata_card.disabled_at)}>
             {formatDay(disabledAt, emptyValue)}
           </Row>
+          {lockedUntil && (
+            <Row label={t(keys.users.metadata_card.locked_until)}>
+              <span className="inline-flex items-center gap-2">
+                <span className="text-red-700 dark:text-red-400">
+                  {formatDayMonthTime(lockedUntil)}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onUnlock}
+                  disabled={savingStatus}
+                  className="max-lg:min-h-11"
+                >
+                  {t(keys.users.account_status.unlock_button)}
+                </Button>
+              </span>
+            </Row>
+          )}
         </div>
 
         <div className="mt-auto flex flex-wrap gap-2 pt-5">
