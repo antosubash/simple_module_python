@@ -1,12 +1,13 @@
 """``do_orm_execute`` filter: soft-delete and tenant scoping on every ORM statement.
 
-Scope (#332). Tenant and soft-delete criteria are attached for *every*
+Scope (#332, #506). Tenant and soft-delete criteria are attached for *every*
 tenant-scoped / soft-deletable model, not only the entities a statement
 names, so a table reached through a join target, an ORM ``exists()`` /
 ``in_()`` / scalar subquery or ``select(func.count()).select_from(Model)`` is
-filtered too. A Core statement on ``Model.__table__`` at the top level
-(select / update / delete) gets explicit predicates, and a bare Core
-``exists().where(...)`` has its inner SELECT rewritten (``subquery_guard``).
+filtered too. Core references to ``Model.__table__`` (or an alias of it) get
+explicit predicates at any depth — joins, subqueries, CTEs, compound
+selects, the extra FROM of an UPDATE / DELETE, an INSERT's SELECT source —
+see ``core_scope``.
 """
 
 from __future__ import annotations
@@ -17,12 +18,11 @@ from weakref import WeakKeyDictionary
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
-from sqlalchemy.sql.selectable import Alias, Join
+from sqlalchemy.sql.selectable import Alias
 
 from simple_module_db import model_registry as registry
-from simple_module_db._outer_joins import is_excluded, orm_outer_join_tables
+from simple_module_db.core_scope import scope_core
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
-from simple_module_db.subquery_guard import scope_exists_subqueries
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
     DEFAULT_TENANT_ID,
@@ -111,6 +111,7 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     """
     if execute_state.is_insert:
         session = execute_state.session
+        _scope_insert_source(execute_state)
         return guard_insert(
             execute_state,
             strict=strict_configured(session),
@@ -137,31 +138,63 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
     for mapper in execute_state.all_mappers:
         if registry.flags(mapper.class_)[1]:
             named.append(mapper.class_)
+    execute_state.statement = scope_core(
+        execute_state.statement,
+        _subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
+        _scoped_names(skip_soft_delete, skip_tenant),
+        _orm_covered(skip_soft_delete, skip_tenant, tenant_id),
+    )
     if not skip_soft_delete:
-        options.extend(_soft_delete_criteria(execute_state))
+        options.extend(
+            with_loader_criteria(c, c.is_deleted.is_(False), include_aliases=True)
+            for c in registry.soft_delete_classes
+        )
     if not skip_tenant:
         options.extend(_tenant_criteria(execute_state, named, tenant_id, strict))
-    if registry.tenant_classes or registry.soft_delete_classes:
-        execute_state.statement = scope_exists_subqueries(
-            execute_state.statement,
-            _subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
-        )
 
     if options:
         execute_state.statement = execute_state.statement.options(*options)
     return None
 
 
-def _soft_delete_criteria(execute_state: ORMExecuteState) -> list[Any]:
-    plain = _plain_tables(
-        execute_state, registry.soft_delete_table_names, registry.soft_delete_classes
+def _scope_insert_source(execute_state: ORMExecuteState) -> None:
+    """``insert(...).from_select(..., select(t...))``: the source reads like any SELECT."""
+    if getattr(execute_state.statement, "select", None) is None:
+        return
+    options = execute_state.execution_options
+    skip_soft_delete = options.get("include_deleted", False)
+    skip_tenant = options.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
+    tenant_id = current_tenant_id.get()
+    strict = strict_configured(execute_state.session)
+    execute_state.statement = scope_core(
+        execute_state.statement,
+        _subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
+        _scoped_names(skip_soft_delete, skip_tenant),
     )
-    for table in plain:
-        execute_state.statement = execute_state.statement.where(table.c.is_deleted.is_(False))
-    return [
-        with_loader_criteria(c, c.is_deleted.is_(False), include_aliases=True)
-        for c in registry.soft_delete_classes
-    ]
+
+
+def _scoped_names(skip_soft_delete: bool, skip_tenant: bool) -> set[str]:
+    names: set[str] = set()
+    if not skip_soft_delete:
+        names |= registry.soft_delete_table_names
+    if not skip_tenant:
+        names |= registry.tenant_table_names
+    return names
+
+
+def _orm_covered(skip_soft_delete: bool, skip_tenant: bool, tenant_id: str | None) -> set[type]:
+    """Classes whose every predicate the loader criteria put in a join's ``ON`` (#417).
+
+    Strict mode without a tenant gives no tenant ``ON`` predicate worth the
+    name, so a tenant class is covered only once a tenant is bound: a bare
+    reference to it keeps refusing.
+    """
+    covered = set(registry.soft_delete_classes) if not skip_soft_delete else set()
+    if skip_tenant or tenant_id is not None:
+        covered |= registry.tenant_classes
+    else:
+        covered -= registry.tenant_classes
+    return covered
 
 
 def _subquery_predicates(
@@ -187,56 +220,22 @@ def _subquery_predicates(
     return predicates_for
 
 
-def _plain_tables(
-    execute_state: ORMExecuteState, names: set[str], covered: set[type] | None = None
-) -> list[Any]:
-    """Tables a statement uses as plain Core tables (``Model.__table__``).
+def _dml_target(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
+    """The target of a Core UPDATE / DELETE on ``Model.__table__``, if scoped.
 
-    Only the top level: the FROM list of a select (including the sides of a
-    join), the target of an update/delete. ORM-annotated occurrences are
-    covered by loader criteria.
-
-    ``covered`` names the classes the caller gives loader criteria. A bare
-    columns-clause table that one of them outer-joins in (``func.count(
-    Child.id)`` strips the annotation) is that join's own ``FROM``, already
-    filtered in ``ON``; a ``WHERE`` on it would make the join inner (#417).
+    Every other Core reference — in a SELECT, or joined in by an UPDATE /
+    DELETE — is scoped by ``core_scope``.
     """
-    stmt = execute_state.statement
-    if not execute_state.is_select:
-        froms = [getattr(stmt, "table", None)]
-        return [f for f in _where_able(froms) if registry.is_plain_table(f, names)]
-    columns = getattr(stmt, "columns_clause_froms", ())
-    outer = orm_outer_join_tables(stmt, covered) if covered else []
-    columns = [f for f in columns if not (outer and is_excluded(f, outer))]
-    froms = [*columns, *getattr(stmt, "_from_obj", ())]
-    return [f for f in _where_able(froms) if registry.is_plain_table(f, names)]
-
-
-def _where_able(froms: list[Any]) -> list[Any]:
-    """Expand joins into the sides a ``WHERE`` can filter without changing them.
-
-    Both sides of an INNER join qualify. Of an OUTER join only the preserved
-    (left) side does: a ``WHERE`` on the nullable side would drop the very rows
-    the outer join was written to keep, turning it into an inner join.
-    """
-    out: list[Any] = []
-    for f in froms:
-        if isinstance(f, Join):
-            sides = [f.left] if f.isouter else [f.left, f.right]
-            if not getattr(f, "full", False):
-                out.extend(_where_able(sides))
-        else:
-            out.append(f)
-    return out
+    if execute_state.is_select:
+        return []
+    target = getattr(execute_state.statement, "table", None)
+    return [target] if registry.is_plain_table(target, names) else []
 
 
 def _tenant_criteria(
     execute_state: ORMExecuteState, named: list[type], tenant_id: str | None, strict: bool
 ) -> list[Any]:
-    # The ON-covered exclusion only applies once a tenant is bound: strict mode
-    # without one still refuses a table it would otherwise have WHERE-filtered.
-    covered = registry.tenant_classes if tenant_id is not None else None
-    core = _plain_tables(execute_state, registry.tenant_table_names, covered)
+    core = _dml_target(execute_state, registry.tenant_table_names)
     op = (
         "SELECT" if execute_state.is_select else ("UPDATE" if execute_state.is_update else "DELETE")
     )
@@ -261,6 +260,6 @@ def _tenant_criteria(
 
 def _refuse_tenant_move(execute_state: ORMExecuteState) -> None:
     named = any(registry.flags(m.class_)[1] for m in execute_state.all_mappers)
-    core = _plain_tables(execute_state, registry.tenant_table_names)
+    core = _dml_target(execute_state, registry.tenant_table_names)
     if (named or core) and assigned_tenant_ids(execute_state):
         raise TenantIsolationError("Cannot change tenant_id of existing rows")

@@ -37,15 +37,37 @@ statement names, so all of these are scoped (#332):
 - subqueries: `select(Doc.id).where(...).exists()`, a bare Core
   `exists().where(Doc.x == ...)`, `in_(select(Doc.x))`, scalar subqueries;
 - counts: `select(func.count()).select_from(Doc)`, counts over a subquery;
-- Core statements on `Doc.__table__` at the top level — `select`, `update`,
-  `delete` get `WHERE tenant_id = …` (and `is_deleted IS false` on reads),
-  `insert` is stamped.
+- Core statements on `Doc.__table__` (or `Doc.__table__.alias()`) at any
+  depth (#506): the top-level `select`, `update` and `delete` target get
+  `WHERE tenant_id = …` (and `is_deleted IS false` on reads), `insert` is
+  stamped, and so is every other Core reference — a subquery, a CTE, a
+  scalar or `exists()` subquery (also inside a join's `ON`), each member of a
+  `union` / `intersect` / `except`, a table an `update()`/`delete()` joins in
+  through its `WHERE`, and the `select` behind `insert().from_select()`;
+- Core **joins**: an outer join's nullable side gets its predicates in the
+  `ON` clause, so `tag.outerjoin(link, …)` keeps tags without links and never
+  counts another tenant's links. A `full=True` join puts both sides'
+  predicates in `ON` and adds `WHERE (pred OR <side's primary key> IS NULL)`
+  per side, which is the same result as filtering both inputs first. The
+  `select(...).outerjoin(Doc.__table__, onclause)` form is scoped the same
+  way; without an explicit `onclause` the predicate falls back to `WHERE`
+  (over-filters — the outer join behaves as inner — but never leaks).
 
-With no tenant under strict mode, a statement that *names* a tenant model or
-table — or reads one through a bare Core `exists()` — raises; an indirect ORM
-reference (a join, a subquery) matches nothing. The one-time cost is a scan of
-the WHERE/column clauses for `exists()` (about 10 µs per statement), skipped
-when no tenant-scoped or soft-deletable model is installed.
+With no tenant under strict mode, a statement that *names* a tenant model, or
+reads a tenant table through Core anywhere in it, raises; an indirect ORM
+reference (a join, a subquery) matches nothing. The cost is one walk of the
+statement looking for a plain (non-ORM) reference to a scoped table (about
+20–40 µs for a typical ORM select); only a statement that has one is cloned
+and rewritten. Both are skipped when no tenant-scoped or soft-deletable model
+is installed.
+
+Not covered, by design:
+
+- raw SQL — `text("SELECT … FROM docs_doc")` is opaque to the filter; scope it
+  yourself;
+- soft-delete on an `update()`/`delete()` (its target *or* any table it reads):
+  writes may touch trashed rows — that is how restore and purge work. Tenant
+  scoping still applies to them.
 
 ### One session, one tenant
 
