@@ -21,7 +21,7 @@ def test_interrupt_cancels_the_coroutine_on_the_loop():
     async def slow() -> None:
         started.set()
         try:
-            await asyncio.sleep(30)
+            await asyncio.sleep(30)  # intentional-sleep: blocks until the interrupt cancels it
         except asyncio.CancelledError:
             cancelled.set()
             raise

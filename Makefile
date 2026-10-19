@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
 
 # Install
 install:
@@ -121,7 +121,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-hardcoded-strings ci-check-untranslated
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
 	uv run python scripts/check_metadata.py
 	uv run python scripts/check_readmes.py
 
@@ -157,6 +157,11 @@ ci-js-typecheck:
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.
 ci-check-file-size:
 	uv run python scripts/check_file_size.py
+
+# Fail on a fixed sleep(<non-zero>) in a test without `# intentional-sleep: <reason>`;
+# poll with simple_module_test.wait_for instead.
+ci-check-test-sleeps:
+	uv run python scripts/check_test_sleeps.py
 
 # Enforce that permissions, role names, Inertia page ids, and module dependency
 # names are declared as named constants rather than hardcoded string literals.

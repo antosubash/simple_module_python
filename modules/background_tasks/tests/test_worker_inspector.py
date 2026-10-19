@@ -138,10 +138,13 @@ def test_probes_run_concurrently_not_sequentially():
     """
     from background_tasks.worker_inspector import WorkerInspector
 
+    def _slow_probe(*_: object, **__: object) -> None:
+        time.sleep(PROBE_DELAY)  # intentional-sleep: simulated slow probe
+
     celery, _ = _celery_with_live_broker_no_workers()
     inspect = celery.control.inspect.return_value
     for name in ("ping", "stats", "active_queues", "active"):
-        getattr(inspect, name).side_effect = lambda *_, **__: (time.sleep(PROBE_DELAY), None)[1]
+        getattr(inspect, name).side_effect = _slow_probe
 
     start = time.perf_counter()
     snapshot = WorkerInspector(celery, timeout=PROBE_DELAY).snapshot()

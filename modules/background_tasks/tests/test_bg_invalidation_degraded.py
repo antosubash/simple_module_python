@@ -20,6 +20,7 @@ import socket
 
 from background_tasks.invalidation import RedisInvalidationTransport
 from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_test import wait_for
 
 _CHANNEL = "qa.invalidation"
 
@@ -72,16 +73,19 @@ class TestMuteBrokerListener:
         )
         await transport.start()
         try:
-            deadline = asyncio.get_running_loop().time() + 15
-            while asyncio.get_running_loop().time() < deadline:
-                if any("keep cached values until they expire" in r.message for r in caplog.records):
-                    break
-                await asyncio.sleep(0.05)
-            else:
+            try:
+                await wait_for(
+                    lambda: any(
+                        "keep cached values until they expire" in r.message for r in caplog.records
+                    ),
+                    timeout=15,
+                    interval=0.05,
+                )
+            except AssertionError as exc:
                 raise AssertionError(
                     "the listener never complained about a mute broker — it is wedged "
                     "in an unbounded read and will never reconnect"
-                )
+                ) from exc
         finally:
             await transport.stop()
             for writer in writers:
@@ -111,7 +115,7 @@ class TestMuteBrokerListener:
             InvalidationBus(), f"redis://127.0.0.1:{port}/0", _CHANNEL
         )
         await transport.start()
-        await asyncio.sleep(0.2)
+        await wait_for(lambda: bool(writers))  # the listener is connected and mid-read
         try:
             await asyncio.wait_for(transport.stop(), timeout=20)
         finally:

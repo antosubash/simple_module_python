@@ -38,7 +38,7 @@ def test_threads_get_their_own_loops_and_do_not_serialise():
     stop_worker_loop()
 
     async def blocking() -> int:
-        time.sleep(0.5)  # a handler doing blocking I/O on the loop
+        time.sleep(0.5)  # intentional-sleep: a handler doing blocking I/O on the loop
         return id(asyncio.get_running_loop())
 
     try:
