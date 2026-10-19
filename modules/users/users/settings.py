@@ -108,10 +108,16 @@ class UsersSettings(DbBackedSettings):
     smtp_from: str = "no-reply@localhost"
     smtp_tls: bool = True
 
-    # Rate limit (login — failure-based lockout)
+    # Login lockout (GH #530, ``users.auth_local.lockout``). Failures within the
+    # window: ``login_rate_limit_failures`` from one IP for one username
+    # throttle that source until the window ends; ``login_lockout_account_failures``
+    # from anywhere lock the account for ``login_rate_limit_cooldown_seconds``.
+    # 10 rather than 5 for the account: anyone who knows an address could
+    # otherwise lock its owner out from any network.
     login_rate_limit_failures: int = 5
     login_rate_limit_window_seconds: int = 300
     login_rate_limit_cooldown_seconds: int = 900
+    login_lockout_account_failures: int = Field(10, ge=1)
 
     # Rate limit (auth side-effects: forgot-password, register, accept-invite,
     # request-verify-token). Counts every attempt per IP per window.
