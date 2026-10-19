@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnClause, ColumnElement
 from sqlalchemy.sql.selectable import Alias, Join, Select, TableClause
 from sqlalchemy.sql.traversals import _get_children
 
@@ -48,7 +48,31 @@ def froms_read(stmt: Any) -> list[Any]:
         target = stmt.table._deannotate()
         return [f for f in where_froms(stmt) if f is not target]
     froms = [*stmt.columns_clause_froms, *(f for f in stmt._from_obj if not isinstance(f, Join))]
-    return [*froms, *where_froms(stmt)] if orm_less(stmt) else froms
+    return [*froms, *(where_froms(stmt) if orm_less(stmt) else core_where_froms(stmt))]
+
+
+def core_where_froms(stmt: Select) -> list[Any]:
+    """The FROMs a SELECT's ``WHERE`` pulls in through plain (non-ORM) columns.
+
+    ``select(Tag.name).where(link.c.tag_id == Tag.id)`` reads ``link`` only
+    through its ``WHERE``. ``where_froms`` cannot be used for an ORM select:
+    an entity column's ``_from_objects`` is its bare table too, and an
+    ``aliased()`` entity's would gain a stray cartesian FROM. So the criteria
+    are walked down to their columns, pruning ORM-annotated elements and
+    anything that adds no FROM to this SELECT (a nested select's own
+    references are scoped where that select is visited).
+    """
+    found: list[Any] = []
+    stack = list(stmt._where_criteria)
+    while stack:
+        el = stack.pop()
+        if _is_orm(el) or not el._from_objects:
+            continue
+        if isinstance(el, ColumnClause):
+            found.extend(el._from_objects)
+        else:
+            stack.extend(el.get_children())
+    return found
 
 
 def references_plain(stmt: Any, names: set[str]) -> bool:

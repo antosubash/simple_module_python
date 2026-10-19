@@ -14,6 +14,7 @@ import pytest
 from _core_scope_models import Link, Plain, Tag, _rows, link, make_strict, seeded, tag
 from simple_module_db.tenancy import TenantIsolationError
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import aliased
 
 __all__ = ["seeded"]
 
@@ -40,6 +41,16 @@ SHAPES = {
     "scalar subquery column": (
         lambda: select(Tag.name, _links_of_tag()),
         [("unused", 0), ("used", 1)],
+    ),
+    "core column in WHERE": (
+        lambda: select(Tag.name).where(link.c.tag_id == Tag.id, link.c.article_id == 7),
+        [],
+    ),
+    "core column in WHERE, aliased entity": (
+        lambda: select((ta := aliased(Tag)).name).where(
+            link.c.tag_id == ta.id, link.c.article_id == 7
+        ),
+        [],
     ),
     # Not leaks: the entity's own table through a Core column, and a Core
     # column on an outer-joined entity, whose ON already holds its criteria
@@ -114,6 +125,7 @@ async def test_core_inside_orm_select_is_scoped(seeded, shape):
 # from the Core reference to ``link``.
 STRICT = {
     "column": lambda: select(Plain.name, link.c.id).where(link.c.tag_id == Plain.id),
+    "WHERE": lambda: select(Plain.name).where(link.c.tag_id == Plain.id),
     "WHERE subquery": lambda: select(Plain.name).where(Plain.id.in_(select(link.c.tag_id))),
     "HAVING": lambda: select(Plain.name).group_by(Plain.name).having(_b_article_links() > 0),
     "ORDER BY": lambda: select(Plain.name).order_by(
