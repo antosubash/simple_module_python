@@ -5,6 +5,9 @@ Rules:
     publish-pypi matrix of `.github/workflows/release.yml` (and vice versa) —
     a workspace package missing from the matrix builds a wheel on every
     release and then silently never reaches PyPI.
+  * The root pyproject's `[tool.ty.environment] extra-paths` and
+    `[tool.pytest.ini_options] testpaths` must list every framework/* and
+    modules/* package (and its tests/ dir) on disk, and nothing stale (#520).
   * Every `pyproject.toml` under framework/* and modules/* must have:
       - name starting with "simple_module_"
       - non-placeholder description (not "Add your description here" or empty)
@@ -194,6 +197,32 @@ def check_release_matrix(root: Path) -> list[str]:
     return errors
 
 
+def check_tooling_lists(root: Path) -> list[str]:
+    """Assert ty `extra-paths` and pytest `testpaths` track the packages on disk."""
+    root_toml = root / "pyproject.toml"
+    if not root_toml.exists():
+        return []
+    data = tomlkit.parse(root_toml.read_text(encoding="utf-8"))
+    tool = data.get("tool", {})
+    extra = {str(p) for p in tool.get("ty", {}).get("environment", {}).get("extra-paths", [])}
+    tests = {str(p) for p in tool.get("pytest", {}).get("ini_options", {}).get("testpaths", [])}
+
+    pkgs = [p.parent.relative_to(root).as_posix() for p in discover_python_packages(root)]
+    want_extra = set(pkgs)
+    want_tests = {f"{p}/tests" for p in pkgs if (root / p / "tests").is_dir()}
+
+    errors: list[str] = []
+    for label, have, want in (
+        ("[tool.ty.environment] extra-paths", extra, want_extra),
+        ("[tool.pytest.ini_options] testpaths", tests, want_tests),
+    ):
+        for entry in sorted(want - have):
+            errors.append(f"pyproject.toml {label}: missing '{entry}' (exists on disk)")
+        for entry in sorted(e for e in have - want if e.startswith(("framework/", "modules/"))):
+            errors.append(f"pyproject.toml {label}: stale '{entry}' (not on disk)")
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -211,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     for pkg in discover_npm_packages(root):
         all_errors.extend(check_npm_package(pkg))
     all_errors.extend(check_release_matrix(root))
+    all_errors.extend(check_tooling_lists(root))
 
     if all_errors:
         for e in all_errors:

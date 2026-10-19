@@ -67,9 +67,11 @@ ignore = [
 
 [tool.ty.environment]
 extra-paths = [
+    "framework/cli",
     "framework/core",
     "framework/db",
     "framework/hosting",
+    "framework/inertia",
     "framework/testing",
     "modules/auth",
     "modules/dashboard",
