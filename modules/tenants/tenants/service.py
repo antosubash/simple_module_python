@@ -199,8 +199,8 @@ class TenantService:
         return await self.db.scalar(stmt) is not None
 
     async def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
-        stmt = select(Membership).where(  # ty: ignore[invalid-argument-type]  # ty: ignore[invalid-argument-type]
-            Membership.tenant_id == tenant_id,
+        stmt = select(Membership).where(
+            Membership.tenant_id == tenant_id,  # ty: ignore[invalid-argument-type]
             Membership.user_id == user_id,  # ty: ignore[invalid-argument-type]
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
