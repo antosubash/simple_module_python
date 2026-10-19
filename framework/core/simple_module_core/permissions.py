@@ -106,6 +106,9 @@ class PermissionRegistry:
         self._grant_sources: list[GrantSource] = []
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
+        # Set when a source raised during the current recompute, so the derived
+        # ``all_permissions`` snapshot is not cached with that source missing.
+        self._source_failed = False
 
     def _invalidate(self) -> None:
         self._all_permissions_cache = None
@@ -120,7 +123,8 @@ class PermissionRegistry:
         is **sync** and should read a module-maintained in-memory cache — the
         registry is consulted on every request. Its output is cached here until
         :meth:`invalidate_source` is called. A provider that raises is logged
-        and contributes nothing.
+        and contributes nothing for that read; the empty result is not cached,
+        so the next read retries it.
         """
         self._sources[name] = provider
         self._source_cache.pop(name, None)
@@ -147,7 +151,10 @@ class PermissionRegistry:
                     labels[key] = label
         except Exception:
             logger.exception("Permission source %r failed; contributing nothing", name)
-            keys, labels = [], {}
+            # Not cached: a transient failure must not hide the source until
+            # someone invalidates it.
+            self._source_failed = True
+            return [], {}
         out = (sorted(set(keys)), labels)
         self._source_cache[name] = out
         return out
@@ -177,10 +184,14 @@ class PermissionRegistry:
     def all_permissions(self) -> list[str]:
         """All registered permission strings, sorted."""
         if self._all_permissions_cache is None:
+            self._source_failed = False
             perms: set[str] = set()
             for group in self.groups:
                 perms.update(group.permissions)
-            self._all_permissions_cache = sorted(perms)
+            result = sorted(perms)
+            if self._source_failed:
+                return result
+            self._all_permissions_cache = result
         return self._all_permissions_cache
 
     @property

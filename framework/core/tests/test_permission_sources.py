@@ -50,3 +50,19 @@ def test_admin_implicit_all_includes_sources() -> None:
     reg = PermissionRegistry()
     reg.add_source("records", lambda: ["records.product.edit"])
     assert "records.product.edit" in reg.get_permissions_for_roles(["admin"])
+
+
+def test_failed_source_is_not_cached_as_empty() -> None:
+    calls = {"n": 0}
+
+    def flaky() -> list[str]:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("db not ready")
+        return ["flaky.read"]
+
+    reg = PermissionRegistry()
+    reg.add_source("flaky", flaky)
+    assert reg.all_permissions == []
+    assert reg.has("flaky.read")
+    assert "flaky.read" in reg.all_permissions
