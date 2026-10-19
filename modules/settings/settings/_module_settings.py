@@ -177,7 +177,7 @@ def _field_view(
         is_secret=secret,
         type=value_type,
         requires_restart=bool(extra.get("requires_restart", False)),
-        group=extra.get("group"),
+        group=group if isinstance(group := extra.get("group"), str) else None,
         env_set=env_set,
         db_override=name in overridden,
         env_readable=live_env_var is not None,

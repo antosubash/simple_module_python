@@ -208,9 +208,9 @@ class SettingService(SettingListing):
 
     async def _find(self, scope: SettingScope, scope_id: str, key: str) -> Setting | None:
         stmt = select(Setting).where(
-            Setting.scope == scope.value,
-            Setting.scope_id == scope_id,
-            Setting.key == key,
+            Setting.scope == scope.value,  # ty: ignore[invalid-argument-type]
+            Setting.scope_id == scope_id,  # ty: ignore[invalid-argument-type]
+            Setting.key == key,  # ty: ignore[invalid-argument-type]
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()

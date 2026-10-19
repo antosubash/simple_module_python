@@ -21,11 +21,11 @@ from pydantic_settings import BaseSettings
 from settings.constants import MODULE_PACKAGE
 
 
-def register_module_settings(
+def register_module_settings[T: BaseSettings](
     app: FastAPI,
     package: str,
-    settings_cls: type[BaseSettings],
-    services_factory: Callable[[BaseSettings], Any],
+    settings_cls: type[T],
+    services_factory: Callable[[T], Any],
     manage_url: str | None = None,
 ) -> None:
     """Register a module's BaseSettings class and mount its services on app.state.

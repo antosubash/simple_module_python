@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import types
-from typing import Union, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic_settings import (
@@ -153,7 +153,7 @@ def build_settings[T: BaseSettings](
     environment sets is dropped here rather than passed in.
     """
     from_env = env_supplied_fields(cls)
-    parsed: dict[str, object] = {}
+    parsed: dict[str, Any] = {}
     for field_name, (raw, vtype) in raw_overrides.items():
         if field_name not in cls.model_fields or field_name in from_env:
             continue
