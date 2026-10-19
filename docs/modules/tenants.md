@@ -85,6 +85,8 @@ The module ships no billing, but a billing module needs nothing more from it:
 - `TenantService.set_status(tenant_id, TenantStatus.SUSPENDED | ACTIVE)` for
   dunning.
 - Events, published after commit: `TenantCreated`, `TenantStatusChanged`,
+  `TenantDeleted` (`tenant_id`, `slug`, `name`; from
+  `TenantService.delete_tenant` — subscribe to clean up per-tenant state),
   `MembershipAdded`, `MembershipRemoved`, `InvitationCreated` (also the hook a
   mailer uses to deliver the invitation link).
 
