@@ -59,3 +59,22 @@ async def test_value_equal_to_non_none_default_removes_row(authenticated_client,
     assert "retention_days" not in await _overrides(app, "background_tasks")
     field = await _field(authenticated_client, "background_tasks", "retention_days")
     assert field["source"] == "default"
+
+
+@pytest.mark.asyncio
+async def test_noop_save_removes_a_legacy_null_row(authenticated_client, app):
+    async with app.state.sm.db.session_factory() as db:
+        await SettingsStore(SettingService(db)).set_override(
+            "file_storage", "quota_bytes", "null", "json"
+        )
+        await db.commit()
+    field = await _field(authenticated_client, "file_storage", "quota_bytes")
+    assert field["db_override"]
+
+    resp = await authenticated_client.put(f"{URL}/file_storage", json={"quota_bytes": None})
+
+    assert resp.status_code == 200, resp.text
+    assert "quota_bytes" not in await _overrides(app, "file_storage")
+    field = await _field(authenticated_client, "file_storage", "quota_bytes")
+    assert field["source"] == "default"
+    assert not field["db_override"]
