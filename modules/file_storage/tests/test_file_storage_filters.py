@@ -22,7 +22,7 @@ def _upload(name: str, content_type: str) -> UploadFile:
     return UploadFile(
         filename=name,
         file=BytesIO(b"payload"),
-        headers={"content-type": content_type},  # type: ignore[arg-type]
+        headers={"content-type": content_type},
     )
 
 

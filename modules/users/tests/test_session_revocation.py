@@ -158,7 +158,7 @@ class TestModuleWiring:
         from users.module import UsersModule
 
         bus = InvalidationBus()
-        UsersModule().register_invalidations(bus, app=None)  # type: ignore[arg-type]
+        UsersModule().register_invalidations(bus, app=None)
 
         assert CHANNEL in bus.channels
 

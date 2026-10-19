@@ -132,7 +132,7 @@ def _cheap_password_hashing() -> None:
             )
         original_init(self, password_hash)
 
-    PasswordHelper.__init__ = _init  # type: ignore[method-assign]
+    PasswordHelper.__init__ = _init
 
 
 _cheap_password_hashing()

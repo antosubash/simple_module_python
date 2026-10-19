@@ -173,7 +173,7 @@ def _table_of(el: Any) -> Any:
     via_comparator = _COMPARATOR_LOOKUP.get(cls)
     if via_comparator is None:
         via_comparator = _COMPARATOR_LOOKUP[cls] = (
-            cls.__getattr__ is ColumnElement.__getattr__  # type: ignore[attr-defined]
+            cls.__getattr__ is ColumnElement.__getattr__
             if issubclass(cls, ColumnElement)
             and cls.__dictoffset__ != 0
             and not any("table" in vars(k) for k in cls.__mro__)

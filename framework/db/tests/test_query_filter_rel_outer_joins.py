@@ -37,7 +37,7 @@ _rj_assoc = Table(
 )
 
 
-class _RjParent(_RjBase, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _RjParent(_RjBase, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "qfrj_parent"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)
@@ -47,7 +47,7 @@ class _RjParent(_RjBase, MultiTenantMixin, table=True):  # type: ignore[call-arg
     )
 
 
-class _RjKid(_RjBase, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _RjKid(_RjBase, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "qfrj_kid"
     id: int | None = Field(default=None, primary_key=True)
     parent_id: int | None = Field(default=None, foreign_key="qfrj_parent.id")

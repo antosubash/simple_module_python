@@ -89,7 +89,7 @@ def test_branding_payload_set() -> None:
 
 async def test_provider_returns_empty_when_state_absent() -> None:
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
-    assert await branding_shared_props(request) == {}  # type: ignore[arg-type]
+    assert await branding_shared_props(request) == {}
 
 
 async def test_provider_emits_branding_block() -> None:
@@ -100,7 +100,7 @@ async def test_provider_emits_branding_block() -> None:
         headers={"x-inertia": "true"},
         url=SimpleNamespace(path="/"),
     )
-    out = await branding_shared_props(request)  # type: ignore[arg-type]
+    out = await branding_shared_props(request)
     assert out["branding"]["appName"] == "Acme"
 
 

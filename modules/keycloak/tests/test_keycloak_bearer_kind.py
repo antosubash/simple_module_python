@@ -23,7 +23,7 @@ class _Jwks:
 async def test_jwt_bearer_principal_is_bearer_kind_and_unscoped(monkeypatch, scheme):
     state = KeycloakState(settings=KeycloakSettings())
     provider = KeycloakAuthProvider(state.settings, state=state)
-    provider.jwks_cache = _Jwks()  # type: ignore[assignment]
+    provider.jwks_cache = _Jwks()
 
     async def upsert(request, claims) -> str:
         return "00000000-0000-0000-0000-0000000000aa"

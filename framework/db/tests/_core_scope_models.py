@@ -23,26 +23,26 @@ from sqlmodel import Field
 _Base = create_module_base("cscope")
 
 
-class Tag(_Base, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Tag(_Base, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "cscope_tag"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)
 
 
-class Link(_Base, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Link(_Base, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "cscope_link"
     id: int | None = Field(default=None, primary_key=True)
     tag_id: int | None = None
     article_id: int = 0
 
 
-class Soft(_Base, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Soft(_Base, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "cscope_soft"
     id: int | None = Field(default=None, primary_key=True)
     tag_id: int | None = None
 
 
-class Plain(_Base, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Plain(_Base, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "cscope_plain"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)

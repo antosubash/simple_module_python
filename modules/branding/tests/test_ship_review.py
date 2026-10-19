@@ -79,7 +79,7 @@ class TestPerAppCache:
         other = _Other
         for target in (app, other):
             cache = target.state.branding.tenant_cache
-            cache.entries["acme"] = ({}, _system(), None)  # type: ignore[assignment]
+            cache.entries["acme"] = ({}, _system(), None)
         tenant_branding.forget(app, "acme")
         assert "acme" not in app.state.branding.tenant_cache.entries
         assert "acme" in other.state.branding.tenant_cache.entries

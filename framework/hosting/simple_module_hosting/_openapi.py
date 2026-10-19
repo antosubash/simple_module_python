@@ -95,4 +95,4 @@ def install_openapi_filter(app: FastAPI) -> None:
         assert app.openapi_schema is not None
         return app.openapi_schema
 
-    app.openapi = openapi  # type: ignore[method-assign]
+    app.openapi = openapi

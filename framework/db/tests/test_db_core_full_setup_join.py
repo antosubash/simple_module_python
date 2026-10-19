@@ -29,13 +29,13 @@ from sqlmodel import Field
 _Base = create_module_base("cfull")
 
 
-class Parent(_Base, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Parent(_Base, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "cfull_parent"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=50)
 
 
-class Child(_Base, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Child(_Base, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "cfull_child"
     id: int | None = Field(default=None, primary_key=True)
     parent_id: int | None = Field(default=None, foreign_key="cfull_parent.id")

@@ -11,13 +11,13 @@ class TestServices:
         """Mutation after construction must raise — singletons don't change at runtime."""
         s = _make_services()
         with pytest.raises((AttributeError, TypeError)):
-            s.settings = None  # type: ignore[misc,assignment]
+            s.settings = None
 
     async def test_services_has_slots(self) -> None:
         """Slotted dataclass prevents silent attribute additions (the original bloat pattern)."""
         s = _make_services()
         with pytest.raises((AttributeError, TypeError)):
-            s.rogue_new_attribute = 42  # type: ignore[attr-defined]
+            s.rogue_new_attribute = 42
 
     async def test_services_round_trip_field_access(self) -> None:
         """Every declared field must be readable after construction."""
@@ -58,18 +58,18 @@ _SENTINEL_INERTIA = object()
 def _make_services() -> Services:
     """Construct a Services instance with sentinel values for structural tests."""
     return Services(
-        settings=_SENTINEL_SETTINGS,  # type: ignore[arg-type]
-        db=_SENTINEL_DB,  # type: ignore[arg-type]
-        event_bus=_SENTINEL_EVENT_BUS,  # type: ignore[arg-type]
-        menu_registry=_SENTINEL_MENU,  # type: ignore[arg-type]
-        permissions=_SENTINEL_PERMS,  # type: ignore[arg-type]
-        feature_flags=_SENTINEL_FLAGS,  # type: ignore[arg-type]
-        health_registry=_SENTINEL_HEALTH,  # type: ignore[arg-type]
-        public_routes=_SENTINEL_PUBLIC_ROUTES,  # type: ignore[arg-type]
-        setup_registry=_SENTINEL_SETUP,  # type: ignore[arg-type]
-        design_packs=_SENTINEL_DESIGN_PACKS,  # type: ignore[arg-type]
-        audit_links=_SENTINEL_AUDIT_LINKS,  # type: ignore[arg-type]
-        i18n_registry=_SENTINEL_I18N,  # type: ignore[arg-type]
-        inertia_config=_SENTINEL_INERTIA,  # type: ignore[arg-type]
+        settings=_SENTINEL_SETTINGS,
+        db=_SENTINEL_DB,
+        event_bus=_SENTINEL_EVENT_BUS,
+        menu_registry=_SENTINEL_MENU,
+        permissions=_SENTINEL_PERMS,
+        feature_flags=_SENTINEL_FLAGS,
+        health_registry=_SENTINEL_HEALTH,
+        public_routes=_SENTINEL_PUBLIC_ROUTES,
+        setup_registry=_SENTINEL_SETUP,
+        design_packs=_SENTINEL_DESIGN_PACKS,
+        audit_links=_SENTINEL_AUDIT_LINKS,
+        i18n_registry=_SENTINEL_I18N,
+        inertia_config=_SENTINEL_INERTIA,
         modules=(),
     )

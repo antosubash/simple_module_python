@@ -187,7 +187,7 @@ async def test_bootstrap_from_env_noop_when_unset(users_app_empty) -> None:
         bootstrap_password="",
     )
     # Patch fake_app.state onto a real app-like object
-    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
+    await bootstrap_admin_from_env(fake_app)
 
     # No users should have been created
     async with users_app_empty.state.sm.db.session_factory() as s:
@@ -217,7 +217,7 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app_empty) -> N
         bootstrap_email="admin@test.example",
         bootstrap_password="AdminPass1!",
     )
-    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
+    await bootstrap_admin_from_env(fake_app)
 
     # Only the original dummy user should exist
     async with users_app_empty.state.sm.db.session_factory() as s:
@@ -236,7 +236,7 @@ async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_
         bootstrap_email="bootstrap@test.example",
         bootstrap_password="BootPass1!",
     )
-    await bootstrap_admin_from_env(fake_app)  # type: ignore[arg-type]
+    await bootstrap_admin_from_env(fake_app)
 
     async with users_app_empty.state.sm.db.session_factory() as s:
         user = (

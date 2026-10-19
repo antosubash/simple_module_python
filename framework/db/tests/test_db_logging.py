@@ -45,7 +45,7 @@ class TestGetDbLogging:
             if r.name == "simple_module.db" and r.message == "db.session.commit"
         ]
         assert len(commits) == 1
-        assert commits[0].operation == "commit"  # type: ignore[attr-defined]
+        assert commits[0].operation == "commit"
         assert hasattr(commits[0], "db_duration_ms")
 
     async def test_commit_fires_even_after_explicit_flush(self, db_state, caplog):
@@ -79,4 +79,4 @@ class TestGetDbLogging:
         assert [r for r in records if r.message == "db.session.commit"] == []
         read_only = [r for r in records if r.message == "db.session.read_only"]
         assert len(read_only) == 1
-        assert read_only[0].operation == "read_only_rollback"  # type: ignore[attr-defined]
+        assert read_only[0].operation == "read_only_rollback"

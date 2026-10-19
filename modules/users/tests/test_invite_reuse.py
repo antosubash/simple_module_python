@@ -30,7 +30,7 @@ async def _send_invite_and_grab_token(admin_client, anon_client, caplog, email: 
     assert resp.status_code == 201, resp.text
     records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
     assert records, "ConsoleMailer didn't log an invite.email record"
-    link = records[-1].link  # type: ignore[attr-defined]
+    link = records[-1].link
     return link.split("token=", 1)[1]
 
 

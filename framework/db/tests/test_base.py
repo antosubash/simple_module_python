@@ -24,7 +24,7 @@ class TestCreateModuleBase:
 
     async def test_module_name_stored(self):
         base = create_module_base("named_mod")
-        assert base.__module_name__ == "named_mod"  # type: ignore[attr-defined]
+        assert base.__module_name__ == "named_mod"
 
     async def test_all_module_bases_is_deduped(self):
         """Re-creating the same module must not grow ``all_module_bases``."""

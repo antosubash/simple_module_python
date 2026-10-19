@@ -191,14 +191,10 @@ class _UserServiceBase:
 
         if sort == "last_login_at":
             order_clause = (
-                sort_col.desc().nulls_last()  # type: ignore[union-attr]
-                if order == "desc"
-                else sort_col.asc().nulls_last()  # type: ignore[union-attr]
+                sort_col.desc().nulls_last() if order == "desc" else sort_col.asc().nulls_last()
             )
         else:
-            order_clause = (
-                sort_col.desc() if order == "desc" else sort_col.asc()  # type: ignore[union-attr]
-            )
+            order_clause = sort_col.desc() if order == "desc" else sort_col.asc()
 
         stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
         rows = (await self._db.execute(stmt)).all()

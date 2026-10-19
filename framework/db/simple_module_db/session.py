@@ -155,7 +155,7 @@ def _configure_sqlite(
     apply_wal = wal and _is_file_database(database_url)
 
     @event.listens_for(engine.sync_engine, "connect")
-    def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:  # type: ignore[misc]
+    def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:
         cursor = dbapi_connection.cursor()
         try:
             if foreign_keys:
@@ -168,7 +168,7 @@ def _configure_sqlite(
             cursor.close()
 
     @event.listens_for(engine.sync_engine, "savepoint")
-    def _begin_before_outermost_savepoint(conn, _name) -> None:  # type: ignore[misc]
+    def _begin_before_outermost_savepoint(conn, _name) -> None:
         # pysqlite only emits BEGIN lazily before DML, so a SAVEPOINT that is
         # the first statement would *start* the transaction and its RELEASE
         # would COMMIT it, leaving the outer rollback nothing to undo (GH #350).

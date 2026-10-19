@@ -36,7 +36,7 @@ from starlette.types import Scope
 try:  # private, and absent before FastAPI 0.140
     from fastapi.routing import _IncludedRouter
 except ImportError:  # pragma: no cover - older FastAPI flattens eagerly
-    _IncludedRouter = None  # type: ignore[assignment,misc]
+    _IncludedRouter = None
 
 __all__ = ["guard_included_routers"]
 
@@ -97,4 +97,4 @@ def guard_included_routers(app: FastAPI) -> None:
         if isinstance(route, _IncludedRouter) and not isinstance(route.matches, _PrefixGuard):
             guard = _PrefixGuard(route)
             guard._current_prefix()
-            route.matches = guard  # type: ignore[method-assign]
+            route.matches = guard

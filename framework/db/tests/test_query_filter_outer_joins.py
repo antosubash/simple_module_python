@@ -30,26 +30,26 @@ _SoftBase = create_module_base("qfoj_soft")
 _PlainBase = create_module_base("qfoj_plain")
 
 
-class _Tag(_TagBase, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _Tag(_TagBase, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "qfoj_tag_tag"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)
 
 
-class _TagLink(_LinkBase, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _TagLink(_LinkBase, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "qfoj_link_tag_link"
     id: int | None = Field(default=None, primary_key=True)
     tag_id: int | None = None  # no FK: each model has its own MetaData
     article_id: int = 0
 
 
-class _SoftLink(_SoftBase, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _SoftLink(_SoftBase, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "qfoj_soft_soft_link"
     id: int | None = Field(default=None, primary_key=True)
     tag_id: int | None = None  # no FK: each model has its own MetaData
 
 
-class _Plain(_PlainBase, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _Plain(_PlainBase, table=True):  # ty: ignore[unsupported-base]
     """Neither tenant-scoped nor soft-deletable: a FULL join's left side with no filter."""
 
     __tablename__ = "qfoj_plain_plain"

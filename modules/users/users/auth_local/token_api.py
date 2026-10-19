@@ -129,7 +129,7 @@ async def token_refresh(
     now = datetime.now(UTC)
     stmt = select(RefreshToken).where(
         RefreshToken.token == token_uuid,
-        RefreshToken.revoked_at.is_(None),  # type: ignore[union-attr]
+        RefreshToken.revoked_at.is_(None),
         RefreshToken.expires_at > now,
     )
     rt = (await db.execute(stmt)).scalar_one_or_none()

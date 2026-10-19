@@ -45,19 +45,19 @@ class TestServicesDefault:
 def _services() -> Services:
     """A ``Services`` with everything but ``invalidation`` left to its default."""
     return Services(
-        settings=None,  # type: ignore[arg-type]
-        db=None,  # type: ignore[arg-type]
-        event_bus=None,  # type: ignore[arg-type]
-        menu_registry=None,  # type: ignore[arg-type]
-        permissions=None,  # type: ignore[arg-type]
-        feature_flags=None,  # type: ignore[arg-type]
-        health_registry=None,  # type: ignore[arg-type]
-        public_routes=None,  # type: ignore[arg-type]
-        setup_registry=None,  # type: ignore[arg-type]
-        design_packs=None,  # type: ignore[arg-type]
-        audit_links=None,  # type: ignore[arg-type]
-        i18n_registry=None,  # type: ignore[arg-type]
-        inertia_config=None,  # type: ignore[arg-type]
+        settings=None,
+        db=None,
+        event_bus=None,
+        menu_registry=None,
+        permissions=None,
+        feature_flags=None,
+        health_registry=None,
+        public_routes=None,
+        setup_registry=None,
+        design_packs=None,
+        audit_links=None,
+        i18n_registry=None,
+        inertia_config=None,
         modules=(),
     )
 

@@ -35,7 +35,7 @@ class TestModuleMeta:
     async def test_frozen(self):
         meta = ModuleMeta(name="Frozen")
         with pytest.raises(AttributeError):
-            meta.name = "Changed"  # type: ignore[misc]
+            meta.name = "Changed"
 
 
 class DummyModule(ModuleBase):
@@ -55,7 +55,7 @@ class TestModuleBase:
 
     async def test_register_routes_override(self):
         mod = DummyModule()
-        mod.register_routes(None, None)  # type: ignore[arg-type]
+        mod.register_routes(None, None)
         assert mod.routes_registered is True
 
     async def test_default_noop_methods(self):

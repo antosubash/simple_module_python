@@ -60,7 +60,7 @@ def _normalise(result: object) -> TenantResolution:
     if isinstance(result, tuple):
         tenant_id, source = result[0], (result[1] if len(result) > 1 else None)
         return TenantResolution(tenant_id, source if tenant_id is not None else None)
-    return TenantResolution(result, "resolver" if result is not None else None)  # type: ignore[arg-type]
+    return TenantResolution(result, "resolver" if result is not None else None)
 
 
 def _tokens(value: str) -> list[str]:

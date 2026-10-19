@@ -25,7 +25,7 @@ PLURAL_CATEGORIES: tuple[str, ...] = ("zero", "one", "two", "few", "many", "othe
 
 
 @lru_cache(maxsize=64)
-def _plural_rule(locale: str):  # type: ignore[no-untyped-def]
+def _plural_rule(locale: str):
     """Cached CLDR plural rule for a locale tag (e.g. 'en', 'ru', 'pt_BR')."""
     return Locale.parse(locale).plural_form
 
