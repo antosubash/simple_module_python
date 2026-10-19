@@ -152,6 +152,9 @@ DEFAULT_PRESIGN_TTL_SECONDS: Final = 300  # 5 minutes
 DEFAULT_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
 SPOOL_MAX_SIZE_BYTES: Final = 10 * 1024 * 1024  # 10 MB before disk-spill
 
+# Largest byte count a browser's ``Number`` represents exactly (2**53 - 1).
+MAX_JS_SAFE_INTEGER: Final = 2**53 - 1
+
 # ── Resumable uploads (#454) ─────────────────────────────────────────
 MIB: Final = 1024 * 1024
 DEFAULT_DIRECT_UPLOAD_THRESHOLD_BYTES: Final = 64 * MIB
@@ -177,21 +180,42 @@ PUBLIC_MAX_AGE_SECONDS: Final = 3600
 # Per-IP budget for anonymous public file GETs (its own bucket in the shared
 # rate limiter, #347), wider than the default because one page embeds many.
 PUBLIC_FILES_RATE: Final = "600/minute"
-# Types a browser would execute or render as a document on our origin. They are
-# served as attachments (and sandboxed) so a public upload cannot become stored
-# XSS on the app's origin.
-ACTIVE_CONTENT_TYPES: Final = frozenset(
+# The only types served ``inline`` (and, on S3, by redirect). Everything else —
+# HTML, any XML (``*+xml``, ``text/xsl``, SVG), scripts, unknown or malformed
+# values — is "active": forced to an attachment and streamed under the sandbox
+# CSP, so a public upload cannot become stored XSS on the app's origin (#545).
+# An allow-list, because the uploader controls the stored type and a deny-list
+# has to anticipate every scriptable document format a browser will render.
+INLINE_SAFE_CONTENT_TYPES: Final = frozenset(
     {
-        "text/html",
-        "application/xhtml+xml",
-        "image/svg+xml",
-        "text/xml",
-        "application/xml",
-        "text/javascript",
-        "application/javascript",
-        "application/x-shockwave-flash",
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+        "image/apng",
+        "image/bmp",
+        "image/tiff",
+        "image/x-icon",
+        "image/vnd.microsoft.icon",
+        "application/pdf",
+        "application/json",
+        "application/geo+json",
+        "text/plain",
+        "text/csv",
+        # Opaque binaries a browser only ever downloads or hands to script —
+        # kept inline so S3 range readers (PMTiles, archives) still get the
+        # presigned redirect instead of streaming through the app.
+        "application/octet-stream",
+        "application/zip",
+        "application/gzip",
+        "application/x-protobuf",
+        "application/vnd.mapbox-vector-tile",
     }
 )
+# Whole families that render as media, never as a document — minus any XML or
+# HTML subtype, which ``media_types.is_active_content`` refuses on its own.
+INLINE_SAFE_FAMILIES: Final = frozenset({"audio", "video", "font"})
 PUBLIC_CSP: Final = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
 THUMBNAIL_WIDTHS: Final = (64, 128, 256, 512, 1024)

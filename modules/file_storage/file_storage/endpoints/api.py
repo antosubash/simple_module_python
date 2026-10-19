@@ -32,7 +32,7 @@ from file_storage.contracts.schemas import (
     StoredFileUpdate,
 )
 from file_storage.contracts.service import StorageNotFoundError
-from file_storage.deps import get_event_bus, get_file_storage_service
+from file_storage.deps import get_event_bus, get_file_storage_service, get_owner_scope
 from file_storage.downloads import content_disposition
 from file_storage.format import format_bytes
 from file_storage.ranges import file_body_response
@@ -47,6 +47,11 @@ from file_storage.service import (
 from file_storage.serving import etag_for, not_found, thumbnail_response
 
 router = APIRouter()
+
+# Whose files the caller may see and change: their own, or every file in the
+# active tenant with ``file_storage.manage`` (#544). Applied in the service
+# query, so someone else's id answers 404 exactly like an unknown one.
+OwnerScope = Depends(get_owner_scope)
 
 
 @router.post(
@@ -122,9 +127,15 @@ async def list_files(
         default=constants.DEFAULT_SORT
     ),
     service: FileStorageService = Depends(get_file_storage_service),
+    owner: str | None = OwnerScope,
 ) -> StoredFileListOut:
     items, total = await service.list_files(
-        page=page, per_page=per_page, search=q, content_type=content_type, sort=sort
+        page=page,
+        per_page=per_page,
+        created_by=owner,
+        search=q,
+        content_type=content_type,
+        sort=sort,
     )
     return StoredFileListOut(items=items, total=total, page=page, per_page=per_page)
 
@@ -138,9 +149,10 @@ async def get_file(
     file_id: uuid.UUID,
     t: TranslatorDep,
     service: FileStorageService = Depends(get_file_storage_service),
+    owner: str | None = OwnerScope,
 ) -> StoredFileOut:
     try:
-        row = await service.get(file_id)
+        row = await service.get(file_id, owner=owner)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     return StoredFileOut.model_validate(queries.to_out_dict(row))
@@ -156,10 +168,11 @@ async def update_file(
     body: StoredFileUpdate,
     t: TranslatorDep,
     service: FileStorageService = Depends(get_file_storage_service),
+    owner: str | None = OwnerScope,
 ) -> StoredFileOut:
-    """Publish or unpublish a file (anyone allowed to upload may decide)."""
+    """Publish or unpublish a file the caller uploaded (or any, with manage)."""
     try:
-        row = await service.set_public(file_id, body.public)
+        row = await service.set_public(file_id, body.public, owner=owner)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     return StoredFileOut.model_validate(queries.to_out_dict(row))
@@ -175,9 +188,10 @@ async def file_thumbnail(
     t: TranslatorDep,
     w: int | None = Query(default=None, description="Width in px; clamped and snapped."),
     service: FileStorageService = Depends(get_file_storage_service),
+    owner: str | None = OwnerScope,
 ) -> Response:
     try:
-        row = await service.get(file_id)
+        row = await service.get(file_id, owner=owner)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     return await thumbnail_response(
@@ -195,9 +209,10 @@ async def download_file(
     request: Request,
     t: TranslatorDep,
     service: FileStorageService = Depends(get_file_storage_service),
+    owner: str | None = OwnerScope,
 ) -> Response:
     try:
-        download = await service.download(file_id, open_body=False)
+        download = await service.download(file_id, open_body=False, owner=owner)
         if isinstance(download, RedirectDownload):
             return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
 
@@ -227,6 +242,7 @@ async def bulk_delete_files(
     body: BulkDeleteRequest,
     service: FileStorageService = Depends(get_file_storage_service),
     bus: EventBus = Depends(get_event_bus),
+    owner: str | None = OwnerScope,
 ) -> BulkDeleteResult:
     """Delete a selection in one request.
 
@@ -237,7 +253,7 @@ async def bulk_delete_files(
     subscriber that mirrors or reindexes files cannot tell a bulk delete from a
     run of single ones.
     """
-    rows = await service.delete_many(body.ids)
+    rows = await service.delete_many(body.ids, owner=owner)
     for row in rows:
         await bus.publish(FileDeleted(file_id=row.id, key=row.key))
     return BulkDeleteResult(deleted=len(rows), ids=[row.id for row in rows])
@@ -253,9 +269,10 @@ async def delete_file(
     t: TranslatorDep,
     service: FileStorageService = Depends(get_file_storage_service),
     bus: EventBus = Depends(get_event_bus),
+    owner: str | None = OwnerScope,
 ) -> None:
     try:
-        row = await service.delete(file_id)
+        row = await service.delete(file_id, owner=owner)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     await bus.publish(FileDeleted(file_id=row.id, key=row.key))

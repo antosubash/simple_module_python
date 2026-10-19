@@ -16,7 +16,7 @@ from __future__ import annotations
 from urllib.parse import quote
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage import constants
@@ -33,6 +33,11 @@ def order_clauses(sort: str) -> list:
         "size": StoredFile.size_bytes,
     }.get(field, StoredFile.created_at)
     return [column.desc() if sort.startswith("-") else column.asc(), StoredFile.id]
+
+
+def owned_by(stmt: Select, owner: str | None) -> Select:
+    """Narrow ``stmt`` to ``owner``'s uploads; ``None`` leaves it unscoped (#544)."""
+    return stmt if owner is None else stmt.where(StoredFile.created_by == owner)
 
 
 def filter_clauses(

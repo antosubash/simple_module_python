@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from file_storage import constants, thumbnails
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.downloads import content_disposition, presigned_download_url
+from file_storage.media_types import is_active_content
 from file_storage.models import StoredFile
 from file_storage.ranges import file_body_response
 from file_storage.service import FileStorageService
@@ -44,10 +45,6 @@ def _headers(etag: str, cache_control: str) -> dict[str, str]:
 def _not_modified(request: Request, etag: str) -> bool:
     sent = request.headers.get("if-none-match", "")
     return etag in {part.strip().removeprefix("W/") for part in sent.split(",")}
-
-
-def is_active_content(content_type: str) -> bool:
-    return thumbnails.base_type(content_type) in constants.ACTIVE_CONTENT_TYPES
 
 
 async def thumbnail_response(
