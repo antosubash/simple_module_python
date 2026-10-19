@@ -1,4 +1,3 @@
-import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,7 +61,6 @@ const browse = keys.feature_flags.browse;
 describe('feature_flags Browse', () => {
   beforeEach(() => setProps());
   afterEach(() => {
-    cleanup();
     vi.clearAllMocks();
   });
 

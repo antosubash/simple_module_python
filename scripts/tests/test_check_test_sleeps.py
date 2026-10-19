@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from check_test_sleeps import check, find_unmarked_sleeps, is_test_file
 

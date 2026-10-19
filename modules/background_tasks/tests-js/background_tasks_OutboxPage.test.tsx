@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -22,6 +22,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from 'sonner';
 import Outbox from '../background_tasks/pages/Outbox';
 import type { OutboxMessage } from '../background_tasks/pages/outbox';
+import { stubFetch } from './stub-fetch';
 
 const ob = keys.background_tasks.outbox;
 
@@ -54,18 +55,9 @@ function setProps(over: Record<string, unknown> = {}, permissions = ['background
   };
 }
 
-function stubFetch(status: number, body: unknown = {}) {
-  const fetchMock = vi.fn(
-    async () => new Response(status === 204 ? null : JSON.stringify(body), { status }),
-  );
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
 describe('background_tasks Outbox page', () => {
   beforeEach(() => setProps());
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.clearAllMocks();

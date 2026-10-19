@@ -1,6 +1,5 @@
-import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -17,7 +16,6 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
 describe('CreatedTokenDialog', () => {
   beforeEach(() => stubClipboard(vi.fn().mockResolvedValue(undefined)));
   afterEach(() => {
-    cleanup();
     vi.restoreAllMocks();
   });
 

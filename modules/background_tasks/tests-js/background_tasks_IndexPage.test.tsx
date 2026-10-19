@@ -21,6 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from 'sonner';
 import Index from '../background_tasks/pages/Index';
 import type { Execution } from '../background_tasks/pages/retry';
+import { stubFetch } from './stub-fetch';
 
 const rd = keys.background_tasks.retry_dialog;
 const ra = keys.background_tasks.retry_all_dialog;
@@ -63,16 +64,9 @@ function setProps(over: Record<string, unknown> = {}, permissions = ['background
   };
 }
 
-function stubFetch(status: number, body: unknown) {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
 describe('background_tasks Index page', () => {
   beforeEach(() => setProps());
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });

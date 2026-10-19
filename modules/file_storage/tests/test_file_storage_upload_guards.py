@@ -243,34 +243,28 @@ class TestCheckQuota:
         assert order == ["lock"]
 
 
+def _db_on(dialect: str, calls: list[tuple[str, Any]]) -> SimpleNamespace:
+    """A session stub on ``dialect`` that records every statement it executes."""
+
+    async def execute(statement: object, params: Any = None) -> None:
+        calls.append((str(statement), params))
+
+    bind = SimpleNamespace(dialect=SimpleNamespace(name=dialect))
+    return SimpleNamespace(get_bind=lambda: bind, execute=execute)
+
+
 class TestSerializeReservations:
     async def test_is_a_no_op_off_postgres(self, backend, db_session):
-        executed: list[object] = []
-
-        class _Db:
-            def get_bind(self):
-                return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
-
-            async def execute(self, *args: object, **kwargs: object) -> None:
-                executed.append(args)
-
-        await _Guards(_Db(), backend)._serialize_reservations()
+        executed: list[tuple[str, Any]] = []
+        await _Guards(_db_on("sqlite", executed), backend)._serialize_reservations()
         assert executed == []
 
     async def test_takes_a_per_tenant_advisory_lock_on_postgres(self, backend, monkeypatch):
-        calls: list[tuple[str, dict]] = []
-
-        class _Db:
-            def get_bind(self):
-                return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
-
-            async def execute(self, statement: object, params: dict) -> None:
-                calls.append((str(statement), params))
-
+        calls: list[tuple[str, Any]] = []
         monkeypatch.setattr(guards_module, "owning_tenant", lambda db: "acme")
-        await _Guards(_Db(), backend)._serialize_reservations()
+        await _Guards(_db_on("postgresql", calls), backend)._serialize_reservations()
         monkeypatch.setattr(guards_module, "owning_tenant", lambda db: "globex")
-        await _Guards(_Db(), backend)._serialize_reservations()
+        await _Guards(_db_on("postgresql", calls), backend)._serialize_reservations()
 
         assert all("pg_advisory_xact_lock" in sql for sql, _ in calls)
         assert calls[0][1]["key"] != calls[1][1]["key"]

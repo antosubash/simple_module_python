@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -21,6 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from 'sonner';
 import type { TaskDetail } from '../background_tasks/pages/constants';
 import Detail from '../background_tasks/pages/Detail';
+import { stubFetch } from './stub-fetch';
 
 const rd = keys.background_tasks.retry_dialog;
 
@@ -52,16 +53,9 @@ function setProps(over: Partial<TaskDetail> = {}, permissions = ['background_tas
   state.props = { execution: execution(over), max_retries: 3, auth: { permissions } };
 }
 
-function stubFetch(status: number, body: unknown) {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
 describe('background_tasks Detail page', () => {
   beforeEach(() => setProps());
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });

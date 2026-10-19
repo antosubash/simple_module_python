@@ -1,6 +1,5 @@
-import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -20,29 +19,9 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
 import Index from '../api_tokens/pages/Index';
-import type { ApiToken } from '../api_tokens/pages/types';
+import { stubFetch, token } from './fixtures';
 
 const SECRET = 'smpy_pat_topsecretvalue';
-const FUTURE = '2999-01-01T00:00:00Z';
-
-function token(over: Partial<ApiToken> = {}): ApiToken {
-  return {
-    id: 't1',
-    kind: 'personal',
-    name: 'ci-token',
-    prefix: 'smpy_ab12',
-    scopes: ['files.read'],
-    roles: [],
-    owner_user_id: 'u1',
-    owner_email: 'a@example.com',
-    tenant_id: null,
-    created_at: '2026-01-01T00:00:00Z',
-    expires_at: FUTURE,
-    last_used_at: null,
-    revoked_at: null,
-    ...over,
-  };
-}
 
 function setProps(over: Record<string, unknown> = {}) {
   state.props = {
@@ -54,12 +33,6 @@ function setProps(over: Record<string, unknown> = {}) {
     api_url: '/api/api_tokens',
     ...over,
   };
-}
-
-function stubFetch(status: number, body: unknown) {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
 }
 
 const f = keys.api_tokens.form;
@@ -76,7 +49,6 @@ async function createToken() {
 describe('api_tokens Index', () => {
   beforeEach(() => setProps());
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });

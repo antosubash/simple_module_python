@@ -8,14 +8,7 @@ import {
   retryOutboxMessage,
   shortName,
 } from '../background_tasks/pages/outbox';
-
-function stubFetch(status: number, body: unknown = {}) {
-  const fetchMock = vi.fn(
-    async () => new Response(status === 204 ? null : JSON.stringify(body), { status }),
-  );
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
+import { stubFetch } from './stub-fetch';
 
 describe('outbox actions', () => {
   afterEach(() => {

@@ -1,6 +1,5 @@
-import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -20,25 +19,20 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
 import Admin from '../api_tokens/pages/Admin';
-import type { ApiToken } from '../api_tokens/pages/types';
+import { stubFetch, token } from './fixtures';
 
 const SECRET = 'smpy_svc_adminsecret';
 
-const SERVICE: ApiToken = {
+const SERVICE = token({
   id: 's1',
   kind: 'service',
   name: 'ingest-bot',
   prefix: 'smpy_zz99',
-  scopes: ['files.read'],
   roles: ['uploader'],
   owner_user_id: null,
   owner_email: null,
   tenant_id: 'acme',
-  created_at: '2026-01-01T00:00:00Z',
-  expires_at: '2999-01-01T00:00:00Z',
-  last_used_at: null,
-  revoked_at: null,
-};
+});
 
 function setProps(over: Record<string, unknown> = {}) {
   state.props = {
@@ -54,16 +48,9 @@ function setProps(over: Record<string, unknown> = {}) {
   };
 }
 
-function stubFetch(status: number, body: unknown) {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
 describe('api_tokens Admin', () => {
   beforeEach(() => setProps());
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });

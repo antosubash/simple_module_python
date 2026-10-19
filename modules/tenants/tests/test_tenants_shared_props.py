@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
-import pytest
 from starlette.requests import Request
 from tenants import resolver
 from tenants.constants import TenantStatus
@@ -30,13 +29,6 @@ def _view(tenant_id: str, role: str = "member") -> MyTenantView:
 def _request(**state: Any) -> Request:
     # The provider only reads ``request.state``; a real ASGI scope isn't needed.
     return cast("Request", SimpleNamespace(state=SimpleNamespace(**state)))
-
-
-@pytest.fixture(autouse=True)
-def _clean_cache():
-    resolver._MEMBERSHIPS.clear()
-    yield
-    resolver._MEMBERSHIPS.clear()
 
 
 def test_anonymous_request_contributes_nothing():
