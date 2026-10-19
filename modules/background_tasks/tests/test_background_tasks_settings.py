@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import pytest
 from background_tasks.settings import BackgroundTasksSettings
 from pydantic import ValidationError
@@ -55,6 +57,30 @@ async def test_stored_invalid_limit_pair_does_not_break_lenient_hydration(db_ses
     )
     assert cfg.task_soft_time_limit == 100
     assert cfg.task_time_limit is None
+
+
+@pytest.mark.asyncio
+async def test_hydration_drops_the_stored_soft_limit(db_session, caplog, monkeypatch) -> None:
+    """With the hard limit pinned by env, the pair rule reported on
+    ``task_time_limit`` cannot be satisfied by dropping it; the stored soft
+    limit is the half to drop (#548)."""
+    from settings.hydrate import hydrate_settings
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+
+    monkeypatch.setenv("SM_BG_TASKS_TASK_TIME_LIMIT", "50")
+    store = SettingsStore(SettingService(db_session))
+    await store.set_override("background_tasks", "task_soft_time_limit", "100", "int")
+    await store.set_override("background_tasks", "max_retries", "7", "int")
+
+    with caplog.at_level(logging.ERROR, logger="settings.hydrate"):
+        cfg = await hydrate_settings(
+            BackgroundTasksSettings, store, "background_tasks", lenient=True
+        )
+
+    assert (cfg.task_time_limit, cfg.task_soft_time_limit) == (50, None)
+    assert cfg.max_retries == 7  # the module's other overrides survive
+    assert "task_soft_time_limit" in caplog.text
 
 
 @pytest.mark.asyncio

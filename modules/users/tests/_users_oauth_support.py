@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+from fastapi_users.password import PasswordHelper
+from sqlalchemy import select
+from users.models import User
 
 
 class _FakeOAuthClient:
@@ -30,10 +34,38 @@ def install_fake_provider(app, account_id: str, account_email: str) -> None:
     )
 
 
+def set_users_settings(app, **update) -> None:
+    """Change fields on the live users settings, as an admin edit would."""
+    settings = app.state.users.settings
+    app.state.users.settings = settings.model_copy(update=update)
+
+
 def set_allow_signup(app, allowed: bool) -> None:
     """Flip ``allow_signup`` on the live settings, as an admin edit would."""
-    settings = app.state.users.settings
-    app.state.users.settings = settings.model_copy(update={"allow_signup": allowed})
+    set_users_settings(app, allow_signup=allowed)
+
+
+async def find_user(app, email: str) -> User | None:
+    async with app.state.sm.db.session_factory() as session:
+        stmt = select(User).where(User.email == email)
+        return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def seed_password_user(app, email: str, **fields) -> uuid.UUID:
+    """Insert an active password account for ``email``; return its id."""
+    user_id = uuid.uuid4()
+    async with app.state.sm.db.session_factory() as session:
+        session.add(
+            User(
+                id=user_id,
+                email=email,
+                hashed_password=PasswordHelper().hash("SecurePass1!"),
+                is_active=True,
+                **fields,
+            )
+        )
+        await session.commit()
+    return user_id
 
 
 async def oauth_callback(client: httpx.AsyncClient) -> httpx.Response:

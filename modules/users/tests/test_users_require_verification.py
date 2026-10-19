@@ -10,8 +10,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import select
-from users.models import User
+from _users_oauth_support import find_user, set_users_settings
 
 _EMAIL = "signup@example.com"
 _PASSWORD = "SecurePass1!"
@@ -19,10 +18,8 @@ _INERTIA_HEADERS = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
 
 
 def _configure(app, *, require_verification: bool) -> AsyncMock:
+    set_users_settings(app, require_verification=require_verification)
     users = app.state.users
-    users.settings = users.settings.model_copy(
-        update={"require_verification": require_verification}
-    )
     users.mailer.send_verification = AsyncMock()
     return users.mailer.send_verification
 
@@ -37,11 +34,6 @@ async def _register_then_login(client):
     )
 
 
-async def _stored(app) -> User:
-    async with app.state.sm.db.session_factory() as session:
-        return (await session.execute(select(User).where(User.email == _EMAIL))).scalar_one()
-
-
 @pytest.mark.anyio
 async def test_required_sends_the_email_and_refuses_login(users_app_signup, anon_client_signup):
     sent = _configure(users_app_signup, require_verification=True)
@@ -51,7 +43,7 @@ async def test_required_sends_the_email_and_refuses_login(users_app_signup, anon
     assert login.status_code == 400
     assert login.json()["detail"] == "LOGIN_USER_NOT_VERIFIED"
     sent.assert_awaited_once()
-    assert (await _stored(users_app_signup)).is_verified is False
+    assert (await find_user(users_app_signup, _EMAIL)).is_verified is False
 
 
 @pytest.mark.anyio
@@ -64,7 +56,7 @@ async def test_not_required_allows_login_without_verifying(users_app_signup, ano
     sent.assert_not_awaited()
     # Nobody proved the address, so the account must not claim it was: an SSO
     # sign-in for this email would otherwise link to it.
-    assert (await _stored(users_app_signup)).is_verified is False
+    assert (await find_user(users_app_signup, _EMAIL)).is_verified is False
 
 
 @pytest.mark.anyio

@@ -11,28 +11,17 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-from _users_oauth_support import install_fake_provider, oauth_callback, set_allow_signup
+from _users_oauth_support import (
+    install_fake_provider,
+    oauth_callback,
+    seed_password_user,
+    set_allow_signup,
+)
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from users.models import OAuthAccount, User
 
 _EMAIL = "victim@example.com"
-
-
-async def _seed(app, **fields) -> uuid.UUID:
-    user_id = uuid.uuid4()
-    async with app.state.sm.db.session_factory() as session:
-        session.add(
-            User(
-                id=user_id,
-                email=_EMAIL,
-                hashed_password=PasswordHelper().hash("SecurePass1!"),
-                is_active=True,
-                **fields,
-            )
-        )
-        await session.commit()
-    return user_id
 
 
 async def _links(app, user_id: uuid.UUID) -> list[OAuthAccount]:
@@ -45,7 +34,7 @@ async def _links(app, user_id: uuid.UUID) -> list[OAuthAccount]:
 @pytest.mark.parametrize("allow_signup", [True, False])
 async def test_unverified_password_account_is_not_linked(users_app, anon_client, allow_signup):
     set_allow_signup(users_app, allow_signup)
-    user_id = await _seed(users_app, is_verified=False)
+    user_id = await seed_password_user(users_app, _EMAIL, is_verified=False)
     install_fake_provider(users_app, "ms-victim", _EMAIL)
 
     resp = await oauth_callback(anon_client)
@@ -58,7 +47,7 @@ async def test_unverified_password_account_is_not_linked(users_app, anon_client,
 
 @pytest.mark.anyio
 async def test_verified_account_links(users_app, anon_client):
-    user_id = await _seed(users_app, is_verified=True)
+    user_id = await seed_password_user(users_app, _EMAIL, is_verified=True)
     install_fake_provider(users_app, "ms-owner", _EMAIL)
 
     assert (await oauth_callback(anon_client)).status_code == 303
@@ -68,7 +57,9 @@ async def test_verified_account_links(users_app, anon_client):
 @pytest.mark.anyio
 async def test_pending_invite_links(users_app, anon_client):
     """An invite's password is random and unknown, so nobody else holds the account."""
-    user_id = await _seed(users_app, is_verified=False, invited_at=datetime.now(UTC))
+    user_id = await seed_password_user(
+        users_app, _EMAIL, is_verified=False, invited_at=datetime.now(UTC)
+    )
     install_fake_provider(users_app, "ms-invitee", _EMAIL)
 
     assert (await oauth_callback(anon_client)).status_code == 303

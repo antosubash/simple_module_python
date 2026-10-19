@@ -49,5 +49,8 @@ async def get_owner_scope(request: Request) -> str | None:
     return current_user_id.get() or NO_OWNER
 
 
+OwnerScope = Depends(get_owner_scope)
+
+
 async def get_event_bus(request: Request) -> EventBus:
     return request.app.state.sm.event_bus

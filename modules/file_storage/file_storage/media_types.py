@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 
 from file_storage import constants
+from file_storage.thumbnails import base_type
 
 # RFC 9110 ``token`` characters, on both sides of a single "/".
 _MEDIA_TYPE = re.compile(r"[a-z0-9!#$%&'*+.^_`|~-]+/[a-z0-9!#$%&'*+.^_`|~-]+")
@@ -34,7 +35,7 @@ def normalise_media_type(content_type: str | None) -> str | None:
     # before ";" looks safe. Quotes would let a parameter hide one.
     if not content_type or any(c in content_type for c in ',"'):
         return None
-    media = content_type.split(";", 1)[0].strip().lower()
+    media = base_type(content_type)
     return media if _MEDIA_TYPE.fullmatch(media) else None
 
 

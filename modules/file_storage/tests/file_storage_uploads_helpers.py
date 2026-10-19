@@ -1,4 +1,4 @@
-"""Shared helpers for the resumable-upload tests (imported, not collected)."""
+"""Shared helpers for the file_storage upload tests (imported, not collected)."""
 
 from __future__ import annotations
 
@@ -10,6 +10,14 @@ from file_storage import constants
 API = constants.ROUTE_PREFIX_API
 MIB = constants.MIB
 PART = 5 * MIB  # the smallest part size the settings accept
+INERTIA = {"X-Inertia": "true", "Accept": "application/json"}
+
+
+async def upload_text(client: httpx.AsyncClient, name: str, body: bytes = b"hi") -> str:
+    """Upload ``body`` as a one-shot ``text/plain`` file; return its id."""
+    resp = await client.post(f"{API}/upload", files={"file": (name, body, "text/plain")})
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
 
 
 async def open_session(

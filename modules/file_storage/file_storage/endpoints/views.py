@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from file_storage import constants
 from file_storage.aggregates import StorageAggregates
 from file_storage.contracts.schemas import StoredFileOut
-from file_storage.deps import get_file_storage_service, get_owner_scope
+from file_storage.deps import OwnerScope, get_file_storage_service
 from file_storage.resolve import label_for, resolve_uploader_labels
 from file_storage.service import FileStorageService
 
@@ -36,7 +36,7 @@ async def browse(
     uploaded_by: str = "",
     db: AsyncSession = Depends(get_db),
     service: FileStorageService = Depends(get_file_storage_service),
-    owner: str | None = Depends(get_owner_scope),
+    owner: str | None = OwnerScope,
 ) -> InertiaResponse:
     # A user-supplied page below 1 (0, negative, a hand-edited ?page=) must
     # clamp to the first page rather than reject — mirrors the past-the-end

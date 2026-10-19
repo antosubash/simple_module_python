@@ -32,7 +32,7 @@ from file_storage.contracts.schemas import (
     StoredFileUpdate,
 )
 from file_storage.contracts.service import StorageNotFoundError
-from file_storage.deps import get_event_bus, get_file_storage_service, get_owner_scope
+from file_storage.deps import OwnerScope, get_event_bus, get_file_storage_service
 from file_storage.downloads import content_disposition
 from file_storage.format import format_bytes
 from file_storage.ranges import file_body_response
@@ -47,11 +47,6 @@ from file_storage.service import (
 from file_storage.serving import etag_for, not_found, thumbnail_response
 
 router = APIRouter()
-
-# Whose files the caller may see and change: their own, or every file in the
-# active tenant with ``file_storage.manage`` (#544). Applied in the service
-# query, so someone else's id answers 404 exactly like an unknown one.
-OwnerScope = Depends(get_owner_scope)
 
 
 @router.post(

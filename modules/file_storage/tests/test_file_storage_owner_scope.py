@@ -12,18 +12,11 @@ from __future__ import annotations
 import httpx
 import pytest
 from file_storage import constants
+from file_storage_uploads_helpers import API, INERTIA, upload_text
 from simple_module_hosting.settings import Settings
 from simple_module_test.tenant_client import create_user, session_client
 
-API = constants.ROUTE_PREFIX_API
 VIEW = f"{constants.ROUTE_PREFIX_VIEW}/"
-INERTIA = {"X-Inertia": "true", "Accept": "application/json"}
-
-
-async def _upload(client: httpx.AsyncClient, name: str, body: bytes = b"hi") -> str:
-    resp = await client.post(f"{API}/upload", files={"file": (name, body, "text/plain")})
-    assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
 
 
 async def _names(client: httpx.AsyncClient) -> tuple[list[str], int]:
@@ -39,8 +32,8 @@ class TestMembers:
             tenant_client("member") as a,
             tenant_client("member", tenant_id=a.tenant_id) as b,
         ):
-            await _upload(a.client, "a.txt")
-            await _upload(b.client, "b.txt")
+            await upload_text(a.client, "a.txt")
+            await upload_text(b.client, "b.txt")
 
             assert await _names(a.client) == (["a.txt"], 1)
             assert await _names(b.client) == (["b.txt"], 1)
@@ -50,7 +43,7 @@ class TestMembers:
             tenant_client("member") as a,
             tenant_client("member", tenant_id=a.tenant_id) as b,
         ):
-            file_id = await _upload(a.client, "a.txt")
+            file_id = await upload_text(a.client, "a.txt")
 
             assert (await b.client.get(f"{API}/files/{file_id}")).status_code == 404
             assert (await b.client.get(f"{API}/files/{file_id}/download")).status_code == 404
@@ -68,7 +61,7 @@ class TestMembers:
 
     async def test_member_can_publish_own_file(self, tenant_client):
         async with tenant_client("member") as a:
-            file_id = await _upload(a.client, "a.txt")
+            file_id = await upload_text(a.client, "a.txt")
             resp = await a.client.patch(f"{API}/files/{file_id}", json={"public": True})
             assert resp.status_code == 200, resp.text
             assert resp.json()["public"] is True
@@ -78,7 +71,7 @@ class TestMembers:
             tenant_client("member") as a,
             tenant_client("member", tenant_id=a.tenant_id) as b,
         ):
-            await _upload(a.client, "a.txt")
+            await upload_text(a.client, "a.txt")
             await b.client.post(f"{API}/upload", files={"file": ("b.csv", b"x,y", "text/csv")})
 
             # The uploader filter cannot widen the scope to someone else.
@@ -99,7 +92,7 @@ class TestManagers:
             tenant_client("member") as a,
             tenant_client(role, tenant_id=a.tenant_id) as boss,
         ):
-            file_id = await _upload(a.client, "a.txt")
+            file_id = await upload_text(a.client, "a.txt")
 
             assert await _names(boss.client) == (["a.txt"], 1)
             assert (await boss.client.get(f"{API}/files/{file_id}/download")).status_code == 200
@@ -114,8 +107,8 @@ class TestManagers:
             tenant_client("member", tenant_id=admin_tenant_id) as a,
             tenant_client("member", tenant_id=admin_tenant_id) as b,
         ):
-            await _upload(a.client, "a.txt")
-            await _upload(b.client, "b.txt")
+            await upload_text(a.client, "a.txt")
+            await upload_text(b.client, "b.txt")
 
         assert await _names(authenticated_client) == (["a.txt", "b.txt"], 2)
         props = (await authenticated_client.get(VIEW, headers=INERTIA)).json()["props"]
@@ -136,7 +129,7 @@ class TestSingleTenant:
             session_client(app, {"user_id": alice}) as a,
             session_client(app, {"user_id": bob}) as b,
         ):
-            file_id = await _upload(a, "a.txt")
+            file_id = await upload_text(a, "a.txt")
 
             assert await _names(b) == ([], 0)
             assert (await b.delete(f"{API}/files/{file_id}")).status_code == 404
