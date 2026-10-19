@@ -14,7 +14,7 @@ Before serving traffic:
 - [ ] App boot in a non-development `SM_ENVIRONMENT` starts clean. Module discovery runs strict (missing/invalid `meta` and entry-point failures raise), and the migration check (SM010) aborts boot — so a successful start covers those. The full page/locale/auth-provider diagnostic suite only runs in development, so do a clean dev boot before shipping (see [diagnostic codes](/reference/diagnostic-codes)).
 - [ ] Admin bootstrap complete — an admin user exists and can log in.
 - [ ] Reverse proxy forwards `X-Forwarded-Proto`/`X-Forwarded-For`; configured with `--proxy-headers`.
-- [ ] HTTPS in front of the app (the session cookie is `HttpOnly`/`SameSite=Lax` but not `Secure` by default — terminate TLS at the proxy).
+- [ ] HTTPS in front of the app. Outside `development`/`testing` the session cookie is `Secure`, so a browser reaching the app over plain HTTP never sends it back and sign-in fails (see [Session cookie](#session-cookie)). Behind a TLS terminator, set `SM_TRUSTED_PROXY` too.
 - [ ] Log destination configured (`SM_LOG_FORMAT=json` + log shipping).
 
 ## Build
@@ -140,7 +140,18 @@ Not built in. The framework doesn't expose Prometheus metrics out of the box. If
 
 ## Session cookie
 
-`SessionMiddleware` uses `SM_SECRET_KEY` for signing. Starlette's defaults apply: `HttpOnly` + `SameSite=Lax`, but **not** `Secure` (the framework adds the middleware with only `secret_key`, so the cookie isn't restricted to HTTPS — rely on your TLS-terminating proxy). Rotate the secret by:
+`SessionMiddleware` uses `SM_SECRET_KEY` for signing. The cookie is `HttpOnly` + `SameSite=Lax`, and `Secure` everywhere except `SM_ENVIRONMENT=development`/`testing`, so it never travels over plain HTTP — not even on the first request before HSTS is cached. CSRF defence rests on `SameSite=Lax`, which is why this matters.
+
+The flag is the `session_cookie_secure` host setting (`SM_SESSION_COOKIE_SECURE`, or the settings editor; restart to apply). Unset means "on outside development/testing":
+
+| Deployment | What to set |
+|---|---|
+| TLS terminated at a reverse proxy, app speaks plain HTTP to the proxy | Leave it unset. The browser sees HTTPS, which is all `Secure` needs. Set `SM_TRUSTED_PROXY` so the app also sees `https` as the scheme (OAuth callback urls, the locale cookie's `secure` flag, request logs). |
+| HTTPS end to end | Leave it unset. |
+| Browsers reach the app over plain HTTP on purpose (an internal network with no TLS) | `SM_SESSION_COOKIE_SECURE=false` — otherwise the browser drops the cookie and every sign-in bounces back to the login page. |
+| Local development (`make dev`, e2e) over `http://localhost` | Nothing: development and testing default to off. |
+
+Rotate the secret by:
 
 1. Deploying with a new `SM_SECRET_KEY`.
 2. Expected behavior: existing sessions become invalid. Users sign back in.

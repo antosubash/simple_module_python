@@ -126,6 +126,19 @@ class HostSettings(BaseSettings):
     # and most providers reject it.
     trusted_proxy: str | None = Field(default=None, json_schema_extra=_RESTART_GUARD)
 
+    session_cookie_secure: bool | None = Field(
+        default=None, json_schema_extra={"requires_restart": True, "group": "Security"}
+    )
+    """Mark the session cookie ``Secure`` (sent over HTTPS only).
+
+    Unset (the default) means on outside development and testing, off in
+    them, so ``make dev`` keeps working over plain ``http://localhost``. Behind
+    a TLS-terminating proxy leave it on: the browser sees HTTPS, which is all
+    the flag needs. Only an install that serves browsers plain HTTP on purpose
+    should turn it off — otherwise the cookie is never sent back and sign-in
+    silently fails. See ``session_cookie_is_secure``.
+    """
+
     auth_provider: str = Field(default=DEFAULT_AUTH_PROVIDER, json_schema_extra=_RESTART_AUTH)
     """Which auth provider module to activate.
 
