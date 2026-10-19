@@ -2,7 +2,7 @@
 
 ``select(Parent, func.count(Child.id)).outerjoin(Child, ...)``: the column
 wrapped in ``func.count`` strips the ORM annotation, so ``columns_clause_froms``
-lists a bare ``Table child``. ``_plain_tables`` took that for a Core
+lists a bare ``Table child``. ``core_scope`` would take that for a Core
 ``Model.__table__`` reference and added ``WHERE child.tenant_id = :t``, which
 is false for every row the outer join padded with NULLs — the LEFT JOIN became
 an inner one and parents without children vanished.

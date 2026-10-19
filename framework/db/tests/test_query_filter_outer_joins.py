@@ -151,7 +151,7 @@ async def test_inner_join_still_filters_the_child(seeded):
 
 
 async def test_raw_table_outer_join_stays_filtered(seeded):
-    """A Core table target gets no ON criteria, so it keeps the WHERE predicate (no leak)."""
+    """A Core table target gets its predicate in ON (#506): the join stays outer, no leak."""
     link = _TagLink.__table__
     stmt = (
         select(_Tag.name, func.count(link.c.article_id))
@@ -159,8 +159,7 @@ async def test_raw_table_outer_join_stays_filtered(seeded):
         .outerjoin(link, link.c.tag_id == _Tag.id)
         .group_by(_Tag.name)
     )
-    rows = dict((await seeded.execute(stmt)).all())
-    assert rows.get("used") == 1  # never 4 (tenant B's links)
+    assert dict((await seeded.execute(stmt)).all()) == {"used": 1, "unused": 0}
 
 
 async def test_raw_column_of_orm_outer_target_never_sees_other_tenants(seeded):
@@ -189,12 +188,11 @@ async def test_soft_deleted_outer_child_keeps_the_parent(seeded):
     assert dict((await seeded.execute(stmt)).all()) == {"used": 1, "unused": 0}
 
 
-@pytest.mark.xfail(strict=True, reason="pre-existing: Core outer join right side unfiltered")
 async def test_core_outer_join_right_side_is_tenant_filtered(seeded):
-    """A pure Core ``tag.outerjoin(link)`` gets no ``ON`` criteria and no ``WHERE``.
+    """A pure Core ``tag.outerjoin(link)`` gets the link's predicate in ``ON`` (#506).
 
-    ``_where_able`` keeps the nullable side out of ``WHERE`` (correctly), but
-    nothing else filters a Core table, so ``count(*)`` counts tenant B's links.
+    A ``WHERE`` on the nullable side would drop ``unused``; nothing at all
+    would let ``count(*)`` count tenant B's links.
     """
     tag, link = _Tag.__table__, _TagLink.__table__
     stmt = (
