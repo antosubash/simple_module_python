@@ -80,3 +80,12 @@ async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
 
     _, kwargs = send.call_args
     assert kwargs["username"] is None and kwargs["password"] is None
+
+
+def test_console_backend_outside_development_does_not_log_bodies() -> None:
+    """Reset and invite bodies carry one-time tokens (production console backend)."""
+    from mail.sender import build_sender
+    from mail.settings import MailSettings
+
+    assert build_sender(MailSettings(), log_bodies=False).include_body is False
+    assert build_sender(MailSettings()).include_body is True

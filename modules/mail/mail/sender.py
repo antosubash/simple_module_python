@@ -69,8 +69,13 @@ class SmtpMailSender:
                 await client.quit()
 
 
-def build_sender(settings: MailSettings) -> MailSender:
-    """``smtp`` -> :class:`SmtpMailSender`; ``console`` -> the explicit dev sender."""
+def build_sender(settings: MailSettings, *, log_bodies: bool = True) -> MailSender:
+    """``smtp`` -> :class:`SmtpMailSender`; ``console`` -> a logging sender.
+
+    *log_bodies* is false outside development and testing: a console backend
+    left in place in production must not write reset and invite tokens to the
+    log, so there it logs only recipient and subject.
+    """
     if settings.backend == c.BACKEND_SMTP:
         return SmtpMailSender(
             host=settings.smtp_host,
@@ -80,4 +85,4 @@ def build_sender(settings: MailSettings) -> MailSender:
             from_address=settings.smtp_from,
             use_tls=settings.smtp_tls,
         )
-    return ConsoleMailSender()
+    return ConsoleMailSender(include_body=log_bodies)

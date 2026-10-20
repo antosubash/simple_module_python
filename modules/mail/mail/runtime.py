@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from settings.hydrate import hydrate_settings
 from settings.service import SettingService
 from settings.store import SettingsStore
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.health import HealthCheckResult, HealthStatus
 from simple_module_core.mail import MailSender, current_mail_sender
 
@@ -22,7 +24,18 @@ async def resolve_sender_from_db(db: Any) -> MailSender:
     """
     store = SettingsStore(SettingService(db))
     settings = await hydrate_settings(MailSettings, store, c.MODULE_PACKAGE, lenient=True)
-    return build_sender(settings)
+    return build_sender(settings, log_bodies=_worker_is_non_prod())
+
+
+def _worker_is_non_prod() -> bool:
+    # No app (and so no host settings) in the worker: read the process's
+    # environment the way background_tasks' own checks do.
+    return os.environ.get("SM_ENVIRONMENT", "development") in NON_PROD_ENVIRONMENTS
+
+
+def app_is_non_prod(app: Any) -> bool:
+    """Whether *app* runs in development or testing (host ``environment``)."""
+    return app.state.sm.settings.environment in NON_PROD_ENVIRONMENTS
 
 
 async def check_smtp() -> HealthCheckResult:
