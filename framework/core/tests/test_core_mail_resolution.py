@@ -82,3 +82,11 @@ def test_protocol_is_runtime_checkable() -> None:
     assert isinstance(_Recording(), MailSender)
     assert isinstance(ConsoleMailSender(), MailSender)
     assert mail.MailSender is MailSender
+
+
+async def test_fallback_sender_never_logs_the_body(caplog) -> None:
+    """Bodies carry one-time tokens; an unconfigured install must not log them."""
+    with caplog.at_level(logging.INFO, logger="simple_module.mail"):
+        await current_mail_sender().send(MailMessage("a@example.com", "Hi", "token=s3cr3t"))
+    assert "a@example.com" in caplog.text
+    assert "s3cr3t" not in caplog.text

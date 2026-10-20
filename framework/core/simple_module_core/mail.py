@@ -40,18 +40,37 @@ class MailSender(Protocol):
 
 
 class ConsoleMailSender:
-    """Logs each message instead of sending it (development, or no transport)."""
+    """Logs each message instead of sending it.
+
+    With ``include_body`` (the ``mail`` module's explicit ``console`` backend,
+    for development) the whole message is logged, so a developer can follow a
+    reset or invite link. The fallback used when no transport is installed
+    passes ``include_body=False``: those bodies carry one-time tokens and must
+    not end up in a production log just because mail was never configured.
+    """
 
     delivers_email = False
 
+    def __init__(self, *, include_body: bool = True) -> None:
+        self.include_body = include_body
+
     async def send(self, message: MailMessage) -> None:
-        logger.info(
-            "Mail to %s (not sent, console sender): %s\n%s",
-            message.to,
-            message.subject,
-            message.text,
-            extra={"mail_to": message.to, "mail_subject": message.subject},
-        )
+        extra = {"mail_to": message.to, "mail_subject": message.subject}
+        if self.include_body:
+            logger.info(
+                "Mail to %s (not sent, console sender): %s\n%s",
+                message.to,
+                message.subject,
+                message.text,
+                extra=extra,
+            )
+        else:
+            logger.warning(
+                "Mail to %s not sent: no mail transport is installed (%s)",
+                message.to,
+                message.subject,
+                extra=extra,
+            )
 
 
 #: Builds a sender from the database (``AsyncSession``); used where no sender
@@ -76,7 +95,7 @@ def install_mail_resolver(resolver: MailSenderResolver | None) -> None:
 
 def current_mail_sender() -> MailSender:
     """The installed sender, else a console sender. Never raises."""
-    return _sender if _sender is not None else ConsoleMailSender()
+    return _sender if _sender is not None else ConsoleMailSender(include_body=False)
 
 
 async def resolve_mail_sender(db: Any | None = None) -> MailSender:
@@ -85,4 +104,4 @@ async def resolve_mail_sender(db: Any | None = None) -> MailSender:
         return _sender
     if _resolver is not None and db is not None:
         return await _resolver(db)
-    return ConsoleMailSender()
+    return ConsoleMailSender(include_body=False)
