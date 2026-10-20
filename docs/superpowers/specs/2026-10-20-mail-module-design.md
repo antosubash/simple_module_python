@@ -60,6 +60,9 @@ Process-level state, because the outbox worker builds modules without an app
   It is used by `resolve_mail_sender(db)` only when no sender is installed (the
   worker). With neither, both functions return a `ConsoleMailSender`, so callers
   never need to check whether mail is configured.
+- The fallback console sender (nothing installed) logs recipient and subject
+  only, at WARNING: bodies carry one-time tokens. The `mail` module's explicit
+  `console` backend logs the whole message, as `users` did, for development.
 - No settings and no SMTP code in core; SM009 holds.
 
 ## 2. `mail` plugin module (`modules/mail/mail/`)
