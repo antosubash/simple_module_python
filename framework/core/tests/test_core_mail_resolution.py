@@ -90,3 +90,18 @@ async def test_fallback_sender_never_logs_the_body(caplog) -> None:
         await current_mail_sender().send(MailMessage("a@example.com", "Hi", "token=s3cr3t"))
     assert "a@example.com" in caplog.text
     assert "s3cr3t" not in caplog.text
+
+
+async def test_transport_installed_tracks_sender_or_resolver() -> None:
+    from simple_module_core.mail import mail_transport_installed
+
+    assert mail_transport_installed() is False
+    install_mail_sender(_Recording())
+    assert mail_transport_installed() is True
+    install_mail_sender(None)
+
+    async def _resolver(db):
+        return _Recording()
+
+    install_mail_resolver(_resolver)
+    assert mail_transport_installed() is True

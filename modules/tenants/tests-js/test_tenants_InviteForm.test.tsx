@@ -12,7 +12,7 @@ configureI18n({
     'tenants.members.invite_submit': 'Send invitation',
     'tenants.members.invite_link_copy': 'Copy link',
     'tenants.members.invite_emailed': 'Invitation emailed to {email}',
-    'tenants.members.invite_share_link': "Email isn't configured — share this link",
+    'tenants.members.invite_share_link': "Not emailed — share this link",
   },
 });
 
@@ -40,7 +40,7 @@ test.each([true, false])('keeps the link and copy button when emailed=%s', async
     await screen.findByText(
       emailed
         ? 'Invitation emailed to friend@example.com'
-        : "Email isn't configured — share this link",
+        : "Not emailed — share this link",
     ),
   ).toBeInTheDocument();
   expect(

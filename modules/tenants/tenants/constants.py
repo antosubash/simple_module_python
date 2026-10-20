@@ -73,3 +73,6 @@ MAIL_RELATIVE_WARNING = (
     "Invitation email skipped: configure tenants.public_base_url for absolute links"
 )
 MAIL_FAILURE_WARNING = "Invitation email failed after commit"
+MAIL_NO_TRANSPORT_ERROR = (
+    "No mail transport in this process: add Mail to SM_MODULES_ENABLED for the outbox worker"
+)

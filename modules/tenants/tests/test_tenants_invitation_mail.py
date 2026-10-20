@@ -128,3 +128,52 @@ async def test_tenants_durable_failure_propagates(db_session, captured_mail, mon
     )
     with pytest.raises(RuntimeError, match="transport failed"):
         await send_invitation_email(event, DurableContext(db=db_session, attempt=1))
+
+
+class _RecordingTransport:
+    def __init__(self):
+        self.calls = []
+
+    async def enqueue(self, event, handler_names, db):
+        self.calls.append((event, handler_names, db))
+
+
+async def _invite_with(db_session, base_url: str):
+    from tenants.contracts.schemas import TenantCreate
+
+    bus = EventBus()
+    bus.durable_transport = transport = _RecordingTransport()
+    TenantsModule().register_event_handlers(bus, None)
+    tenants = TenantService(db_session, bus=bus)
+    tenant = await tenants.create_tenant(TenantCreate(name="Acme"), owner_user_id="owner")
+    await InvitationService(tenants, ttl_hours=72).create(
+        tenant.id, InvitationCreate(email="friend@x.io"), base_url=base_url
+    )
+    return transport, tenants
+
+
+async def test_tenants_no_transport_queues_no_mail(db_session):
+    """Without the mail module the token must not be persisted in the outbox."""
+    from simple_module_core.mail import install_mail_resolver
+
+    install_mail_sender(None)
+    install_mail_resolver(None)
+    transport, _ = await _invite_with(db_session, "https://app.example.com")
+    assert transport.calls == []
+
+
+async def test_tenants_relative_link_is_not_queued(db_session, captured_mail):
+    transport, _ = await _invite_with(db_session, "")
+    assert transport.calls == []
+
+
+async def test_tenants_worker_without_transport_retries(db_session):
+    """A worker started without Mail must fail the delivery, not mark it sent."""
+    from simple_module_core.mail import install_mail_resolver
+    from tenants.invitation_mail import send_invitation_email
+
+    install_mail_sender(None)
+    install_mail_resolver(None)
+    event = InvitationCreated("t", "Acme", "friend@x.io", "member", "https://app.example.com/a")
+    with pytest.raises(RuntimeError, match="SM_MODULES_ENABLED"):
+        await send_invitation_email(event, DurableContext(db=db_session, attempt=1))

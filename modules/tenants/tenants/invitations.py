@@ -19,7 +19,7 @@ from tenants.constants import MembershipRole, TenantStatus
 from tenants.contracts.events import InvitationCreated
 from tenants.contracts.schemas import InvitationCreate
 from tenants.errors import TenantError
-from tenants.invitation_mail import send_invitation_after_commit
+from tenants.invitation_mail import invitation_mail_wanted, send_invitation_after_commit
 from tenants.models import Invitation, Tenant
 from tenants.service import TenantService
 
@@ -100,12 +100,15 @@ class InvitationService:
         accept_url = f"{base_url.rstrip('/')}{ACCEPT_PATH}?token={token}"
         event = InvitationCreated(tenant_id, tenant.name, data.email, data.role, accept_url)
         bus = self.tenants.bus
-        durable = bus is not None and bus.durable_transport is not None
+        # Mail only when there is somewhere to send it: no transport means the
+        # fallback log, and a relative link is useless in an inbox. Either way
+        # the one-time token is then never persisted in the outbox.
+        mail = invitation_mail_wanted(accept_url)
+        durable = mail and bus is not None and bus.durable_transport is not None
         if durable:
             await bus.publish_durable(event, self.db)
-        self.tenants._after_commit(
-            event, callback=None if durable else partial(send_invitation_after_commit, event)
-        )
+        send_now = partial(send_invitation_after_commit, event) if mail and not durable else None
+        self.tenants._after_commit(event, callback=send_now)
         return invitation, token, accept_url
 
     async def list_pending(self, tenant_id: str) -> list[Invitation]:

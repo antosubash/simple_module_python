@@ -93,6 +93,16 @@ def install_mail_resolver(resolver: MailSenderResolver | None) -> None:
     _resolver = resolver
 
 
+def mail_transport_installed() -> bool:
+    """Whether a transport (sender or resolver) is installed in this process.
+
+    False means mail would only reach the fallback log. A durable handler uses
+    it to fail, and be retried, rather than drop mail in a worker that was
+    started without the ``mail`` module while the web process has it.
+    """
+    return _sender is not None or _resolver is not None
+
+
 def current_mail_sender() -> MailSender:
     """The installed sender, else a console sender. Never raises."""
     return _sender if _sender is not None else ConsoleMailSender(include_body=False)

@@ -40,7 +40,7 @@ await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body
 
 - `current_mail_sender()` is synchronous and never raises; with nothing installed it returns a console sender that logs only the recipient and subject (bodies carry one-time tokens).
 - `sender.delivers_email` is `False` for console senders, so a screen can show a link instead of promising an inbox.
-- Code that may run in the outbox worker (no `app`) uses `await resolve_mail_sender(db)`. The module installs a resolver in `register_event_handlers` before its `app is None` return; it hydrates `MailSettings` from the given session.
+- Code that may run in the outbox worker (no `app`) uses `await resolve_mail_sender(db)`. The module installs a resolver in `register_event_handlers` before its `app is None` return; it hydrates `MailSettings` from the given session. A worker restricted with `SM_MODULES_ENABLED` must therefore list `Mail` (and any module whose durable handler sends mail, such as `Tenants`); without it the tenants invitation handler raises, so the outbox retries the row (and marks it `dead` after its retries) instead of dropping the email.
 
 ## Lifecycle
 

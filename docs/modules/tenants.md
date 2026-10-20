@@ -57,8 +57,14 @@ there is one permission for the one surface.
 Invitations are emailed through the [mail module](/modules/mail). With
 `background_tasks` installed, delivery uses the outbox and retries failures;
 otherwise it runs after the request commits. Set `public_base_url` for absolute
-accept links: relative links are not emailed. The UI shows the link and copy
-button either way, with feedback indicating email configuration.
+accept links: relative links are not emailed. Nothing is queued unless the
+`mail` module is installed. The UI shows the link and copy button either way,
+and says whether the link was emailed.
+
+An outbox-delivered invitation keeps its accept link, one-time token included,
+in the outbox row until the `background_tasks` retention purge. The token is
+single-use and expires with the invitation (`invitation_ttl_hours`), but treat
+outbox rows and database backups as holding live invitation links until then.
 
 ## Configuration
 
