@@ -12,7 +12,7 @@ BACKEND_CONSOLE = "console"
 BACKEND_SMTP = "smtp"
 
 # On-demand health check; also drives the settings page's "Test connection".
-CHECK_SMTP = "mail.smtp"
+CHECK_MAILER = "mail.mailer"
 
 DEFAULT_FROM = "no-reply@localhost"
 DEFAULT_SMTP_PORT = 587

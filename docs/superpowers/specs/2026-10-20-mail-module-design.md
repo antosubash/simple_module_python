@@ -43,6 +43,7 @@ class ConsoleMailSender:  # delivers_email = False; logs to "simple_module.mail"
 
 MailSenderResolver = Callable[[Any], Awaitable[MailSender]]  # takes an AsyncSession
 
+
 def install_mail_sender(sender: MailSender | None) -> None: ...
 def install_mail_resolver(resolver: MailSenderResolver | None) -> None: ...
 def current_mail_sender() -> MailSender: ...  # installed sender, else ConsoleMailSender
@@ -77,7 +78,7 @@ Process-level state, because the outbox worker builds modules without an app
   the sender; `settings_reloaded` rebuilds and reinstalls it; `on_shutdown`
   uninstalls. `register_event_handlers` installs the resolver (it runs in the
   worker too) — it hydrates `MailSettings` from the given session.
-- Health check `mail.smtp` (on demand, `probe=False`) replaces `users.mailer`;
+- Health check `mail.mailer` (on demand, `probe=False`) replaces `users.mailer` (same button label);
   the settings page's "Test mailer connection" button points at it.
 - No tables, no pages. Full module checklist: pyproject metadata, README,
   `docs/modules/mail.md`, docs index + sidebar, release matrix, root

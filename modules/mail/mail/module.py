@@ -37,7 +37,7 @@ class MailModule(ModuleBase):
 
         registry.add(
             HealthCheck(
-                name=c.CHECK_SMTP,
+                name=c.CHECK_MAILER,
                 check=check_smtp,
                 # On demand only: this authenticates against the mail provider,
                 # which must not happen on a readiness-probe timer.

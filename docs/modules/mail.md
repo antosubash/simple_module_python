@@ -47,14 +47,14 @@ await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body
 | Hook | What it does |
 |---|---|
 | `register_settings` | `register_module_settings` mounts `app.state.mail` |
-| `register_health_checks` | adds the on-demand `mail.smtp` check |
+| `register_health_checks` | adds the on-demand `mail.mailer` check |
 | `register_event_handlers` | installs the resolver; on `SettingsReloaded(package="mail")` rebuilds and reinstalls the sender |
 | `on_startup` | installs the sender built from the hydrated settings |
 | `on_shutdown` | uninstalls the sender and the resolver |
 
 ## Health check
 
-`mail.smtp` (`probe=False`, so it never runs on a readiness timer) re-reads the installed sender on each run. The console backend is healthy ("needs no connection"); the SMTP backend connects and authenticates without sending anything. The settings page's **Test connection** button runs it.
+`mail.mailer` (`probe=False`, so it never runs on a readiness timer) re-reads the installed sender on each run. The console backend is healthy ("needs no connection"); the SMTP backend connects and authenticates without sending anything. The settings page's **Test connection** button runs it.
 
 ## Tests
 

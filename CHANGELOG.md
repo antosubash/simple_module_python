@@ -14,7 +14,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
-  `mail.smtp` health check behind "Test mailer connection". Modules send through
+  `mail.mailer` health check behind "Test mailer connection". Modules send through
   `simple_module_core.mail` (`current_mail_sender()` / `resolve_mail_sender(db)`),
   which falls back to logging when no transport is installed (#496).
 - Tenant invitations are now emailed (#496). With `background_tasks` installed
@@ -26,9 +26,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 - **Behaviour change:** the `users` mailer settings (`mailer`, `smtp_*`) moved to
-  the `mail` module as `backend` and `smtp_*`; a data migration moves stored
-  values (#496). `simple_module_users` now depends on `simple_module_mail`, and
-  the `users.mailer` health check is now `mail.smtp`. The `users.Mailer`
+  the `mail` module as `backend` and `smtp_*`; a data migration (`d7b3a9e5c1f2`)
+  moves stored values (#496). `simple_module_users` now depends on `simple_module_mail`, and
+  the `users.mailer` health check is now `mail.mailer`. The `users.Mailer`
   protocol is unchanged.
 - `ty` now checks `invalid-argument-type` and `invalid-assignment` in shipped
   code (tests stay exempt), and the ~150 mypy-style `# type: ignore[...]`

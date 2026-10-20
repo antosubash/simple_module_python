@@ -28,7 +28,7 @@ uv sync --all-packages
 2. Set `backend` to `smtp` and fill `smtp_host`, `smtp_port`, `smtp_username`,
    `smtp_password` (masked in the UI), `smtp_from` and `smtp_tls`. Saving
    rebuilds the sender live, no restart needed.
-3. Use **Test connection** to run the `mail.smtp` health check. It logs in to
+3. Use **Test connection** to run the `mail.mailer` health check. It logs in to
    the server and hangs up without sending anything.
 
 From code, send through the core interface:

@@ -1,4 +1,4 @@
-"""The ``mail.smtp`` check re-reads the installed sender on every run."""
+"""The ``mail.mailer`` check re-reads the installed sender on every run."""
 
 from __future__ import annotations
 
@@ -52,5 +52,5 @@ async def test_smtp_failure_reports_the_reason(smtp_client) -> None:
 
 async def test_the_check_is_registered_on_demand_only(app) -> None:
     checks = {c.name: c for c in app.state.sm.health_registry.all_checks}
-    assert checks["mail.smtp"].probe is False
-    assert checks["mail.smtp"].module == "Mail"
+    assert checks["mail.mailer"].probe is False
+    assert checks["mail.mailer"].module == "Mail"
