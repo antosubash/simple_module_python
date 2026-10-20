@@ -90,3 +90,12 @@ def test_console_backend_outside_development_does_not_log_bodies() -> None:
 
     assert build_sender(MailSettings(), log_bodies=False).include_body is False
     assert build_sender(MailSettings()).include_body is True
+
+
+@pytest.mark.parametrize("port", [-1, 0, 65536, 99999])
+def test_smtp_port_outside_the_tcp_range_is_rejected(port) -> None:
+    from mail.settings import MailSettings
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        MailSettings(smtp_port=port)

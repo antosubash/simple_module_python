@@ -38,6 +38,9 @@ export function InviteForm({ onInvited }: Props) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    // A new attempt replaces the previous result; a failure must not leave the
+    // last invitation's link and "emailed" banner beside its error.
+    setAcceptUrl(null);
     try {
       const response = await fetch('/api/tenants/current/invitations', {
         method: 'POST',
