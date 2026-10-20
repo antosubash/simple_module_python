@@ -69,8 +69,15 @@ class TenantService:
 
     # ── side effects ────────────────────────────────────────────
 
-    def _after_commit(self, *events: Event, invalidate: Sequence[str | None] = ()) -> None:
+    def _after_commit(
+        self,
+        *events: Event,
+        invalidate: Sequence[str | None] = (),
+        callback: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
         async def run() -> None:
+            if callback is not None:
+                await callback()
             for key in invalidate:
                 await self.invalidate(key)
             if self.bus is not None:

@@ -54,6 +54,12 @@ owns and maps onto owner and admin (#382); the page writes through
 permission — declared, owner-only, and checked by nothing — is retired, so
 there is one permission for the one surface.
 
+Invitations are emailed through the [mail module](/modules/mail). With
+`background_tasks` installed, delivery uses the outbox and retries failures;
+otherwise it runs after the request commits. Set `public_base_url` for absolute
+accept links: relative links are not emailed. The UI shows the link and copy
+button either way, with feedback indicating email configuration.
+
 ## Configuration
 
 DB-backed (Settings screen):
@@ -87,8 +93,7 @@ The module ships no billing, but a billing module needs nothing more from it:
 - Events, published after commit: `TenantCreated`, `TenantStatusChanged`,
   `TenantDeleted` (`tenant_id`, `slug`, `name`; from
   `TenantService.delete_tenant` — subscribe to clean up per-tenant state),
-  `MembershipAdded`, `MembershipRemoved`, `InvitationCreated` (also the hook a
-  mailer uses to deliver the invitation link).
+  `MembershipAdded`, `MembershipRemoved`, `InvitationCreated`.
 
 ## Models
 

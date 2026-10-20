@@ -1,0 +1,4 @@
+You have been invited to join $tenant_name as $role.
+
+Accept your invitation:
+$accept_url

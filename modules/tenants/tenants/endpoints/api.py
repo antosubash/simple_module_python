@@ -37,6 +37,7 @@ from tenants.deps import (
     UserIdDep,
 )
 from tenants.errors import TenantError
+from tenants.invitation_mail import invitation_emailed
 from tenants.resolver import switch_active
 
 router = APIRouter()
@@ -147,7 +148,9 @@ async def invite(
         data,
         base_url=request.app.state.tenants.settings.public_base_url,
     )
-    return InvitationIssued(**invitation.model_dump(), token=token, accept_url=url)
+    return InvitationIssued(
+        **invitation.model_dump(), token=token, accept_url=url, emailed=invitation_emailed(url)
+    )
 
 
 @router.delete("/current/invitations/{invitation_id}", status_code=204, dependencies=_MANAGE)

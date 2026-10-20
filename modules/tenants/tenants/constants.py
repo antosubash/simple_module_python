@@ -64,3 +64,12 @@ PAGE_ACCEPT = "Tenants/AcceptInvitation"
 PAGE_ADMIN = "Tenants/AdminBrowse"
 
 __all__ = ["TENANT_ROLE_PREFIX", "MembershipRole", "tenant_role"]
+
+INVITATION_MAIL_HANDLER = "tenants.send_invitation_email"
+INVITATION_MAIL_SUBJECT = "You're invited to join {tenant_name}"
+INVITATION_TEMPLATE = "templates/invitation.txt"
+MAIL_URL_SCHEMES = frozenset({"http", "https"})
+MAIL_RELATIVE_WARNING = (
+    "Invitation email skipped: configure tenants.public_base_url for absolute links"
+)
+MAIL_FAILURE_WARNING = "Invitation email failed after commit"
