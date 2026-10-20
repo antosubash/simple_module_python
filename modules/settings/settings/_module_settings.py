@@ -49,7 +49,7 @@ class ModuleSettingField:
     The bundled module settings classes declare no ``env_prefix`` — they are
     constructed from pydantic defaults and hydrated from the DB — so their
     ``SM_*`` vars are never consulted. Reporting a leftover
-    ``SM_USERS_SMTP_HOST`` as the live source would invert the very question
+    ``SM_MAIL_SMTP_HOST`` as the live source would invert the very question
     this screen answers. Classes that *do* declare one (the host's ``Settings``
     with ``SM_``, and anything from the module scaffold) report ``env`` for
     real, because for them pydantic really does read it.
