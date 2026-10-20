@@ -177,3 +177,10 @@ async def test_tenants_worker_without_transport_retries(db_session):
     event = InvitationCreated("t", "Acme", "friend@x.io", "member", "https://app.example.com/a")
     with pytest.raises(RuntimeError, match="SM_MODULES_ENABLED"):
         await send_invitation_email(event, DurableContext(db=db_session, attempt=1))
+
+
+async def test_tenants_console_backend_queues_no_mail(db_session):
+    """The console backend only logs: the link is shown instead, no token stored."""
+    install_mail_sender(ConsoleMailSender())
+    transport, _ = await _invite_with(db_session, "https://app.example.com")
+    assert transport.calls == []

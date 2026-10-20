@@ -58,7 +58,8 @@ Invitations are emailed through the [mail module](/modules/mail). With
 `background_tasks` installed, delivery uses the outbox and retries failures;
 otherwise it runs after the request commits. Set `public_base_url` for absolute
 accept links: relative links are not emailed. Nothing is queued unless the
-`mail` module is installed. The UI shows the link and copy button either way,
+`mail` module is installed with a delivering backend (SMTP); with the console
+backend the invite form hands the link back instead. The UI shows the link and copy button either way,
 and says whether the link was emailed.
 
 An outbox-delivered invitation keeps its accept link, one-time token included,

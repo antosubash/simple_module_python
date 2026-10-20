@@ -49,7 +49,7 @@ These are **DB-backed host settings** (under `host` in `/admin/settings/`), not 
 
 ## Users module
 
-Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy, mailer, SMTP creds, and base URL all moved to the DB-backed settings store — edit them under `users` at `/admin/settings/`.
+Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy and base URL are DB-backed settings (edit them under `users` at `/admin/settings/`); the mailer and SMTP credentials live under `mail`.
 
 | Variable | Default | Notes |
 |---|---|---|

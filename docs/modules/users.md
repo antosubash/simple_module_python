@@ -389,7 +389,7 @@ Trade-offs to know about:
 
 ## Mailer
 
-`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the bundled verify / reset / invite templates and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.smtp` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
+`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the bundled verify / reset / invite templates and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.mailer` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
 
 `delivers_email` reflects the installed sender, so screens that need to hand the one-time link back (reset-sent card, add people, resend and bulk invite) do so whenever the sender only logs. `build_mailer(settings)` returns the `TemplatedMailer`; a third-party `Mailer` can still be assigned to `app.state.users.mailer`.
 

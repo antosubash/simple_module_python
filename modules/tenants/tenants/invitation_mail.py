@@ -29,7 +29,9 @@ def absolute_accept_url(url: str) -> bool:
 
 def invitation_mail_wanted(url: str) -> bool:
     """Whether to queue an invitation email at all (see ``InvitationService.create``)."""
-    if not mail_transport_installed():
+    # A sender that only logs (console backend) gets nothing either: the UI
+    # already hands the link back, and queuing would store the token for nothing.
+    if not mail_transport_installed() or not current_mail_sender().delivers_email:
         return False
     if not absolute_accept_url(url):
         logger.warning(c.MAIL_RELATIVE_WARNING)
