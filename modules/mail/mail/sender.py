@@ -49,6 +49,7 @@ class SmtpMailSender:
             username=self._username or None,
             password=self._password or None,
             use_tls=self._use_tls,
+            timeout=c.SMTP_TIMEOUT_SECONDS,
         )
 
     async def verify_connection(self) -> None:
@@ -58,7 +59,12 @@ class SmtpMailSender:
         config should not put a stray message in someone's inbox. Raises
         whatever aiosmtplib raises so the caller can show the real reason.
         """
-        client = aiosmtplib.SMTP(hostname=self._host, port=self._port, use_tls=self._use_tls)
+        client = aiosmtplib.SMTP(
+            hostname=self._host,
+            port=self._port,
+            use_tls=self._use_tls,
+            timeout=c.SMTP_TIMEOUT_SECONDS,
+        )
         await client.connect()
         try:
             if self._username:

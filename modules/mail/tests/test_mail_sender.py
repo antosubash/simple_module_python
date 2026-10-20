@@ -56,6 +56,7 @@ async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
         "username": "user",
         "password": "pw",
         "use_tls": True,
+        "timeout": 15.0,
     }
 
 

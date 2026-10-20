@@ -73,13 +73,13 @@ class TenantService:
         callback: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         async def run() -> None:
-            if callback is not None:
-                await callback()
             for key in invalidate:
                 await self.invalidate(key)
             if self.bus is not None:
                 for event in events:
                     await self.bus.publish(event)
+            if callback is not None:  # last: may wait on an SMTP server
+                await callback()
 
         on_commit = getattr(self.db, "on_commit", None)
         if on_commit is not None:

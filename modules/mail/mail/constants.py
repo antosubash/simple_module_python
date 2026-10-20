@@ -16,3 +16,7 @@ CHECK_MAILER = "mail.mailer"
 
 DEFAULT_FROM = "no-reply@localhost"
 DEFAULT_SMTP_PORT = 587
+
+#: Seconds per SMTP operation (aiosmtplib defaults to 60). A send can run in a
+#: request's after-commit hook, so a hung server must not hold it for a minute.
+SMTP_TIMEOUT_SECONDS = 15.0
