@@ -88,7 +88,7 @@ def test_accepts_same_origin_absolute_referer() -> None:
     assert resp.headers["location"] == "/products?q=pen"
 
 
-async def test_create_app_serves_set_locale_to_anonymous_client(client) -> None:  # type: ignore[no-untyped-def]
+async def test_create_app_serves_set_locale_to_anonymous_client(client) -> None:
     """Every host built with ``create_app`` gets the switcher route (GH #462)."""
     resp = await client.post(
         "/i18n/set-locale",

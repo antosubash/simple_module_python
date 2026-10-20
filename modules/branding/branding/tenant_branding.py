@@ -162,7 +162,7 @@ def merge(system: BrandingSettings, tenant_id: str, overrides: dict[str, str]) -
     base: dict[str, Any] = system.model_dump()
     while good:
         try:
-            values = {**base, **good}
+            values: dict[str, Any] = {**base, **good}
             if "logo_file_id" in good and "logo_dark_file_id" not in good:
                 values["logo_dark_file_id"] = ""
             merged = BrandingSettings(**values)

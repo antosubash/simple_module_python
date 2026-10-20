@@ -12,6 +12,24 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- `ty` now checks `invalid-argument-type` and `invalid-assignment` in shipped
+  code (tests stay exempt), and the ~150 mypy-style `# type: ignore[...]`
+  comments, which suppressed nothing under ty, are gone (#507). Remaining
+  third-party false positives carry `# ty: ignore[<rule>]`.
+  `settings.registration.register_module_settings` is generic over the settings
+  class, so `services_factory` receives the concrete type.
+- **Behaviour change (#507):** a tenant resolver that returns a `UUID` (bare,
+  in a pair or in `TenantResolution`) now binds its string form; any other
+  non-`str` tenant id or source raises `TypeError` instead of flowing into
+  tenant filters.
+- **Behaviour change (#507):** `UsersSettings.cookie_samesite` only accepts
+  `lax`, `strict` or `none` (case-insensitive). Any other stored value is
+  dropped with a WARNING and the default `lax` applies.
+  The settings editor treats a `Literal[...]` of strings as a string select
+  (it was filed under `json` with a free-text box).
+- `get_file_storage_service` raises a clear `RuntimeError` when the storage
+  backend has not been initialised, instead of building a service around
+  `None` (#507).
 - `RequiresPermission` raises `simple_module_core.permission_denied.PermissionDenied`
   (an `HTTPException` carrying `.permission`); the 403 handler reads the
   attribute instead of parsing the message (#518). `PERMISSION_DENIED_PREFIX`

@@ -28,14 +28,14 @@ from sqlmodel import Field, Relationship
 _Base = create_module_base("bench559")
 
 
-class Author(_Base, MultiTenantMixin, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Author(_Base, MultiTenantMixin, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "bench559_author"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)
     posts: list["Post"] = Relationship(back_populates="author")
 
 
-class Post(_Base, MultiTenantMixin, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class Post(_Base, MultiTenantMixin, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "bench559_post"
     id: int | None = Field(default=None, primary_key=True)
     title: str = Field(default="", max_length=100)

@@ -127,11 +127,11 @@ async def _role_row(db: AsyncSession, name: str) -> Role:
     both, so this only fires for tests built with ``create_all`` and for
     databases downgraded past the seed revision.
     """
-    role = (await db.execute(select(Role).where(Role.name == name))).scalar_one_or_none()
+    role = (await db.execute(select(Role).where(Role.name == name))).scalar_one_or_none()  # ty: ignore[invalid-argument-type]
     if role is not None:
         return role
     role_id, description = _ROLE_SEEDS[name]
-    role = (await db.execute(select(Role).where(Role.id == role_id))).scalar_one_or_none()
+    role = (await db.execute(select(Role).where(Role.id == role_id))).scalar_one_or_none()  # ty: ignore[invalid-argument-type]
     if role is None:
         role = Role(id=role_id, name=name, description=description)
         db.add(role)
@@ -147,7 +147,7 @@ async def _sync_role(db: AsyncSession, user: User, role_name: str) -> None:
     sync that only ever added rows would leave the admin grant in place.
     """
     wanted = await _role_row(db, role_name)
-    links = (await db.execute(select(UserRole).where(UserRole.user_id == user.id))).scalars().all()
+    links = (await db.execute(select(UserRole).where(UserRole.user_id == user.id))).scalars().all()  # ty: ignore[invalid-argument-type]
     managed = {rid for rid, _ in _ROLE_SEEDS.values()}
     if not any(link.role_id == wanted.id for link in links):
         db.add(UserRole(user_id=user.id, role_id=wanted.id))

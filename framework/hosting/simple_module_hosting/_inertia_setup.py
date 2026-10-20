@@ -128,7 +128,7 @@ def setup_inertia(
 
     templates = Jinja2Templates(directory=directories)
     # Expose branding metadata to the root template (pre-hydration head tags).
-    templates.env.globals["branding_head"] = branding_head
+    templates.env.globals["branding_head"] = branding_head  # ty: ignore[invalid-assignment]
 
     # The adapter only switches to the asset manifest when environment equals
     # the literal "production"; normalise anything non-dev (staging, qa, ...)

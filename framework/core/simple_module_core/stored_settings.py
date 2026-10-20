@@ -57,7 +57,7 @@ def field_error(
         title=model.__name__,
         line_errors=[
             InitErrorDetails(
-                type=PydanticCustomError(error_type, message, {RELATED_FIELDS_CTX: list(related)}),
+                type=PydanticCustomError(error_type, message, {RELATED_FIELDS_CTX: list(related)}),  # ty: ignore[invalid-argument-type]
                 loc=(field,),
                 input=value,
             )

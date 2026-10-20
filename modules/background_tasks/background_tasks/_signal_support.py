@@ -47,7 +47,7 @@ def upsert_by_celery_id(
     """
     row: TaskExecution | None = None
     if celery_task_id:
-        stmt = select(TaskExecution).where(TaskExecution.celery_task_id == celery_task_id)
+        stmt = select(TaskExecution).where(TaskExecution.celery_task_id == celery_task_id)  # ty: ignore[invalid-argument-type]
         row = session.execute(stmt).scalar_one_or_none()
     if row is None:
         row = TaskExecution(celery_task_id=celery_task_id, **defaults)

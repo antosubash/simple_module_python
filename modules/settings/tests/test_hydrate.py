@@ -141,6 +141,9 @@ async def test_lenient_model_level_error_still_raises(db_session) -> None:
 async def test_lenient_log_never_echoes_the_stored_value(db_session, caplog) -> None:
     store = SettingsStore(SettingService(db_session))
     await store.set_override("g", "token", "bad-s3cr3t", "string")
+    # Only hydration's records: the insert above may already be in caplog as an
+    # aiosqlite DEBUG line when an earlier test left logging at DEBUG.
+    caplog.clear()
     with caplog.at_level("ERROR"):
         cfg = await hydrate_settings(_Guarded, store, package="g", lenient=True)
     assert cfg.token == "ok"

@@ -30,7 +30,7 @@ async def _service_with_variant(tmp_path, db_session):
     upload = UploadFile(
         filename="p.png",
         file=BytesIO(b"x"),
-        headers={"content-type": "image/png"},  # type: ignore[arg-type]
+        headers={"content-type": "image/png"},
     )
     out = await svc.upload(upload)
     variant = thumbnails.variant_key(out.key, 128)

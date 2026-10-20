@@ -163,7 +163,7 @@ async def admit(session: AsyncSession, attempt: LoginAttempt) -> Admission:
     if not source.allowed:
         raise too_many_attempts(source.retry_after)
     stmt = select(User.locked_until).where(_by_username(attempt.username))
-    rows = (await session.execute(stmt)).scalars().all()
+    rows = list((await session.execute(stmt)).scalars().all())
     if rows:
         return await _admit_account(session, attempt, rows)
     return await _admit_unknown(attempt)
@@ -282,7 +282,7 @@ async def release(session: AsyncSession, attempt: LoginAttempt, admission: Admis
     if admission.user_ids:
         await session.execute(
             update(User)
-            .where(User.id.in_(admission.user_ids), User.failed_login_count > 0)
+            .where(User.id.in_(admission.user_ids), User.failed_login_count > 0)  # ty: ignore[invalid-argument-type]
             .values(failed_login_count=User.failed_login_count - 1, updated_at=User.updated_at)
             .execution_options(synchronize_session=False)
         )

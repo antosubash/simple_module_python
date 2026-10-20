@@ -13,7 +13,7 @@ is pinned narrowly in pyproject.toml.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import Depends, Request
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
@@ -53,14 +53,14 @@ def build_cookie_transport(
     cookie_name: str,
     cookie_max_age_seconds: int,
     cookie_secure: bool,
-    cookie_samesite: str,
+    cookie_samesite: Literal["lax", "strict", "none"],
 ) -> CookieTransport:
     return CookieTransport(
         cookie_name=cookie_name,
         cookie_max_age=cookie_max_age_seconds,
         cookie_secure=cookie_secure,
         cookie_httponly=True,
-        cookie_samesite=cookie_samesite,  # type: ignore[arg-type]
+        cookie_samesite=cookie_samesite,
     )
 
 
@@ -126,4 +126,4 @@ def reconfigure_cookie_transport(
     transport.cookie_name = settings.cookie_name
     transport.cookie_max_age = settings.cookie_max_age_seconds
     transport.cookie_secure = settings.cookie_secure
-    transport.cookie_samesite = settings.cookie_samesite  # type: ignore[assignment]
+    transport.cookie_samesite = settings.cookie_samesite

@@ -37,7 +37,7 @@ class S3MultipartMixin:
     def _presign_client(self):
         if not self.public_endpoint_url:
             return self._client()
-        return self._session.client(  # type: ignore[attr-defined]
+        return self._session.client(
             "s3", **{**self.client_kwargs, "endpoint_url": self.public_endpoint_url}
         )
 

@@ -20,7 +20,7 @@ class PermissionGroupOut(SQLModel):
 class RoleOut(SQLModel):
     """A role as surfaced by the permissions admin UI."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     name: str
@@ -43,7 +43,7 @@ class RolePermissionsUpdate(SQLModel):
 class UserOut(SQLModel):
     """A user as surfaced by the permissions admin UI."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     email: str

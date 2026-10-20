@@ -118,7 +118,7 @@ async def test_a_non_matching_router_is_not_descended() -> None:
         descended += 1
         return alpha_matches(scope)
 
-    alpha.matches = spy  # type: ignore[method-assign]
+    alpha.matches = spy
     assert (await _get(app, "/api/beta/ping")).status_code == 200
     assert descended == 0, "the guard let a request for /api/beta into /api/alpha's routes"
 

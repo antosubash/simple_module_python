@@ -23,13 +23,13 @@ from sqlmodel import Field
 _WritesBase = create_module_base("writes_test")
 
 
-class _Row(_WritesBase, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _Row(_WritesBase, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "writes_test_row"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)
 
 
-class _SoftRow(_WritesBase, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _SoftRow(_WritesBase, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "writes_test_soft_row"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)

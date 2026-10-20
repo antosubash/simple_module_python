@@ -113,7 +113,7 @@ class ApiTokenService:
         """
         stmt = (
             select(ApiToken)
-            .where(ApiToken.owner_user_id == owner_user_id, ApiToken.kind == TokenKind.PERSONAL)
+            .where(ApiToken.owner_user_id == owner_user_id, ApiToken.kind == TokenKind.PERSONAL)  # ty: ignore[invalid-argument-type]
             .order_by(ApiToken.created_at.desc())
             .execution_options(**{ALL_TENANTS_OPTION: True})
         )
@@ -128,16 +128,16 @@ class ApiTokenService:
         stmt = (
             select(ApiToken)
             .where(
-                ApiToken.id == token_id,
-                ApiToken.owner_user_id == owner_user_id,
-                ApiToken.kind == TokenKind.PERSONAL,
+                ApiToken.id == token_id,  # ty: ignore[invalid-argument-type]
+                ApiToken.owner_user_id == owner_user_id,  # ty: ignore[invalid-argument-type]
+                ApiToken.kind == TokenKind.PERSONAL,  # ty: ignore[invalid-argument-type]
             )
             .execution_options(**{ALL_TENANTS_OPTION: True})
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def get_in_tenant(self, token_id: uuid.UUID) -> ApiToken | None:
-        stmt = select(ApiToken).where(ApiToken.id == token_id)
+        stmt = select(ApiToken).where(ApiToken.id == token_id)  # ty: ignore[invalid-argument-type]
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def revoke(self, token: ApiToken, *, cross_tenant: bool = False) -> ApiToken:

@@ -32,7 +32,7 @@ class FakeEventBus(EventBus):
         super().__init__()
         self.events: list[RecordedEvent] = []
 
-    async def publish(self, event: Event) -> None:  # type: ignore[override]
+    async def publish(self, event: Event) -> None:
         self.events.append(RecordedEvent(event=event))
         return await super().publish(event)
 

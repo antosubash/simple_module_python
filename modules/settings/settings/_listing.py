@@ -116,6 +116,6 @@ class SettingListing:
     def _scope_stmt(scope: SettingScope, scope_id: str):
         return (
             select(Setting)
-            .where(Setting.scope == scope.value, Setting.scope_id == scope_id)
+            .where(Setting.scope == scope.value, Setting.scope_id == scope_id)  # ty: ignore[invalid-argument-type]
             .order_by(Setting.key)
         )

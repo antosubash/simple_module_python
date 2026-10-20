@@ -164,7 +164,9 @@ def write_module_pages_manifest(
     # modules', so every host's resolver finds ``Setup/Wizard`` and its Vite
     # config serves it from the wheel — with no host-side file to add.
     framework = framework_assets()
-    pages_map = {**compute_module_pages(modules), framework.name: framework.pages_dir}
+    pages_map = dict(compute_module_pages(modules))
+    if framework.pages_dir is not None:
+        pages_map[framework.name] = framework.pages_dir
 
     manifest_path = output_dir / "modules.manifest.json"
     manifest_payload = {name: path.as_posix() for name, path in pages_map.items()}

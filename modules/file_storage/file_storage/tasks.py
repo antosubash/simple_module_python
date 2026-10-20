@@ -64,8 +64,8 @@ def reap_stale_uploads() -> dict[str, int]:
         # they only linger for support questions, so drop them after a window.
         purged = db.execute(
             delete(UploadSession).where(
-                UploadSession.status != constants.UploadStatus.ACTIVE,
-                UploadSession.expires_at
+                UploadSession.status != constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
+                UploadSession.expires_at  # ty: ignore[invalid-argument-type]
                 < now - timedelta(days=settings.upload_session_retention_days),
             )
         ).rowcount
@@ -73,8 +73,8 @@ def reap_stale_uploads() -> dict[str, int]:
             db.execute(
                 select(UploadSession)
                 .where(
-                    UploadSession.status == constants.UploadStatus.ACTIVE,
-                    UploadSession.expires_at <= now,
+                    UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
+                    UploadSession.expires_at <= now,  # ty: ignore[invalid-argument-type]
                 )
                 .limit(_REAP_BATCH)
             ).scalars()

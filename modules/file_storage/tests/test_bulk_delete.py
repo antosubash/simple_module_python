@@ -33,7 +33,7 @@ def _upload_file(name: str) -> UploadFile:
     return UploadFile(
         filename=name,
         file=BytesIO(b"payload"),
-        headers={"content-type": "text/plain"},  # type: ignore[arg-type]
+        headers={"content-type": "text/plain"},
     )
 
 

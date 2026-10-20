@@ -28,7 +28,7 @@ async def delete_tenant_rows(db: AsyncSession, tenant: Tenant) -> list[Event]:
         )
     ).all()
     for model in (Membership, Invitation):
-        await db.execute(delete(model).where(model.tenant_id == tenant.id))
+        await db.execute(delete(model).where(model.tenant_id == tenant.id))  # ty: ignore[invalid-argument-type]
     events: list[Event] = [MembershipRemoved(tenant.id, user_id) for user_id in user_ids]
     events.append(TenantDeleted(tenant.id, tenant.slug, tenant.name))
     await db.delete(tenant)

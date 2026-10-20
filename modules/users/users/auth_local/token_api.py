@@ -128,9 +128,9 @@ async def token_refresh(
 
     now = datetime.now(UTC)
     stmt = select(RefreshToken).where(
-        RefreshToken.token == token_uuid,
-        RefreshToken.revoked_at.is_(None),  # type: ignore[union-attr]
-        RefreshToken.expires_at > now,
+        RefreshToken.token == token_uuid,  # ty: ignore[invalid-argument-type]
+        RefreshToken.revoked_at.is_(None),
+        RefreshToken.expires_at > now,  # ty: ignore[invalid-argument-type]
     )
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt is None:
@@ -144,7 +144,7 @@ async def token_refresh(
     # have been deactivated, or signed everything out. Minting from a stale
     # ``user_id`` alone would hand back a live credential to an account that no
     # longer has one.
-    user = (await db.execute(select(User).where(User.id == rt.user_id))).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == rt.user_id))).scalar_one_or_none()  # ty: ignore[invalid-argument-type]
     if user is None or not user.is_active or user.disabled_at is not None:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
@@ -163,7 +163,7 @@ async def token_revoke(
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid token format") from None
 
-    stmt = select(RefreshToken).where(RefreshToken.token == token_uuid)
+    stmt = select(RefreshToken).where(RefreshToken.token == token_uuid)  # ty: ignore[invalid-argument-type]
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt and rt.revoked_at is None:
         rt.revoked_at = datetime.now(UTC)

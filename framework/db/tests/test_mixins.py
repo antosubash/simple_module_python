@@ -34,19 +34,19 @@ from sqlmodel import Field, select
 _MixinsBase = create_module_base("mixins_test")
 
 
-class _AuditRow(_MixinsBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _AuditRow(_MixinsBase, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "mixins_test_audit_row"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
 
 
-class _SoftRow(_MixinsBase, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _SoftRow(_MixinsBase, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "mixins_test_soft_row"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
 
 
-class _VersionedRow(_MixinsBase, VersionedMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _VersionedRow(_MixinsBase, VersionedMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "mixins_test_versioned_row"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
@@ -59,7 +59,7 @@ class _AllRow(
     SoftDeleteMixin,
     VersionedMixin,
     table=True,
-):  # type: ignore[call-arg]
+):
     """Composite: confirms every listener stays compatible when stacked."""
 
     __tablename__ = "mixins_test_all_row"

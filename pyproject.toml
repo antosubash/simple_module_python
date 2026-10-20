@@ -109,15 +109,21 @@ unresolved-attribute = "ignore"
 unsupported-operator = "ignore"
 unknown-argument = "ignore"
 no-matching-overload = "ignore"
-# ``invalid-argument-type`` covers two distinct things:
-#   1. Real bugs (e.g. passing ``float`` where ``Decimal`` is required) — useful.
-#   2. SQLAlchemy ``where()`` / ``select()`` / ``selectinload()`` complaints when
-#      passed SQLModel field expressions — false positives.
-# The false positives massively outnumber the real bugs and the latter still
-# get caught at runtime by tests, so we ignore the rule globally.
+
+# ``invalid-argument-type`` and ``invalid-assignment`` are on for shipped code
+# (GH #507): they catch real bugs such as an unvalidated ``object`` flowing
+# into a ``str`` parameter. Tests are exempt below because they pass fakes
+# (``SimpleNamespace`` requests, stub apps, echo translators) on purpose.
+# A remaining false positive in shipped code gets a line-level
+# ``# ty: ignore[<rule>]`` with the reason, which ty reports once unused.
+# Never write ``# type: ignore[<mypy-code>]``: ty matches the bracket against
+# its own rule names, so a mypy code suppresses nothing.
+
+[[tool.ty.overrides]]
+include = ["**/tests/**", "**/conftest.py", "tests/**", "scripts/bench_*.py"]
+
+[tool.ty.overrides.rules]
 invalid-argument-type = "ignore"
-# SQLModel's ``model_config = ConfigDict(...)`` clashes with the internal
-# ``SQLModelConfig`` type in newer ty versions. Same root cause as above.
 invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]

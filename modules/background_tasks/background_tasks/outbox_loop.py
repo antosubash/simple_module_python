@@ -29,7 +29,7 @@ import asyncio
 import logging
 import os
 import threading
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ def run_on_worker_loop[T](make: Callable[[], Awaitable[T]]) -> T:
 
 
 def stop_worker_loop(
-    finalize: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    finalize: Callable[[dict[str, Any]], Coroutine[Any, Any, None]] | None = None,
 ) -> None:
     """Stop every outbox loop this process started (tests, shutdown).
 

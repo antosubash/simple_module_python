@@ -7,6 +7,7 @@ re-exports :func:`bind_event_bus` / :func:`unbind_event_bus`.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 from typing import Any
 
@@ -53,7 +54,7 @@ def publish_from_signal(event: Any) -> None:
     future.add_done_callback(_log_publish_failure)
 
 
-def _log_publish_failure(future: asyncio.Future[Any]) -> None:
+def _log_publish_failure(future: concurrent.futures.Future[Any]) -> None:
     if future.cancelled():
         return
     exc = future.exception()

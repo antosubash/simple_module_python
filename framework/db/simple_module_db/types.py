@@ -72,7 +72,7 @@ class LTree(TypeDecorator):
 
 # Let Postgres reflection (autogenerate, ``alembic check``) return ``LTree``
 # instead of warning "Did not recognize type 'ltree'" and falling back to NullType.
-postgresql.base.ischema_names["ltree"] = LTree
+postgresql.base.ischema_names["ltree"] = LTree  # ty: ignore[invalid-assignment]
 
 
 class TSVector(TypeDecorator):

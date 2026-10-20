@@ -208,7 +208,7 @@ class TestDiscoverModulesValidation:
 
     async def test_meta_must_be_modulemeta_instance(self, monkeypatch):
         class BadMeta(ModuleBase):
-            meta = "not a ModuleMeta"  # type: ignore[assignment]
+            meta = "not a ModuleMeta"
 
         _patch_entry_points(monkeypatch, [_FakeEntryPoint("bad", BadMeta)])
 

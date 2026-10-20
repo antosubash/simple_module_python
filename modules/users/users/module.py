@@ -223,13 +223,13 @@ class UsersModule(ModuleBase):
             dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
         )
         api_router.include_router(
-            fastapi_users.get_verify_router(UserRead),
+            fastapi_users.get_verify_router(UserRead),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
         )
         api_router.include_router(
-            fastapi_users.get_register_router(UserRead, UserCreate),
+            fastapi_users.get_register_router(UserRead, UserCreate),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[

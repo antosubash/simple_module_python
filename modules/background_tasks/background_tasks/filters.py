@@ -34,15 +34,15 @@ def execution_filters(
     if tenant_id == PLATFORM_TENANT_FILTER:
         conditions.append(TaskExecution.tenant_id.is_(None))
     elif tenant_id:
-        conditions.append(TaskExecution.tenant_id == tenant_id)
+        conditions.append(TaskExecution.tenant_id == tenant_id)  # ty: ignore[invalid-argument-type]
     if status is not None:
-        conditions.append(TaskExecution.status == status)
+        conditions.append(TaskExecution.status == status)  # ty: ignore[invalid-argument-type]
     if task_name:
         conditions.append(
             TaskExecution.task_name.ilike(like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR)
         )
     if queue:
-        conditions.append(TaskExecution.queue == queue)
+        conditions.append(TaskExecution.queue == queue)  # ty: ignore[invalid-argument-type]
     return conditions
 
 

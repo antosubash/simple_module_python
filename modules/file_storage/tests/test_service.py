@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _upload(name: str, data: bytes, content_type: str = "application/octet-stream") -> UploadFile:
-    return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})  # type: ignore[arg-type]
+    return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})
 
 
 def _settings(tmp_path, **overrides) -> FileStorageSettings:
@@ -86,7 +86,7 @@ async def test_upload_compensates_on_db_failure(tmp_path, db_session: AsyncSessi
     deleted_keys: list[str] = []
 
     class _RecordingBackend(FilesystemBackend):
-        async def delete(self, key: str) -> None:  # type: ignore[override]
+        async def delete(self, key: str) -> None:
             deleted_keys.append(key)
             await super().delete(key)
 
@@ -188,7 +188,7 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
             self.headers = headers
             return f"https://signed/{key}"
 
-    pb: StorageBackend = _PresigningBackend()  # type: ignore[assignment]
+    pb: StorageBackend = _PresigningBackend()
     svc.backend = pb
     download2 = await svc.download(out.id)
     assert isinstance(download2, RedirectDownload)

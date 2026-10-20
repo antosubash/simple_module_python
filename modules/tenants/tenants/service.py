@@ -24,12 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tenants._deletion import delete_tenant_rows
 from tenants._owner_guard import demote_owner, remove_owner
-from tenants.constants import (
-    ENTITLEMENT_SEATS,
-    MAX_SLUG_LEN,
-    MembershipRole,
-    TenantStatus,
-)
+from tenants.constants import ENTITLEMENT_SEATS, MAX_SLUG_LEN, MembershipRole, TenantStatus
 from tenants.contracts.entitlements import (
     EntitlementProvider,
     UnlimitedEntitlements,
@@ -174,7 +169,7 @@ class TenantService:
         compiles away; there the database's own writer lock serialises the
         two transactions (see ``tests/test_owner_race.py``).
         """
-        stmt = select(Tenant).where(Tenant.id == tenant_id).with_for_update()
+        stmt = select(Tenant).where(Tenant.id == tenant_id).with_for_update()  # ty: ignore[invalid-argument-type]
         tenant = (await self.db.execute(stmt)).scalar_one_or_none()
         if tenant is None:
             raise TenantError("not_found", status_code=404)
@@ -205,14 +200,15 @@ class TenantService:
 
     async def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
         stmt = select(Membership).where(
-            Membership.tenant_id == tenant_id, Membership.user_id == user_id
+            Membership.tenant_id == tenant_id,  # ty: ignore[invalid-argument-type]
+            Membership.user_id == user_id,  # ty: ignore[invalid-argument-type]
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def list_members(self, tenant_id: str) -> list[Membership]:
         stmt = (
             select(Membership)
-            .where(Membership.tenant_id == tenant_id)
+            .where(Membership.tenant_id == tenant_id)  # ty: ignore[invalid-argument-type]
             .order_by(Membership.created_at)
         )
         return list((await self.db.execute(stmt)).scalars().all())
@@ -222,7 +218,7 @@ class TenantService:
         from tenants.invitations import pending_invitation_count
 
         members = await self.db.scalar(
-            select(func.count()).select_from(Membership).where(Membership.tenant_id == tenant_id)
+            select(func.count()).select_from(Membership).where(Membership.tenant_id == tenant_id)  # ty: ignore[invalid-argument-type]
         )
         return int(members or 0) + await pending_invitation_count(self.db, tenant_id)
 
@@ -260,7 +256,7 @@ class TenantService:
         stmt = (
             select(func.count())
             .select_from(Membership)
-            .where(Membership.tenant_id == tenant_id, Membership.role == MembershipRole.OWNER)
+            .where(Membership.tenant_id == tenant_id, Membership.role == MembershipRole.OWNER)  # ty: ignore[invalid-argument-type]
         )
         return int(await self.db.scalar(stmt) or 0)
 

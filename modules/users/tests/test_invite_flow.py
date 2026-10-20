@@ -35,7 +35,7 @@ class TestInviteFlow:
         assert len(invite_records) == 1, (
             f"Expected 1 invite log record, got {len(invite_records)}: {caplog.records}"
         )
-        link = invite_records[0].link  # type: ignore[attr-defined]
+        link = invite_records[0].link
         # Link format: http://testserver/users/invite/accept?token=<token>
         token = link.split("token=", 1)[1]
         assert len(token) > 20
@@ -76,7 +76,7 @@ class TestInviteFlow:
             )
 
         invite_records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
-        token = invite_records[0].link.split("token=", 1)[1]  # type: ignore[attr-defined]
+        token = invite_records[0].link.split("token=", 1)[1]
 
         resp = await anon_client.post(
             "/api/users/auth/accept-invite",

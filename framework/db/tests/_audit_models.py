@@ -15,7 +15,7 @@ from sqlmodel import Field
 AuditBase = create_module_base("test_audit")
 
 
-class AuditTestItem(AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class AuditTestItem(AuditBase, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """Standard audited entity for testing."""
 
     __tablename__ = "test_audit_item"
@@ -24,7 +24,7 @@ class AuditTestItem(AuditBase, AuditMixin, table=True):  # type: ignore[call-arg
     value: int = Field(default=0)
 
 
-class ExcludedModel(AuditBase, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class ExcludedModel(AuditBase, table=True):  # ty: ignore[unsupported-base]
     """Model that opts out of auditing entirely."""
 
     __tablename__ = "test_audit_excluded"
@@ -33,7 +33,7 @@ class ExcludedModel(AuditBase, table=True):  # type: ignore[call-arg]  # ty: ign
     name: str = Field(max_length=100)
 
 
-class PartialExcludeModel(AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class PartialExcludeModel(AuditBase, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """Model with specific fields excluded from audit tracking."""
 
     __tablename__ = "test_audit_partial"
@@ -43,7 +43,7 @@ class PartialExcludeModel(AuditBase, AuditMixin, table=True):  # type: ignore[ca
     password_hash: str = Field(max_length=255, default="")
 
 
-class SoftDeleteItem(AuditBase, AuditMixin, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class SoftDeleteItem(AuditBase, AuditMixin, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     """Audited entity with soft-delete support for testing."""
 
     __tablename__ = "test_audit_soft_delete_item"
@@ -51,7 +51,7 @@ class SoftDeleteItem(AuditBase, AuditMixin, SoftDeleteMixin, table=True):  # typ
     title: str = Field(max_length=100)
 
 
-class IntPKItem(AuditBase, AuditMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class IntPKItem(AuditBase, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """Entity with a DB-assigned integer primary key (BUG-002 regression case)."""
 
     __tablename__ = "test_audit_int_pk_item"

@@ -31,7 +31,7 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-async def app_with_host_routes(app):  # type: ignore[no-untyped-def]
+async def app_with_host_routes(app):
     """``app`` fixture + host-level routers (landing).
 
     The stock ``app`` fixture builds via ``create_app()``, which only wires

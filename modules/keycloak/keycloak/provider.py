@@ -167,7 +167,7 @@ class KeycloakAuthProvider:
             session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
             async with session_factory() as db:
-                stmt = select(KeycloakUserCache).where(KeycloakUserCache.keycloak_sub == sub)
+                stmt = select(KeycloakUserCache).where(KeycloakUserCache.keycloak_sub == sub)  # ty: ignore[invalid-argument-type]
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     import uuid as uuid_mod

@@ -14,7 +14,7 @@ class _CorrelationIdFilter(logging.Filter):
     """Inject the current correlation ID into every log record."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        record.correlation_id = correlation_id.get("")  # type: ignore[attr-defined]
+        record.correlation_id = correlation_id.get("")
         return True
 
 

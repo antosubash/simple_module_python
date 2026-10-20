@@ -74,11 +74,11 @@ def heartbeat(*, force: bool = False) -> bool:
             session.execute(
                 update(TaskExecution)
                 .where(
-                    TaskExecution.celery_task_id == task_id,
+                    TaskExecution.celery_task_id == task_id,  # ty: ignore[invalid-argument-type]
                     # Only a row still ``running``: a heartbeat must not revive
                     # a row the sweep already declared stuck (it may have been
                     # retried since) or rewrite a terminal one.
-                    TaskExecution.status == TaskStatus.RUNNING,
+                    TaskExecution.status == TaskStatus.RUNNING,  # ty: ignore[invalid-argument-type]
                 )
                 .values(heartbeat_at=now_utc())
             )

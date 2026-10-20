@@ -51,7 +51,7 @@ class AdministratorIn(SQLModel):
 
 async def _validate_password(password: str, email: str) -> None:
     try:
-        await UserManager.validate_password(UserManager, password, SimpleNamespace(email=email))
+        await UserManager.validate_password(UserManager, password, SimpleNamespace(email=email))  # ty: ignore[invalid-argument-type]
     except fu_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=422, detail=exc.reason) from exc
 

@@ -54,7 +54,7 @@ class UserService(_UserServiceBase):
             is_verified=True,
             is_superuser=False,
         )
-        user = await self._manager.create(user_create, safe=False)
+        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
 
         roles = await self._resolve_roles(role_names)
         for role in roles:
@@ -122,14 +122,14 @@ class UserService(_UserServiceBase):
         would be rolled back as a read-only request."""
         result = await self._db.execute(
             select(User)
-            .where(User.id == user_id)
-            .options(noload(User.roles), noload(User.oauth_accounts))
+            .where(User.id == user_id)  # ty: ignore[invalid-argument-type]
+            .options(noload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
         )
         user = result.scalar_one_or_none()
         if user is None:
             raise UserNotFoundError(user_id)
         for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
-            await self._db.execute(delete(model).where(model.user_id == user_id))
+            await self._db.execute(delete(model).where(model.user_id == user_id))  # ty: ignore[invalid-argument-type]
         await self._db.delete(user)
         await self._db.flush()
 
@@ -156,7 +156,7 @@ class UserService(_UserServiceBase):
             is_active=True,
             is_verified=False,
         )
-        user = await self._manager.create(user_create, safe=False)
+        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
         user.invited_at = datetime.now(UTC)
 
         # Assign roles
@@ -246,7 +246,7 @@ class UserService(_UserServiceBase):
         user = await self._require_user(user_id)
 
         # Delete all existing role assignments for this user
-        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
+        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))  # ty: ignore[invalid-argument-type]
 
         # Insert new role assignments
         roles = await self._resolve_roles(role_names)

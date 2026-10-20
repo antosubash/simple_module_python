@@ -24,13 +24,13 @@ from sqlmodel import Field
 _FilterBase = create_module_base("qfilter_test")
 
 
-class _Thing(_FilterBase, SoftDeleteMixin, MultiTenantMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _Thing(_FilterBase, SoftDeleteMixin, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "qfilter_test_thing"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(default="", max_length=100)
 
 
-class _Note(_FilterBase, SoftDeleteMixin, table=True):  # type: ignore[call-arg]  # ty: ignore[unsupported-base]
+class _Note(_FilterBase, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
     """Soft-delete only, and referenced by an outer join below."""
 
     __tablename__ = "qfilter_test_note"

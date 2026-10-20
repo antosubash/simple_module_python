@@ -95,11 +95,11 @@ class TestBatching:
         registry.register(
             AuditLink(entity_type="Setting", url_template="/s/{id}", label_resolver=db_boom)
         )
-        db_session.rollback = spy  # type: ignore[method-assign]
+        db_session.rollback = spy
         try:
             labels = await resolve_entity_labels(db_session, registry, [("Setting", "1")], UNGATED)
         finally:
-            db_session.rollback = original  # type: ignore[method-assign]
+            db_session.rollback = original
 
         assert labels == {}
         assert rollbacks == [True]

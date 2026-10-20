@@ -92,7 +92,7 @@ def _validate_value_matches_type(value: str, value_type: SettingValueType) -> No
 class SettingOut(SQLModel):
     """A setting returned by the API."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: int
     scope: SettingScope

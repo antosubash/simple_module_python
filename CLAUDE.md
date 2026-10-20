@@ -369,10 +369,15 @@ development and testing (`session_cookie_secure`).
   2 spaces, width 100) lints `host/client_app`, `packages`, module `pages/` and
   `components/` dirs; `tsc` runs per workspace, and a module with `.tsx` but no
   `tsconfig.json` fails `make ci-js-typecheck`.
-- **`ty` false positives** from SQLModel (`unresolved-attribute`,
-  `unsupported-operator`, `unknown-argument`, `no-matching-overload`,
-  `invalid-argument-type`, `invalid-assignment`) are ignored in `pyproject.toml`.
-  Don't re-enable them; tests catch the real bugs.
+- **`ty` rules.** SQLModel false positives (`unresolved-attribute`,
+  `unsupported-operator`, `unknown-argument`, `no-matching-overload`) are
+  ignored globally in `pyproject.toml`; don't re-enable them.
+  `invalid-argument-type` and `invalid-assignment` are **on** for shipped code
+  and ignored only for tests (`[[tool.ty.overrides]]`). Fix what they report;
+  for a genuine third-party false positive add `# ty: ignore[<rule>]` on that
+  line. Never write `# type: ignore[<mypy-code>]`: ty matches the bracket
+  against its own rule names, so it suppresses nothing and is never reported
+  unused.
 
 ## Adding a module or package
 

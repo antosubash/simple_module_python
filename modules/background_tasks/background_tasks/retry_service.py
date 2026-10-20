@@ -265,8 +265,8 @@ def _fail_unsent(task_id: str, exc: Exception) -> None:
             session.execute(
                 update(TaskExecution)
                 .where(
-                    TaskExecution.celery_task_id == task_id,
-                    TaskExecution.status == TaskStatus.PENDING,
+                    TaskExecution.celery_task_id == task_id,  # ty: ignore[invalid-argument-type]
+                    TaskExecution.status == TaskStatus.PENDING,  # ty: ignore[invalid-argument-type]
                 )
                 .values(
                     status=TaskStatus.FAILED,

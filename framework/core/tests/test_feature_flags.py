@@ -190,7 +190,7 @@ class TestConsumerHelpers:
             app=SimpleNamespace(state=SimpleNamespace(sm=SimpleNamespace(feature_flags=reg))),
             state=SimpleNamespace(tenant_id="acme"),
         )
-        assert is_flag_enabled(request, "beta_ui") is True  # type: ignore[arg-type]
+        assert is_flag_enabled(request, "beta_ui") is True
 
         request.state.tenant_id = "other"
-        assert is_flag_enabled(request, "beta_ui") is False  # type: ignore[arg-type]
+        assert is_flag_enabled(request, "beta_ui") is False

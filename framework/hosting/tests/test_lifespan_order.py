@@ -30,10 +30,10 @@ class _TrackingModule(ModuleBase):
     the dependency graph; the hook bodies stay on the base.
     """
 
-    async def on_startup(self, app: FastAPI) -> None:  # type: ignore[override]
+    async def on_startup(self, app: FastAPI) -> None:
         _calls.append(f"start:{self.meta.name}")
 
-    async def on_shutdown(self, app: FastAPI) -> None:  # type: ignore[override]
+    async def on_shutdown(self, app: FastAPI) -> None:
         _calls.append(f"stop:{self.meta.name}")
 
 

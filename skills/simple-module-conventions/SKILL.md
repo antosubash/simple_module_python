@@ -101,7 +101,7 @@ Locale-related diagnostics: SM013 (missing file), SM014 (missing keys vs default
 
 ### 9. Don't re-enable the silenced ty rules
 
-Projects using the `ty` type checker should globally suppress `unresolved-attribute`, `unsupported-operator`, `unknown-argument`, `no-matching-overload`, `invalid-argument-type`, and `invalid-assignment` in `pyproject.toml`. SQLModel runtime-instruments fields as SQLAlchemy attributes, so the type checker can't see what's there (and `model_config = ConfigDict(...)` clashes with ty's internal `SQLModelConfig` type, which `invalid-assignment` covers). Real bugs surface in tests.
+Projects using the `ty` type checker should globally suppress `unresolved-attribute`, `unsupported-operator`, `unknown-argument`, `no-matching-overload`, `invalid-argument-type`, and `invalid-assignment` in `pyproject.toml`. SQLModel runtime-instruments fields as SQLAlchemy attributes, so the type checker can't see what's there (and `model_config = ConfigDict(...)` clashes with ty's internal `SQLModelConfig` type, which `invalid-assignment` covers). Real bugs surface in tests. Line-level suppressions use ty's rule names, `# ty: ignore[<rule>]`; a mypy-style `# type: ignore[arg-type]` silences nothing under ty.
 
 ### 10. Declare external asset origins with `register_csp_sources`
 

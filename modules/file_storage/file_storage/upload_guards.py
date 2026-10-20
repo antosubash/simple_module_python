@@ -68,8 +68,8 @@ class UploadGuards:
         result = await self.db.execute(
             delete(UploadSession).where(
                 UploadSession.created_by == owner,
-                UploadSession.status != constants.UploadStatus.ACTIVE,
-                UploadSession.expires_at < cutoff,
+                UploadSession.status != constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
+                UploadSession.expires_at < cutoff,  # ty: ignore[invalid-argument-type]
             )
         )
         return result.rowcount or 0
@@ -109,8 +109,8 @@ class UploadGuards:
         if reserve:
             reserved = await self.db.scalar(
                 select(func.coalesce(func.sum(UploadSession.total_size), 0)).where(
-                    UploadSession.status == constants.UploadStatus.ACTIVE,
-                    UploadSession.expires_at > datetime.now(UTC),
+                    UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
+                    UploadSession.expires_at > datetime.now(UTC),  # ty: ignore[invalid-argument-type]
                 )
             )
         if (stored or 0) + (reserved or 0) + size > quota:

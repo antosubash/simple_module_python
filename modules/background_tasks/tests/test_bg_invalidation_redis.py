@@ -109,7 +109,7 @@ class TestRealRoundTrip:
         async def capture(message):
             raw.append(message)
 
-        bus.deliver = capture  # type: ignore[method-assign]
+        bus.deliver = capture
 
         listener = await _subscribed(bus, redis_server)
         import redis.asyncio as aioredis

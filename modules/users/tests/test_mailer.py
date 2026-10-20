@@ -21,9 +21,9 @@ async def test_send_verification_logs_link(url, caplog):
     assert len(caplog.records) == 1
     record = caplog.records[0]
     assert record.getMessage() == "users.verify.email"
-    assert record.to == "user@example.com"  # type: ignore[attr-defined]
+    assert record.to == "user@example.com"
     expected_link = f"{url.rstrip('/')}/users/verify?token={token}"
-    assert record.link == expected_link  # type: ignore[attr-defined]
+    assert record.link == expected_link
 
 
 @pytest.mark.parametrize("url", ["http://localhost:8000", "https://app.example.com"])
@@ -40,9 +40,9 @@ async def test_send_password_reset_logs_link(url, caplog):
     assert len(caplog.records) == 1
     record = caplog.records[0]
     assert record.getMessage() == "users.reset.email"
-    assert record.to == "user@example.com"  # type: ignore[attr-defined]
+    assert record.to == "user@example.com"
     expected_link = f"{url.rstrip('/')}/users/reset-password?token={token}"
-    assert record.link == expected_link  # type: ignore[attr-defined]
+    assert record.link == expected_link
 
 
 @pytest.mark.parametrize("url", ["http://localhost:8000", "https://app.example.com"])
@@ -59,10 +59,10 @@ async def test_send_invite_logs_link(url, caplog):
     assert len(caplog.records) == 1
     record = caplog.records[0]
     assert record.getMessage() == "users.invite.email"
-    assert record.to == "newuser@example.com"  # type: ignore[attr-defined]
+    assert record.to == "newuser@example.com"
     expected_link = f"{url.rstrip('/')}/users/invite/accept?token={token}"
-    assert record.link == expected_link  # type: ignore[attr-defined]
-    assert record.invited_by == "Alice Admin"  # type: ignore[attr-defined]
+    assert record.link == expected_link
+    assert record.invited_by == "Alice Admin"
 
 
 @pytest.mark.anyio
@@ -75,7 +75,7 @@ async def test_base_url_trailing_slash_stripped(caplog):
     with caplog.at_level(logging.INFO, logger="users.mailer"):
         await mailer.send_verification("a@b.com", "tok")
 
-    link = caplog.records[0].link  # type: ignore[attr-defined]
+    link = caplog.records[0].link
     assert not link.startswith("http://localhost:8000//")
     assert link == "http://localhost:8000/users/verify?token=tok"
 
@@ -92,8 +92,8 @@ async def test_console_logs_configured_app_name(caplog):
         await branded.send_invite("a@b.com", "tok", "Alice")
         await default.send_verification("a@b.com", "tok")
 
-    assert caplog.records[0].app_name == "Acme"  # type: ignore[attr-defined]
-    assert caplog.records[1].app_name == "SimpleModule"  # type: ignore[attr-defined]
+    assert caplog.records[0].app_name == "Acme"
+    assert caplog.records[1].app_name == "SimpleModule"
 
 
 @pytest.mark.anyio

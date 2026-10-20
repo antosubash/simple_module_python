@@ -28,7 +28,7 @@ async def attach_default_role(session: AsyncSession, user: User) -> None:
     from racing to insert it.
     """
     role = (
-        await session.execute(select(Role).where(Role.name == USER_ROLE_NAME))
+        await session.execute(select(Role).where(Role.name == USER_ROLE_NAME))  # ty: ignore[invalid-argument-type]
     ).scalar_one_or_none()
     if role is None:
         logger.warning("No '%s' role exists; %s registered with no role", USER_ROLE_NAME, user.id)

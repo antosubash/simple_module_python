@@ -26,6 +26,8 @@ async def get_file_storage_service(
     db: AsyncSession = Depends(get_db),
     services: FileStorageServices = Depends(get_file_storage_services),
 ) -> FileStorageService:
+    if services.backend is None:
+        raise RuntimeError("file_storage backend is not initialised (on_startup has not run)")
     return FileStorageService(db, services.backend, services.settings, services.aggregates)
 
 

@@ -108,7 +108,7 @@ async def compute(db: AsyncSession) -> StorageAggregates:
             select(
                 StoredFile.content_type,
                 StoredFile.created_by,
-                func.count(StoredFile.id),
+                func.count(StoredFile.id),  # ty: ignore[invalid-argument-type]
                 func.coalesce(func.sum(StoredFile.size_bytes), 0),
             ).group_by(StoredFile.content_type, StoredFile.created_by)
         )

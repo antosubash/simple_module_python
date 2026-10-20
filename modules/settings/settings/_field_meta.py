@@ -8,7 +8,7 @@ this field?" questions live together and are testable without a FastAPI app.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal, get_args, get_origin
 
 from pydantic_settings import BaseSettings
 
@@ -70,6 +70,11 @@ def choices_for(info) -> list[str] | None:
     declared = extra.get("choices")
     if isinstance(declared, (list, tuple)) and declared:
         return [str(choice) for choice in declared]
+
+    if get_origin(info.annotation) is Literal:
+        options = get_args(info.annotation)
+        if options and all(isinstance(o, str) for o in options):
+            return list(options)
 
     for constraint in info.metadata:
         pattern = getattr(constraint, "pattern", None)

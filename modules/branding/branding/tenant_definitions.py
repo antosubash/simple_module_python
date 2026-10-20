@@ -26,7 +26,7 @@ value. To go back to inheriting, delete the override.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
@@ -61,7 +61,8 @@ def _make_check(name: str):
         if name in TENANT_IMAGE_FIELDS:
             raise ValueError(IMAGE_KEY_GENERIC_WRITE_ERROR.format(asset=_ASSET_OF[name]))
         try:
-            BrandingSettings(**{name: value})
+            values: dict[str, Any] = {name: value}
+            BrandingSettings(**values)
         except ValidationError as exc:
             raise ValueError(exc.errors()[0]["msg"]) from exc
         if name == "design_pack" and value:

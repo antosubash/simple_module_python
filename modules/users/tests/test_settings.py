@@ -44,6 +44,18 @@ class TestUsersSettingsDefaults:
         s = UsersSettings()
         assert s.cookie_samesite == "lax"
 
+    def test_cookie_samesite_is_case_insensitive(self):
+        from users.settings import UsersSettings
+
+        assert UsersSettings(cookie_samesite="Strict").cookie_samesite == "strict"
+
+    def test_cookie_samesite_rejects_unknown_values(self):
+        from pydantic import ValidationError
+        from users.settings import UsersSettings
+
+        with pytest.raises(ValidationError):
+            UsersSettings(cookie_samesite="sideways")
+
     def test_bootstrap_email_default_empty(self):
         from users.settings import UsersSettings
 

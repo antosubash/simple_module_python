@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _upload(name: str, data: bytes, content_type: str = "application/octet-stream") -> UploadFile:
-    return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})  # type: ignore[arg-type]
+    return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})
 
 
 def _settings(tmp_path, **overrides) -> FileStorageSettings:
@@ -40,7 +40,7 @@ def _settings(tmp_path, **overrides) -> FileStorageSettings:
 class _BackendThatFailsOnPut(FilesystemBackend):
     """Stand-in for "disk full" / "S3 timeout" — ``put`` always raises."""
 
-    async def put(self, key, stream, *, content_type, size):  # type: ignore[override]
+    async def put(self, key, stream, *, content_type, size):
         # Drain the stream first to keep parity with what real backends do
         # before they discover they can't actually persist; this exercises
         # the size/hash counters in the service too.
@@ -56,7 +56,7 @@ class _BackendDeleteAlsoFails(FilesystemBackend):
     *original* RuntimeError (the trigger) to escape, not OSError.
     """
 
-    async def delete(self, key: str) -> None:  # type: ignore[override]
+    async def delete(self, key: str) -> None:
         raise OSError("simulated delete failure during compensation")
 
 
@@ -94,7 +94,7 @@ async def test_compensation_delete_failure_does_not_mask_original_error(
 
     async def boom_then_real(*args, **kwargs):
         if not getattr(boom_then_real, "fired", False):
-            boom_then_real.fired = True  # type: ignore[attr-defined]
+            boom_then_real.fired = True
             raise RuntimeError("DB write failure")
         return await real_flush(*args, **kwargs)
 

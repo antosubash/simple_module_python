@@ -194,7 +194,7 @@ class TestRequiresPermissionWithRoleMap:
                 )
             await app(scope, receive, send)
 
-        transport = ASGITransport(app=_set_user)  # type: ignore[arg-type]
+        transport = ASGITransport(app=_set_user)
         return AsyncClient(transport=transport, base_url="http://testserver")
 
     async def test_role_with_permission_gets_200(self):
@@ -224,7 +224,7 @@ class TestRequiresPermissionWithRoleMap:
 
         app = self._build_app(reg, "products.edit")
         # No user in state — use the raw app transport
-        transport = ASGITransport(app=app)  # type: ignore[arg-type]
+        transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             resp = await client.get("/protected")
         assert resp.status_code == 401
