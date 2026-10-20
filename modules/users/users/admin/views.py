@@ -123,16 +123,17 @@ async def admin_add_people_page(
     users_state = getattr(request.app.state, "users", None)
     mailer = getattr(users_state, "mailer", None)
     settings = getattr(users_state, "settings", None)
+    delivers = mailer_delivers(mailer)
     return await inertia.render(
         _PAGE_ADMIN_ADD,
         {
             "roles": await _roles_payload(request.app),
             # Drives the copy-link panel: when nothing can be delivered, the
             # invite mode has to hand the link back instead.
-            "mailer_delivers": mailer_delivers(mailer),
+            "mailer_delivers": delivers,
             # Named, not just "off": "Mailer is console" tells an admin which
             # setting to go and change, which "mail is disabled" does not.
-            "mailer_name": _MAILER_SMTP if mailer_delivers(mailer) else _MAILER_CONSOLE,
+            "mailer_name": _MAILER_SMTP if delivers else _MAILER_CONSOLE,
             # The footer note states the expiry rather than hardcoding "7
             # days", so shortening the lifetime cannot leave the page lying.
             "invite_expiry_days": (

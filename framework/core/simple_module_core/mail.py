@@ -100,8 +100,6 @@ def current_mail_sender() -> MailSender:
 
 async def resolve_mail_sender(db: Any | None = None) -> MailSender:
     """The installed sender, else one built by the resolver from *db*, else console."""
-    if _sender is not None:
-        return _sender
-    if _resolver is not None and db is not None:
+    if _sender is None and _resolver is not None and db is not None:
         return await _resolver(db)
-    return ConsoleMailSender(include_body=False)
+    return current_mail_sender()

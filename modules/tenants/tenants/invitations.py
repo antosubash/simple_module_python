@@ -100,11 +100,12 @@ class InvitationService:
         accept_url = f"{base_url.rstrip('/')}{ACCEPT_PATH}?token={token}"
         event = InvitationCreated(tenant_id, tenant.name, data.email, data.role, accept_url)
         bus = self.tenants.bus
-        if bus is not None and bus.durable_transport is not None:
+        durable = bus is not None and bus.durable_transport is not None
+        if durable:
             await bus.publish_durable(event, self.db)
-        else:
-            self.tenants._after_commit(callback=partial(send_invitation_after_commit, event))
-        self.tenants._after_commit(event)
+        self.tenants._after_commit(
+            event, callback=None if durable else partial(send_invitation_after_commit, event)
+        )
         return invitation, token, accept_url
 
     async def list_pending(self, tenant_id: str) -> list[Invitation]:

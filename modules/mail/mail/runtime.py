@@ -10,7 +10,7 @@ from settings.service import SettingService
 from settings.store import SettingsStore
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.health import HealthCheckResult, HealthStatus
-from simple_module_core.mail import MailSender, current_mail_sender
+from simple_module_core.mail import MailSender, current_mail_sender, install_mail_sender
 
 from mail import constants as c
 from mail.sender import build_sender
@@ -33,9 +33,13 @@ def _worker_is_non_prod() -> bool:
     return os.environ.get("SM_ENVIRONMENT", "development") in NON_PROD_ENVIRONMENTS
 
 
-def app_is_non_prod(app: Any) -> bool:
-    """Whether *app* runs in development or testing (host ``environment``)."""
-    return app.state.sm.settings.environment in NON_PROD_ENVIRONMENTS
+def install_app_sender(app: Any) -> None:
+    """Install a sender built from *app*'s current mail settings.
+
+    Bodies are logged only in development or testing (host ``environment``).
+    """
+    log_bodies = app.state.sm.settings.environment in NON_PROD_ENVIRONMENTS
+    install_mail_sender(build_sender(app.state.mail.settings, log_bodies=log_bodies))
 
 
 async def check_smtp() -> HealthCheckResult:

@@ -56,23 +56,19 @@ class MailModule(ModuleBase):
 
         from settings.contracts.events import SettingsReloaded
 
-        from mail.runtime import app_is_non_prod
-        from mail.sender import build_sender
+        from mail.runtime import install_app_sender
 
         async def _reinstall(event: SettingsReloaded) -> None:
             if event.package != c.MODULE_PACKAGE:
                 return
-            install_mail_sender(
-                build_sender(app.state.mail.settings, log_bodies=app_is_non_prod(app))
-            )
+            install_app_sender(app)
 
         bus.subscribe(SettingsReloaded, _reinstall)
 
     async def on_startup(self, app: FastAPI) -> None:
-        from mail.runtime import app_is_non_prod
-        from mail.sender import build_sender
+        from mail.runtime import install_app_sender
 
-        install_mail_sender(build_sender(app.state.mail.settings, log_bodies=app_is_non_prod(app)))
+        install_app_sender(app)
 
     async def on_shutdown(self, app: FastAPI) -> None:
         install_mail_sender(None)

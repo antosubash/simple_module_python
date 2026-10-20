@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from functools import cache
 from importlib.resources import files
 from string import Template
 from urllib.parse import urlsplit
@@ -25,12 +26,16 @@ def invitation_emailed(url: str) -> bool:
     return current_mail_sender().delivers_email and absolute_accept_url(url)
 
 
+@cache
+def _template() -> Template:
+    return Template(files(c.MODULE_PACKAGE).joinpath(c.INVITATION_TEMPLATE).read_text())
+
+
 def invitation_message(event: InvitationCreated) -> MailMessage:
-    template = Template(files(c.MODULE_PACKAGE).joinpath(c.INVITATION_TEMPLATE).read_text())
     return MailMessage(
         to=event.email,
         subject=c.INVITATION_MAIL_SUBJECT.format(tenant_name=event.tenant_name),
-        text=template.substitute(
+        text=_template().substitute(
             tenant_name=event.tenant_name, role=event.role, accept_url=event.accept_url
         ),
     )

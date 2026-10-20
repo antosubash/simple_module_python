@@ -55,6 +55,4 @@ def build_mailer(
 ) -> Mailer:
     from users.mailer.templated import TemplatedMailer
 
-    return TemplatedMailer(
-        base_url=settings.base_url, app_name_provider=app_name_provider or default_app_name
-    )
+    return TemplatedMailer(base_url=settings.base_url, app_name_provider=app_name_provider)

@@ -8,7 +8,7 @@ restart, and ``delivers_email`` reads it live for the same reason.
 from __future__ import annotations
 
 import importlib.resources
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import jinja2
 from simple_module_core.mail import MailMessage, current_mail_sender
@@ -21,16 +21,11 @@ _TPL_RESET = "reset_password.txt"
 _TPL_INVITE = "invite.txt"
 
 
-def _load_template_env() -> jinja2.Environment:
-    """Build a Jinja2 Environment pointed at the bundled templates directory."""
-    templates_path = importlib.resources.files(__package__) / "templates"
-    return jinja2.Environment(
-        loader=jinja2.FileSystemLoader(str(templates_path)),
-        autoescape=False,
-    )
-
-
-_template_env: jinja2.Environment = _load_template_env()
+# The bundled templates directory; plain text, so no autoescape.
+_template_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(str(importlib.resources.files(__package__) / "templates")),
+    autoescape=False,
+)
 
 
 class TemplatedMailer:
@@ -48,14 +43,12 @@ class TemplatedMailer:
     async def send_verification(self, email: str, token: str) -> None:
         app = self._app_name()
         link = f"{self._base}/users/verify?token={token}"
-        body = _template_env.get_template(_TPL_VERIFY).render(link=link, app_name=app)
-        await self._send(email, f"Verify your email for {app}", body)
+        await self._send(email, f"Verify your email for {app}", _TPL_VERIFY, link=link)
 
     async def send_password_reset(self, email: str, token: str) -> None:
         app = self._app_name()
         link = f"{self._base}/users/reset-password?token={token}"
-        body = _template_env.get_template(_TPL_RESET).render(link=link, app_name=app)
-        await self._send(email, f"Reset your {app} password", body)
+        await self._send(email, f"Reset your {app} password", _TPL_RESET, link=link)
 
     async def send_invite(
         self,
@@ -66,15 +59,19 @@ class TemplatedMailer:
     ) -> None:
         app = self._app_name()
         link = f"{self._base}/users/invite/accept?token={token}"
-        body = _template_env.get_template(_TPL_INVITE).render(
+        await self._send(
+            email,
+            f"{invited_by_name} invited you to {app}",
+            _TPL_INVITE,
             link=link,
             invited_by_name=invited_by_name,
-            app_name=app,
             # Stripped here rather than in the template: a message of nothing
             # but whitespace should leave no quoted block behind.
             message=(message or "").strip() or None,
         )
-        await self._send(email, f"{invited_by_name} invited you to {app}", body)
 
-    async def _send(self, to: str, subject: str, body: str) -> None:
+    async def _send(self, to: str, subject: str, template_name: str, **context: Any) -> None:
+        body = _template_env.get_template(template_name).render(
+            app_name=self._app_name(), **context
+        )
         await current_mail_sender().send(MailMessage(to=to, subject=subject, text=body))

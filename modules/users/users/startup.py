@@ -15,7 +15,7 @@ makes that ordering visible instead of a comment.
 self-contained *decision* rather than boot sequencing, and it was split out
 separately (#331) before the whole body moved here. It keeps its name and
 signature so the seam stays where that change put it. The mailer health check
-(``mail.smtp``) now belongs to the ``mail`` module.
+(``mail.mailer``) now belongs to the ``mail`` module.
 """
 
 from __future__ import annotations
