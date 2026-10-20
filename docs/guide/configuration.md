@@ -58,7 +58,7 @@ Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second, non-admin seed user. |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
 
-DB-backed users settings (defaults): `allow_signup=false`, `mailer=console` (or `smtp`), `base_url=http://localhost:8000`, and the `smtp_*` fields (`smtp_port=587`, `smtp_from=no-reply@localhost`, `smtp_tls=true`).
+DB-backed users settings (defaults): `allow_signup=false` and `base_url=http://localhost:8000`. Outgoing mail (SMTP host, credentials, sender address) is configured in the [`mail` module](/modules/mail), not under Users.
 
 ## Background tasks (Celery)
 

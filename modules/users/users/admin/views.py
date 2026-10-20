@@ -29,6 +29,8 @@ _PAGE_ADMIN_ADD = "Users/Users/AddPeople"
 _PAGE_ADMIN_EDIT = "Users/Users/Edit"
 
 _SECONDS_PER_DAY = 60 * 60 * 24
+_MAILER_SMTP = "smtp"
+_MAILER_CONSOLE = "console"
 
 
 async def _roles_payload(app) -> list[dict[str, str]]:
@@ -130,7 +132,7 @@ async def admin_add_people_page(
             "mailer_delivers": mailer_delivers(mailer),
             # Named, not just "off": "Mailer is console" tells an admin which
             # setting to go and change, which "mail is disabled" does not.
-            "mailer_name": getattr(settings, "mailer", "console"),
+            "mailer_name": _MAILER_SMTP if mailer_delivers(mailer) else _MAILER_CONSOLE,
             # The footer note states the expiry rather than hardcoding "7
             # days", so shortening the lifetime cannot leave the page lying.
             "invite_expiry_days": (

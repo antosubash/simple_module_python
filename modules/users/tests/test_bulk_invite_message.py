@@ -8,8 +8,6 @@ rather than stopping at the API boundary.
 
 from __future__ import annotations
 
-import logging
-
 import pytest
 
 _URL = "/api/users/admin/invite/bulk"
@@ -111,11 +109,15 @@ class TestBulkInviteMessage:
         assert row["state"] == "invited"
 
 
-class TestConsoleMailerMessage:
+class TestTemplatedMailerMessage:
     @pytest.mark.anyio
-    async def test_console_mailer_logs_the_message(self, users_app, caplog):
+    async def test_mailer_quotes_the_message(self, users_app, captured_mail):
         mailer = users_app.state.users.mailer
-        with caplog.at_level(logging.INFO, logger="users.mailer"):
-            await mailer.send_invite("x@example.com", "tok", "Alex Doyle", "See you Monday.")
-        record = next(r for r in caplog.records if r.getMessage() == "users.invite.email")
-        assert record.message_body == "See you Monday."
+        await mailer.send_invite("x@example.com", "tok", "Alex Doyle", "See you Monday.")
+        assert "See you Monday." in captured_mail.to("x@example.com")[0].text
+
+    @pytest.mark.anyio
+    async def test_blank_message_leaves_no_quote(self, users_app, captured_mail):
+        mailer = users_app.state.users.mailer
+        await mailer.send_invite("x@example.com", "tok", "Alex Doyle", "   \n ")
+        assert "See you" not in captured_mail.to("x@example.com")[0].text

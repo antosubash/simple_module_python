@@ -62,7 +62,7 @@ class TestForgotPasswordProps:
 
     @pytest.mark.anyio
     async def test_console_mailer_does_not_deliver(self, anon_client):
-        """The test app runs the ConsoleMailer, so the amber callout must show."""
+        """The test app has no delivering mail sender, so the amber callout must show."""
         props = _props(await anon_client.get("/users/forgot-password", headers=_INERTIA_HEADERS))
         assert props["mailer_delivers"] is False
 

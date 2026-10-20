@@ -30,7 +30,6 @@ dependencies = [
     # fields after construction (see reconfigure_cookie_transport in backend.py).
     # Bumping the major version requires re-checking those field names.
     "fastapi-users[sqlalchemy,oauth]>=15,<16",
-    "aiosmtplib>=3.0",
     "cachetools>=5.3",
     "typer>=0.12",
 ]

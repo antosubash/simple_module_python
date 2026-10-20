@@ -46,12 +46,7 @@ from pydantic_settings import BaseSettings
 
 class UsersEnv(BaseSettings):
     allow_signup: bool = False
-    mailer: str = "console"
     base_url: str | None = None
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_username: str | None = None
-    smtp_password: str | None = None
 
     class Config:
         env_prefix = "SM_USERS_"
@@ -65,7 +60,7 @@ from dataclasses import dataclass
 @dataclass
 class UsersState:
     settings: UsersEnv
-    mailer: Mailer  # picked based on settings.mailer
+    mailer: Mailer  # sends through the mail module's sender
     principal_serializer: Callable[[User], dict]
 ```
 

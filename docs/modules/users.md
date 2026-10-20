@@ -192,9 +192,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_secure` | `True` (flipped to `False` in dev at startup) |
 | `cookie_samesite` | `"lax"` |
-| `mailer` | `"console"` (or `"smtp"`) |
 | `base_url` | `"http://localhost:8000"` |
-| `smtp_host` / `smtp_port` / `smtp_username` / `smtp_password` / `smtp_from` / `smtp_tls` | SMTP config when `mailer="smtp"` |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
 | `login_rate_limit_cooldown_seconds` | `900` — how long an account lock lasts |
@@ -389,16 +387,11 @@ Trade-offs to know about:
 - **Without Redis, entries can be evicted.** The in-process store caps its key count and evicts under that pressure, so a flood of distinct usernames can drop an unknown username's lock or a source's throttle early. Account locks live on the row and are unaffected. Set `SM_REDIS_URL` in production.
 - Login values longer than an address can be (254 characters) are hashed before they become store keys, so a large request body cannot park a large key in Redis.
 
-## Mailer backends
+## Mailer
 
-`mailer/` ships two implementations of the `Mailer` protocol:
+`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the bundled verify / reset / invite templates and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.smtp` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
 
-| Backend | When to use | Configured via |
-|---|---|---|
-| `ConsoleMailer` | dev — prints invite / verify / reset links to stdout | `mailer="console"` |
-| `SmtpMailer` | prod — talks SMTP | `mailer="smtp"` + `smtp_*` settings |
-
-`build_mailer(settings)` returns the right instance based on `users.mailer`.
+`delivers_email` reflects the installed sender, so screens that need to hand the one-time link back (reset-sent card, add people, resend and bulk invite) do so whenever the sender only logs. `build_mailer(settings)` returns the `TemplatedMailer`; a third-party `Mailer` can still be assigned to `app.state.users.mailer`.
 
 ## OAuth providers
 

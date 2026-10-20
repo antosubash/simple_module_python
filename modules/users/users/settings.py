@@ -106,15 +106,8 @@ class UsersSettings(DbBackedSettings):
         """``"Strict"`` worked when this was a plain ``str`` (Starlette lowercases it)."""
         return value.lower() if isinstance(value, str) else value
 
-    # Mailer
-    mailer: str = Field(default="console", pattern="^(console|smtp)$")
+    # Mail transport (SMTP, console) lives in the ``mail`` module.
     base_url: str = "http://localhost:8000"
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_username: str = ""
-    smtp_password: str = ""
-    smtp_from: str = "no-reply@localhost"
-    smtp_tls: bool = True
 
     # Login lockout (GH #530, ``users.auth_local.lockout``). Failures within the
     # window: ``login_rate_limit_failures`` from one IP for one username

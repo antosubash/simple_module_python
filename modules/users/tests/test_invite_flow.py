@@ -6,38 +6,34 @@ with that token + password → new user can log in.
 
 from __future__ import annotations
 
-import logging
+import re
 
 import pytest
 
 
 class TestInviteFlow:
     @pytest.mark.anyio
-    async def test_full_invite_flow(self, admin_client, anon_client, caplog):
+    async def test_full_invite_flow(self, admin_client, anon_client, captured_mail):
         """Admin invites user → token from logs → accept-invite → login."""
         # Step 1: Admin sends invite
-        with caplog.at_level(logging.INFO, logger="users.mailer"):
-            resp = await admin_client.post(
-                "/api/users/admin/invite",
-                json={
-                    "email": "newbie@example.com",
-                    "full_name": "New User",
-                    "role_names": ["user"],
-                },
-            )
+        resp = await admin_client.post(
+            "/api/users/admin/invite",
+            json={
+                "email": "newbie@example.com",
+                "full_name": "New User",
+                "role_names": ["user"],
+            },
+        )
         assert resp.status_code == 201, resp.text
         body = resp.json()
         assert body["email"] == "newbie@example.com"
         assert body["is_verified"] is False
 
-        # Step 2: Extract token from ConsoleMailer log record
-        invite_records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
-        assert len(invite_records) == 1, (
-            f"Expected 1 invite log record, got {len(invite_records)}: {caplog.records}"
-        )
-        link = invite_records[0].link
+        # Step 2: Extract token from the captured invite mail
+        sent = [m for m in captured_mail.to("newbie@example.com") if "invited you" in m.subject]
+        assert len(sent) == 1, f"Expected 1 invite mail, got {captured_mail.messages}"
         # Link format: http://testserver/users/invite/accept?token=<token>
-        token = link.split("token=", 1)[1]
+        token = re.search(r"token=(\S+)", sent[0].text).group(1)
         assert len(token) > 20
 
         # Step 3: Accept invite with the token and a new password
@@ -67,16 +63,21 @@ class TestInviteFlow:
         assert resp.json()["detail"] == "INVITE_BAD_TOKEN"
 
     @pytest.mark.anyio
-    async def test_accept_invite_weak_password_fails(self, admin_client, anon_client, caplog):
+    async def test_accept_invite_weak_password_fails(
+        self, admin_client, anon_client, captured_mail
+    ):
         """Weak password during accept-invite should return 400."""
-        with caplog.at_level(logging.INFO, logger="users.mailer"):
-            await admin_client.post(
-                "/api/users/admin/invite",
-                json={"email": "weakpw@example.com"},
-            )
+        await admin_client.post(
+            "/api/users/admin/invite",
+            json={"email": "weakpw@example.com"},
+        )
 
-        invite_records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
-        token = invite_records[0].link.split("token=", 1)[1]
+        token = re.search(
+            r"token=(\S+)",
+            next(
+                m for m in captured_mail.to("weakpw@example.com") if "invited you" in m.subject
+            ).text,
+        ).group(1)
 
         resp = await anon_client.post(
             "/api/users/auth/accept-invite",

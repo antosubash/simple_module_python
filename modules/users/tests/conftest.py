@@ -2,7 +2,7 @@
 
 The ``users_app`` fixture builds a full FastAPI app via ``create_app`` but
 with an in-memory SQLite database, seeded roles, and test-friendly settings
-(ConsoleMailer, signup disabled by default, short secrets).
+(no mail sender installed, signup disabled by default, short secrets).
 
 The ``anon_client`` gives a plain httpx client.
 The ``admin_client`` gives a client with a signed local-user session cookie
