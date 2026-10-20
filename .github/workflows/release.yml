@@ -125,6 +125,7 @@ jobs:
           - simple_module_feature_flags
           - simple_module_file_storage
           - simple_module_keycloak
+          - simple_module_mail
           - simple_module_permissions
           - simple_module_settings
           - simple_module_site_lock

@@ -189,6 +189,7 @@ export default defineConfig({
             { text: "background_tasks", link: "/modules/background_tasks" },
             { text: "audit_log", link: "/modules/audit_log" },
             { text: "site_lock", link: "/modules/site_lock" },
+            { text: "mail", link: "/modules/mail" },
             { text: "tenants", link: "/modules/tenants" },
             { text: "dashboard", link: "/modules/dashboard" },
           ],
