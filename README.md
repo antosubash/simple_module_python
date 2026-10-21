@@ -152,7 +152,7 @@ packages/
   ui/          # shared shadcn/ui components, layouts, and design-system primitives
   i18n/        # generated i18n keys + translation runtime
 scripts/
-  new_module.py  # module scaffolder (called by `make new-module`)
+  new_module.py  # thin wrapper over the CLI scaffolder (`make new-module`)
 docs/
   plans/                      # design + implementation plans
   framework-conventions.md    # invariants for module authors
@@ -224,7 +224,7 @@ The frontend uses an emerald + teal design system mirrored as Tailwind 4 tokens.
 - Reach for `StatCard` / `SectionTitle` / `FilterPills` before rolling new layouts.
 - Use lucide-react icons (already a dependency) and the existing `Badge` / `Button` variants — emerald primary for the main CTA, outline / ghost for secondary actions.
 
-The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/components/UserRow.tsx` and `modules/dashboard/dashboard/pages/components/doctor-data.ts` for the pattern.
+The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/admin/components/UserRow.tsx` and `modules/dashboard/dashboard/pages/components/doctor/report.ts` for the pattern.
 
 ## User management
 

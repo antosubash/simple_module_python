@@ -58,3 +58,13 @@ async def test_recent_entries_by_one_actor_with_gated_labels(app):
 
         admin_view = await feed.recent_for_actor(db, actor, limit=1, permissions=[WILDCARD])
         assert len(admin_view) == 1
+
+
+async def test_feed_is_installed_on_startup_and_cleared_on_shutdown(app):
+    from audit_log.module import AuditLogModule
+
+    assert isinstance(get_activity_feed(app), AuditActivityFeed)
+    await AuditLogModule().on_shutdown(app)
+    assert get_activity_feed(app) is None
+    await AuditLogModule().on_startup(app)
+    assert isinstance(get_activity_feed(app), AuditActivityFeed)

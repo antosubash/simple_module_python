@@ -5,9 +5,6 @@
     "search_placeholder": "Search by task name…",
     "workers_button": "Workers",
     "retry_all_button": "Retry all failed",
-    "previous": "Previous",
-    "next": "Next",
-    "showing": "Showing {from}–{to} of {total}",
     "outbox_button": "Outbox"
   },
   "strip": {

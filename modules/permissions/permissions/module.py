@@ -11,6 +11,7 @@ from fastapi import APIRouter
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_db import independent_session
 
 from permissions.constants import _MODULE_AUTH, _MODULE_USERS
 
@@ -66,13 +67,11 @@ class PermissionsModule(ModuleBase):
         from permissions.models import RolePermission
 
         registry.register(
-            AuditLink(
-                # Class name, not __tablename__ — see AuditLink.entity_type.
-                entity_type=RolePermission.__name__,
+            AuditLink.for_model(
+                RolePermission,
                 url_template="",
                 label="Role permission",
                 label_key="permissions.audit.role_permission",
-                table_name=RolePermission.__tablename__,
                 label_resolver=_resolve_role_permission_labels,
             )
         )
@@ -104,10 +103,8 @@ class PermissionsModule(ModuleBase):
         """Replay persisted role→permission rows into the live registry."""
         from permissions.service import PermissionService
 
-        db_state = app.state.sm.db
         registry = app.state.sm.permissions
-        async with db_state.session_factory() as db:
+        async with independent_session(app) as db:
             service = PermissionService(db, registry)
             await service.load_all_into_registry()
             await service.sync_admin_all_permissions()
-            await db.commit()

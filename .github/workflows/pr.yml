@@ -46,12 +46,26 @@ jobs:
       # extra-paths / pytest testpaths lists (#520) must match what is on disk.
       - run: make ci-check-metadata
       - run: make ci-check-locales
+      # Backticked repo paths in docs/, CLAUDE.md, README.md and skills must exist (#519).
+      - run: make ci-doc-paths
       # Fixed sleeps in tests are timing bets; poll with simple_module_test.wait_for.
       - run: make ci-check-test-sleeps
       # The checked-in typed-key files must match what the installed modules'
       # catalogs emit. Catches a catalog edit committed without regenerating, and
       # (with the namespace guard in gen_i18n.py) a regeneration that dropped keys.
       - run: make ci-i18n-fresh
+
+  docs-build:
+    name: Docs site build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: make ci-docs-build
 
   python-typecheck:
     name: Python typecheck
@@ -456,6 +470,7 @@ jobs:
       - perf-guards
       - file-size-check
       - package-build
+      - docs-build
     if: always()
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

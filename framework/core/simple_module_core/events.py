@@ -45,14 +45,15 @@ class EventBus:
     * ``publish_nowait`` — fire-and-forget via pyee's event-loop scheduling.
     * ``publish_durable`` — written to an outbox in the caller's transaction and
       delivered at-least-once by the installed :class:`DurableTransport`
-      (``background_tasks``) to handlers registered with ``subscribe_durable``.
+      to handlers registered with ``subscribe_durable``. The framework ships
+      an implementation in ``background_tasks``.
     """
 
     def __init__(self) -> None:
         self._emitter = AsyncIOEventEmitter()
         self._emitter.on("error", self._on_emitter_error)
         self.durable = DurableRegistry()
-        # Installed by the module that owns the outbox (background_tasks).
+        # DurableTransport is the extension point; background_tasks ships an implementation.
         self.durable_transport: DurableTransport | None = None
 
     @staticmethod
@@ -127,7 +128,8 @@ class EventBus:
         Nothing is delivered unless that transaction commits. In-process
         ``subscribe`` handlers are **not** called; publish separately if you
         want both. Raises :class:`DurableDeliveryUnavailable` when no transport
-        is installed (``background_tasks`` not installed or not started).
+        is installed. Implement :class:`DurableTransport` or enable the shipped
+        ``background_tasks`` implementation.
         """
         transport = self.durable_transport
         if transport is None:

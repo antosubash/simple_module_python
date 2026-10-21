@@ -101,5 +101,10 @@
     "unauthorized_title": "Inicio de sesión requerido",
     "unavailable_description": "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos momentos.",
     "unavailable_title": "Servicio no disponible"
+  },
+  "pagination": {
+    "showing": "Mostrando {from}–{to} de {total}",
+    "previous": "Anterior",
+    "next": "Siguiente"
   }
 }

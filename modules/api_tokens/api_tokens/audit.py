@@ -42,11 +42,10 @@ async def resolve_token_labels(db: AsyncSession, ids: list[str]) -> dict[str, st
 
 
 def build_token_audit_link() -> AuditLink:
-    return AuditLink(
-        entity_type=ApiToken.__name__,
+    return AuditLink.for_model(
+        ApiToken,
         url_template=f"{ADMIN_URL}?{QP_TOKEN}={{id}}",
         label=AUDIT_LINK_LABEL,
         label_key=AUDIT_LINK_LABEL_KEY,
-        table_name=ApiToken.__tablename__,
         label_resolver=resolve_token_labels,
     )

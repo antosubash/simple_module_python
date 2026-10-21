@@ -96,12 +96,15 @@ class KeycloakDirectory:
         return select(_UuidText(KeycloakUserCache.id)).where(_name_or_email_contains(term))
 
     async def stats(self, db: Any, *, active_window: timedelta) -> DirectoryStats:
-        count = select(func.count()).select_from(KeycloakUserCache)
-        total = (await db.execute(count)).scalar_one()
         cutoff = datetime.now(UTC) - active_window
-        active = (
-            await db.execute(count.where(KeycloakUserCache.last_login_at >= cutoff))
-        ).scalar_one()
+        total, active = (
+            await db.execute(
+                select(
+                    func.count(),
+                    func.count().filter(KeycloakUserCache.last_login_at >= cutoff),
+                ).select_from(KeycloakUserCache)
+            )
+        ).one()
         # The cache row is written at first sign-in, not account creation.
         return DirectoryStats(total=total, active_since=active, created_this_month=None)
 

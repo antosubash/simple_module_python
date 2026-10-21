@@ -123,11 +123,8 @@ export const keys = {
       empty_description: 'audit_log.browse.empty_description',
       empty_title: 'audit_log.browse.empty_title',
       export_csv: 'audit_log.browse.export_csv',
-      next: 'audit_log.browse.next',
       no_match_description: 'audit_log.browse.no_match_description',
       no_match_title: 'audit_log.browse.no_match_title',
-      previous: 'audit_log.browse.previous',
-      showing: 'audit_log.browse.showing',
       title: 'audit_log.browse.title',
     },
     changes: {
@@ -230,12 +227,9 @@ export const keys = {
     },
     index: {
       description: 'background_tasks.index.description',
-      next: 'background_tasks.index.next',
       outbox_button: 'background_tasks.index.outbox_button',
-      previous: 'background_tasks.index.previous',
       retry_all_button: 'background_tasks.index.retry_all_button',
       search_placeholder: 'background_tasks.index.search_placeholder',
-      showing: 'background_tasks.index.showing',
       title: 'background_tasks.index.title',
       workers_button: 'background_tasks.index.workers_button',
     },
@@ -1285,6 +1279,11 @@ export const keys = {
       content: 'ui.nav_groups.content',
       navigation: 'ui.nav_groups.navigation',
       system: 'ui.nav_groups.system',
+    },
+    pagination: {
+      next: 'ui.pagination.next',
+      previous: 'ui.pagination.previous',
+      showing: 'ui.pagination.showing',
     },
     public_nav: {
       close_menu: 'ui.public_nav.close_menu',
