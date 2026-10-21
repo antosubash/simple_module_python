@@ -1,7 +1,7 @@
 """Bump the version of every simple_module package in lockstep.
 
-Walks every framework/*/pyproject.toml, modules/*/pyproject.toml, and
-packages/*/package.json. Rewrites:
+Walks every framework/*/pyproject.toml, modules/*/pyproject.toml,
+modules/*/package.json and packages/*/package.json. Rewrites:
 
   * project.version
   * every simple_module_* entry in project.dependencies → "simple_module_*==<version>"
@@ -100,7 +100,8 @@ def bump_npm_package(package_json: Path, new_version: str, *, check: bool = Fals
         if not deps:
             continue
         for name, current in list(deps.items()):
-            if name.startswith(NPM_SCOPE_PREFIX) and current != new_version:
+            # "*" is the workspace wildcard (private module package.json); keep it.
+            if name.startswith(NPM_SCOPE_PREFIX) and current not in (new_version, "*"):
                 changed = True
                 deps[name] = new_version
 
@@ -120,11 +121,13 @@ def discover(root: Path) -> tuple[list[Path], list[Path]]:
                 if child.is_dir() and (child / "pyproject.toml").exists():
                     py.append(child / "pyproject.toml")
     npm: list[Path] = []
-    packages_dir = root / "packages"
-    if packages_dir.is_dir():
-        for child in sorted(packages_dir.iterdir()):
-            if child.is_dir() and (child / "package.json").exists():
-                npm.append(child / "package.json")
+    # Module package.json files version in lockstep with the Python packages (#510).
+    for base in ("modules", "packages"):
+        base_dir = root / base
+        if base_dir.is_dir():
+            for child in sorted(base_dir.iterdir()):
+                if child.is_dir() and (child / "package.json").exists():
+                    npm.append(child / "package.json")
     return py, npm
 
 

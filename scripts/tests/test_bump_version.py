@@ -146,3 +146,16 @@ def test_main_rejects_invalid_version(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(SystemExit):
         main(["not-a-version"])
+
+
+def test_discover_includes_module_package_json(tmp_path: Path, writer) -> None:
+    from scripts.bump_version import discover
+
+    writer(tmp_path / "modules/foo/pyproject.toml", PY_SAMPLE)
+    writer(tmp_path / "modules/foo/package.json", '{"name": "@simple-module-py/foo"}')
+    writer(tmp_path / "packages/ui/package.json", '{"name": "@simple-module-py/ui"}')
+    _, npm = discover(tmp_path)
+    assert [p.relative_to(tmp_path).as_posix() for p in npm] == [
+        "modules/foo/package.json",
+        "packages/ui/package.json",
+    ]

@@ -3,6 +3,9 @@ name: PR
 on:
   pull_request:
     branches: [main]
+  # The release workflow runs this whole suite against the dispatched commit
+  # (#510), so a release can never ship code that did not pass `pr-checks`.
+  workflow_call:
 
 # Cancel in-progress runs when new commits are pushed to the same PR
 # so we never waste minutes on outdated code. On main (push), github.ref is

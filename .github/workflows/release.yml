@@ -62,11 +62,16 @@ jobs:
           echo "version=${ver}" >> "$GITHUB_OUTPUT"
           echo "Resolved version: ${ver}"
 
+  # The full PR suite (the `pr-checks` aggregate) runs against the dispatched
+  # commit; `build` needs it, so nothing is built or published from a red commit.
+  checks:
+    uses: ./.github/workflows/pr.yml
+
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
   # The commit + tag only hit origin in `finalize`, after publishes succeed,
   # so a failed build never leaves an orphan tag to clean up.
   build:
-    needs: resolve
+    needs: [resolve, checks]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -78,14 +83,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Bump all package versions (working tree only)
-        run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
-      # Workspace members are pinned in uv.lock (version + ==pins); PR CI runs
-      # `uv sync --locked`, so a bump that skips this breaks every PR after it.
-      - name: Regenerate uv lockfile
-        run: uv lock
-      - name: Regenerate npm lockfile
-        run: npm install --package-lock-only
+      - uses: ./.github/actions/bump-version
+        with:
+          version: ${{ needs.resolve.outputs.version }}
       - name: Build Python wheels + sdists
         run: uv build --all-packages --out-dir dist-py
       - name: Pack npm tarballs
@@ -220,14 +220,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Re-apply version bump
-        run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
-      # Workspace members are pinned in uv.lock (version + ==pins); PR CI runs
-      # `uv sync --locked`, so a bump that skips this breaks every PR after it.
-      - name: Regenerate uv lockfile
-        run: uv lock
-      - name: Regenerate npm lockfile
-        run: npm install --package-lock-only
+      - uses: ./.github/actions/bump-version
+        with:
+          version: ${{ needs.resolve.outputs.version }}
+          cut-changelog: "true"
       - name: Commit, tag, push
         env:
           VERSION: ${{ needs.resolve.outputs.version }}
@@ -247,4 +243,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.resolve.outputs.version }}
-        run: gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+        run: |
+          # Notes come from the dated CHANGELOG section cut above; fall back to
+          # generated notes only when that section is empty.
+          uv run python scripts/cut_changelog.py "${VERSION}" --notes > release-notes.md
+          if [ -s release-notes.md ]; then
+            gh release create "v${VERSION}" --title "v${VERSION}" --notes-file release-notes.md
+          else
+            gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          fi
