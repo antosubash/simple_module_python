@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- In-process durable outbox delivery and lifespan-owned recovery sweeps, automatically enabled in eager mode (#565).
 - `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
   `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
   `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial
@@ -287,6 +288,7 @@ All notable changes to this project are documented in this file. The format is b
   previously served, and anonymous, in production.
 
 ### Fixed
+- Background task stuck sweeps and retention purges now use DB-backed settings so admin edits apply instead of reading only environment variables (#565).
 - User directory follow-ups (#501): `audit_log` installs its activity feed in
   `on_startup` (cleared on shutdown) instead of `register_settings`, which
   tripped `SM012`; `resolve_user_labels` omits users whose label is empty so

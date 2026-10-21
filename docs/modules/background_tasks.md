@@ -175,6 +175,16 @@ Each field defaults to `None`, which keeps Celery's own default; all require a w
 
 ## Durable events (outbox)
 
+`outbox_mode` defaults to `celery`: workers deliver committed rows and beat
+recovers missed dispatches. Set it to `inprocess` to deliver on the web app's
+async engine without a worker for durable events. `task_always_eager` also
+selects `inprocess` automatically. Each web process sweeps pending rows and
+expired leases every `outbox_sweep_interval_seconds` (default 5, minimum 1),
+with small jitter and at most one retry per failed sweep. Shutdown cancels
+and joins the sweep, then drains scheduled deliveries. Mode and interval
+changes require a restart. Ordinary Celery tasks still use their configured queue.
+
+
 `bus.publish` is in-process: a crash, a restart or a failing handler loses the
 event. For side effects that must happen — an invoice email, a search-index
 update, a call to another system — subscribe a **durable** handler and publish
@@ -209,7 +219,7 @@ How it is delivered:
 - After the commit, `background_tasks.dispatch_outbox(ids)` is sent to the broker.
   If that never happens (the process died between commit and publish, or the
   broker was down), the beat task `background_tasks.sweep_outbox` delivers the row
-  within `outbox_sweep_interval_seconds` (30 s).
+  within `outbox_sweep_interval_seconds` (5 s).
 - A worker **claims** a row with one conditional `UPDATE` (`pending → running`,
   `attempts + 1`, `claim_seq + 1`, `locked_until = now + outbox_lease_seconds`);
   on Postgres the candidate select uses `FOR UPDATE SKIP LOCKED`. Two workers
@@ -434,7 +444,8 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `retention_days` | `14` | how long to keep terminal rows; range 1-3650 |
 | `max_retries` | `3` | informational; tasks define their own policies; range 0-100 |
 | `outbox_max_attempts` | `8` | durable-event delivery attempts before `dead`; range 1-100 |
-| `outbox_sweep_interval_seconds` | `30` | restart required; beat cadence of `sweep_outbox` |
+| `outbox_mode` | `"celery"` | restart required; `celery` or `inprocess`; eager forces `inprocess` |
+| `outbox_sweep_interval_seconds` | `5` | restart required; sweep cadence in either mode; minimum 1 |
 | `outbox_lease_seconds` | `300` | how long a claimed delivery may run before another worker reclaims it; range 10-86400 — keep it above your slowest durable handler |
 | `outbox_handler_timeout_seconds` | unset | per-attempt handler timeout; unset means the lease minus a safety margin (10 %, at least 5 s), which is also the most it may be set to |
 

@@ -140,7 +140,7 @@ class OutboxScope(StrEnum):
 
 
 DEFAULT_OUTBOX_MAX_ATTEMPTS = 8
-DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 30
+DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 5
 # How long a claimed row stays ``running`` before another worker may reclaim it.
 # Durable handlers are cut off ``outbox_lease_margin`` before it, so no run can
 # outlive its claim and overlap the rerun a reclaim would start.
@@ -172,3 +172,8 @@ OUTBOX_KEY_MAX_LENGTH = 255
 TENANT_ID_MAX_LENGTH = 50
 # Filter value meaning "executions with no tenant" (beat / platform publishes).
 PLATFORM_TENANT_FILTER = "__platform__"
+
+
+class OutboxMode(StrEnum):
+    CELERY = "celery"
+    INPROCESS = "inprocess"
