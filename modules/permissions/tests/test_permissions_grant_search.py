@@ -6,6 +6,7 @@ from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 from permissions.service import PermissionService
 from simple_module_core.permissions import PermissionRegistry
 from test_permissions_module import _seed_user
+from users.directory import UsersDirectory
 
 
 class TestGrantSearchEscaping:
@@ -17,7 +18,7 @@ class TestGrantSearchEscaping:
         await _seed_user(db_session, email="danaYx@test")
         registry = PermissionRegistry()
         registry.add_group(PERMISSION_GROUP, [PERM_VIEW, PERM_MANAGE])
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
 
         rows = await svc.list_users_with_counts(search="dana_x")
 

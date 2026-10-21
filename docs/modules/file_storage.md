@@ -17,7 +17,7 @@ The extras combine as `simple_module_file_storage[s3,tasks]`. Without
 | `name` | `FileStorage` |
 | `route_prefix` | `/api/file-storage` |
 | `view_prefix` | `/file-storage` |
-| `depends_on` | `["Settings"]` |
+| `depends_on` | `[]` (optional: `["Settings"]`) |
 
 ## Routes
 

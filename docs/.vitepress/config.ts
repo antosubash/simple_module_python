@@ -123,6 +123,7 @@ export default defineConfig({
             { text: "Settings & app.state", link: "/framework/settings" },
             { text: "Permissions", link: "/framework/permissions" },
             { text: "Principal resolvers", link: "/framework/principal-resolvers" },
+            { text: "User directory", link: "/framework/user-directory" },
             { text: "Public routes", link: "/framework/public-routes" },
             { text: "Events", link: "/framework/events" },
             { text: "Cache invalidation", link: "/framework/invalidation" },

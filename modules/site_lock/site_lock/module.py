@@ -20,7 +20,8 @@ class SiteLockModule(ModuleBase):
         # no longer needs it, #500); ``Auth`` so this module sorts *after* auth and its
         # middleware therefore wraps outermost, executing before
         # AuthMiddleware. Both are load-bearing — see the module README.
-        depends_on=[c.MODULE_SETTINGS, c.MODULE_AUTH],
+        depends_on=[c.MODULE_AUTH],
+        optional_depends_on=[c.MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:

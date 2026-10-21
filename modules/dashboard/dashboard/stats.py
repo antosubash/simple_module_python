@@ -5,16 +5,16 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from fastapi import FastAPI
 from simple_module_core.discovery import get_module_package_name
 from simple_module_core.health import HealthCheck, HealthStatus
-from sqlalchemy import func, select
+from simple_module_core.user_directory import get_user_directory
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.models import User
 
 _CACHE_TTL_SECONDS = 30
+_ACTIVE_WINDOW_DAYS = 7
 _cache: dict | None = None
 _cache_ts: float = 0.0
 _cache_lock = asyncio.Lock()
@@ -40,16 +40,18 @@ async def fetch_dashboard_stats(db: AsyncSession, app: FastAPI) -> dict:
         if hit is not None:
             return hit
 
-        total_users = await _count_users(db)
-        active_users_7d = await _count_active_users(db, days=7)
-        created_this_month = await _count_users_created_this_month(db)
+        # Counted by whichever auth provider holds the accounts (GH #501); a
+        # ``None`` is a figure it cannot give, and the page hides that tile.
+        user_stats = await get_user_directory(app).stats(
+            db, active_window=timedelta(days=_ACTIVE_WINDOW_DAYS)
+        )
         health_checks = await _run_health_checks(app)
         modules_list = _get_module_info(app, health_checks)
 
         result = {
-            "total_users": total_users,
-            "active_users_7d": active_users_7d,
-            "users_created_this_month": created_this_month,
+            "total_users": user_stats.total,
+            "active_users_7d": user_stats.active_since,
+            "users_created_this_month": user_stats.created_this_month,
             "module_count": len(modules_list),
             "system_info": {
                 "modules": modules_list,
@@ -70,34 +72,6 @@ def invalidate_stats_cache() -> None:
     global _cache, _cache_ts
     _cache = None
     _cache_ts = 0.0
-
-
-async def _count_users(db: AsyncSession) -> int:
-    result = await db.execute(select(func.count()).select_from(User))
-    return result.scalar_one()
-
-
-async def _count_users_created_this_month(db: AsyncSession) -> int:
-    """Accounts created since the first of the current month, UTC.
-
-    Calendar month rather than a rolling 30 days: the tile reads "+6 this
-    month", and a rolling window would make that sentence a lie every day of
-    the month except the first.
-    """
-    now = datetime.now(UTC)
-    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    result = await db.execute(
-        select(func.count()).select_from(User).where(User.created_at >= start)
-    )
-    return result.scalar_one()
-
-
-async def _count_active_users(db: AsyncSession, *, days: int) -> int:
-    cutoff = datetime.now(UTC) - timedelta(days=days)
-    result = await db.execute(
-        select(func.count()).select_from(User).where(User.last_login_at >= cutoff)
-    )
-    return result.scalar_one()
 
 
 # Worst-first: a module's tile reports the worst state among its checks, so a

@@ -19,7 +19,9 @@ pip install simple_module_api_tokens
 ```
 
 Add `simple_module_api_tokens` to your host's dependencies and generate a
-migration. It needs the `auth`, `users` and `settings` modules.
+migration. It needs the `auth` module. Under `keycloak` (no `users`) service
+keys work and personal tokens are refused, since the owner's roles live in the
+IdP.
 
 ## Usage
 

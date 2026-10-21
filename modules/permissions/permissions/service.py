@@ -5,11 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from simple_module_core.permissions import WILDCARD
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
+from simple_module_core.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from permissions.contracts.schemas import (
     PermissionGroupOut,
@@ -22,7 +21,16 @@ from permissions.models import RolePermission, UserPermission
 
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
-    from users.models import Role, User
+    from users.contracts.roles import Role
+
+
+def _user_out(user: DirectoryUser) -> UserOut:
+    return UserOut(id=uuid.UUID(user.id), email=user.email, full_name=user.full_name)
+
+
+def _role_names(user: DirectoryUser) -> list[str]:
+    # ``None``: the provider keeps roles elsewhere, so nothing is inherited here.
+    return list(user.roles or ())
 
 
 class PermissionService:
@@ -33,12 +41,19 @@ class PermissionService:
     hook). The DB stores the mutable mapping of those keys onto:
 
     * roles — applied to every user holding that role
-    * users — granted directly on top of (or independent of) roles
+    * users — granted directly on top of (or independent of) roles, read
+      through the app's user directory (GH #501); roles are ``users``' table.
     """
 
-    def __init__(self, db: AsyncSession, registry: PermissionRegistry) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        registry: PermissionRegistry,
+        directory: UserDirectory | None = None,
+    ) -> None:
         self.db = db
         self.registry = registry
+        self.directory: UserDirectory = directory or NullUserDirectory()
 
     # ── Registry read-outs ─────────────────────────────────────
 
@@ -58,7 +73,7 @@ class PermissionService:
     # ── Role helpers ───────────────────────────────────────────
 
     async def _load_roles(self) -> list[Role]:
-        from users.models import Role
+        from users.contracts.roles import Role
 
         result = await self.db.execute(select(Role).order_by(Role.name))
         return list(result.scalars().all())
@@ -72,7 +87,7 @@ class PermissionService:
         return [(RoleOut.model_validate(r), counts.get(r.name, 0)) for r in roles]
 
     async def get_role(self, role_id: uuid.UUID) -> RoleOut | None:
-        from users.models import Role
+        from users.contracts.roles import Role
 
         role = await self.db.get(Role, role_id)
         return RoleOut.model_validate(role) if role is not None else None
@@ -125,13 +140,9 @@ class PermissionService:
 
     # ── User helpers ───────────────────────────────────────────
 
-    async def _get_user(self, user_id: uuid.UUID) -> User | None:
-        from users.models import User
-
-        result = await self.db.execute(
-            select(User).where(User.id == user_id).options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
-        )
-        return result.scalar_one_or_none()
+    async def _get_user(self, user_id: uuid.UUID) -> DirectoryUser | None:
+        found = await self.directory.get_many(self.db, [str(user_id)], with_roles=True)
+        return found.get(str(user_id))
 
     async def get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
         """Keys granted directly to *user_id* (roles excluded)."""
@@ -144,16 +155,7 @@ class PermissionService:
         self, *, limit: int = 50, search: str | None = None
     ) -> list[tuple[UserOut, int]]:
         """Users who have at least one direct grant, plus an optional search."""
-        from users.models import User
-
-        stmt = select(User).limit(limit)
-        if search:
-            p, esc = like_contains_pattern(search), LIKE_ESCAPE_CHAR
-            stmt = stmt.where(User.email.ilike(p, esc) | User.full_name.ilike(p, esc))
-        stmt = stmt.order_by(User.email)
-
-        users_result = await self.db.execute(stmt)
-        users = list(users_result.scalars().all())
+        users = [_user_out(u) for u in await self.directory.search(self.db, search, limit=limit)]
         if not users:
             return []
 
@@ -164,17 +166,17 @@ class PermissionService:
             .group_by(UserPermission.user_id)
         )
         counts = dict(counts_result.all())
-        return [(UserOut.model_validate(u), counts.get(u.id, 0)) for u in users]
+        return [(u, counts.get(u.id, 0)) for u in users]
 
     async def get_user_permissions(self, user_id: uuid.UUID) -> UserPermissionsOut | None:
         user = await self._get_user(user_id)
         if user is None:
             return None
-        direct = set(await self.get_user_direct_keys(user.id))
-        role_names = [r.name for r in user.roles]
+        direct = set(await self.get_user_direct_keys(user_id))
+        role_names = _role_names(user)
         inherited = self._resolve_role_permissions(role_names) - direct
         return UserPermissionsOut(
-            user=UserOut.model_validate(user),
+            user=_user_out(user),
             roles=sorted(role_names),
             direct=sorted(direct),
             inherited=sorted(inherited),
@@ -193,26 +195,26 @@ class PermissionService:
 
         registered = self._registered_keys()
         wanted = {k for k in keys if k in registered}
-        existing = set(await self.get_user_direct_keys(user.id))
+        existing = set(await self.get_user_direct_keys(user_id))
         to_remove = (existing - wanted) & registered
 
         if to_remove:
             await self.db.execute(
                 delete(UserPermission).where(
-                    UserPermission.user_id == user.id,  # ty: ignore[invalid-argument-type]
+                    UserPermission.user_id == user_id,  # ty: ignore[invalid-argument-type]
                     UserPermission.permission_key.in_(to_remove),
                 )
             )
         self.db.add_all(
-            UserPermission(user_id=user.id, permission_key=key, assigned_by=assigned_by)
+            UserPermission(user_id=user_id, permission_key=key, assigned_by=assigned_by)
             for key in wanted - existing
         )
         await self.db.flush()
 
-        role_names = [r.name for r in user.roles]
+        role_names = _role_names(user)
         inherited = self._resolve_role_permissions(role_names) - wanted
         return UserPermissionsOut(
-            user=UserOut.model_validate(user),
+            user=_user_out(user),
             roles=sorted(role_names),
             direct=sorted(wanted),
             inherited=sorted(inherited),
@@ -253,8 +255,8 @@ class PermissionService:
         user = await self._get_user(user_id)
         if user is None:
             return set()
-        direct = set(await self.get_user_direct_keys(user.id))
-        inherited = self._resolve_role_permissions([r.name for r in user.roles])
+        direct = set(await self.get_user_direct_keys(user_id))
+        inherited = self._resolve_role_permissions(_role_names(user))
         return direct | inherited
 
     # ── Startup sync ───────────────────────────────────────────
@@ -284,16 +286,14 @@ class PermissionService:
         UI — without this sync it would show admin missing newly registered
         keys until someone clicked Save.
         """
-        from users.constants import ADMIN_ROLE_NAME
-
         registered = set(self.registry.all_permissions)
-        existing = set(await self._get_role_keys(ADMIN_ROLE_NAME))
+        existing = set(await self._get_role_keys(ADMIN_ROLE))
         missing = registered - existing
         if not missing:
             return
         self.db.add_all(
-            RolePermission(role_name=ADMIN_ROLE_NAME, permission_key=key, assigned_by=assigned_by)
+            RolePermission(role_name=ADMIN_ROLE, permission_key=key, assigned_by=assigned_by)
             for key in missing
         )
         await self.db.flush()
-        self.registry.set_role_overlay(ADMIN_ROLE_NAME, registered)
+        self.registry.set_role_overlay(ADMIN_ROLE, registered)

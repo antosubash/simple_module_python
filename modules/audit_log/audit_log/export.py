@@ -19,6 +19,7 @@ from collections.abc import AsyncIterator, Collection
 from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
+from simple_module_core.user_directory import UserDirectory
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.contracts.schemas import AuditEntryRead
@@ -109,6 +110,7 @@ async def stream_csv(
     service: AuditLogService,
     db: AsyncSession,
     registry: AuditLinkRegistry,
+    directory: UserDirectory,
     filters: EntryFilters,
     permissions: Collection[str],
 ) -> AsyncIterator[str]:
@@ -137,7 +139,7 @@ async def stream_csv(
     yield flush()
 
     async for batch in service.iter_entries(filters):
-        actors = await resolve_actors(db, [entry.user_id for entry in batch])
+        actors = await resolve_actors(directory, db, [entry.user_id for entry in batch])
         labels = await resolve_entity_labels(
             db,
             registry,

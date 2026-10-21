@@ -109,6 +109,8 @@ def build_worker_bus() -> EventBus:
 
     bus = EventBus()
     bus.durable_transport = WorkerOutboxTransport()
+    # Lenient on purpose: the worker delivers whatever is installed, and a
+    # module set the web process refuses is reported there, not here.
     for module in topological_sort(discover_modules()):
         try:
             _register(module, bus)

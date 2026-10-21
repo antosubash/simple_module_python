@@ -38,9 +38,12 @@ interface Props {
   welcome: string;
   /** False for a viewer without `dashboard.view`: the stats props are absent. */
   can_view_stats: boolean;
-  total_users: number;
-  active_users_7d: number;
-  users_created_this_month: number;
+  /** User counts come from the auth provider's directory; `null` means it
+   * cannot say (no provider, or Keycloak for the monthly figure), and the
+   * tile is hidden rather than showing a zero that would be a guess. */
+  total_users: number | null;
+  active_users_7d: number | null;
+  users_created_this_month: number | null;
   module_count: number;
   system_info: SystemInfo;
 }
@@ -97,21 +100,29 @@ function Home() {
         description={t(keys.dashboard.home.description)}
       >
         <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            label={t(keys.dashboard.home.stats.total_users)}
-            value={props.total_users}
-            icon={Users}
-            delta={t(keys.dashboard.home.stats.total_users_delta, {
-              count: props.users_created_this_month,
-            })}
-            deltaTone="secondary"
-          />
-          <StatCard
-            label={t(keys.dashboard.home.stats.active_users)}
-            value={props.active_users_7d}
-            icon={Activity}
-            delta={t(keys.dashboard.home.stats.active_users_delta)}
-          />
+          {props.total_users !== null && (
+            <StatCard
+              label={t(keys.dashboard.home.stats.total_users)}
+              value={props.total_users}
+              icon={Users}
+              delta={
+                props.users_created_this_month === null
+                  ? undefined
+                  : t(keys.dashboard.home.stats.total_users_delta, {
+                      count: props.users_created_this_month,
+                    })
+              }
+              deltaTone="secondary"
+            />
+          )}
+          {props.active_users_7d !== null && (
+            <StatCard
+              label={t(keys.dashboard.home.stats.active_users)}
+              value={props.active_users_7d}
+              icon={Activity}
+              delta={t(keys.dashboard.home.stats.active_users_delta)}
+            />
+          )}
           <StatCard
             label={t(keys.dashboard.home.stats.modules)}
             value={props.module_count}

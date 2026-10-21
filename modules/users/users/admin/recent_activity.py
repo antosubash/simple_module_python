@@ -1,12 +1,12 @@
 """The last few things this person did, for the edit page's activity card.
 
 The audit log already records every write with an actor, so the card is a read
-rather than new bookkeeping. Users must not *depend* on ``audit_log`` though —
-it is an optional module, and a hard import would make the users screens fail
-to load on an install that never enabled it. Hence the lazy import inside
-``try/except ImportError`` and the ``None`` return, which the page renders as
-"no card" rather than "no activity": an install that records nothing and a
-person who did nothing are different claims.
+rather than new bookkeeping. Users must not *import* ``audit_log`` though — it
+is an optional module, and the two importing each other was a cycle (GH #501).
+So the card reads the core activity feed, which ``audit_log`` installs. No feed
+means a ``None`` return, which the page renders as "no card" rather than "no
+activity": an install that records nothing and a person who did nothing are
+different claims.
 
 Every line is a *translated* sentence, not an assembled one. The rows are
 rendered server-side, so this reaches for the request's ``Translator`` the way
@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Collection
 from typing import Any
 
 from fastapi import Request
+from simple_module_core.activity_feed import get_activity_feed
 from simple_module_core.i18n import Translator
 from simple_module_hosting.permissions import resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,61 +132,35 @@ def _kind_of(t: Translator, registry: Any, entity_type: str) -> str:
     return label.lower()
 
 
-async def _labels_for(
-    db: AsyncSession, registry: Any, entries: list[Any], permissions: Collection[str]
-) -> dict[tuple[str, str], str]:
-    """Display labels for every row an entry page refers to, by entity type.
-
-    Delegates to the audit-links registry so each module names its own rows —
-    a ``Setting`` by its key, a ``StoredFile`` by its filename — batched to one
-    query per entity type rather than one per row. Types whose owner registered
-    no resolver are simply absent, and the caller shows a short id.
-
-    *permissions* carries the reader's grants through to the resolvers, which
-    skip entity types their owner gated (GH #300). This card lives behind
-    ``users.manage`` so in practice nothing is withheld here — passing the real
-    set rather than assuming that keeps it true if the page's own guard ever
-    loosens.
-    """
-    from audit_log.resolve import resolve_entity_labels
-
-    refs = [(entry.entity_type, entry.entity_id) for entry in entries]
-    if not refs:
-        return {}
-    return await resolve_entity_labels(db, registry, refs, permissions)
-
-
 async def recent_activity_for(
     request: Request,
     user_id: uuid.UUID,
     db: AsyncSession,
     t: Translator,
 ) -> list[dict[str, str]] | None:
-    """Recent audit entries where *user_id* was the actor, or ``None``.
+    """Recent activity where *user_id* was the actor, or ``None``.
 
     Filtered by actor rather than by subject because the deck's card reads as
     a record of what this person has been doing, which is what an admin
     reviewing an account wants to know.
-    """
-    try:
-        from audit_log.constants import MODULE_NAME
-        from audit_log.service import AuditLogService
-    except ImportError:
-        return None
 
-    # Installed as a package but not loaded into this app is a real state
-    # (a trimmed preset, a disabled module), and its table may not exist.
-    #
-    # Compared against the module's own constant rather than a literal: the
-    # registered name is ``"AuditLog"`` while the menu label is ``"Audit log"``,
-    # and hardcoding the readable one silently disabled this card entirely.
-    if not any(getattr(m.meta, "name", "") == MODULE_NAME for m in request.app.state.sm.modules):
+    The reader's grants travel to the feed, which withholds the names of rows
+    whose owner gated them (GH #300). This card lives behind ``users.manage``
+    so in practice nothing is withheld here — passing the real set rather than
+    assuming that keeps it true if the page's own guard ever loosens.
+    """
+    feed = get_activity_feed(request.app)
+    if feed is None:
         return None
 
     registry = request.app.state.sm.audit_links
     try:
-        page = await AuditLogService(db).list_entries(user_id=str(user_id), page_size=RECENT_LIMIT)
-        labels = await _labels_for(db, registry, page.items, resolved_permissions_for(request))
+        items = await feed.recent_for_actor(
+            db,
+            str(user_id),
+            limit=RECENT_LIMIT,
+            permissions=resolved_permissions_for(request),
+        )
     except Exception:
         # A card that cannot load is not a reason to 500 the whole edit page.
         logger.exception("Could not read recent activity for %s", user_id)
@@ -194,20 +168,15 @@ async def recent_activity_for(
 
     return [
         {
-            "at": entry.created_at.isoformat(),
+            "at": item.at.isoformat(),
             "summary": _summarise(
                 t,
-                entry.action,
-                _kind_of(t, registry, entry.entity_type),
-                labels.get(
-                    (entry.entity_type, entry.entity_id),
-                    entry.entity_id[:_SHORT_ID_CHARS],
-                ),
-                entry.changes,
+                item.action,
+                _kind_of(t, registry, item.entity_type),
+                item.entity_label or item.entity_id[:_SHORT_ID_CHARS],
+                item.changes,
             ),
-            "href": (
-                f"{AUDIT_LOG_URL}?entity_type={entry.entity_type}&entity_id={entry.entity_id}"
-            ),
+            "href": (f"{AUDIT_LOG_URL}?entity_type={item.entity_type}&entity_id={item.entity_id}"),
         }
-        for entry in page.items
+        for item in items
     ]

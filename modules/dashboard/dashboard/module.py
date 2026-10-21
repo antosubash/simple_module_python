@@ -12,7 +12,6 @@ from simple_module_core.permissions import PermissionRegistry
 
 from dashboard.constants import PERM_GROUP, PERM_VIEW
 
-_MODULE_USERS = "Users"
 _URL_DASHBOARD = "/dashboard/"
 _URL_DOCTOR = "/admin/doctor/"
 _ICON_DASHBOARD = "home"
@@ -26,7 +25,6 @@ class DashboardModule(ModuleBase):
         view_prefix="/dashboard",
         # The dashboard itself is an app screen; Doctor is an admin one.
         admin_view_prefix="/admin/doctor",
-        depends_on=[_MODULE_USERS],
         i18n_audience="admin",
     )
 

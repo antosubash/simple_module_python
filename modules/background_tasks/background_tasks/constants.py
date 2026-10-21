@@ -18,7 +18,6 @@ TABLE_TASK_EXECUTION = f"{TABLE_PREFIX}task_execution"
 TABLE_OUTBOX = f"{TABLE_PREFIX}outbox"
 
 # ── Module dependencies ─────────────────────────────────────────
-_MODULE_USERS = "Users"
 # Sorted after Settings for its admin editor and reload path; registering
 # settings itself no longer needs it (the framework owns the registry, #500).
 _MODULE_SETTINGS = "Settings"

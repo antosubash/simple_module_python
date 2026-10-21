@@ -13,6 +13,7 @@ from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
+from keycloak_test_modules import keycloak_modules_enabled
 from simple_module_hosting.settings import Settings
 
 _INERTIA_HEADERS = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
@@ -39,6 +40,7 @@ async def _build_keycloak_app():
         secret_key="test-secret-key",
         multi_tenant=False,
         auth_provider="keycloak",
+        modules_enabled=keycloak_modules_enabled(),
     )
     application = create_app(settings)
 

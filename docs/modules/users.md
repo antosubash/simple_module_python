@@ -129,6 +129,14 @@ from users.contracts.events import (
 | `RoleListItem` | `id`, `name`, `description`, `user_count`. |
 | `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
 
+Other modules read accounts through the [user directory](/framework/user-directory),
+which this module installs as `users.directory.UsersDirectory` in
+`register_settings`; they should not import `users.models`. The one table read
+directly is `Role`, re-exported as `users.contracts.roles.Role` for the
+permissions role pages. The edit page's *Recent activity* card reads the core
+[activity feed](/framework/user-directory#activity-feed) rather than importing
+`audit_log`.
+
 ## Models
 
 `User` (table `users_user`)

@@ -10,8 +10,12 @@ import uuid
 
 from audit_log.resolve import actor_link, entity_link, resolve_actors
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.user_directory import NullUserDirectory
 from sqlalchemy.ext.asyncio import AsyncSession
+from users.directory import UsersDirectory
 from users.models import User
+
+_DIRECTORY = UsersDirectory()
 
 
 def _registry() -> AuditLinkRegistry:
@@ -97,18 +101,21 @@ class TestActorLink:
     def test_uses_the_registered_users_route(self):
         """Hardcoding /users/admin/{id} here would 404 the moment the users
         module moved its prefix, and duplicate what the registry owns."""
-        assert actor_link(_registry(), "a91") == "/admin/users/a91"
+        assert actor_link(_registry(), _DIRECTORY, "a91") == "/admin/users/a91"
 
     def test_none_when_the_users_table_is_unclaimed(self):
         """A registry without a User entry yields no link rather than a
         guessed one.
 
-        Not a claim that audit_log runs without the users module — it imports
-        `users.models` at module scope and declares the dependency. This covers
-        a users module that ships no audit link, and any registry built before
-        registration has run.
+        Covers a users module that ships no audit link, and any registry built
+        before registration has run.
         """
-        assert actor_link(AuditLinkRegistry(), "a91") is None
+        assert actor_link(AuditLinkRegistry(), _DIRECTORY, "a91") is None
+
+    def test_none_when_the_directory_has_no_user_model(self):
+        """Keycloak (or no provider): no audited user rows, so no link — even
+        when some registry entry happens to be keyed ``User``."""
+        assert actor_link(_registry(), NullUserDirectory(), "a91") is None
 
 
 class TestResolveActors:
@@ -122,7 +129,7 @@ class TestResolveActors:
         db_session.add(user)
         await db_session.flush()
 
-        resolved = await resolve_actors(db_session, [str(user.id)])
+        resolved = await resolve_actors(_DIRECTORY, db_session, [str(user.id)])
         assert resolved[str(user.id)] == "Sam Carter"
 
     async def test_falls_back_to_email_without_a_name(self, db_session: AsyncSession):
@@ -130,21 +137,21 @@ class TestResolveActors:
         db_session.add(user)
         await db_session.flush()
 
-        resolved = await resolve_actors(db_session, [str(user.id)])
+        resolved = await resolve_actors(_DIRECTORY, db_session, [str(user.id)])
         assert resolved[str(user.id)] == "noname@example.com"
 
     async def test_unknown_ids_are_simply_absent(self, db_session: AsyncSession):
         """A deleted account must not blank the row — the caller shows the id."""
         missing = str(uuid.uuid4())
-        assert await resolve_actors(db_session, [missing]) == {}
+        assert await resolve_actors(_DIRECTORY, db_session, [missing]) == {}
 
     async def test_empty_and_none_ids_short_circuit(self, db_session: AsyncSession):
-        assert await resolve_actors(db_session, [None, None]) == {}
-        assert await resolve_actors(db_session, []) == {}
+        assert await resolve_actors(_DIRECTORY, db_session, [None, None]) == {}
+        assert await resolve_actors(_DIRECTORY, db_session, []) == {}
 
     async def test_unparseable_ids_do_not_fail_the_page(self, db_session: AsyncSession):
         """System actors from another id space must not 500 the audit log."""
-        assert await resolve_actors(db_session, ["celery-worker-1"]) == {}
+        assert await resolve_actors(_DIRECTORY, db_session, ["celery-worker-1"]) == {}
 
     async def test_batches_the_whole_page_in_one_pass(self, db_session: AsyncSession):
         users = [
@@ -156,5 +163,5 @@ class TestResolveActors:
 
         ids = [str(u.id) for u in users]
         # Repeats are normal: one admin usually authors most of a page.
-        resolved = await resolve_actors(db_session, ids + ids)
+        resolved = await resolve_actors(_DIRECTORY, db_session, ids + ids)
         assert set(resolved) == set(ids)

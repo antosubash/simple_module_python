@@ -186,12 +186,15 @@ async def test_no_pat_for_an_account_the_resolver_cannot_load(app, actor, monkey
 
 async def test_has_usable_account(app):
     from api_tokens.service import ApiTokenService
+    from simple_module_core.user_directory import get_user_directory
 
     user_id = await create_user(app, f"u-{uuid.uuid4().hex[:6]}@example.com")
     async with app.state.sm.db.session_factory() as session:
-        service = ApiTokenService(session)
+        service = ApiTokenService(session, get_user_directory(app))
         assert await service.has_usable_account(uuid.UUID(user_id)) is True
         assert await service.has_usable_account(uuid.uuid4()) is False
+        # Without a directory nobody has a usable account.
+        assert await ApiTokenService(session).has_usable_account(uuid.UUID(user_id)) is False
 
 
 async def test_revoke_all_ends_every_token(actor, bearer):
