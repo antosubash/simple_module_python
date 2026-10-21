@@ -162,7 +162,8 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `docs/framework/lifecycle.md`): `register_settings`, `register_menu_items`,
 `register_permissions`, `register_feature_flags`, `register_event_handlers`,
 `register_invalidations`, `register_health_checks`, `register_setup_steps`,
-`register_public_routes`, `register_body_limits`, `register_rate_limits`,
+`register_public_routes`, `register_body_limits`, `register_cors_policies`,
+`register_rate_limits`,
 `register_csp_sources`,
 `register_design_packs`,
 `register_audit_links`, `register_exception_handlers`, `register_middleware`,
@@ -228,6 +229,11 @@ Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
   `simple_module_hosting.rate_limit_deps`.
 - Request bodies over `max_request_body_bytes` (10 MiB) are refused before any
   module sees them; per-path overrides via `register_body_limits`.
+- CORS is opt-in per path: `cors_allow_origins` registers a policy on `/api/`,
+  and a module adds its own via `register_cors_policies(registry)`
+  (`CorsPolicy`, most specific match wins). The dispatcher runs before
+  BodyLimit, so preflights skip auth and a 413 keeps its CORS headers.
+  `docs/framework/cors.md`.
 
 Per-middleware detail: `docs/framework/middleware.md`,
 `docs/framework/request-guards.md`.

@@ -26,6 +26,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._body_limit import BodyLimitMiddleware
+from simple_module_hosting._cors import HOST_API_PREFIX, CorsMiddleware, host_policy
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
     not_found_error_handler,
@@ -213,10 +214,14 @@ def install_middleware(
         max_bytes=settings.max_request_body_bytes,
         registry=getattr(app.state, "body_limits", None),
     )
-    # SLOT: CORS. Add the CORS dispatcher here (batch-1 slice for #527) so it
-    # executes between RequestLogging and BodyLimit: preflights are answered
-    # before auth, rate limit, setup and maintenance can reject them. Reads
-    # ``app.state.cors_policies`` (CorsPolicyRegistry). No-op until then.
+    # CORS executes between RequestLogging and BodyLimit: preflights are answered
+    # before auth, rate limit, setup and maintenance can reject them, and a 413
+    # still carries the headers. The host's ``/api/`` policy joins the modules'.
+    cors_registry = app.state.cors_policies
+    api_policy = host_policy(settings)
+    if api_policy is not None:
+        cors_registry.add_prefix(HOST_API_PREFIX, api_policy)
+    app.add_middleware(CorsMiddleware, registry=cors_registry)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else

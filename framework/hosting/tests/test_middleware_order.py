@@ -3,7 +3,7 @@
 CLAUDE.md spells out the pipeline:
 
     (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
-    CorrelationId → RequestLogging → BodyLimit → GZip → Security → Session → <module>
+    CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData
                   → InertiaCache → RateLimit → Setup → Maintenance
                   → CommitBeforeResponse → app
@@ -81,6 +81,7 @@ from simple_module_hosting.settings import Settings
 _EXPECTED_MULTI_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "CorsMiddleware",
     "BodyLimitMiddleware",
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
@@ -102,6 +103,7 @@ _EXPECTED_MULTI_TENANT = (
 _EXPECTED_SINGLE_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "CorsMiddleware",
     "BodyLimitMiddleware",
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
