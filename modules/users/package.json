@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/users",
-  "version": "0.1.0",
+  "version": "0.0.37",
   "private": true,
   "description": "Frontend assets for the Users module",
   "peerDependencies": {

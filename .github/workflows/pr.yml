@@ -3,13 +3,18 @@ name: PR
 on:
   pull_request:
     branches: [main]
+  # The release workflow runs this whole suite against the dispatched commit
+  # (#510), so a release can never ship code that did not pass `pr-checks`.
+  workflow_call:
 
 # Cancel in-progress runs when new commits are pushed to the same PR
 # so we never waste minutes on outdated code. On main (push), github.ref is
 # refs/heads/main — separate concurrency key from PR runs.
+# Reused via workflow_call by the release, so only pull_request runs may be
+# cancelled: two release dispatches on one ref must not cancel each other's checks.
 concurrency:
-  group: pr-${{ github.ref }}
-  cancel-in-progress: true
+  group: pr-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

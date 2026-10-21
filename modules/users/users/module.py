@@ -12,12 +12,14 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.setup_steps import SetupRegistry
 
 from users.constants import (
     ADMIN_ROLE_NAME,
     PERM_USERS_MANAGE,
     PERM_USERS_SELF_PROFILE,
+    PUBLIC_PATH_PREFIXES,
     USER_ROLE_NAME,
 )
 
@@ -136,6 +138,10 @@ class UsersModule(ModuleBase):
         from users.demo_guard import DemoReadOnlyMiddleware
 
         app.add_middleware(DemoReadOnlyMiddleware)
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        for prefix in PUBLIC_PATH_PREFIXES:
+            registry.add_prefix(prefix)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(

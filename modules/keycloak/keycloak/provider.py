@@ -69,20 +69,6 @@ class KeycloakAuthProvider:
     def get_logout_url(self, request: Request | None) -> str:
         return "/keycloak/logout"
 
-    def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        return (
-            (
-                "/keycloak/login",
-                "/keycloak/logout",
-                # Where the end-session redirect lands: there is no session
-                # left to check, and bouncing it to /keycloak/login would sign
-                # the visitor straight back in.
-                "/keycloak/logged-out",
-                "/api/keycloak/auth/",
-            ),
-            (),
-        )
-
     def is_bearer_request(self, request: Request | None) -> bool:
         if request is None:
             return False
