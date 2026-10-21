@@ -42,19 +42,33 @@ is open. The DSN is never logged.
 only, so `simple_module_hosting.sentry_scrub` runs a stricter pass from both
 `before_send` and `before_send_transaction`:
 
-- Any key, at any depth of `request`, `extra`, `contexts`, breadcrumbs and
-  span data, whose name contains `password`, `secret`, `token`, `auth`
-  (`Authorization`, `X-Auth-*`), `cookie`, `session`, `api_key`, `csrf`,
-  `credential`, `signature`, `dsn` or a client-address word (`forwarded`,
-  `real_ip`, `remote_addr`, …) is replaced with `[Filtered]`; such request
-  headers are removed outright.
+- After targeted passes, *every* event field (tags, `server_name`, threads,
+  a top-level `stacktrace`, fields a future SDK adds) goes through the same
+  recursive pass: deny by default rather than a list of known fields.
+- Any key, at any depth, whose name contains `password`/`passwd`/`pwd`,
+  `passphrase`, `secret`, `token`, `authorization`, `cookie`, `session`,
+  `api_key`, `csrf`, `credential`, `private_key`, `signature`, `dsn`, `jwt`,
+  `bearer`, a card-number word or a client-address word (`forwarded`,
+  `real_ip`, `remote_addr`, …), or has a whole-word `auth`, `pass`, `otp`,
+  `pin`, `sid`, `sig`, `ssn`, `cvv`, `mfa` (snake, kebab and camelCase:
+  `basicAuth`, `DB_PASS`, but not `author`), is replaced with `[Filtered]`.
+  `["Authorization", "…"]` pairs in header/query lists count as keys. Such
+  request headers are removed outright.
 - Request cookies, bodies and `env` (`REMOTE_ADDR`) are dropped; the event
   user is reduced to `{"id": …}`.
-- Free text (exception messages, log messages and params, breadcrumb messages
-  and URLs, span descriptions, query strings, source context) loses
-  `key=value` / `key: value` pairs with a sensitive key, the OAuth `code`
-  query parameter, `Bearer`/`Basic` credentials and URL userinfo.
-- Celery task `args`, `kwargs` and return values are dropped (the Celery
-  integration and Celery's own trace log records both attach them).
-- URL-sourced transaction names and request URL paths have id- and
+- Every string (bytes too) loses `key=value` / `key: value` /
+  `"key": "quoted value"` pairs with a sensitive key (escaped JSON included),
+  whole `Cookie:`/`Authorization:` header lines, the OAuth `code` query
+  parameter, `Bearer`/`Basic`/`Digest` credentials, URL userinfo, JWTs and
+  bare 32+ character tokens mixing letters and digits (UUIDs and
+  snake_case identifiers excepted; Sentry's own event/trace/span ids are
+  kept). Strings over 64 KiB are truncated before scanning.
+- Celery task `args`, `kwargs` and return values, SQL `db.params` and frame
+  `vars` are dropped wherever they appear.
+- URL-sourced transaction names and URL paths have id- and
   token-shaped segments replaced with `*`.
+- If scrubbing raises, the event is dropped (only the exception type is
+  logged); a half-scrubbed event is never sent.
+- Not covered: secrets passed as positional log arguments
+  (`log.info("%s", token)`) with nothing marking them as secret, and
+  base64 tokens with `/` shorter than 32 characters between slashes.

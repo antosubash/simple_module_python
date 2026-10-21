@@ -18,10 +18,10 @@ from simple_module_hosting import sentry as sm_sentry
 from simple_module_hosting.sentry_scrub import REDACTED, scrub_event, scrub_text
 
 sentry_sdk = pytest.importorskip("sentry_sdk")
-from sentry_sdk.transport import Transport  # noqa: E402
+from _sentry_transport import DSN_KEY as _DSN_KEY  # noqa: E402
+from _sentry_transport import FakeTransport  # noqa: E402
+from _sentry_transport import start as _start  # noqa: E402
 
-_DSN_KEY = "dsnpublickey0123"
-_DSN = f"https://{_DSN_KEY}@o0.ingest.sentry.io/1"
 _LEAKS = (
     "c00kie-val",
     "203.0.113.9",
@@ -37,28 +37,6 @@ _LEAKS = (
     "ctx-s3cret",
     "frame-l0cal",
 )
-
-
-class FakeTransport(Transport):
-    def __init__(self, options: dict[str, Any] | None = None) -> None:
-        super().__init__(options)
-        self.payloads: list[dict[str, Any]] = []
-
-    def capture_envelope(self, envelope: Any) -> None:
-        for item in envelope.items:
-            if item.type in ("event", "transaction"):
-                self.payloads.append(item.payload.json)
-
-    def of(self, kind: str) -> list[dict[str, Any]]:
-        return [p for p in self.payloads if p.get("type", "event") == kind]
-
-
-def _start(monkeypatch: pytest.MonkeyPatch, process: sm_sentry.Process) -> FakeTransport:
-    monkeypatch.setenv("SM_SENTRY_DSN", _DSN)
-    monkeypatch.setenv("SM_SENTRY_TRACES_SAMPLE_RATE", "1.0")
-    fake = FakeTransport()
-    assert sm_sentry.init_sentry(process, transport=fake)
-    return fake
 
 
 @pytest.fixture
