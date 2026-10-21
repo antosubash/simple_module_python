@@ -141,6 +141,7 @@ class UsersModule(ModuleBase):
         registry.add_group(
             "Users",
             [PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE],
+            label_key="users.permission_group",
         )
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 

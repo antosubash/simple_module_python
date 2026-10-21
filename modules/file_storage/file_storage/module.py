@@ -142,6 +142,7 @@ class FileStorageModule(ModuleBase):
                 constants.Permission.DELETE,
                 constants.Permission.MANAGE,
             ],
+            label_key=f"{constants.LOCALE_NAMESPACE}.permission_group",
         )
         read_write = [constants.Permission.UPLOAD, constants.Permission.DOWNLOAD]
         # Deleting is an organisation-admin act (#383). The platform ``user``
@@ -213,6 +214,7 @@ class FileStorageModule(ModuleBase):
             FeatureFlagDefinition(
                 name=constants.FeatureFlag.PUBLIC_UPLOADS,
                 description="Allow unauthenticated uploads (future).",
+                description_key=f"{constants.LOCALE_NAMESPACE}.feature_flags.public_uploads",
                 default_enabled=False,
             )
         )

@@ -14,7 +14,7 @@ export function GroupHeading({ group }: { group: PermissionGroup }) {
   const tag = groupTag(group);
   return (
     <h3 className="flex min-w-0 flex-1 items-baseline gap-2 font-mono text-sm font-semibold text-foreground">
-      <span className="truncate">{group.name}</span>
+      <span className="truncate">{group.label || group.name}</span>
       {/* Whitespace-only text is not laid out in a flex container, but it does
           land in the accessible name — "Files file_storage", not "Filesfile_storage". */}
       {tag && ' '}

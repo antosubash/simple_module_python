@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- German catalogues for all framework and module screens, available by adding `de` to `i18n_supported_locales`,
+  with enforced key and placeholder parity in CI (#492).
 - `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
   `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
   `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial

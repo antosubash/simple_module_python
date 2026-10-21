@@ -1,4 +1,4 @@
-import { keys, useT } from '@simple-module-py/i18n';
+import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
 import { X } from 'lucide-react';
@@ -66,7 +66,7 @@ export function InvitationsList({ invitations, onChanged }: Props) {
                   <div className="text-xs text-muted-foreground">
                     {t(ROLE_KEY[invitation.role])} ·{' '}
                     {t(keys.tenants.members.pending_expires, {
-                      date: new Date(invitation.expires_at).toLocaleDateString(),
+                      date: new Date(invitation.expires_at).toLocaleDateString(activeLocale()),
                     })}
                   </div>
                 </div>

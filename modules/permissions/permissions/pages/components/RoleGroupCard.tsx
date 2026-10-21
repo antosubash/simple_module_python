@@ -39,7 +39,9 @@ export function RoleGroupCard({ group, permissions, assigned, onToggle, onToggle
           <Checkbox
             checked={state}
             onCheckedChange={() => onToggleGroup(group, !all)}
-            aria-label={t(keys.permissions.edit.toggle_group_label, { group: group.name })}
+            aria-label={t(keys.permissions.edit.toggle_group_label, {
+              group: group.label || group.name,
+            })}
             className={`size-[17px] rounded-[5px] ${
               state === 'indeterminate'
                 ? // The vendored checkbox always draws a tick; a partial module

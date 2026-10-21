@@ -6,6 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import ValidationError
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import (
     redirect_back_with_errors,
@@ -45,12 +46,13 @@ async def browse() -> RedirectResponse:
 async def edit_role(
     role_id: uuid.UUID,
     inertia: InertiaDep,
+    translator: TranslatorDep,
     service: PermissionService = Depends(get_permission_service),
 ) -> InertiaResponse | RedirectResponse:
     assignment = await service.get_role_permissions(role_id)
     if assignment is None:
         return RedirectResponse(_ADMIN_URL, status_code=303)
-    groups = service.list_registered_groups()
+    groups = service.list_registered_groups(translator.t)
     return await inertia.render(
         "Permissions/RoleEdit",
         {
@@ -91,12 +93,13 @@ async def update_role(
 async def edit_user(
     user_id: uuid.UUID,
     inertia: InertiaDep,
+    translator: TranslatorDep,
     service: PermissionService = Depends(get_permission_service),
 ) -> InertiaResponse | RedirectResponse:
     assignment = await service.get_user_permissions(user_id)
     if assignment is None:
         return RedirectResponse(_ADMIN_URL, status_code=303)
-    groups = service.list_registered_groups()
+    groups = service.list_registered_groups(translator.t)
     return await inertia.render(
         "Permissions/UserEdit",
         {

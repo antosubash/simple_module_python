@@ -45,6 +45,7 @@ jobs:
       # Package metadata, READMEs, release matrix, and the hand-maintained ty
       # extra-paths / pytest testpaths lists (#520) must match what is on disk.
       - run: make ci-check-metadata
+      - run: make ci-check-locales
       # Backticked repo paths in docs/, CLAUDE.md, README.md and skills must exist (#519).
       - run: make ci-doc-paths
       # Fixed sleeps in tests are timing bets; poll with simple_module_test.wait_for.

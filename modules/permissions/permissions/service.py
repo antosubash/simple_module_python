@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
@@ -17,6 +18,7 @@ from permissions.contracts.schemas import (
     UserOut,
     UserPermissionsOut,
 )
+from permissions.group_labels import localized_groups
 from permissions.models import RolePermission, UserPermission
 
 if TYPE_CHECKING:
@@ -57,15 +59,10 @@ class PermissionService:
 
     # ── Registry read-outs ─────────────────────────────────────
 
-    def list_registered_groups(self) -> list[PermissionGroupOut]:
-        return [
-            PermissionGroupOut(
-                name=g.name,
-                permissions=sorted(g.permissions),
-                labels=self.registry.source_labels(g.name),
-            )
-            for g in self.registry.groups
-        ]
+    def list_registered_groups(
+        self, translate: Callable[[str], str] | None = None
+    ) -> list[PermissionGroupOut]:
+        return localized_groups(self.registry, translate)
 
     def _registered_keys(self) -> set[str]:
         return set(self.registry.all_permissions)

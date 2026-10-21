@@ -100,5 +100,6 @@
     "description": "Every personal access token you hold stops working on its next request, in every organisation. Use this if a token may have leaked: changing your password or signing out everywhere does not end tokens.",
     "confirm": "Revoke all",
     "cancel": "Cancel"
-  }
+  },
+  "permission_group": "API tokens"
 }

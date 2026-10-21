@@ -43,7 +43,9 @@
     "title": "Members",
     "description": "Manage who belongs to {name} and what they can do.",
     "seats_used": "{used} / {limit} seats used",
-    "seats_unlimited": "{used} seats used (unlimited)",
+    "seats_unlimited": "{count} seats used (unlimited)",
+    "seats_unlimited_one": "{count} seat used (unlimited)",
+    "seats_unlimited_other": "{count} seats used (unlimited)",
     "table_email": "Email",
     "table_role": "Role",
     "table_joined": "Joined",
@@ -155,5 +157,6 @@
     "toast_reset": "Setting reset to the platform value",
     "toast_failed": "Could not save the setting",
     "toast_uploaded": "Image uploaded"
-  }
+  },
+  "permission_group": "Tenants"
 }
