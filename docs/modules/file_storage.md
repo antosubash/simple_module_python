@@ -2,6 +2,14 @@
 
 Pluggable file storage with two shipped backends — local filesystem and S3-compatible — plus a browse / upload / download admin UI. Backend selection is per-deployment (DB-backed setting), so you can switch from `filesystem` (dev / single-node) to `s3` (prod) without code changes.
 
+Install `simple_module_file_storage[tasks]` to include the matching
+`simple_module_background_tasks` package, then enable `background_tasks` and run
+its worker for asynchronous multipart-upload checksums. Run its beat scheduler
+as well for upload cleanup jobs.
+The extras combine as `simple_module_file_storage[s3,tasks]`. Without
+`background_tasks`, uploads still work; completed multipart uploads keep
+`checksum_sha256` null. Streamed uploads compute their checksum inline.
+
 ## ModuleMeta
 
 | Field | Value |
@@ -250,8 +258,8 @@ The audit-log label resolver names files across tenants on purpose: the audit
 log is a platform screen over every tenant's entries, each of which already
 records the filename.
 
-The module has no background jobs, sweeps or CLI commands. Anything added
-later that touches `StoredFile` outside a request must run under
+The optional checksum task and upload reaper use the background-tasks worker.
+Any task that touches `StoredFile` outside a request must run under
 `tenant_context(row.tenant_id)` for per-tenant work, or `all_tenants()` for a
 deliberate platform-wide sweep.
 

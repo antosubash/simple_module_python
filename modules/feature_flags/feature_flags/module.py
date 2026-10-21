@@ -103,14 +103,11 @@ class FeatureFlagsModule(ModuleBase):
         from feature_flags.models import FeatureFlagOverride
 
         registry.register(
-            AuditLink(
-                # Class name, not __tablename__ — see AuditLink.entity_type.
-                # The table name travels alongside as the audit log's type tag.
-                entity_type=FeatureFlagOverride.__name__,
+            AuditLink.for_model(
+                FeatureFlagOverride,
                 url_template=f"{MENU_URL}?{QP_OVERRIDE}={{id}}",
                 label=AUDIT_LINK_LABEL,
                 label_key=AUDIT_LINK_LABEL_KEY,
-                table_name=FeatureFlagOverride.__tablename__,
                 label_resolver=_resolve_override_labels,
             )
         )

@@ -87,7 +87,7 @@ modules/orders/
     └── test_orders.py       # imports orders.service — name from the scaffold
 ```
 
-The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `scripts/new_module.py`'s `update_root_pyproject`); if you scaffolded a module by hand, add it.
+The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `simple_module_cli.framework_repo.update_root_pyproject`); if you scaffolded a module by hand, add it.
 
 ## Pitfalls
 

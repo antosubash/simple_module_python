@@ -5,7 +5,8 @@ dies. A *durable* subscription is delivered by a transport instead: the event is
 written to an outbox in the publisher's own transaction and a worker runs the
 handler later, retrying until it succeeds. The framework only defines the
 contract — the subscription registry, the event (de)serialisation and the
-transport protocol. ``background_tasks`` ships the transport.
+``DurableTransport`` protocol, the extension point for delivery implementations.
+``background_tasks`` ships the framework's implementation.
 
 Handlers are called as ``await handler(event, ctx)`` where ``ctx`` is a
 :class:`DurableContext`. Delivery is at-least-once; a handler that writes only
@@ -36,9 +37,10 @@ MAX_NAME_LENGTH = 255
 class DurableDeliveryUnavailable(RuntimeError):  # noqa: N818 - name fixed by the design
     """``publish_durable`` was called but no durable transport is installed.
 
-    Durable delivery needs an outbox and a worker; the ``background_tasks``
-    module installs both. Raised instead of silently degrading to in-process
-    delivery, which would drop the guarantee the caller asked for.
+    Durable delivery needs a ``DurableTransport`` implementation; the shipped
+    ``background_tasks`` module provides an outbox and a worker. Raised instead
+    of silently degrading to in-process delivery, which would drop the
+    guarantee the caller asked for.
     """
 
 

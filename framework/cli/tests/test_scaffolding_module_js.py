@@ -54,18 +54,21 @@ class TestStandaloneCi:
 
 
 class TestSamplePage:
-    async def test_scaffold_ships_index_page_and_view(self, tmp_path):
+    async def test_scaffold_ships_browse_page_and_view(self, tmp_path):
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-my-feature"
         create_module(dest, name="MyFeature")
 
-        page = (dest / "my_feature" / "pages" / "Index.tsx").read_text(encoding="utf-8")
+        page = (dest / "my_feature" / "pages" / "Browse.tsx").read_text(encoding="utf-8")
         assert "PageShell" in page
         views = (dest / "my_feature" / "endpoints" / "views.py").read_text(encoding="utf-8")
-        assert '"MyFeature/Index"' in views
+        assert "PAGE_BROWSE" in views
+        constants = (dest / "my_feature" / "constants.py").read_text(encoding="utf-8")
+        assert '"MyFeature/Browse"' in constants
         module_py = (dest / "my_feature" / "module.py").read_text(encoding="utf-8")
-        assert 'view_prefix="/my-feature"' in module_py
+        assert "view_prefix=VIEW_PREFIX" in module_py
+        assert 'VIEW_PREFIX = "/my-feature"' in constants
         assert "register_menu_items" in module_py
 
 

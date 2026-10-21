@@ -22,7 +22,7 @@ from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token, parse_bearer
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_core.user_directory import UserDirectory, get_user_directory
-from simple_module_db import ALL_TENANTS_OPTION
+from simple_module_db import ALL_TENANTS_OPTION, independent_session
 from sqlalchemy import or_, select, update
 from starlette.requests import Request
 
@@ -119,9 +119,8 @@ async def touch_last_used(app: Any, token: ApiToken, now: datetime) -> None:
         .execution_options(**{ALL_TENANTS_OPTION: True})
     )
     try:
-        async with app.state.sm.db.session_factory() as db:
+        async with independent_session(app) as db:
             await db.execute(stmt)
-            await db.commit()
     except Exception:
         logger.warning("api_tokens: could not record last use of %s", token.id, exc_info=True)
 

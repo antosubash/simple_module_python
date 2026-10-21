@@ -23,6 +23,18 @@ All notable changes to this project are documented in this file. The format is b
   examples go in `scripts/doc_path_allowlist.txt` (#519).
 - New `docs-build` PR job (`make ci-docs-build`) builds the VitePress site, which
   `docs/superpowers/` and `docs/plans/` are excluded from (#519).
+- `AuditLink.for_model(Model, url_template=..., ...)` fills `entity_type` (class
+  name) and `table_name` from the model; every module's `register_audit_links`
+  now uses it. `simple_module_db.independent_session(app)` is an async context
+  manager for out-of-request sessions that commits on success and rolls back on
+  error (`permissions` startup replay and `api_tokens` last-used write use it)
+  (#523).
+- Framework pagination helper (#513): `simple_module_db.PageParams`, `Page` and
+  `async paginate(session, stmt, params)` (clamps to the last page, never a
+  negative offset, counts through soft-delete/tenant filters), `clamp_page` /
+  `total_pages`; `simple_module_hosting.pagination` adds the strict
+  `page_params(n)` and clamping `lenient_page_params(n)` dependencies; and a
+  `PaginationBar` component in `@simple-module-py/ui` (`ui.pagination.*` keys).
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through
@@ -54,6 +66,35 @@ All notable changes to this project are documented in this file. The format is b
 - `@simple-module-py/ui` now declares `react-hook-form`, which `components/ui/form.tsx` imports (it was only reachable through the host app) (#521).
 - Docs: stale example paths in `README.md`, `CLAUDE.md`, the testing overview and the
   quickstart corrected; the historical `docs/perf` note is marked as exempt (#519).
+- Bound FastAPI to `>=0.140,<0.157` in framework and module dependencies; a
+  contract test guards the route guard's private FastAPI/Starlette APIs (#516).
+- Declare and document the optional `file_storage[tasks]` extra for the lockstep
+  background-tasks package; document `DurableTransport` as the durable-event
+  extension point and verify uploads without background tasks (#502).
+- Users, file_storage, background_tasks (executions and outbox), audit_log,
+  settings and tenants lists now share the pagination helpers instead of
+  per-module copies (#513). Browser view routes (`background_tasks`
+  including the outbox page, `file_storage`, `tenants` admin, `users` admin) clamp
+  `?page=0`/negative/garbage to page 1 rather than reject; every JSON list API
+  (`background_tasks` executions and outbox, `audit_log`, `file_storage`,
+  `users` admin) answers 422 for `page` outside 1..1,000,000 and `per_page`
+  outside 1..200, where some used to accept `page=0` or an unbounded `per_page`
+  or forward a huge page to SQL as an out-of-range offset. The outbox API now
+  reports the clamped page when asked past the end. The audit log, executions
+  and outbox tables use `PaginationBar`; their private `showing/previous/next`
+  locale keys are removed in favour of `ui.pagination.*`.
+- One module scaffolder (#509). `make new-module` now calls the CLI's
+  `create_module` (`framework_repo=True` overlay) instead of ~980 lines of
+  f-string templates in `scripts/_templates_*.py`, which are deleted, so
+  `smpy create-module` / `smpy new` and `make new-module` share one set of
+  `templates/module/` files. Both now emit `constants.py`, `models.py`,
+  `contracts/`, `service.py`, `deps.py`, permission-guarded REST + Inertia
+  endpoints, Browse/Create/Edit pages, a menu item with `label_key`,
+  `register_permissions`, `locale_dirs` and `locales/en.json` (the CLI sample
+  page `Index.tsx` is replaced by `Browse.tsx`). `make new-module` also adds
+  the module to the `publish-pypi` matrix and runs `npm install` and
+  `make gen-i18n`; a fresh module passes `make lint`. The scaffold tests live in
+  `framework/cli/tests/` only.
 - `audit_log` and `dashboard` no longer depend on `Users` (meta `depends_on`
   and package dependency); `background_tasks` drops its unused `Users`
   dependency (#501). `api_tokens` moves `Users` to `optional_depends_on` and

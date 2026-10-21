@@ -10,10 +10,10 @@ strings below match what ``pages/*.tsx`` declare.
 from __future__ import annotations
 
 import asyncio
-import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
+from simple_module_db.pagination import clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
@@ -107,7 +107,7 @@ async def browse(
     # A page past the end (stale ?page= link, or the last row on it was just
     # deleted) is clamped and re-queried — otherwise the client gets an empty
     # list with a nonzero total and renders a blank table.
-    number = min(query.page, max(1, math.ceil(total / query.per_page)))
+    number = clamp_page(query.page, total, query.per_page)
     if number != query.page:
         items, total = await service.list_filtered(
             query.scope_filter, query.q, number, query.per_page

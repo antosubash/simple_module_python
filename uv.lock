@@ -3166,7 +3166,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "babel", specifier = ">=2.14" },
-    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fastapi", specifier = ">=0.140,<0.157" },
     { name = "packaging", specifier = ">=23.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
@@ -3249,18 +3249,22 @@ dependencies = [
 s3 = [
     { name = "aioboto3" },
 ]
+tasks = [
+    { name = "simple-module-background-tasks" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "aioboto3", marker = "extra == 's3'", specifier = ">=13" },
     { name = "aiofiles", specifier = ">=23" },
     { name = "pillow", specifier = ">=10" },
+    { name = "simple-module-background-tasks", marker = "extra == 'tasks'", editable = "modules/background_tasks" },
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
     { name = "simple-module-settings", editable = "modules/settings" },
 ]
-provides-extras = ["s3"]
+provides-extras = ["s3", "tasks"]
 
 [[package]]
 name = "simple-module-host"
@@ -3329,7 +3333,7 @@ redis = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1" },
-    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fastapi", specifier = ">=0.140,<0.157" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "itsdangerous", specifier = ">=2.0" },
     { name = "jinja2", specifier = ">=3.1" },
@@ -3355,7 +3359,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fastapi", specifier = ">=0.140,<0.157" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "starlette", specifier = ">=0.44" },
 ]
@@ -3554,7 +3558,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fastapi", specifier = ">=0.140,<0.157" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },

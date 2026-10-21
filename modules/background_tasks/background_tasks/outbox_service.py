@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, status
+from simple_module_db.pagination import PageParams, paginate
 from sqlalchemy import delete, false, func, select, update
 
 from background_tasks.constants import OutboxStatus
@@ -61,23 +62,18 @@ class OutboxService:
     ) -> OutboxListResponse:
         statuses = [status_filter] if status_filter else list(OPEN_STATUSES)
         where = [OutboxMessage.status.in_(statuses), *self.scope.conditions()]
-        total = (
-            await self.db.execute(select(func.count()).select_from(OutboxMessage).where(*where))
-        ).scalar_one()
-        rows = (
-            await self.db.execute(
-                select(OutboxMessage)
-                .where(*where)
-                .order_by(OutboxMessage.created_at.desc(), OutboxMessage.id)  # ty: ignore[invalid-argument-type]
-                .offset((page - 1) * per_page)
-                .limit(per_page)
-            )
-        ).scalars()
+        found = await paginate(
+            self.db,
+            select(OutboxMessage)
+            .where(*where)
+            .order_by(OutboxMessage.created_at.desc(), OutboxMessage.id),  # ty: ignore[invalid-argument-type]
+            PageParams(page=page, per_page=per_page),
+        )
         return OutboxListResponse(
-            items=[OutboxItem.model_validate(r) for r in rows],
-            total=total,
-            page=page,
-            per_page=per_page,
+            items=[OutboxItem.model_validate(r) for r in found.items],
+            total=found.total,
+            page=found.page,
+            per_page=found.per_page,
             counts=await self.counts(),
         )
 

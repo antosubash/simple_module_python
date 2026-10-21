@@ -32,6 +32,7 @@ from simple_module_cli._templating import (
 from simple_module_cli.case import (
     to_kebab_case,
     to_pascal_case,
+    to_singular,
     to_snake_case,
     validate_scaffold_name,
 )
@@ -189,6 +190,7 @@ def create_module(
     *,
     framework_version: str | None = None,
     standalone: bool = True,
+    framework_repo: bool = False,
 ) -> Path:
     """Scaffold a module package at ``dest``.
 
@@ -204,6 +206,14 @@ def create_module(
     is a footgun there, so callers creating an *in-repo* module pass
     ``standalone=False``. See GH #210.
 
+    ``framework_repo=True`` is the variant for a module that lives in the
+    simple_module_python monorepo itself (``make new-module``): it overlays
+    ``_optional/framework_repo/`` (a workspace-sourced ``pyproject.toml`` with
+    the metadata ``scripts/check_metadata.py`` requires, a LICENSE and README
+    that pass ``check_readmes.py``, and i18n-keyed pages) and implies no
+    ``.github/``. Wiring into the repo's own pyproject files is
+    :mod:`simple_module_cli.framework_repo`'s job.
+
     ``standalone=True`` additionally overlays ``_optional/standalone/`` (npm
     devDependencies + a tsconfig that resolves ``@simple-module-py/ui`` from the
     repo's own ``node_modules``) so the module type-checks outside a workspace.
@@ -214,11 +224,18 @@ def create_module(
     display_name = to_pascal_case(name)
     slug = to_kebab_case(name)
     package_name = to_snake_case(name)
+    singular = to_singular(package_name)
+    if framework_repo:
+        standalone = False
     substitutions = {
         "{{MODULE_NAME}}": display_name,
         "{{MODULE_SLUG}}": slug,
         "{{PACKAGE_NAME}}": package_name,
         "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
+        # The sample CRUD entity the module ships ("orders" -> Order).
+        "{{SINGULAR}}": singular,
+        "{{SINGULAR_UPPER}}": singular.upper(),
+        "{{SINGULAR_CLASS}}": to_pascal_case(singular),
         # npm-side pin for @simple-module-py/* devDependencies; "*" when the
         # caller skips pinning (mirrors _should_pin_framework_version).
         "{{FRAMEWORK_VERSION}}": (
@@ -247,6 +264,13 @@ def create_module(
             )
         else:
             shutil.rmtree(dest / ".github", ignore_errors=True)
+        if framework_repo:
+            _apply_template_files(
+                base_root / "_optional" / "framework_repo",
+                dest,
+                substitutions=substitutions,
+                path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
+            )
         if _should_pin_framework_version(framework_version):
             pin_framework_deps(dest / "pyproject.toml", framework_version)
     except Exception:

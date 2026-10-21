@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import {
@@ -43,9 +44,6 @@ function errorSummary(error: string | null): string {
 export function OutboxTable(props: Props) {
   const { messages, canManage, busyId, onRetry, onDiscard, page, perPage, total } = props;
   const { t } = useT();
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const from = total === 0 ? 0 : (page - 1) * perPage + 1;
-  const to = Math.min(page * perPage, total);
 
   return (
     <Card className="overflow-hidden py-0">
@@ -145,29 +143,12 @@ export function OutboxTable(props: Props) {
           )}
         </TableBody>
       </Table>
-      <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
-        <span>
-          {t(keys.background_tasks.index.showing, { from, to, total: total.toLocaleString() })}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => props.onPageChange(page - 1)}
-          >
-            {t(keys.background_tasks.index.previous)}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => props.onPageChange(page + 1)}
-          >
-            {t(keys.background_tasks.index.next)}
-          </Button>
-        </div>
-      </div>
+      <PaginationBar
+        page={page}
+        perPage={perPage}
+        total={total}
+        onPageChange={props.onPageChange}
+      />
     </Card>
   );
 }

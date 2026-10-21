@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
+from simple_module_db.pagination import PageParams
+from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 
 from users.admin.bulk_invite import bulk_router
@@ -50,8 +52,7 @@ admin_router.include_router(resend_router)
 
 @admin_router.get("", response_model=list[UserListItem])
 async def admin_list_users(
-    page: int = 1,
-    per_page: int = 20,
+    params: PageParams = Depends(page_params(20)),
     q: str | None = None,
     status: str | None = None,
     role: str | None = None,
@@ -63,8 +64,8 @@ async def admin_list_users(
     """List all users (paginated, optional search and filters)."""
     _status, _verified, _sort, _order = sanitize_list_filters(status, verified, sort, order)
     items, _ = await service.list_users(
-        page=page,
-        per_page=per_page,
+        page=params.page,
+        per_page=params.per_page,
         search=q,
         status=_status,
         role_name=role or None,
