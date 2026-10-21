@@ -17,6 +17,11 @@ There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With 
 | `view_prefix` | `/admin/permissions` |
 | `depends_on` | `["Auth", "Users"]` |
 
+The user side of the screens (looking a user up, searching, their roles) goes
+through the [user directory](/framework/user-directory). The role pages read
+the `users` module's `Role` table (`users.contracts.roles`), which is why the
+module still depends on `Users`.
+
 ## Routes
 
 ### API

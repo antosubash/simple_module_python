@@ -195,6 +195,12 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
   delivery (outbox via `background_tasks`): `bus.subscribe_durable` +
   `await bus.publish_durable(event, db)` inside the request transaction; a
   durable handler must not commit `ctx.db`. `docs/framework/events.md`.
+- Users: read accounts through `get_user_directory(app)`
+  (`simple_module_core.user_directory`; `get_many`, `search`, `match_ids`,
+  `stats`), never `users.models` outside `users`; the auth provider installs
+  it in `register_settings`. `DirectoryUser.roles is None` means unknown
+  (Keycloak), not none. Recent activity: `get_activity_feed(app)` (audit_log
+  installs it). `docs/framework/user-directory.md`.
 - Menus: `MenuRegistry.add_provider(fn)` for per-request items; permissions:
   `PermissionRegistry.add_source(name, provider)` + `invalidate_source(name)`.
   `docs/framework/permissions.md`.

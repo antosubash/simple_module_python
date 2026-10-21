@@ -105,6 +105,16 @@ Keycloak registers no setup steps: its local `users` table is legitimately empty
 | `full_name` | `str \| None` | from `preferred_username` |
 | `last_login_at` | `datetime \| None` | refreshed on each resolve |
 
+The cache backs this module's [user directory](/framework/user-directory)
+(`keycloak.directory.KeycloakDirectory`, installed in `register_settings`), so
+the audit log, dashboard, file storage and the permissions grants screen name
+and count Keycloak users. It knows only users who have signed in at least once;
+roles are `None` (they live in the IdP) and `created_this_month` is `None`.
+Modules that still need the `users` tables — `permissions` (role pages) and
+`api_tokens` (personal tokens need the owner's roles) — declare
+`depends_on=["Users"]`, so leave them out of a Keycloak install
+(`SM_MODULES_ENABLED`).
+
 ## Menu
 
 | Label | URL | Icon | Section | Order | Method |

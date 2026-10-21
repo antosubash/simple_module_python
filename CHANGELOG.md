@@ -23,8 +23,37 @@ All notable changes to this project are documented in this file. The format is b
   emailed when `public_base_url` is set. The invite API response gains
   `emailed`, and the invite form says whether the link was emailed.
 - `captured_mail` pytest fixture in `simple_module_test` records sent mail.
+- User directory protocol (#501): `simple_module_core.user_directory`
+  (`UserDirectory`, `DirectoryUser`, `DirectoryStats`, `NullUserDirectory`,
+  `get_user_directory` / `set_user_directory`). `users` installs
+  `UsersDirectory`, `keycloak` installs `KeycloakDirectory` (users who have
+  signed in; roles unknown). `audit_log`, `dashboard`, `file_storage`,
+  `api_tokens` and `permissions` read users through it instead of importing
+  `users.models`, so actor names and search, dashboard tiles and uploader
+  names now work under Keycloak instead of querying the empty `users_user`
+  table. See `docs/framework/user-directory.md`.
+- Activity feed protocol (#501): `simple_module_core.activity_feed`.
+  `audit_log` installs it; the users edit page's *Recent activity* card reads
+  it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- `audit_log` and `dashboard` no longer depend on `Users` (meta `depends_on`
+  and package dependency); `background_tasks` drops its unused `Users`
+  dependency (#501). `permissions` (role pages) and `api_tokens` still do.
+- **Behaviour change (#501):** dashboard user figures the auth provider cannot
+  give are `null` in `/api/dashboard/stats` and their tile is hidden (with no
+  provider, all three; under Keycloak, `users_created_this_month`). Personal
+  API tokens are refused for an owner whose roles the directory cannot read
+  (Keycloak), as before.
+- `audit_log.resolve`: `resolve_actors`, `actor_filter` and `actor_link` take
+  the `UserDirectory`; `USER_ENTITY_TYPE` is gone (use the directory's
+  `entity_type`). `audit_log.export.stream_csv` takes the directory too.
+  `PermissionService` and `ApiTokenService` accept a directory (defaults to
+  the null directory). With no directory, the audit Actor search matches the
+  term as an exact actor id (#501).
+- `smpy` module catalog: `users` now requires `settings`, `background_tasks`
+  requires `settings` instead of `users`, `dashboard` requires nothing,
+  mirroring each module's `depends_on` (#501).
 - The module-settings mechanism moved from the `settings` plugin into the
   framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
   `simple_module_core.module_settings`, hydration (`hydrate_settings`,

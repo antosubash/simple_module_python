@@ -104,7 +104,7 @@ everywhere) authenticate through the session cookie only and never see a token.
 | Expiry is required and at most `max_lifetime_days` (setting, default 365) | service |
 | Service key roles: platform roles only — never `admin`, never `tenant:*` | admin endpoint + service + resolver |
 | Only a **cookie session** may create, list or revoke tokens: `auth_kind == "session"` and no `Authorization` header. A token, a `users` access token or a Keycloak JWT gets 403 | every endpoint and page |
-| The creator must have a local `users_user` row the resolver can load (under Keycloak, a cached user); otherwise 400 `api_tokens.errors.account_required` | personal create endpoint |
+| The creator must be an active account in the app's [user directory](/framework/user-directory) whose roles are known; otherwise 400 `api_tokens.errors.account_required`. Under Keycloak roles live in the IdP, so personal tokens are refused there | personal create endpoint |
 | Cookie-authenticated mutations require `X-CSRF-Token` (`RequiresCsrf`) | every mutation |
 
 ## Tenancy

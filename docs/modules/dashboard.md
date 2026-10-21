@@ -11,7 +11,7 @@ It's intentionally simple — a place for new installs to land that proves the p
 | `name` | `Dashboard` |
 | `route_prefix` | `/api/dashboard` |
 | `view_prefix` | `/dashboard` |
-| `depends_on` | `["Users"]` |
+| `depends_on` | `[]` |
 
 ## Routes
 
@@ -47,6 +47,7 @@ the role editor to change that.
 {
   "total_users": 12,
   "active_users_7d": 3,
+  "users_created_this_month": 2,
   "module_count": 8,
   "system_info": {
     "python_version": "3.12.4",
@@ -55,6 +56,8 @@ the role editor to change that.
   }
 }
 ```
+
+The three user figures come from the app's [user directory](/framework/user-directory) (`stats()`), so they count whichever auth provider holds the accounts. A figure the provider cannot give is `null` and its tile is hidden: under `keycloak` `users_created_this_month` is `null` (the cache only learns of a user at first sign-in), and with no auth provider all three are.
 
 The result is cached process-wide for 30 seconds. If you mutate something that should change the numbers (e.g. seed users from a script), call `dashboard.stats.invalidate_stats_cache()` to clear it on the next call.
 
