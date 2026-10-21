@@ -12,6 +12,12 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Framework pagination helper (#513): `simple_module_db.PageParams`, `Page` and
+  `async paginate(session, stmt, params)` (clamps to the last page, never a
+  negative offset, counts through soft-delete/tenant filters), `clamp_page` /
+  `total_pages`; `simple_module_hosting.pagination` adds the strict
+  `page_params(n)` and clamping `lenient_page_params(n)` dependencies; and a
+  `PaginationBar` component in `@simple-module-py/ui` (`ui.pagination.*` keys).
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through
@@ -25,6 +31,14 @@ All notable changes to this project are documented in this file. The format is b
 - `captured_mail` pytest fixture in `simple_module_test` records sent mail.
 
 ### Changed
+- Users, file_storage, background_tasks (executions and outbox), audit_log,
+  settings and tenants lists now share the pagination helpers instead of
+  per-module copies (#513). Browser view routes (`background_tasks`,
+  `file_storage`, `tenants` admin) still clamp `?page=0`/negative to page 1
+  rather than reject; JSON APIs keep `ge=1` and answer 422. The outbox API now
+  reports the clamped page when asked past the end. The audit log, executions
+  and outbox tables use `PaginationBar`; their private `showing/previous/next`
+  locale keys are removed in favour of `ui.pagination.*`.
 - The module-settings mechanism moved from the `settings` plugin into the
   framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
   `simple_module_core.module_settings`, hydration (`hydrate_settings`,

@@ -6,7 +6,9 @@ import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from simple_module_db.pagination import PageParams
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
@@ -56,7 +58,7 @@ async def index(
     task_name: str = Query(default="", alias="q"),
     queue: str = Query(default=""),
     tenant_id: str = Query(default="", alias="tenant"),
-    page: int = Query(default=1),
+    params: PageParams = Depends(lenient_page_params(PER_PAGE)),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> InertiaResponse:
     response = await service.list(
@@ -64,7 +66,7 @@ async def index(
         task_name=task_name or None,
         queue=queue or None,
         tenant_id=tenant_id or None,
-        page=page,
+        page=params.page,
         per_page=PER_PAGE,
     )
     # A filtered-empty list says nothing about the fleet, so don't pay to poll

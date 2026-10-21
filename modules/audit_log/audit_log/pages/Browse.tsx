@@ -1,6 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
@@ -16,7 +17,6 @@ import {
   FilterBar,
   type FilterState,
 } from './components/FilterBar';
-import { Pager } from './components/Pager';
 
 interface Props {
   items: AuditEntryRead[];
@@ -174,11 +174,11 @@ function Browse() {
             />
           )}
 
-          <Pager
+          <PaginationBar
             page={page}
-            pageSize={page_size}
+            perPage={page_size}
             total={total}
-            onPage={(next) => navigate(state, next)}
+            onPageChange={(next) => navigate(state, next)}
           />
         </Card>
       </PageShell>

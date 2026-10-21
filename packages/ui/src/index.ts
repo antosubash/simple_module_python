@@ -6,6 +6,7 @@ export { InterpolatedText } from './components/InterpolatedText';
 export { NavIcon } from './components/NavIcon';
 export { OfflineBanner } from './components/OfflineBanner';
 export { PageShell } from './components/PageShell';
+export { PaginationBar } from './components/PaginationBar';
 export { PasswordInput } from './components/PasswordInput';
 export {
   PasswordStrength,
