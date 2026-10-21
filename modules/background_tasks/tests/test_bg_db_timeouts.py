@@ -80,7 +80,7 @@ async def test_outbox_options(monkeypatch):
 
     monkeypatch.setattr(outbox_worker, "init_db", capture)
     outbox_worker.worker_session_factory()
-    assert captured == options()
+    assert captured == options() | {"pool_size": 1, "max_overflow": 2}
     await outbox_worker._dispose_cached(cache)
 
 

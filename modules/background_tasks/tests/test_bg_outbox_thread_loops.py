@@ -73,3 +73,21 @@ def test_each_thread_gets_its_own_engine(sync_sqlite):
         assert sync_db.async_database_url()
     finally:
         outbox_worker.reset_worker_state()
+
+
+def test_outbox_engine_keeps_its_own_small_pool(sync_sqlite, monkeypatch):
+    seen: dict = {}
+    real = outbox_worker.init_db
+
+    def spy(url, **kw):
+        seen.update(kw)
+        return real(url, **kw)
+
+    monkeypatch.setattr(outbox_worker, "init_db", spy)
+    monkeypatch.setattr(sync_db, "database_options", lambda: {"pool_size": 9, "max_overflow": 9})
+    outbox_worker.reset_worker_state()
+    try:
+        outbox_worker.worker_session_factory()
+    finally:
+        outbox_worker.reset_worker_state()
+    assert (seen["pool_size"], seen["max_overflow"]) == (1, 2)

@@ -36,7 +36,9 @@ The schema declares two `components.securitySchemes`: `bearerAuth` (`http`,
 rule matched on the templated path with each `{param}` replaced by a placeholder
 segment, the auth provider's legacy public paths, or the schema URL itself), and
 `[{bearerAuth: []}, {sessionCookie: []}]` otherwise, so a generated client sends
-credentials only where needed. Rules that need a specific path segment (a regex
+credentials only where needed. `bearerAuth` covers provider access tokens
+(e.g. Keycloak) on every protected route, while personal API tokens are accepted
+only on routes marked `TokenAllowed()`. Rules that need a specific path segment (a regex
 on a slug) can over- or under-report here; `AuthMiddleware` stays the authority.
 
 Diagnostic `SM031` warns at a dev boot about an `/api` route with no permission,

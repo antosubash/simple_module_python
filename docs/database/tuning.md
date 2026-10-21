@@ -7,6 +7,7 @@ PostgreSQL startup parameters; positive values set limits in milliseconds.
 All four settings require a process restart. SQLite ignores these settings,
 including pool timeout. Alembic and the pre-app settings read do not use them.
 
+Set asyncpg timeouts through the host settings, not URL query parameters.
 Asyncpg receives server settings; psycopg/psycopg2 receive libpq startup options.
 PgBouncer transaction pooling rejects startup parameters such as these timeout
 settings. Leave the millisecond settings at zero and configure limits on the

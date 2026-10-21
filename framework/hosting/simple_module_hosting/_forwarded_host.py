@@ -27,6 +27,7 @@ _WILDCARD = "*"
 _SUBDOMAIN_PREFIX = "*."
 _HOST_HEADER = b"host"
 _FORWARDED_HOST_HEADER = b"x-forwarded-host"
+_FORWARDED_PROTO_HEADER = b"x-forwarded-proto"
 _DEFAULT_PORTS = {"https": 443, "wss": 443}
 _FALLBACK_PORT = 80
 _HOST_PATTERN = re.compile(r"^(?P<host>[a-z0-9]([a-z0-9._-]*[a-z0-9])?)(:(?P<port>\d{1,5}))?$")
@@ -35,6 +36,12 @@ _HOST_PATTERN = re.compile(r"^(?P<host>[a-z0-9]([a-z0-9._-]*[a-z0-9])?)(:(?P<por
 def _split_host(value: str) -> tuple[str, str | None] | None:
     match = _HOST_PATTERN.match(value.strip().lower())
     return (match["host"], match["port"]) if match else None
+
+
+def _forwarded_proto(scope: Scope) -> str | None:
+    """Rightmost ``X-Forwarded-Proto``: ProxyHeaders has not rewritten the scheme yet."""
+    raw = ",".join(v.decode("latin-1") for k, v in scope["headers"] if k == _FORWARDED_PROTO_HEADER)
+    return raw.split(",")[-1].strip().lower() or None
 
 
 class TrustedPeers:
@@ -123,5 +130,6 @@ class ForwardedHostMiddleware:
             *((k, v) for k, v in scope["headers"] if k != _HOST_HEADER),
             (_HOST_HEADER, value.encode("latin-1")),
         ]
-        default = _DEFAULT_PORTS.get(scope.get("scheme", ""), _FALLBACK_PORT)
+        proto = _forwarded_proto(scope) or scope.get("scheme", "")
+        default = _DEFAULT_PORTS.get(proto, _FALLBACK_PORT)
         scope["server"] = (host, int(port) if port else default)

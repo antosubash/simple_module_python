@@ -128,3 +128,31 @@ class TestPeers:
 
     def test_allowlist_skips_invalid_entries(self) -> None:
         assert not HostAllowlist(["bad entry/", ""]).allows("app.example.com", None)
+
+
+async def test_default_port_follows_forwarded_proto() -> None:
+    seen: dict = {}
+
+    async def inner(scope, receive, send):
+        seen["server"] = scope["server"]
+
+    mw = ForwardedHostMiddleware(inner, trusted_hosts=_PROXY_IP, allowlist=[_PUBLIC_HOST])
+
+    async def call(proto: str | None) -> tuple:
+        headers = [(b"x-forwarded-host", _PUBLIC_HOST.encode())]
+        if proto:
+            headers.append((b"x-forwarded-proto", proto.encode()))
+        scope = {
+            "type": "http",
+            "scheme": "http",
+            "client": (_PROXY_IP, 1),
+            "headers": headers,
+            "server": ("internal", 8000),
+        }
+        await mw(scope, None, None)
+        return seen["server"]
+
+    assert await call("https") == (_PUBLIC_HOST, 443)
+    assert await call("http, https") == (_PUBLIC_HOST, 443)
+    assert await call("https, http") == (_PUBLIC_HOST, 80)
+    assert await call(None) == (_PUBLIC_HOST, 80)

@@ -6,7 +6,7 @@ synchronous, so each dispatch runs on the calling thread's long-lived outbox
 event loop (:mod:`.outbox_loop`), and the engine — built once per loop from the
 URL :mod:`.sync_db` was pinned to — keeps a small connection pool on that loop.
 Under the ``threads`` pool every Celery thread therefore has its own loop and
-engine, with its own configurable worker pool per thread.
+engine (a pool of one, plus two overflow).
 Its session class gets the framework's entity listeners and the host's tenancy
 policy, like the sync engine's.
 
@@ -64,11 +64,12 @@ def worker_session_factory() -> async_sessionmaker[Any]:
         return cached[1]
     if cached is not None:
         _dispose_soon(cached[2])
-    # Each outbox thread uses the same configured pool limits as sync workers.
+    # Small pool of its own: one thread delivers one row at a time. Timeouts and
+    # recycle are shared with the sync workers.
     state = init_db(
         url,
-        pool_size=options.get("pool_size", 2),
-        max_overflow=options.get("max_overflow", 3),
+        pool_size=1,
+        max_overflow=2,
         pool_recycle=options.get("pool_recycle", 1800),
         pool_timeout=options.get("pool_timeout", 30),
         connect_timeout=options.get("connect_timeout", 10),
