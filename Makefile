@@ -1,13 +1,16 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-i18n-fresh ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+
+# UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
+UV_SYNC_FLAGS ?=
 
 # Install
 install:
-	uv sync --all-packages
+	uv sync $(UV_SYNC_FLAGS) --all-packages
 	npm install
 
 # Install (granular — used by CI so Python jobs don't pull npm and vice versa)
 install-py:
-	uv sync --all-packages
+	uv sync $(UV_SYNC_FLAGS) --all-packages
 
 install-js:
 	npm ci
@@ -121,9 +124,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
-	uv run python scripts/check_metadata.py
-	uv run python scripts/check_readmes.py
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-i18n-fresh ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -134,9 +135,9 @@ ci-python-typecheck:
 	uv run ty check
 
 ci-js-lint:
-	npx biome ci .
+	npx biome ci --error-on-warnings .
 
-ci-js-typecheck:
+ci-js-typecheck: gen-pages
 	npx tsc --noEmit -p host/client_app/tsconfig.json
 	@# Fail if a module ships .tsx files but has no tsconfig.json — otherwise
 	@# the type-check would silently skip the module. See SM017 in `make doctor`.
@@ -152,6 +153,24 @@ ci-js-typecheck:
 		echo "tsc -p $$cfg"; \
 		npx tsc --noEmit -p "$$cfg" || exit 1; \
 	done
+
+# Package metadata, release matrix, ty extra-paths / pytest testpaths (#520), and READMEs.
+ci-check-metadata:
+	uv run python scripts/check_metadata.py
+	uv run python scripts/check_readmes.py
+
+# The checked-in typed-key files must match what the installed modules' catalogs
+# emit. Catches a catalog edit committed without regenerating, and (with the
+# namespace guard in gen_i18n.py) a regeneration that dropped keys.
+ci-i18n-fresh:
+	uv run --project host python scripts/gen_i18n.py
+	git diff --exit-code packages/i18n/src/
+
+# Drives a real gen-pages + vite build to prove module CSS and cross-module npm
+# imports resolve. Needs node_modules; slow and rewrites generated files, so it
+# is not part of `lint`.
+ci-css-build:
+	uv run pytest framework/cli/tests/test_module_css_build.py
 
 # Enforce a max of 300 lines per .py/.ts/.tsx file.
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.
@@ -187,6 +206,15 @@ ci-build-packages:
 # Diagnostics
 doctor:
 	uv run python -m simple_module_core
+
+# Throwaway SQLite DB: migrate to heads, then run the SM0xx suite against it
+# (the same checks that fail a production boot). Not in `lint`: it needs a DB.
+CI_DOCTOR_DB ?= ci-doctor.db
+ci-doctor:
+	rm -f $(CI_DOCTOR_DB)
+	SM_DATABASE_URL=sqlite+aiosqlite:///./$(CI_DOCTOR_DB) $(MAKE) migrate
+	SM_DATABASE_URL=sqlite+aiosqlite:///./$(CI_DOCTOR_DB) $(MAKE) doctor
+	rm -f $(CI_DOCTOR_DB)
 
 # Database migrations
 # All targets run from the repo root so alembic and `make dev-api` share the

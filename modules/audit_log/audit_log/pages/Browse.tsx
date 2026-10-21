@@ -5,7 +5,6 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Download } from 'lucide-react';
-import type React from 'react';
 import { useState } from 'react';
 import { BrowseEmpty } from './components/BrowseEmpty';
 import { CorrelationBanner } from './components/Correlation';

@@ -4,7 +4,6 @@ import { NavIcon } from '@simple-module-py/ui/components/NavIcon';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type { MenuItem, SharedProps } from '@simple-module-py/ui/types';
-import type React from 'react';
 
 /**
  * Admin section landing page.

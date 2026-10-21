@@ -5,7 +5,6 @@ import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowRight, Box, Search } from 'lucide-react';
-import type React from 'react';
 import { useMemo, useState } from 'react';
 import { ModuleForm, type ModuleView } from './components/ModuleForm';
 import { ROUTES } from './routes';
