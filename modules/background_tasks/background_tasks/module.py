@@ -98,14 +98,11 @@ class BackgroundTasksModule(ModuleBase):
         from background_tasks.models import TaskExecution
 
         registry.register(
-            AuditLink(
-                # Class name, not __tablename__ — see AuditLink.entity_type.
-                # The table name travels alongside as the audit log's type tag.
-                entity_type=TaskExecution.__name__,
+            AuditLink.for_model(
+                TaskExecution,
                 url_template=f"{VIEW_PREFIX}/{{id}}",
                 label="Task execution",
                 label_key="background_tasks.audit.task_execution",
-                table_name=TaskExecution.__tablename__,
                 label_resolver=_resolve_execution_labels,
             )
         )

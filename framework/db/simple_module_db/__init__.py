@@ -5,6 +5,7 @@ from simple_module_db.base import create_module_base
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.deps import get_db
 from simple_module_db.extensions import UnsupportedDatabaseError, ensure_db_extensions
+from simple_module_db.independent import independent_session
 from simple_module_db.migration_portability import drop_enums_if_postgres
 from simple_module_db.migrations import (
     build_module_metadata,
@@ -67,6 +68,7 @@ __all__ = [
     "finalize_session",
     "get_db",
     "hard_delete",
+    "independent_session",
     "init_db",
     "is_valid_tenant_id",
     "like_contains_pattern",

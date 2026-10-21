@@ -124,13 +124,11 @@ class FileStorageModule(ModuleBase):
         from file_storage.models import StoredFile
 
         registry.register(
-            AuditLink(
-                # Class name, not __tablename__ — see AuditLink.entity_type.
-                entity_type=StoredFile.__name__,
+            AuditLink.for_model(
+                StoredFile,
                 url_template="",
                 label="File",
                 label_key=f"{constants.LOCALE_NAMESPACE}.audit.file",
-                table_name=constants.TABLE_STORED_FILE,
                 label_resolver=_resolve_file_labels,
             )
         )
