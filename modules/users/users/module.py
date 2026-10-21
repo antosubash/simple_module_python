@@ -65,6 +65,14 @@ class UsersModule(ModuleBase):
 
         app.state.auth.auth_provider = UsersAuthProvider()
 
+        # Other modules read accounts through the directory, never
+        # ``users.models`` (GH #501).
+        from simple_module_core.user_directory import set_user_directory
+
+        from users.directory import UsersDirectory
+
+        set_user_directory(app, UsersDirectory())
+
         # The public shell renders a "Sign up" link only when signup is open —
         # /users/register 404s otherwise. Registered here (not in the view
         # layer) so it is set before the first request is served.

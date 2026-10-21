@@ -42,6 +42,13 @@ class KeycloakModule(ModuleBase):
             app.state.keycloak.settings, state=app.state.keycloak
         )
 
+        # Other modules read accounts through the directory (GH #501).
+        from simple_module_core.user_directory import set_user_directory
+
+        from keycloak.directory import KeycloakDirectory
+
+        set_user_directory(app, KeycloakDirectory())
+
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
