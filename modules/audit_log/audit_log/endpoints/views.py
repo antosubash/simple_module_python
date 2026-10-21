@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_db.deps import get_db
-from simple_module_db.pagination import clamp_page
+from simple_module_db.pagination import PageParams, clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from audit_log.constants import (
     API_PREFIX,
     DEFAULT_PAGE_SIZE,
-    MAX_PAGE_SIZE,
     PAGE_BROWSE,
     PERM_VIEW,
     PLATFORM_TENANT_FILTER,
@@ -85,8 +84,8 @@ async def browse(
     page_size: str | None = Query(default=None),
 ) -> InertiaResponse:
     # Sanitize pagination — never raise a validation error for bad values.
-    page_int = max(_safe_int(page, 1), 1)
-    page_size_int = max(1, min(_safe_int(page_size, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE))
+    params = PageParams(page=_safe_int(page, 1), per_page=_safe_int(page_size, DEFAULT_PAGE_SIZE))
+    page_int, page_size_int = params.page, params.per_page
     # The Actor box takes a name or an email as well as an id. Whitespace is
     # not a search: an all-spaces term means the box is empty, not that nobody
     # is called that.

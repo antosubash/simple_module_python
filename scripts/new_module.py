@@ -44,7 +44,12 @@ def main() -> int:
 
     wire_module(ROOT, name)
     print(f"\nModule '{name}' scaffolded under modules/{name}/.")
-    print("Next: edit models.py, then `make migration msg=...` (see CLAUDE.md § Database).")
+    print(
+        "Next: edit models.py, then autogenerate (`make migration` hits Multiple heads):\n"
+        "  uv run --project host alembic -c host/alembic.ini revision --autogenerate "
+        '-m "<msg>" --head <branch_label>@head\n'
+        "Set branch_labels on the module's first migration."
+    )
     return 0
 
 

@@ -5,7 +5,7 @@ or a page past the end means.
 
 ```python
 from simple_module_db import PageParams, paginate
-from simple_module_hosting.pagination import LenientPageParamsDep, page_params
+from simple_module_hosting.pagination import page_params
 
 
 # JSON API: page < 1 or per_page outside 1..200 is a 422.

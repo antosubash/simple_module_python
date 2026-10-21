@@ -32,7 +32,6 @@ async def browse(
     q: str = "",
     params: PageParams = Depends(lenient_page_params(_PAGE_SIZE)),
 ) -> InertiaResponse:
-    page = params.page
     tenants = await service.list_all(search=q, limit=params.per_page, offset=params.offset)
     counts = await service.member_counts([t.id for t in tenants])
     return await inertia.render(
@@ -46,7 +45,7 @@ async def browse(
                 for t in tenants
             ],
             "q": q,
-            "page": page,
+            "page": params.page,
             "has_more": len(tenants) == params.per_page,
         },
     )
