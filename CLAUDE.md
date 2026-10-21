@@ -402,7 +402,8 @@ without constants or `label_key`, and sets `app.state.<pkg>` directly instead
 of calling `register_module_settings`. Fix those first. It also does **not**:
 
 1. Run `npm install`, so regenerate and commit `package-lock.json` (CI uses
-   `npm ci`).
+   `npm ci`). Commit the `uv.lock` change the scaffold's
+   `uv sync` makes too (CI uses `uv sync --locked`).
 2. Add `simple_module_<name>` to the `publish-pypi` matrix in
    `.github/workflows/release.yml`; a test and `check_metadata.py` fail until
    you do. `pyproject.toml` needs description, `readme`, `license = "MIT"`,

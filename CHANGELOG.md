@@ -36,7 +36,8 @@ All notable changes to this project are documented in this file. The format is b
   and the useless fragment in `ErrorPage.test.tsx` are removed (#508).
 - `uv.lock` is now committed (the ignore rule is gone), keys the CI caches, and
   CI installs with `uv sync --locked` (`UV_SYNC_FLAGS`); `make install` is
-  unchanged (#508).
+  unchanged (#508). The release workflow runs `uv lock` after
+  the version bump so the lock follows the lockstep versions.
 - **Behaviour change:** the `users` mailer settings (`mailer`, `smtp_*`) moved to
   the `mail` module as `backend` and `smtp_*`; a data migration (`d7b3a9e5c1f2`)
   moves stored values (#496). `simple_module_users` now depends on `simple_module_mail`, and

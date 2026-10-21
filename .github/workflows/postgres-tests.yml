@@ -19,7 +19,7 @@ on:
       - ".github/workflows/postgres-tests.yml"
 
 concurrency:
-  group: pg-tests-${{ github.ref }}
+  group: pg-tests-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

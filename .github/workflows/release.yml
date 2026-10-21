@@ -80,6 +80,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Bump all package versions (working tree only)
         run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
+      # Workspace members are pinned in uv.lock (version + ==pins); PR CI runs
+      # `uv sync --locked`, so a bump that skips this breaks every PR after it.
+      - name: Regenerate uv lockfile
+        run: uv lock
       - name: Regenerate npm lockfile
         run: npm install --package-lock-only
       - name: Build Python wheels + sdists
@@ -218,6 +222,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Re-apply version bump
         run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
+      # Workspace members are pinned in uv.lock (version + ==pins); PR CI runs
+      # `uv sync --locked`, so a bump that skips this breaks every PR after it.
+      - name: Regenerate uv lockfile
+        run: uv lock
       - name: Regenerate npm lockfile
         run: npm install --package-lock-only
       - name: Commit, tag, push

@@ -162,9 +162,16 @@ ci-check-metadata:
 # The checked-in typed-key files must match what the installed modules' catalogs
 # emit. Catches a catalog edit committed without regenerating, and (with the
 # namespace guard in gen_i18n.py) a regeneration that dropped keys.
+# Compares content before/after regeneration rather than `git diff`, so a locally
+# regenerated-but-unstaged file passes and a stale one fails (CI checks out clean).
 ci-i18n-fresh:
-	uv run --project host python scripts/gen_i18n.py
-	git diff --exit-code packages/i18n/src/
+	@before=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
+	uv run --project host python scripts/gen_i18n.py || exit 1; \
+	after=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
+	if [ "$$before" != "$$after" ]; then \
+		echo "packages/i18n/src was stale and has been regenerated: run 'make gen-i18n' and commit the result"; \
+		exit 1; \
+	fi
 
 # Drives a real gen-pages + vite build to prove module CSS and cross-module npm
 # imports resolve. Needs node_modules; slow and rewrites generated files, so it
