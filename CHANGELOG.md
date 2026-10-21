@@ -17,6 +17,14 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- `background_tasks`: opt-in retained logs. With `log_sink_enabled` (default off;
+  `log_sink_level` default `INFO`, `log_retention_days` default 7) web and worker
+  log lines are kept in the new `background_tasks_log_record` table, batched off
+  the logging path by the new `simple_module_hosting.log_sinks` (`LogSink`
+  protocol, `QueueSinkHandler`: bounded queue that drops and counts instead of
+  blocking, secrets masked before queueing). The task detail page gains a Logs
+  tab, `/admin/background-tasks/logs` searches all retained lines, and
+  `purge_old_executions` enforces retention. Migration `1f5985daa10b` (#537).
 - `background_tasks`: tasks report progress with `heartbeat(progress=(i, n), message=, phase=)`
   (buffered under the existing 30 s throttle, `i == n` writes at once, never
   audited), and `GET /api/background_tasks/tasks/{celery_task_id}/status` lets the user who

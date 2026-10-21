@@ -131,6 +131,7 @@ export default defineConfig({
             { text: "Sentry", link: "/framework/sentry" },
             { text: "Multi-tenancy", link: "/framework/multi-tenancy" },
             { text: "Internationalization", link: "/framework/i18n" },
+            { text: "Retained logging", link: "/framework/logging" },
           ],
         },
       ],

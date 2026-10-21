@@ -33,6 +33,7 @@ from background_tasks.constants import (
     OutboxStatus,
     TaskStatus,
 )
+from background_tasks.log_purge import purge_log_records
 from background_tasks.models import OutboxMessage, TaskExecution
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.sync_db import sync_session
@@ -132,7 +133,7 @@ def sweep_stuck_tasks(self: Task) -> int:
 
 @shared_task(name=INTERNAL_TASK_PURGE_OLD)
 def purge_old_executions() -> int:
-    """Delete terminal rows older than the retention window."""
+    """Delete terminal rows, delivered outbox rows and log lines past their retention."""
     retention_days = load_runner_settings().retention_days
     cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
@@ -149,6 +150,7 @@ def purge_old_executions() -> int:
             .where(OutboxMessage.delivered_at < cutoff)
         )
         count += delivered.rowcount or 0
+        count += purge_log_records(session)
         if count:
             logger.info(
                 "purge_old_executions removed %d row(s) older than %d days",

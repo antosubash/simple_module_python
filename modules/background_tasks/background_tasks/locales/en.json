@@ -158,7 +158,8 @@
     "routes_empty": "No task routes are configured, so every task goes to the default queue. Add routes in a module's task_config.py (TASK_ROUTES)."
   },
   "nav": {
-    "background_tasks": "Background tasks"
+    "background_tasks": "Background tasks",
+    "logs": "Logs"
   },
   "audit": {
     "task_execution": "Task execution"
@@ -192,5 +193,29 @@
     "discard_failed": "Failed to discard the event",
     "conflict": "This event is being delivered right now, so it cannot be changed. The list has been refreshed.",
     "gone": "This event no longer exists. The list has been refreshed."
+  },
+  "logs": {
+    "title": "Logs",
+    "description": "Retained application and task log lines",
+    "back_button": "Executions",
+    "tab_details": "Details",
+    "tab_logs": "Logs",
+    "tab_list_label": "Task sections",
+    "search_label": "Search messages",
+    "search_placeholder": "Search messages",
+    "task_label": "Task id",
+    "task_placeholder": "Task id",
+    "level_label": "Minimum level",
+    "level_all": "All levels",
+    "apply": "Search",
+    "col_time": "Time",
+    "col_level": "Level",
+    "col_logger": "Logger",
+    "col_message": "Message",
+    "col_task": "Task",
+    "empty_title": "No log lines",
+    "empty_description": "Nothing matches. Retained logging is off by default: turn on log_sink_enabled in the Background tasks settings, then restart the web process and workers.",
+    "load_failed": "Failed to load log lines",
+    "platform": "Platform"
   }
 }

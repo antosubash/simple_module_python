@@ -47,6 +47,8 @@ STATUS_ROUTER_PREFIX = "/tasks"
 MENU_LABEL = "Background tasks"
 MENU_ICON = "activity"
 MENU_ORDER = 120
+LOGS_MENU_LABEL = "Logs"
+LOGS_MENU_ICON = "scroll-text"
 
 # ── Page identifiers ────────────────────────────────────────────
 # Kept as literals at the call site (see endpoints/views.py) so
@@ -183,3 +185,17 @@ PROGRESS_PHASE_MAX_LENGTH = 64
 class OutboxMode(StrEnum):
     CELERY = "celery"
     INPROCESS = "inprocess"
+
+
+# ── Retained logs (GH #537) ─────────────────────────────────────
+TABLE_LOG_RECORD = f"{TABLE_PREFIX}log_record"
+LOG_MESSAGE_MAX_LENGTH = 4096
+LOG_NAME_MAX_LENGTH = 255
+LOG_ID_MAX_LENGTH = 64
+LOG_EXTRA_MAX_KEYS = 20
+LOG_EXTRA_VALUE_MAX_LENGTH = 1000
+DEFAULT_LOG_SINK_LEVEL = "INFO"
+DEFAULT_LOG_RETENTION_DAYS = 7
+LOG_PER_PAGE = 50
+# Level names the admin filter offers, lowest first.
+LOG_LEVEL_NAMES = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
