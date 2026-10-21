@@ -51,6 +51,7 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Imported after ``.env`` is in the environment, so nothing below can
     # resolve a setting before it is.
     from simple_module_hosting import merge_host_settings
+    from simple_module_hosting.leases import configure_process_leases
 
     from background_tasks.celery_app import build_celery
     from background_tasks.sync_db import set_database_url
@@ -66,6 +67,8 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
         host.database_url, tenant_strict=host.multi_tenant, default_tenant=default_tenant
     )
     set_default_tenant(default_tenant)
+    # Task bodies share the web process's leases (GH #539): same Redis or table.
+    configure_process_leases(host.redis_url, database_url=host.database_url)
     # Hydrated from the DB like the web process, so an admin-edited setting
     # reaches the worker at boot, not only the web app.
     return build_celery(load_runner_settings())
