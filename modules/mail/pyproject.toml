@@ -1,0 +1,38 @@
+[project]
+name = "simple_module_mail"
+version = "0.0.37"
+description = "Outgoing mail (SMTP or console) for simple_module apps, configured from the DB-backed settings"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
+keywords = ["simple-module", "mail", "smtp", "email"]
+dependencies = [
+    "simple_module_core==0.0.37",
+    "simple_module_settings==0.0.37",
+    "aiosmtplib>=3.0",
+]
+
+[project.entry-points.simple_module]
+mail = "mail.module:MailModule"
+
+[project.urls]
+Homepage = "https://github.com/antosubash/simple_module_python"
+Repository = "https://github.com/antosubash/simple_module_python"
+Issues = "https://github.com/antosubash/simple_module_python/issues"
+Changelog = "https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# The distribution name (simple_module_mail) doesn't match the package
+# directory (mail), so hatchling can't infer what to ship — without
+# this the wheel builds empty and the entry point fails to import.
+[tool.hatch.build.targets.wheel]
+packages = ["mail"]
+
+[tool.uv.sources]
+simple_module_core = { workspace = true }
+simple_module_settings = { workspace = true }

@@ -235,7 +235,7 @@ jobs:
       # Branding is included so the admin section's "edited on its own page,
       # never in the generic module editor" rule is actually exercised — the
       # server-side half of that is a 409 guard, which is worth CI coverage.
-      SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog","Branding"]'
+      SM_MODULES_ENABLED: '["Auth","Users","Mail","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog","Branding"]'
       # Every test signs in from scratch, all from 127.0.0.1: the login page,
       # the login POST and the landing page are anonymous public-route hits,
       # ~120 a minute for the whole suite — right at the default
@@ -368,7 +368,7 @@ jobs:
           # Keycloak excluded (SM020: one auth provider). BackgroundTasks
           # excluded because its DB-hydrated settings reject a localhost broker
           # under SM_ENVIRONMENT=production.
-          SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","FileStorage","FeatureFlags","AuditLog","Branding"]'
+          SM_MODULES_ENABLED: '["Auth","Users","Mail","Dashboard","Permissions","Settings","FileStorage","FeatureFlags","AuditLog","Branding"]'
         run: |
           uv run --project host uvicorn host.main:app --port 8000 > api.log 2>&1 &
           echo $! > api.pid

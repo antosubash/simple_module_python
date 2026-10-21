@@ -102,6 +102,7 @@ class InvitationIssued(InvitationView):
 
     token: str
     accept_url: str
+    emailed: bool
 
 
 class InvitationPreview(SQLModel):

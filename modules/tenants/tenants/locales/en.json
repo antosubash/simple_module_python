@@ -68,6 +68,8 @@
     "invite_role_label": "Role",
     "invite_submit": "Send invitation",
     "invite_submitting": "Sending…",
+    "invite_emailed": "Invitation emailed to {email}",
+    "invite_share_link": "Not emailed — share this link",
     "invite_link_title": "Invitation link",
     "invite_link_description": "Share this link with the invitee — it will not be shown again.",
     "invite_link_copy": "Copy link",

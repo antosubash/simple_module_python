@@ -1,6 +1,6 @@
 # Bundled modules
 
-simple_module_python ships with fourteen first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
+simple_module_python ships with fifteen first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
 
 | Module | Depends on | What it provides |
 |---|---|---|
@@ -18,6 +18,7 @@ simple_module_python ships with fourteen first-party modules. Each is a regular 
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
 | [`tenants`](/modules/tenants) | `auth`, `settings` | SaaS organisations: tenants, many-to-many memberships with per-tenant roles, invitations, the membership-validated tenant resolver, and the entitlement/lifecycle seams billing plugs into. |
 | [`site_lock`](/modules/site_lock) | `settings`, `auth` | Optional site-wide shared-password gate for staging / pre-launch sites. Off by default. |
+| [`mail`](/modules/mail) | `settings` | Outgoing mail transport: SMTP (aiosmtplib) or a logging console backend, DB-backed settings, live reload, `mail.mailer` connection check. Other modules send through `simple_module_core.mail`. |
 
 ## How modules are wired in
 

@@ -15,27 +15,25 @@ arbitrarily — exactly the scenario the audit flagged.
 
 from __future__ import annotations
 
-import logging
+import re
 
 import pytest
 
 
-async def _send_invite_and_grab_token(admin_client, anon_client, caplog, email: str) -> str:
-    """Issue an invite and pull the token out of the ConsoleMailer log line."""
-    with caplog.at_level(logging.INFO, logger="users.mailer"):
-        resp = await admin_client.post(
-            "/api/users/admin/invite",
-            json={"email": email, "role_names": ["user"]},
-        )
+async def _send_invite_and_grab_token(admin_client, anon_client, captured_mail, email: str) -> str:
+    """Issue an invite and pull the token out of the captured invite mail."""
+    resp = await admin_client.post(
+        "/api/users/admin/invite",
+        json={"email": email, "role_names": ["user"]},
+    )
     assert resp.status_code == 201, resp.text
-    records = [r for r in caplog.records if r.getMessage() == "users.invite.email"]
-    assert records, "ConsoleMailer didn't log an invite.email record"
-    link = records[-1].link
-    return link.split("token=", 1)[1]
+    sent = [m for m in captured_mail.to(email) if "invited you" in m.subject]
+    assert sent, "no invite mail was sent"
+    return re.search(r"token=(\S+)", sent[-1].text).group(1)
 
 
 @pytest.mark.anyio
-async def test_invite_token_is_single_use(admin_client, anon_client, caplog):
+async def test_invite_token_is_single_use(admin_client, anon_client, captured_mail):
     """Accepting the same invite token twice must fail the second time.
 
     Verify tokens in fastapi-users flip ``is_verified`` on the user; the
@@ -44,7 +42,7 @@ async def test_invite_token_is_single_use(admin_client, anon_client, caplog):
     forgot to re-check state would let a stolen link be replayed.
     """
     token = await _send_invite_and_grab_token(
-        admin_client, anon_client, caplog, "single@example.com"
+        admin_client, anon_client, captured_mail, "single@example.com"
     )
 
     first = await anon_client.post(
@@ -63,7 +61,9 @@ async def test_invite_token_is_single_use(admin_client, anon_client, caplog):
 
 
 @pytest.mark.anyio
-async def test_reset_token_invalidated_after_password_change(admin_client, anon_client, caplog):
+async def test_reset_token_invalidated_after_password_change(
+    admin_client, anon_client, captured_mail
+):
     """A reset-password token must no longer work once the user's hash changes.
 
     fastapi-users binds reset tokens to ``user.hashed_password`` so any change
@@ -73,7 +73,7 @@ async def test_reset_token_invalidated_after_password_change(admin_client, anon_
     """
     # Step 1: create a user via invite, log them in with a known password.
     token = await _send_invite_and_grab_token(
-        admin_client, anon_client, caplog, "resetme@example.com"
+        admin_client, anon_client, captured_mail, "resetme@example.com"
     )
     await anon_client.post(
         "/api/users/auth/accept-invite",
@@ -105,10 +105,10 @@ async def test_reset_token_invalidated_after_password_change(admin_client, anon_
 
 
 @pytest.mark.anyio
-async def test_disabled_user_cannot_accept_their_invite(admin_client, anon_client, caplog):
+async def test_disabled_user_cannot_accept_their_invite(admin_client, anon_client, captured_mail):
     """Inviting + disabling before acceptance must keep the user out."""
     token = await _send_invite_and_grab_token(
-        admin_client, anon_client, caplog, "blocked@example.com"
+        admin_client, anon_client, captured_mail, "blocked@example.com"
     )
 
     # Admin disables the freshly-invited user before they accept.

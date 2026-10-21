@@ -61,7 +61,7 @@ class InvitationCreated(Event):
     """Delivery hook: a mailer module sends ``accept_url`` to ``email``.
 
     ``accept_url`` is absolute only when the ``public_base_url`` setting is
-    set; otherwise it is root-relative and the mailer must prefix its origin.
+    set; otherwise it is root-relative and must not be emailed.
     """
 
     tenant_id: str

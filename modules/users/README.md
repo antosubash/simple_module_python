@@ -18,7 +18,7 @@ Pre-wired into any app scaffolded with `smpy new`.
 - Bootstrap admin via env vars (`SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD`) — idempotent, only creates if the users table is empty.
 - `smpy users create-admin` CLI for ad-hoc admin creation.
 - Inertia pages for login/register/invite-accept/admin-invite.
-- Console mailer (logs to stdout) or SMTP mailer (`SM_USERS_MAILER=smtp`).
+- Sends verification, reset and invite emails through the framework mail sender (configure the transport in the `mail` module).
 - Demo mode — one-click, read-only shared **admin** and **standard user** accounts on the sign-in card, for public showcase instances.
 
 ## Usage
@@ -50,7 +50,7 @@ async def profile(user: CurrentUser):
 ## Depends on
 
 - `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`, `simple_module_auth`
-- `fastapi-users[sqlalchemy,oauth]>=15,<16`, `aiosmtplib`, `cachetools`, `typer`
+- `fastapi-users[sqlalchemy,oauth]>=15,<16`, `cachetools`, `typer`
 
 ## Demo mode
 

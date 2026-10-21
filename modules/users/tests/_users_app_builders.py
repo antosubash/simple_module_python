@@ -20,7 +20,6 @@ def _users_overrides(allow_signup: bool = False) -> dict[str, tuple[str, str]]:
     """Values seeded into the ``SettingsStore`` before the app lifespan runs."""
     return {
         "allow_signup": (str(allow_signup).lower(), "bool"),
-        "mailer": ("console", "string"),
         "base_url": ("http://testserver", "string"),
         "cookie_secure": ("false", "bool"),
         # 32+ bytes to clear pyjwt's InsecureKeyLengthWarning for HMAC-SHA256.

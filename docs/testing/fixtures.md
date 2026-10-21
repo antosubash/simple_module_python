@@ -13,6 +13,7 @@ The `simple_module_test` plugin provides app-level fixtures that every test dire
 | `app` | function | `FastAPI` | Endpoint tests that don't need an HTTP client. |
 | `client` | function | `httpx.AsyncClient` | Anonymous HTTP calls to the app. |
 | `authenticated_client` | function | `httpx.AsyncClient` | Admin-scoped HTTP calls — carries a signed session cookie. |
+| `captured_mail` | function | `CapturedMail` | Asserting on outgoing mail: installs a recording sender (`.messages`, `.to(address)`) as the process mail sender. |
 
 All fixtures are **function-scoped** — each test gets its own. The SQLite database is in-memory; tearing down and re-creating is cheap.
 
@@ -184,6 +185,8 @@ Don't rely on `datetime.now()` assertions with tolerance windows — they're fla
 ## Mocking external services
 
 For HTTP, SMTP, storage backends — mock at the boundary with `httpx_mock`, `aiosmtpd`, or a service-registered fake. **Don't** monkeypatch the module you're testing; its behavior is what's under test.
+
+For mail, request `captured_mail` instead of mocking SMTP: everything sent through `simple_module_core.mail` lands in `captured_mail.messages` as `MailMessage`s. `CapturedMail(delivers_email=False)` installed with `install_mail_sender` exercises the "share the link by hand" paths. The process sender is reset after every test, so one test's sender never reaches the next.
 
 Example with `httpx_mock`:
 

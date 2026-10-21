@@ -107,6 +107,10 @@ Projects using the `ty` type checker should globally suppress `unresolved-attrib
 
 The host CSP blocks any origin you don't declare — a font CDN or tile server your pages load from will silently fail in every host. Declare it in the hook: `registry.add("style-src", "https://rsms.me")`. Fetch directives only (never `default-src` / `base-uri` / `form-action` / `frame-ancestors`); single-token sources, validated at boot.
 
+### 11. Send mail through `simple_module_core.mail`, never SMTP directly
+
+Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()` (request code) or `await resolve_mail_sender(db)` (durable handlers, which run in the outbox worker without an app). With no transport installed both return a logging sender, so never guard on "is mail configured"; read `sender.delivers_email` when a screen must hand the link back instead. The `mail` module owns SMTP and its settings. In tests, request the `captured_mail` fixture.
+
 ## Related skills
 
 - **simple-module-database** — per-module Base, mixins, session lifecycle

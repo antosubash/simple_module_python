@@ -61,7 +61,7 @@ The two maintenance fields have **no working env var**, and this is worth statin
 
 ## Users module
 
-Most users settings (signup, mailer, SMTP, OAuth/OIDC credentials, rate limits) are now **DB-backed** — edit them in the admin UI at `/admin/settings/` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
+Most users settings (signup, OAuth/OIDC credentials, rate limits; SMTP lives in the [`mail` module](/modules/mail)) are now **DB-backed** — edit them in the admin UI at `/admin/settings/` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
 
 | Variable | Default | Notes |
 |---|---|---|

@@ -71,7 +71,7 @@ def import_from_env() -> None:
             if n == 0 and find_env_file().is_file():
                 typer.echo(
                     "Hint: variables must be named SM_<MODULE>_<FIELD> "
-                    "(e.g. SM_USERS_SMTP_PORT); none in the environment or .env matched."
+                    "(e.g. SM_MAIL_SMTP_PORT); none in the environment or .env matched."
                 )
         return 0
 

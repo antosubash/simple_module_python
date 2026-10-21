@@ -30,6 +30,7 @@ _OWNER: dict[str, str] = {
     "d4e8a1b6c392": "users",
     "b5018b617142": "users",
     "c8e4f1a2b6d9": "users",
+    "d7b3a9e5c1f2": "mail",  # data-only: users.* settings keys -> mail.*
     "a659221c464b": "file_storage",
     "e5a8c1f27b94": "file_storage",
     "c7f2d9a41e83": "file_storage",
@@ -50,7 +51,7 @@ _ROOTS = {"77162e7b184b", "e36ab09c4a92"}
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
     "a7c2e91d4b58": "audit_log",
-    "c8e4f1a2b6d9": "users",  # reported as ``api_tokens`` (inherited label)
+    "d7b3a9e5c1f2": "mail",  # reported as ``api_tokens`` (inherited label)
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
 }
@@ -80,6 +81,7 @@ _INHERITED_MISLABELS = {
     "92965b00f105": "api_tokens",
     "b5018b617142": "api_tokens",
     "c8e4f1a2b6d9": "api_tokens",
+    "d7b3a9e5c1f2": "api_tokens",
 }
 
 

@@ -49,7 +49,7 @@ These are **DB-backed host settings** (under `host` in `/admin/settings/`), not 
 
 ## Users module
 
-Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy, mailer, SMTP creds, and base URL all moved to the DB-backed settings store — edit them under `users` at `/admin/settings/`.
+Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy and base URL are DB-backed settings (edit them under `users` at `/admin/settings/`); the mailer and SMTP credentials live under `mail`.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -58,7 +58,7 @@ Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second, non-admin seed user. |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
 
-DB-backed users settings (defaults): `allow_signup=false`, `mailer=console` (or `smtp`), `base_url=http://localhost:8000`, and the `smtp_*` fields (`smtp_port=587`, `smtp_from=no-reply@localhost`, `smtp_tls=true`).
+DB-backed users settings (defaults): `allow_signup=false` and `base_url=http://localhost:8000`. Outgoing mail (SMTP host, credentials, sender address) is configured in the [`mail` module](/modules/mail), not under Users.
 
 ## Background tasks (Celery)
 

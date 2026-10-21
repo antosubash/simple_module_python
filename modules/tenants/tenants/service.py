@@ -1,8 +1,7 @@
 """Tenant and membership business logic.
 
-Every membership operation takes ``tenant_id`` explicitly and filters on it —
-these tables are not ``MultiTenantMixin`` (see ``models``), so the scoping the
-listener would otherwise add is done here, by hand, in one place.
+Membership operations filter explicitly on ``tenant_id``: these registry
+tables are not ``MultiTenantMixin`` (see ``models``), so scoping is done here.
 
 Side effects (domain events, cache invalidation) run *after commit* through
 ``_after_commit``: a billing handler must never create a customer for a tenant
@@ -67,15 +66,20 @@ class TenantService:
         self.entitlements = entitlements or UnlimitedEntitlements()
         self.pending: list[Callable[[], Awaitable[Any]]] = []
 
-    # ── side effects ────────────────────────────────────────────
-
-    def _after_commit(self, *events: Event, invalidate: Sequence[str | None] = ()) -> None:
+    def _after_commit(
+        self,
+        *events: Event,
+        invalidate: Sequence[str | None] = (),
+        callback: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
         async def run() -> None:
             for key in invalidate:
                 await self.invalidate(key)
             if self.bus is not None:
                 for event in events:
                     await self.bus.publish(event)
+            if callback is not None:  # last: may wait on an SMTP server
+                await callback()
 
         on_commit = getattr(self.db, "on_commit", None)
         if on_commit is not None:

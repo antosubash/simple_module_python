@@ -10,6 +10,7 @@ message nobody received.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -174,14 +175,15 @@ class TestResendInvite:
 
 class TestInviteTokenClaims:
     @pytest.mark.anyio
-    async def test_invite_token_names_the_inviter(self, admin_client, users_app, caplog):
+    async def test_invite_token_names_the_inviter(self, admin_client, users_app, captured_mail):
         """The accept-invite card says who invited you; the claim carries it."""
         import jwt
 
-        with caplog.at_level(logging.INFO, logger="users.mailer"):
-            await _invite(admin_client, "whosent@example.com")
-        link = next(r for r in caplog.records if r.getMessage() == "users.invite.email").link
-        token = link.split("token=", 1)[1]
+        await _invite(admin_client, "whosent@example.com")
+        text = next(
+            m.text for m in captured_mail.to("whosent@example.com") if "invited you" in m.subject
+        )
+        token = re.search(r"token=(\S+)", text).group(1)
 
         payload = jwt.decode(
             token,

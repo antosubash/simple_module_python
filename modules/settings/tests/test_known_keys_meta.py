@@ -51,18 +51,18 @@ class TestFieldMetadata:
     async def test_the_env_var_label_matches_the_module_prefix(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
-        mailer = _by_key(await _known_keys(authenticated_client), "users.mailer")
+        mailer = _by_key(await _known_keys(authenticated_client), "mail.backend")
 
-        assert mailer["env_var"] == "SM_USERS_MAILER"
+        assert mailer["env_var"] == "SM_MAIL_BACKEND"
         assert mailer["default"] == "console"
 
     async def test_a_db_backed_module_reports_its_env_var_as_not_read(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
-        """``UsersSettings`` declares no ``env_prefix``, so ``SM_USERS_*`` is a
+        """``MailSettings`` declares no ``env_prefix``, so ``SM_MAIL_*`` is a
         label and not a fallback. Saying otherwise inverts the question the
         Resolved value panel exists to answer."""
-        mailer = _by_key(await _known_keys(authenticated_client), "users.mailer")
+        mailer = _by_key(await _known_keys(authenticated_client), "mail.backend")
 
         assert mailer["env_readable"] is False
         assert mailer["env_set"] is False
@@ -71,14 +71,14 @@ class TestFieldMetadata:
     async def test_a_pattern_constrained_string_advertises_its_choices(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
-        mailer = _by_key(await _known_keys(authenticated_client), "users.mailer")
+        mailer = _by_key(await _known_keys(authenticated_client), "mail.backend")
 
         assert mailer["choices"] == ["console", "smtp"]
 
     async def test_an_unconstrained_string_has_no_choices(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
-        host = _by_key(await _known_keys(authenticated_client), "users.smtp_host")
+        host = _by_key(await _known_keys(authenticated_client), "mail.smtp_host")
 
         assert host["choices"] is None
 
@@ -132,10 +132,10 @@ class TestRegistryDefinitions:
         from settings.contracts.registry import SettingDefinition
 
         app.state.settings.registry.add(
-            SettingDefinition(key="users.mailer", default="wrong", description="stale")
+            SettingDefinition(key="mail.backend", default="wrong", description="stale")
         )
 
-        mailer = [e for e in await _known_keys(authenticated_client) if e["key"] == "users.mailer"]
+        mailer = [e for e in await _known_keys(authenticated_client) if e["key"] == "mail.backend"]
 
         assert len(mailer) == 1
         assert mailer[0]["default"] == "console"
@@ -199,13 +199,13 @@ class TestEnvValueMasking:
         assert view.env_value is None
 
     def test_a_db_backed_class_reports_no_env_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """``UsersSettings`` declares no ``env_prefix``: the var is not a fallback."""
+        """``MailSettings`` declares no ``env_prefix``: the var is not a fallback."""
+        from mail.settings import MailSettings
         from settings._module_settings import _field_view
-        from users.settings import UsersSettings
 
-        monkeypatch.setenv("SM_USERS_SMTP_HOST", "not-a-fallback.example.com")
+        monkeypatch.setenv("SM_MAIL_SMTP_HOST", "not-a-fallback.example.com")
 
-        view = _field_view("smtp_host", UsersSettings(), "SM_USERS_")
+        view = _field_view("smtp_host", MailSettings(), "SM_MAIL_")
 
         assert view.env_readable is False
         assert view.env_value is None

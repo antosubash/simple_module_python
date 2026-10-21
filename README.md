@@ -299,15 +299,10 @@ Set `SM_USERS_ALLOW_SIGNUP=true` and restart the server. The `/users/register` p
 
 ### Switching to SMTP
 
+Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Users only needs its public link base:
+
 ```
-SM_USERS_MAILER=smtp
 SM_USERS_BASE_URL=https://your-domain.com
-SM_USERS_SMTP_HOST=smtp.example.com
-SM_USERS_SMTP_PORT=587
-SM_USERS_SMTP_USERNAME=no-reply@example.com
-SM_USERS_SMTP_PASSWORD=secret
-SM_USERS_SMTP_FROM=no-reply@example.com
-SM_USERS_SMTP_TLS=true
 ```
 
 ## Architecture

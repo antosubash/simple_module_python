@@ -1,4 +1,4 @@
-"""Mailer interface and factory — pick console/smtp from settings."""
+"""Mailer interface and factory — built-in templated mailer."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def mailer_delivers(mailer: object | None) -> bool:
     Four screens branch on this — the reset-sent card, add-people, resend
     invite and bulk invite — and each had its own copy of the same two-part
     guard. It is one question with one answer: no mailer at all delivers
-    nothing, and the console mailer only writes the link to the log, so both
+    nothing, and a console sender only writes the link to the log, so both
     have to hand the link back instead of promising an inbox. Takes the mailer
     rather than the settings because ``delivers_email`` is the mailer's own
     claim; a third-party mailer that never set the flag is taken at its word.
@@ -53,21 +53,6 @@ def build_mailer(
     settings: UsersSettings,
     app_name_provider: AppNameProvider | None = None,
 ) -> Mailer:
-    provider = app_name_provider or default_app_name
-    if settings.mailer == "smtp":
-        from users.mailer.smtp import SmtpMailer
+    from users.mailer.templated import TemplatedMailer
 
-        return SmtpMailer(
-            host=settings.smtp_host,
-            port=settings.smtp_port,
-            username=settings.smtp_username,
-            password=settings.smtp_password,
-            from_address=settings.smtp_from,
-            use_tls=settings.smtp_tls,
-            base_url=settings.base_url,
-            app_name_provider=provider,
-        )
-
-    from users.mailer.console import ConsoleMailer
-
-    return ConsoleMailer(base_url=settings.base_url, app_name_provider=provider)
+    return TemplatedMailer(base_url=settings.base_url, app_name_provider=app_name_provider)

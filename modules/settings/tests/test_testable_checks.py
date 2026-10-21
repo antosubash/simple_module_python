@@ -29,7 +29,7 @@ class TestTestableShape:
         testable = await _testable(authenticated_client)
 
         assert isinstance(testable, dict)
-        assert testable["users"] == ["users.mailer"]
+        assert testable["mail"] == ["mail.mailer"]
 
     async def test_packages_without_checks_are_absent(
         self, authenticated_client: httpx.AsyncClient
@@ -48,18 +48,18 @@ class TestTestableShape:
             return HealthCheckResult(status=HealthStatus.HEALTHY)
 
         app.state.sm.health_registry.add(
-            HealthCheck(name="users.aaa", check=_ok, module="Users", probe=False)
+            HealthCheck(name="mail.aaa", check=_ok, module="Mail", probe=False)
         )
 
-        assert (await _testable(authenticated_client))["users"] == ["users.aaa", "users.mailer"]
+        assert (await _testable(authenticated_client))["mail"] == ["mail.aaa", "mail.mailer"]
 
 
 class TestTestConnectionStillRuns:
     async def test_the_named_check_reports_its_result(
         self, authenticated_client: httpx.AsyncClient
     ) -> None:
-        resp = await authenticated_client.post("/admin/settings/test-connection/users")
+        resp = await authenticated_client.post("/admin/settings/test-connection/mail")
 
         assert resp.status_code == 200, resp.text[:400]
         names = [c["name"] for c in resp.json()["checks"]]
-        assert "users.mailer" in names
+        assert "mail.mailer" in names

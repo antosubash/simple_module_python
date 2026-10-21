@@ -11,11 +11,11 @@ The split is not cosmetic. Everything here has to run after
 have changed in the admin UI; nothing in ``module.py`` may. Keeping the two apart
 makes that ordering visible instead of a comment.
 
-Two helpers are public rather than underscored: ``register_mailer_health_check``
-and ``apply_login_redirect_fallback`` are self-contained *decisions* rather than
-boot sequencing, and they were split out separately (#331) before the whole body
-moved here. They keep their names and signatures so the seam stays where that
-change put it.
+``apply_login_redirect_fallback`` is public rather than underscored: it is a
+self-contained *decision* rather than boot sequencing, and it was split out
+separately (#331) before the whole body moved here. It keeps its name and
+signature so the seam stays where that change put it. The mailer health check
+(``mail.mailer``) now belongs to the ``mail`` module.
 """
 
 from __future__ import annotations
@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "apply_login_redirect_fallback",
-    "register_mailer_health_check",
     "run_startup",
 ]
 
@@ -53,7 +52,6 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     s = state.settings
 
     _build_mailer(app, state, s)
-    register_mailer_health_check(app, module.meta.name)
     _build_limiters(state, s)
     _build_oauth_clients(state, s)
     apply_login_redirect_fallback(app, s, module.meta.name, DEFAULT_LOGIN_REDIRECT_URL)
@@ -87,30 +85,6 @@ def _build_mailer(app: FastAPI, state, s) -> None:
         return name or default_app_name()
 
     state.mailer = build_mailer(s, _app_name)
-
-
-def register_mailer_health_check(app: FastAPI, module_name: str) -> None:
-    """Add the mailer check to the health registry.
-
-    Registered at startup rather than in ``register_health_checks`` because the
-    check needs the app to re-read DB-hydrated settings on every run. The owner
-    is passed explicitly since the boot-time ``set_owner`` window has long
-    closed by then.
-    """
-    from simple_module_core.health import HealthCheck
-
-    from users.health import CHECK_MAILER, build_mailer_check
-
-    app.state.sm.health_registry.add(
-        HealthCheck(
-            name=CHECK_MAILER,
-            check=build_mailer_check(app),
-            module=module_name,
-            # On demand only: this authenticates against the mail provider,
-            # which must not happen on a readiness-probe timer.
-            probe=False,
-        )
-    )
 
 
 def _build_limiters(state, s) -> None:

@@ -19,12 +19,6 @@ class TestUsersSettingsDefaults:
         s = UsersSettings()
         assert s.require_verification is True
 
-    def test_mailer_default_console(self):
-        from users.settings import UsersSettings
-
-        s = UsersSettings()
-        assert s.mailer == "console"
-
     def test_cookie_name_default(self):
         from users.settings import UsersSettings
 
@@ -80,19 +74,6 @@ class TestUsersSettingsDbOverrides:
         assert cfg.allow_signup is True
 
     @pytest.mark.asyncio
-    async def test_mailer_override_from_db(self, db_session):
-        from settings.hydrate import hydrate_settings
-        from settings.service import SettingService
-        from settings.store import SettingsStore
-        from users.settings import UsersSettings
-
-        store = SettingsStore(SettingService(db_session))
-        await store.set_override("users", "mailer", "smtp", "string")
-
-        cfg = await hydrate_settings(UsersSettings, store, "users")
-        assert cfg.mailer == "smtp"
-
-    @pytest.mark.asyncio
     async def test_base_url_override_from_db(self, db_session):
         from settings.hydrate import hydrate_settings
         from settings.service import SettingService
@@ -108,32 +89,10 @@ class TestUsersSettingsDbOverrides:
     def test_env_vars_are_ignored(self, monkeypatch):
         """Setting SM_USERS_* must not affect UsersSettings() after the migration."""
         monkeypatch.setenv("SM_USERS_ALLOW_SIGNUP", "true")
-        monkeypatch.setenv("SM_USERS_MAILER", "smtp")
         from users.settings import UsersSettings
 
         s = UsersSettings()
         assert s.allow_signup is False
-        assert s.mailer == "console"
-
-
-class TestUsersSettingsValidation:
-    def test_mailer_pattern_rejects_invalid(self):
-        from users.settings import UsersSettings
-
-        with pytest.raises(ValidationError, match="mailer"):
-            UsersSettings(mailer="foo")
-
-    def test_mailer_pattern_accepts_console(self):
-        from users.settings import UsersSettings
-
-        s = UsersSettings(mailer="console")
-        assert s.mailer == "console"
-
-    def test_mailer_pattern_accepts_smtp(self):
-        from users.settings import UsersSettings
-
-        s = UsersSettings(mailer="smtp")
-        assert s.mailer == "smtp"
 
 
 class TestTokenSecretProductionGuard:

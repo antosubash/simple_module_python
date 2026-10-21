@@ -21,7 +21,7 @@ def is_masked(entity: Setting) -> bool:
     :data:`SENSITIVE_KEYS` names the one key the hosting layer owns
     (``host.secret_key``). Everything else is judged by the same name/value
     rule the module editor uses, because the store is the *same data* seen
-    through a different screen: an override named ``users.smtp_password``, or
+    through a different screen: an override named ``mail.smtp_password``, or
     any override holding a ``postgresql://user:pw@host/db``, was rendered in
     clear text in the browse table and pre-filled into the edit form purely
     because the allowlist had a single entry in it.

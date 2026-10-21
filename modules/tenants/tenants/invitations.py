@@ -1,8 +1,7 @@
 """Invitations: an owner/admin invites an email; that user accepts while signed in.
 
-Provider-agnostic on purpose — no user lookup, no mailer. The raw token is
-returned once to the inviter (to copy) and carried on ``InvitationCreated``
-(for a mailer module to send); only its SHA-256 is stored.
+Provider-agnostic: the raw token is returned once to the inviter and carried
+on ``InvitationCreated`` for email delivery; only its SHA-256 is stored.
 """
 
 from __future__ import annotations
@@ -10,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
+from functools import partial
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +19,7 @@ from tenants.constants import MembershipRole, TenantStatus
 from tenants.contracts.events import InvitationCreated
 from tenants.contracts.schemas import InvitationCreate
 from tenants.errors import TenantError
+from tenants.invitation_mail import invitation_mail_wanted, send_invitation_after_commit
 from tenants.models import Invitation, Tenant
 from tenants.service import TenantService
 
@@ -97,9 +98,17 @@ class InvitationService:
             # fails as a whole, so no savepoint is needed.
             raise TenantError("already_invited", status_code=409) from exc
         accept_url = f"{base_url.rstrip('/')}{ACCEPT_PATH}?token={token}"
-        self.tenants._after_commit(
-            InvitationCreated(tenant_id, tenant.name, data.email, data.role, accept_url)
-        )
+        event = InvitationCreated(tenant_id, tenant.name, data.email, data.role, accept_url)
+        bus = self.tenants.bus
+        # Mail only when there is somewhere to send it: no transport means the
+        # fallback log, and a relative link is useless in an inbox. Either way
+        # the one-time token is then never persisted in the outbox.
+        mail = invitation_mail_wanted(accept_url)
+        durable = mail and bus is not None and bus.durable_transport is not None
+        if durable:
+            await bus.publish_durable(event, self.db)
+        send_now = partial(send_invitation_after_commit, event) if mail and not durable else None
+        self.tenants._after_commit(event, callback=send_now)
         return invitation, token, accept_url
 
     async def list_pending(self, tenant_id: str) -> list[Invitation]:

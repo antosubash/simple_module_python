@@ -345,6 +345,11 @@ development and testing (`session_cookie_secure`).
   heavy imports (`torch`, `cv2`, …) inside the task body (`SM028`). Enqueue from
   a transaction with `background_tasks.enqueue_after_commit(db, task, …)`, never
   `.delay()`. Long tasks call `heartbeat()`. `docs/modules/background_tasks.md`.
+- **Mail**: build a `MailMessage` and send through `simple_module_core.mail`
+  (`current_mail_sender()` in request code, `await resolve_mail_sender(db)` in
+  durable handlers, which have no app). The `mail` module owns SMTP and its
+  settings; without it the sender only logs (`delivers_email` is false). Tests
+  use the `captured_mail` fixture.
 - **Audit links / design packs**: `register_audit_links` takes
   `AuditLink(entity_type=Model.__name__, …)` (class name, not table name, or it
   silently never matches); `register_design_packs` slugs must match

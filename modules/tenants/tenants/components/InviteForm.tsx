@@ -32,10 +32,15 @@ export function InviteForm({ onInvited }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [acceptUrl, setAcceptUrl] = useState<string | null>(null);
 
+  const [delivery, setDelivery] = useState({ emailed: false, email: '' });
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    // A new attempt replaces the previous result; a failure must not leave the
+    // last invitation's link and "emailed" banner beside its error.
+    setAcceptUrl(null);
     try {
       const response = await fetch('/api/tenants/current/invitations', {
         method: 'POST',
@@ -47,9 +52,14 @@ export function InviteForm({ onInvited }: Props) {
         setError(await describe(response));
         return;
       }
-      const data = (await response.json()) as { accept_url: string };
+      const data = (await response.json()) as {
+        accept_url: string;
+        emailed: boolean;
+        email: string;
+      };
       // Root-relative unless public_base_url is configured.
       setAcceptUrl(new URL(data.accept_url, window.location.origin).toString());
+      setDelivery({ emailed: data.emailed, email: data.email });
       setEmail('');
       toast.success(t(keys.tenants.members.toast_invited));
       onInvited();
@@ -110,7 +120,9 @@ export function InviteForm({ onInvited }: Props) {
         {acceptUrl && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="mb-2 text-sm font-medium text-amber-800">
-              {t(keys.tenants.members.invite_link_title)}
+              {delivery.emailed
+                ? t(keys.tenants.members.invite_emailed, { email: delivery.email })
+                : t(keys.tenants.members.invite_share_link)}
             </p>
             <p className="mb-2 text-xs text-amber-700">
               {t(keys.tenants.members.invite_link_description)}

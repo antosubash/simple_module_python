@@ -21,6 +21,7 @@ from tenants import constants as c
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
+    from simple_module_core.events import EventBus
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.permissions import PermissionRegistry
     from simple_module_core.tenancy import TenantExists
@@ -49,6 +50,14 @@ class TenantsModule(ModuleBase):
         # resolver runs. Settings: register_module_settings.
         depends_on=[c._MODULE_AUTH, c._MODULE_SETTINGS],
     )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from tenants.contracts.events import InvitationCreated
+        from tenants.invitation_mail import send_invitation_email
+
+        bus.subscribe_durable(
+            InvitationCreated, send_invitation_email, name=c.INVITATION_MAIL_HANDLER
+        )
 
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_hosting.shared_props import register_inertia_shared_provider
