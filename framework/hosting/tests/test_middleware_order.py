@@ -2,6 +2,7 @@
 
 CLAUDE.md spells out the pipeline:
 
+    (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
     CorrelationId → RequestLogging → BodyLimit → GZip → Security → Session → <module>
                   → Tenant (opt-in) → Locale → InertiaLayoutData
                   → InertiaCache → RateLimit → Setup → Maintenance
