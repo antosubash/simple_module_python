@@ -20,6 +20,8 @@ async def startup(app: FastAPI, module_name: str) -> None:
     """Build the Celery app, install signal handlers, hand-off to worker."""
     import asyncio
 
+    from simple_module_hosting.log_sinks import redact
+
     from background_tasks.celery_app import build_celery
     from background_tasks.log_sink import install_log_sink
     from background_tasks.signals import bind_event_bus
@@ -47,7 +49,7 @@ async def startup(app: FastAPI, module_name: str) -> None:
     install_log_sink(services.settings)
     logger.info(
         "BackgroundTasks: Celery app ready (broker=%s, queue=%s)",
-        services.settings.broker_url,
+        redact(services.settings.broker_url),
         services.settings.task_default_queue,
     )
 

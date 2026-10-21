@@ -50,6 +50,7 @@ _SECRET_RE = re.compile(
     r"""(?ix)([\w-]*(?:password|passwd|token|secret|api[_-]?key)[\w-]*["']?\s*[:=]\s*["']?)"""
     r"""[^\s"',;&}\])]+"""
 )
+_URL_CRED_RE = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)([^/@\s:]*):([^/@\s]*)@")
 _BEARER_RE = re.compile(r"(?i)\bbearer\s+[\w.~+/=-]+")
 _SENSITIVE_KEY_RE = re.compile(r"(?i)password|passwd|token|secret|api[_-]?key|authorization|cookie")
 _STANDARD_ATTRS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
@@ -65,9 +66,10 @@ class LogSink(Protocol):
 
 
 def redact(text: str) -> str:
-    """Mask credentials in ``text``: auth headers, cookies, bearer tokens, ``key=value`` secrets."""
+    """Mask credentials in ``text``: auth headers, cookies, bearer tokens, ``key=value`` secrets, URL passwords."""
     text = _HEADER_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)
     text = _BEARER_RE.sub(f"Bearer {REDACTED}", text)
+    text = _URL_CRED_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}:{REDACTED}@", text)
     return _SECRET_RE.sub(lambda m: f"{m.group(1)}{REDACTED}", text)
 
 

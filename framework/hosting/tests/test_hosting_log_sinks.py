@@ -152,3 +152,17 @@ def test_redact_masks(raw, secret):
 
 def test_redact_keeps_ordinary_text():
     assert redact("user 42 logged in from 10.0.0.1") == "user 42 logged in from 10.0.0.1"
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["redis://user:s3cret@host:6379/0", "amqp://u:s3cret@mq/vhost", "postgresql://u:s3cret@db/x"],
+)
+def test_redact_masks_url_userinfo_password(url):
+    out = redact(f"connecting to {url} now")
+    assert "s3cret" not in out
+    assert "@" in out and url.split("://")[0] in out
+
+
+def test_redact_leaves_credential_free_urls_alone():
+    assert redact("redis://localhost:6379/0") == "redis://localhost:6379/0"
