@@ -18,7 +18,7 @@ from _entity_label_support import entity_of as _entity
 from _entity_label_support import seed_entry as _seed_entry
 from background_tasks.models import TaskExecution
 from feature_flags.models import FeatureFlagOverride
-from settings.models import Setting
+from simple_module_db.stored_settings import Setting
 from users.models import User
 
 

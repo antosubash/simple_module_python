@@ -18,12 +18,12 @@ if TYPE_CHECKING:
 class MailModule(ModuleBase):
     meta = ModuleMeta(
         name=c.MODULE_NAME,
-        # ``Settings`` so register_module_settings can reach the registry.
+        # ``Settings``: the runtime re-reads overrides through its SettingsStore.
         depends_on=[c.MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from settings.registration import register_module_settings
+        from simple_module_core.module_settings import register_module_settings
 
         from mail.settings import MailSettings
         from mail.state import MailState

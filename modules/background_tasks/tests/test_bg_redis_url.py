@@ -116,7 +116,7 @@ _STORED = {
 def test_redis_url_beats_a_stored_value(monkeypatch: pytest.MonkeyPatch) -> None:
     """env → DB → default holds for the shared variable too, though only a
     default factory reads it."""
-    from settings.hydrate import build_settings
+    from simple_module_core.settings_hydrate import build_settings
 
     monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
 
@@ -127,7 +127,7 @@ def test_redis_url_beats_a_stored_value(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_stored_values_apply_without_redis_url() -> None:
-    from settings.hydrate import build_settings
+    from simple_module_core.settings_hydrate import build_settings
 
     settings = build_settings(BackgroundTasksSettings, _STORED)
 
@@ -136,7 +136,7 @@ def test_stored_values_apply_without_redis_url() -> None:
 
 
 def test_legacy_var_still_beats_redis_url_and_the_db(monkeypatch: pytest.MonkeyPatch) -> None:
-    from settings.hydrate import build_settings
+    from simple_module_core.settings_hydrate import build_settings
 
     monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
     monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://legacy:6379/0")

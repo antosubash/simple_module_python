@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 
 from tenants import constants as c
 
@@ -67,9 +68,6 @@ class TenantsModule(ModuleBase):
         from tenants.settings import TenantsSettings
         from tenants.shared_props import tenant_shared_props
 
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
         register_module_settings(
             app,
             c.MODULE_PACKAGE,

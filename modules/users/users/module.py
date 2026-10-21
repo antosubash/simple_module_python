@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.setup_steps import SetupRegistry
 
@@ -26,8 +27,8 @@ if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
 
 _MODULE_DEPENDENCY_AUTH = "Auth"
-# register_settings() goes through settings.registration.register_module_settings,
-# which reads app.state.settings — so Settings must register first.
+# Sorted after Settings for its SettingsReloaded event. Registering this
+# module's settings no longer needs it: the framework owns that registry (#500).
 _MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 # Menu URLs
@@ -55,18 +56,9 @@ class UsersModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-        import importlib
 
         from users.settings import UsersSettings
         from users.state import UsersState
-
-        # SM009 is AST-based: a static `from settings.registration import ...`
-        # from a module helper is fine (plugin→plugin), but we resolve via
-        # importlib here to match the convention used framework-side and to
-        # keep the dependency direction one-way explicit.
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
 
         register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 

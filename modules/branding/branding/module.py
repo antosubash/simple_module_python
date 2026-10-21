@@ -36,7 +36,7 @@ class BrandingModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from settings.registration import register_module_settings
+        from simple_module_core.module_settings import register_module_settings
 
         from branding.services import BrandingServices
         from branding.settings import BrandingSettings

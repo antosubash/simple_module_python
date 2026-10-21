@@ -20,7 +20,7 @@ import time
 from typing import cast
 
 from pydantic_settings import BaseSettings
-from settings.hydrate import hydrate_settings_sync
+from simple_module_db.stored_settings import hydrate_settings_sync
 
 from background_tasks.constants import MODULE_NAME
 from background_tasks.settings import BackgroundTasksSettings

@@ -14,6 +14,7 @@ from simple_module_core.csp import CspSourceRegistry
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
@@ -63,25 +64,16 @@ class FileStorageModule(ModuleBase):
         name=constants.MODULE_PASCAL,
         route_prefix=constants.ROUTE_PREFIX_API,
         view_prefix=constants.ROUTE_PREFIX_VIEW,
-        # Needs Settings to run first so register_module_settings can reach
-        # app.state.settings.module_registry during register_settings.
+        # Kept after Settings so the module order is unchanged; registering
+        # settings no longer needs it (the framework owns the registry, #500).
         depends_on=[constants._MODULE_SETTINGS],
         i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        import importlib
 
         from file_storage.services import FileStorageServices
         from file_storage.settings import FileStorageSettings
-
-        # SM009 is AST-based: a static `from settings.registration import ...`
-        # from a module helper is fine (plugin→plugin), but we resolve via
-        # importlib here to match the convention used framework-side and to
-        # keep the dependency direction one-way explicit.
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
 
         register_module_settings(
             app,

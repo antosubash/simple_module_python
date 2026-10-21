@@ -1,7 +1,7 @@
 """Mail module settings — DB-backed via ``register_module_settings``.
 
 ``smtp_password`` is masked by the settings UI because its name matches the
-secret-field pattern (``settings._secrets.is_secret_field``).
+secret-field pattern (``simple_module_core.secret_fields.is_secret_field``).
 """
 
 from __future__ import annotations
