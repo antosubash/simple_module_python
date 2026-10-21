@@ -25,6 +25,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from simple_module_hosting import sentry
 from simple_module_hosting._body_limit import BodyLimitMiddleware
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
@@ -213,6 +214,8 @@ def install_middleware(
     )
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
+    if sentry.is_enabled():
+        app.add_middleware(sentry.SentryContextMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
     # reads them, so request logs see the real client IP rather than the
     # proxy's. Inertia no longer needs this: its page url is

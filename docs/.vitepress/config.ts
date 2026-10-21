@@ -127,6 +127,7 @@ export default defineConfig({
             { text: "Public routes", link: "/framework/public-routes" },
             { text: "Events", link: "/framework/events" },
             { text: "Cache invalidation", link: "/framework/invalidation" },
+            { text: "Sentry", link: "/framework/sentry" },
             { text: "Multi-tenancy", link: "/framework/multi-tenancy" },
             { text: "Internationalization", link: "/framework/i18n" },
           ],

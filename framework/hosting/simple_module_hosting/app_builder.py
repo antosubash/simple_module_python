@@ -52,6 +52,7 @@ from simple_module_hosting._settings_registration import (
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
+from simple_module_hosting.sentry import PROCESS_WEB, init_sentry
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.setup_wizard import mount_setup_wizard
@@ -93,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or merge_host_settings()
 
     assert_not_placeholder(settings)
+    init_sentry(PROCESS_WEB)  # no-op (SDK not imported) without SM_SENTRY_DSN
 
     # ── Phase 1: Discover modules ──────────────────────────
     # Production: any bad module (import error, missing meta, wrong base
