@@ -121,6 +121,17 @@ async def test_tenant_key_pools_users_of_a_tenant_and_falls_back() -> None:
         ]
 
 
+async def test_anonymous_tenant_traffic_is_counted_per_ip_not_per_tenant() -> None:
+    # One anonymous client must not be able to drain a tenant's shared budget.
+    reg = _registry(RateLimitRule("1/minute", key="tenant"))
+    async with _client(_app(reg)) as c:
+        h = {_TENANT_HEADER.decode(): "t1"}
+        assert (await c.post("/api/things", headers=h)).status_code == 200
+        assert (await c.post("/api/things", headers=h)).status_code == 429
+        member = {**h, _USER_HEADER.decode(): "a"}
+        assert (await c.post("/api/things", headers=member)).status_code == 200
+
+
 async def test_rule_precedes_the_public_tier() -> None:
     reg = _registry(RateLimitRule("1/minute", key="ip"))
     async with _client(_app(reg)) as c:

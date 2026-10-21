@@ -37,10 +37,15 @@ def _user_id(scope: Scope) -> str | None:
 
 
 def rule_key(scope: Scope, key: str) -> str:
-    """``"<keykind>=<id>"`` for *key*; a missing user/tenant falls back to the IP."""
+    """``"<keykind>=<id>"`` for *key*; a missing user/tenant falls back to the IP.
+
+    The tenant key applies to signed-in requests only. Anonymous traffic on a tenant
+    subdomain resolves a tenant too, and sharing that bucket would let one anonymous
+    client exhaust the whole tenant's budget, so it is counted per IP instead.
+    """
     if key == KEY_TENANT:
         tenant = _state(scope, "tenant_id")
-        if tenant:
+        if tenant and _user_id(scope) is not None:
             return f"{KEY_TENANT}={tenant}"
     elif key in (KEY_USER, KEY_USER_OR_IP):
         uid = _user_id(scope)

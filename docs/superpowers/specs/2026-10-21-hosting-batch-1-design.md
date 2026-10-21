@@ -36,7 +36,7 @@ Approved 2026-10-21 for #527, #528, #529, #531, #534. Defaults below were accept
 - Host setting `forwarded_host_allowlist: list[str] = []` (exact host or `*.example.com`, optional
   port), restart-required; middleware installed only when `trusted_proxy` and the allowlist are set.
 - Runs before ProxyHeaders sees the peer (added after it); own `ipaddress` trust check mirroring
-  uvicorn's `*`/IP/CIDR rule. Leftmost `X-Forwarded-Host`; on match rewrite `host` header and
+  uvicorn's `*`/IP/CIDR rule. Rightmost `X-Forwarded-Host` (added by the trusted proxy); on match rewrite `host` header and
   `scope["server"]`; otherwise ignore with a debug log. `Forwarded:` (RFC 7239) unsupported.
 - Docs: tenant subdomains need `*.<subdomain_base>` in the allowlist; email links keep using
   configured base URLs.

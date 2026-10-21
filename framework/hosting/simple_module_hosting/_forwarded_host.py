@@ -110,7 +110,10 @@ class ForwardedHostMiddleware:
         )
         if not raw:
             return
-        parsed = _split_host(raw.split(",")[0])
+        # Rightmost value: the one our trusted proxy added. Earlier values came
+        # from upstream hops or the client and cannot be trusted (an appending
+        # proxy keeps whatever the client sent at the front).
+        parsed = _split_host(raw.split(",")[-1])
         if parsed is None or not self._allowed.allows(*parsed):
             logger.debug("Ignoring X-Forwarded-Host %r: not on the allowlist", raw)
             return

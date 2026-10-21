@@ -85,12 +85,14 @@ class TestRewrite:
         body = await _get(_mw([_PUBLIC_HOST]), _PUBLIC_HOST, peer=_STRANGER_IP)
         assert body["host"] == "internal"
 
-    async def test_leftmost_value_is_used(self) -> None:
-        body = await _get(_mw([_PUBLIC_HOST]), f"{_PUBLIC_HOST}, evil.example.net")
+    async def test_rightmost_value_from_the_trusted_proxy_is_used(self) -> None:
+        # An appending proxy keeps the client's value first; only the last one
+        # was written by the trusted peer.
+        body = await _get(_mw([_PUBLIC_HOST]), f"evil.example.net, {_PUBLIC_HOST}")
         assert body["host"] == _PUBLIC_HOST
 
-    async def test_leftmost_forged_value_is_not_rescued_by_a_later_good_one(self) -> None:
-        body = await _get(_mw([_PUBLIC_HOST]), f"evil.example.net, {_PUBLIC_HOST}")
+    async def test_client_supplied_allowlisted_value_before_a_bad_one_is_ignored(self) -> None:
+        body = await _get(_mw([_PUBLIC_HOST]), f"{_PUBLIC_HOST}, evil.example.net")
         assert body["host"] == "internal"
 
     async def test_wildcard_matches_subdomains_not_the_apex(self) -> None:
