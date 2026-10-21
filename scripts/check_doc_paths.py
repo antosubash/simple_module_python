@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ALLOWLIST = ROOT / "scripts" / "doc_path_allowlist.txt"
 EXCLUDED_DOC_DIRS = ("superpowers", "plans", "archive", "release-notes", "node_modules")
 IGNORE_MARK = "path-check: ignore"
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 TICK = re.compile(r"`([^`\n]+)`")
 BAD_CHARS = set(" *{}<>$|()[]\\,;=\"'#?!@~")
 EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,8}$")
@@ -84,12 +85,18 @@ def main() -> int:
                 allow.add(line)
     failures: list[str] = []
     for doc in sources():
-        in_fence = False
+        fence: tuple[str, int] | None = None
         for n, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
-            if line.lstrip().startswith(("```", "~~~")):
-                in_fence = not in_fence
+            m = FENCE.match(line)
+            if m:
+                run = m.group(1)
+                if fence is None:
+                    fence = (run[0], len(run))
+                    continue
+                if run[0] == fence[0] and len(run) >= fence[1] and not m.group(2).strip():
+                    fence = None
                 continue
-            if in_fence or IGNORE_MARK in line:
+            if fence or IGNORE_MARK in line:
                 continue
             for tok in TICK.findall(line):
                 if looks_like_path(tok) and not exists(tok, allow):
