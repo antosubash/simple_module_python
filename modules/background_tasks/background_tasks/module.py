@@ -168,3 +168,9 @@ class BackgroundTasksModule(ModuleBase):
         from background_tasks._lifecycle import shutdown
 
         await shutdown(app)
+
+    @staticmethod
+    async def _start_invalidation_transport(app: FastAPI) -> None:
+        from background_tasks._lifecycle import start_invalidation_transport
+
+        await start_invalidation_transport(app)

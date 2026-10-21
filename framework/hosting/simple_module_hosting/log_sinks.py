@@ -66,7 +66,7 @@ class LogSink(Protocol):
 
 
 def redact(text: str) -> str:
-    """Mask credentials in ``text``: auth headers, cookies, bearer tokens, ``key=value`` secrets, URL passwords."""
+    """Mask credentials: auth headers, cookies, bearer tokens, key=value secrets, URL passwords."""
     text = _HEADER_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)
     text = _BEARER_RE.sub(f"Bearer {REDACTED}", text)
     text = _URL_CRED_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}:{REDACTED}@", text)
