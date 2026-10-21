@@ -13,6 +13,7 @@ __all__ = [
     "InvalidScaffoldNameError",
     "to_kebab_case",
     "to_pascal_case",
+    "to_singular",
     "to_snake_case",
     "validate_scaffold_name",
 ]
@@ -58,6 +59,17 @@ def to_pascal_case(name: str) -> str:
     """'my-feature' / 'my_feature' -> 'MyFeature' (the display name in Meta)."""
     snake = to_snake_case(name)
     return "".join(part.capitalize() for part in snake.split("_") if part)
+
+
+def to_singular(snake: str) -> str:
+    """Naive singularization of a snake_case name: 'orders' -> 'order'.
+
+    Strips one trailing ``s`` (not ``ss``). Good enough to name the sample
+    entity a module scaffolds; the author renames it when it is wrong.
+    """
+    if snake.endswith("s") and not snake.endswith("ss"):
+        return snake[:-1]
+    return snake
 
 
 _VALID_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$")

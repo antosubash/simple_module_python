@@ -20,7 +20,7 @@ modules/<name>/
     └── pages/                # *.tsx — auto-discovered by Vite
 ```
 
-Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates a working subset (`module.py`, `services.py`, `settings.py`, `endpoints/api.py`, an empty `pages/`, plus packaging files); add `models.py`, `deps.py`, `contracts/`, `endpoints/views.py`, and `locales/` as your module needs them. Then run `uv add ./modules/<name>` to register it on your app.
+Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates a working CRUD sample (`module.py`, `constants.py`, `models.py`, `contracts/`, `service.py`, `deps.py`, `settings.py`, `services.py`, `endpoints/{api,views}.py`, `pages/{Browse,Create,Edit}.tsx`, `locales/en.json`, plus packaging files and tests). `make new-module` uses the same templates for a module inside this repo. Then run `uv add ./modules/<name>` to register it on your app.
 
 ## ModuleMeta
 
@@ -621,7 +621,7 @@ class OrdersModule(ModuleBase):
         return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
-Add this method (and a matching `locales/en.json`) yourself — the `smpy create-module` scaffold does not emit a `locales/` directory.
+The `smpy create-module` / `make new-module` scaffold emits this method and a starter `locales/en.json`; add it yourself only for a hand-rolled module.
 
 ### Key naming
 

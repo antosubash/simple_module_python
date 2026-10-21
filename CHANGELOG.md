@@ -50,6 +50,18 @@ All notable changes to this project are documented in this file. The format is b
   reports the clamped page when asked past the end. The audit log, executions
   and outbox tables use `PaginationBar`; their private `showing/previous/next`
   locale keys are removed in favour of `ui.pagination.*`.
+- One module scaffolder (#509). `make new-module` now calls the CLI's
+  `create_module` (`framework_repo=True` overlay) instead of ~980 lines of
+  f-string templates in `scripts/_templates_*.py`, which are deleted, so
+  `smpy create-module` / `smpy new` and `make new-module` share one set of
+  `templates/module/` files. Both now emit `constants.py`, `models.py`,
+  `contracts/`, `service.py`, `deps.py`, permission-guarded REST + Inertia
+  endpoints, Browse/Create/Edit pages, a menu item with `label_key`,
+  `register_permissions`, `locale_dirs` and `locales/en.json` (the CLI sample
+  page `Index.tsx` is replaced by `Browse.tsx`). `make new-module` also adds
+  the module to the `publish-pypi` matrix and runs `npm install` and
+  `make gen-i18n`; a fresh module passes `make lint`. The scaffold tests live in
+  `framework/cli/tests/` only.
 - The module-settings mechanism moved from the `settings` plugin into the
   framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
   `simple_module_core.module_settings`, hydration (`hydrate_settings`,

@@ -128,13 +128,13 @@ The Python package name (`feature_flags`) keys the i18n namespace,
 the namespace is the meta name.
 
 **Module layout** (`make new-module` scaffolds the files below except
-`constants.py`, `tasks.py` and the CSS, plus `pyproject.toml`, `README.md`,
-`LICENSE`, `package.json`, `tsconfig.json`, `tests/`):
+`tasks.py` and the CSS, plus `pyproject.toml`, `README.md`, `LICENSE`,
+`package.json`, `tsconfig.json`, `tests/`):
 
 ```
 modules/<name>/<name>/
 ├── module.py          # ModuleBase subclass, meta = ModuleMeta(...)
-├── constants.py       # add it: PERM_*, ROLE_*, _PAGE_*, _MODULE_* — see § Conventions
+├── constants.py       # PERM_*, PAGE_*, MENU_*, ROLE_*, _MODULE_* — see § Conventions (scaffolded)
 ├── models.py          # SQLModel tables (table=True)
 ├── contracts/         # SQLModel DTOs — the public surface; add a Protocol only for real extension points
 ├── settings.py        # DbBackedSettings subclass
@@ -399,23 +399,35 @@ development and testing (`session_cookie_secure`).
 
 ## Adding a module or package
 
-`make new-module name=<name>` scaffolds the package, wires it into
-`host/pyproject.toml` and the root `testpaths`/`extra-paths`, and runs
-`uv sync`. Expect `make lint` to fail right after: the scaffold still emits a
-literal `inertia.render("<Class>/Create")` and permission and menu strings
-without constants or `label_key`. Fix those first. It also does **not**:
+There is **one scaffolder**: `make new-module name=<name>` runs
+`scripts/new_module.py`, a thin wrapper over the CLI's
+`simple_module_cli.scaffolding.create_module(..., framework_repo=True)`, the same
+templates `smpy create-module` / `smpy new` use
+(`framework/cli/simple_module_cli/templates/module/`). Change a convention there,
+once. The `framework_repo` variant is a template overlay
+(`_optional/framework_repo/`: workspace-sourced `pyproject.toml` with the
+`check_metadata.py` fields, `LICENSE`, `README.md`, i18n-keyed pages).
 
-1. Run `npm install`, so regenerate and commit `package-lock.json` (CI uses
-   `npm ci`). Commit the `uv.lock` change the scaffold's
-   `uv sync` makes too (CI uses `uv sync --locked`).
-2. Add `simple_module_<name>` to the `publish-pypi` matrix in
-   `.github/workflows/release.yml`; a test and `check_metadata.py` fail until
-   you do. `pyproject.toml` needs description, `readme`, `license = "MIT"`,
-   keyword `simple-module`, `urls.Repository`; `README.md` needs ≥ 500 bytes, an
-   H1 and Install/Usage sections.
+It generates a CRUD sample (model, DTOs, service, REST + Inertia endpoints,
+Browse/Create/Edit pages, `locales/en.json`, tests) whose permissions, page keys
+and menu item come from `constants.py` (`label_key` set, routes guarded), so a
+fresh module passes `make lint`. Then
+`simple_module_cli.framework_repo.wire_module` adds it to `host/pyproject.toml`,
+the root `testpaths`/`extra-paths` and the `publish-pypi` matrix in
+`release.yml`, and the target runs `uv sync --all-packages`, `npm install` and
+`make gen-i18n`. Commit the resulting `uv.lock`, `package-lock.json` and
+`packages/i18n/src/{keys.generated,generated-resources}.ts` changes (CI uses
+`--locked` / `npm ci` and diffs the i18n files). It does **not**:
+
+1. Create a migration for the sample table: edit `models.py`, then follow
+   § Database (`--head <label>@head`, set `branch_labels` on the first
+   revision). `make doctor` reports `SM011` until you do.
+2. Register a PyPI pending publisher for the new `simple_module_<name>`
+   (manual; the release leg 403s without it).
 3. Write `docs/modules/<name>.md`, add it to `docs/modules/index.md` and the
    VitePress sidebar in `docs/.vitepress/config.ts`.
-4. Set `branch_labels` on the first migration, or add a `CHANGELOG.md` entry.
+4. Add a `CHANGELOG.md` entry, or add the module to the e2e/perf
+   `SM_MODULES_ENABLED` lists if those jobs should exercise it.
 
 A new `framework/*` package is wired by hand: root `pyproject.toml`
 `testpaths` + `[tool.ty.environment].extra-paths` and the `publish-pypi`
