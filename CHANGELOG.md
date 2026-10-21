@@ -12,6 +12,18 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
+  `workflow_call`) against the dispatched commit and `build` needs it, so nothing
+  is built or published from a red commit. The duplicated bump + lockfile steps
+  are one composite action (`.github/actions/bump-version`). `finalize` cuts a
+  dated CHANGELOG section with `scripts/cut_changelog.py` (renames `[Unreleased]`,
+  inserts a fresh one, updates compare links) and the GitHub release notes come
+  from that section. `docs/release.md` documents the package-version vs
+  `FRAMEWORK_API_VERSION` split; a test pins that the module template's
+  `requires_framework` contains `FRAMEWORK_API_VERSION`.
+- `simple_module_core.deprecation` (`deprecated`, `deprecated_module`, `deprecate`)
+  registers every shim with a `remove_in` release; `host/tests/test_deprecation_expiry.py`
+  fails once the framework version reaches it (#515, `docs/framework/deprecations.md`).
 - `AuditLink.for_model(Model, url_template=..., ...)` fills `entity_type` (class
   name) and `table_name` from the model; every module's `register_audit_links`
   now uses it. `simple_module_db.independent_session(app)` is an async context
@@ -51,6 +63,14 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
+  `package.json` versions are now in lockstep with the Python packages (they were
+  0.1.0, keycloak 0.0.0) (#510).
+- `users` and `keycloak` register their anonymous login routes with
+  `register_public_routes` instead of `AuthProvider.get_public_paths()`, so the
+  maintenance gate and `AuthMiddleware` read one mechanism (#515).
+- `simple_module_hosting.settings.Settings` is documented as the combined host
+  settings type, not a "back-compat shim" (#515).
 - Bound FastAPI to `>=0.140,<0.157` in framework and module dependencies; a
   contract test guards the route guard's private FastAPI/Starlette APIs (#516).
 - Declare and document the optional `file_storage[tasks]` extra for the lockstep
@@ -272,6 +292,13 @@ All notable changes to this project are documented in this file. The format is b
   previously served, and anonymous, in production.
 
 ### Deprecated
+- `AuthProvider.get_public_paths()` is no longer part of the `AuthProvider`
+  protocol; third-party providers that still define it keep working with a
+  `DeprecationWarning`. Removed in 0.1.0 (#515).
+- Every existing shim now has an enforced removal release of 0.1.0 (#515):
+  `host/routes_legacy.py`, `settings.registration` / `settings.module_registry` /
+  `settings.hydrate`, `props.lazy()` and the one-argument `register_event_handlers`
+  form (which now warns).
 - `settings.registration`, `settings.module_registry` and `settings.hydrate`
   re-export the framework objects above and emit a `DeprecationWarning`;
   `settings.models.Setting`, `settings._secrets` and the moved names in

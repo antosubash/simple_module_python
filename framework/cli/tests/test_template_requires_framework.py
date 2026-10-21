@@ -5,10 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import simple_module_cli
 from packaging.specifiers import SpecifierSet
 from simple_module_core.versioning import FRAMEWORK_API_VERSION
-
-import simple_module_cli
 
 TEMPLATE = (
     Path(simple_module_cli.__file__).parent

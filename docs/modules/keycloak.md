@@ -25,7 +25,6 @@ class AuthProvider(Protocol):
     async def resolve_user(self, request: Request) -> UserContext | None: ...
     def get_login_url(self, request: Request, next_url: str | None = None) -> str: ...
     def get_logout_url(self, request: Request) -> str: ...
-    def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]: ...
     def is_bearer_request(self, request: Request) -> bool: ...
 ```
 
@@ -41,7 +40,7 @@ The provider-agnostic `AuthMiddleware` (in `auth`) runs on every request and:
 2. If the provider returns `None`, it falls through to the registered **principal resolvers** (`app.state.auth.principal_resolvers`), trying each until one matches.
 3. If still unresolved and the path isn't public: `/api/*` and bearer requests get a `401` JSON; browser requests are redirected to `provider.get_login_url(...)` (`/keycloak/login`), with the original URL stashed in the session as `next`.
 
-`get_public_paths()` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
+`KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
 
 ## Bearer-token validation
 

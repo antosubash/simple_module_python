@@ -60,7 +60,13 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
+    from simple_module_core.public_routes import PublicRouteRegistry
+    from users.module import UsersModule
     from users.provider import UsersAuthProvider
+
+    # The host fills this from every module's register_public_routes at boot.
+    app.state.public_routes = PublicRouteRegistry()
+    UsersModule().register_public_routes(app.state.public_routes)
 
     app.state.auth = AuthState(
         auth_provider=UsersAuthProvider(),

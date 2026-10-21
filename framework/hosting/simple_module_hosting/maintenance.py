@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 
 from simple_module_core.permissions import is_admin_principal
+from simple_module_core.public_routes import legacy_provider_public_paths
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -103,7 +104,7 @@ class MaintenanceMiddleware:
         if provider is None:
             return False
         try:
-            prefix_paths, exact_paths = provider.get_public_paths()
+            prefix_paths, exact_paths = legacy_provider_public_paths(provider)
         except Exception:
             logger.exception("Auth provider failed to report public paths")
             return False

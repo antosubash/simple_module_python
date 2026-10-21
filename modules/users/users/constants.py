@@ -47,6 +47,19 @@ ALLOWED_VERIFIED = frozenset({"yes", "no"})
 ALLOWED_SORT = frozenset({"email", "last_login_at", "created_at"})
 ALLOWED_ORDER = frozenset({"asc", "desc"})
 
+# Anonymous-allowed prefixes (login, registration, reset, token endpoints),
+# registered in ``UsersModule.register_public_routes``.
+PUBLIC_PATH_PREFIXES = (
+    "/users/login",
+    "/users/register",
+    "/users/forgot-password",
+    "/users/reset-password",
+    "/users/verify",
+    "/users/invite/accept",
+    "/api/users/auth/",
+    "/api/users/register",
+)
+
 
 def sanitize_list_filters(
     status: str | None,

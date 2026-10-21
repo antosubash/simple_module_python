@@ -47,10 +47,15 @@ def test_logout_url(provider):
     assert provider.get_logout_url(None) == "/keycloak/logout"
 
 
-def test_public_paths(provider):
-    prefixes, _exact = provider.get_public_paths()
-    assert "/keycloak/login" in prefixes
-    assert "/api/keycloak/auth/" in prefixes
+def test_public_paths_come_from_the_registry(provider):
+    from keycloak.module import KeycloakModule
+    from simple_module_core.public_routes import PublicRouteRegistry
+
+    registry = PublicRouteRegistry()
+    KeycloakModule().register_public_routes(registry)
+    assert registry.matches("GET", "/keycloak/login")
+    assert registry.matches("GET", "/api/keycloak/auth/callback")
+    assert not hasattr(provider, "get_public_paths")
 
 
 def test_is_bearer_request(provider):

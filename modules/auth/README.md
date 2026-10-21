@@ -13,7 +13,7 @@ pip install simple_module_auth
 ## What it provides
 
 - `UserContext` — the request-scoped principal (`id`, `name`, `email`, `roles`).
-- `AuthProvider` protocol — the swappable-backend contract (`resolve_user`, `get_login_url`, `get_logout_url`, `get_public_paths`, `is_bearer_request`); exactly one provider module registers an implementation on `app.state.auth.auth_provider`.
+- `AuthProvider` protocol — the swappable-backend contract (`resolve_user`, `get_login_url`, `get_logout_url`, `is_bearer_request`); exactly one provider module registers an implementation on `app.state.auth.auth_provider`.
 - `PrincipalResolver` chain — async `(Request) -> UserContext | None` callables apps append to `app.state.auth.principal_resolvers` (e.g. PAT/bearer-token or API-key auth), consulted after the session path.
 - `AuthMiddleware` — delegates to the provider + resolver chain on every request and populates the request principal.
 - `get_current_user` / `CurrentUser` dependency and the `require_permission(*permissions)` dependency factory.
