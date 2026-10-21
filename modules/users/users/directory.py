@@ -108,7 +108,7 @@ class UsersDirectory:
                     func.count(),
                     func.count().filter(User.last_login_at >= now - active_window),
                     func.count().filter(User.created_at >= month_start),
-                )
+                ).select_from(User)
             )
         ).one()
         total, active, created = row
