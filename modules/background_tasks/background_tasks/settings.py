@@ -80,8 +80,7 @@ def _redis_from_env(default: str) -> str:
     ``env_prefix`` means pydantic's env source has already answered
     ``SM_BG_TASKS_BROKER_URL`` / ``SM_BG_TASKS_RESULT_BACKEND`` by the time a
     default is needed, so this factory is only the ``SM_REDIS_URL`` half — the
-    legacy names keep working, and keep winning, through that source instead.
-    """
+    legacy names keep working, and keep winning, through that source instead."""
     return os.environ.get(ENV_REDIS_URL) or default
 
 

@@ -42,8 +42,12 @@ def connect_args(
         if settings:
             args[_SERVER_SETTINGS] = settings
     elif driver in _LIBPQ_DRIVERS:
-        if connect_timeout:
+        if connect_timeout and _CONNECT_TIMEOUT not in url.query:  # URL wins
             args[_CONNECT_TIMEOUT] = connect_timeout
         if settings:
-            args[_OPTIONS] = " ".join(f"-c {key}={value}" for key, value in settings.items())
+            # connect_args replace the URL's own ``options``; keep the operator's flags.
+            own = url.query.get(_OPTIONS)
+            own_flags = [own] if isinstance(own, str) else list(own or ())
+            flags = [f"-c {key}={value}" for key, value in settings.items()]
+            args[_OPTIONS] = " ".join([*own_flags, *flags])
     return args

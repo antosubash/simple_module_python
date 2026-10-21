@@ -68,3 +68,11 @@ def test_rate_rules_are_method_aware() -> None:
 def test_rate_rule_rejects_disabled_rate() -> None:
     with pytest.raises(RateLimitError):
         RateLimitRule("off")
+
+
+def test_method_scoped_rule_beats_unscoped_one_regardless_of_order() -> None:
+    reg = RateLimitRegistry()
+    reg.add_exact("/api/x", RateLimitRule("100/minute"))
+    reg.add_exact("/api/x", RateLimitRule("5/minute", methods={"POST"}))
+    assert reg.match("POST", "/api/x").rate == "5/minute"
+    assert reg.match("GET", "/api/x").rate == "100/minute"

@@ -47,8 +47,14 @@ class _Entry[T]:
         assert self.regex is not None
         return self.regex.match(path) is not None
 
-    def specificity(self) -> tuple[int, int]:
-        return (_RANK[self.kind], len(self.pattern) if self.kind == KIND_PREFIX else 0)
+    def specificity(self) -> tuple[int, int, int]:
+        # A rule scoped to some methods beats an unscoped one on the same path, so
+        # the winner does not depend on which module registered first.
+        return (
+            _RANK[self.kind],
+            len(self.pattern) if self.kind == KIND_PREFIX else 0,
+            int(self.methods is not None),
+        )
 
 
 class PathRuleSet[T]:

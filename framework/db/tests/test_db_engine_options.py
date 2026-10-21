@@ -96,3 +96,11 @@ async def test_web_statement_timeout():
                 await connection.execute(text("SELECT pg_sleep(2)"))
     finally:
         await state.engine.dispose()
+
+
+def test_libpq_url_options_and_connect_timeout_survive() -> None:
+    args = connect_args(
+        "postgresql+psycopg://u@h/db?options=-c%20search_path%3Dfoo&connect_timeout=3",
+        statement_timeout_ms=500,
+    )
+    assert args == {"options": "-c search_path=foo -c statement_timeout=500"}
