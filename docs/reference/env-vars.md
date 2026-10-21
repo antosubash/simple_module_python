@@ -52,6 +52,7 @@ Which source actually wins depends on the field, because `HostSettings` is consu
 | `i18n_cookie_name` | `SM_I18N_COOKIE_NAME` | `locale` | **env at boot** | Cookie storing the selected locale. |
 | `maintenance_mode` | *(none — see below)* | `false` | **DB at request time** | Serve everyone but admins a 503. DB-backed so flipping it needs no redeploy — see [Deployment](/reference/deployment#maintenance-mode). |
 | `maintenance_message` | *(none — see below)* | `""` | **DB at request time** | Optional operator note on the maintenance page. |
+| `public_base_url` | `SM_PUBLIC_BASE_URL` | `""` | **DB at request time** | Public origin (`https://example.org`) for canonical / `og:url` in the server-rendered head. Never taken from the request `Host`. See [Inertia](/frontend/inertia#seo-head). |
 
 The split is not arbitrary. The boot instance (`Settings()`, env-derived) lands on `app.state.sm.settings` and is what configures middleware at construction — `LocaleMiddleware` captures its locale set there, and the tenancy flag decides whether `TenantMiddleware` is added at all. The DB-hydrated instance is a plain `HostSettings` on `app.state.host.settings`, which declares no `env_prefix` and so is defaults-plus-overrides; `MaintenanceMiddleware` reads that one on every request.
 

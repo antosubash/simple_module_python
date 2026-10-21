@@ -108,6 +108,13 @@ class HostSettings(BaseSettings):
     i18n_supported_locales: list[str] = Field(default=["en"], json_schema_extra=_RESTART_I18N)
     i18n_cookie_name: str = Field(default="locale", json_schema_extra=_RESTART_I18N)
 
+    public_base_url: str = ""
+    """The site's public origin, e.g. ``https://example.org``, used to build the
+    canonical and ``og:url`` in the server-rendered ``<head>``. Never derived
+    from the request ``Host`` (spoofable): while blank, relative canonical /
+    image URLs are omitted rather than guessed. Read per request, so an edit
+    applies without a restart."""
+
     log_level: str = Field(default="INFO", json_schema_extra=_RESTART_LOGGING)
     log_format: Literal["json", "text"] = Field(default="json", json_schema_extra=_RESTART_LOGGING)
 
@@ -186,6 +193,19 @@ class HostSettings(BaseSettings):
     db_max_overflow: int = Field(default=20, json_schema_extra=_RESTART_DB)
     db_pool_pre_ping: bool = Field(default=True, json_schema_extra=_RESTART_DB)
     db_pool_recycle: int = Field(default=1800, json_schema_extra=_RESTART_DB)
+
+    @field_validator("public_base_url", mode="after")
+    @classmethod
+    def _check_public_base_url(cls, value: str) -> str:
+        from urllib.parse import urlsplit
+
+        value = value.strip().rstrip("/")
+        parts = urlsplit(value)
+        if value and not (parts.scheme in ("http", "https") and parts.netloc):
+            raise ValueError(
+                "public_base_url must be an http(s) origin such as https://example.org"
+            )
+        return value
 
     @field_validator("rate_limit_public", "rate_limit_authenticated", mode="after")
     @classmethod

@@ -2,6 +2,7 @@ import { createInertiaApp, router } from '@inertiajs/react';
 import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { OfflineBanner } from '@simple-module-py/ui/components/OfflineBanner';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
+import { resolveServerHead } from '@simple-module-py/ui/lib/server-head';
 import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { useEffect, useRef } from 'react';
@@ -16,6 +17,8 @@ import { resolvePage } from './pages';
 // the pre-hydration tab is already branded.
 createInertiaApp({
   title: (title) => formatTitle(title),
+  // Re-emits the `_head` prop (server-rendered SEO tags) on client visits.
+  serverHead: resolveServerHead,
   resolve: async (name) => {
     const page = await resolvePage(name);
     return page;

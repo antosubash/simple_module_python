@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- Server-rendered `<head>` for Inertia pages (#535 step 1): `inertia.render(..., head=Head(title, description, canonical, robots, og, twitter, json_ld))` puts the tags in the first response so crawlers and link unfurlers see them without JS; they are also sent as the `_head` prop and re-emitted on client visits via Inertia's `serverHead` (`@simple-module-py/ui/lib/server-head`). URL fields are http(s)-only, JSON-LD cannot close its `<script>`. New `public_base_url` host setting (DB-backed, read per request, no restart) builds canonical / `og:url`; the request `Host` is never used. Both `index.html` templates updated. Body SSR remains open in #535.
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps

@@ -1,6 +1,7 @@
 import { createInertiaApp, router } from '@inertiajs/react';
 import { configureI18n, updateI18n } from '@simple-module-py/i18n';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
+import { resolveServerHead } from '@simple-module-py/ui/lib/server-head';
 import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { createRoot } from 'react-dom/client';
@@ -14,6 +15,8 @@ type I18nBlock = {
 
 createInertiaApp({
   title: (title) => formatTitle(title),
+  // Re-emits the `_head` prop (server-rendered SEO tags) on client visits.
+  serverHead: resolveServerHead,
   resolve: async (name) => {
     return await resolvePage(name);
   },
