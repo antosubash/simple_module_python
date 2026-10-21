@@ -1,15 +1,13 @@
 """Boot-config paths that used to fail open or crash (follow-up to #494/#497).
 
 Each case here once turned an error into a silent default on an established
-install: a typo'd boolean read as ``False``, a broken settings import read as
-"not installed", a failed key lookup minted a per-worker key, a failed module
-hydrate poisoned the session for every later module, and a raising setup
-check reopened the setup wizard on a live system.
+install: a typo'd boolean read as ``False``, a failed key lookup minted a
+per-worker key, a failed module hydrate poisoned the session for every later
+module, and a raising setup check reopened the setup wizard on a live system.
 """
 
 from __future__ import annotations
 
-import importlib
 import logging
 import sqlite3
 from pathlib import Path
@@ -25,9 +23,7 @@ from simple_module_hosting import _secret_key
 from simple_module_hosting._hydrate_step import hydrate_all
 from simple_module_hosting._lifespan import _is_first_run
 from simple_module_hosting._preapp_config import (
-    HostSettingsUnavailableError,
     apply_host_overrides,
-    load_host_overrides,
 )
 from simple_module_hosting._secret_key import SecretKeyUnavailableError, ensure_secret_key
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
@@ -53,22 +49,6 @@ def test_typo_bool_is_dropped_not_coerced_to_false(caplog: pytest.LogCaptureFixt
     assert "multi_tenant" in caplog.text
 
 
-# ── 2. A broken settings import is a failure, not "not installed" ──
-
-
-def test_settings_import_error_is_a_read_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    real = importlib.import_module
-
-    def broken(name: str, *args, **kwargs):
-        if name == "settings.constants":
-            raise ImportError("circular import in settings")
-        return real(name, *args, **kwargs)
-
-    monkeypatch.setattr(importlib, "import_module", broken)
-    with pytest.raises(HostSettingsUnavailableError):
-        load_host_overrides("sqlite+aiosqlite:///:memory:", strict=True)
-
-
 # ── 3. Ephemeral secret keys only on a confirmed fresh install ──
 
 
@@ -90,12 +70,6 @@ def test_key_lookup_failure_falls_back_in_development(
 def test_fresh_install_may_use_an_ephemeral_key_when_strict(tmp_path: Path) -> None:
     url = unmigrated_db_url(tmp_path, "fresh.db")
     assert ensure_secret_key(url, strict=True)
-
-
-def test_no_settings_module_refuses_when_strict(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(_secret_key, "_settings_table", lambda: None)
-    with pytest.raises(SecretKeyUnavailableError, match="SM_SECRET_KEY"):
-        ensure_secret_key("sqlite+aiosqlite:///:memory:", strict=True)
 
 
 def test_blank_stored_key_is_repaired_once(tmp_path: Path) -> None:
@@ -134,7 +108,7 @@ async def test_failed_hydrate_rolls_back_and_continues() -> None:
     registry = SimpleNamespace(items=lambda: [("a", _A), ("b", _B)])
     a_before = _A()
     state = SimpleNamespace(
-        settings=SimpleNamespace(module_registry=registry),
+        module_settings_registry=registry,
         a=SimpleNamespace(settings=a_before),
         b=SimpleNamespace(settings=_B()),
     )

@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from settings.hydrate import RELATED_FIELDS_CTX, build_settings
+from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX, build_settings
 
 
 class _Pair(BaseSettings):

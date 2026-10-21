@@ -9,10 +9,11 @@ that there is no second way to serialize a row.
 
 from __future__ import annotations
 
-from settings._secrets import conceals_secret
+from simple_module_core.secret_fields import conceals_secret
+from simple_module_db.stored_settings import Setting
+
 from settings.constants import SENSITIVE_KEYS, SENSITIVE_PLACEHOLDER
 from settings.contracts.schemas import SettingOut
-from settings.models import Setting
 
 
 def is_masked(entity: Setting) -> bool:

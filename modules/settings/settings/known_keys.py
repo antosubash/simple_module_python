@@ -17,9 +17,9 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
+from simple_module_core.secret_fields import conceals_secret, mask
 
 from settings._module_settings import collect_module_settings
-from settings._secrets import conceals_secret, mask
 
 
 def _from_field(package: str, field) -> dict[str, Any]:

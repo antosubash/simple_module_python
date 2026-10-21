@@ -12,9 +12,10 @@ reader, which resolves the real value through raw SQL rather than this service.
 from __future__ import annotations
 
 import pytest
-from settings.constants import SENSITIVE_PLACEHOLDER, SYSTEM_SCOPE_ID
+from settings.constants import SENSITIVE_PLACEHOLDER
 from settings.contracts.schemas import SettingCreate, SettingScope
 from settings.service import SettingService
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 
 pytestmark = pytest.mark.anyio
 

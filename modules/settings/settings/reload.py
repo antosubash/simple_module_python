@@ -10,10 +10,10 @@ from pydantic import SecretBytes, SecretStr, ValidationError
 from pydantic_core import to_jsonable_python
 from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
+from simple_module_core.module_settings import module_settings_registry
+from simple_module_core.settings_hydrate import env_supplied_fields, value_type_for_field
 
-from settings.constants import MODULE_PACKAGE
 from settings.contracts.events import SettingsReloaded
-from settings.hydrate import env_supplied_fields, value_type_for_field
 from settings.store import SettingsStore
 
 
@@ -88,7 +88,7 @@ async def apply_changes_and_reload(
     changes: dict[str, Any],
 ) -> BaseSettings:
     """Validate, persist, hot-swap, and publish ``SettingsReloaded``."""
-    registry = getattr(app.state, MODULE_PACKAGE).module_registry
+    registry = module_settings_registry(app)
     cls = registry.get(package)
     if cls is None:
         raise KeyError(f"Unknown settings package: {package!r}")

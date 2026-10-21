@@ -20,7 +20,7 @@ _STORE = "/admin/settings/store"
 
 async def _seed(app: FastAPI) -> None:
     """25 system, 3 tenant and 2 user rows — enough to need a second page."""
-    from settings.models import Setting
+    from simple_module_db.stored_settings import Setting
 
     async with app.state.sm.db.session_factory() as session:
         for i in range(25):
@@ -175,8 +175,8 @@ class TestServiceQuery:
     """The service owns the query; the view only clamps and shapes it."""
 
     async def test_search_and_page_return_rows_and_the_unpaged_total(self, db_session) -> None:
-        from settings.models import Setting
         from settings.service import SettingService
+        from simple_module_db.stored_settings import Setting
 
         for i in range(5):
             db_session.add(Setting(scope="system", scope_id="", key=f"a.key_{i}", value="v"))
@@ -190,8 +190,8 @@ class TestServiceQuery:
         assert [r.key for r in rows] == ["a.key_2", "a.key_3"]
 
     async def test_counts_by_scope_names_every_scope_even_at_zero(self, db_session) -> None:
-        from settings.models import Setting
         from settings.service import SettingService
+        from simple_module_db.stored_settings import Setting
 
         db_session.add(Setting(scope="system", scope_id="", key="a.b", value="v"))
         await db_session.flush()

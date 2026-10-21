@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID, VALUE_TYPE_STRING, Setting
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,10 +13,6 @@ from settings._listing import SettingListing
 from settings._managed_keys import TenantIsLive, ensure_deletable
 from settings._row_masking import drop_placeholder_write, is_placeholder_write, out
 from settings._unique_write import DuplicateSettingError, insert_if_free
-from settings.constants import (
-    SYSTEM_SCOPE_ID,
-    VALUE_TYPE_STRING,
-)
 from settings.contracts.schemas import (
     SettingCreate,
     SettingOut,
@@ -23,7 +20,6 @@ from settings.contracts.schemas import (
     SettingUpdate,
     SettingUpsert,
 )
-from settings.models import Setting
 
 if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus

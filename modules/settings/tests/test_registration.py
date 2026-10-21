@@ -5,10 +5,9 @@ from __future__ import annotations
 import pytest
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
-from settings.module_registry import ModuleSettingsRegistry
-from settings.registration import register_module_settings
 from settings.services import SettingsServices
 from settings.settings import SettingsSettings
+from simple_module_core.module_settings import module_settings_registry, register_module_settings
 
 
 class _FakeModuleServices:
@@ -24,7 +23,7 @@ def app() -> FastAPI:
         registry=__import__(
             "settings.contracts.registry", fromlist=["SettingsRegistry"]
         ).SettingsRegistry(),
-        module_registry=ModuleSettingsRegistry(),
+        module_registry=module_settings_registry(app),
     )
     return app
 

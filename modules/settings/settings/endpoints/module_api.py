@@ -11,6 +11,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import ValidationError
+from simple_module_core.module_settings import module_settings_registry
+from simple_module_core.settings_hydrate import hydrate_settings
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -20,10 +22,9 @@ from settings._module_settings import (
     overrides_by_package,
 )
 from settings._module_settings_props import serialize
-from settings.constants import MODULE_PACKAGE, PERM_DELETE, PERM_EDIT, PERM_VIEW
+from settings.constants import PERM_DELETE, PERM_EDIT, PERM_VIEW
 from settings.contracts.events import SettingsReloaded
 from settings.deps import get_setting_service
-from settings.hydrate import hydrate_settings
 from settings.reload import EnvPinnedError, apply_changes_and_reload
 from settings.service import SettingService
 from settings.store import SettingsStore
@@ -94,7 +95,7 @@ async def update_module(
     t: TranslatorDep,
     service: SettingService = Depends(get_setting_service),
 ) -> dict[str, Any]:
-    registry = getattr(request.app.state, MODULE_PACKAGE).module_registry
+    registry = module_settings_registry(request.app)
     if registry.get(package) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown module package")
     if registry.manage_url(package) is not None:
@@ -146,7 +147,7 @@ async def clear_module_field(
     request: Request,
     service: SettingService = Depends(get_setting_service),
 ) -> Response:
-    registry = getattr(request.app.state, MODULE_PACKAGE).module_registry
+    registry = module_settings_registry(request.app)
     cls = registry.get(package)
     if cls is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown module package")

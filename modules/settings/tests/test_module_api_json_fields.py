@@ -8,9 +8,9 @@ re-hydrating from the store, since that is where the wrong type surfaced.
 from __future__ import annotations
 
 from background_tasks.settings import BackgroundTasksSettings
-from settings.hydrate import hydrate_settings, input_type_for_field
 from settings.service import SettingService
 from settings.store import SettingsStore
+from simple_module_core.settings_hydrate import hydrate_settings, input_type_for_field
 
 _PKG = "background_tasks"
 

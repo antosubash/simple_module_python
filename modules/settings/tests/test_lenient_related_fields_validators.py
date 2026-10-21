@@ -11,7 +11,7 @@ from background_tasks.settings import ENV_PREFIX, BackgroundTasksSettings
 from file_storage.settings import FileStorageSettings
 from keycloak.settings import KeycloakSettings
 from pydantic import ValidationError
-from settings.hydrate import RELATED_FIELDS_CTX, build_settings
+from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX, build_settings
 from simple_module_core.stored_settings import construct_leniently
 from simple_module_hosting.host_settings import HostSettings
 from site_lock.settings import SiteLockSettings

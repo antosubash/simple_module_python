@@ -40,9 +40,8 @@ async def _resolve_setting_labels(db: AsyncSession, ids: list[str]) -> dict[str,
     screen calls the row. Ids that are not integers belong to some other id
     space and are left unnamed, which falls back to showing the id.
     """
+    from simple_module_db.stored_settings import Setting
     from sqlalchemy import select
-
-    from settings.models import Setting
 
     numeric = {int(raw): raw for raw in ids if raw.lstrip("-").isdigit()}
     if not numeric:
@@ -62,20 +61,23 @@ class SettingsModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        from simple_module_core.module_settings import module_settings_registry
+
         from settings.contracts.registry import SettingsRegistry
-        from settings.module_registry import ModuleSettingsRegistry
         from settings.services import SettingsServices
         from settings.settings import SettingsSettings
 
+        # The framework owns the module-settings registry (#500); the admin
+        # screens read the same object through ``services.module_registry``.
         services = SettingsServices(
             settings=SettingsSettings(),
             registry=SettingsRegistry(),
-            module_registry=ModuleSettingsRegistry(),
+            module_registry=module_settings_registry(app),
         )
         setattr(app.state, MODULE_PACKAGE, services)
 
         # Self-register so the UI lists our own settings alongside other modules.
-        services.module_registry.register("settings", SettingsSettings)
+        services.module_registry.register(MODULE_PACKAGE, SettingsSettings)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
         from settings.errors import install_exception_handlers
@@ -123,7 +125,7 @@ class SettingsModule(ModuleBase):
             registry.map_role(tenant_role(role), [PERM_TENANT_EDIT])
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        from settings.models import Setting
+        from simple_module_db.stored_settings import Setting
 
         registry.register(
             AuditLink(

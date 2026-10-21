@@ -1,24 +1,25 @@
 """Hydrate every registered module's settings from the DB at lifespan start.
 
 Runs before any module ``on_startup`` hook so startup code sees DB-backed
-values. ``importlib`` is used to resolve plugin names lazily so the
-framework→plugin AST check (SM009) stays clean.
+values. Everything it needs lives in the framework (#500): the registry in
+``simple_module_core.module_settings``, the hydrator in
+``simple_module_core.settings_hydrate``; the caller supplies the override
+source, so this works with the ``settings`` plugin disabled.
 """
 
 from __future__ import annotations
 
-import importlib
 import logging
 from typing import Any
 
 from fastapi import FastAPI
+from simple_module_core.module_settings import get_module_settings_registry
+from simple_module_core.settings_hydrate import OverrideSource, hydrate_settings
 
 logger = logging.getLogger(__name__)
 
-_MODULE_PACKAGE = "settings"
 
-
-async def hydrate_all(app: FastAPI, store: Any, session: Any = None) -> None:
+async def hydrate_all(app: FastAPI, store: OverrideSource, session: Any = None) -> None:
     """Resolve every registered module's settings from the DB.
 
     ``hydrate_settings`` is already lenient per field: a stored value that no
@@ -31,13 +32,11 @@ async def hydrate_all(app: FastAPI, store: Any, session: Any = None) -> None:
     Postgres transaction aborted, and every later module's read on the same
     session would then fail too, so it is rolled back before moving on.
     """
-    settings_services = getattr(app.state, _MODULE_PACKAGE, None)
-    if settings_services is None:
+    registry = get_module_settings_registry(app)
+    if registry is None:
         return
 
-    hydrate_settings = importlib.import_module("settings.hydrate").hydrate_settings
-
-    for package, cls in settings_services.module_registry.items():
+    for package, cls in registry.items():
         try:
             hydrated = await hydrate_settings(cls, store, package, lenient=True)
         except Exception:

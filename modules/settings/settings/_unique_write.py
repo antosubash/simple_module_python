@@ -8,10 +8,9 @@ savepoint, leaving the request's transaction (and its session) usable.
 
 from __future__ import annotations
 
+from simple_module_db.stored_settings import Setting
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from settings.models import Setting
 
 
 class DuplicateSettingError(Exception):

@@ -9,8 +9,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from simple_module_db.callbacks import register_on_commit
+from simple_module_db.stored_settings import SCOPE_SYSTEM, SCOPE_TENANT
 
-from settings.constants import INVALIDATION_CHANNEL, SCOPE_SYSTEM, SCOPE_TENANT
+from settings.constants import INVALIDATION_CHANNEL
 from settings.contracts.invalidation import invalidation_key
 
 if TYPE_CHECKING:

@@ -10,6 +10,28 @@ from __future__ import annotations
 
 from typing import Final
 
+# Re-exported (#500): these now live with the table in the framework.
+from simple_module_db.stored_settings import (  # noqa: F401
+    ALL_VALUE_TYPES,
+    DESCRIPTION_MAX_LENGTH,
+    KEY_MAX_LENGTH,
+    SCOPE_ID_MAX_LENGTH,
+    SCOPE_MAX_LENGTH,
+    SCOPE_SYSTEM,
+    SCOPE_TENANT,
+    SCOPE_USER,
+    SYSTEM_SCOPE_ID,
+    TABLE_SETTING,
+    UQ_SCOPE_KEY,
+    VALUE_MAX_LENGTH,
+    VALUE_TYPE_BOOL,
+    VALUE_TYPE_FLOAT,
+    VALUE_TYPE_INT,
+    VALUE_TYPE_JSON,
+    VALUE_TYPE_MAX_LENGTH,
+    VALUE_TYPE_STRING,
+)
+
 # ── Module identity ──────────────────────────────────────────────────
 MODULE_NAME: Final = "Settings"
 MODULE_PACKAGE: Final = "settings"
@@ -17,30 +39,10 @@ ENV_PREFIX: Final = "SM_SETTINGS_"
 LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 
 # ── Scopes ───────────────────────────────────────────────────────────
-# Precedence high → low when resolving a key: USER > TENANT > SYSTEM.
-SCOPE_SYSTEM: Final = "system"
-SCOPE_TENANT: Final = "tenant"
-SCOPE_USER: Final = "user"
+# Scope, value-type, table and field-limit constants moved to
+# ``simple_module_db.stored_settings`` with the table itself (#500); they are
+# re-exported from the import block at the top of this file.
 ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
-# scope_id is empty for SYSTEM; empty string (not NULL) so composite unique
-# works uniformly on SQLite and PostgreSQL (NULL breaks uniqueness on PG).
-SYSTEM_SCOPE_ID: Final = ""
-
-# ── Value types ──────────────────────────────────────────────────────
-# Values are always stored as strings; ``value_type`` tells consumers how
-# to interpret the bytes and lets the UI pick the right input control.
-VALUE_TYPE_STRING: Final = "string"
-VALUE_TYPE_BOOL: Final = "bool"
-VALUE_TYPE_INT: Final = "int"
-VALUE_TYPE_FLOAT: Final = "float"
-VALUE_TYPE_JSON: Final = "json"
-ALL_VALUE_TYPES: Final = (
-    VALUE_TYPE_STRING,
-    VALUE_TYPE_BOOL,
-    VALUE_TYPE_INT,
-    VALUE_TYPE_FLOAT,
-    VALUE_TYPE_JSON,
-)
 
 # ── Secrets ──────────────────────────────────────────────────────────
 # Keys whose stored value must never leave the settings API or the raw
@@ -104,16 +106,6 @@ INVALIDATION_CHANNEL: Final = "settings.values"
 
 # ── Database ─────────────────────────────────────────────────────────
 DB_SCHEMA: Final = MODULE_PACKAGE
-TABLE_SETTING: Final = "settings_setting"
-UQ_SCOPE_KEY: Final = "uq_settings_setting_scope_scope_id_key"
-
-# ── Field limits ─────────────────────────────────────────────────────
-KEY_MAX_LENGTH: Final = 200
-VALUE_MAX_LENGTH: Final = 4000
-DESCRIPTION_MAX_LENGTH: Final = 2000
-SCOPE_MAX_LENGTH: Final = 10
-SCOPE_ID_MAX_LENGTH: Final = 255
-VALUE_TYPE_MAX_LENGTH: Final = 10
 
 # ── Inertia page component names ─────────────────────────────────────
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"

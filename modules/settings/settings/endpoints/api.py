@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 from simple_module_hosting.permissions import RequiresPermission
 
 from settings._unique_write import DuplicateSettingError
@@ -28,7 +29,6 @@ from settings.constants import (
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
     STATUS_UNPROCESSABLE,
-    SYSTEM_SCOPE_ID,
 )
 from settings.contracts.schemas import (
     SettingCreate,

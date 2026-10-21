@@ -31,7 +31,19 @@ from pydantic_settings import BaseSettings
 from simple_module_core.dotenv import parse_dotenv
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.stored_settings import construct_leniently, parse_stored_value
-from sqlalchemy import inspect, text
+from simple_module_db.stored_settings import (
+    COL_KEY,
+    COL_SCOPE,
+    COL_SCOPE_ID,
+    COL_VALUE,
+    COL_VALUE_TYPE,
+    SCOPE_SYSTEM,
+    SYSTEM_SCOPE_ID,
+    TABLE_SETTING,
+    package_overrides,
+    settings_table_clause,
+)
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -48,60 +60,26 @@ _ENV_PREFIX = "SM_"
 class HostSettingsUnavailableError(RuntimeError):
     """The stored host settings exist but could not be read before boot.
 
-    Raised only outside development, and only when the settings module is
-    installed. Building with defaults instead would silently drop every
+    Raised only outside development. Building with defaults instead would silently drop every
     build-time override — ``multi_tenant`` above all, so one worker that
     booted during a DB blip would serve requests single-tenant, with no tenant
     middleware and no strict filter, while its siblings stay isolated (#494).
     """
 
 
-def _settings_table() -> tuple[str, str, str] | None:
-    """Resolve the settings module's table name and system-scope markers.
-
-    Resolved through ``importlib`` rather than a static import for the same
-    reason as ``_settings_registration.register_host_settings``: the SM009 coupling
-    check is AST-based and forbids ``framework/*`` from naming a plugin
-    package. Returns ``None`` when the settings module isn't installed, which
-    makes the whole pre-app read a no-op rather than an error.
-
-    Only a *missing* package means "not installed". Any other failure — the
-    package is there but raises on import, or lacks a constant — propagates:
-    swallowing it would let a broken install boot on defaults as though it
-    had never stored anything (#494).
-    """
-    import importlib
-
-    try:
-        constants = importlib.import_module("settings.constants")
-    except ModuleNotFoundError as exc:
-        if exc.name in ("settings", "settings.constants"):
-            return None
-        raise
-    return (
-        constants.TABLE_SETTING,
-        constants.SCOPE_SYSTEM,
-        constants.SYSTEM_SCOPE_ID,
-    )
-
-
 async def _read(database_url: str) -> dict[str, tuple[str, str]]:
     """Select the ``host.*`` system-scoped overrides.
 
-    Returns ``{}`` when the settings module isn't installed or its table does
-    not exist yet (a fresh install). Anything else — the connect, the
-    existence check, the select — raises, so the caller can tell an expected
-    empty result from a failure.
-    """
-    info = _settings_table()
-    if info is None:
-        return {}
-    table, scope, scope_id = info
+    Returns ``{}`` when the settings table does not exist yet (a fresh
+    install). Anything else — the connect, the existence check, the select —
+    raises, so the caller can tell an expected empty result from a failure.
 
-    # The table name comes from a module constant, never from user input, so
-    # interpolating it is safe — SQL identifiers cannot be bound parameters.
-    stmt = text(
-        f"SELECT key, value, value_type FROM {table} WHERE scope = :scope AND scope_id = :scope_id"
+    The table belongs to the framework (``simple_module_db.stored_settings``,
+    #500), so this read no longer depends on the ``settings`` plugin.
+    """
+    t = settings_table_clause()
+    stmt = select(t.c[COL_KEY], t.c[COL_VALUE], t.c[COL_VALUE_TYPE]).where(
+        t.c[COL_SCOPE] == SCOPE_SYSTEM, t.c[COL_SCOPE_ID] == SYSTEM_SCOPE_ID
     )
 
     engine = create_async_engine(database_url, poolclass=NullPool)
@@ -111,31 +89,19 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]]:
             # table" is a fresh install and must stay quiet, while a refused
             # connection or a failing query is not, and the driver errors for
             # the two are not reliably distinguishable across backends.
-            if not await conn.run_sync(lambda sync: inspect(sync).has_table(table)):
+            if not await conn.run_sync(lambda sync: inspect(sync).has_table(TABLE_SETTING)):
                 return {}
-            rows = (await conn.execute(stmt, {"scope": scope, "scope_id": scope_id})).all()
+            rows = (await conn.execute(stmt)).tuples().all()
     finally:
         await engine.dispose()
-
-    prefix = f"{HOST_PACKAGE}."
-    out: dict[str, tuple[str, str]] = {}
-    for key, value, value_type in rows:
-        if not key.startswith(prefix):
-            continue
-        field = key[len(prefix) :]
-        # Nested keys belong to a sub-object, not a top-level field. Same
-        # rule the settings store applies in get_overrides.
-        if "." in field:
-            continue
-        out[field] = (value, value_type)
-    return out
+    return package_overrides(rows, HOST_PACKAGE)
 
 
 def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str, tuple[str, str]]:
     """Return ``{field: (raw_value, value_type)}`` for host settings in the DB.
 
-    Returns ``{}`` quietly when the settings module isn't installed, or when
-    the database is reachable but not yet migrated or holds no rows. Those are
+    Returns ``{}`` quietly when the database is reachable but not yet
+    migrated or holds no rows. Those are
     the ordinary states of a fresh install, and what the setup wizard repairs.
 
     A failure to connect or to query is different: the stored overrides may

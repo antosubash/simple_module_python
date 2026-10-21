@@ -14,10 +14,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from settings._row_masking import is_masked
-from settings.constants import SENSITIVE_PLACEHOLDER, VALUE_TYPE_INT, VALUE_TYPE_STRING
+from settings.constants import SENSITIVE_PLACEHOLDER
 from settings.contracts.schemas import SettingCreate, SettingScope
-from settings.models import Setting
 from settings.service import SettingService
+from simple_module_db.stored_settings import VALUE_TYPE_INT, VALUE_TYPE_STRING, Setting
 
 _DSN = "postgresql://svc:hunter2@db.internal/app"
 
@@ -182,8 +182,8 @@ class TestTheMaskStopsAtTheScreen:
     """
 
     async def test_the_store_reads_through_the_mask(self, db_session) -> None:
-        from settings.constants import SYSTEM_SCOPE_ID
         from settings.store import SettingsStore
+        from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 
         service = SettingService(db_session)
         await service.create(
