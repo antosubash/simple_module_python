@@ -51,6 +51,9 @@ All notable changes to this project are documented in this file. The format is b
   `PermissionService` and `ApiTokenService` accept a directory (defaults to
   the null directory). With no directory, the audit Actor search matches the
   term as an exact actor id (#501).
+- `file_storage.resolve.resolve_uploader_labels` is now core's
+  `resolve_user_labels(directory, db, ids)` (the directory is the first
+  argument), and `users.audit.resolve_user_labels` delegates to it (#501).
 - `smpy` module catalog: `background_tasks` requires `settings` instead of
   `users` and `dashboard` requires nothing; a test pins that every entry's
   `requires` covers its module's `depends_on` (#501).

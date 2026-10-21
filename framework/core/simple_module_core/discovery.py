@@ -209,10 +209,11 @@ def topological_sort(modules: Sequence[ModuleBase], *, strict: bool = False) -> 
 
     ``optional_depends_on`` orders the same way when present and is never
     missing. A ``depends_on`` entry naming a module that is not loaded is
-    logged and ignored; with ``strict`` every such pair is collected and raised at once as
-    :class:`MissingDependencyError`. The host passes ``strict`` outside
-    development: a module whose dependency is absent would otherwise boot and
-    fail later, or silently query another module's empty tables (GH #501).
+    logged and ignored; with ``strict`` every such pair is collected and
+    raised at once as :class:`MissingDependencyError`. The host passes
+    ``strict`` outside development: a module whose dependency is absent would
+    otherwise boot and fail later, or silently query another module's empty
+    tables (GH #501).
 
     Raises ``CircularDependencyError`` if a cycle is detected.
     """
