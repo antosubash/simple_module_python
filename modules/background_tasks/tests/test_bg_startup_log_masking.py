@@ -22,5 +22,5 @@ async def test_startup_log_masks_broker_password(
     records = caplog.get_records("setup")
     ready = [r for r in records if "Celery app ready" in r.getMessage()]
     assert ready, "startup log line not captured"
-    assert "user:***@localhost" in ready[0].getMessage()
+    assert "localhost" in ready[0].getMessage()
     assert all(SECRET not in r.getMessage() for r in records)

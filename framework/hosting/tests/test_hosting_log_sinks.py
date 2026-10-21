@@ -9,6 +9,7 @@ from collections.abc import Iterator, Sequence
 
 import pytest
 from simple_module_hosting.log_sinks import (
+    REDACTED,
     QueueSinkHandler,
     install_sink,
     redact,
@@ -128,7 +129,7 @@ def test_secrets_are_masked_before_queueing_and_the_original_record_is_untouched
     target.handle(record)
     queued = handler.queue.get_nowait()
     assert "abc.def" not in queued.msg and "hunter2" not in queued.msg
-    assert queued.session_token == "***"
+    assert queued.session_token == REDACTED
     assert "hunter2" in record.msg
 
 
@@ -147,7 +148,7 @@ def test_secrets_are_masked_before_queueing_and_the_original_record_is_untouched
 def test_redact_masks(raw, secret):
     out = redact(raw)
     assert secret not in out
-    assert "***" in out
+    assert REDACTED in out
 
 
 def test_redact_keeps_ordinary_text():
@@ -161,8 +162,27 @@ def test_redact_keeps_ordinary_text():
 def test_redact_masks_url_userinfo_password(url):
     out = redact(f"connecting to {url} now")
     assert "s3cret" not in out
-    assert "@" in out and url.split("://")[0] in out
+    assert url.split("://")[0] in out and "@" in out
 
 
 def test_redact_leaves_credential_free_urls_alone():
     assert redact("redis://localhost:6379/0") == "redis://localhost:6379/0"
+
+
+TRICKY = [
+    "redis://u:p@ss/w0rd-s3cret@host:6379/0",
+    'login {"password": "two words s3cret"}',
+    'escaped {\\"password\\": \\"s3cret\\"}',
+    "jwt eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKKF2QT4 end",
+    "key a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8 end",
+    "Cookie: sid=s3cret; other=1",
+]
+SECRETS = ["s3cret", "w0rd", "two words", "eyJhbGciOiJIUzI1", "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"]
+
+
+@pytest.mark.parametrize("raw", TRICKY)
+def test_log_and_sentry_redact_identically(raw):
+    from simple_module_hosting.sentry_scrub_text import scrub_text
+
+    assert redact(raw) == scrub_text(raw)
+    assert not any(s in redact(raw) for s in SECRETS)

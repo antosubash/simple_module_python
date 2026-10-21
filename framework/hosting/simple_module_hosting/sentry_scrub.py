@@ -4,18 +4,21 @@ The SDK's own ``EventScrubber`` matches exact key names, is not recursive and
 never looks at ``contexts`` or free text, so this runs a second, stricter
 pass from ``before_send``/``before_send_transaction``:
 
-* every mapping key matching :data:`SENSITIVE_KEY` (``password``, ``token``,
-  ``authorization``, ``cookie``, ``session``, ``api_key``, ``csrf``, …, plus
-  client-IP headers) has its value replaced, at any depth;
-* free text (exception messages, log messages, breadcrumb data, span
-  descriptions, URLs, query strings) has ``key=value`` pairs with a sensitive
-  key, ``Bearer``/``Basic`` credentials and URL userinfo redacted;
-* request cookies, bodies and the WSGI/ASGI ``env`` (``REMOTE_ADDR``) are
-  dropped, sensitive headers removed outright;
-* Celery task ``args``/``kwargs``/return values are dropped wherever they
-  appear (the Celery integration's ``extra["celery-job"]`` and the
-  ``extra["data"]`` the ``celery.app.trace`` log records carry);
-* frame locals are dropped even though ``include_local_variables=False``.
+* targeted passes first: request cookies, bodies and the WSGI/ASGI ``env``
+  (``REMOTE_ADDR``) are dropped, sensitive headers removed outright, URL and
+  transaction paths lose id-shaped segments, ``user`` keeps only ``id``;
+* then *every* top-level field goes through :func:`scrub` (deny by default:
+  a field the SDK adds later is covered without a code change): mapping keys
+  matching :data:`SENSITIVE_KEY` and ``[key, value]`` pairs whose key does
+  have their value replaced at any depth; every string, bytes included, goes
+  through :func:`scrub_text` (``key=value`` pairs, header lines,
+  ``Bearer``/``Basic`` credentials, URL userinfo, JWTs, bare long tokens);
+* Celery task ``args``/``kwargs``/return values, SQL parameters and frame
+  locals are dropped wherever they appear.
+
+Anything beyond :data:`_MAX_DEPTH` is replaced, so a cyclic or absurdly deep
+structure ends in ``REDACTED`` instead of a ``RecursionError``. A scrubber
+failure must never send the raw event: ``sentry.build_before_send`` drops it.
 """
 
 from __future__ import annotations
@@ -25,32 +28,29 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-REDACTED = "[Filtered]"
+from simple_module_hosting.sentry_scrub_text import (
+    REDACTED,
+    SENSITIVE_KEY,
+    is_sensitive_key,
+    scrub_text,
+)
+
+__all__ = ["REDACTED", "SENSITIVE_KEY", "is_sensitive_key", "scrub", "scrub_event", "scrub_text"]
+
 _MAX_DEPTH = 12
 _PATH_SEP = "/"
 _PATH_PLACEHOLDER = "*"
 _SOURCE_URL = "url"
-
-_SENSITIVE_WORDS = (
-    r"passw(?:or)?d|secret|token|authori[sz]ation|(?<![a-z])auth(?![a-z])|cookie|session|api[-_]?key|csrf|xsrf|credential"
-    r"|private[-_]?key|signature|dsn"
-    # client addresses are PII with send_default_pii=False
-    r"|forwarded|real[-_]?ip|client[-_]?ip|remote[-_]?addr|ip[-_]?address"
-)
-SENSITIVE_KEY = re.compile(_SENSITIVE_WORDS, re.IGNORECASE)
-# OAuth authorization codes travel as a bare ``code`` query parameter.
-_EXACT_KEYS = frozenset({"code"})
-_QUERY_CODE = re.compile(r"((?:^|[?&])code=)[^&#\s]*", re.IGNORECASE)
-# Celery's integration and its trace log records attach the task payload.
-_TASK_PAYLOAD_KEYS = frozenset({"args", "kwargs", "return_value"})
-
-_KEY_VALUE = re.compile(
-    rf"""(?P<key>["']?[\w.\-]*(?:{_SENSITIVE_WORDS})[\w.\-]*["']?\s*[=:]\s*)"""
-    r"""(?P<quote>["']?)(?P<value>(?:Bearer\s+|Basic\s+)?[^\s&,;"'}\]]+)""",
-    re.IGNORECASE,
-)
-_SCHEME_CREDENTIAL = re.compile(r"\b(Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=\-]+", re.IGNORECASE)
-_URL_USERINFO = re.compile(r"(?P<scheme>[a-z][a-z0-9+.\-]*://)[^/@\s]+@", re.IGNORECASE)
+_URL_KEY = "url"
+_USER_ID = "id"
+_PAIR_LEN = 2
+# Celery's integration and its trace log records attach the task payload; SQL
+# integrations attach bound parameters; ``vars`` are frame locals.
+_DROP_KEYS = frozenset({"args", "kwargs", "return_value", "db.params", "db.sql.params", "vars"})
+_REQUEST_DROP = ("cookies", "data", "env")
+# Sentry's own correlation ids look like long hex tokens; keep them intact.
+_ID_KEYS = frozenset({"event_id", "trace_id", "span_id", "parent_span_id", "request_id", "release"})
+_ID_VALUE = re.compile(r"[\w.\-@+]{1,128}")
 _ID_SEGMENT = re.compile(
     r"^(?:\d+|[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}"
     r"|(?=[\w\-]*\d)(?=[\w\-]*[A-Za-z])[\w\-]{20,})$",
@@ -60,33 +60,35 @@ _ID_SEGMENT = re.compile(
 Event = dict[str, Any]
 
 
-def is_sensitive_key(key: object) -> bool:
-    return isinstance(key, str) and (key.lower() in _EXACT_KEYS or bool(SENSITIVE_KEY.search(key)))
-
-
-def scrub_text(text: str) -> str:
-    """Redact credentials embedded in free text."""
-    text = _URL_USERINFO.sub(rf"\g<scheme>{REDACTED}@", text)
-    text = _QUERY_CODE.sub(rf"\g<1>{REDACTED}", text)
-    text = _KEY_VALUE.sub(rf"\g<key>\g<quote>{REDACTED}", text)
-    return _SCHEME_CREDENTIAL.sub(rf"\1 {REDACTED}", text)
+def _scrub_entry(key: Any, value: Any, depth: int) -> Any:
+    if is_sensitive_key(key):
+        return REDACTED
+    if key in _ID_KEYS and isinstance(value, str) and _ID_VALUE.fullmatch(value):
+        return value
+    if key == _URL_KEY and isinstance(value, str):
+        return _scrub_url(value)
+    return scrub(value, depth + 1)
 
 
 def scrub(value: Any, depth: int = 0) -> Any:
-    """Recursively redact sensitive keys and scrub every string."""
+    """Recursively redact sensitive keys and pairs and scrub every string."""
     if depth > _MAX_DEPTH:
         return REDACTED
     if isinstance(value, Mapping):
-        return {
-            k: REDACTED if is_sensitive_key(k) else scrub(v, depth + 1)
-            for k, v in value.items()
-            if k not in _TASK_PAYLOAD_KEYS
-        }
-    if isinstance(value, list | tuple):
-        return [scrub(v, depth + 1) for v in value]
+        return {k: _scrub_entry(k, v, depth) for k, v in value.items() if k not in _DROP_KEYS}
+    if isinstance(value, list | tuple | set | frozenset):
+        items = list(value)
+        # Header and query lists: [["Authorization", "..."], ("Set-Cookie", "...")]
+        if len(items) == _PAIR_LEN and is_sensitive_key(items[0]):
+            return [scrub(items[0], depth + 1), REDACTED]
+        return [scrub(v, depth + 1) for v in items]
+    if isinstance(value, bytes | bytearray):
+        return scrub_text(bytes(value).decode("utf-8", "replace"))
     if isinstance(value, str):
         return scrub_text(value)
-    return value
+    if value is None or isinstance(value, bool | int | float):
+        return value
+    return scrub_text(repr(value))
 
 
 def scrub_path(path: str) -> str:
@@ -97,72 +99,55 @@ def scrub_path(path: str) -> str:
 
 
 def _scrub_url(url: str) -> str:
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:  # e.g. an unbalanced IPv6 bracket: still scrub it as text
+        return scrub_text(url)
     return scrub_text(urlunsplit(parts._replace(path=scrub_path(parts.path))))
 
 
+def _is_sensitive_header(item: Any) -> bool:
+    return isinstance(item, list | tuple) and len(item) == _PAIR_LEN and is_sensitive_key(item[0])
+
+
 def _scrub_request(request: dict[str, Any]) -> None:
-    for key in ("cookies", "data", "env"):
+    for key in _REQUEST_DROP:
         request.pop(key, None)
     headers = request.get("headers")
     if isinstance(headers, Mapping):
-        request["headers"] = {
-            k: scrub(v) for k, v in headers.items() if not is_sensitive_key(str(k))
-        }
-    query = request.get("query_string")
-    if isinstance(query, str):
-        request["query_string"] = scrub_text(query)
-    elif query is not None:
-        request["query_string"] = scrub(query)
-    if isinstance(request.get("url"), str):
-        request["url"] = _scrub_url(request["url"])
+        request["headers"] = {k: v for k, v in headers.items() if not is_sensitive_key(k)}
+    elif isinstance(headers, list):
+        request["headers"] = [h for h in headers if not _is_sensitive_header(h)]
+    if isinstance(request.get(_URL_KEY), str):
+        request[_URL_KEY] = _scrub_url(request[_URL_KEY])
 
 
-def _scrub_exceptions(event: Event) -> None:
-    for exc in (event.get("exception") or {}).get("values") or []:
-        if isinstance(exc.get("value"), str):
-            exc["value"] = scrub_text(exc["value"])
-        _scrub_frames(exc)
-    for thread in (event.get("threads") or {}).get("values") or []:
-        _scrub_frames(thread)
-
-
-def _scrub_frames(holder: Mapping[str, Any]) -> None:
-    """Drop frame locals; scrub source context (a hard-coded secret is still one)."""
-    for frame in (holder.get("stacktrace") or {}).get("frames") or []:
-        frame.pop("vars", None)
-        for key in ("pre_context", "context_line", "post_context"):
-            if frame.get(key) is not None:
-                frame[key] = scrub(frame[key])
-
-
-def _scrub_spans(event: Event) -> None:
-    for span in event.get("spans") or []:
-        if isinstance(span.get("description"), str):
-            span["description"] = scrub_text(span["description"])
-        if isinstance(span.get("data"), Mapping):
-            span["data"] = scrub(span["data"])
+def _scrub_user(event: Event) -> None:
+    user = event.get("user")
+    user_id = user.get(_USER_ID) if isinstance(user, Mapping) else None
+    if user_id is None:
+        event.pop("user", None)
+    else:
+        event["user"] = {_USER_ID: str(user_id)}  # never email/username/ip
 
 
 def _scrub_transaction(event: Event) -> None:
     transaction = event.get("transaction")
     source = (event.get("transaction_info") or {}).get("source")
     if isinstance(transaction, str) and source == _SOURCE_URL:
-        event["transaction"] = scrub_text(scrub_path(transaction))
+        event["transaction"] = scrub_path(transaction)
 
 
 def scrub_event(event: Event) -> Event:
-    """Scrub ``event`` in place (and return it)."""
+    """Scrub ``event`` (in place where possible) and return it."""
     if isinstance(event.get("request"), dict):
         _scrub_request(event["request"])
-    for key in ("extra", "contexts"):
-        if isinstance(event.get(key), Mapping):
-            event[key] = scrub(event[key])
-    # Breadcrumbs: log messages and HTTP URLs/queries; logentry: log params.
-    for key in ("breadcrumbs", "logentry", "message"):
-        if event.get(key) is not None:
-            event[key] = scrub(event[key])
-    _scrub_exceptions(event)
-    _scrub_spans(event)
+    _scrub_user(event)
     _scrub_transaction(event)
+    user = event.pop("user", None)
+    scrubbed = scrub(event)
+    event.clear()
+    event.update(scrubbed)
+    if user is not None:
+        event["user"] = user
     return event

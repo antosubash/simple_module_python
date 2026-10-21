@@ -22,7 +22,6 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import queue
-import re
 import threading
 import time
 from collections.abc import Sequence
@@ -30,29 +29,20 @@ from typing import Protocol, runtime_checkable
 
 from simple_module_core.correlation import correlation_id
 
+from simple_module_hosting.sentry_scrub_text import REDACTED, is_sensitive_key, scrub_text
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_QUEUE_CAPACITY = 10_000
 DEFAULT_BATCH_SIZE = 200
 DEFAULT_FLUSH_INTERVAL_SECONDS = 1.0
 STOP_TIMEOUT_SECONDS = 5.0
-REDACTED = "***"
 # Logger names whose records are never forwarded: our own, and the SQL layer a
 # database sink writes through.
 SKIPPED_LOGGER_PREFIXES: tuple[str, ...] = (__name__, "sqlalchemy")
 
 _STOP = object()
 
-_HEADER_RE = re.compile(
-    r"""(?ix)\b(proxy-authorization|authorization|set-cookie|cookie)(["']?\s*[:=]\s*["']?)[^\r\n"']*"""
-)
-_SECRET_RE = re.compile(
-    r"""(?ix)([\w-]*(?:password|passwd|token|secret|api[_-]?key)[\w-]*["']?\s*[:=]\s*["']?)"""
-    r"""[^\s"',;&}\])]+"""
-)
-_URL_CRED_RE = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)([^/@\s:]*):([^/@\s]*)@")
-_BEARER_RE = re.compile(r"(?i)\bbearer\s+[\w.~+/=-]+")
-_SENSITIVE_KEY_RE = re.compile(r"(?i)password|passwd|token|secret|api[_-]?key|authorization|cookie")
 _STANDARD_ATTRS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
 
 
@@ -66,11 +56,8 @@ class LogSink(Protocol):
 
 
 def redact(text: str) -> str:
-    """Mask credentials: auth headers, cookies, bearer tokens, key=value secrets, URL passwords."""
-    text = _HEADER_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)
-    text = _BEARER_RE.sub(f"Bearer {REDACTED}", text)
-    text = _URL_CRED_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}:{REDACTED}@", text)
-    return _SECRET_RE.sub(lambda m: f"{m.group(1)}{REDACTED}", text)
+    """Mask credentials in ``text`` with the same bounded redactor Sentry events use."""
+    return scrub_text(text)
 
 
 def redact_record(record: logging.LogRecord) -> None:
@@ -82,7 +69,7 @@ def redact_record(record: logging.LogRecord) -> None:
     for key, value in list(record.__dict__.items()):
         if key in _STANDARD_ATTRS:
             continue
-        if _SENSITIVE_KEY_RE.search(key):
+        if is_sensitive_key(key):
             record.__dict__[key] = REDACTED
         elif isinstance(value, str):
             record.__dict__[key] = redact(value)

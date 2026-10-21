@@ -102,21 +102,33 @@ def _tags(event: Event, process: Process) -> dict[str, str]:
     return {k: str(v) for k, v in info.items() if v}
 
 
-def build_before_send(process: Process) -> Callable[[Event, Mapping[str, Any]], Event]:
+def _tag_and_scrub(event: Event, process: Process) -> Event:
+    tags = _tags(event, process)
+    event.setdefault("tags", {}).update(tags)
+    if user_id := tags.get(_TAG_USER_ID):
+        event["user"] = {"id": user_id}  # id only: never email/username/ip
+    else:
+        event.pop("user", None)
+    return scrub_event(event)
+
+
+def build_before_send(process: Process) -> Callable[[Event, Mapping[str, Any]], Event | None]:
     """Tag and scrub an event; used for errors and transactions alike.
 
     Scrubbing is ours, not the SDK's: its ``EventScrubber`` matches exact key
     names only and skips ``contexts`` and free text (``sentry_scrub``).
+    Fails closed: if tagging or scrubbing raises, the event is dropped rather
+    than sent half-scrubbed. Only the exception *type* is logged (its message
+    may quote the event), at WARNING so the logging integration does not turn
+    it into another event.
     """
 
-    def before_send(event: Event, hint: Mapping[str, Any]) -> Event:
-        tags = _tags(event, process)
-        event.setdefault("tags", {}).update(tags)
-        if user_id := tags.get(_TAG_USER_ID):
-            event["user"] = {"id": user_id}  # id only: never email/username/ip
-        else:
-            event.pop("user", None)
-        return scrub_event(event)
+    def before_send(event: Event, hint: Mapping[str, Any]) -> Event | None:
+        try:
+            return _tag_and_scrub(event, process)
+        except Exception as exc:  # any failure must drop the event
+            logger.warning("Sentry event dropped: scrubbing failed (%s)", type(exc).__name__)
+            return None
 
     return before_send
 
