@@ -4,7 +4,6 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { initials } from '@simple-module-py/ui/lib/initials';
-import type React from 'react';
 import { StatusPill } from '../../admin/components/StatusPill';
 import { deriveState, type UserListItem } from '../../admin/components/user-list-item';
 import { AccountCard } from './components/AccountCard';

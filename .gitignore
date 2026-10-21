@@ -7,8 +7,6 @@ build/
 .venv/
 *.egg
 
-# UV
-uv.lock
 
 # Node
 node_modules/

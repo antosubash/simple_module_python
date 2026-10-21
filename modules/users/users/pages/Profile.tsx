@@ -2,7 +2,6 @@ import { Head, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import type React from 'react';
 import { PasswordCard } from '../auth_local/components/PasswordCard';
 import { PreferencesCard } from '../auth_local/components/PreferencesCard';
 import { ProfileDetailsCard } from '../auth_local/components/ProfileDetailsCard';
