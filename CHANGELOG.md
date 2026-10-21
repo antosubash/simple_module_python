@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- German catalogues for all framework and module screens, available by adding `de` to `i18n_supported_locales`,
+  with enforced key and placeholder parity in CI (#492).
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through

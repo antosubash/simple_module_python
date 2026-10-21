@@ -1,0 +1,104 @@
+{
+  "nav": {
+    "api_tokens": "API-Tokens"
+  },
+  "audit": {
+    "token": "API-Token"
+  },
+  "errors": {
+    "session_required": "API-Tokens können nur in einer angemeldeten Browsersitzung verwaltet werden, nicht mit einem Token.",
+    "scopes_required": "Wählen Sie mindestens einen Geltungsbereich.",
+    "scope_not_held": "Sie können den Geltungsbereich \"{value}\" nicht vergeben, da Sie ihn selbst nicht besitzen.",
+    "role_forbidden": "Ein Dienstschlüssel kann nicht die Rolle \"{role}\" haben.",
+    "role_not_assignable": "Die Rolle \"{value}\" kann keinem Dienstschlüssel zugewiesen werden.",
+    "lifetime_too_long": "Ein Token darf höchstens {days} Tage gültig sein.",
+    "invalid_kind": "Dieser Tokentyp kann hier nicht erstellt werden.",
+    "tenant_required": "Wählen Sie eine Organisation, bevor Sie deren Tokens verwalten.",
+    "not_found": "Token nicht gefunden.",
+    "account_required": "Für Ihr Konto gibt es keinen lokalen Benutzerdatensatz. Ein persönliches Zugriffstoken kann Sie daher nicht anmelden. Bitten Sie einen Administrator um einen Dienstschlüssel."
+  },
+  "index": {
+    "title": "API-Tokens",
+    "description": "Mit persönlichen Zugriffstokens können Skripte und Werkzeuge die API in Ihrem Namen aufrufen, beschränkt auf die gewählten Geltungsbereiche.",
+    "usage": "Senden Sie ein Token im Authorization-Header: Authorization: Bearer <token>."
+  },
+  "admin": {
+    "title": "API-Tokens",
+    "description": "Alle persönlichen Zugriffstokens und Dienstschlüssel dieser Organisation.",
+    "tenant_required": "Wählen Sie eine Organisation, um deren API-Tokens anzuzeigen und zu erstellen.",
+    "new_service_key": "Neuer Dienstschlüssel"
+  },
+  "list": {
+    "name": "Name",
+    "token": "Token",
+    "kind": "Art",
+    "owner": "Inhaber",
+    "scopes": "Geltungsbereiche",
+    "roles": "Rollen",
+    "expires": "Läuft ab",
+    "last_used": "Zuletzt verwendet",
+    "status": "Status",
+    "actions": "Aktionen",
+    "never": "Nie",
+    "revoke": "Widerrufen",
+    "empty_title": "Noch keine API-Tokens",
+    "empty_description": "Erstellen Sie ein Token, um die API aus einem Skript oder einem anderen Dienst aufzurufen.",
+    "scope_count_one": "{count} Geltungsbereich",
+    "scope_count_other": "{count} Geltungsbereiche"
+  },
+  "kind": {
+    "personal": "Persönlich",
+    "service": "Dienstschlüssel"
+  },
+  "status": {
+    "active": "Aktiv",
+    "revoked": "Widerrufen",
+    "expired": "Abgelaufen"
+  },
+  "form": {
+    "new_token": "Neues Token",
+    "create_title": "Persönliches Zugriffstoken erstellen",
+    "create_service_title": "Dienstschlüssel erstellen",
+    "create_description": "Das Token kann nur ausführen, was seine Geltungsbereiche erlauben, und niemals mehr als Sie selbst.",
+    "create_service_description": "Ein Dienstschlüssel handelt für keine Person. Er erhält die gewählten Rollen, beschränkt auf die gewählten Geltungsbereiche.",
+    "name": "Name",
+    "name_placeholder": "z. B. CI-Deployment",
+    "scopes": "Geltungsbereiche",
+    "scopes_hint": "Es werden nur Berechtigungen angezeigt, die Sie besitzen.",
+    "roles": "Rollen",
+    "roles_hint": "Die Administratorrolle kann keinem Dienstschlüssel zugewiesen werden.",
+    "no_roles": "Keine zuweisbaren Rollen.",
+    "expiry": "Läuft ab nach",
+    "days_one": "{count} Tag",
+    "days_other": "{count} Tage",
+    "submit": "Token erstellen",
+    "cancel": "Abbrechen"
+  },
+  "created": {
+    "title": "Neues Token kopieren",
+    "warning": "Das Token wird nur jetzt angezeigt. Bewahren Sie es sicher auf — es kann nicht wiederhergestellt werden.",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "done": "Fertig"
+  },
+  "revoke": {
+    "title": "\"{name}\" widerrufen?",
+    "description": "Alles, was dieses Token verwendet, funktioniert ab der nächsten Anfrage nicht mehr. Dies kann nicht rückgängig gemacht werden.",
+    "confirm": "Widerrufen",
+    "cancel": "Abbrechen"
+  },
+  "toasts": {
+    "created": "Token erstellt",
+    "revoked": "Token widerrufen",
+    "failed": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "revoked_all_one": "{count} Token widerrufen",
+    "revoked_all_other": "{count} Tokens widerrufen"
+  },
+  "revoke_all": {
+    "button": "Alle widerrufen",
+    "title": "Alle Ihre Tokens widerrufen?",
+    "description": "Alle Ihre persönlichen Zugriffstokens verlieren ab der nächsten Anfrage ihre Gültigkeit, in jeder Organisation. Nutzen Sie dies bei einem möglichen Token-Leck: Passwortänderungen und das Abmelden aller Sitzungen beenden keine Tokens.",
+    "confirm": "Alle widerrufen",
+    "cancel": "Abbrechen"
+  }
+}

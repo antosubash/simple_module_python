@@ -1,0 +1,55 @@
+{
+  "browse": {
+    "title": "Funktionsschalter",
+    "description": "Laufzeitschalter. Eine Organisationsüberschreibung hat Vorrang vor dem Systemwert.",
+    "empty_title": "Keine Funktionsschalter registriert",
+    "empty_description": "Module deklarieren Schalter über register_feature_flags(). Installieren Sie eines, um sie hier zu sehen.",
+    "scope_label": "Geltungsbereich",
+    "viewing_system": "Systemweite Schalter — gelten für jede Organisation, sofern sie nicht überschrieben werden.",
+    "viewing_tenant": "Überschreibungen für Organisation {tenant_id} — nicht gesetzte Schalter verwenden den Systemwert.",
+    "view_history": "Änderungsverlauf anzeigen →",
+    "audit_note": "Jede Umschaltung wird mit Akteur und vorherigem Wert im Änderungsprotokoll erfasst.",
+    "tenant_id_label": "Organisations-ID",
+    "tenant_id_placeholder": "z. B. acme",
+    "scope_system": "System",
+    "scope_custom": "Andere…",
+    "go": "Anzeigen",
+    "cancel": "Abbrechen"
+  },
+  "table": {
+    "name": "Name",
+    "description": "Beschreibung",
+    "system": "System",
+    "effective": "Wirksam",
+    "actions": "Aktionen",
+    "on": "ein",
+    "off": "aus",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "overridden": "Überschreibung",
+    "following_default": "Standardwert gilt",
+    "following_system": "Systemwert gilt",
+    "clear_override": "Überschreibung entfernen"
+  },
+  "confirm": {
+    "enable_title": "„{name}“ aktivieren?",
+    "disable_title": "„{name}“ deaktivieren?",
+    "scope_system": "Dies ändert den Wert sofort für jede Organisation.",
+    "scope_tenant": "Dies setzt eine Überschreibung nur für die Organisation „{tenant_id}“. Andere Organisationen verwenden weiterhin den Systemwert.",
+    "enable_action": "Aktivieren",
+    "disable_action": "Deaktivieren",
+    "cancel": "Abbrechen"
+  },
+  "toasts": {
+    "enabled": "\"{name}\" aktiviert",
+    "disabled": "\"{name}\" deaktiviert",
+    "cleared": "Überschreibung für \"{name}\" entfernt",
+    "toggle_failed": "Funktionsschalter konnte nicht aktualisiert werden"
+  },
+  "audit": {
+    "override": "Funktionsschalterüberschreibung"
+  },
+  "nav": {
+    "feature_flags": "Funktionsschalter"
+  }
+}
