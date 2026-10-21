@@ -219,9 +219,9 @@ doctor:
 CI_DOCTOR_DB ?= ci-doctor.db
 ci-doctor:
 	rm -f $(CI_DOCTOR_DB)
-	SM_DATABASE_URL=sqlite+aiosqlite:///./$(CI_DOCTOR_DB) $(MAKE) migrate
-	SM_DATABASE_URL=sqlite+aiosqlite:///./$(CI_DOCTOR_DB) $(MAKE) doctor
-	rm -f $(CI_DOCTOR_DB)
+	SM_DATABASE_URL=sqlite+aiosqlite:///./$(CI_DOCTOR_DB) $(MAKE) migrate \
+		&& SM_DATABASE_URL=sqlite+aiosqlite:///./$(CI_DOCTOR_DB) $(MAKE) doctor; \
+		rc=$$?; rm -f $(CI_DOCTOR_DB)*; exit $$rc
 
 # Database migrations
 # All targets run from the repo root so alembic and `make dev-api` share the
