@@ -44,9 +44,13 @@ All notable changes to this project are documented in this file. The format is b
   extension point and verify uploads without background tasks (#502).
 - Users, file_storage, background_tasks (executions and outbox), audit_log,
   settings and tenants lists now share the pagination helpers instead of
-  per-module copies (#513). Browser view routes (`background_tasks`,
-  `file_storage`, `tenants` admin) still clamp `?page=0`/negative to page 1
-  rather than reject; JSON APIs keep `ge=1` and answer 422. The outbox API now
+  per-module copies (#513). Browser view routes (`background_tasks`
+  including the outbox page, `file_storage`, `tenants` admin) clamp
+  `?page=0`/negative/garbage to page 1 rather than reject; every JSON list API
+  (`background_tasks` executions and outbox, `audit_log`, `file_storage`,
+  `users` admin) answers 422 for `page` outside 1..1,000,000 and `per_page`
+  outside 1..200, where some used to accept `page=0` or an unbounded `per_page`
+  or forward a huge page to SQL as an out-of-range offset. The outbox API now
   reports the clamped page when asked past the end. The audit log, executions
   and outbox tables use `PaginationBar`; their private `showing/previous/next`
   locale keys are removed in favour of `ui.pagination.*`.

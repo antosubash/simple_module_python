@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from simple_module_db.pagination import PageParams
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
@@ -20,10 +22,10 @@ PER_PAGE = 20
 async def outbox(
     inertia: InertiaDep,
     status: OutboxStatus | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
+    params: PageParams = Depends(lenient_page_params(PER_PAGE)),
     service: OutboxService = Depends(get_outbox_service),
 ) -> InertiaResponse:
-    response = await service.list(status_filter=status, page=page, per_page=PER_PAGE)
+    response = await service.list(status_filter=status, page=params.page, per_page=params.per_page)
     return await inertia.render(
         "BackgroundTasks/Outbox",
         {

@@ -19,7 +19,9 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse
 from simple_module_core.events import EventBus
+from simple_module_db.pagination import PageParams
 from simple_module_hosting.i18n_deps import TranslatorDep
+from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 
 from file_storage import constants, queries
@@ -109,8 +111,7 @@ async def upload_file(
 async def list_files(
     # Strict bounds, matching the background_tasks admin API: JSON callers get
     # a 422 for out-of-range paging, while the Inertia views clamp instead.
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=20, ge=1, le=200),
+    params: PageParams = Depends(page_params(20)),
     q: str | None = Query(
         default=None, description="Case-insensitive substring of the original filename."
     ),
@@ -125,14 +126,14 @@ async def list_files(
     owner: str | None = OwnerScope,
 ) -> StoredFileListOut:
     items, total = await service.list_files(
-        page=page,
-        per_page=per_page,
+        page=params.page,
+        per_page=params.per_page,
         created_by=owner,
         search=q,
         content_type=content_type,
         sort=sort,
     )
-    return StoredFileListOut(items=items, total=total, page=page, per_page=per_page)
+    return StoredFileListOut(items=items, total=total, page=params.page, per_page=params.per_page)
 
 
 @router.get(

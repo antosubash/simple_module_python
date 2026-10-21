@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from simple_module_db.deps import get_db
+from simple_module_db.pagination import MAX_PAGE, MAX_PER_PAGE
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,8 +34,8 @@ async def list_audit_entries(
     tenant_id: str | None = Query(default=None),
     from_date: datetime | None = Query(default=None),
     to_date: datetime | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=200),
+    page: int = Query(default=1, ge=1, le=MAX_PAGE),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PER_PAGE),
 ) -> AuditEntryList:
     return await service.list_entries(
         entity_type=entity_type,
