@@ -1,5 +1,8 @@
 """Diagnostics that need the built app, so cannot run from ``make doctor``.
 
+SM025 runs in every environment; SM031 (an unguarded ``/api`` route) needs the
+finished route table, so it runs at the end of a development boot only.
+
 The module diagnostics in Phase 2 see only module classes and the source tree.
 A check about what modules *registered* has to wait until after Phase 5, and
 unlike the source-tree checks it is meaningful in production too.
@@ -11,6 +14,8 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.diagnostics import Diagnostic, check_tenant_resolver, print_diagnostics
+
+from simple_module_hosting._route_access import check_unguarded_api_routes
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -44,4 +49,16 @@ def report_tenant_resolution(
     return found
 
 
-__all__ = ["report_tenant_resolution"]
+def report_unguarded_routes(app: FastAPI, diagnostics_state: DiagnosticsState) -> list[Diagnostic]:
+    """SM031 (dev boot only; needs the finished route table): print and fold into Doctor."""
+    found = check_unguarded_api_routes(app)
+    if found:
+        print_diagnostics(found)
+    runner = diagnostics_state.runner
+    if runner is not None:
+        diagnostics_state.runner = lambda: [*runner(), *check_unguarded_api_routes(app)]
+        diagnostics_state.results = [*diagnostics_state.results, *found]
+    return found
+
+
+__all__ = ["report_tenant_resolution", "report_unguarded_routes"]
