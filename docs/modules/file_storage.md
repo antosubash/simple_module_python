@@ -64,6 +64,13 @@ Set it with `public=true` on upload or `PATCH /files/{id}`; both need
 so consumers never build the URL themselves — an `<img src>` on a public page
 can use it, or `.../public/{id}/thumbnail?w=256`.
 
+Public file reads are readable cross-origin: any origin, no credentials, `GET`/`HEAD`/`OPTIONS`,
+`Range`, `If-Range` and `If-None-Match` allowed, and `Content-Range`, `Accept-Ranges`, `ETag` and
+`Content-Length` exposed, so a page on another site can seek in a video or PDF. The DB-backed
+setting `public_files_cors` (default on) turns this off without a restart. With the S3 backend a
+read can redirect to a presigned bucket URL; the browser then applies the bucket's own CORS
+configuration, which you must set on the bucket.
+
 The public routes are exempt from `AuthMiddleware` through
 `register_public_routes` (GET only; uploads, PATCH and deletes stay gated).
 Serving rules:

@@ -31,12 +31,6 @@ _READ_BY_HOST_ENTRYPOINT = frozenset({"log_level", "log_format"})
 _NOT_YET_CONSUMED = frozenset(
     {
         "forwarded_host_allowlist",
-        "cors_allow_origins",
-        "cors_allow_credentials",
-        "cors_allow_methods",
-        "cors_allow_headers",
-        "cors_expose_headers",
-        "cors_max_age",
         "db_pool_timeout",
         "db_connect_timeout",
         "db_statement_timeout_ms",

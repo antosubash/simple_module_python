@@ -12,6 +12,12 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Configurable CORS (#527). `cors_allow_origins` (plus `cors_allow_credentials`,
+  `cors_allow_methods`, `cors_allow_headers`, `cors_expose_headers`, `cors_max_age`;
+  restart-required) registers a policy on `/api/`; modules add policies with the new
+  `register_cors_policies` hook. The dispatcher runs before `BodyLimit`, so preflights
+  never reach auth and a 413 keeps its CORS headers. `file_storage` serves public
+  files cross-origin (Range-capable) unless the new `public_files_cors` setting is off.
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through
