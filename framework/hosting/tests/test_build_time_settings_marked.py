@@ -30,10 +30,6 @@ _READ_BY_HOST_ENTRYPOINT = frozenset({"log_level", "log_format"})
 # them in create_app. Each slice deletes its own fields from this set.
 _NOT_YET_CONSUMED = frozenset(
     {
-        "db_pool_timeout",
-        "db_connect_timeout",
-        "db_statement_timeout_ms",
-        "db_idle_in_tx_timeout_ms",
     }
 )
 

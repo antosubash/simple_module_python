@@ -42,7 +42,7 @@ from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX
 
 from background_tasks.config_guards import parse_task_routes
@@ -63,6 +63,7 @@ from background_tasks.constants import (
     ENV_REDIS_URL,
     max_outbox_handler_timeout,
 )
+from background_tasks.db_settings import WorkerDatabaseSettings
 from background_tasks.settings_env_checks import (
     forbid_localhost_broker_in_production,
     warn_on_legacy_redis_vars,
@@ -84,7 +85,7 @@ def _redis_from_env(default: str) -> str:
     return os.environ.get(ENV_REDIS_URL) or default
 
 
-class BackgroundTasksSettings(BaseSettings):
+class BackgroundTasksSettings(WorkerDatabaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
     # Without ``env_prefix`` pydantic-settings resolves each field from its
@@ -110,7 +111,6 @@ class BackgroundTasksSettings(BaseSettings):
     )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
 
-    # ── Routing (GH #447) ───────────────────────────────────
     # Applied over every module's ``task_config.TASK_ROUTES``. Lets an operator
     # re-route a task (``{"reports.*": "heavy"}``) without a code change.
     task_routes_override: dict[str, Any] = Field(
