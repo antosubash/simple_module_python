@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 DEFAULT_PER_PAGE = 25
 MAX_PER_PAGE = 200
+MAX_PAGE = 1_000_000
 
 
 def total_pages(total: int, per_page: int) -> int:
@@ -42,7 +43,7 @@ class PageParams:
     per_page: int = DEFAULT_PER_PAGE
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "page", max(int(self.page), 1))
+        object.__setattr__(self, "page", max(min(int(self.page), MAX_PAGE), 1))
         object.__setattr__(self, "per_page", max(1, min(int(self.per_page), MAX_PER_PAGE)))
 
     @property
@@ -75,9 +76,15 @@ async def paginate(
     total. ``scalars=False`` returns row objects for multi-column selects.
     """
     count_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
+    # The count wraps ``stmt`` in a new SELECT, so carry its options (include_deleted,
+    # all_tenants) across or the listeners would filter the count differently.
+    count_stmt = count_stmt.execution_options(**stmt.get_execution_options())
     total = int((await session.execute(count_stmt)).scalar_one())
-    page = clamp_page(params.page, total, params.per_page)
-    paged = stmt.offset((page - 1) * params.per_page).limit(params.per_page)
+    served = PageParams(
+        page=clamp_page(params.page, total, params.per_page), per_page=params.per_page
+    )
+    page = served.page
+    paged = stmt.offset(served.offset).limit(served.per_page)
     result = await session.execute(paged)
     items = list(result.scalars().all() if scalars else result.all())
     return Page(

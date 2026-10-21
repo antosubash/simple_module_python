@@ -27,6 +27,15 @@ class TestToSingular:
             ("blog_posts", "blog_post"),
             ("access", "access"),
             ("inventory", "inventory"),
+            ("status", "status"),
+            ("news", "news"),
+            ("bus", "bus"),
+            ("analysis", "analysis"),
+            ("categories", "category"),
+            ("boxes", "box"),
+            ("classes", "class"),
+            ("data", "data"),
+            ("blog_categories", "blog_category"),
         ],
     )
     def test_singular(self, plural: str, singular: str):
@@ -48,6 +57,24 @@ class TestRichModuleContent:
         ]:  # fmt: skip
             assert (pkg / rel).is_file(), rel
         assert "class BlogPost(Base, AuditMixin, table=True)" in (pkg / "models.py").read_text()
+
+    @pytest.mark.parametrize("framework_repo", [True, False])
+    def test_update_dto_rejects_explicit_null_for_required_columns(
+        self, tmp_path: Path, monkeypatch, framework_repo
+    ):
+        """Omitted = unchanged; an explicit null on a NOT NULL column is a 422, not a 500."""
+        import importlib
+
+        import pydantic
+
+        dest = create_module(tmp_path / "m", name="null_items", framework_repo=framework_repo)
+        monkeypatch.syspath_prepend(str(dest))
+        update = importlib.import_module("null_items.contracts.schemas").NullItemUpdate
+        assert update().model_dump(exclude_unset=True) == {}
+        assert update(description=None).model_dump(exclude_unset=True) == {"description": None}
+        for field in ("name", "is_active"):
+            with pytest.raises(pydantic.ValidationError):
+                update.model_validate({field: None})
 
     def test_no_magic_strings_in_module_and_endpoints(self, orders: Path):
         """Permissions, page keys and menu labels come from constants.py."""

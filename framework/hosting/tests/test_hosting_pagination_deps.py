@@ -40,3 +40,12 @@ def test_lenient_clamps_instead_of_rejecting():
     }
     assert client.get("/lenient?page=banana").json()["page"] == 1
     assert client.get("/lenient").json()["per_page"] == 20
+
+
+def test_strict_rejects_page_above_max():
+    assert client.get("/strict?page=1000001").status_code == 422
+    assert client.get("/strict?page=1000000").json()["page"] == 1_000_000
+
+
+def test_lenient_clamps_page_to_max():
+    assert client.get("/lenient?page=99999999999").json()["page"] == 1_000_000
