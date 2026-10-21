@@ -63,3 +63,4 @@ host/client_app/.playwright-cli/*
 .qa/
 .verify/
 /openapi.json
+qa-shots/
