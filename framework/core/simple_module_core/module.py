@@ -6,14 +6,13 @@ from abc import ABC
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core._request_hooks import RequestHooksMixin
 from simple_module_core.module_meta import ModuleMeta
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
     from simple_module_core.audit_links import AuditLinkRegistry
-    from simple_module_core.body_limits import BodyLimitRegistry
-    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.design_packs import DesignPackRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -21,11 +20,10 @@ if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
-    from simple_module_core.public_routes import PublicRouteRegistry
     from simple_module_core.setup_steps import SetupRegistry
 
 
-class ModuleBase(ABC):
+class ModuleBase(RequestHooksMixin, ABC):
     """Base class for all modules.
 
     Subclasses override only the methods they need.
@@ -52,6 +50,8 @@ class ModuleBase(ABC):
           - register_event_handlers(bus)
           - register_invalidations(bus, app)
           - register_health_checks(registry)
+          - request hooks from ``_request_hooks.RequestHooksMixin`` (public routes,
+            body limits, CORS policies, rate limits, CSP sources)
 
         Phase 5: Database
           - init_db() -> DatabaseState
@@ -152,42 +152,6 @@ class ModuleBase(ABC):
         Called once at boot, in dependency order.
         """
 
-    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
-        """Declare routes that must bypass authentication (anonymous access).
-
-        ``AuthMiddleware`` gates every request behind the active auth provider.
-        Override this hook to exempt read-only or webhook routes that are meant
-        to be reached without a session — e.g. a STAC / OGC API surface::
-
-            def register_public_routes(self, registry):
-                registry.add_prefix("/api/gis/stac")
-                registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"})
-
-        Rules are method-aware, so a GET read route nested under a prefix that
-        also carries POST/PATCH mutations can be exempted without opening the
-        mutations. Called once at boot, in dependency order.
-        """
-
-    def register_body_limits(self, registry: BodyLimitRegistry) -> None:
-        """Per-route request-body ceilings; see docs/framework/request-guards.md."""
-
-    def register_csp_sources(self, registry: CspSourceRegistry) -> None:
-        """Declare external origins this module's frontend loads assets from.
-
-        The host ships a strict Content-Security-Policy; a module whose
-        pages pull a stylesheet, font, or API from another origin must
-        declare it here or the browser blocks the request::
-
-            def register_csp_sources(self, registry):
-                registry.add("style-src", "https://rsms.me")
-                registry.add("font-src", "https://rsms.me")
-
-        Fetch directives only; invalid declarations raise at boot. Runs once,
-        *before* DB settings hydrate — for an origin read from settings use
-        ``registry.add_provider(lambda app: [(directive, source)])`` (sync,
-        in-memory state only, evaluated per response).
-        """
-
     def register_design_packs(self, registry: DesignPackRegistry) -> None:
         """Declare design packs this module ships for the public site.
 
@@ -229,16 +193,6 @@ class ModuleBase(ABC):
         its own permissions, so linking never widens access. Called once at
         boot, in dependency order.
         """
-
-    def register_middleware(self, app: FastAPI) -> None:
-        """Add middleware to the application.
-
-        Called after core middleware (session, security headers) positioning
-        is established but before the app starts.
-        """
-
-    def register_exception_handlers(self, app: FastAPI) -> None:
-        """Register custom exception handlers (after the framework's own)."""
 
     # ── Asset contribution (templates & static files) ─────────
 

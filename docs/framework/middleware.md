@@ -31,17 +31,22 @@ app.add_middleware(CorrelationIdMiddleware)
 
 if settings.trusted_proxy:
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=...)
+# ForwardedHost is added after ProxyHeaders so it runs first (still sees the proxy peer)
 # Added last → executed first (outermost wrapper)
 ```
 
 ## Execution order (per request)
 
 ```
+ForwardedHost               (only if SM_TRUSTED_PROXY and a forwarded-host allowlist are set)
+  ↓
 ProxyHeaders                (only if SM_TRUSTED_PROXY is set)
   ↓
 CorrelationId
   ↓
 RequestLogging
+  ↓
+CORS                        (preflights answered here, before auth / rate limit)
   ↓
 BodyLimit                   (413 on an oversized body)
   ↓

@@ -122,7 +122,8 @@ def install_middleware(
     """Install the full middleware pipeline.
 
     Order matters: last added = first executed. Execution order:
-    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
+    (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
+    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging → CORS
     → BodyLimit → GZip → Security → Session → [module] → (Tenant, if
     multi_tenant) → Locale → Inertia → InertiaCache → RateLimit → Setup
     → Maintenance → CommitBeforeResponse.
@@ -211,6 +212,10 @@ def install_middleware(
         max_bytes=settings.max_request_body_bytes,
         registry=getattr(app.state, "body_limits", None),
     )
+    # SLOT: CORS. Add the CORS dispatcher here (batch-1 slice for #527) so it
+    # executes between RequestLogging and BodyLimit: preflights are answered
+    # before auth, rate limit, setup and maintenance can reject them. Reads
+    # ``app.state.cors_policies`` (CorsPolicyRegistry). No-op until then.
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
@@ -221,6 +226,10 @@ def install_middleware(
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)
+    # SLOT: ForwardedHost. Added after ProxyHeaders so it executes before it
+    # (batch-1 slice for #528), while the TCP peer is still the proxy. Install
+    # only when ``settings.trusted_proxy`` and ``settings.forwarded_host_allowlist``
+    # are both set. No-op until then.
 
 
 def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:

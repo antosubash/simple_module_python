@@ -8,10 +8,33 @@ they run in. ``app_builder.create_app`` is the only intended caller.
 from __future__ import annotations
 
 import inspect
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.cors import CorsPolicyRegistry
+from simple_module_core.rate_limit import RateLimitRegistry
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
+
+@dataclass(slots=True)
+class RequestRegistries:
+    """The request-pipeline registries modules fill via ``_request_hooks``.
+
+    ``attach`` publishes them on ``app.state`` -- ``body_limits``,
+    ``cors_policies`` and ``rate_limit_rules`` -- where the middleware reads them.
+    """
+
+    body_limits: BodyLimitRegistry = field(default_factory=BodyLimitRegistry)
+    cors: CorsPolicyRegistry = field(default_factory=CorsPolicyRegistry)
+    rate_limits: RateLimitRegistry = field(default_factory=RateLimitRegistry)
+
+    def attach(self, app: FastAPI) -> None:
+        app.state.body_limits = self.body_limits
+        app.state.cors_policies = self.cors
+        app.state.rate_limit_rules = self.rate_limits
 
 
 def run_module_registrations(
@@ -30,6 +53,8 @@ def run_module_registrations(
     audit_link_registry,
     csp_registry,
     body_limit_registry=None,
+    cors_registry=None,
+    rate_limit_registry=None,
 ) -> None:
     """Invoke each module's registration hooks, in dependency order.
 
@@ -50,6 +75,10 @@ def run_module_registrations(
         mod.register_public_routes(public_route_registry)
         if body_limit_registry is not None:
             mod.register_body_limits(body_limit_registry)
+        if cors_registry is not None:
+            mod.register_cors_policies(cors_registry)
+        if rate_limit_registry is not None:
+            mod.register_rate_limits(rate_limit_registry)
         setup_registry.set_owner(mod.meta.name)
         mod.register_setup_steps(setup_registry)
         # csp before design packs — the documented lifecycle order

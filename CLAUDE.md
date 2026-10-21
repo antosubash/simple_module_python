@@ -209,8 +209,8 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
   `docs/framework/permissions.md`.
 
 **Middleware** (Starlette `add_middleware` is LIFO). Execution order per
-request: `(ProxyHeaders if SM_TRUSTED_PROXY) → CorrelationId → RequestLogging →
-BodyLimit → GZip → SecurityHeaders → Session → <module middleware> → Tenant
+request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
+SM_TRUSTED_PROXY) → CorrelationId → RequestLogging → CORS → BodyLimit → GZip → SecurityHeaders → Session → <module middleware> → Tenant
 (opt-in) → Locale → InertiaLayoutData → InertiaCache → RateLimit → Setup →
 Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import Depends, FastAPI
-from simple_module_core import BodyLimitRegistry, CspSourceRegistry
+from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import print_diagnostics
@@ -43,7 +43,7 @@ from simple_module_hosting._phase_helpers import (
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
 from simple_module_hosting._rate_limit import build_store
-from simple_module_hosting._registrations import run_module_registrations
+from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
 from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting._settings_registration import (
     check_settings_registration,
@@ -184,7 +184,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 5: Module registrations ──────────────────────
     csp_registry = CspSourceRegistry()
-    body_limit_registry = BodyLimitRegistry()
+    request_registries = RequestRegistries()
     run_module_registrations(
         modules,
         app=app,
@@ -199,9 +199,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
-        body_limit_registry=body_limit_registry,
+        body_limit_registry=request_registries.body_limits,
+        cors_registry=request_registries.cors,
+        rate_limit_registry=request_registries.rate_limits,
     )
-    app.state.body_limits = body_limit_registry
+    request_registries.attach(app)
 
     attach_public_routes(app, settings, public_route_registry)
     report_tenant_resolution(app, settings, diagnostics_state)  # SM025
