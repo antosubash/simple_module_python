@@ -65,7 +65,7 @@ const { default: ErrorPage } = await import('./ErrorPage');
 
 function renderError(props: Record<string, unknown>) {
   const layout = (ErrorPage as unknown as { layout: (page: ReactNode) => ReactNode }).layout;
-  render(<>{layout(<ErrorPage {...(props as never)} />)}</>);
+  render(layout(<ErrorPage {...(props as never)} />));
 }
 
 function setPage(url: string, props: Record<string, unknown>) {

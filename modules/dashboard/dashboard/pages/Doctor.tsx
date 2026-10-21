@@ -4,7 +4,6 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { RefreshCw } from 'lucide-react';
-import type React from 'react';
 import { toast } from 'sonner';
 import { ChecksCard } from './components/doctor/ChecksCard';
 import { useCheckLabels } from './components/doctor/check-copy';

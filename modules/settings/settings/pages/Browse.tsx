@@ -7,7 +7,6 @@ import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Plus, Search, Settings as SettingsIcon, Trash2 } from 'lucide-react';
-import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { type ScopeCounts, type ScopeFilter, ScopeTabs } from './components/ScopeTabs';

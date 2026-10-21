@@ -33,8 +33,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # Dependency layer: every workspace member's manifest, resolved before the
-# full source arrives. `uv.lock` is gitignored in this repo, so it's an
-# optional glob and the sync deliberately isn't `--frozen`.
+# full source arrives. `uv.lock` is committed, but stays an optional glob
+# (and the sync is not `--frozen`) so the build tolerates a stale lock.
 COPY pyproject.toml uv.lock* ./
 COPY framework/ framework/
 COPY modules/ modules/
