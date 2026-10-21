@@ -30,7 +30,6 @@ _READ_BY_HOST_ENTRYPOINT = frozenset({"log_level", "log_format"})
 # them in create_app. Each slice deletes its own fields from this set.
 _NOT_YET_CONSUMED = frozenset(
     {
-        "forwarded_host_allowlist",
         "cors_allow_origins",
         "cors_allow_credentials",
         "cors_allow_methods",

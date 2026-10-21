@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- `forwarded_host_allowlist` host setting (#528): behind a trusted proxy (`SM_TRUSTED_PROXY`),
+  `X-Forwarded-Host` replaces the request host (and `scope["server"]`) when it matches an exact host or
+  `*.example.com` entry, so `url_for` and subdomain tenancy see the public host. Empty (default) ignores
+  the header; tenant subdomains need `*.<subdomain_base>` in the list.
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through

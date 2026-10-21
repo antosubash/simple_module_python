@@ -32,6 +32,7 @@ from simple_module_hosting._error_handlers import (
     request_validation_error_handler,
     unhandled_exception_handler,
 )
+from simple_module_hosting._forwarded_host import ForwardedHostMiddleware
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._module_routes import wire_module_routes
 from simple_module_hosting._rate_limit import RateLimitMiddleware
@@ -226,10 +227,14 @@ def install_middleware(
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)
-    # SLOT: ForwardedHost. Added after ProxyHeaders so it executes before it
-    # (batch-1 slice for #528), while the TCP peer is still the proxy. Install
-    # only when ``settings.trusted_proxy`` and ``settings.forwarded_host_allowlist``
-    # are both set. No-op until then.
+    # Added after ProxyHeaders so it executes before it, while the TCP peer is
+    # still the proxy (#528). Needs both a trusted proxy and an allowlist.
+    if settings.forwarded_host_allowlist and settings.trusted_proxy:
+        app.add_middleware(
+            ForwardedHostMiddleware,
+            trusted_hosts=settings.trusted_proxy,
+            allowlist=settings.forwarded_host_allowlist,
+        )
 
 
 def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:

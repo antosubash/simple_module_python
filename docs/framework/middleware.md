@@ -99,6 +99,10 @@ It is still load-bearing for anything else that reads `request.url.scheme` or ca
 
 Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
 
+### `ForwardedHostMiddleware` *(opt-in)*
+
+Installed only when **both** `SM_TRUSTED_PROXY` and the `forwarded_host_allowlist` host setting (restart-required) are set. uvicorn's `ProxyHeadersMiddleware` fixes scheme and client but not the host, so behind a proxy that rewrites `Host`, `request.url_for(...)` and the tenants subdomain resolver see the upstream name. This middleware replaces the `host` header and `scope["server"]` with the leftmost `X-Forwarded-Host` value when the TCP peer is trusted (same `*` / IP / CIDR rule as uvicorn) **and** the value matches the allowlist: an exact host or `*.example.com` (any subdomain, never the apex), each with an optional `:port` (an entry without a port accepts any port). Anything else is ignored and logged at debug, so a forged header cannot poison absolute URLs. It is added after `ProxyHeaders` so it runs first and still sees the proxy's own address. `Forwarded:` (RFC 7239) is not supported. Email links are unaffected: they are built from configured base URLs (for example `tenants.public_base_url`), never from the request.
+
 ### `CorrelationIdMiddleware`
 
 Reads the `X-Correlation-ID` header (or generates a UUID4 hex) and makes the value available three ways:
