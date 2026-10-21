@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
 from auth.contracts.tokens import AUTH_KIND_SESSION
 
-if TYPE_CHECKING:
-    # Runtime import would be circular: auth -> users -> auth.
-    # Only imported for type-hints, never at runtime.
-    from users.models import User
+
+class NamedRole(Protocol):
+    name: str
+
+
+class AccountLike(Protocol):
+    """What :meth:`UserContext.from_user` reads from an account row.
+
+    Structural, so ``auth`` names no provider's model: ``users`` depends on
+    ``auth``, never the other way round (GH #501).
+    """
+
+    id: Any
+    email: str
+    full_name: str | None
+    roles: Iterable[NamedRole]
 
 
 @dataclass
@@ -53,7 +66,7 @@ class UserContext:
     @classmethod
     def from_user(
         cls,
-        user: User | Any,
+        user: AccountLike,
         *,
         auth_kind: str = AUTH_KIND_SESSION,
         scopes: list[str] | None = None,

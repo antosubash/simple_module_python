@@ -3065,7 +3065,6 @@ dependencies = [
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
-    { name = "simple-module-users" },
 ]
 
 [package.metadata]
@@ -3073,7 +3072,6 @@ requires-dist = [
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
-    { name = "simple-module-users", editable = "modules/users" },
 ]
 
 [[package]]
@@ -3183,7 +3181,6 @@ dependencies = [
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
-    { name = "simple-module-users" },
 ]
 
 [package.metadata]
@@ -3191,7 +3188,6 @@ requires-dist = [
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
-    { name = "simple-module-users", editable = "modules/users" },
 ]
 
 [[package]]

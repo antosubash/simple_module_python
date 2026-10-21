@@ -13,6 +13,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
+from simple_module_core.user_directory import NullUserDirectory, UserDirectory
 from simple_module_db import ALL_TENANTS_OPTION, all_tenants
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,8 +38,11 @@ def _utcnow() -> datetime:
 
 
 class ApiTokenService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, directory: UserDirectory | None = None) -> None:
         self.db = db
+        # Owners are read through the app's user directory (GH #501); without
+        # one, nobody has a usable account and owners show unnamed.
+        self.directory: UserDirectory = directory or NullUserDirectory()
 
     async def create(
         self,
@@ -81,17 +85,16 @@ class ApiTokenService:
         return token, new.plaintext
 
     async def has_usable_account(self, user_id: uuid.UUID) -> bool:
-        """Whether *user_id* is an active ``users_user`` row the resolver can load.
+        """Whether *user_id* is an active account the resolver can turn into a principal.
 
-        Under an auth provider that keeps no local account (Keycloak without a
-        cached user), a token minted for the id would be dead on arrival.
+        That takes a directory entry that is active **and** whose roles are
+        known: under a provider that keeps roles in the IdP (Keycloak), a token
+        minted for the id would be dead on arrival, since the resolver refuses
+        a personal token whose owner's roles it cannot read.
         """
-        from users.models import User
-
-        stmt = select(User.id).where(
-            User.id == user_id, User.is_active.is_(True), User.disabled_at.is_(None)
-        )
-        return (await self.db.execute(stmt)).first() is not None
+        found = await self.directory.get_many(self.db, [str(user_id)], with_roles=True)
+        owner = found.get(str(user_id))
+        return owner is not None and owner.is_active and owner.roles is not None
 
     async def revoke_all_for_owner(self, owner_user_id: uuid.UUID) -> int:
         """Revoke every live personal token *owner_user_id* holds, in any tenant."""
@@ -157,13 +160,11 @@ class ApiTokenService:
         return token
 
     async def owner_emails(self, tokens: Sequence[ApiToken]) -> dict[uuid.UUID, str]:
-        from users.models import User
-
         ids = {t.owner_user_id for t in tokens if t.owner_user_id is not None}
         if not ids:
             return {}
-        rows = (await self.db.execute(select(User.id, User.email).where(User.id.in_(ids)))).all()
-        return {row[0]: row[1] for row in rows}
+        found = await self.directory.get_many(self.db, [str(i) for i in ids])
+        return {i: found[str(i)].email for i in ids if str(i) in found}
 
     @staticmethod
     def to_view(token: ApiToken, owner_email: str | None = None) -> TokenView:

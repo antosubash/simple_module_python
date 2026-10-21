@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -29,6 +30,7 @@ _PER_PAGE = 20
     dependencies=[Depends(RequiresPermission(constants.Permission.DOWNLOAD))],
 )
 async def browse(
+    request: Request,
     inertia: InertiaDep,
     page: int = Query(default=1),
     q: str = "",
@@ -71,7 +73,9 @@ async def browse(
     # One lookup covers the rows on screen and the filter's options, so
     # picking someone from the dropdown never renames them.
     labels = await resolve_uploader_labels(
-        db, [item.uploaded_by for item in items] + [u["id"] for u in uploaders]
+        get_user_directory(request.app),
+        db,
+        [item.uploaded_by for item in items] + [u["id"] for u in uploaders],
     )
     settings = service.settings
     # The page name is hard-coded as a literal here (rather than via

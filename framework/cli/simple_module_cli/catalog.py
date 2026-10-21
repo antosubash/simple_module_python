@@ -29,19 +29,17 @@ class ModuleEntry:
 
 CATALOG: dict[str, ModuleEntry] = {
     "auth": ModuleEntry("auth", "simple_module_auth", "Auth"),
-    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth",)),
+    # ``requires`` mirrors each module's ``depends_on``: outside development a
+    # missing dependency refuses to boot (GH #501), so a scaffold that left
+    # one out would build an app that cannot start in production.
+    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth", "settings")),
     "permissions": ModuleEntry(
         "permissions",
         "simple_module_permissions",
         "Permissions",
         requires=("auth", "users"),
     ),
-    "dashboard": ModuleEntry(
-        "dashboard",
-        "simple_module_dashboard",
-        "Dashboard",
-        requires=("users",),
-    ),
+    "dashboard": ModuleEntry("dashboard", "simple_module_dashboard", "Dashboard"),
     "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
     "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
     "file_storage": ModuleEntry(
@@ -54,7 +52,7 @@ CATALOG: dict[str, ModuleEntry] = {
         "background_tasks",
         "simple_module_background_tasks",
         "Background Tasks",
-        requires=("users",),
+        requires=("settings",),
         recipe="background_tasks",
     ),
     "site_lock": ModuleEntry(

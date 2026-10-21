@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import Depends, Request
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from simple_module_hosting.permissions import RequiresPermission as _HostingRequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,10 +26,11 @@ async def get_permission_registry(request: Request) -> PermissionRegistry:
 
 
 async def get_permission_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     registry: PermissionRegistry = Depends(get_permission_registry),
 ) -> PermissionService:
-    return PermissionService(db, registry)
+    return PermissionService(db, registry, get_user_directory(request.app))
 
 
 def assigned_by(request: Request) -> str | None:

@@ -43,7 +43,7 @@ def test_wizard_postgres_with_tenancy() -> None:
 
 def test_wizard_minimal_preset() -> None:
     _, _, selected, _ = _drive(["", "", "1", "", ""])
-    assert set(selected) == {"users", "auth"}
+    assert set(selected) == {"users", "auth", "settings"}
 
 
 def test_wizard_full_preset_includes_background_tasks() -> None:
@@ -57,12 +57,12 @@ def test_wizard_custom_picks_only_yes_answers() -> None:
     # Derive the answers from CATALOG rather than hardcoding a count: a
     # hardcoded sequence silently shifts onto the wrong module the next time
     # one is added, which is how this test broke when `site_lock` landed.
-    picks = ["y" if name == "background_tasks" else "n" for name in CATALOG]
+    picks = ["y" if name == "permissions" else "n" for name in CATALOG]
     answers = ["", "", "4", *picks, "", ""]
     _, _, selected, out = _drive(answers)
-    assert set(selected) == {"background_tasks", "users", "auth"}
-    assert "Added users (required by background_tasks)" in out
-    assert "Added auth (required by users)" in out
+    assert set(selected) == {"permissions", "users", "auth", "settings"}
+    assert "Added users (required by permissions)" in out
+    assert "Added settings (required by users)" in out
 
 
 def test_wizard_aborts_on_confirm_no() -> None:

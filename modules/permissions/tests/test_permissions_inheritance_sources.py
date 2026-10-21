@@ -11,6 +11,7 @@ from __future__ import annotations
 from permissions.service import PermissionService
 from simple_module_core.permissions import WILDCARD, PermissionRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
+from users.directory import UsersDirectory
 
 
 def _registry() -> PermissionRegistry:
@@ -21,7 +22,7 @@ def _registry() -> PermissionRegistry:
 
 
 def _service(db_session: AsyncSession, reg: PermissionRegistry) -> PermissionService:
-    return PermissionService(db_session, reg)
+    return PermissionService(db_session, reg, UsersDirectory())
 
 
 class TestResolveRoleSources:
