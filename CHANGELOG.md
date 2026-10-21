@@ -12,6 +12,12 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
+  `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
+  `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial
+  examples go in `scripts/doc_path_allowlist.txt` (#519).
+- New `docs-build` PR job (`make ci-docs-build`) builds the VitePress site, which
+  `docs/superpowers/` and `docs/plans/` are excluded from (#519).
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through
@@ -39,6 +45,8 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- Docs: stale example paths in `README.md`, `CLAUDE.md`, the testing overview and the
+  quickstart corrected; the historical `docs/perf` note is marked as exempt (#519).
 - `audit_log` and `dashboard` no longer depend on `Users` (meta `depends_on`
   and package dependency); `background_tasks` drops its unused `Users`
   dependency (#501). `api_tokens` moves `Users` to `optional_depends_on` and

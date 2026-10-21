@@ -1,0 +1,5 @@
+# Example paths from the tutorial/scaffold docs (a hypothetical "orders" module etc.).
+modules/orders*
+modules/blog_posts*
+modules/foo*
+host/migrations/versions/XXXX_*
