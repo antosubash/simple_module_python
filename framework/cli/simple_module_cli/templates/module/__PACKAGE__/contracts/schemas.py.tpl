@@ -7,7 +7,7 @@ from datetime import datetime
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
-from {{PACKAGE_NAME}}.constants import NAME_MAX_LENGTH
+from {{PACKAGE_NAME}}.constants import DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH
 
 
 class {{SINGULAR_CLASS}}Out(SQLModel):
@@ -27,12 +27,12 @@ class {{SINGULAR_CLASS}}Create(SQLModel):
     """Data required to create a new {{SINGULAR}}."""
 
     name: str = Field(min_length=1, max_length=NAME_MAX_LENGTH)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)
 
 
 class {{SINGULAR_CLASS}}Update(SQLModel):
     """Data to update an existing {{SINGULAR}}. All fields optional."""
 
     name: str | None = Field(default=None, min_length=1, max_length=NAME_MAX_LENGTH)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)
     is_active: bool | None = None

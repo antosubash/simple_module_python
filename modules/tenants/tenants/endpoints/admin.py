@@ -32,7 +32,11 @@ async def browse(
     q: str = "",
     params: PageParams = Depends(lenient_page_params(_PAGE_SIZE)),
 ) -> InertiaResponse:
-    tenants = await service.list_all(search=q, limit=params.per_page, offset=params.offset)
+    # The page size is fixed: the page's Previous/Next links carry only ``page``,
+    # so honouring a hand-edited ``?per_page=`` would skip rows on the next click.
+    tenants = await service.list_all(
+        search=q, limit=_PAGE_SIZE, offset=(params.page - 1) * _PAGE_SIZE
+    )
     counts = await service.member_counts([t.id for t in tenants])
     return await inertia.render(
         PAGE_ADMIN,
@@ -46,7 +50,7 @@ async def browse(
             ],
             "q": q,
             "page": params.page,
-            "has_more": len(tenants) == params.per_page,
+            "has_more": len(tenants) == _PAGE_SIZE,
         },
     )
 
