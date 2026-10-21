@@ -12,7 +12,6 @@ import logging
 from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from typing import Any, Literal
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,17 +20,14 @@ from simple_module_db.listeners import current_user_id
 from simple_module_db.tenancy import current_tenant_id
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from simple_module_hosting.sentry_scrub import scrub_event
+
 logger = logging.getLogger(__name__)
 
 Process = Literal["web", "worker"]
 PROCESS_WEB: Process = "web"
 PROCESS_WORKER: Process = "worker"
 
-REDACTED = "[Filtered]"
-_SCRUBBED_HEADERS = frozenset(
-    {"authorization", "cookie", "set-cookie", "x-csrf-token", "x-api-key"}
-)
-_SCRUBBED_QUERY_KEYS = frozenset({"token", "code"})
 _TAG_REQUEST_ID = "request_id"
 _TAG_TENANT = "tenant"
 _TAG_USER_ID = "user_id"
@@ -77,27 +73,6 @@ class SentrySettings(BaseSettings):
     environment: str = "development"
 
 
-def _scrub_query(query: str) -> str:
-    pairs = parse_qsl(query, keep_blank_values=True)
-    return urlencode([(k, REDACTED if k.lower() in _SCRUBBED_QUERY_KEYS else v) for k, v in pairs])
-
-
-def _scrub_request(request: dict[str, Any]) -> None:
-    headers = request.get("headers")
-    if isinstance(headers, dict):
-        request["headers"] = {
-            k: v for k, v in headers.items() if str(k).lower() not in _SCRUBBED_HEADERS
-        }
-    for key in ("cookies", "data"):
-        request.pop(key, None)
-    if isinstance(request.get("query_string"), str):
-        request["query_string"] = _scrub_query(request["query_string"])
-    url = request.get("url")
-    if isinstance(url, str) and "?" in url:
-        parts = urlsplit(url)
-        request["url"] = urlunsplit(parts._replace(query=_scrub_query(parts.query)))
-
-
 def _scope_info(process: Process) -> dict[str, str | None]:
     scope = _request_scope.get() if process == PROCESS_WEB else None
     state = (scope or {}).get("state", {})
@@ -128,7 +103,11 @@ def _tags(event: Event, process: Process) -> dict[str, str]:
 
 
 def build_before_send(process: Process) -> Callable[[Event, Mapping[str, Any]], Event]:
-    """Tag and scrub an event; used for errors and transactions alike."""
+    """Tag and scrub an event; used for errors and transactions alike.
+
+    Scrubbing is ours, not the SDK's: its ``EventScrubber`` matches exact key
+    names only and skips ``contexts`` and free text (``sentry_scrub``).
+    """
 
     def before_send(event: Event, hint: Mapping[str, Any]) -> Event:
         tags = _tags(event, process)
@@ -137,9 +116,7 @@ def build_before_send(process: Process) -> Callable[[Event, Mapping[str, Any]], 
             event["user"] = {"id": user_id}  # id only: never email/username/ip
         else:
             event.pop("user", None)
-        if isinstance(event.get("request"), dict):
-            _scrub_request(event["request"])
-        return event
+        return scrub_event(event)
 
     return before_send
 
