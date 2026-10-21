@@ -128,14 +128,11 @@ class SettingsModule(ModuleBase):
         from simple_module_db.stored_settings import Setting
 
         registry.register(
-            AuditLink(
-                # Class name, not __tablename__ — see AuditLink.entity_type.
-                # The table name travels alongside as the audit log's type tag.
-                entity_type=Setting.__name__,
+            AuditLink.for_model(
+                Setting,
                 url_template=f"{VIEW_PREFIX}/{{id}}/edit",
                 label="Setting",
                 label_key="settings.audit.setting",
-                table_name=Setting.__tablename__,
                 label_resolver=_resolve_setting_labels,
             )
         )

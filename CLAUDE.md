@@ -362,8 +362,9 @@ development and testing (`session_cookie_secure`).
   durable handlers, which have no app). The `mail` module owns SMTP and its
   settings; without it the sender only logs (`delivers_email` is false). Tests
   use the `captured_mail` fixture.
-- **Audit links / design packs**: `register_audit_links` takes
-  `AuditLink(entity_type=Model.__name__, …)` (class name, not table name, or it
+- **Audit links / design packs**: `register_audit_links` builds
+  links with `AuditLink.for_model(Model, url_template=…, …)` (it fills
+  `entity_type=Model.__name__` and `table_name`; a table-name `entity_type`
   silently never matches); `register_design_packs` slugs must match
   `^[a-z0-9][a-z0-9-]*$` and the host must still import the CSS.
 - **i18n.** Ship `<package>/locales/<lang>.json`, declare in `locale_dirs()` with

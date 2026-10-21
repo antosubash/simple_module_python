@@ -12,6 +12,12 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- `AuditLink.for_model(Model, url_template=..., ...)` fills `entity_type` (class
+  name) and `table_name` from the model; every module's `register_audit_links`
+  now uses it. `simple_module_db.independent_session(app)` is an async context
+  manager for out-of-request sessions that commits on success and rolls back on
+  error (`permissions` startup replay and `api_tokens` last-used write use it)
+  (#523).
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through
