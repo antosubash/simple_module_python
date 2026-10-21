@@ -18,6 +18,7 @@ whole; paths inside a scaffolded app's examples belong in the allowlist.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from fnmatch import fnmatch
 from pathlib import Path
@@ -69,11 +70,30 @@ def looks_like_path(tok: str) -> bool:
     return tok.endswith("/") or bool(EXTENSION.search(tok.rsplit("/", 1)[-1]))
 
 
-def exists(tok: str, allow: set[str]) -> bool:
+def tracked_paths() -> set[str]:
+    """Every tracked file and its parent directories.
+
+    Checked against git, not the working tree, so a gitignored file that only
+    exists locally (generated output, a scratch dir) fails here exactly as it
+    does on a fresh CI checkout. Reference generated files via the allowlist.
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
+    ).stdout.decode()
+    paths: set[str] = set()
+    for f in filter(None, out.split("\0")):
+        paths.add(f)
+        parts = f.split("/")
+        for i in range(1, len(parts)):
+            paths.add("/".join(parts[:i]))
+    return paths
+
+
+def exists(tok: str, allow: set[str], tracked: set[str]) -> bool:
     rel = tok.rstrip("/")
     if any(fnmatch(rel, pat) for pat in allow):
         return True
-    return (ROOT / rel).exists()
+    return rel in tracked
 
 
 def main() -> int:
@@ -83,6 +103,7 @@ def main() -> int:
             line = line.split("#", 1)[0].strip()
             if line:
                 allow.add(line)
+    tracked = tracked_paths()
     failures: list[str] = []
     for doc in sources():
         fence: tuple[str, int] | None = None
@@ -99,7 +120,7 @@ def main() -> int:
             if fence or IGNORE_MARK in line:
                 continue
             for tok in TICK.findall(line):
-                if looks_like_path(tok) and not exists(tok, allow):
+                if looks_like_path(tok) and not exists(tok, allow, tracked):
                     failures.append(f"{doc.relative_to(ROOT)}:{n}: missing path `{tok}`")
     if failures:
         print("\n".join(failures))

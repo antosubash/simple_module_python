@@ -20,6 +20,7 @@ def _run(tmp_path, monkeypatch, body: str, capsys) -> tuple[int, str]:
     monkeypatch.setattr(mod, "ROOT", tmp_path)
     monkeypatch.setattr(mod, "sources", lambda: [doc])
     monkeypatch.setattr(mod, "ALLOWLIST", tmp_path / "none.txt")
+    monkeypatch.setattr(mod, "tracked_paths", set)
     rc = mod.main()
     return rc, capsys.readouterr().out
 
