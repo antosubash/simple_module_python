@@ -22,7 +22,7 @@ from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
-from simple_module_hosting._boot_checks import report_tenant_resolution
+from simple_module_hosting._boot_checks import report_tenant_resolution, report_unguarded_routes
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
@@ -168,8 +168,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(token_route_guard)],
     )
 
-    install_openapi_filter(app)
-    # Read by AuthMiddleware: the schema is anonymous exactly when it is served.
+    install_openapi_filter(app)  # AuthMiddleware reads openapi_url: anonymous iff served
     app.state.openapi_url = API_OPENAPI_URL if serve_openapi else None
 
     # ── Phase 4: Module settings ───────────────────────────
@@ -293,5 +292,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         view_prefixes=view_prefixes,
         rate_limit_store=rate_limit_store,
     )
-
+    if settings.is_development:
+        report_unguarded_routes(app, diagnostics_state)  # SM031
     return app

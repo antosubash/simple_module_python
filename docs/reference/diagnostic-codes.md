@@ -39,6 +39,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM028` | WARNING | A module's `tasks.py` imports `torch`, `tensorflow`, `ultralytics`, `osgeo`, `rasterio`, `cv2` or `sklearn` at module level, so every process that loads the module's tasks (web, each worker, beat) pays for it and a queue-restricted worker cannot avoid it. | Import the package inside the task function. See [background_tasks](/modules/background_tasks#running-a-worker-for-a-subset-of-modules). |
 | `SM029` | INFO | A module overrides `db_extensions()` (Postgres extensions such as `ltree`) and the configured database is SQLite, which has none. `ensure_db_extensions` raises `UnsupportedDatabaseError` when migrations run. | Point `SM_DATABASE_URL` at PostgreSQL. See [Postgres extensions and column types](/database/extensions). |
 | `SM030` | WARNING at a dev boot; ERROR in `make doctor` | A module's `depends_on` names a module that is not loaded (not installed, left out of `SM_MODULES_ENABLED`, or dropped because another auth provider was selected — `keycloak` drops `Users`). Outside development the boot raises `MissingDependencyError` listing every pair. | Install and enable the dependency, or leave the dependent module out. A relationship that is only about order belongs in `optional_depends_on`. See [Discovery](/framework/discovery#modulemeta). |
+| `SM031` | WARNING | An `/api` route has no permission, `TokenAllowed` or `Authenticated` gate anywhere in its dependency tree (include-level dependencies count) and no public-route match, so the schema cannot say who may call it. Needs the built app: reported at a **dev boot** (and in the Doctor screen), not by `make doctor`. | Add `Depends(RequiresPermission(...))`, or `Depends(Authenticated())` when any signed-in user may call it, or register it in `register_public_routes`. |
 
 `SM022`/`SM023` are the two halves of the same invariant: a module's optional [`theme.css` is imported unlayered and `styles.css` into `layer(components)`](/module-authoring#styling), and CSS put in the wrong one silently does nothing (or silently wins everything).
 
@@ -46,7 +47,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 
 | Context | What runs |
 |---|---|
-| App boot in development | Full structural/page/i18n suite, results logged to stderr. ERRORS abort boot. |
+| App boot in development | Full structural/page/i18n suite, results logged to stderr. ERRORS abort boot. After the routes are wired, SM031 (unguarded `/api` routes) is added. |
 | App boot in non-development | Strict module discovery (raises on SM001-class failures) + the migration check (SM010) + SM025 (logged as a warning). The page/locale static suite is dev-only. |
 
 Sample dev-mode output:

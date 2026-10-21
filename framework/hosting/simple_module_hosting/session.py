@@ -72,6 +72,9 @@ which would sign the entire user base out on deploy — or accepting it forever,
 which would leave the hole this key was added to close.
 """
 
+SESSION_COOKIE_NAME = "session"
+"""The session cookie's name (Starlette's default, pinned so the OpenAPI export can cite it)."""
+
 SESSION_COOKIE_MAX_AGE_KEY = "session_cookie_max_age"
 """ASGI scope key an endpoint sets to widen *this* response's cookie window.
 
@@ -102,6 +105,7 @@ class SessionMiddleware(_StarletteSessionMiddleware):
                 "signature window, not the cookie window. Set the cookie window per session "
                 "with SESSION_REMEMBER_KEY, or per response with SESSION_COOKIE_MAX_AGE_KEY."
             )
+        kwargs.setdefault("session_cookie", SESSION_COOKIE_NAME)
         super().__init__(app, secret_key, max_age=SESSION_SIGNATURE_MAX_AGE, **kwargs)
         self._secure = bool(kwargs.get("https_only"))
 

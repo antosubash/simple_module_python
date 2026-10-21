@@ -458,7 +458,8 @@ settings not on `app.state`, `SM013`–`SM016` locale drift, `SM017` module
 pages without `package.json`/`tsconfig.json`, `SM018` Inertia call to `/api`,
 `SM019` views with no menu item or permission, `SM022`/`SM023` CSS in the wrong
 file, `SM024` unique key without `tenant_id`, `SM028` heavy import in
-`tasks.py`.
+`tasks.py`, `SM031` `/api` route with no permission/`Authenticated()` gate and not public (dev boot
+only: it needs the built app).
 
 ## Tests & fixtures
 

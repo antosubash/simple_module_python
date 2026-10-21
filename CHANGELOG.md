@@ -28,6 +28,15 @@ All notable changes to this project are documented in this file. The format is b
   never reach auth and a 413 keeps its CORS headers. `file_storage` serves public
   files cross-origin (Range-capable) unless the new `public_files_cors` setting is off.
 - PostgreSQL pool, connect, statement and idle-in-transaction timeout settings for web and worker engines, with worker pool and statement overrides (#531).
+- The OpenAPI export declares `bearerAuth` and `sessionCookie` security schemes and a
+  `security` entry per operation (`[]` for public routes), so generated clients know where
+  credentials go (#534). New `Authenticated()` marker dependency
+  (`simple_module_hosting.token_guard`) for routes any signed-in user may call, and diagnostic
+  `SM031` (WARNING, dev boot) for `/api` routes with no gate and no public match. Marked
+  `Authenticated()`: `GET/POST /api/tenants/`, `POST /api/tenants/{tenant_id}/switch`,
+  `DELETE /api/tenants/current/membership`, `POST /api/tenants/invitations/accept`,
+  `GET/PATCH /api/users/me`, `POST /api/users/me/password`,
+  `POST /api/users/me/sessions/revoke-all`. Tokens are still refused on these.
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through

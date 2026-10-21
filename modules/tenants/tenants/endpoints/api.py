@@ -12,6 +12,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request, Response
 from simple_module_core.permissions import grants
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.token_guard import Authenticated
 
 from tenants.constants import (
     PERM_MEMBERS_MANAGE,
@@ -50,13 +51,15 @@ def _email_of(request: Request) -> str | None:
     return getattr(getattr(request.state, "user", None), "email", None)
 
 
-@router.get("/", response_model=list[MyTenantView])
+@router.get("/", response_model=list[MyTenantView], dependencies=[Depends(Authenticated())])
 async def list_mine(user_id: UserIdDep, service: TenantServiceDep) -> list[MyTenantView]:
     rows = await service.list_for_user(user_id)
     return [MyTenantView(**t.model_dump(), role=role) for t, role in rows]
 
 
-@router.post("/", response_model=MyTenantView, status_code=201)
+@router.post(
+    "/", response_model=MyTenantView, status_code=201, dependencies=[Depends(Authenticated())]
+)
 async def create_tenant(
     data: TenantCreate, request: Request, user_id: UserIdDep, service: TenantServiceDep
 ) -> MyTenantView:
@@ -72,7 +75,7 @@ async def create_tenant(
     return MyTenantView(**tenant.model_dump(), role=MembershipRole.OWNER)
 
 
-@router.post("/{tenant_id}/switch", status_code=204)
+@router.post("/{tenant_id}/switch", status_code=204, dependencies=[Depends(Authenticated())])
 async def switch_tenant(
     tenant_id: str, request: Request, user_id: UserIdDep, service: TenantServiceDep
 ) -> Response:
@@ -112,7 +115,7 @@ async def remove_member(user_id: str, ctx: ManagerDep, service: TenantServiceDep
     return Response(status_code=204)
 
 
-@router.delete("/current/membership", status_code=204)
+@router.delete("/current/membership", status_code=204, dependencies=[Depends(Authenticated())])
 async def leave(ctx: ActiveTenantDep, service: TenantServiceDep) -> Response:
     """Leave the active tenant. The last owner cannot leave."""
     await service.remove_member(ctx.tenant_id, ctx.user_id, actor_role=ctx.role)
@@ -161,7 +164,9 @@ async def revoke_invitation(
     return Response(status_code=204)
 
 
-@router.post("/invitations/accept", response_model=MyTenantView)
+@router.post(
+    "/invitations/accept", response_model=MyTenantView, dependencies=[Depends(Authenticated())]
+)
 async def accept_invitation(
     payload: dict[str, str],
     request: Request,

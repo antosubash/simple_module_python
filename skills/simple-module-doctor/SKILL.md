@@ -1,6 +1,6 @@
 ---
 name: simple-module-doctor
-description: Use when interpreting a simple_module_python diagnostic code (SM001–SM030) printed at boot or by the diagnostics runner — what the code means, whether it's blocking, and the concrete fix. Triggers on any "SMnnn" code in logs, "InvalidModuleError", "module silently doesn't load", or "production failed boot".
+description: Use when interpreting a simple_module_python diagnostic code (SM001–SM031) printed at boot or by the diagnostics runner — what the code means, whether it's blocking, and the concrete fix. Triggers on any "SMnnn" code in logs, "InvalidModuleError", "module silently doesn't load", or "production failed boot".
 ---
 
 # simple_module_python: diagnostics
@@ -36,6 +36,7 @@ You can also call `run_diagnostics(...)` from `simple_module_core` programmatica
 | **SM028** | WARNING | A module's `tasks.py` imports `torch`, `tensorflow`, `ultralytics`, `osgeo`, `rasterio`, `cv2` or `sklearn` at module level | Import the package inside the task function, so only a worker that runs the task loads it |
 | **SM029** | INFO | A module overrides `db_extensions()` (Postgres extensions like `ltree`) but the database is SQLite, which has none; `ensure_db_extensions` raises `UnsupportedDatabaseError` at migrate time | Point `SM_DATABASE_URL` at PostgreSQL |
 | **SM030** | WARNING (dev boot) / ERROR (`make doctor`) | A module's `depends_on` names a module that is not loaded — often `Users` under the `keycloak` provider. Outside development the boot raises `MissingDependencyError` listing every pair | Install/enable the dependency or leave the dependent module out; move an ordering-only entry to `optional_depends_on` |
+| **SM031** | WARNING (dev boot only) | An `/api` route has no `RequiresPermission`/`TokenAllowed`/`Authenticated` gate and is not a public route; needs the built app so `make doctor` never reports it | Add `Depends(RequiresPermission(...))`, or `Depends(Authenticated())` for "any signed-in user", or register it in `register_public_routes` |
 
 `SM002`, `SM005`, `SM006` don't exist in the implementation — they're reserved/retired and never emitted. `SM012` is the one code that doesn't come from the core diagnostics runner: it's raised from the hosting layer (`check_settings_registration`, after Phase 4 settings registration) and so is only ever seen at **dev boot**, not via `make doctor`.
 
