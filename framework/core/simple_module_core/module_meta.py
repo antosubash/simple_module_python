@@ -34,6 +34,16 @@ class ModuleMeta:
     ``view_prefix`` at ``/admin/...`` directly.
     """
     depends_on: list[str] = field(default_factory=list)
+    """Modules this one needs. Outside development a missing one refuses the
+    boot (``MissingDependencyError``, GH #501); in development it is logged."""
+    optional_depends_on: list[str] = field(default_factory=list)
+    """Modules to sort after **when they are loaded**; absence is fine.
+
+    For an ordering-only relationship — subscribe after the module that
+    publishes an event, wrap middleware outside another's — where the module
+    works without the other one. Sorted exactly like ``depends_on`` when
+    present, so moving an entry here does not change the boot order.
+    """
     version: str = "1.0.0"
     requires_framework: str | None = None
     """PEP 440 specifier for the framework API version this module supports.

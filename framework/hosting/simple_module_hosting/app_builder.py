@@ -109,7 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     modules = select_auth_provider(
         installed_modules, settings.auth_provider, strict=not settings.is_development
     )
-    modules = topological_sort(modules)
+    modules = topological_sort(modules, strict=not settings.is_development)
     logger.info(
         "Loaded %d module(s): %s",
         len(modules),

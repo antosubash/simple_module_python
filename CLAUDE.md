@@ -118,8 +118,11 @@ until added.
 **Discovery.** Modules declare `[project.entry-points.simple_module]` pointing
 at a `ModuleBase` subclass with `meta = ModuleMeta(...)`.
 `simple_module_core.discovery.discover_modules()` loads them, topologically sorts
-by `ModuleMeta.depends_on`, and the host calls each `register_*` hook in that
-order (`docs/framework/discovery.md`).
+by `ModuleMeta.depends_on` (plus `optional_depends_on`, ordering only, may be
+absent), and the host calls each `register_*` hook in that order
+(`docs/framework/discovery.md`). Outside development a missing `depends_on`
+target fails the boot (`MissingDependencyError`, `SM030`); selecting
+`keycloak` drops `Users`, so modules needing it must be left out.
 
 **Two names per module.** `ModuleMeta.name` (scaffold default: PascalCase,
 `FeatureFlags`) keys Inertia render paths, `depends_on` and `SM_MODULES_ENABLED`.
@@ -432,7 +435,8 @@ Unlisted test directories are silently never collected.
 `make doctor` and a development boot run the `SM0xx` checks; the table with
 triggers and fixes is `docs/reference/diagnostic-codes.md`. **Production does
 not run the suite** (only `SM025` is reported there). What fails a production
-boot is strict discovery (a bad entry point or missing `meta`), the
+boot is strict discovery (a bad entry point, missing `meta`, or a missing
+`depends_on` target), the
 auth-provider check, placeholder secrets (`SM_SECRET_KEY`, users token
 secrets), a localhost Celery broker, and the `SM010` migration check (except
 on a never-migrated first run, which goes to `/setup`). Catch everything else

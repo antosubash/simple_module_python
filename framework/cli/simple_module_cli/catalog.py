@@ -29,10 +29,8 @@ class ModuleEntry:
 
 CATALOG: dict[str, ModuleEntry] = {
     "auth": ModuleEntry("auth", "simple_module_auth", "Auth"),
-    # ``requires`` mirrors each module's ``depends_on``: outside development a
-    # missing dependency refuses to boot (GH #501), so a scaffold that left
-    # one out would build an app that cannot start in production.
-    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth", "settings")),
+    # ``requires`` covers each module's ``depends_on`` (pinned by a test).
+    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth",)),
     "permissions": ModuleEntry(
         "permissions",
         "simple_module_permissions",

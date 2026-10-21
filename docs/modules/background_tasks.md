@@ -9,7 +9,7 @@ Celery + Redis task queue with persistent history, an admin UI for monitoring + 
 | `name` | `BackgroundTasks` |
 | `route_prefix` | `/api/background_tasks` |
 | `view_prefix` | `/admin/background-tasks` |
-| `depends_on` | `["Settings"]` |
+| `depends_on` | `[]` (optional: `["Settings"]`) |
 
 ## Writing a task
 

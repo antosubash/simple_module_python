@@ -1,6 +1,6 @@
 # Diagnostic codes
 
-The framework runs a set of static checks over installed modules at app boot. The full structural/page/i18n suite runs in development (`SM_ENVIRONMENT=development`), prints to stderr, and aborts boot on any ERROR. In non-development environments (anything other than `development`) module discovery is **strict** — entry-point failures and missing/invalid `meta` (the SM001 class of problems) raise at boot — and the migration check (SM010) fails boot in every environment.
+The framework runs a set of static checks over installed modules at app boot. The full structural/page/i18n suite runs in development (`SM_ENVIRONMENT=development`), prints to stderr, and aborts boot on any ERROR. In non-development environments (anything other than `development`) module discovery is **strict** — entry-point failures, missing/invalid `meta` (the SM001 class of problems) and missing `depends_on` targets (SM030) raise at boot — and the migration check (SM010) fails boot in every environment.
 
 ## Levels
 
@@ -38,6 +38,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM027` | WARNING | A key in `host/locales/overrides/<locale>.json` matches no catalog key, so the override was skipped. Reported by `make doctor` and at dev boot. | Fix the key: overrides replace an existing key by its full dotted path (e.g. `users.login.aside_heading`). See [i18n](/framework/i18n#overriding-module-copy). |
 | `SM028` | WARNING | A module's `tasks.py` imports `torch`, `tensorflow`, `ultralytics`, `osgeo`, `rasterio`, `cv2` or `sklearn` at module level, so every process that loads the module's tasks (web, each worker, beat) pays for it and a queue-restricted worker cannot avoid it. | Import the package inside the task function. See [background_tasks](/modules/background_tasks#running-a-worker-for-a-subset-of-modules). |
 | `SM029` | INFO | A module overrides `db_extensions()` (Postgres extensions such as `ltree`) and the configured database is SQLite, which has none. `ensure_db_extensions` raises `UnsupportedDatabaseError` when migrations run. | Point `SM_DATABASE_URL` at PostgreSQL. See [Postgres extensions and column types](/database/extensions). |
+| `SM030` | WARNING at a dev boot; ERROR in `make doctor` | A module's `depends_on` names a module that is not loaded (not installed, left out of `SM_MODULES_ENABLED`, or dropped because another auth provider was selected — `keycloak` drops `Users`). Outside development the boot raises `MissingDependencyError` listing every pair. | Install and enable the dependency, or leave the dependent module out. A relationship that is only about order belongs in `optional_depends_on`. See [Discovery](/framework/discovery#modulemeta). |
 
 `SM022`/`SM023` are the two halves of the same invariant: a module's optional [`theme.css` is imported unlayered and `styles.css` into `layer(components)`](/module-authoring#styling), and CSS put in the wrong one silently does nothing (or silently wins everything).
 

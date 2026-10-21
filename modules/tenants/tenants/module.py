@@ -48,8 +48,10 @@ class TenantsModule(ModuleBase):
         view_prefix="/tenants",
         admin_view_prefix="/admin/tenants",
         # Auth: its middleware must have set request.state.user before the
-        # resolver runs. Settings: register_module_settings.
-        depends_on=[c._MODULE_AUTH, c._MODULE_SETTINGS],
+        # resolver runs. Settings: ordering only, since registering settings
+        # is the framework's (#500).
+        depends_on=[c._MODULE_AUTH],
+        optional_depends_on=[c._MODULE_SETTINGS],
     )
 
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:

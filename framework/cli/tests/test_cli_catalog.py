@@ -36,15 +36,15 @@ def test_expand_deps_returns_input_when_no_requires() -> None:
 
 def test_expand_deps_pulls_in_transitive_dep() -> None:
     resolved, added = expand_deps(["users"])
-    assert set(resolved) == {"auth", "settings", "users"}
-    assert added == [("auth", "users"), ("settings", "users")]
+    assert set(resolved) == {"auth", "users"}
+    assert added == [("auth", "users")]
 
 
 def test_expand_deps_pulls_in_chain() -> None:
     resolved, added = expand_deps(["permissions"])
-    assert set(resolved) == {"permissions", "users", "auth", "settings"}
+    assert set(resolved) == {"permissions", "users", "auth"}
     added_names = {a for a, _ in added}
-    assert added_names == {"users", "auth", "settings"}
+    assert added_names == {"users", "auth"}
 
 
 def test_expand_deps_idempotent_when_input_already_complete() -> None:

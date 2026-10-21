@@ -27,8 +27,10 @@ class ApiTokensModule(ModuleBase):
         view_prefix=c.VIEW_PREFIX,
         admin_view_prefix=c.ADMIN_VIEW_PREFIX,
         # Auth owns the resolver chain this module appends to; Users owns the
-        # accounts a personal token acts for; Settings stores the lifetime cap.
-        depends_on=[c.MODULE_AUTH, c.MODULE_USERS, c.MODULE_SETTINGS],
+        # accounts a personal token acts for. Settings (the lifetime cap's
+        # editor) is ordering only: the framework hydrates settings (#500).
+        depends_on=[c.MODULE_AUTH, c.MODULE_USERS],
+        optional_depends_on=[c.MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:

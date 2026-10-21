@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._css import check_module_css
+from simple_module_core.diagnostics._dependencies import check_missing_dependencies
 from simple_module_core.diagnostics._heavy_task_imports import check_heavy_task_imports
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
@@ -30,6 +31,7 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_missing_meta(modules))
         diagnostics.extend(self._check_views_without_menu(modules))
         diagnostics.extend(self._check_auth_provider_conflict(modules))
+        diagnostics.extend(check_missing_dependencies(modules))
         diagnostics.extend(check_framework_module_coupling(modules))
         for mod in modules:
             diagnostics.extend(check_tenant_unique_keys(module_tables(mod), mod.meta.name))

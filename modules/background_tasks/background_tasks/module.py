@@ -73,7 +73,7 @@ class BackgroundTasksModule(ModuleBase):
         name=MODULE_DISPLAY_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
-        depends_on=[_MODULE_SETTINGS],
+        optional_depends_on=[_MODULE_SETTINGS],
         i18n_audience="admin",
     )
 

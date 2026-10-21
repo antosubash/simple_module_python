@@ -30,6 +30,7 @@ from simple_module_core.diagnostics import (
     print_diagnostics,
     run_diagnostics,
 )
+from simple_module_core.diagnostics._dependencies import CODE as MISSING_DEPENDENCY_CODE
 from simple_module_core.diagnostics._i18n import unknown_overrides_for
 from simple_module_core.discovery import (
     discover_modules,
@@ -181,6 +182,11 @@ def main() -> int:
         database_dialect=_database_dialect(),
     )
     diagnostics.extend(override_findings)
+    # A missing dependency only warns at a dev boot, but production refuses
+    # to start with it (GH #501), so doctor reports it as what it will be.
+    for finding in diagnostics:
+        if finding.code == MISSING_DEPENDENCY_CODE:
+            finding.level = DiagnosticLevel.ERROR
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

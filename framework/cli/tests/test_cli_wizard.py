@@ -43,7 +43,7 @@ def test_wizard_postgres_with_tenancy() -> None:
 
 def test_wizard_minimal_preset() -> None:
     _, _, selected, _ = _drive(["", "", "1", "", ""])
-    assert set(selected) == {"users", "auth", "settings"}
+    assert set(selected) == {"users", "auth"}
 
 
 def test_wizard_full_preset_includes_background_tasks() -> None:
@@ -60,9 +60,9 @@ def test_wizard_custom_picks_only_yes_answers() -> None:
     picks = ["y" if name == "permissions" else "n" for name in CATALOG]
     answers = ["", "", "4", *picks, "", ""]
     _, _, selected, out = _drive(answers)
-    assert set(selected) == {"permissions", "users", "auth", "settings"}
+    assert set(selected) == {"permissions", "users", "auth"}
     assert "Added users (required by permissions)" in out
-    assert "Added settings (required by users)" in out
+    assert "Added auth (required by permissions)" in out
 
 
 def test_wizard_aborts_on_confirm_no() -> None:

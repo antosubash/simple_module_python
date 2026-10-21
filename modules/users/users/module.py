@@ -51,7 +51,8 @@ class UsersModule(ModuleBase):
         # belongs with the other admin screens. One view_prefix cannot
         # express both, hence the second router.
         admin_view_prefix="/admin/users",
-        depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
+        depends_on=[_MODULE_DEPENDENCY_AUTH],
+        optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
 

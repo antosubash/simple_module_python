@@ -51,9 +51,22 @@ All notable changes to this project are documented in this file. The format is b
   `PermissionService` and `ApiTokenService` accept a directory (defaults to
   the null directory). With no directory, the audit Actor search matches the
   term as an exact actor id (#501).
-- `smpy` module catalog: `users` now requires `settings`, `background_tasks`
-  requires `settings` instead of `users`, `dashboard` requires nothing,
-  mirroring each module's `depends_on` (#501).
+- `smpy` module catalog: `background_tasks` requires `settings` instead of
+  `users` and `dashboard` requires nothing; a test pins that every entry's
+  `requires` covers its module's `depends_on` (#501).
+- **Behaviour change (#501):** outside development, a module whose
+  `depends_on` names a module that is not loaded now refuses the boot with one
+  `MissingDependencyError` (an `InvalidModuleError`) listing every
+  `(module, dependency)` pair, instead of a warning and a module running
+  against tables nobody owns. Development still logs it; `make doctor`
+  reports it as the new `SM030` error. Selecting `keycloak` drops `Users`, so
+  a Keycloak install must leave out `permissions` and `api_tokens`
+  (`SM_MODULES_ENABLED`). The outbox worker still sorts leniently.
+- New `ModuleMeta.optional_depends_on`: modules to sort after when loaded,
+  never required (#501). `users`, `tenants`, `file_storage`,
+  `background_tasks`, `site_lock`, `api_tokens` and `keycloak` move their
+  ordering-only `Settings` entry there, so the boot order is unchanged and
+  the `settings` plugin can still be disabled (#500).
 - The module-settings mechanism moved from the `settings` plugin into the
   framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
   `simple_module_core.module_settings`, hydration (`hydrate_settings`,
