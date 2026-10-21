@@ -27,7 +27,6 @@ class KeycloakModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-
         from keycloak.provider import KeycloakAuthProvider
         from keycloak.settings import KeycloakSettings
         from keycloak.state import KeycloakState

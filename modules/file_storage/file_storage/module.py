@@ -71,7 +71,6 @@ class FileStorageModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-
         from file_storage.services import FileStorageServices
         from file_storage.settings import FileStorageSettings
 

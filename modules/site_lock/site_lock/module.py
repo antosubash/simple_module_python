@@ -24,7 +24,6 @@ class SiteLockModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-
         from site_lock.settings import SiteLockSettings
         from site_lock.state import SiteLockState
 

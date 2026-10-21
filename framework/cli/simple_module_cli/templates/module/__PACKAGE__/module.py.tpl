@@ -43,7 +43,7 @@ class {{MODULE_NAME}}Module(ModuleBase):
         from {{PACKAGE_NAME}}.settings import {{MODULE_NAME}}Settings
 
         # Records the class so the host hydrates it from the settings table
-        # (env → DB → default) and mounts the services on app.state.{{PACKAGE_NAME}}.
+        # (DB → default) and mounts the services on app.state.{{PACKAGE_NAME}}.
         register_module_settings(
             app,
             "{{PACKAGE_NAME}}",

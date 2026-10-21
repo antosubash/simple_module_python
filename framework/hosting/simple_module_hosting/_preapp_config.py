@@ -60,10 +60,11 @@ _ENV_PREFIX = "SM_"
 class HostSettingsUnavailableError(RuntimeError):
     """The stored host settings exist but could not be read before boot.
 
-    Raised only outside development. Building with defaults instead would silently drop every
-    build-time override — ``multi_tenant`` above all, so one worker that
-    booted during a DB blip would serve requests single-tenant, with no tenant
-    middleware and no strict filter, while its siblings stay isolated (#494).
+    Raised only outside development. Building with defaults instead would
+    silently drop every build-time override — ``multi_tenant`` above all, so
+    one worker that booted during a DB blip would serve requests single-tenant,
+    with no tenant middleware and no strict filter, while its siblings stay
+    isolated (#494).
     """
 
 
@@ -101,8 +102,8 @@ def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str,
     """Return ``{field: (raw_value, value_type)}`` for host settings in the DB.
 
     Returns ``{}`` quietly when the database is reachable but not yet
-    migrated or holds no rows. Those are
-    the ordinary states of a fresh install, and what the setup wizard repairs.
+    migrated or holds no rows. Those are the ordinary states of a fresh
+    install, and what the setup wizard repairs.
 
     A failure to connect or to query is different: the stored overrides may
     exist and simply be unreadable right now. That logs a WARNING and, with

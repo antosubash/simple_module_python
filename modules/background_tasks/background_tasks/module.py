@@ -79,7 +79,6 @@ class BackgroundTasksModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-
         from background_tasks.services import BackgroundTasksServices
         from background_tasks.settings import BackgroundTasksSettings
 

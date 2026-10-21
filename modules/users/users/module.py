@@ -56,7 +56,6 @@ class UsersModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-
         from users.settings import UsersSettings
         from users.state import UsersState
 
