@@ -8,6 +8,7 @@ from typing import Annotated
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_SESSION
 from fastapi import Depends, HTTPException, Request
+from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +17,10 @@ from api_tokens.service import ApiTokenService, TokenError
 from api_tokens.settings import ApiTokensSettings
 
 
-async def get_api_token_service(db: AsyncSession = Depends(get_db)) -> ApiTokenService:
-    return ApiTokenService(db)
+async def get_api_token_service(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> ApiTokenService:
+    return ApiTokenService(db, get_user_directory(request.app))
 
 
 def get_settings(request: Request) -> ApiTokensSettings:

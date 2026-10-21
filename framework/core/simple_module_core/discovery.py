@@ -7,7 +7,11 @@ from collections.abc import Sequence
 from importlib.metadata import entry_points
 
 from simple_module_core.dotenv import env_str, load_dotenv_into_environ
-from simple_module_core.exceptions import CircularDependencyError, InvalidModuleError
+from simple_module_core.exceptions import (
+    CircularDependencyError,
+    InvalidModuleError,
+    MissingDependencyError,
+)
 from simple_module_core.module import ModuleBase, ModuleMeta
 
 logger = logging.getLogger(__name__)
@@ -186,28 +190,50 @@ def select_auth_provider(
     return [m for m in modules if m is keep or not getattr(m, "_is_auth_provider", False)]
 
 
-def topological_sort(modules: Sequence[ModuleBase]) -> list[ModuleBase]:
+def missing_dependencies(modules: Sequence[ModuleBase]) -> list[tuple[str, str]]:
+    """Every ``(module, dependency)`` pair whose dependency is not in *modules*."""
+    names = {m.meta.name for m in modules}
+    return [
+        (mod.meta.name, dep) for mod in modules for dep in mod.meta.depends_on if dep not in names
+    ]
+
+
+def _ordering_deps(mod: ModuleBase, loaded: dict[str, ModuleBase]) -> list[str]:
+    """The loaded modules *mod* must sort after: required and optional alike."""
+    wanted = [*mod.meta.depends_on, *mod.meta.optional_depends_on]
+    return [dep for dep in dict.fromkeys(wanted) if dep in loaded]
+
+
+def topological_sort(modules: Sequence[ModuleBase], *, strict: bool = False) -> list[ModuleBase]:
     """Sort modules so dependencies come before dependents.
+
+    ``optional_depends_on`` orders the same way when present and is never
+    missing. A ``depends_on`` entry naming a module that is not loaded is
+    logged and ignored; with ``strict`` every such pair is collected and
+    raised at once as :class:`MissingDependencyError`. The host passes
+    ``strict`` outside development: a module whose dependency is absent would
+    otherwise boot and fail later, or silently query another module's empty
+    tables (GH #501).
 
     Raises ``CircularDependencyError`` if a cycle is detected.
     """
+    missing = missing_dependencies(modules)
+    if missing and strict:
+        raise MissingDependencyError(missing)
+    for name, dep in missing:
+        logger.warning("Module '%s' depends on '%s' which is not installed — ignoring", name, dep)
+
     by_name: dict[str, ModuleBase] = {m.meta.name: m for m in modules}
 
     # Kahn's algorithm
     in_degree: dict[str, int] = dict.fromkeys(by_name, 0)
     dependents: dict[str, list[str]] = {name: [] for name in by_name}
 
-    for mod in modules:
-        for dep_name in mod.meta.depends_on:
-            if dep_name not in by_name:
-                logger.warning(
-                    "Module '%s' depends on '%s' which is not installed — ignoring",
-                    mod.meta.name,
-                    dep_name,
-                )
-                continue
-            in_degree[mod.meta.name] += 1
-            dependents[dep_name].append(mod.meta.name)
+    edges = {m.meta.name: _ordering_deps(m, by_name) for m in modules}
+    for name, deps in edges.items():
+        for dep_name in deps:
+            in_degree[name] += 1
+            dependents[dep_name].append(name)
 
     queue: list[str] = [name for name, deg in in_degree.items() if deg == 0]
     result: list[str] = []
@@ -225,7 +251,7 @@ def topological_sort(modules: Sequence[ModuleBase]) -> list[ModuleBase]:
     if len(result) != len(by_name):
         # Find the cycle for a helpful error message
         remaining = set(by_name.keys()) - set(result)
-        cycle = _find_cycle(remaining, {n: m.meta.depends_on for n, m in by_name.items()})
+        cycle = _find_cycle(remaining, edges)
         raise CircularDependencyError(cycle)
 
     return [by_name[name] for name in result]

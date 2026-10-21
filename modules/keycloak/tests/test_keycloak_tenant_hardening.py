@@ -15,6 +15,7 @@ from auth.contracts.schemas import UserContext
 from keycloak.provider import KeycloakAuthProvider
 from keycloak.settings import KeycloakSettings
 from keycloak.state import KeycloakState
+from keycloak_test_modules import keycloak_modules_enabled
 from starlette.requests import Request
 
 
@@ -105,6 +106,7 @@ def test_the_host_wires_the_provider_to_the_live_settings():
             secret_key="test-secret-key",
             multi_tenant=False,
             auth_provider="keycloak",
+            modules_enabled=keycloak_modules_enabled(),
         )
     )
     provider = app.state.auth.auth_provider

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.audit_links import AuditLinkRegistry
+from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
@@ -84,6 +85,7 @@ async def browse(
     page: str | None = Query(default=None),
     page_size: str | None = Query(default=None),
 ) -> InertiaResponse:
+    directory = get_user_directory(request.app)
     # Sanitize pagination — never raise a validation error for bad values.
     page_int = max(_safe_int(page, 1), 1)
     page_size_int = max(1, min(_safe_int(page_size, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE))
@@ -95,7 +97,7 @@ async def browse(
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
-        actor_match=actor_filter(actor_term),
+        actor_match=actor_filter(directory, actor_term),
         correlation_id=correlation_id,
         from_date=from_date,
         to_date=to_date,
@@ -117,7 +119,7 @@ async def browse(
     # is what makes it a durable record.
     links = request.app.state.sm.audit_links
     entity_types = _type_options(await service.distinct_entity_types(), links)
-    actors = await resolve_actors(db, [item.user_id for item in result.items])
+    actors = await resolve_actors(directory, db, [item.user_id for item in result.items])
     # Entity names are resolved against what *this* reader may see: naming the
     # row is a read of the row, and `audit_log.view` alone must not be a way
     # round the permission its owning module puts on that (GH #300).
@@ -137,7 +139,7 @@ async def browse(
         # registry means this link cannot drift from the entity links in the
         # next column, and it degrades to plain text if no module claims the
         # users table.
-        payload["actor_url"] = actor_link(links, item.user_id) if item.user_id else None
+        payload["actor_url"] = actor_link(links, directory, item.user_id) if item.user_id else None
         payload["entity"] = entity_link(
             links,
             item.entity_type,

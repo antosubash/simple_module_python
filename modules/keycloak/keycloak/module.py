@@ -22,7 +22,9 @@ class KeycloakModule(ModuleBase):
         name="Keycloak",
         route_prefix="/api/keycloak",
         view_prefix="/keycloak",
-        depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
+        depends_on=[_MODULE_DEPENDENCY_AUTH],
+        # Ordering only: settings registration is the framework's (#500).
+        optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
 
@@ -41,6 +43,13 @@ class KeycloakModule(ModuleBase):
         app.state.auth.auth_provider = KeycloakAuthProvider(
             app.state.keycloak.settings, state=app.state.keycloak
         )
+
+        # Other modules read accounts through the directory (GH #501).
+        from simple_module_core.user_directory import set_user_directory
+
+        from keycloak.directory import KeycloakDirectory
+
+        set_user_directory(app, KeycloakDirectory())
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

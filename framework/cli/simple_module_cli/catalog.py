@@ -29,6 +29,7 @@ class ModuleEntry:
 
 CATALOG: dict[str, ModuleEntry] = {
     "auth": ModuleEntry("auth", "simple_module_auth", "Auth"),
+    # ``requires`` covers each module's ``depends_on`` (pinned by a test).
     "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth",)),
     "permissions": ModuleEntry(
         "permissions",
@@ -36,12 +37,7 @@ CATALOG: dict[str, ModuleEntry] = {
         "Permissions",
         requires=("auth", "users"),
     ),
-    "dashboard": ModuleEntry(
-        "dashboard",
-        "simple_module_dashboard",
-        "Dashboard",
-        requires=("users",),
-    ),
+    "dashboard": ModuleEntry("dashboard", "simple_module_dashboard", "Dashboard"),
     "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
     "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
     "file_storage": ModuleEntry(
@@ -54,7 +50,7 @@ CATALOG: dict[str, ModuleEntry] = {
         "background_tasks",
         "simple_module_background_tasks",
         "Background Tasks",
-        requires=("users",),
+        requires=("settings",),
         recipe="background_tasks",
     ),
     "site_lock": ModuleEntry(

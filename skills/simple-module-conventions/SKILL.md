@@ -116,6 +116,10 @@ The host CSP blocks any origin you don't declare — a font CDN or tile server y
 
 Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()` (request code) or `await resolve_mail_sender(db)` (durable handlers, which run in the outbox worker without an app). With no transport installed both return a logging sender, so never guard on "is mail configured"; read `sender.delivers_email` when a screen must hand the link back instead. The `mail` module owns SMTP and its settings. In tests, request the `captured_mail` fixture.
 
+### 12. Read users through the user directory, never `users.models`
+
+Which module holds the accounts depends on the auth provider (`users` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+
 ## Related skills
 
 - **simple-module-database** — per-module Base, mixins, session lifecycle

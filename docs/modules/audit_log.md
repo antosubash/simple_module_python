@@ -9,7 +9,7 @@ Automatic field-level audit trail for every SQLModel entity in the app. Each cre
 | `name` | `AuditLog` |
 | `route_prefix` | `/api/audit_log` |
 | `view_prefix` | `/admin/audit-log` |
-| `depends_on` | `["Users"]` |
+| `depends_on` | `[]` |
 
 ## How capture works
 
@@ -155,6 +155,8 @@ An entry stores a model class name and a primary key, which proves what happened
 
 **The entity column's names are permission-gated.** An `AuditLink` may declare a `label_permission`, and a reader who does not hold it gets the id instead of the name. `users` declares `users.manage`, because a user row is named by `full_name or email` — so without the gate, `audit_log.view` alone was a way to read the display name of every account that appears in the log, and the email address of every account still holding an unaccepted invite (those have no `full_name` yet). The entry itself is never withheld: the action, the type, the timestamp and the id are the audit trail. Links whose owner declares nothing — setting keys, filenames, task names, flag names — are shown to anyone who may read the trail.
 
+Actor names come from the [user directory](/framework/user-directory) (`DirectoryUser.label`), so they follow whichever auth provider holds the accounts. The Actor search box matches a uuid exactly and anything else against names and emails as a database subquery (`match_ids`), with no ceiling on how many accounts match; with no directory it matches the term as an exact actor id.
+
 **The actor column's names are not.** `audit_log.view` does imply "may see who acted", and that is deliberate: an audit trail that will not say who performed a change is not one. The two columns disclose the same field and answer different questions — the entity column names people who were merely *edited*, which reviewing the trail does not require. Grant `audit_log.view` knowing it discloses the display name (or email) of everyone who has ever made a change.
 
 The `changes` column is a third surface, and a wider one: it records the values that were written, so a `User` create entry contains the email that was set. Use `__audit_exclude_fields__` on a model to keep a column out of the diff (see § Opting out).
@@ -192,4 +194,4 @@ The module is discovered automatically once `simple_module_audit_log` is install
 pip install simple_module_audit_log
 ```
 
-It depends on the [`users`](/modules/users) module (for the menu/permission wiring and the request-scoped `user_id`).
+It depends on no other module. Actor names, the Actor search and actor links come from the app's [user directory](/framework/user-directory), so they work under `users`, `keycloak` (users who have signed in) or no provider at all (raw ids). The module also installs the core [activity feed](/framework/user-directory#activity-feed) the users edit page reads.

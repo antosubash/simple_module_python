@@ -23,8 +23,58 @@ All notable changes to this project are documented in this file. The format is b
   emailed when `public_base_url` is set. The invite API response gains
   `emailed`, and the invite form says whether the link was emailed.
 - `captured_mail` pytest fixture in `simple_module_test` records sent mail.
+- User directory protocol (#501): `simple_module_core.user_directory`
+  (`UserDirectory`, `DirectoryUser`, `DirectoryStats`, `NullUserDirectory`,
+  `get_user_directory` / `set_user_directory`). `users` installs
+  `UsersDirectory`, `keycloak` installs `KeycloakDirectory` (users who have
+  signed in; roles unknown). `audit_log`, `dashboard`, `file_storage`,
+  `api_tokens` and `permissions` read users through it instead of importing
+  `users.models`, so actor names and search, dashboard tiles and uploader
+  names now work under Keycloak instead of querying the empty `users_user`
+  table. `get_many` returns an entry for every caller spelling of a known id
+  (`parse_user_ids` maps a uuid to all of them). See
+  `docs/framework/user-directory.md`.
+- Activity feed protocol (#501): `simple_module_core.activity_feed`.
+  `audit_log` installs it; the users edit page's *Recent activity* card reads
+  it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- `audit_log` and `dashboard` no longer depend on `Users` (meta `depends_on`
+  and package dependency); `background_tasks` drops its unused `Users`
+  dependency (#501). `api_tokens` moves `Users` to `optional_depends_on` and
+  its package depends on `fastapi-users-db-sqlalchemy` instead of
+  `simple_module_users`, so a Keycloak install keeps service keys (personal
+  tokens are refused there). `permissions` (role pages) still depends on
+  `Users`.
+- **Behaviour change (#501):** dashboard user figures the auth provider cannot
+  give are `null` in `/api/dashboard/stats` and their tile is hidden (with no
+  provider, all three; under Keycloak, `users_created_this_month`). Personal
+  API tokens are refused for an owner whose roles the directory cannot read
+  (Keycloak), as before.
+- `audit_log.resolve`: `resolve_actors`, `actor_filter` and `actor_link` take
+  the `UserDirectory`; `USER_ENTITY_TYPE` is gone (use the directory's
+  `entity_type`). `audit_log.export.stream_csv` takes the directory too.
+  `PermissionService` and `ApiTokenService` accept a directory (defaults to
+  the null directory). With no directory, the audit Actor search matches the
+  term as an exact actor id (#501).
+- `file_storage.resolve.resolve_uploader_labels` is now core's
+  `resolve_user_labels(directory, db, ids)` (the directory is the first
+  argument), and `users.audit.resolve_user_labels` delegates to it (#501).
+- `smpy` module catalog: `background_tasks` requires `settings` instead of
+  `users` and `dashboard` requires nothing; a test pins that every entry's
+  `requires` covers its module's `depends_on` (#501).
+- **Behaviour change (#501):** outside development, a module whose
+  `depends_on` names a module that is not loaded now refuses the boot with one
+  `MissingDependencyError` (an `InvalidModuleError`) listing every
+  `(module, dependency)` pair, instead of a warning and a module running
+  against tables nobody owns. Development still logs it; `make doctor`
+  reports it as the new `SM030` error. Selecting `keycloak` drops `Users`, so
+  a Keycloak install must leave out `permissions` (`SM_MODULES_ENABLED`). The outbox worker still sorts leniently.
+- New `ModuleMeta.optional_depends_on`: modules to sort after when loaded,
+  never required (#501). `users`, `tenants`, `file_storage`,
+  `background_tasks`, `site_lock`, `api_tokens` and `keycloak` move their
+  ordering-only `Settings` entry there, so the boot order is unchanged and
+  the `settings` plugin can still be disabled (#500).
 - The module-settings mechanism moved from the `settings` plugin into the
   framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
   `simple_module_core.module_settings`, hydration (`hydrate_settings`,

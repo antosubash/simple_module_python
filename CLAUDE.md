@@ -118,8 +118,11 @@ until added.
 **Discovery.** Modules declare `[project.entry-points.simple_module]` pointing
 at a `ModuleBase` subclass with `meta = ModuleMeta(...)`.
 `simple_module_core.discovery.discover_modules()` loads them, topologically sorts
-by `ModuleMeta.depends_on`, and the host calls each `register_*` hook in that
-order (`docs/framework/discovery.md`).
+by `ModuleMeta.depends_on` (plus `optional_depends_on`, ordering only, may be
+absent), and the host calls each `register_*` hook in that order
+(`docs/framework/discovery.md`). Outside development a missing `depends_on`
+target fails the boot (`MissingDependencyError`, `SM030`); selecting
+`keycloak` drops `Users`, so modules needing it must be left out.
 
 **Two names per module.** `ModuleMeta.name` (scaffold default: PascalCase,
 `FeatureFlags`) keys Inertia render paths, `depends_on` and `SM_MODULES_ENABLED`.
@@ -195,6 +198,12 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
   delivery (outbox via `background_tasks`): `bus.subscribe_durable` +
   `await bus.publish_durable(event, db)` inside the request transaction; a
   durable handler must not commit `ctx.db`. `docs/framework/events.md`.
+- Users: read accounts through `get_user_directory(app)`
+  (`simple_module_core.user_directory`; `get_many`, `search`, `match_ids`,
+  `stats`), never `users.models` outside `users`; the auth provider installs
+  it in `register_settings`. `DirectoryUser.roles is None` means unknown
+  (Keycloak), not none. Recent activity: `get_activity_feed(app)` (audit_log
+  installs it). `docs/framework/user-directory.md`.
 - Menus: `MenuRegistry.add_provider(fn)` for per-request items; permissions:
   `PermissionRegistry.add_source(name, provider)` + `invalidate_source(name)`.
   `docs/framework/permissions.md`.
@@ -426,7 +435,8 @@ Unlisted test directories are silently never collected.
 `make doctor` and a development boot run the `SM0xx` checks; the table with
 triggers and fixes is `docs/reference/diagnostic-codes.md`. **Production does
 not run the suite** (only `SM025` is reported there). What fails a production
-boot is strict discovery (a bad entry point or missing `meta`), the
+boot is strict discovery (a bad entry point, missing `meta`, or a missing
+`depends_on` target), the
 auth-provider check, placeholder secrets (`SM_SECRET_KEY`, users token
 secrets), a localhost Celery broker, and the `SM010` migration check (except
 on a never-migrated first run, which goes to `/setup`). Catch everything else

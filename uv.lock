@@ -3037,24 +3037,24 @@ name = "simple-module-api-tokens"
 version = "0.0.37"
 source = { editable = "modules/api_tokens" }
 dependencies = [
+    { name = "fastapi-users-db-sqlalchemy" },
     { name = "simple-module-auth" },
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
     { name = "simple-module-inertia" },
     { name = "simple-module-settings" },
-    { name = "simple-module-users" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi-users-db-sqlalchemy", specifier = ">=7,<8" },
     { name = "simple-module-auth", editable = "modules/auth" },
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
     { name = "simple-module-inertia", editable = "framework/inertia" },
     { name = "simple-module-settings", editable = "modules/settings" },
-    { name = "simple-module-users", editable = "modules/users" },
 ]
 
 [[package]]
@@ -3065,7 +3065,6 @@ dependencies = [
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
-    { name = "simple-module-users" },
 ]
 
 [package.metadata]
@@ -3073,7 +3072,6 @@ requires-dist = [
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
-    { name = "simple-module-users", editable = "modules/users" },
 ]
 
 [[package]]
@@ -3183,7 +3181,6 @@ dependencies = [
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
-    { name = "simple-module-users" },
 ]
 
 [package.metadata]
@@ -3191,7 +3188,6 @@ requires-dist = [
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
-    { name = "simple-module-users", editable = "modules/users" },
 ]
 
 [[package]]

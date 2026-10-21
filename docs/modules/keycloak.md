@@ -9,7 +9,7 @@ A pluggable **OIDC auth provider** backed by Keycloak. Install it *instead of* [
 | `name` | `Keycloak` |
 | `route_prefix` | `/api/keycloak` |
 | `view_prefix` | `/keycloak` |
-| `depends_on` | `["Auth", "Settings"]` |
+| `depends_on` | `["Auth"]` (optional: `["Settings"]`) |
 
 The module sets the class flag `_is_auth_provider = True`, which is what the auth-provider diagnostics count (see [below](#auth-provider-diagnostics)).
 
@@ -104,6 +104,17 @@ Keycloak registers no setup steps: its local `users` table is legitimately empty
 | `email` | `str` | from the token |
 | `full_name` | `str \| None` | from `preferred_username` |
 | `last_login_at` | `datetime \| None` | refreshed on each resolve |
+
+The cache backs this module's [user directory](/framework/user-directory)
+(`keycloak.directory.KeycloakDirectory`, installed in `register_settings`), so
+the audit log, dashboard, file storage and the permissions grants screen name
+and count Keycloak users. It knows only users who have signed in at least once;
+roles are `None` (they live in the IdP) and `created_this_month` is `None`.
+`permissions` (role pages) still needs the `users` tables and declares
+`depends_on=["Users"]`, so leave it out of a Keycloak install
+(`SM_MODULES_ENABLED`). `api_tokens` only orders after `Users`: under Keycloak
+its service keys work and personal tokens are refused (the owner's roles live
+in the IdP).
 
 ## Menu
 

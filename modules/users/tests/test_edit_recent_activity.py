@@ -147,17 +147,19 @@ class TestRecentActivity:
 
     @pytest.mark.anyio
     async def test_prop_is_none_when_audit_log_is_not_installed(self, admin_client, users_app):
-        """Absent module, absent card — not an empty one claiming no activity."""
-        sm = users_app.state.sm
-        loaded = sm.modules
-        trimmed = type(loaded)(m for m in loaded if getattr(m.meta, "name", "") != "AuditLog")
-        assert len(trimmed) < len(loaded), "audit_log was not loaded, so this proves nothing"
-        # ``sm`` is a frozen dataclass, so this is the only way to model an app
-        # built without the module short of building a second one.
-        object.__setattr__(sm, "modules", trimmed)
+        """No activity feed, absent card — not an empty one claiming no activity.
+
+        The card reads the core activity feed that ``audit_log`` installs
+        (GH #501); an app built without the module has none.
+        """
+        from simple_module_core.activity_feed import get_activity_feed, set_activity_feed
+
+        feed = get_activity_feed(users_app)
+        assert feed is not None, "audit_log installed no feed, so this proves nothing"
+        set_activity_feed(users_app, None)
         try:
             user_id = await _admin_id(users_app)
             props = await _edit_props(admin_client, user_id)
             assert props["recent_activity"] is None
         finally:
-            object.__setattr__(sm, "modules", loaded)
+            set_activity_feed(users_app, feed)

@@ -32,6 +32,7 @@ Failures:
 - **Missing `meta`** — emits `SM001`. Strict mode: raises.
 - **Duplicate `meta.name`** — emits `SM008` (error). Always fails boot, even in dev, because names are used as table-name prefixes.
 - **Cycle in `depends_on`** — raises `CircularDependencyError`. Always fails boot.
+- **Missing `depends_on` target** (a module that is not installed, not enabled, or dropped because another auth provider was selected) — outside development, `topological_sort(strict=True)` raises one `MissingDependencyError` (an `InvalidModuleError`) naming every `(module, dependency)` pair, and the boot fails. In development it is logged per pair and reported as `SM030` (a warning at boot, an error in `make doctor`). The outbox worker sorts leniently. GH #501.
 
 ## ModuleMeta
 
@@ -42,7 +43,8 @@ meta = ModuleMeta(
     name="Orders",  # PascalCase, globally unique
     route_prefix="/api/orders",  # where the API router mounts
     view_prefix="/orders",  # where the view router mounts
-    depends_on=["Products"],  # hard ordering requirements
+    depends_on=["Products"],  # required, and sorted after
+    optional_depends_on=["Settings"],  # sorted after when loaded; may be absent
     version="1.0.0",  # semver for the module
     i18n_audience="public",  # who gets this module's locale catalog
 )
@@ -67,7 +69,11 @@ A list of other modules' `meta.name` values that **must be loaded first**. The f
 - Your module's `register_routes` reads another module's service to compose endpoints.
 - Your module subscribes to events published by another module.
 
-`depends_on` is **not** a dependency-injection mechanism. It only controls order — you still `import` the services you need.
+`depends_on` is **not** a dependency-injection mechanism. It controls order and presence — you still `import` the services you need. Outside development a missing entry refuses the boot (see Failures above), so list only modules yours cannot work without.
+
+### `optional_depends_on`
+
+Modules to sort after **when they are loaded**, for an ordering-only relationship: your middleware wraps outside theirs, or you subscribe to an event they publish, but your module works without them. Present modules order exactly as `depends_on` would, so moving an entry here never changes the boot order; an absent one is fine in every environment. The modules that sorted after `Settings` only for ordering (`users`, `tenants`, `file_storage`, `background_tasks`, `site_lock`, `api_tokens`, `keycloak`) declare it here, because the settings mechanism lives in the framework (#500) and the `settings` plugin may be disabled.
 
 ### `version`
 

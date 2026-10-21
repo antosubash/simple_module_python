@@ -47,7 +47,8 @@ That ordering is the whole point — an anonymous visitor gets the gate rather
 than a redirect to the login page, so a locked site never reveals that it has
 one.
 
-It achieves that ordering by declaring `depends_on=["Settings", "Auth"]`:
+It achieves that ordering by declaring `depends_on=["Auth"]` (and
+`optional_depends_on=["Settings"]`, which keeps the boot order unchanged):
 modules are installed in topological order and Starlette's `add_middleware`
 is LIFO, so sorting after `Auth` makes this middleware wrap outermost.
 

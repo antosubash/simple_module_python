@@ -11,9 +11,9 @@ MODULE_NAME: Final = "ApiTokens"
 MODULE_PACKAGE: Final = "api_tokens"
 LOCALE_NAMESPACE: Final = "api_tokens"
 
-# Modules this one needs registered first: Auth owns the resolver chain,
-# Users owns the accounts a personal token acts for, Settings stores
-# ``max_lifetime_days``.
+# Modules this one is ordered after: Auth owns the resolver chain (required);
+# Users, when installed, owns the accounts a personal token acts for; Settings
+# stores ``max_lifetime_days``.
 MODULE_AUTH: Final = "Auth"
 MODULE_USERS: Final = "Users"
 MODULE_SETTINGS: Final = "Settings"

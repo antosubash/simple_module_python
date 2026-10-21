@@ -5,10 +5,11 @@ and ``keycloak`` providers return ``None`` for these prefixes, which is what
 hands the request to this resolver.
 
 Per request: a regex check, one indexed lookup by hash (no cache, so a revoke
-is effective on the very next request), and for a personal token one primary
-key read of the owner with their roles. Everything that is not a usable token
-— unknown, revoked, expired, an inactive or disabled owner — is ``None``,
-which the middleware turns into a 401.
+is effective on the very next request), and for a personal token one read of
+the owner with their roles through the app's user directory. Everything that
+is not a usable token — unknown, revoked, expired, an inactive or disabled
+owner, an owner whose roles the directory cannot read — is ``None``, which the
+middleware turns into a 401.
 """
 
 from __future__ import annotations
@@ -20,9 +21,9 @@ from typing import Any
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, is_api_token, parse_bearer
 from simple_module_core.tenancy import is_tenant_role
+from simple_module_core.user_directory import UserDirectory, get_user_directory
 from simple_module_db import ALL_TENANTS_OPTION
 from sqlalchemy import or_, select, update
-from sqlalchemy.orm import noload, selectinload
 from starlette.requests import Request
 
 from api_tokens.constants import (
@@ -32,6 +33,7 @@ from api_tokens.constants import (
     TokenKind,
 )
 from api_tokens.models import ApiToken
+from api_tokens.owner import usable_owner
 from api_tokens.tokens import hash_token, is_well_formed
 
 logger = logging.getLogger(__name__)
@@ -52,20 +54,21 @@ def _usable(token: ApiToken, now: datetime) -> bool:
     return token.revoked_at is None and token.expires_at > now
 
 
-async def _personal(db: Any, token: ApiToken) -> UserContext | None:
-    from users.models import User
-
+async def _personal(db: Any, directory: UserDirectory, token: ApiToken) -> UserContext | None:
     if token.owner_user_id is None:
         return None
-    stmt = (
-        select(User)
-        .where(User.id == token.owner_user_id)  # ty: ignore[invalid-argument-type]
-        .options(selectinload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
-    )
-    user = (await db.execute(stmt)).scalar_one_or_none()
-    if user is None or not user.is_active or user.disabled_at is not None:
+    owner_id = str(token.owner_user_id)
+    user = await usable_owner(directory, db, owner_id)
+    if user is None:
         return None
-    principal = UserContext.from_user(user, auth_kind=AUTH_KIND_PAT, scopes=list(token.scopes))
+    principal = UserContext(
+        id=owner_id,
+        email=user.email,
+        name=user.label,
+        roles=list(user.roles or ()),
+        auth_kind=AUTH_KIND_PAT,
+        scopes=list(token.scopes),
+    )
     # Pinned to the tenant it was created in, like a service key: the tenant
     # resolver acts for this tenant only (and only while the owner is still an
     # active member of it), never one named by a header, subdomain or session.
@@ -141,7 +144,7 @@ async def resolve_api_token(request: Request) -> UserContext | None:
             if token is None or not _usable(token, now):
                 return None
             if token.kind == TokenKind.PERSONAL:
-                principal = await _personal(db, token)
+                principal = await _personal(db, get_user_directory(app), token)
             elif token.kind == TokenKind.SERVICE:
                 principal = _service(token)
             else:

@@ -78,7 +78,8 @@ class OrdersModule(ModuleBase):
         name="Orders",  # PascalCase, must be unique
         route_prefix="/api/orders",
         view_prefix="/orders",
-        depends_on=[],  # other module names (PascalCase)
+        depends_on=[],  # modules this one needs (PascalCase); missing → prod boot fails
+        optional_depends_on=[],  # ordering only: sort after these when loaded
     )
 ```
 

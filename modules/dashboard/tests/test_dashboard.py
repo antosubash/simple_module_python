@@ -24,7 +24,9 @@ class TestDashboardModuleRegistration:
         mod = DashboardModule()
         assert mod.meta.name == "Dashboard"
         assert mod.meta.route_prefix == "/api/dashboard"
-        assert "Users" in mod.meta.depends_on
+        # User counts come through the user directory (GH #501), so the
+        # dashboard runs under any auth provider.
+        assert "Users" not in mod.meta.depends_on
 
 
 # ── Stats function unit tests ────────────────────────────────────────

@@ -13,7 +13,7 @@ This is not user authentication — that is what [`auth`](/modules/auth), [`user
 | `name` | `SiteLock` |
 | `route_prefix` | *(none)* |
 | `view_prefix` | *(none)* |
-| `depends_on` | `["Settings", "Auth"]` |
+| `depends_on` | `["Auth"]` (optional: `["Settings"]`) |
 
 Both dependencies are load-bearing. `Settings` lets `register_module_settings` reach the module registry. `Auth` makes this module sort *after* the auth module, and since middleware is installed in topological order while Starlette's `add_middleware` is LIFO, sorting later means wrapping **outermost** — so `SiteLockMiddleware` executes *before* `AuthMiddleware`.
 

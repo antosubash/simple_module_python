@@ -14,6 +14,25 @@ class InvalidModuleError(ModuleError):
     """
 
 
+class MissingDependencyError(InvalidModuleError):
+    """Raised by strict ordering when modules ``depends_on`` modules not loaded.
+
+    ``missing`` holds every ``(module, dependency)`` pair, so one boot reports
+    the whole gap instead of the first module found (GH #501).
+    """
+
+    def __init__(self, missing: list[tuple[str, str]]) -> None:
+        self.missing = missing
+        lines = [f"  - {name} depends on {dep}, which is not loaded" for name, dep in missing]
+        super().__init__(
+            "Module dependencies are missing:\n"
+            + "\n".join(lines)
+            + "\n\nInstall and enable the dependencies, or remove the modules that "
+            "need them (SM_MODULES_ENABLED). An auth provider other than 'users' "
+            "drops the Users module, so modules depending on it cannot load."
+        )
+
+
 class CircularDependencyError(ModuleError):
     """Raised when a circular dependency is detected between modules."""
 

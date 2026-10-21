@@ -9,7 +9,7 @@ Pluggable file storage with two shipped backends — local filesystem and S3-com
 | `name` | `FileStorage` |
 | `route_prefix` | `/api/file-storage` |
 | `view_prefix` | `/file-storage` |
-| `depends_on` | `["Settings"]` |
+| `depends_on` | `[]` (optional: `["Settings"]`) |
 
 ## Routes
 
