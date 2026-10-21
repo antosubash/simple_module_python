@@ -84,6 +84,7 @@ class PermissionsModule(ModuleBase):
         registry.add_group(
             PERMISSION_GROUP,
             [PERM_VIEW, PERM_MANAGE],
+            label_key="permissions.permission_group",
         )
         # Direct per-user grants join the framework's one resolution, so every
         # module's RequiresPermission, the menu and the frontend honour them.

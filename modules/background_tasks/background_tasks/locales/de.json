@@ -193,5 +193,6 @@
     "discard_failed": "Ereignis konnte nicht verworfen werden",
     "conflict": "Dieses Ereignis wird gerade zugestellt und kann daher nicht geändert werden. Die Liste wurde aktualisiert.",
     "gone": "Dieses Ereignis existiert nicht mehr. Die Liste wurde aktualisiert."
-  }
+  },
+  "permission_group": "Hintergrundaufgaben"
 }

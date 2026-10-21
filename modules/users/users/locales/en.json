@@ -414,5 +414,6 @@
     "incomplete_title": "Link incomplete",
     "incomplete_description": "This link is incomplete — open it from the email again.",
     "resend_failed": "We could not send it just now. Try again in a minute."
-  }
+  },
+  "permission_group": "Users"
 }

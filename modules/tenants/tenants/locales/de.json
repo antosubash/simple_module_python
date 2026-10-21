@@ -43,7 +43,9 @@
     "title": "Mitglieder",
     "description": "Verwalten Sie die Mitglieder und Berechtigungen von {name}.",
     "seats_used": "{used} / {limit} Plätze belegt",
-    "seats_unlimited": "{used} Plätze belegt (unbegrenzt)",
+    "seats_unlimited": "{count} Plätze belegt (unbegrenzt)",
+    "seats_unlimited_one": "{count} Platz belegt (unbegrenzt)",
+    "seats_unlimited_other": "{count} Plätze belegt (unbegrenzt)",
     "table_email": "E-Mail",
     "table_role": "Rolle",
     "table_joined": "Beigetreten",
@@ -155,5 +157,6 @@
     "toast_reset": "Einstellung auf Plattformwert zurückgesetzt",
     "toast_failed": "Einstellung konnte nicht gespeichert werden",
     "toast_uploaded": "Bild hochgeladen"
-  }
+  },
+  "permission_group": "Mandanten"
 }

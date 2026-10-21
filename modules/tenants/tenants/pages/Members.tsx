@@ -40,7 +40,7 @@ function Members() {
 
   const seatsLine =
     seats.limit === null
-      ? t(keys.tenants.members.seats_unlimited, { used: seats.used })
+      ? t(keys.tenants.members.seats_unlimited, { count: seats.used })
       : t(keys.tenants.members.seats_used, { used: seats.used, limit: seats.limit });
 
   return (

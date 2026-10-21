@@ -62,5 +62,6 @@
   },
   "nav": {
     "audit_log": "Audit log"
-  }
+  },
+  "permission_group": "Audit log"
 }

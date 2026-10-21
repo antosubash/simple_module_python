@@ -100,5 +100,9 @@
   },
   "nav": {
     "files": "Dateien"
+  },
+  "permission_group": "Dateien",
+  "feature_flags": {
+    "public_uploads": "Nicht authentifizierte Uploads erlauben (künftig)."
   }
 }

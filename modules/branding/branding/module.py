@@ -65,6 +65,7 @@ class BrandingModule(ModuleBase):
         registry.add_group(
             "Branding",
             [constants.PERM_VIEW, constants.PERM_MANAGE],
+            label_key="branding.permission_group",
         )
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:

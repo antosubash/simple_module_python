@@ -34,6 +34,8 @@ class FeatureFlagDefinition:
     name: str
     description: str = ""
     default_enabled: bool = False
+    description_key: str = ""
+    """Catalog key for ``description``; empty or unresolved keeps the literal."""
 
 
 class FeatureFlagRegistry:

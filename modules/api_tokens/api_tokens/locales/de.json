@@ -100,5 +100,6 @@
     "description": "Alle Ihre persönlichen Zugriffstokens verlieren ab der nächsten Anfrage ihre Gültigkeit, in jeder Organisation. Nutzen Sie dies bei einem möglichen Token-Leck: Passwortänderungen und das Abmelden aller Sitzungen beenden keine Tokens.",
     "confirm": "Alle widerrufen",
     "cancel": "Abbrechen"
-  }
+  },
+  "permission_group": "API-Tokens"
 }

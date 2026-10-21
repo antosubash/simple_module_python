@@ -414,5 +414,6 @@
     "incomplete_title": "Link unvollständig",
     "incomplete_description": "Dieser Link ist unvollständig. Öffnen Sie ihn erneut aus der E-Mail.",
     "resend_failed": "Senden ist derzeit nicht möglich. Versuchen Sie es in einer Minute erneut."
-  }
+  },
+  "permission_group": "Benutzer"
 }

@@ -122,6 +122,7 @@ class FeatureFlagsModule(ModuleBase):
                 PERM_FEATURE_FLAGS_VIEW,
                 PERM_FEATURE_FLAGS_MANAGE,
             ],
+            label_key="feature_flags.permission_group",
         )
 
     def locale_dirs(self) -> dict[str, Path]:

@@ -66,7 +66,11 @@ class AuditLogModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
+        registry.add_group(
+            PERM_GROUP,
+            list(ALL_PERMISSIONS),
+            label_key=f"{LOCALE_NAMESPACE}.permission_group",
+        )
 
     async def on_startup(self, app: FastAPI) -> None:
         from audit_log.capture import audit_callback

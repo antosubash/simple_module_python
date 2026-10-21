@@ -62,5 +62,6 @@
   },
   "nav": {
     "audit_log": "Änderungsprotokoll"
-  }
+  },
+  "permission_group": "Audit-Log"
 }

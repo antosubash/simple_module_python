@@ -100,5 +100,9 @@
   },
   "nav": {
     "files": "Files"
+  },
+  "permission_group": "Files",
+  "feature_flags": {
+    "public_uploads": "Allow unauthenticated uploads (future)."
   }
 }

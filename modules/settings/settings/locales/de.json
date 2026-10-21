@@ -146,5 +146,6 @@
   },
   "audit": {
     "setting": "Einstellung"
-  }
+  },
+  "permission_group": "Einstellungen"
 }

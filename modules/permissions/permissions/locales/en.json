@@ -78,5 +78,6 @@
   },
   "filters": {
     "modules_placeholder": "Filter modules…"
-  }
+  },
+  "permission_group": "Permissions"
 }

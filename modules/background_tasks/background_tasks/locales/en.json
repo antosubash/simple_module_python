@@ -193,5 +193,6 @@
     "discard_failed": "Failed to discard the event",
     "conflict": "This event is being delivered right now, so it cannot be changed. The list has been refreshed.",
     "gone": "This event no longer exists. The list has been refreshed."
-  }
+  },
+  "permission_group": "Background tasks"
 }

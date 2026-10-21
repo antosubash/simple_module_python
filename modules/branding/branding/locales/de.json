@@ -63,5 +63,6 @@
     "logo_file_id": "Logobild.",
     "logo_dark_file_id": "Logo für dunkle Oberflächen; verwendet ersatzweise das eigene Logo dieser Organisation.",
     "favicon_file_id": "Symbol für den Browser-Tab."
-  }
+  },
+  "permission_group": "Branding"
 }

@@ -51,5 +51,6 @@
   },
   "nav": {
     "feature_flags": "Funktionsschalter"
-  }
+  },
+  "permission_group": "Feature-Flags"
 }

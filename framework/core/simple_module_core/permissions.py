@@ -85,6 +85,7 @@ class PermissionGroup:
 
     name: str
     permissions: list[str] = field(default_factory=list)
+    label_key: str = ""  # catalog key for ``name``; empty or unresolved keeps the name
 
 
 class PermissionRegistry:
@@ -174,12 +175,16 @@ class PermissionRegistry:
         """Human labels supplied by source *name*, keyed by permission string."""
         return dict(self._source_output(name)[1]) if name in self._sources else {}
 
-    def add_group(self, name: str, permissions: list[str]) -> None:
-        """Register a group of related permissions."""
+    def add_group(self, name: str, permissions: list[str], *, label_key: str = "") -> None:
+        """Register a group; ``label_key`` translates ``name`` per request (like menus)."""
         if name in self._groups:
             self._groups[name].permissions.extend(permissions)
+            if label_key:
+                self._groups[name].label_key = label_key
         else:
-            self._groups[name] = PermissionGroup(name=name, permissions=list(permissions))
+            self._groups[name] = PermissionGroup(
+                name=name, permissions=list(permissions), label_key=label_key
+            )
         self._invalidate()
 
     def add(self, permission: str) -> None:
@@ -212,7 +217,7 @@ class PermissionRegistry:
     def groups(self) -> list[PermissionGroup]:
         """Static groups plus one group per source (merged by name)."""
         merged = {
-            n: PermissionGroup(name=n, permissions=list(g.permissions))
+            n: PermissionGroup(name=n, permissions=list(g.permissions), label_key=g.label_key)
             for n, g in self._groups.items()
         }
         for name in self._sources:
