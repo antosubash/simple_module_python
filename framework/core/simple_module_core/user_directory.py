@@ -135,19 +135,22 @@ def get_user_directory(app: Any) -> UserDirectory:
     return directory if directory is not None else _NULL_DIRECTORY
 
 
-def parse_user_ids(ids: Collection[str]) -> dict[uuid.UUID, str]:
-    """Map each id that parses as a uuid to the caller's own spelling of it.
+def parse_user_ids(ids: Collection[str]) -> dict[uuid.UUID, list[str]]:
+    """Map each id that parses as a uuid to every caller spelling of it.
 
     Implementations key their answer by the caller's strings, so an uppercase
-    or unhyphenated id still finds its row. Anything else (a worker name, an
-    ``svc:`` principal, ``None``) belongs to another id space and is dropped.
+    or unhyphenated id still finds its row, and two spellings of one id each
+    get an entry. Anything else (a worker name, an ``svc:`` principal,
+    ``None``) belongs to another id space and is dropped.
     """
-    parsed: dict[uuid.UUID, str] = {}
+    parsed: dict[uuid.UUID, list[str]] = {}
     for raw in ids:
         try:
-            parsed[uuid.UUID(raw)] = raw
+            keys = parsed.setdefault(uuid.UUID(raw), [])
         except (ValueError, AttributeError, TypeError):
             continue
+        if raw not in keys:
+            keys.append(raw)
     return parsed
 
 

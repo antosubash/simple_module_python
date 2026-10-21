@@ -31,7 +31,9 @@ All notable changes to this project are documented in this file. The format is b
   `api_tokens` and `permissions` read users through it instead of importing
   `users.models`, so actor names and search, dashboard tiles and uploader
   names now work under Keycloak instead of querying the empty `users_user`
-  table. See `docs/framework/user-directory.md`.
+  table. `get_many` returns an entry for every caller spelling of a known id
+  (`parse_user_ids` maps a uuid to all of them). See
+  `docs/framework/user-directory.md`.
 - Activity feed protocol (#501): `simple_module_core.activity_feed`.
   `audit_log` installs it; the users edit page's *Recent activity* card reads
   it, which removes the `users` ↔ `audit_log` import cycle.
@@ -39,7 +41,11 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 - `audit_log` and `dashboard` no longer depend on `Users` (meta `depends_on`
   and package dependency); `background_tasks` drops its unused `Users`
-  dependency (#501). `permissions` (role pages) and `api_tokens` still do.
+  dependency (#501). `api_tokens` moves `Users` to `optional_depends_on` and
+  its package depends on `fastapi-users-db-sqlalchemy` instead of
+  `simple_module_users`, so a Keycloak install keeps service keys (personal
+  tokens are refused there). `permissions` (role pages) still depends on
+  `Users`.
 - **Behaviour change (#501):** dashboard user figures the auth provider cannot
   give are `null` in `/api/dashboard/stats` and their tile is hidden (with no
   provider, all three; under Keycloak, `users_created_this_month`). Personal
@@ -63,8 +69,7 @@ All notable changes to this project are documented in this file. The format is b
   `(module, dependency)` pair, instead of a warning and a module running
   against tables nobody owns. Development still logs it; `make doctor`
   reports it as the new `SM030` error. Selecting `keycloak` drops `Users`, so
-  a Keycloak install must leave out `permissions` and `api_tokens`
-  (`SM_MODULES_ENABLED`). The outbox worker still sorts leniently.
+  a Keycloak install must leave out `permissions` (`SM_MODULES_ENABLED`). The outbox worker still sorts leniently.
 - New `ModuleMeta.optional_depends_on`: modules to sort after when loaded,
   never required (#501). `users`, `tenants`, `file_storage`,
   `background_tasks`, `site_lock`, `api_tokens` and `keycloak` move their

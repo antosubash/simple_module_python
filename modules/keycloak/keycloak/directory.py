@@ -82,8 +82,8 @@ class KeycloakDirectory:
         for chunk in chunked(list(parsed)):
             stmt = select(*_COLUMNS).where(KeycloakUserCache.id.in_(chunk))
             for row in (await db.execute(stmt)).all():
-                key = parsed[row.id]
-                found[key] = _to_directory_user(row, key)
+                for key in parsed[row.id]:
+                    found[key] = _to_directory_user(row, key)
         return found
 
     async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:

@@ -13,7 +13,7 @@ rest, shown once, and revocable with effect on the next request.
 | `route_prefix` | `/api/api_tokens` |
 | `view_prefix` | `/api-tokens` |
 | `admin_view_prefix` | `/admin/api-tokens` |
-| `depends_on` | `Auth`, `Users` (optional: `Settings`) |
+| `depends_on` | `Auth` (optional: `Users`, `Settings`) |
 
 Installed in this repository's host. It is **not** part of the `smpy new`
 scaffold; add `simple_module_api_tokens` to a host's dependencies to enable it,

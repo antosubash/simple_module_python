@@ -1,9 +1,9 @@
 """A Keycloak app boots with its directory, and refuses modules that need Users.
 
 Selecting ``keycloak`` drops ``Users``. Outside development the host sorts
-modules strictly, so ``permissions`` and ``api_tokens`` (which still depend on
-``Users``) fail the boot in one error naming both, instead of booting against
-empty ``users_*`` tables (GH #501).
+modules strictly, so ``permissions`` (role pages still depend on ``Users``)
+fails the boot instead of booting against empty ``users_*`` tables (GH #501).
+``api_tokens`` only orders after ``Users``, so it boots (service keys work).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def test_non_development_refuses_every_module_that_needs_users():
     with pytest.raises(MissingDependencyError) as exc:
         create_app(_settings("testing"))
     assert ("Permissions", "Users") in exc.value.missing
-    assert ("ApiTokens", "Users") in exc.value.missing
+    assert all(name != "ApiTokens" for name, _dep in exc.value.missing)
     assert {dep for _name, dep in exc.value.missing} == {"Users"}
 
 
@@ -41,7 +41,8 @@ def test_without_them_the_app_boots_with_the_keycloak_directory():
     assert isinstance(get_user_directory(app), KeycloakDirectory)
     names = {m.meta.name for m in app.state.sm.modules}
     assert {"AuditLog", "Dashboard", "FileStorage"} <= names
-    assert not names & {"Users", "Permissions", "ApiTokens"}
+    assert "ApiTokens" in names
+    assert not names & {"Users", "Permissions"}
 
 
 def test_development_only_warns(monkeypatch, caplog):

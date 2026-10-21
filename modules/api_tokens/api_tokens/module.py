@@ -26,11 +26,13 @@ class ApiTokensModule(ModuleBase):
         route_prefix=c.API_PREFIX,
         view_prefix=c.VIEW_PREFIX,
         admin_view_prefix=c.ADMIN_VIEW_PREFIX,
-        # Auth owns the resolver chain this module appends to; Users owns the
-        # accounts a personal token acts for. Settings (the lifetime cap's
-        # editor) is ordering only: the framework hydrates settings (#500).
-        depends_on=[c.MODULE_AUTH, c.MODULE_USERS],
-        optional_depends_on=[c.MODULE_SETTINGS],
+        # Auth owns the resolver chain this module appends to. Owners are read
+        # through the app's user directory, so Users is ordering only: under
+        # Keycloak service keys work and personal tokens are refused (roles
+        # unknown). Settings (the lifetime cap's editor) is ordering only too:
+        # the framework hydrates settings (#500).
+        depends_on=[c.MODULE_AUTH],
+        optional_depends_on=[c.MODULE_USERS, c.MODULE_SETTINGS],
     )
 
     def register_settings(self, app: FastAPI) -> None:

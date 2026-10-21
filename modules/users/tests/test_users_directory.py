@@ -29,6 +29,14 @@ class TestGetMany:
         assert found[upper].label == "Ada"
         assert found[upper].id == upper
 
+    async def test_every_spelling_of_one_id_gets_an_entry(self, db_session: AsyncSession):
+        """Two spellings of one id must not collapse: each caller key is labelled."""
+        user = await _user(db_session, "twice@example.com", full_name="Twice")
+        spellings = [str(user.id), str(user.id).upper()]
+        found = await _D.get_many(db_session, spellings, with_roles=True)
+        assert sorted(found) == sorted(spellings)
+        assert [found[k].label for k in spellings] == ["Twice", "Twice"]
+
     async def test_unknown_and_foreign_ids_are_absent(self, db_session: AsyncSession):
         found = await _D.get_many(db_session, [str(uuid.uuid4()), "celery-worker-1", ""])
         assert found == {}

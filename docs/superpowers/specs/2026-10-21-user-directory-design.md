@@ -81,7 +81,10 @@ name check; a missing feed returns `None` (keeps "no card" vs "no activity").
 - `file_storage`: delete `resolve.py`'s copy, use the directory.
 - `api_tokens`: owner existence/active and emails via `get_many`; PAT
   resolution via `get_many(with_roles=True)`. Personal tokens stay refused
-  when roles are unknown (Keycloak). Keeps `depends_on=[Users]`.
+  when roles are unknown (Keycloak). `Users` moves to `optional_depends_on`
+  (ordering only), so a strict Keycloak boot keeps `api_tokens` and its
+  service keys; the package depends on `fastapi-users-db-sqlalchemy` (for
+  `GUID`) instead of `simple_module_users`.
 - `permissions`: user side (`get_many(with_roles=True)`, `search`); role pages
   keep `Users` (import `users.contracts`, not `users.models`); `ADMIN_ROLE`
   from core instead of `users.constants`.

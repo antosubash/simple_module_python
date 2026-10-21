@@ -35,7 +35,9 @@ Name a user with `DirectoryUser.label` (the full name, else the email). It is
 the one naming rule, so a row is never called two things on one screen.
 `resolve_user_labels(directory, db, ids)` maps a page of ids to labels in one
 call; `parse_user_ids` and `chunked` help an implementation key and bound its
-queries.
+queries. `get_many` is keyed by the caller's strings: `parse_user_ids` maps each
+uuid to every spelling the caller passed (`ABC…`, `abc…`, unhyphenated), and an
+implementation returns an entry under each one.
 
 ## Providers
 
@@ -63,9 +65,11 @@ SQLite, where SQLAlchemy's `Uuid` is 32 bare hex characters.
 | `api_tokens` | owner checks and emails; personal-token resolution via `get_many(with_roles=True)` |
 | `permissions` | the user side of the grants screens (`get_many(with_roles=True)`, `search`) |
 
-`permissions` role pages and `api_tokens` still depend on `Users`: roles have
-no directory protocol yet (the `Role` table is read from `users.contracts.roles`),
-and a personal token needs the owner's roles.
+`permissions` role pages still depend on `Users`: roles have no directory
+protocol yet (the `Role` table is read from `users.contracts.roles`).
+`api_tokens` lists `Users` in `optional_depends_on` only: a personal token
+needs the owner's roles, so under Keycloak it is refused while service keys
+keep working.
 
 ## Activity feed
 

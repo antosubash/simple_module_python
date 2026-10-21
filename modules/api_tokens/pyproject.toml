@@ -27,9 +27,10 @@ dependencies = [
     "simple_module_inertia==0.0.37",
     "simple_module_auth==0.0.37",
     "simple_module_settings==0.0.37",
-    # A personal token acts for a ``users`` account: the resolver loads the
-    # owner row and the table's FK points at ``users_user``.
-    "simple_module_users==0.0.37",
+    # Owners are read through the app's user directory, so ``users`` is not
+    # required. ``GUID`` (the owner column's type, as ``users_user.id`` has it)
+    # comes from here.
+    "fastapi-users-db-sqlalchemy>=7,<8",
 ]
 
 [project.entry-points.simple_module]
@@ -63,4 +64,3 @@ simple_module_hosting = { workspace = true }
 simple_module_inertia = { workspace = true }
 simple_module_auth = { workspace = true }
 simple_module_settings = { workspace = true }
-simple_module_users = { workspace = true }

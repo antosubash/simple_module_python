@@ -2,9 +2,8 @@
 
 Selecting ``keycloak`` drops ``Users``, and outside development a module whose
 ``depends_on`` is not loaded refuses to boot (GH #501). ``permissions`` (role
-pages) and ``api_tokens`` (personal tokens need the owner's roles) still depend
-on ``Users``, so a Keycloak install leaves them out — and so do these tests,
-rather than booting in a lenient mode production never uses.
+pages) still depends on ``Users``, so a Keycloak install leaves it out — and so
+do these tests, rather than booting in a lenient mode production never uses.
 """
 
 from __future__ import annotations

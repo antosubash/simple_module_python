@@ -94,7 +94,12 @@ class TestHelpers:
     def test_parse_keeps_the_callers_spelling(self):
         uid = uuid.uuid4()
         upper = str(uid).upper()
-        assert parse_user_ids([upper, "celery-worker", "", "svc:1"]) == {uid: upper}
+        assert parse_user_ids([upper, "celery-worker", "", "svc:1"]) == {uid: [upper]}
+
+    def test_parse_keeps_every_spelling_of_one_id(self):
+        uid = uuid.uuid4()
+        spellings = [str(uid), str(uid).upper(), uid.hex, f"{{{uid}}}", str(uid)]
+        assert parse_user_ids(spellings) == {uid: spellings[:4]}
 
     def test_parse_tolerates_non_strings(self):
         assert parse_user_ids([None, 3]) == {}

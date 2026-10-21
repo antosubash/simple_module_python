@@ -66,9 +66,9 @@ class UsersDirectory:
             rows = (await db.execute(select(*_COLUMNS).where(User.id.in_(chunk)))).all()
             roles = await self._roles_for(db, chunk) if with_roles else {}
             for row in rows:
-                key = parsed[row.id]
                 user_roles = tuple(sorted(roles.get(row.id, ()))) if with_roles else None
-                found[key] = _to_directory_user(row, user_roles, key)
+                for key in parsed[row.id]:
+                    found[key] = _to_directory_user(row, user_roles, key)
         return found
 
     async def _roles_for(

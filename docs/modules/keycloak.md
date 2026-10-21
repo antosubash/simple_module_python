@@ -110,10 +110,11 @@ The cache backs this module's [user directory](/framework/user-directory)
 the audit log, dashboard, file storage and the permissions grants screen name
 and count Keycloak users. It knows only users who have signed in at least once;
 roles are `None` (they live in the IdP) and `created_this_month` is `None`.
-Modules that still need the `users` tables — `permissions` (role pages) and
-`api_tokens` (personal tokens need the owner's roles) — declare
-`depends_on=["Users"]`, so leave them out of a Keycloak install
-(`SM_MODULES_ENABLED`).
+`permissions` (role pages) still needs the `users` tables and declares
+`depends_on=["Users"]`, so leave it out of a Keycloak install
+(`SM_MODULES_ENABLED`). `api_tokens` only orders after `Users`: under Keycloak
+its service keys work and personal tokens are refused (the owner's roles live
+in the IdP).
 
 ## Menu
 

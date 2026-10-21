@@ -32,6 +32,13 @@ class TestGetMany:
         assert user.label == "Kay Cee"
         assert user.is_active
 
+    async def test_every_spelling_of_one_id_gets_an_entry(self, db_session: AsyncSession):
+        row = await _cached(db_session, "two@example.com")
+        spellings = [str(row.id), str(row.id).upper(), row.id.hex]
+        found = await _D.get_many(db_session, spellings)
+        assert sorted(found) == sorted(spellings)
+        assert {u.email for u in found.values()} == {"two@example.com"}
+
     async def test_roles_are_unknown_even_when_asked(self, db_session: AsyncSession):
         """Roles live in the IdP; an empty tuple would claim the user holds none."""
         row = await _cached(db_session, "roles@example.com")
