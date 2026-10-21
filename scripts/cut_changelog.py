@@ -62,7 +62,8 @@ def section_body(text: str, version: str) -> str:
         return ""
     rest = text[start.end() :].split("\n", 1)[-1]
     end = re.search(r"^(## \[|\[[^\]]+\]: )", rest, re.MULTILINE)
-    return (rest[: end.start()] if end else rest).strip() + "\n"
+    body = (rest[: end.start()] if end else rest).strip()
+    return f"{body}\n" if body else ""
 
 
 def main(argv: list[str] | None = None) -> int:

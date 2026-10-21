@@ -59,3 +59,8 @@ def test_main_rewrites_file(tmp_path: Path) -> None:
     f.write_text(SAMPLE, encoding="utf-8")
     assert main(["0.0.28", "--file", str(f), "--date", "2026-10-21"]) == 0
     assert "## [0.0.28] — 2026-10-21" in f.read_text(encoding="utf-8")
+
+
+def test_section_body_of_empty_section_is_empty_string() -> None:
+    text = "# Changelog\n\n## [1.0.0] — 2026-01-01\n\n## [0.9.0] — 2025-01-01\n\n- x\n"
+    assert section_body(text, "1.0.0") == ""
