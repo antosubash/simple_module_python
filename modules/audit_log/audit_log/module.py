@@ -24,17 +24,22 @@ from audit_log.constants import (
     VIEW_PREFIX,
 )
 
-_MODULE_USERS = "Users"
-
 
 class AuditLogModule(ModuleBase):
     meta = ModuleMeta(
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
-        depends_on=[_MODULE_USERS],
         i18n_audience="admin",
     )
+
+    def register_settings(self, app: FastAPI) -> None:
+        """Offer the audit trail as the app's activity feed (GH #501)."""
+        from simple_module_core.activity_feed import set_activity_feed
+
+        from audit_log.activity import AuditActivityFeed
+
+        set_activity_feed(app, AuditActivityFeed(app))
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from audit_log.endpoints.api import router as api

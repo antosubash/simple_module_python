@@ -6,7 +6,7 @@ leaves the screen showing two uuids per row and no route to either record.
 
 This module resolves both at render time:
 
-* ``resolve_actors`` batches one query for every user id on the page.
+* ``resolve_actors`` asks the user directory once for every user id on the page.
 * ``resolve_entity_labels`` asks each owning module what its rows are *called*,
   one batched call per entity type on the page.
 * ``entity_link`` consults the host's :class:`AuditLinkRegistry`, which each
@@ -25,29 +25,29 @@ from typing import Any
 
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.permissions import grants
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from sqlalchemy import String, cast, or_, select
+from simple_module_core.user_directory import UserDirectory, resolve_user_labels
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.audit import resolve_user_labels
-from users.models import User
 
 from audit_log.models import AuditEntry
 
 logger = logging.getLogger(__name__)
 
 
-async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[str, str]:
+async def resolve_actors(
+    directory: UserDirectory, db: AsyncSession, user_ids: list[str | None]
+) -> dict[str, str]:
     """Map user id -> display label for every id on the page.
 
-    One query for the whole page rather than one per row: an audit page is 50
+    One lookup for the whole page rather than one per row: an audit page is 50
     entries and the same handful of admins tend to appear on all of them.
 
-    Delegates the naming rule itself to ``users.audit`` — the actor column and
-    the entity column both point at user rows, and two copies of "full_name or
-    email" is two chances for the same row to be called two things on one
-    screen. Ids that no longer resolve (deleted accounts) or never named an
-    account at all are simply absent from the result — the caller falls back to
-    showing the raw id, which is still the truthful record of who acted.
+    Asks the app's user directory (GH #501) rather than any one module's
+    tables, so actors are named whichever auth provider holds the accounts,
+    and by ``DirectoryUser.label`` — the same rule the entity column uses, so
+    one row is never called two things on one screen. Ids that no longer
+    resolve (deleted accounts) or never named an account at all are simply
+    absent from the result — the caller falls back to showing the raw id,
+    which is still the truthful record of who acted.
 
     Deliberately **not** gated on ``users.manage`` the way the entity column is
     (``resolve_entity_labels``). The two columns disclose the same field and
@@ -57,13 +57,10 @@ async def resolve_actors(db: AsyncSession, user_ids: list[str | None]) -> dict[s
     ``audit_log.view`` therefore does imply "may see who acted"; that is stated
     in docs/modules/audit_log.md so it is granted knowingly. See GH #300.
     """
-    wanted = sorted({uid for uid in user_ids if uid})
-    if not wanted:
-        return {}
-    return await resolve_user_labels(db, wanted)
+    return await resolve_user_labels(directory, db, [uid for uid in user_ids if uid])
 
 
-def actor_filter(term: str) -> Any | None:
+def actor_filter(directory: UserDirectory, term: str) -> Any | None:
     """A predicate selecting the audit rows an Actor search should show.
 
     A uuid means that account and only that account — an id is unambiguous, and
@@ -71,23 +68,21 @@ def actor_filter(term: str) -> Any | None:
     substring of a name or an email, which is what someone investigating an
     incident actually has to hand.
 
-    The name case is a **subquery**, not a list of ids resolved in Python
-    first. Materialising the matches means choosing a ceiling: without one, a
-    common substring on a large install builds an ``IN`` list with more bind
-    parameters than Postgres accepts; with one, the same search silently
-    returns an arbitrary slice of the matching accounts, on the page *and* in
-    the CSV, with nothing to say so. An audit log that quietly answers a
-    different question than the one asked is worse than one that is slow, so
-    the match stays in the database where it has no ceiling.
+    The name case is a **subquery** (the directory's ``match_ids``), not a list
+    of ids resolved in Python first. Materialising the matches means choosing a
+    ceiling: without one, a common substring on a large install builds an
+    ``IN`` list with more bind parameters than Postgres accepts; with one, the
+    same search silently returns an arbitrary slice of the matching accounts,
+    on the page *and* in the CSV, with nothing to say so. An audit log that
+    quietly answers a different question than the one asked is worse than one
+    that is slow, so the match stays in the database where it has no ceiling.
+
+    A directory that cannot express the match in SQL (none installed) answers
+    ``None``, and the term is then matched as an exact actor id — a worker
+    name, say — rather than silently matching nothing.
 
     ``None`` means the box was empty. It never means "nobody is called that" —
     that answer is a subquery matching no rows, which is not the same thing.
-
-    ``user_id`` is text and ``User.id`` is a uuid, which is why the ids were
-    materialised in the first place; ``CAST`` bridges it. Both dialects render
-    the canonical lowercase, hyphenated form the audit trail stored (Postgres
-    from its native ``uuid``, SQLite from the ``CHAR(36)`` the GUID type
-    writes).
 
     Typed ``Any`` because SQLModel declares columns with their plain Python
     types, so a comparison reads statically as ``bool`` while being a SQL
@@ -101,15 +96,10 @@ def actor_filter(term: str) -> Any | None:
     except (ValueError, AttributeError, TypeError):
         pass
 
-    pattern = like_contains_pattern(term)
-    return AuditEntry.user_id.in_(
-        select(cast(User.id, String)).where(
-            or_(
-                User.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-                User.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-            )
-        )
-    )
+    matching = directory.match_ids(term)
+    if matching is None:
+        return AuditEntry.user_id == term
+    return AuditEntry.user_id.in_(matching)
 
 
 async def resolve_entity_labels(
@@ -188,30 +178,26 @@ def table_name_for(entity_type: str) -> str:
     return _CAMEL_BOUNDARY.sub("_", entity_type).lower()
 
 
-USER_ENTITY_TYPE = User.__name__
-"""The model an audit actor is a row of.
-
-The audit trail records ``type(obj).__name__``, so registry keys are class
-names — not ``__tablename__``. Actors are user ids, so their link comes from
-the same registry entry as any other reference to that model.
-
-Derived from the class rather than spelled ``"User"``: the users module keys
-its own registration off ``User.__name__`` too, so a rename moves both ends
-together instead of silently unlinking every actor cell."""
-
-
-def actor_link(registry: AuditLinkRegistry, user_id: str) -> str | None:
+def actor_link(registry: AuditLinkRegistry, directory: UserDirectory, user_id: str) -> str | None:
     """URL for the acting user's record, or ``None`` when nothing claims it.
+
+    Actors are user ids, so their link comes from the same registry entry as
+    any other reference to the directory's user model — its ``entity_type``
+    (``"User"`` under the users module). The audit trail records
+    ``type(obj).__name__``, so registry keys are class names, never
+    ``__tablename__``.
 
     Deliberately routed through the registry rather than hardcoding the users
     module's route: the users module already declares where its rows live, and
     duplicating that here would 404 the moment it moves its prefix, or silently
     disagree with the entity link rendered in the next column.
 
-    ``None`` when nothing claims the users table — this module depends on
-    ``users`` for its models, but not on ``users`` having registered a link.
+    ``None`` when the directory's users have no audited model (Keycloak, or no
+    provider at all) or nothing registered a link for it.
     """
-    link = registry.get(USER_ENTITY_TYPE)
+    if directory.entity_type is None:
+        return None
+    link = registry.get(directory.entity_type)
     return link.url_for(user_id) if link else None
 
 

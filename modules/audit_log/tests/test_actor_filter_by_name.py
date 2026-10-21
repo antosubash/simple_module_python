@@ -154,11 +154,23 @@ class TestActorSearchIsNotTruncated:
         that materialises ids passes the count test right up until the install
         is big enough to break it."""
         from audit_log.resolve import actor_filter
+        from users.directory import UsersDirectory
 
-        rendered = str(actor_filter("okafor"))
+        rendered = str(actor_filter(UsersDirectory(), "okafor"))
 
         assert "SELECT" in rendered.upper()
         assert "users_user" in rendered
+
+    async def test_without_a_directory_the_term_is_an_exact_actor_id(self) -> None:
+        """No directory can say who is called that, so the box falls back to
+        an id match (a worker name) instead of silently matching nobody."""
+        from audit_log.resolve import actor_filter
+        from simple_module_core.user_directory import NullUserDirectory
+
+        rendered = str(actor_filter(NullUserDirectory(), "celery-worker-1"))
+
+        assert "SELECT" not in rendered.upper()
+        assert "user_id" in rendered
 
     async def test_every_matching_actor_is_returned(
         self, app, authenticated_client: httpx.AsyncClient
