@@ -30,12 +30,23 @@ import uuid
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from celery import current_app
 from simple_module_db import RequestSession, bind_current_tenant, mark_written
 from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, SessionTransaction
+
+
+class _LazyCurrentApp:
+    """``celery.current_app``, imported on first use so importing this module stays light."""
+
+    def __getattr__(self, name: str) -> Any:
+        from celery import current_app as _current_app
+
+        return getattr(_current_app, name)
+
+
+current_app: Any = _LazyCurrentApp()
 
 logger = logging.getLogger(__name__)
 

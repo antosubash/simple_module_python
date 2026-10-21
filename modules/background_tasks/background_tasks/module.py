@@ -204,13 +204,22 @@ class BackgroundTasksModule(ModuleBase):
     @staticmethod
     def _install_durable_transport(app: FastAPI) -> None:
         """Make ``bus.publish_durable`` write to this module's outbox (GH #459)."""
+        from background_tasks.constants import OutboxMode
+        from background_tasks.outbox_sweep import start_sweep
         from background_tasks.outbox_transport import OutboxTransport
         from background_tasks.outbox_worker import use_bus
 
         bus = app.state.sm.event_bus
-        bus.durable_transport = OutboxTransport(
-            services=app.state.background_tasks, bus=bus, db_state=app.state.sm.db
+        services = app.state.background_tasks
+        mode = (
+            OutboxMode.INPROCESS
+            if services.celery.conf.task_always_eager
+            else OutboxMode(services.settings.outbox_mode)
         )
+        transport = OutboxTransport(services=services, bus=bus, db_state=app.state.sm.db, mode=mode)
+        bus.durable_transport = transport
+        if mode == OutboxMode.INPROCESS:
+            start_sweep(services, app.state.sm.db.session_factory, bus, transport.policy)
         # An eager in-process dispatch delivers with the app's bus, which already
         # carries every module's durable subscriptions.
         use_bus(bus)
@@ -253,10 +262,12 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     async def on_shutdown(self, app: FastAPI) -> None:
+        from background_tasks.outbox_sweep import stop_sweep
         from background_tasks.outbox_worker import reset_worker_state
         from background_tasks.signals import unbind_event_bus
         from background_tasks.sync_db import dispose_sync_engine
 
+        await stop_sweep(app.state.background_tasks)
         bus = getattr(app.state.sm, "event_bus", None)
         if bus is not None:
             drain = getattr(bus.durable_transport, "drain", None)

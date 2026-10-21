@@ -27,18 +27,15 @@ The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a
 host-level setting, not a background_tasks-module field.
 
-The Celery-critical fields (``broker_url``, ``result_backend``,
-``task_default_queue``) are marked ``requires_restart=True`` via
-``json_schema_extra`` because workers read these once at process start, so
-DB changes can't be hot-reloaded: the admin UI should surface that bumping
-these values requires a worker restart.
+Process wiring, including ``outbox_mode`` and sweep cadence, requires a restart;
+``json_schema_extra`` exposes that requirement in the settings UI.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -219,6 +216,9 @@ class BackgroundTasksSettings(BaseSettings):
     )
 
     # ── Durable event outbox (GH #459) ──────────────────────
+    outbox_mode: Literal["celery", "inprocess"] = Field(
+        default="celery", json_schema_extra=_CELERY_RESTART
+    )
     outbox_max_attempts: int = Field(
         default=DEFAULT_OUTBOX_MAX_ATTEMPTS,
         ge=1,
