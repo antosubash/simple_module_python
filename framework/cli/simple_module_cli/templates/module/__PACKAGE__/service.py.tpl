@@ -22,9 +22,7 @@ class {{SINGULAR_CLASS}}Service:
 
     async def get_all(self) -> list[{{SINGULAR_CLASS}}Out]:
         model = {{SINGULAR_CLASS}}
-        result = await self.db.execute(
-            select(model).where(model.is_active.is_(True)).order_by(col(model.id))
-        )
+        result = await self.db.execute(select(model).order_by(col(model.id)))
         return [{{SINGULAR_CLASS}}Out.model_validate(row) for row in result.scalars()]
 
     async def get_by_id(self, item_id: int) -> {{SINGULAR_CLASS}}Out | None:

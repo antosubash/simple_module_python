@@ -35,6 +35,9 @@ class TestToSingular:
             ("boxes", "box"),
             ("classes", "class"),
             ("data", "data"),
+            ("statuses", "status"),
+            ("buses", "bus"),
+            ("addresses", "address"),
             ("blog_categories", "blog_category"),
         ],
     )

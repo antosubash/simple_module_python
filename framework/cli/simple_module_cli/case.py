@@ -62,20 +62,21 @@ def to_pascal_case(name: str) -> str:
 
 
 _UNCOUNTABLE = frozenset({"news", "status", "series", "species", "data"})
-_ES_SUFFIXES = ("sses", "xes", "ches", "shes")
+_ES_SUFFIXES = ("uses", "sses", "xes", "ches", "shes")
 
 
 def to_singular(snake: str) -> str:
     """Conservative singularization of a snake_case name: 'orders' -> 'order'.
 
     Only the last ``_`` segment is inflected. Handles ``ies`` -> ``y`` and
-    ``xes``/``ches``/``shes``/``sses`` -> drop ``es``; leaves ``ss``/``us``/``is``
+    ``uses``/``xes``/``ches``/``shes``/``sses`` -> drop ``es``; leaves ``ss``/``us``/``is``
     endings and a few uncountables alone; otherwise drops one trailing ``s``.
     The author renames the sample entity when this guesses wrong.
     """
     head, sep, word = snake.rpartition("_")
     if word in _UNCOUNTABLE or not word.endswith("s") or word.endswith(("ss", "us", "is")):
         return snake
+    # Irregular -ie plurals ("movies", "cookies") are not handled: "ies" -> "y".
     if word.endswith("ies") and len(word) > 3:
         word = word[:-3] + "y"
     elif word.endswith(_ES_SUFFIXES):
