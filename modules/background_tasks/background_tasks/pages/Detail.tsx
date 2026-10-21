@@ -8,6 +8,7 @@ import { ArrowLeft, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
 import { DetailFacts } from './components/DetailFacts';
 import { PayloadCards } from './components/PayloadCards';
+import { ProgressCard } from './components/ProgressCard';
 import { RetryConfirmDialog } from './components/RetryConfirmDialog';
 import { StatusPill } from './components/StatusPill';
 import { TracebackCard } from './components/TracebackCard';
@@ -96,6 +97,8 @@ function Detail() {
         {/* `order` puts the traceback straight after the facts on a phone —
             the payload cards are reference material, the traceback is why
             anyone opened this page. On desktop the deck's order returns. */}
+        <ProgressCard execution={execution} className="mb-3.5" />
+
         <div className="grid gap-3.5 lg:grid-cols-[320px_1fr]">
           <DetailFacts execution={execution} className="order-1 lg:order-1 lg:row-span-2" />
           <PayloadCards execution={execution} className="order-3 lg:order-2" />

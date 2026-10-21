@@ -41,6 +41,8 @@ API_PREFIX = "/api/background_tasks"
 VIEW_PREFIX = "/admin/background-tasks"
 ADMIN_ROUTER_PREFIX = "/admin"
 
+STATUS_ROUTER_PREFIX = "/tasks"
+
 # ── Menu ────────────────────────────────────────────────────────
 MENU_LABEL = "Background tasks"
 MENU_ICON = "activity"
@@ -172,3 +174,7 @@ OUTBOX_KEY_MAX_LENGTH = 255
 TENANT_ID_MAX_LENGTH = 50
 # Filter value meaning "executions with no tenant" (beat / platform publishes).
 PLATFORM_TENANT_FILTER = "__platform__"
+
+OWNER_ID_MAX_LENGTH = 64
+PROGRESS_MESSAGE_MAX_LENGTH = 255
+PROGRESS_PHASE_MAX_LENGTH = 64

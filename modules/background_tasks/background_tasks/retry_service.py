@@ -25,6 +25,7 @@ from background_tasks.contracts.schemas import RetryFailedResult
 from background_tasks.filters import Conditions, bulk_retry_conditions
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
+from background_tasks.tenant_context import publish_as_owner
 
 if TYPE_CHECKING:
     from celery import Celery
@@ -186,6 +187,7 @@ class RetryCoordinator:
         """
         name = row.task_name
         tenant_id = row.tenant_id
+        owner_user_id = row.owner_user_id
         options: dict[str, Any] = {
             "args": list(row.args or []),
             "kwargs": dict(row.kwargs or {}),
@@ -210,11 +212,14 @@ class RetryCoordinator:
             # tenant's job stamped with theirs (``stamp_tenant`` would refuse
             # the mismatch). A row with no tenant is a platform publish, so it
             # goes out with none bound.
-            if tenant_id:
-                with tenant_context(tenant_id):
+            # The original owner stays the owner, so the person who started the
+            # job can still follow its retry.
+            with publish_as_owner(owner_user_id):
+                if tenant_id:
+                    with tenant_context(tenant_id):
+                        return self.celery.send_task(name, **options).id
+                with all_tenants():
                     return self.celery.send_task(name, **options).id
-            with all_tenants():
-                return self.celery.send_task(name, **options).id
 
         return publish
 
@@ -226,6 +231,7 @@ class RetryCoordinator:
             status=TaskStatus.PENDING,
             queue=row.queue,
             tenant_id=row.tenant_id,
+            owner_user_id=row.owner_user_id,
             args=list(row.args or []),
             kwargs=dict(row.kwargs or {}),
             retried_from_id=row.id,

@@ -143,6 +143,8 @@ export default {
     'background_tasks.detail.kwargs': '',
     'background_tasks.detail.meta': '',
     'background_tasks.detail.no_traceback': '',
+    'background_tasks.detail.progress': '',
+    'background_tasks.detail.progress_count': '',
     'background_tasks.detail.queue': '',
     'background_tasks.detail.queued_at': '',
     'background_tasks.detail.result': '',

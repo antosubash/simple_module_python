@@ -17,6 +17,15 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- `background_tasks`: tasks report progress with `heartbeat(progress=(i, n), message=, phase=)`
+  (buffered under the existing 30 s throttle, `i == n` writes at once, never
+  audited), and `GET /api/background_tasks/tasks/{celery_task_id}/status` lets the user who
+  enqueued a task read its status and progress without `background_tasks.view`
+  (owner in the active tenant, or `view` holders; anyone else gets 404; never
+  returns args, result or traceback). `TaskExecution` gains `progress_*` and an
+  indexed `owner_user_id` stamped from the new `sm_owner_id` message header;
+  retries keep the original owner. The detail page shows a progress bar.
+  Migration `bb906e1a1089` (first revision labelled `background_tasks`) (#536).
 - `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
   `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
   `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial

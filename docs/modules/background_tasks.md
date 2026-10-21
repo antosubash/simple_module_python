@@ -89,6 +89,25 @@ Celery copies extra decorator options onto the task class; the sweep reads `stuc
 
 Not provided: an automatic heartbeat thread. A task that blocks in one long call (a single huge query, an external process) cannot heartbeat from inside it — give it a `stuck_after` that covers the call instead.
 
+## Progress and owner-scoped status
+
+A task can report how far along it is, and the user whose request enqueued it can poll that without any `background_tasks.*` permission:
+
+```python
+@shared_task(name="reports.rebuild")
+def rebuild(report_id: int) -> None:
+    chunks = list(chunks_of(report_id))
+    for i, chunk in enumerate(chunks, start=1):
+        process(chunk)
+        heartbeat(progress=(i, len(chunks)), message=f"chunk {i}", phase="rebuild")
+```
+
+`progress=(done, total)`, `message` (255 characters) and `phase` (64) are stored on the execution row. They share the heartbeat's 30-second throttle: a throttled call keeps only the latest report and the next write carries it, and `done == total` writes at once so a finished task never shows 9/10. None of these columns is audited, so reporting progress adds no `audit_log` rows.
+
+The enqueuing user is recorded as `owner_user_id` from the `sm_owner_id` message header (stamped from `current_user_id` at publish, next to the tenant header). A task that enqueues another task passes the owner on, and a retry keeps the original owner rather than adopting the operator. Beat and other platform publishes have no owner.
+
+`GET /api/background_tasks/tasks/{celery_task_id}/status` returns a `TaskStatusDTO`: status, the progress fields, timestamps and the exception's type name. It never returns args, kwargs, result, traceback or an error message. It is visible to the owner while acting in the row's tenant (any tenant when multi-tenancy is off) and to holders of `background_tasks.view`; everyone else, and every unknown id, gets `404` so the route does not reveal which ids exist. The task detail page shows a progress bar once a report exists.
+
 ## Scheduling periodic work (beat)
 
 A module schedules recurring work the same way it registers tasks — by shipping a `tasks.py` — and additionally exporting a module-level `BEAT_SCHEDULE` dict. `build_celery` merges every installed module's `BEAT_SCHEDULE` into the beat schedule at boot (identically in the web and worker processes), so `make beat` runs them alongside the built-ins:
@@ -344,6 +363,7 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 | `GET /api/background_tasks/admin/executions` | `?status=&task_name=&page=&per_page=` → `TaskExecutionListResponse` | per_page max 200 |
 | `GET /api/background_tasks/admin/executions/{execution_id}` | → `TaskExecutionDetail` | 404 if missing |
 | `POST /api/background_tasks/admin/executions/{execution_id}/retry` | → `TaskExecutionDetail` | 409 unless status is `failed` or `stuck` |
+| `GET /api/background_tasks/tasks/{celery_task_id}/status` | → `TaskStatusDTO` | no permission gate: owner in the active tenant or `view`; otherwise 404 |
 | `GET /api/background_tasks/admin/workers` | → `WorkerSnapshot` | live ping; consumed by the `Workers` page |
 | `GET /api/background_tasks/admin/outbox` | `?status=&page=&per_page=` → `OutboxListResponse` | undelivered rows (pending, running, dead) and per-status counts |
 | `POST /api/background_tasks/admin/outbox/{id}/retry` | → `OutboxItem` | `manage`; 409 unless `dead`; resets attempts and dispatches after commit |
@@ -397,6 +417,9 @@ from background_tasks.contracts.schemas import (
 | `worker` | `str(255) \| None` | hostname that ran it |
 | `retries` | `int` | |
 | `retried_from_id` | `UUID \| None` | self-FK; tracks retry chains |
+| `owner_user_id` | `str(64) \| None` | indexed; user whose request enqueued the task (#536) |
+| `progress_current` / `progress_total` | `int \| None` | latest `heartbeat(progress=...)` report |
+| `progress_message` / `progress_phase` | `str(255) \| None` / `str(64) \| None` | not audited |
 | `queued_at` / `started_at` / `finished_at` / `heartbeat_at` | `datetime` | |
 | audit | from `AuditMixin` | |
 

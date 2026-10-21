@@ -73,7 +73,9 @@
     "copy": "Copy",
     "copied": "Copied",
     "no_traceback": "No traceback recorded.",
-    "tenant": "Tenant"
+    "tenant": "Tenant",
+    "progress": "Progress",
+    "progress_count": "{current} of {total} ({percent}%)"
   },
   "retry_dialog": {
     "title": "Retry {name}?",

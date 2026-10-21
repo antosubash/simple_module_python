@@ -123,11 +123,13 @@ class BackgroundTasksModule(ModuleBase):
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from background_tasks.endpoints.api_admin import router as api_admin
+        from background_tasks.endpoints.api_status import router as api_status
         from background_tasks.endpoints.outbox_api import router as outbox_api
         from background_tasks.endpoints.outbox_views import router as outbox_views
         from background_tasks.endpoints.views import router as views
 
         api_router.include_router(api_admin)
+        api_router.include_router(api_status)
         api_router.include_router(outbox_api)
         # Before ``views``: its ``/{execution_id}`` would otherwise swallow ``/outbox``.
         view_router.include_router(outbox_views)

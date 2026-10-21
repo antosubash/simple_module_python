@@ -199,6 +199,8 @@ export const keys = {
       kwargs: 'background_tasks.detail.kwargs',
       meta: 'background_tasks.detail.meta',
       no_traceback: 'background_tasks.detail.no_traceback',
+      progress: 'background_tasks.detail.progress',
+      progress_count: 'background_tasks.detail.progress_count',
       queue: 'background_tasks.detail.queue',
       queued_at: 'background_tasks.detail.queued_at',
       result: 'background_tasks.detail.result',

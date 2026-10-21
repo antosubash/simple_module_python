@@ -16,6 +16,9 @@ from background_tasks.constants import (
     DEFAULT_QUEUE,
     MODULE_NAME,
     OUTBOX_KEY_MAX_LENGTH,
+    OWNER_ID_MAX_LENGTH,
+    PROGRESS_MESSAGE_MAX_LENGTH,
+    PROGRESS_PHASE_MAX_LENGTH,
     TABLE_OUTBOX,
     TABLE_TASK_EXECUTION,
     TENANT_ID_MAX_LENGTH,
@@ -45,6 +48,10 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
         "finished_at",
         "queued_at",
         "retries",
+        "progress_current",
+        "progress_total",
+        "progress_message",
+        "progress_phase",
     }
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -69,6 +76,17 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     # and strict mode would raise on their insert. The admin screens are
     # platform-wide and filter on this column.
     tenant_id: str | None = Field(default=None, index=True, max_length=TENANT_ID_MAX_LENGTH)
+
+    # The user whose request enqueued the task (``current_user_id`` at publish,
+    # carried through tasks that enqueue tasks); NULL for beat and platform
+    # publishes. It scopes who may read the task's status (#536).
+    owner_user_id: str | None = Field(default=None, index=True, max_length=OWNER_ID_MAX_LENGTH)
+
+    # Progress the task body reports through ``heartbeat(progress=...)``.
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = Field(default=None, max_length=PROGRESS_MESSAGE_MAX_LENGTH)
+    progress_phase: str | None = Field(default=None, max_length=PROGRESS_PHASE_MAX_LENGTH)
 
     args: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
     kwargs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

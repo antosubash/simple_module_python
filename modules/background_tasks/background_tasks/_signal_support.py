@@ -7,14 +7,20 @@ These helpers are intentionally side-effect-free except for the DB write in
 
 from __future__ import annotations
 
+import logging
 import traceback as tb_mod
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from background_tasks.constants import INTERNAL_TASK_SWEEP_OUTBOX, TaskStatus
 from background_tasks.models import TaskExecution
+from background_tasks.sync_db import sync_session
+
+logger = logging.getLogger(__name__)
 
 
 def now_utc() -> datetime:
@@ -103,3 +109,48 @@ def render_traceback(einfo: Any, exception: BaseException | None) -> str | None:
     if exception is not None:
         return "".join(tb_mod.format_exception(type(exception), exception, exception.__traceback__))
     return None
+
+
+# Beat ticks that fire every few seconds and are a no-op almost every time;
+# recording each run buried real work (QA, GH #459). Only a run that went wrong
+# is worth a row.
+_UNRECORDED_WHEN_QUIET = frozenset({INTERNAL_TASK_SWEEP_OUTBOX})
+_QUIET_STATUSES = frozenset({None, TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCESS})
+
+
+def apply_signal(
+    handler: str,
+    *,
+    celery_task_id: str | None,
+    defaults: dict[str, Any],
+    after: Callable[[TaskExecution], None] | None = None,
+    tenant_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> TaskExecution | None:
+    """Open a sync session, upsert by celery_task_id, log on failure.
+
+    Returns the upserted row (or ``None`` if the session raised) so callers
+    can read DB-assigned fields like ``id`` without a second round trip.
+
+    ``tenant_id`` and ``owner_user_id`` (the message's) are written only when
+    known, so a signal whose message carries neither never blanks a row already
+    stamped.
+    """
+    if (
+        defaults.get("task_name") in _UNRECORDED_WHEN_QUIET
+        and defaults.get("status") in _QUIET_STATUSES
+    ):
+        return None
+    if tenant_id:
+        defaults = {**defaults, "tenant_id": tenant_id}
+    if owner_user_id:
+        defaults = {**defaults, "owner_user_id": owner_user_id}
+    try:
+        with sync_session() as session:
+            row = upsert_by_celery_id(session, celery_task_id=celery_task_id, defaults=defaults)
+            if after is not None:
+                after(row)
+            return row
+    except Exception:
+        logger.exception("%s failed for task_id=%s", handler, celery_task_id)
+        return None
