@@ -91,6 +91,11 @@ class PathRuleSet[T]:
 
     def match(self, method: str, path: str) -> T | None:
         """The value of the most specific enabled rule for *method* + *path*."""
+        found = self.match_entry(method, path)
+        return None if found is None else found[2]
+
+    def match_entry(self, method: str, path: str) -> tuple[str, str, T] | None:
+        """Like :meth:`match` but ``(kind, pattern, value)``, to name what matched."""
         best: _Entry[T] | None = None
         for entry in self._entries:
             if not entry.matches(method, path):
@@ -100,7 +105,7 @@ class PathRuleSet[T]:
             # Strict ``>`` keeps the first registered on a tie.
             if best is None or entry.specificity() > best.specificity():
                 best = entry
-        return None if best is None else best.value
+        return None if best is None else (best.kind, best.pattern, best.value)
 
     def __len__(self) -> int:
         return len(self._entries)

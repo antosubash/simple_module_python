@@ -12,6 +12,11 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Per-route rate limits (#529): modules declare `RateLimitRule(rate, key=...)` in the new
+  `register_rate_limits(registry)` hook, and handlers use the
+  `RateLimit("10/minute", key="user")` dependency. Keys: `user`, `ip`, `user_or_ip`,
+  `tenant`; both apply to anonymous and signed-in requests and answer `429` with
+  `Retry-After`.
 - New `mail` module (`simple_module_mail`) owns outgoing mail: the SMTP/console
   transport, its settings (`/admin/settings/`, package `mail`) and the on-demand
   `mail.mailer` health check behind "Test mailer connection". Modules send through
@@ -39,6 +44,8 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
+  signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `audit_log` and `dashboard` no longer depend on `Users` (meta `depends_on`
   and package dependency); `background_tasks` drops its unused `Users`
   dependency (#501). `api_tokens` moves `Users` to `optional_depends_on` and

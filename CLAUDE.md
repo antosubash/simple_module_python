@@ -162,7 +162,8 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `docs/framework/lifecycle.md`): `register_settings`, `register_menu_items`,
 `register_permissions`, `register_feature_flags`, `register_event_handlers`,
 `register_invalidations`, `register_health_checks`, `register_setup_steps`,
-`register_public_routes`, `register_body_limits`, `register_csp_sources`,
+`register_public_routes`, `register_body_limits`, `register_rate_limits`,
+`register_csp_sources`,
 `register_design_packs`,
 `register_audit_links`, `register_exception_handlers`, `register_middleware`,
 `register_routes(api_router, view_router)`, `register_admin_routes(admin_router)`
@@ -220,7 +221,11 @@ Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
   page, set `Cache-Control`/ETag on the *document* response only.
 - `RateLimit` runs after auth, so by default it throttles only anonymous
   traffic to public routes (`rate_limit_public`; `rate_limit_authenticated` is
-  off by default; Redis via `SM_REDIS_URL`, else per-worker).
+  off by default and keyed per user; Redis via `SM_REDIS_URL`, else per-worker).
+  Per-route budgets for anonymous *and* signed-in traffic: `register_rate_limits`
+  rules (`RateLimitRule(rate, key="user"|"ip"|"user_or_ip"|"tenant")`) or the
+  `RateLimit("10/minute", key="user")` dependency from
+  `simple_module_hosting.rate_limit_deps`.
 - Request bodies over `max_request_body_bytes` (10 MiB) are refused before any
   module sees them; per-path overrides via `register_body_limits`.
 

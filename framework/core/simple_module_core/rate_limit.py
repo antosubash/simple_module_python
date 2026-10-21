@@ -24,6 +24,7 @@ from simple_module_core.path_rules import KIND_EXACT, KIND_PREFIX, KIND_REGEX, P
 
 __all__ = [
     "InProcessWindowStore",
+    "RateKey",
     "RateLimitError",
     "RateLimitRegistry",
     "RateLimitRule",
@@ -218,6 +219,10 @@ class RateLimitRegistry:
 
     def match(self, method: str, path: str) -> RateLimitRule | None:
         return self._rules.match(method, path)
+
+    def match_entry(self, method: str, path: str) -> tuple[str, str, RateLimitRule] | None:
+        """``(kind, pattern, rule)`` of the match, so a bucket can be named after it."""
+        return self._rules.match_entry(method, path)
 
     def __len__(self) -> int:
         return len(self._rules)

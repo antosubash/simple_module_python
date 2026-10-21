@@ -14,6 +14,7 @@ register_invalidations
 register_health_checks
 register_public_routes
 register_body_limits
+register_rate_limits
 register_csp_sources
 register_design_packs
 register_audit_links
@@ -159,6 +160,12 @@ def register_body_limits(self, registry) -> None:
     registry.add_exact("/api/media/upload", 200 * 1024 * 1024, methods={"POST"})
 ```
 
+See [request-guards.md](request-guards.md).
+
+## `register_rate_limits(registry)`
+
+Per-route rate limits for anonymous and signed-in requests, keyed by user, IP
+or tenant: `registry.add_prefix("/api/x/", RateLimitRule("10/minute", key="user"))`.
 See [request-guards.md](request-guards.md).
 
 ## `register_csp_sources(registry)`
