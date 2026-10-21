@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+
+- `smpy docker add-worker` generates dedicated Python worker images with validated apt packages, optional extras, queue/module routing, and idempotent Compose includes (#540).
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps
