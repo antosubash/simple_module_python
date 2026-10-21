@@ -52,6 +52,7 @@ from simple_module_hosting._settings_registration import (
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
+from simple_module_hosting.leases import configure_process_leases
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.setup_wizard import mount_setup_wizard
@@ -238,6 +239,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.multi_tenant and settings.default_tenant:
         db_state.default_tenant_id = settings.default_tenant
     register_listeners(db_state)
+    configure_process_leases(settings.redis_url, engine=db_state.engine)  # GH #539
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.
     register_database_check(health_registry, db_state)

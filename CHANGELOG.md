@@ -17,6 +17,13 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- Distributed TTL leases in `simple_module_core.leases`: `lease(name, ttl)` (an
+  owner-checked lock with `token`, a strictly increasing `fence`, `refresh()`,
+  `release()` and `async with` waiting) and `semaphore(name, slots, ttl)` (at
+  most N holders across processes). Backed by Redis when `SM_REDIS_URL` is set,
+  else the new framework table `sm_lease` (migration `d263ea727663`, a new root
+  labelled `leases`), else in-process; `create_app` and the Celery worker
+  bootstrap install it. An expired owner can neither refresh nor release (#539).
 - `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
   `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
   `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial

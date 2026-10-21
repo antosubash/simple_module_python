@@ -19,6 +19,7 @@ from simple_module_db.base import all_module_bases
 @lru_cache(maxsize=1)
 def _ensure_models_imported() -> list:
     """Import all module models so all_module_bases is populated (cached)."""
+    import simple_module_db.leases  # framework-owned table (#539)
     import simple_module_db.stored_settings  # noqa: F401  framework-owned table (#500)
 
     for mod in discover_modules():
