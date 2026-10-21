@@ -49,6 +49,7 @@ from simple_module_hosting._settings_registration import (
     check_settings_registration,
     register_host_settings,
 )
+from simple_module_hosting.db_options import database_options
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
@@ -227,10 +228,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     db_state = init_db(
         settings.database_url,
         echo=settings.debug,
-        pool_size=settings.db_pool_size,
-        max_overflow=settings.db_max_overflow,
-        pool_pre_ping=settings.db_pool_pre_ping,
-        pool_recycle=settings.db_pool_recycle,
+        **database_options(settings),
     )
     # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
     # context raises instead of reading every tenant's rows.

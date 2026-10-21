@@ -37,10 +37,6 @@ _NOT_YET_CONSUMED = frozenset(
         "cors_allow_headers",
         "cors_expose_headers",
         "cors_max_age",
-        "db_pool_timeout",
-        "db_connect_timeout",
-        "db_statement_timeout_ms",
-        "db_idle_in_tx_timeout_ms",
     }
 )
 
