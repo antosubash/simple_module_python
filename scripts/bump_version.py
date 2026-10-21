@@ -100,8 +100,10 @@ def bump_npm_package(package_json: Path, new_version: str, *, check: bool = Fals
         if not deps:
             continue
         for name, current in list(deps.items()):
-            # "*" is the workspace wildcard (private module package.json); keep it.
-            if name.startswith(NPM_SCOPE_PREFIX) and current not in (new_version, "*"):
+            # "*" is the workspace wildcard; only private (unpublished) module
+            # package.json files may keep it, a published one must be pinned.
+            keep = (new_version, "*") if data.get("private") else (new_version,)
+            if name.startswith(NPM_SCOPE_PREFIX) and current not in keep:
                 changed = True
                 deps[name] = new_version
 

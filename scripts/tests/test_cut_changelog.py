@@ -28,7 +28,7 @@ SAMPLE = """\
 
 def test_cut_inserts_fresh_unreleased_and_dates_old_one() -> None:
     out = cut(SAMPLE, "0.0.28", "2026-10-21")
-    assert "## [Unreleased]\n\n## [0.0.28] - 2026-10-21\n\n### Added\n- a thing" in out
+    assert "## [Unreleased]\n\n## [0.0.28] — 2026-10-21\n\n### Added\n- a thing" in out
     assert out.count("## [Unreleased]") == 1
 
 
@@ -58,4 +58,4 @@ def test_main_rewrites_file(tmp_path: Path) -> None:
     f = tmp_path / "CHANGELOG.md"
     f.write_text(SAMPLE, encoding="utf-8")
     assert main(["0.0.28", "--file", str(f), "--date", "2026-10-21"]) == 0
-    assert "## [0.0.28] - 2026-10-21" in f.read_text(encoding="utf-8")
+    assert "## [0.0.28] — 2026-10-21" in f.read_text(encoding="utf-8")

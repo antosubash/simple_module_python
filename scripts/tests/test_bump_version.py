@@ -159,3 +159,15 @@ def test_discover_includes_module_package_json(tmp_path: Path, writer) -> None:
         "modules/foo/package.json",
         "packages/ui/package.json",
     ]
+
+
+def test_npm_bump_keeps_wildcard_only_for_private_packages(tmp_path: Path, writer) -> None:
+    private = tmp_path / "private.json"
+    public = tmp_path / "public.json"
+    body = '"version": "0.0.1", "peerDependencies": {"@simple-module-py/ui": "*"}'
+    writer(private, '{"private": true, ' + body + "}")
+    writer(public, "{" + body + "}")
+    bump_npm_package(private, "0.0.2")
+    bump_npm_package(public, "0.0.2")
+    assert json.loads(private.read_text())["peerDependencies"]["@simple-module-py/ui"] == "*"
+    assert json.loads(public.read_text())["peerDependencies"]["@simple-module-py/ui"] == "0.0.2"

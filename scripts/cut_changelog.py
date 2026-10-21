@@ -1,6 +1,6 @@
 """Cut a dated CHANGELOG section from ``## [Unreleased]`` at release time.
 
-Renames ``## [Unreleased]`` to ``## [X.Y.Z] - YYYY-MM-DD``, inserts a fresh empty
+Renames ``## [Unreleased]`` to ``## [X.Y.Z] — YYYY-MM-DD``, inserts a fresh empty
 ``## [Unreleased]`` above it and keeps the compare links at the bottom in step.
 Idempotent: if ``## [X.Y.Z]`` already exists the file is left untouched, so a
 re-run of the release bump never double-cuts.
@@ -33,12 +33,15 @@ def cut(text: str, version: str, date: str) -> str:
     """Return ``text`` with ``[Unreleased]`` rolled into ``[version]``."""
     if _heading(version).search(text):
         return text
-    if UNRELEASED_HEADING not in text:
+    if not re.search(rf"^{re.escape(UNRELEASED_HEADING)}[ \t]*$", text, re.MULTILINE):
         raise ValueError(f"no '{UNRELEASED_HEADING}' section to cut")
-    text = text.replace(
-        UNRELEASED_HEADING,
-        f"{UNRELEASED_HEADING}\n\n## [{version}] - {date}",
-        1,
+    # Match the file's existing "## [X.Y.Z] — YYYY-MM-DD" (em dash) headings.
+    text = re.sub(
+        rf"^{re.escape(UNRELEASED_HEADING)}[ \t]*$",
+        lambda _: f"{UNRELEASED_HEADING}\n\n## [{version}] \u2014 {date}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
     )
     link = UNRELEASED_LINK_RE.search(text)
     if link:
