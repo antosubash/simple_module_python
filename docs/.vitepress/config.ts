@@ -126,6 +126,7 @@ export default defineConfig({
             { text: "User directory", link: "/framework/user-directory" },
             { text: "Public routes", link: "/framework/public-routes" },
             { text: "CORS", link: "/framework/cors" },
+            { text: "Deprecations", link: "/framework/deprecations" },
             { text: "Events", link: "/framework/events" },
             { text: "Cache invalidation", link: "/framework/invalidation" },
             { text: "Multi-tenancy", link: "/framework/multi-tenancy" },

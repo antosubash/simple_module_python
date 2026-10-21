@@ -1,4 +1,4 @@
-import { keys, useT } from '@simple-module-py/i18n';
+import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@simple-module-py/ui/components/ui/native-select';
@@ -142,7 +142,9 @@ export function MembersTable({
                   )}
                 </TableCell>
                 <TableCell>
-                  {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '—'}
+                  {member.joined_at
+                    ? new Date(member.joined_at).toLocaleDateString(activeLocale())
+                    : '—'}
                 </TableCell>
                 {canManage && (
                   <TableCell className="text-right">

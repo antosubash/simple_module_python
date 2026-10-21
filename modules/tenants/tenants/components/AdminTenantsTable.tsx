@@ -1,4 +1,4 @@
-import { keys, useT } from '@simple-module-py/i18n';
+import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
@@ -83,7 +83,9 @@ export function AdminTenantsTable({ tenants, onChanged }: Props) {
             </TableCell>
             <TableCell>{tenant.members}</TableCell>
             <TableCell className="text-muted-foreground">
-              {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : '—'}
+              {tenant.created_at
+                ? new Date(tenant.created_at).toLocaleDateString(activeLocale())
+                : '—'}
             </TableCell>
             <TableCell className="text-right">
               {tenant.status === 'active' ? (

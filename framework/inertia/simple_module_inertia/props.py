@@ -104,9 +104,19 @@ def scroll(
     return replace(as_prop(value), scroll=meta)
 
 
+# This package stays free of simple_module_core, so it cannot use
+# ``simple_module_core.deprecation``; the expiry test (host/tests) registers this
+# constant there instead.
+LAZY_REMOVE_IN = "0.1.0"
+
+
 def lazy(value: Any) -> Prop:
     """Deprecated alias kept for callers migrating from fastapi-inertia."""
-    warnings.warn("lazy() is deprecated; use optional()", DeprecationWarning, stacklevel=2)
+    warnings.warn(
+        f"lazy() is deprecated and will be removed in {LAZY_REMOVE_IN}; use optional() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return optional(value)
 
 

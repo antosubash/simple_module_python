@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/background-tasks",
-  "version": "0.1.0",
+  "version": "0.0.37",
   "private": true,
   "description": "Frontend assets for the BackgroundTasks module",
   "peerDependencies": {

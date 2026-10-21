@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.cors import CorsPolicyRegistry
+from simple_module_core.deprecation import deprecate
 from simple_module_core.rate_limit import RateLimitRegistry
 
 if TYPE_CHECKING:
@@ -86,11 +87,18 @@ def run_module_registrations(
     setup_registry.set_owner("")
 
 
+_ONE_ARG_EVENT_HANDLERS = deprecate(
+    "register_event_handlers(self, bus) without the app parameter",
+    remove_in="0.1.0",
+    use="register_event_handlers(self, bus, app=None)",
+)
+
+
 def dispatch_event_handlers(mod, event_bus, app: FastAPI) -> None:
     """Call ``mod.register_event_handlers`` with or without ``app``.
 
-    Back-compat shim for modules that still override the one-arg form
-    ``(self, bus)``; passing ``app=`` to those crashes.
+    Deprecated back-compat for modules that still override the one-arg form
+    ``(self, bus)``; passing ``app=`` to those crashes. Removed in 0.1.0.
     """
     sig = inspect.signature(mod.register_event_handlers)
     accepts_app = "app" in sig.parameters or any(
@@ -99,4 +107,5 @@ def dispatch_event_handlers(mod, event_bus, app: FastAPI) -> None:
     if accepts_app:
         mod.register_event_handlers(event_bus, app=app)
     else:
+        _ONE_ARG_EVENT_HANDLERS.warn()
         mod.register_event_handlers(event_bus)

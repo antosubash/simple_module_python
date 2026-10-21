@@ -1,0 +1,83 @@
+{
+  "audit": {
+    "role_permission": "Rollenberechtigung"
+  },
+  "browse": {
+    "title": "Berechtigungen",
+    "description": "Berechtigungen werden aus allen installierten Modulen automatisch ermittelt. Weisen Sie sie Rollen zu oder vergeben Sie sie direkt an einzelne Benutzer.",
+    "roles_heading": "Rollen",
+    "no_roles": "Noch keine Rollen vorhanden.",
+    "users_heading": "Benutzer",
+    "no_users": "Keine passenden Benutzer.",
+    "search_placeholder": "Benutzer nach E-Mail oder Name suchen",
+    "count_label": "{count} zugewiesen",
+    "count_label_one": "{count} zugewiesen",
+    "count_label_other": "{count} zugewiesen",
+    "direct_count_label": "{count} direkt",
+    "direct_count_label_one": "{count} direkt",
+    "direct_count_label_other": "{count} direkt",
+    "edit_link": "Bearbeiten",
+    "registry_heading": "Register",
+    "registry_hint": "Module deklarieren diese über ModuleBase.register_permissions. Diese Liste wird bei jedem Start aus dem Code neu erstellt.",
+    "group_description": "Registrierte Schlüssel",
+    "no_permissions": "Keine Module haben Berechtigungen registriert."
+  },
+  "table": {
+    "role": "Rolle",
+    "user": "Benutzer",
+    "name": "Name",
+    "description": "Beschreibung",
+    "assigned": "Zugewiesen",
+    "direct": "Direkt",
+    "actions": "Aktionen"
+  },
+  "toasts": {
+    "saved": "Berechtigungen gespeichert",
+    "save_failed": "Berechtigungen konnten nicht gespeichert werden"
+  },
+  "edit": {
+    "title": "Rolle bearbeiten: {role}",
+    "description": "Berechtigungen für alle Benutzer mit dieser Rolle umschalten.",
+    "empty": "Kein installiertes Modul hat Berechtigungen registriert.",
+    "no_matches": "Keine Berechtigungen entsprechen diesem Filter.",
+    "submit_button": "Rolle speichern",
+    "reset_button": "Zurücksetzen",
+    "cancel_link": "Abbrechen",
+    "head_title": "Rolle bearbeiten",
+    "filter_placeholder": "Module oder Berechtigungen filtern…",
+    "granted_only": "Nur erteilte",
+    "granted_summary": "{granted} von {total} erteilt",
+    "toggle_group_label": "Alle Berechtigungen für {group} umschalten",
+    "leave_warning": "Sie haben ungespeicherte Änderungen an dieser Rolle. Ohne Speichern verlassen?"
+  },
+  "user_edit": {
+    "title": "Berechtigungen — {email}",
+    "subtitle": "{name} · wirksame Berechtigungen aus Rollen und direkten Vergaben",
+    "subtitle_no_name": "Wirksame Berechtigungen aus Rollen und direkten Vergaben",
+    "roles_label": "Rollen",
+    "no_roles": "Keine Rollen zugewiesen",
+    "empty": "Kein installiertes Modul hat Berechtigungen registriert.",
+    "no_matches": "Keine Berechtigungen entsprechen diesem Filter.",
+    "inherited_hint": "Durch Rolle erteilt: {roles}. Das Ausschalten hier widerruft diese Berechtigung nicht. Bearbeiten Sie stattdessen die Rolle.",
+    "submit_button": "Vergaben speichern",
+    "cancel_link": "Abbrechen",
+    "direct_summary": "Direkte Vergaben",
+    "effective_summary": "Wirksam",
+    "legend_direct": "direkte Vergabe",
+    "legend_role": "aus Rolle",
+    "group_effective": "{granted} wirksam / {total}",
+    "direct_badge": "direkt",
+    "via_role": "erteilt durch {roles}",
+    "direct_toggle_label": "{key} diesem Benutzer direkt erteilen",
+    "head_title": "Benutzer bearbeiten",
+    "leave_warning": "Sie haben ungespeicherte Änderungen an diesen Vergaben. Ohne Speichern verlassen?"
+  },
+  "errors": {
+    "role_not_found": "Rolle nicht gefunden.",
+    "user_not_found": "Benutzer nicht gefunden."
+  },
+  "filters": {
+    "modules_placeholder": "Module filtern…"
+  },
+  "permission_group": "Berechtigungen"
+}

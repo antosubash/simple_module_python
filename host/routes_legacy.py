@@ -12,15 +12,23 @@ These live at the host rather than in the modules because a module can only
 serve routes under its own ``view_prefix`` — having moved, it no longer owns
 the path it moved away from.
 
-Scheduled for removal one minor release after the move; a 301 is cacheable,
-so browsers that have seen it will keep following it long after the route
-itself is gone.
+Removed in 0.1.0 (``REMOVE_IN``; ``host/tests/test_deprecation_expiry.py`` fails
+once the framework reaches it). A 301 is cacheable, so browsers that have seen
+it will keep following it long after the route itself is gone.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
+from simple_module_core.deprecation import deprecate
 from starlette.responses import RedirectResponse
+
+REMOVE_IN = "0.1.0"
+deprecate(
+    "host.routes_legacy (pre-/admin view URL redirects)",
+    remove_in=REMOVE_IN,
+    use="the /admin/* URLs",
+)
 
 router = APIRouter(include_in_schema=False)
 

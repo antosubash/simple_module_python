@@ -1,0 +1,64 @@
+{
+  "browse": {
+    "title": "Änderungsprotokoll",
+    "description": "Änderungsverlauf auf Feldebene über alle Module",
+    "export_csv": "CSV exportieren",
+    "empty_title": "Keine Protokolleinträge",
+    "empty_description": "Änderungen an Objekten erscheinen hier automatisch.",
+    "no_match_title": "Keine Einträge für diese Filter",
+    "no_match_description": "Außerhalb der aktuellen Filter sind Einträge vorhanden.",
+    "clear_filters": "Filter zurücksetzen"
+  },
+  "filters": {
+    "entity_type_label": "Objekttyp",
+    "entity_type_all": "Alle Typen",
+    "action_label": "Aktion",
+    "action_all": "Alle Aktionen",
+    "user_label": "Akteur",
+    "user_placeholder": "Alle Personen",
+    "date_range_label": "Zeitraum",
+    "date_range_any": "Beliebiges Datum",
+    "date_range_reset": "Datum zurücksetzen",
+    "apply": "Anwenden",
+    "clear": "Zurücksetzen",
+    "tenant_label": "Organisation",
+    "tenant_all": "Alle Organisationen",
+    "tenant_platform": "Plattform"
+  },
+  "table": {
+    "timestamp": "Zeit",
+    "action": "Aktion",
+    "entity": "Objekt",
+    "user": "Akteur",
+    "changes": "Änderungen",
+    "tenant": "Organisation"
+  },
+  "actions": {
+    "created": "erstellt",
+    "updated": "aktualisiert",
+    "deleted": "gelöscht",
+    "soft_deleted": "archiviert"
+  },
+  "correlation": {
+    "view_related": "Zugehörige Einträge",
+    "view_related_title": "Alle Einträge derselben Anfrage anzeigen",
+    "banner_title_one": "Eine Aktion, {count} Eintrag",
+    "banner_title_other": "Eine Aktion, {count} Einträge",
+    "banner_description": "Alle Aufzeichnungen einer einzelnen Anfrage.",
+    "banner_clear": "Alle Einträge anzeigen"
+  },
+  "changes": {
+    "fields_set": "{count} Felder gesetzt",
+    "show_more": "+{count} weitere Felder",
+    "show_less": "Weniger anzeigen",
+    "system_user": "System",
+    "no_changes": "keine Änderungen aufgezeichnet",
+    "unresolved_user": "Kein passendes Konto für diese ID",
+    "fields_set_one": "{count} Feld gesetzt",
+    "fields_set_other": "{count} Felder gesetzt"
+  },
+  "nav": {
+    "audit_log": "Änderungsprotokoll"
+  },
+  "permission_group": "Audit-Log"
+}

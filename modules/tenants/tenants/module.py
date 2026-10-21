@@ -161,6 +161,7 @@ class TenantsModule(ModuleBase):
                 c.PERM_PLATFORM_VIEW,
                 c.PERM_PLATFORM_MANAGE,
             ],
+            label_key="tenants.permission_group",
         )
         for role, perms in c.ROLE_PERMISSIONS.items():
             registry.map_role(c.tenant_role(role), perms)

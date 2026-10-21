@@ -9,7 +9,7 @@ This repo publishes **13 Python packages** to PyPI and **3 JS packages** to npm 
 
 ## TL;DR — already set up? Cut a release in 3 clicks
 
-1. Ensure `main` is green (`make lint && make test`).
+1. Ensure `main` is green (`make lint && make test`). The workflow re-runs the whole PR suite against the dispatched commit and refuses to build if it is red.
 2. [Actions → release → Run workflow](https://github.com/antosubash/simple_module_python/actions/workflows/release.yml) → pick **bump** (`patch` / `minor` / `major`), leave **version** blank → **Run**.
 3. After it finishes, write release notes on the auto-created `vX.Y.Z` tag on GitHub.
 
@@ -124,23 +124,37 @@ The workflow derives the next version from the current `framework/core/pyproject
 
 What happens:
 - `resolve` computes the final version and shares it with every downstream job.
+- `checks` calls `pr.yml` (`workflow_call`) on the dispatched commit, so the `pr-checks` aggregate must be green. `build` needs it: nothing is built or published from a red commit.
 - `build` rewrites every version, runs `uv build --all-packages` (a wheel + sdist for every buildable workspace package) plus the 3 npm tarballs, and uploads them as artifacts.
 - `publish-pypi` fans out 13 parallel jobs (the matrix package list), each filtering the artifact set down to one package and publishing its wheel+sdist pair via OIDC Trusted Publishing.
 - `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs via OIDC Trusted Publishing. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`.
-- `finalize` re-applies the bump, commits `release: vX.Y.Z`, tags it, and pushes both.
+- `finalize` re-applies the bump (the shared `.github/actions/bump-version` action, also used by `build`), cuts the CHANGELOG, commits `release: vX.Y.Z`, tags it, and pushes both.
 
 Expected wall time: 5–8 minutes.
 
-### Step 4. GitHub Release notes
+### Step 4. CHANGELOG and GitHub Release notes
 
-The `finalize` job pushes the `vX.Y.Z` tag and a follow-up step (`gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes`) automatically creates a GitHub Release with autofilled notes from the commits since the previous tag.
+`finalize` runs `scripts/cut_changelog.py X.Y.Z` before the bump commit: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD`, a fresh empty `## [Unreleased]` is inserted above it and the compare links are updated. Re-running is a no-op once the section exists. Keep `[Unreleased]` current in every user-visible PR; whatever is there at release time is the release's notes.
 
-If you want to edit the body, open the draft at [Releases](https://github.com/antosubash/simple_module_python/releases) and tweak it after the workflow finishes. To regenerate the auto-notes locally:
+The GitHub Release is created with `--notes-file` from that dated section (`scripts/cut_changelog.py X.Y.Z --notes`), falling back to `--generate-notes` only when the section is empty.
+
+To edit the body afterwards, open the release at [Releases](https://github.com/antosubash/simple_module_python/releases) after the workflow finishes:
 
 ```bash
 gh release view vX.Y.Z --json body
 gh release edit vX.Y.Z --notes-file - < notes.md
 ```
+
+---
+
+## Package version vs framework API version
+
+Two version numbers exist on purpose:
+
+- **Package version** (`0.0.x`, lockstep). Every `simple_module_*` wheel and every `package.json` under `framework/`, `modules/` and `packages/` carries the same number, enforced by `scripts/bump_version.py` (`--check` verifies it). The root and `host/` `pyproject.toml` are not published and are not bumped.
+- **Framework API version** (`FRAMEWORK_API_VERSION` in `simple_module_core/versioning.py`, currently `1.0.0`). It versions the *module contract* (`ModuleBase`, the registries, the event bus, `create_module_base`, the model mixins), independent of release cadence. Modules declare a compatible range in `ModuleMeta.requires_framework` (PEP 440, e.g. `">=1.0,<2.0"`) and boot fails on a mismatch. Bump its major only for a breaking contract change.
+
+A test (`framework/cli/tests/test_template_requires_framework.py`) pins that the scaffolded module template's `requires_framework` contains `FRAMEWORK_API_VERSION`.
 
 ---
 

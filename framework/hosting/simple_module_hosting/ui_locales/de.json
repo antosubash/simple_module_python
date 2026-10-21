@@ -1,0 +1,110 @@
+{
+  "errors": {
+    "generic_title": "Etwas ist schiefgelaufen",
+    "generic_description": "Auf der Seite ist ein unerwarteter Fehler aufgetreten. Laden Sie sie neu oder kehren Sie zur Startseite zurück.",
+    "reload_button": "Seite neu laden",
+    "go_home_button": "Zur Startseite"
+  },
+  "nav": {
+    "admin": "Administration"
+  },
+  "switcher": {
+    "label": "Sprache ändern",
+    "single_locale": "Nur {locale} ist aktiviert"
+  },
+  "topbar": {
+    "log_out": "Abmelden"
+  },
+  "relative_time": {
+    "unknown": "unbekannt",
+    "just_now": "gerade eben",
+    "seconds_ago": "vor {count} Sek.",
+    "minutes_ago": "vor {count} Min.",
+    "hours_ago": "vor {count} Std.",
+    "days_ago": "vor {count} T.",
+    "months_ago": "vor {count} Mon.",
+    "months_ago_one": "vor {count} Mon.",
+    "months_ago_other": "vor {count} Mon.",
+    "years_ago": "vor {count} J.",
+    "years_ago_one": "vor {count} J.",
+    "years_ago_other": "vor {count} J.",
+    "in_minutes": "in {count} Min.",
+    "in_hours": "in {count} Std.",
+    "in_days": "in {count} T.",
+    "expired": "abgelaufen"
+  },
+  "nav_groups": {
+    "access": "Zugriff",
+    "appearance": "Darstellung",
+    "content": "Inhalt",
+    "system": "System",
+    "navigation": "Navigation",
+    "account": "Konto"
+  },
+  "command_palette": {
+    "trigger": "Suchen",
+    "title": "Suchen",
+    "description": "Wechseln Sie zu einer Seite, auf die Sie Zugriff haben.",
+    "placeholder": "Wechseln zu…",
+    "empty": "Keine Treffer."
+  },
+  "admin": {
+    "panel_badge": "Administrationsbereich",
+    "back_to_app": "Zurück zur App"
+  },
+  "sidebar": {
+    "open": "Seitenleiste öffnen",
+    "close": "Seitenleiste schließen",
+    "drawer": "Navigationsmenü",
+    "back": "Zurück",
+    "skip_to_content": "Zum Inhalt springen"
+  },
+  "public_nav": {
+    "docs": "Dokumentation",
+    "modules": "Module",
+    "github": "GitHub",
+    "open_dashboard": "Dashboard öffnen",
+    "sign_in": "Anmelden",
+    "open_menu": "Menü öffnen",
+    "close_menu": "Menü schließen"
+  },
+  "demo": {
+    "banner_read_only": "Demomodus — Sie sind mit einem gemeinsam genutzten Konto angemeldet. Änderungen werden nicht gespeichert.",
+    "banner_writable": "Demomodus — Sie sind mit einem Konto angemeldet, das alle Besucher dieser Demo gemeinsam nutzen."
+  },
+  "error_page": {
+    "correlation_id_copy": "Referenz-ID kopieren",
+    "forbidden_description": "Ihrer Rolle fehlt die für diese Seite benötigte Berechtigung. Bitten Sie einen Administrator, sie zu erteilen.",
+    "forbidden_permission": "Ihrer Rolle fehlt {permission}. Bitten Sie einen Administrator, diese Berechtigung zu erteilen.",
+    "forbidden_title": "Kein Zugriff",
+    "generic_description": "Ein unerwarteter Fehler ist aufgetreten.",
+    "generic_title": "Fehler",
+    "go_back": "Zurück",
+    "go_home": "Zur Startseite",
+    "invalid_request_description": "Die aufgerufene Adresse enthält Parameter, die nicht gelesen werden konnten.",
+    "invalid_request_title": "Ungültige Anfrage",
+    "maintenance_description": "Wir nehmen Änderungen vor und sind bald wieder da. Vielen Dank für Ihre Geduld.",
+    "maintenance_title": "Wartungsarbeiten",
+    "not_found_description": "Diese Seite oder dieser Datensatz existiert nicht. Möglicherweise wurde er gelöscht.",
+    "not_found_title": "Nicht gefunden",
+    "payload_too_large_description": "Die gesendeten Daten überschreiten die vom Server erlaubte Größe. Senden Sie weniger Daten und versuchen Sie es erneut.",
+    "payload_too_large_title": "Anfrage zu groß",
+    "rate_limited_description": "Sie haben in kurzer Zeit viele Anfragen gestellt. Warten Sie einen Moment und versuchen Sie es erneut.",
+    "rate_limited_title": "Zu viele Anfragen",
+    "retry": "Erneut versuchen",
+    "server_error_description": "Auf dem Server ist ein Fehler aufgetreten. Geben Sie diese ID an, wenn Sie ihn melden.",
+    "server_error_title": "Ein Fehler ist aufgetreten",
+    "session_expired_description": "Sie wurden wegen Inaktivität abgemeldet. Melden Sie sich erneut an, um fortzufahren.",
+    "session_expired_title": "Sitzung abgelaufen",
+    "sign_in": "Anmelden",
+    "unauthorized_description": "Sie müssen angemeldet sein, um diese Seite aufzurufen.",
+    "unauthorized_title": "Anmeldung erforderlich",
+    "unavailable_description": "Der Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in Kürze erneut.",
+    "unavailable_title": "Dienst nicht verfügbar"
+  },
+  "pagination": {
+    "showing": "{from}–{to} von {total}",
+    "previous": "Zurück",
+    "next": "Weiter"
+  }
+}

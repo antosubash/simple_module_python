@@ -63,5 +63,6 @@
     "logo_file_id": "Logo image.",
     "logo_dark_file_id": "Logo for dark surfaces; falls back to this organisation's own logo.",
     "favicon_file_id": "Browser tab icon."
-  }
+  },
+  "permission_group": "Branding"
 }

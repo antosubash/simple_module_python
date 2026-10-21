@@ -117,7 +117,11 @@ class SettingsModule(ModuleBase):
     def register_permissions(self, registry: PermissionRegistry) -> None:
         from simple_module_core.tenancy import TenantRole, tenant_role
 
-        registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
+        registry.add_group(
+            PERM_GROUP,
+            list(ALL_PERMISSIONS),
+            label_key=f"{LOCALE_NAMESPACE}.permission_group",
+        )
         # Tenant owners and admins edit their own tenant's overridable keys
         # (#382). The one permission for it — ``tenants`` no longer ships its
         # own unused ``tenants.settings.manage``. Members get nothing here.

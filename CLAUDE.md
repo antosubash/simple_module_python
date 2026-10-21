@@ -373,6 +373,11 @@ development and testing (`session_cookie_secure`).
 - **Framework must not import plugins** (`SM009`): nothing under `framework/`
   imports from `modules/`; the framework exposes registries and callbacks
   instead. A module may import the modules it lists in `depends_on` directly.
+- **Deprecations carry a removal release.** A compat shim uses
+  `simple_module_core.deprecation` (`deprecated`, `deprecated_module`, `deprecate`)
+  with `remove_in`, and is added to `host/tests/test_deprecation_expiry.py`, which
+  fails once the framework version reaches it. No undated "back-compat" shims.
+  `docs/framework/deprecations.md`.
 - **Background tasks**: `tasks.py` with `@shared_task(name="<module>.<task>")`;
   heavy imports (`torch`, `cv2`, …) inside the task body (`SM028`). Enqueue from
   a transaction with `background_tasks.enqueue_after_commit(db, task, …)`, never

@@ -224,21 +224,6 @@ class UsersAuthProvider:
     def get_logout_url(self, request: Request | None) -> str:
         return "/users/logout"
 
-    def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        return (
-            (
-                "/users/login",
-                "/users/register",
-                "/users/forgot-password",
-                "/users/reset-password",
-                "/users/verify",
-                "/users/invite/accept",
-                "/api/users/auth/",
-                "/api/users/register",
-            ),
-            (),
-        )
-
     def is_bearer_request(self, request: Request | None) -> bool:
         if request is None:
             return False
