@@ -166,13 +166,15 @@ async def resolve_user_labels(
     """Map id -> :attr:`DirectoryUser.label` for every id the directory knows.
 
     Empty and ``None`` ids (a row with no recorded user) are skipped; ids the
-    directory cannot name are absent, and callers show the stored id instead.
+    directory cannot name (or names with an empty label, e.g. a cached account
+    with neither a name nor an email) are absent, and callers show the stored
+    id instead.
     """
     wanted = {uid for uid in ids if uid}
     if not wanted:
         return {}
     found = await directory.get_many(db, wanted)
-    return {uid: user.label for uid, user in found.items()}
+    return {uid: user.label for uid, user in found.items() if user.label}
 
 
 __all__ = [

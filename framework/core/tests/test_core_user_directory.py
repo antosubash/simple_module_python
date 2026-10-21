@@ -118,6 +118,10 @@ class TestHelpers:
         assert labels == {"a": "Ada", "b": "b@x"}
         assert directory.calls == [{"a", "b", "gone"}]
 
+    async def test_resolve_labels_drops_empty_labels(self):
+        directory = _FakeDirectory([DirectoryUser(id="a", email=""), DirectoryUser("b", "b@x")])
+        assert await resolve_user_labels(directory, None, ["a", "b"]) == {"b": "b@x"}
+
     async def test_resolve_labels_short_circuits_without_ids(self):
         directory = _FakeDirectory([])
         assert await resolve_user_labels(directory, None, ["", ""]) == {}

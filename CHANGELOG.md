@@ -286,6 +286,13 @@ All notable changes to this project are documented in this file. The format is b
   `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
   previously served, and anonymous, in production.
 
+### Fixed
+- User directory follow-ups (#501): `audit_log` installs its activity feed in
+  `on_startup` (cleared on shutdown) instead of `register_settings`, which
+  tripped `SM012`; `resolve_user_labels` omits users whose label is empty so
+  callers show the stored id; the `users` and `keycloak` directories compute
+  their stats in one query instead of two or three.
+
 ### Deprecated
 - `settings.registration`, `settings.module_registry` and `settings.hydrate`
   re-export the framework objects above and emit a `DeprecationWarning`;
