@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.module_settings import register_module_settings
 
 
 class {{MODULE_NAME}}Module(ModuleBase):
@@ -41,7 +42,14 @@ class {{MODULE_NAME}}Module(ModuleBase):
         from {{PACKAGE_NAME}}.services import {{MODULE_NAME}}Services
         from {{PACKAGE_NAME}}.settings import {{MODULE_NAME}}Settings
 
-        app.state.{{PACKAGE_NAME}} = {{MODULE_NAME}}Services(settings={{MODULE_NAME}}Settings())
+        # Records the class so the host hydrates it from the settings table
+        # (env → DB → default) and mounts the services on app.state.{{PACKAGE_NAME}}.
+        register_module_settings(
+            app,
+            "{{PACKAGE_NAME}}",
+            {{MODULE_NAME}}Settings,
+            lambda s: {{MODULE_NAME}}Services(settings=s),
+        )
 
     def static_mounts(self) -> dict[str, Path]:
         """Expose pre-built frontend assets when they exist.

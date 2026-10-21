@@ -61,7 +61,15 @@ class TestScaffoldModule:
     def test_scaffold_settings_class_matches_the_module_import(self, scaffolded_orders: Path):
         """module.py and services.py both import OrdersSettings by name."""
         content = (scaffolded_orders / "settings.py").read_text()
-        assert "class OrdersSettings(BaseSettings):" in content
+        assert "class OrdersSettings(DbBackedSettings):" in content
+
+    def test_scaffold_registers_settings_through_the_framework(self, scaffolded_orders: Path):
+        """register_settings goes through register_module_settings (#500), so the
+        host hydrates the class from the DB; a bare app.state assignment would not."""
+        content = (scaffolded_orders / "module.py").read_text()
+        assert "from simple_module_core.module_settings import register_module_settings" in content
+        assert "register_module_settings(" in content
+        assert "app.state.orders =" not in content
 
     def test_scaffold_module_class_name(self, scaffolded_orders: Path):
         content = (scaffolded_orders / "module.py").read_text()
