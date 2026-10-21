@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import math
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_db.deps import get_db
+from simple_module_db.pagination import clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
@@ -108,9 +108,9 @@ async def browse(
     # and re-queried — otherwise the client gets an empty `items` list with a
     # nonzero `total`, which renders the correlation banner ("N entries") right
     # above an empty-state saying nothing matches.
-    total_pages = max(1, math.ceil(result.total / page_size_int))
-    if page_int > total_pages:
-        page_int = total_pages
+    clamped = clamp_page(page_int, result.total, page_size_int)
+    if clamped != page_int:
+        page_int = clamped
         result = await service.list_filtered(filters, page=page_int, page_size=page_size_int)
 
     # Resolve ids for display only — the stored row keeps the bare id, which

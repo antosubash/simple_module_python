@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.deps import get_db
+from simple_module_db.pagination import PageParams, clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -59,11 +59,11 @@ async def admin_index(
     clean_status, clean_verified, clean_sort, clean_order = sanitize_list_filters(
         status, verified, sort, order
     )
-    # Clamp before building filters, with the same bounds the service applies
-    # internally — the pagination prop must echo the values the query actually
-    # ran with, or ?page=0 renders page-1 rows labelled "Page 0".
-    page = max(page, 1)
-    per_page = max(1, min(per_page, 200))
+    # Normalise before building filters, with the same bounds the service
+    # applies internally — the pagination prop must echo the values the query
+    # actually ran with, or ?page=0 renders page-1 rows labelled "Page 0".
+    params = PageParams(page=page, per_page=per_page)
+    page, per_page = params.page, params.per_page
     filters = {
         "per_page": per_page,
         "search": q,
@@ -78,10 +78,9 @@ async def admin_index(
     # that page just got deleted) must be clamped and re-queried — otherwise
     # the client gets an empty `users` list with a nonzero `total`, which
     # renders a blank table instead of the last real page.
-    # per_page is already clamped to >= 1 above, so this can't divide by zero.
-    total_pages = max(1, math.ceil(total / per_page))
-    if page > total_pages:
-        page = total_pages
+    clamped = clamp_page(page, total, per_page)
+    if clamped != page:
+        page = clamped
         users, total = await service.list_users(page=page, **filters)
     roles = await service.list_roles()
     aggregates = await service.count_user_states()
