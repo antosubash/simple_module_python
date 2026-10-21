@@ -12,11 +12,10 @@ from typing import Any
 
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
-
-from settings._field_meta import choices_for, env_readable_var, resolve_default
+from simple_module_core.module_settings import get_module_settings_registry
 
 # Re-exported: callers reach for ``SECRET_MASK`` / ``is_secret_field`` here.
-from settings._secrets import (  # noqa: F401
+from simple_module_core.secret_fields import (  # noqa: F401
     _NEVER_SECRET_TYPES,
     SECRET_MASK,
     annotation_holds_secret,
@@ -26,8 +25,14 @@ from settings._secrets import (  # noqa: F401
     is_secret_field,
     mask,
 )
+from simple_module_core.settings_hydrate import (
+    env_supplied_fields,
+    input_type_for_field,
+    value_type_for_field,
+)
+
+from settings._field_meta import choices_for, env_readable_var, resolve_default
 from settings.env_vars import env_prefix_for
-from settings.hydrate import env_supplied_fields, input_type_for_field, value_type_for_field
 from settings.service import SettingService
 
 
@@ -199,7 +204,7 @@ def collect_module_settings(
     """Return a sorted, serializable view of every module's BaseSettings.
 
     Folds in both ``app.state.sm.modules`` (plugin modules) and additional
-    packages registered via ``app.state.settings.module_registry`` (e.g.
+    packages registered in the framework's module-settings registry (e.g.
     ``"host"``) that aren't backed by a ``ModuleBase`` instance.
 
     ``overrides`` maps package -> field names carrying a stored override. It
@@ -210,8 +215,7 @@ def collect_module_settings(
     views: list[ModuleSettingsView] = []
     seen: set[str] = set()
 
-    settings_services = getattr(app.state, "settings", None)
-    registry = getattr(settings_services, "module_registry", None)
+    registry = get_module_settings_registry(app)
 
     def _manage_url(package: str) -> str | None:
         return registry.manage_url(package) if registry is not None else None

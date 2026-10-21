@@ -37,45 +37,68 @@ Outside the non-prod environments, boot fails if `secret_key == "change-me-in-pr
 
 ## Module settings
 
-Each module that needs configuration declares a **`<Module>Env`** pydantic-settings class with its own `env_prefix` and a **`<Module>State`** dataclass to bundle settings plus any runtime-computed singletons.
+Each module that needs configuration declares a `DbBackedSettings` subclass
+(constructor + DB, no env source) and a services dataclass that bundles the
+settings with any runtime singletons, then registers both from
+`register_settings`:
 
 ```python
-# modules/users/users/settings.py
-from pydantic_settings import BaseSettings
+# modules/orders/orders/settings.py
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 
-class UsersEnv(BaseSettings):
-    allow_signup: bool = False
-    base_url: str | None = None
+class OrdersSettings(DbBackedSettings):
+    model_config = SettingsConfigDict(extra="ignore")
 
-    class Config:
-        env_prefix = "SM_USERS_"
+    max_items_per_order: int = 100
 ```
 
 ```python
-# modules/users/users/state.py
-from dataclasses import dataclass
+# modules/orders/orders/module.py
+from simple_module_core.module_settings import register_module_settings
 
 
-@dataclass
-class UsersState:
-    settings: UsersEnv
-    mailer: Mailer  # sends through the mail module's sender
-    principal_serializer: Callable[[User], dict]
-```
-
-Attach in `register_settings`:
-
-```python
-# modules/users/users/module.py
-class UsersModule(ModuleBase):
+class OrdersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        settings = UsersEnv()
-        app.state.users = UsersState(
-            settings=settings,
-            mailer=build_mailer(settings),
-            principal_serializer=serialize_user,
+        from orders.services import OrdersServices
+        from orders.settings import OrdersSettings
+
+        register_module_settings(
+            app, "orders", OrdersSettings, lambda s: OrdersServices(settings=s)
         )
+```
+
+`register_module_settings` records the class in the app's
+`ModuleSettingsRegistry` and mounts `services_factory(OrdersSettings())` on
+`app.state.orders`. The hosting lifespan then replaces
+`app.state.orders.settings` with an instance hydrated from the
+`settings_setting` table (env → DB → default) before any `on_startup` runs.
+
+The whole mechanism lives in the framework (#500), so it works whether or not
+the `settings` plugin is enabled; the plugin adds the admin editor, hot
+reload and the generic key/value API on top.
+
+| What | Import from |
+|---|---|
+| `register_module_settings`, `ModuleSettingsRegistry`, `module_settings_registry(app)` | `simple_module_core.module_settings` |
+| `hydrate_settings`, `build_settings`, `OverrideSource`, `RELATED_FIELDS_CTX`, field helpers | `simple_module_core.settings_hydrate` |
+| Secret-field masking (`conceals_secret`, `mask`, ...) | `simple_module_core.secret_fields` |
+| `Setting` model, scope/table constants, `get_overrides_sync`, `hydrate_settings_sync` | `simple_module_db.stored_settings` |
+
+The old plugin paths (`settings.registration`, `settings.module_registry`,
+`settings.hydrate`) still re-export these and emit a `DeprecationWarning`;
+`settings.models`, `settings._secrets` and the moved names in
+`settings.store` / `settings.constants` re-export them silently. They go no
+earlier than 0.1.0.
+
+A Celery worker or CLI script never runs the lifespan, so it hydrates
+synchronously:
+
+```python
+from simple_module_db.stored_settings import hydrate_settings_sync
+
+cfg = hydrate_settings_sync(OrdersSettings, session, "orders")
 ```
 
 ### Why `app.state.<module_lower>`?

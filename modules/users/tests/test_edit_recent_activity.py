@@ -102,7 +102,7 @@ class TestRecentActivity:
         settings.
         """
         from audit_log.models import AuditEntry
-        from settings.models import Setting
+        from simple_module_db.stored_settings import Setting
 
         user_id = await _admin_id(users_app)
         async with users_app.state.sm.db.session_factory() as session:

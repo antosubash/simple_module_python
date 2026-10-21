@@ -5,12 +5,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from settings.hydrate import hydrate_settings
 from settings.service import SettingService
 from settings.store import SettingsStore
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.health import HealthCheckResult, HealthStatus
 from simple_module_core.mail import MailSender, current_mail_sender, install_mail_sender
+from simple_module_core.settings_hydrate import hydrate_settings
 
 from mail import constants as c
 from mail.sender import build_sender

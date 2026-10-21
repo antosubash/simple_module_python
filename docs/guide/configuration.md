@@ -83,15 +83,16 @@ From then on, edit at `/admin/settings/` (requires the `settings.manage` permiss
 
 ## Per-module settings convention
 
-When you write your own module, declare settings as a `pydantic_settings.BaseSettings` subclass and store them on `app.state.<module_lower>` (the lowercase package name) inside `register_settings(app)`. Env-var prefix is `SM_<MODULE>_*`.
+When you write your own module, declare settings as a `DbBackedSettings` subclass (`simple_module_core.settings_base`; constructor + DB, no env source) and register it from `register_settings(app)` with `register_module_settings`, which mounts your services object on `app.state.<module_lower>` (the lowercase package name) and lets the host hydrate it from the database before `on_startup`.
 
 ```python
 # modules/orders/orders/settings.py
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 
-class OrdersSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SM_ORDERS_", extra="ignore")
+class OrdersSettings(DbBackedSettings):
+    model_config = SettingsConfigDict(extra="ignore")
 
     max_items_per_order: int = 100
 
@@ -107,12 +108,17 @@ class OrdersServices:
 
 
 # modules/orders/orders/module.py
+from simple_module_core.module_settings import register_module_settings
+
+
 class OrdersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from orders.services import OrdersServices
         from orders.settings import OrdersSettings
 
-        app.state.orders = OrdersServices(settings=OrdersSettings())
+        register_module_settings(
+            app, "orders", OrdersSettings, lambda s: OrdersServices(settings=s)
+        )
 ```
 
 If you override `register_settings` but don't write to `app.state.<module_lower>`, diagnostic `SM012` warns in dev. See [Settings & app.state](/framework/settings) for details.

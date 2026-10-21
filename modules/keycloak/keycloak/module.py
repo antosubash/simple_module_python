@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -26,15 +27,9 @@ class KeycloakModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-        import importlib
-
         from keycloak.provider import KeycloakAuthProvider
         from keycloak.settings import KeycloakSettings
         from keycloak.state import KeycloakState
-
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
 
         register_module_settings(
             app,

@@ -20,9 +20,7 @@ Two distinct surfaces:
 
 ### Register module settings
 
-The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `register_settings`) is documented in [Per-module settings convention](/guide/configuration#per-module-settings-convention). What the settings module adds on top:
-
-- **DB hydration**: `app.state.<package>.settings` is replaced with a fresh instance built from DB overrides + pydantic defaults during the host's hydrate phase, before `on_startup` runs.
+The pattern (a `DbBackedSettings` subclass + `register_module_settings` from `simple_module_core.module_settings` in `register_settings`) is documented in [Settings & app.state](/framework/settings#module-settings). Registration and boot-time DB hydration belong to the framework since #500 and work with this module disabled. What the settings module adds on top:
 - **Env-var migration**: `smpy settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
 - **Admin editing**: registered fields appear under that package at `/admin/settings/` with type-aware inputs.
 - **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
@@ -32,7 +30,7 @@ The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `r
 `DbBackedSettings` subclasses ignore the environment, and only the hosting lifespan hydrates `app.state.<package>.settings`. A Celery worker (or CLI script) never runs that lifespan, so a bare `FileStorageSettings()` there silently returns pydantic defaults. Hydrate synchronously instead:
 
 ```python
-from settings.hydrate import hydrate_settings_sync
+from simple_module_db.stored_settings import hydrate_settings_sync
 
 cfg = hydrate_settings_sync(FileStorageSettings, session, "file_storage")
 ```

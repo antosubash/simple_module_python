@@ -341,9 +341,13 @@ development and testing (`session_cookie_secure`).
   is marked restart-required (`test_build_time_settings_marked.py`).
   Module settings are a `DbBackedSettings` subclass (constructor + DB, no env
   source) registered in `register_settings` through
-  `settings.registration.register_module_settings(app, package, SettingsCls,
-  services_factory)`, which mounts the services object on `app.state.<package>`
-  (`SM012`). The exceptions that read env are secrets and process wiring
+  `simple_module_core.module_settings.register_module_settings(app, package,
+  SettingsCls, services_factory)`, which mounts the services object on
+  `app.state.<package>` (`SM012`). Registration, hydration and the
+  `settings_setting` table (`simple_module_db.stored_settings`) belong to the
+  framework and work with the `settings` plugin disabled; the plugin's
+  `settings.registration`/`module_registry`/`hydrate` are deprecated
+  re-exports. The exceptions that read env are secrets and process wiring
   (`SM_BG_TASKS_*`, `SM_KEYCLOAK_*`, `SM_USERS_*_TOKEN_SECRET`).
   `docs/framework/settings.md`, `docs/reference/env-vars.md`.
 - **Framework must not import plugins** (`SM009`): nothing under `framework/`
@@ -397,9 +401,8 @@ development and testing (`session_cookie_secure`).
 `make new-module name=<name>` scaffolds the package, wires it into
 `host/pyproject.toml` and the root `testpaths`/`extra-paths`, and runs
 `uv sync`. Expect `make lint` to fail right after: the scaffold still emits a
-literal `inertia.render("<Class>/Create")`, permission and menu strings
-without constants or `label_key`, and sets `app.state.<pkg>` directly instead
-of calling `register_module_settings`. Fix those first. It also does **not**:
+literal `inertia.render("<Class>/Create")` and permission and menu strings
+without constants or `label_key`. Fix those first. It also does **not**:
 
 1. Run `npm install`, so regenerate and commit `package-lock.json` (CI uses
    `npm ci`). Commit the `uv.lock` change the scaffold's

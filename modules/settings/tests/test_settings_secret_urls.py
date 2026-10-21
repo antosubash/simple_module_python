@@ -140,22 +140,22 @@ class TestContainersAreWalked:
     """
 
     def test_a_dsn_in_a_list_is_a_credential(self):
-        from settings._secrets import embeds_credential
+        from simple_module_core.secret_fields import embeds_credential
 
         assert embeds_credential(["redis://localhost:6379/0", _WITH_PASSWORD]) is True
 
     def test_a_dsn_in_a_dict_value_is_a_credential(self):
-        from settings._secrets import embeds_credential
+        from simple_module_core.secret_fields import embeds_credential
 
         assert embeds_credential({"primary": _WITH_PASSWORD}) is True
 
     def test_a_nested_container_is_walked(self):
-        from settings._secrets import embeds_credential
+        from simple_module_core.secret_fields import embeds_credential
 
         assert embeds_credential({"shards": [{"dsn": _WITH_PASSWORD}]}) is True
 
     def test_password_free_containers_stay_visible(self):
-        from settings._secrets import embeds_credential
+        from simple_module_core.secret_fields import embeds_credential
 
         assert embeds_credential(["redis://localhost:6379/0"]) is False
         assert embeds_credential({"n": 5, "flag": True, "url": "https://example.com"}) is False

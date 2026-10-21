@@ -9,7 +9,7 @@ stored value.
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from settings.hydrate import build_settings, env_supplied_fields
+from simple_module_core.settings_hydrate import build_settings, env_supplied_fields
 
 
 class _Unprefixed(BaseSettings):

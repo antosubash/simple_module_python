@@ -14,10 +14,10 @@ import pytest
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from settings._module_settings import SECRET_MASK
-from settings._secrets import annotation_holds_secret
-from settings.registration import register_module_settings
 from settings.service import SettingService
 from settings.store import SettingsStore
+from simple_module_core.module_settings import register_module_settings
+from simple_module_core.secret_fields import annotation_holds_secret
 
 PACKAGE = "typedsecret"
 URL = f"/api/settings/modules/{PACKAGE}"

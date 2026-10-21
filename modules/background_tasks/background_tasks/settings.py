@@ -43,7 +43,7 @@ from typing import Any
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from settings.hydrate import RELATED_FIELDS_CTX
+from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX
 
 from background_tasks.config_guards import parse_task_routes
 from background_tasks.constants import (

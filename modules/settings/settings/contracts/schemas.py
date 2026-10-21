@@ -7,13 +7,8 @@ from datetime import datetime
 from enum import StrEnum
 
 from pydantic import ConfigDict, model_validator
-from sqlmodel import Field, SQLModel
-
-from settings.constants import (
+from simple_module_db.stored_settings import (
     DESCRIPTION_MAX_LENGTH,
-    ERR_SCOPED_REQUIRES_ID,
-    ERR_SYSTEM_SCOPE_NO_ID,
-    ERR_VALUE_MISMATCH,
     KEY_MAX_LENGTH,
     SCOPE_ID_MAX_LENGTH,
     SCOPE_SYSTEM,
@@ -27,6 +22,9 @@ from settings.constants import (
     VALUE_TYPE_JSON,
     VALUE_TYPE_STRING,
 )
+from sqlmodel import Field, SQLModel
+
+from settings.constants import ERR_SCOPED_REQUIRES_ID, ERR_SYSTEM_SCOPE_NO_ID, ERR_VALUE_MISMATCH
 
 _BOOL_LITERALS = frozenset(
     {"true", "false", "1", "0", "t", "f", "yes", "no", "y", "n", "on", "off"}

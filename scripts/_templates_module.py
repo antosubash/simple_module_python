@@ -23,6 +23,7 @@ def module_py(ctx: ScaffoldContext) -> str:
         from fastapi import APIRouter, FastAPI
         from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
         from simple_module_core.module import ModuleBase, ModuleMeta
+        from simple_module_core.module_settings import register_module_settings
         from simple_module_core.permissions import PermissionRegistry
 
 
@@ -37,7 +38,12 @@ def module_py(ctx: ScaffoldContext) -> str:
                 from {ctx.pkg}.services import {ctx.class_name}Services
                 from {ctx.pkg}.settings import {ctx.class_name}Settings
 
-                app.state.{ctx.pkg} = {ctx.class_name}Services(settings={ctx.class_name}Settings())
+                register_module_settings(
+                    app,
+                    "{ctx.pkg}",
+                    {ctx.class_name}Settings,
+                    lambda s: {ctx.class_name}Services(settings=s),
+                )
 
             def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
                 from {ctx.pkg}.endpoints.api import router as api
@@ -80,9 +86,11 @@ def settings_py(ctx: ScaffoldContext) -> str:
         """{ctx.class_name} module settings (DB-backed).
 
         Values come from the pydantic defaults below at boot, then get hydrated
-        from the settings store by the hosting lifespan before module
-        ``on_startup`` runs. Runtime changes go through
-        ``settings.reload.apply_changes_and_reload``.
+        from the settings table by the hosting lifespan before module
+        ``on_startup`` runs (``register_module_settings`` in ``module.py``
+        records the class). ``DbBackedSettings`` reads no environment
+        variables: the DB is the only source. Runtime changes go through the
+        Settings admin screen (``settings.reload.apply_changes_and_reload``).
 
         Add fields as the module needs them; an empty settings class is fine
         until then. ``extra="ignore"`` keeps an unknown stored key from
@@ -91,10 +99,11 @@ def settings_py(ctx: ScaffoldContext) -> str:
 
         from __future__ import annotations
 
-        from pydantic_settings import BaseSettings, SettingsConfigDict
+        from pydantic_settings import SettingsConfigDict
+        from simple_module_core.settings_base import DbBackedSettings
 
 
-        class {ctx.class_name}Settings(BaseSettings):
+        class {ctx.class_name}Settings(DbBackedSettings):
             """Configuration for the {ctx.pkg} module."""
 
             model_config = SettingsConfigDict(extra="ignore")

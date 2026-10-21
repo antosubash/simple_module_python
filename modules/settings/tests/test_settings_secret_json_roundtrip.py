@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from settings.hydrate import build_settings
 from settings.reload import apply_changes_and_reload
+from simple_module_core.settings_hydrate import build_settings
 
 
 class _SecretCfg(BaseSettings):
@@ -39,7 +39,7 @@ def _app():
     registry = SimpleNamespace(get=lambda package: _SecretCfg)
     return SimpleNamespace(
         state=SimpleNamespace(
-            settings=SimpleNamespace(module_registry=registry),
+            module_settings_registry=registry,
             secretjson=SimpleNamespace(settings=_SecretCfg()),
         )
     )

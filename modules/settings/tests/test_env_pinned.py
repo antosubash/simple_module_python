@@ -13,13 +13,13 @@ import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from settings.registration import register_module_settings
 from settings.reload import EnvPinnedError, apply_changes_and_reload
 from settings.service import SettingService
 from settings.services import SettingsServices
 from settings.settings import SettingsSettings
 from settings.store import SettingsStore
 from simple_module_core.events import EventBus
+from simple_module_core.module_settings import register_module_settings
 
 
 class _Cfg(BaseSettings):

@@ -36,18 +36,23 @@ Forbidden in module code: `pydantic.BaseModel` for DTOs, and SQLAlchemy `Declara
 
 Treat 300 lines as the design pressure on every `.py`, `.ts`, and `.tsx` file (the reference codebase enforces this in CI). When you approach it, **split by responsibility** — don't golf comments and blank lines to squeeze under.
 
-### 3. Per-module settings: `SM_<MODULE>_*` on `app.state.<module>`
+### 3. Per-module settings: `register_module_settings` → `app.state.<module>`
 
 ```python
+from simple_module_core.module_settings import register_module_settings
+
+
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.settings import UsersSettings  # reads SM_USERS_* env
+        from users.settings import UsersSettings  # a DbBackedSettings subclass
         from users.state import UsersState
 
-        app.state.users = UsersState(settings=UsersSettings())
+        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 ```
 
-- Env-var prefix is **always** `SM_<MODULE_UPPER>_*`. Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
+- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env.
+- Import from the framework, not the plugin: `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers). `settings.registration` / `settings.module_registry` / `settings.hydrate` are deprecated re-exports.
+- Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.
 - If you override `register_settings` and don't add anything to `app.state.<module>`, `SM012` fires at dev boot.
 

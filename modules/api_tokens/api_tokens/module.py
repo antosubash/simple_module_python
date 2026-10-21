@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 from simple_module_core.tenancy import TenantRole, tenant_role
 
 from api_tokens import constants as c
@@ -34,11 +35,6 @@ class ApiTokensModule(ModuleBase):
         from api_tokens.services import ApiTokensServices
         from api_tokens.settings import ApiTokensSettings
 
-        # SM009 is AST-based: resolve via importlib like the other
-        # settings-backed modules.
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
         register_module_settings(
             app,
             c.MODULE_PACKAGE,

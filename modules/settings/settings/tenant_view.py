@@ -8,10 +8,10 @@ Used by the self-service list endpoint and by the tenant settings page.
 
 from __future__ import annotations
 
+from simple_module_core.secret_fields import conceals_secret, mask
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 from sqlmodel import SQLModel
 
-from settings._secrets import conceals_secret, mask
-from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.registry import SettingsRegistry
 from settings.contracts.schemas import SettingScope, SettingValueType
 from settings.service import SettingService

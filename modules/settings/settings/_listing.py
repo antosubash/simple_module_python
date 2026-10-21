@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID, Setting
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from settings._row_masking import out
-from settings.constants import (
-    ALL_SCOPES,
-    DEFAULT_PER_PAGE,
-    SCOPE_ALL,
-    SYSTEM_SCOPE_ID,
-)
+from settings.constants import ALL_SCOPES, DEFAULT_PER_PAGE, SCOPE_ALL
 from settings.contracts.schemas import SettingOut, SettingScope
-from settings.models import Setting
 
 
 class SettingListing:

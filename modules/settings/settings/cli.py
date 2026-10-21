@@ -14,10 +14,10 @@ from collections.abc import Mapping
 import typer
 from fastapi import FastAPI
 from simple_module_core.dotenv import find_env_file, parse_dotenv
+from simple_module_core.module_settings import module_settings_registry
+from simple_module_core.settings_hydrate import value_type_for_field
 
-from settings.constants import MODULE_PACKAGE
 from settings.env_vars import env_prefix_for
-from settings.hydrate import value_type_for_field
 from settings.store import SettingsStore
 
 app = typer.Typer(help="Settings module administration.", no_args_is_help=True)
@@ -35,7 +35,7 @@ async def import_from_env_impl(
     """
     if environ is None:
         environ = {**parse_dotenv(find_env_file()), **os.environ}
-    registry = getattr(app_inst.state, MODULE_PACKAGE).module_registry
+    registry = module_settings_registry(app_inst)
     count = 0
     for package, cls in registry.items():
         prefix = env_prefix_for(package)

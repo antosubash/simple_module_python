@@ -2,10 +2,9 @@
 
 Shared by the two places that turn ``settings_setting`` rows into a settings
 object: the hosting layer's pre-app read (``_preapp_config``), which runs
-before any module is importable as a plugin, and the settings module's
-hydrator (``settings.hydrate``). It lives in the framework because the
-framework may not import a plugin (SM009), while a plugin may import the
-framework — so one copy here keeps the two parsers from drifting.
+before any module is importable as a plugin, and the module-settings
+hydrator (``simple_module_core.settings_hydrate``). One copy keeps the two
+parsers from drifting.
 """
 
 from __future__ import annotations

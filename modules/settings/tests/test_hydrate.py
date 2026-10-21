@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from settings.hydrate import hydrate_settings, value_type_for_field
 from settings.service import SettingService
 from settings.store import SettingsStore
+from simple_module_core.settings_hydrate import hydrate_settings, value_type_for_field
 
 
 class _Cfg(BaseSettings):
@@ -69,8 +69,7 @@ def test_value_type_for_bool_int_float_str_list() -> None:
 
 
 def test_hydrate_sync_matches_async_parsing(tmp_path) -> None:
-    from settings.hydrate import hydrate_settings_sync
-    from settings.models import Setting
+    from simple_module_db.stored_settings import Setting, hydrate_settings_sync
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
@@ -175,8 +174,7 @@ async def test_env_var_beats_a_stored_override(db_session, monkeypatch) -> None:
 
 
 def test_env_beats_db_for_sync_hydration(tmp_path, monkeypatch) -> None:
-    from settings.hydrate import hydrate_settings_sync
-    from settings.models import Setting
+    from simple_module_db.stored_settings import Setting, hydrate_settings_sync
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 

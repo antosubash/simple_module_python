@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 from settings._managed_keys import ManagedKeyError
-from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.registry import SettingDefinition, clear_route
 from settings.contracts.schemas import SettingScope, SettingUpsert
 from settings.service import SettingService
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 
 KEY = "demo.scoped_logo"
 SYSTEM_ROUTE = "/api/demo/logo"

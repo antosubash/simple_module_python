@@ -78,10 +78,3 @@ def test_unreachable_postgres_refuses_boot_outside_development() -> None:
     url = "postgresql+asyncpg://nobody:nobody@127.0.0.1:1/nothing"
     with pytest.raises(HostSettingsUnavailableError):
         merge_host_settings(_bootstrap(url, "production"))
-
-
-def test_no_settings_module_never_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without the settings module there is nothing stored to lose."""
-    monkeypatch.setattr(_preapp_config, "_settings_table", lambda: None)
-    url = "postgresql+asyncpg://nobody:nobody@127.0.0.1:1/nothing"
-    assert load_host_overrides(url, strict=True) == {}

@@ -19,8 +19,8 @@ TABLE_OUTBOX = f"{TABLE_PREFIX}outbox"
 
 # ── Module dependencies ─────────────────────────────────────────
 _MODULE_USERS = "Users"
-# register_settings() calls settings.registration.register_module_settings,
-# which reads app.state.settings — so Settings must register first.
+# Sorted after Settings for its admin editor and reload path; registering
+# settings itself no longer needs it (the framework owns the registry, #500).
 _MODULE_SETTINGS = "Settings"
 
 # ── Env / settings ──────────────────────────────────────────────

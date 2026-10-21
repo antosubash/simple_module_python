@@ -1,5 +1,10 @@
 """DB-backed key/value store for module settings (SYSTEM scope).
 
+The read-only queries (``package_overrides``, ``get_overrides_sync``) moved to
+``simple_module_db.stored_settings`` with the table (#500) and are re-exported
+here. ``SettingsStore`` satisfies
+``simple_module_core.settings_hydrate.OverrideSource``.
+
 Wraps the existing SettingService. Keys are namespaced ``<package>.<field>``
 to avoid collision with free-form user-defined setting keys.
 
@@ -13,14 +18,13 @@ see ``_module_settings._field_view``.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from simple_module_db.stored_settings import (  # noqa: F401  (re-exported, #500)
+    SYSTEM_SCOPE_ID,
+    get_overrides_sync,
+    package_overrides,
+)
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.schemas import SettingScope, SettingUpsert, SettingValueType
-from settings.models import Setting
 from settings.service import SettingService
 
 
@@ -28,43 +32,11 @@ def _key(package: str, field: str) -> str:
     return f"{package}.{field}"
 
 
-def package_overrides(
-    rows: Iterable[tuple[str, str, str]], package: str
-) -> dict[str, tuple[str, str]]:
-    """Map ``(key, value, value_type)`` rows to ``{field_name: (raw, value_type)}``.
-
-    The one place the ``<package>.<field>`` key format is interpreted, shared by
-    the async :meth:`SettingsStore.get_overrides` and the sync
-    :func:`get_overrides_sync` so the two cannot drift.
-    """
-    prefix = f"{package}."
-    out: dict[str, tuple[str, str]] = {}
-    for key, value, value_type in rows:
-        if not key.startswith(prefix):
-            continue
-        field_name = key[len(prefix) :]
-        if "." in field_name:
-            continue
-        out[field_name] = (value, value_type)
-    return out
-
-
-def get_overrides_sync(session: Session, package: str) -> dict[str, tuple[str, str]]:
-    """Sync twin of :meth:`SettingsStore.get_overrides` for worker processes.
-
-    Reads SYSTEM-scope rows through a plain sync ``Session`` (unmasked, like the
-    async path — this feeds live settings objects, not a screen).
-    """
-    stmt = select(Setting.key, Setting.value, Setting.value_type).where(
-        Setting.scope == SettingScope.SYSTEM.value,
-        Setting.scope_id == SYSTEM_SCOPE_ID,
-        Setting.key.startswith(f"{package}.", autoescape=True),
-    )
-    return package_overrides(session.execute(stmt).tuples(), package)
-
-
 class SettingsStore:
-    """SYSTEM-scoped key/value store keyed by ``(package, field)``."""
+    """SYSTEM-scoped key/value store keyed by ``(package, field)``.
+
+    Satisfies ``OverrideSource`` for :func:`hydrate_settings`.
+    """
 
     def __init__(self, service: SettingService) -> None:
         self._service = service

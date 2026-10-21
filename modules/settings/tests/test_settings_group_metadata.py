@@ -20,7 +20,7 @@ def test_string_literal_field_is_a_string_select():
     from typing import Literal
 
     from settings._field_meta import choices_for
-    from settings.hydrate import input_type_for_field, value_type_for_field
+    from simple_module_core.settings_hydrate import input_type_for_field, value_type_for_field
 
     class Config(BaseSettings):
         mode: Literal["lax", "strict"] = "lax"

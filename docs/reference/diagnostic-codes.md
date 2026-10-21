@@ -17,7 +17,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM004` | WARNING | An `inertia.render("<Module>/<name>")` call exists but no matching `.tsx` file is shipped. | Create `pages/<name>.tsx`, or correct the render key. |
 | `SM007` | INFO | Module overrides zero `register_*` hooks and has no `on_startup`/`on_shutdown`. | Delete the module if it's vestigial; otherwise ignore. |
 | `SM008` | ERROR | Two modules declare the same `ModuleMeta.name`. Table-prefix collision. | Rename one. Remember: the name is the table-name prefix (all modules share one DB schema) and the Inertia namespace. |
-| `SM009` | ERROR | A file under `framework/*` imports from any package under `modules/*`. | Invert the dependency: have the module register a callback into the framework (see `principal_serializer` pattern). |
+| `SM009` | ERROR | A file under `framework/*` imports from any package under `modules/*`, including dynamic imports with literal names or fixed f-string package prefixes. | Invert the dependency: have the module register a callback into the framework (see `principal_serializer` pattern). |
 | `SM010` | ERROR | DB `alembic_version` is behind the migration head. | Run `make migrate`. The lifespan migration check raises and aborts boot in every environment before serving. |
 | `SM011` | WARNING | A module's model declares a table that doesn't appear in any Alembic migration. | Run `uv run alembic revision --autogenerate -m "..."`, review, `make migrate`. |
 | `SM012` | WARNING | Module overrides `register_settings` but does not assign to `app.state.<module_lower>`. Dev-only. | Either remove the override or move your state assignment into it. |

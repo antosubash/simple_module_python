@@ -19,12 +19,24 @@ import os
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 
-from sqlalchemy import inspect, text
+from simple_module_db.stored_settings import (
+    COL_KEY,
+    COL_SCOPE,
+    COL_SCOPE_ID,
+    COL_VALUE,
+    COL_VALUE_TYPE,
+    SCOPE_SYSTEM,
+    SYSTEM_SCOPE_ID,
+    VALUE_TYPE_STRING,
+    settings_table_clause,
+    settings_table_exists_on,
+)
+from sqlalchemy import and_, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from simple_module_hosting._preapp_config import HOST_PACKAGE, _settings_table
+from simple_module_hosting._preapp_config import HOST_PACKAGE
 
 logger = logging.getLogger(__name__)
 
@@ -61,16 +73,17 @@ def assert_not_placeholder(settings) -> None:
     )
 
 
-async def _fetch(conn, table: str, scope: str, scope_id: str) -> str | None:
-    row = (
-        await conn.execute(
-            text(
-                f"SELECT value FROM {table} WHERE scope = :scope "
-                "AND scope_id = :scope_id AND key = :key"
-            ),
-            {"scope": scope, "scope_id": scope_id, "key": _KEY},
-        )
-    ).first()
+_T = settings_table_clause()
+# The one row this module reads and writes: SYSTEM scope, key ``host.secret_key``.
+_ROW = and_(
+    _T.c[COL_SCOPE] == SCOPE_SYSTEM,
+    _T.c[COL_SCOPE_ID] == SYSTEM_SCOPE_ID,
+    _T.c[COL_KEY] == _KEY,
+)
+
+
+async def _fetch(conn) -> str | None:
+    row = (await conn.execute(select(_T.c[COL_VALUE]).where(_ROW))).first()
     return row[0] if row else None
 
 
@@ -88,17 +101,12 @@ async def _ensure(database_url: str) -> str | None:
     ``None`` means one thing only: the settings table does not exist yet, i.e.
     a confirmed fresh install. Every other failure raises.
     """
-    info = _settings_table()
-    if info is None:
-        return None
-    table, scope, scope_id = info
-
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
-            if not await conn.run_sync(lambda sync: inspect(sync).has_table(table)):
+            if not await settings_table_exists_on(conn):
                 return None
-            existing = await _fetch(conn, table, scope, scope_id)
+            existing = await _fetch(conn)
             if existing:
                 return existing
 
@@ -116,31 +124,31 @@ async def _ensure(database_url: str) -> str | None:
         # contextlib.suppress is a sync context manager and does not implement
         # the async protocol, so `async with engine.begin(), suppress(...)`
         # raises TypeError at runtime.
-        params = {"scope": scope, "scope_id": scope_id, "key": _KEY, "value": _generate()}
+        value = _generate()
         async with engine.begin() as conn:
             if existing == "":
                 # A blank row would otherwise defeat the insert forever and
                 # leave every boot on an ephemeral key. Repair it in place; the
                 # ``value = ''`` guard lets exactly one concurrent worker win.
                 await conn.execute(
-                    text(  # table name is a module constant, never user input
-                        f"UPDATE {table} SET value = :value WHERE scope = :scope "
-                        "AND scope_id = :scope_id AND key = :key AND value = ''"
-                    ),
-                    params,
+                    update(_T).where(_ROW, _T.c[COL_VALUE] == "").values({COL_VALUE: value})
                 )
             else:
                 with contextlib.suppress(IntegrityError):
                     await conn.execute(
-                        text(  # table name is a module constant, never user input
-                            f"INSERT INTO {table} (scope, scope_id, key, value, value_type) "
-                            "VALUES (:scope, :scope_id, :key, :value, 'string')"
-                        ),
-                        params,
+                        insert(_T).values(
+                            {
+                                COL_SCOPE: SCOPE_SYSTEM,
+                                COL_SCOPE_ID: SYSTEM_SCOPE_ID,
+                                COL_KEY: _KEY,
+                                COL_VALUE: value,
+                                COL_VALUE_TYPE: VALUE_TYPE_STRING,
+                            }
+                        )
                     )
 
         async with engine.connect() as conn:
-            stored = await _fetch(conn, table, scope, scope_id)
+            stored = await _fetch(conn)
     finally:
         await engine.dispose()
     if not stored:
@@ -165,7 +173,7 @@ def ensure_secret_key(
 
     Anywhere else an ephemeral key means each worker signs with its own and
     rejects its siblings' sessions. So with ``strict`` (outside development) a
-    failed lookup or save, or no settings module to store the key in, raises
+    failed lookup or save raises
     :class:`SecretKeyUnavailableError`; without it, it warns and falls back.
 
     ``stored`` is the value the caller already read from the settings table,
@@ -180,10 +188,6 @@ def ensure_secret_key(
         return stored
 
     try:
-        if _settings_table() is None:
-            raise RuntimeError(
-                "the settings module is not installed, so there is nowhere to store it"
-            )
         with ThreadPoolExecutor(max_workers=1) as pool:
             resolved = pool.submit(lambda: asyncio.run(_ensure(database_url))).result()
     except Exception as exc:

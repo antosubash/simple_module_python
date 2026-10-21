@@ -8,8 +8,8 @@ import pytest
 from background_tasks import sync_db
 from background_tasks.worker_settings import clear_settings_cache, settings_for
 from pydantic import Field
-from settings.models import Setting
 from simple_module_core.settings_base import DbBackedSettings
+from simple_module_db.stored_settings import Setting
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 

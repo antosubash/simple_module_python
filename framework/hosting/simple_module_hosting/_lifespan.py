@@ -19,7 +19,10 @@ from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from simple_module_core.module_settings import get_module_settings_registry
+from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
+from simple_module_hosting._hydrate_step import hydrate_all
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting.migrations import migration_status
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
@@ -30,27 +33,23 @@ logger = logging.getLogger(__name__)
 async def hydrate_settings_from_db(app: FastAPI) -> None:
     """Merge DB-stored overrides into every registered settings object.
 
-    Resolved through ``importlib`` rather than a static import because the
-    SM009 coupling check is AST-based and forbids ``framework/*`` from naming
-    a plugin package. No-ops when the settings module isn't installed.
+    Reads the settings table directly (``simple_module_db.stored_settings``),
+    so it works whether or not the ``settings`` plugin is enabled (#500). A
+    missing table is a fresh install: nothing is stored yet, so there is
+    nothing to merge.
 
     Note this is the *second* settings read of a boot. The first happens in
     ``_preapp_config`` before ``create_app`` builds anything, because the
     module list, i18n registry and middleware stack are all constructed from
     settings and cannot be rebuilt from here.
     """
-    if not hasattr(app.state, "settings"):
+    if get_module_settings_registry(app) is None:
         return
 
-    import importlib
-
-    from simple_module_hosting._hydrate_step import hydrate_all
-
-    service_cls = importlib.import_module("settings.service").SettingService
-    store_cls = importlib.import_module("settings.store").SettingsStore
-
     async with app.state.sm.db.session_factory() as session:
-        await hydrate_all(app, store_cls(service_cls(session)), session)
+        if not await settings_table_exists(session):
+            return
+        await hydrate_all(app, SessionOverrideSource(session), session)
 
 
 async def _is_first_run(app: FastAPI) -> bool:

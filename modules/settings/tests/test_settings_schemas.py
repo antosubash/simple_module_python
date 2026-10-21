@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.schemas import (
     SettingCreate,
     SettingScope,
@@ -12,6 +11,7 @@ from settings.contracts.schemas import (
     SettingUpsert,
     SettingValueType,
 )
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 
 
 class TestScopeValidation:
