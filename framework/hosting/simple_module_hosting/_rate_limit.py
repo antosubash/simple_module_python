@@ -36,11 +36,10 @@ from simple_module_core.rate_limit import (
 )
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from simple_module_hosting._rate_limit_keys import rule_bucket, rule_key
-from simple_module_hosting._rate_limit_store import _LUA, RedisWindowStore, build_store
+from simple_module_hosting._rate_limit_keys import KEY_IP, KEY_USER_OR_IP, rule_bucket, rule_key
 from simple_module_hosting._request_guard_responses import send_guard_response
 
-__all__ = ["_LUA", "RateLimitMiddleware", "RedisWindowStore", "build_store"]
+__all__ = ["RateLimitMiddleware"]
 
 logger = logging.getLogger("simple_module.request_guard")
 
@@ -67,7 +66,7 @@ class RateLimitMiddleware:
         if authed:
             if self.authenticated_rate is None:
                 return None
-            return "auth", self.authenticated_rate, "user_or_ip"
+            return "auth", self.authenticated_rate, KEY_USER_OR_IP
         registry = getattr(scope["app"].state, "public_routes", None)
         rule = registry.match(scope["method"], scope["path"]) if registry is not None else None
         flag = scope.get("state", {}).get("auth_public")
@@ -80,10 +79,10 @@ class RateLimitMiddleware:
         if rule is not None and rule.rate is not None:
             spec = rule.rate_spec
             bucket = rule_bucket(rule.kind, rule.pattern, rule.methods)
-            return (bucket, spec, "ip") if spec is not None else None
+            return (bucket, spec, KEY_IP) if spec is not None else None
         if self.public_rate is None:
             return None
-        return "public", self.public_rate, "ip"
+        return "public", self.public_rate, KEY_IP
 
     def _rule(self, scope: Scope) -> tuple[str, RateLimitRule] | None:
         registry = getattr(scope["app"].state, "rate_limit_rules", None)

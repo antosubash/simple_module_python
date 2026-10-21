@@ -44,7 +44,6 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 API_OPENAPI_URL = "/api/openapi.json"
-_API_PREFIX = API_PREFIX
 BEARER_SCHEME = "bearerAuth"
 SESSION_SCHEME = "sessionCookie"
 
@@ -136,7 +135,7 @@ def install_openapi_filter(app: FastAPI) -> None:
                 warnings.filterwarnings("ignore", message="Duplicate Operation ID")
                 schema = original()
             schema["paths"] = {
-                p: v for p, v in schema.get("paths", {}).items() if p.startswith(_API_PREFIX)
+                p: v for p, v in schema.get("paths", {}).items() if p.startswith(API_PREFIX)
             }
             dedupe_operation_ids(schema)
             add_security(app, schema)

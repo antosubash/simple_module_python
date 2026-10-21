@@ -111,6 +111,7 @@ class BackgroundTasksSettings(WorkerDatabaseSettings):
     )
     task_default_queue: str = Field(default=DEFAULT_QUEUE, json_schema_extra=_CELERY_RESTART)
 
+    # ── Routing (GH #447) ───────────────────────────────────
     # Applied over every module's ``task_config.TASK_ROUTES``. Lets an operator
     # re-route a task (``{"reports.*": "heavy"}``) without a code change.
     task_routes_override: dict[str, Any] = Field(

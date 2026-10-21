@@ -18,8 +18,6 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting.host_settings import HostSettings
 
-HOST_API_PREFIX = "/api/"
-
 
 def host_policy(settings: HostSettings) -> CorsPolicy | None:
     """The ``/api/`` policy from ``cors_*`` settings; ``None`` when no origin is set."""
