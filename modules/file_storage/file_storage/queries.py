@@ -16,6 +16,7 @@ from __future__ import annotations
 from urllib.parse import quote
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
+from simple_module_db.pagination import PageParams
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -116,8 +117,9 @@ async def page_of_files(
     query = select(StoredFile)
     for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
         query = query.where(clause)
+    params = PageParams(page=page, per_page=per_page)
     result = await db.execute(
-        query.order_by(*order_clauses(sort)).offset((page - 1) * per_page).limit(per_page)
+        query.order_by(*order_clauses(sort)).offset(params.offset).limit(params.per_page)
     )
     return [StoredFileOut.model_validate(to_out_dict(r)) for r in result.scalars().all()]
 

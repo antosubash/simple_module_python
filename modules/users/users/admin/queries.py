@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
+from simple_module_db.pagination import PageParams
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -132,8 +133,7 @@ class _UserServiceBase:
         """
         # Clamp here, not in the endpoints: the admin view takes these params
         # raw, and a page<=0 would reach SQL as a negative OFFSET.
-        page = max(page, 1)
-        per_page = max(1, min(per_page, 200))
+        params = PageParams(page=page, per_page=per_page)
         stmt = select(
             User.id,  # ty: ignore[invalid-argument-type]
             User.email,  # ty: ignore[invalid-argument-type]
@@ -197,7 +197,7 @@ class _UserServiceBase:
         else:
             order_clause = sort_col.desc() if order == "desc" else sort_col.asc()
 
-        stmt = stmt.order_by(order_clause).offset((page - 1) * per_page).limit(per_page)
+        stmt = stmt.order_by(order_clause).offset(params.offset).limit(params.per_page)
         rows = (await self._db.execute(stmt)).all()
 
         # One batched roles query, grouped in Python — DB-agnostic (no

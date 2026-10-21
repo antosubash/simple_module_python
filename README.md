@@ -152,7 +152,7 @@ packages/
   ui/          # shared shadcn/ui components, layouts, and design-system primitives
   i18n/        # generated i18n keys + translation runtime
 scripts/
-  new_module.py  # module scaffolder (called by `make new-module`)
+  new_module.py  # thin wrapper over the CLI scaffolder (`make new-module`)
 docs/
   plans/                      # design + implementation plans
   framework-conventions.md    # invariants for module authors

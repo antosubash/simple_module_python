@@ -7,10 +7,7 @@
     "empty_description": "Changes to entities will appear here automatically.",
     "no_match_title": "No entries match these filters",
     "no_match_description": "Entries exist outside the current filters.",
-    "clear_filters": "Clear filters",
-    "showing": "Showing {from}–{to} of {total}",
-    "previous": "Previous",
-    "next": "Next"
+    "clear_filters": "Clear filters"
   },
   "filters": {
     "entity_type_label": "Entity type",

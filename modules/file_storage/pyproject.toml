@@ -31,6 +31,7 @@ dependencies = [
 
 [project.optional-dependencies]
 s3 = ["aioboto3>=13"]
+tasks = ["simple_module_background_tasks==0.0.37"]
 
 [project.entry-points.simple_module]
 file_storage = "file_storage.module:FileStorageModule"
@@ -58,3 +59,4 @@ simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
 simple_module_hosting = { workspace = true }
 simple_module_settings = { workspace = true }
+simple_module_background_tasks = { workspace = true }

@@ -66,6 +66,20 @@ def bump_python_package(pyproject: Path, new_version: str, *, check: bool = Fals
                     changed = True
                     deps[i] = want
 
+    # Extras (e.g. ``file_storage[tasks]``) pin lockstep siblings too; leaving
+    # them behind would make the published extra uninstallable after a bump.
+    extras = project.get("optional-dependencies")
+    if extras is not None:
+        for group in extras.values():
+            for i, entry in enumerate(group):
+                spec = str(entry)
+                name = _parse_requirement_name(spec)
+                if name.startswith(PY_PKG_PREFIX):
+                    want = f"{name}=={new_version}"
+                    if spec != want:
+                        changed = True
+                        group[i] = want
+
     if check:
         return not changed
     if changed:

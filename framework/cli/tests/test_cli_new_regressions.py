@@ -94,7 +94,9 @@ def test_sm_new_sample_module_views_carry_a_menu_item(tmp_path: Path) -> None:
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     module_py = (target / "modules" / "hello" / "hello" / "module.py").read_text()
-    assert 'view_prefix="/hello"' in module_py
+    constants = (target / "modules" / "hello" / "hello" / "constants.py").read_text()
+    assert "view_prefix=VIEW_PREFIX" in module_py
+    assert 'VIEW_PREFIX = "/hello"' in constants
     assert "register_menu_items" in module_py
 
 

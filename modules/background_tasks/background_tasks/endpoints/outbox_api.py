@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Response
+from simple_module_db.pagination import PageParams
+from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 
 from background_tasks.constants import (
@@ -28,12 +30,11 @@ router = APIRouter(
 @router.get("", response_model=OutboxListResponse)
 async def list_outbox(
     status: OutboxStatus | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=20, ge=1, le=200),
+    params: PageParams = Depends(page_params(20)),
     service: OutboxService = Depends(get_outbox_service),
 ) -> OutboxListResponse:
     """Undelivered durable events (pending, running, dead), newest first."""
-    return await service.list(status_filter=status, page=page, per_page=per_page)
+    return await service.list(status_filter=status, page=params.page, per_page=params.per_page)
 
 
 @router.post(

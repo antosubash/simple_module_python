@@ -164,3 +164,33 @@ class TestScreenlessLinks:
     def test_a_non_empty_template_still_has_to_carry_the_id(self) -> None:
         with pytest.raises(ValueError, match="contains no"):
             AuditLink(entity_type="Thing", url_template="/things")
+
+
+class TestForModel:
+    def test_equals_hand_built_link(self) -> None:
+        class Widget:
+            __tablename__ = "widgets_widget"
+
+        built = AuditLink.for_model(
+            Widget,
+            url_template="/w/{id}",
+            label="Widget",
+            label_key="w.audit",
+            label_permission="p",
+        )
+        assert built == AuditLink(
+            entity_type="Widget",
+            url_template="/w/{id}",
+            label="Widget",
+            label_key="w.audit",
+            table_name="widgets_widget",
+            label_permission="p",
+        )
+
+    def test_entity_type_is_class_name_not_table(self) -> None:
+        class Widget:
+            __tablename__ = "widgets_widget"
+
+        link = AuditLink.for_model(Widget, url_template="")
+        assert link.entity_type == "Widget"
+        assert link.table_name == "widgets_widget"

@@ -1,0 +1,50 @@
+import { Head, useForm } from '@inertiajs/react';
+import { PageShell } from '@simple-module-py/ui/components/PageShell';
+
+type Item = {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+};
+
+export default function Edit({ item }: { item: Item }) {
+  const form = useForm({ name: item.name, description: item.description ?? '' });
+  return (
+    <PageShell title="Edit {{SINGULAR_CLASS}}">
+      <Head title="Edit {{SINGULAR_CLASS}}" />
+      <form
+        className="max-w-xl space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.post(`/{{MODULE_SLUG}}/${item.id}`);
+        }}
+      >
+        <label className="block">
+          <span className="block text-sm">Name</span>
+          <input
+            required
+            value={form.data.name}
+            onChange={(e) => form.setData('name', e.target.value)}
+            className="w-full rounded border p-2"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-sm">Description</span>
+          <textarea
+            value={form.data.description}
+            onChange={(e) => form.setData('description', e.target.value)}
+            className="w-full rounded border p-2"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={form.processing}
+          className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
+        >
+          Save
+        </button>
+      </form>
+    </PageShell>
+  );
+}

@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from simple_module_db.pagination import PageParams
+from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 
 from background_tasks.constants import (
@@ -38,8 +40,7 @@ async def list_executions(
     task_name: str | None = Query(default=None, deprecated=True),
     queue: str | None = Query(default=None),
     tenant_id: str | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=20, ge=1, le=200),
+    params: PageParams = Depends(page_params(20)),
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> TaskExecutionListResponse:
     """List executions, filtered exactly as the page filters them.
@@ -55,8 +56,8 @@ async def list_executions(
         task_name=q or task_name,
         queue=queue,
         tenant_id=tenant_id,
-        page=page,
-        per_page=per_page,
+        page=params.page,
+        per_page=params.per_page,
     )
 
 

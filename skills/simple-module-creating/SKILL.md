@@ -11,7 +11,8 @@ description: Use when adding a new feature package to a simple_module_python app
 
 ```bash
 # scaffold a module into this repo's modules/orders/ — also wires the package
-# into host/ + root pyproject.toml and runs `uv sync --all-packages`
+# into host/ + root pyproject.toml + the release matrix, then runs
+# `uv sync --all-packages`, `npm install` and `make gen-i18n`
 make new-module name=orders
 
 # if you added a frontend page, regenerate the Inertia manifest
@@ -22,11 +23,15 @@ make migration msg="add orders module"
 make migrate
 ```
 
-`make new-module` (→ `scripts/new_module.py`) is the in-repo path and produces
-the full tree below. For a **standalone publishable package** (its own repo,
-with CI + PyPI `publish.yml`), use `smpy create-module orders` instead — a
-leaner scaffold; pass `--standalone` to force the `.github/` workflows, then
-`uv sync` (or `pip install -e ./orders`) to install it into the host.
+`make new-module` (→ `scripts/new_module.py`) is the in-repo path. It calls the
+same `create_module` as `smpy create-module`, so both produce the same tree
+below (permissions, menu item with `label_key`, `constants.py`, CRUD sample,
+`locales/en.json`); the in-repo variant adds workspace-sourced `pyproject.toml`
+metadata, `LICENSE`, and i18n-keyed pages. For a **standalone publishable
+package** (its own repo, with CI + PyPI `publish.yml`), use
+`smpy create-module orders`; pass `--standalone` to force the `.github/`
+workflows, then `uv sync` (or `pip install -e ./orders`) to install it into the
+host.
 
 ## What scaffolding produces
 
@@ -38,20 +43,23 @@ modules/orders/
 ├── tests/test_orders.py
 └── orders/
     ├── module.py           # OrdersModule(ModuleBase) with ModuleMeta
+    ├── constants.py        # PERM_*, PAGE_*, MENU_* — no magic strings elsewhere
     ├── models.py           # Base = create_module_base("orders")
     ├── contracts/schemas.py # SQLModel DTOs — public surface
     ├── service.py          # business logic
     ├── services.py         # app.state.orders state container (settings)
-    ├── settings.py         # SM_ORDERS_* env → dataclass
+    ├── settings.py         # DbBackedSettings subclass (DB-backed, no env)
     ├── deps.py             # FastAPI dependencies
     ├── endpoints/{api,views}.py
     ├── pages/{Browse,Create,Edit}.tsx  # *.tsx, auto-discovered by Vite
     └── locales/en.json
 ```
 
-`make new-module` also edits `host/pyproject.toml` (adds the workspace dep) and
-the root `pyproject.toml` (type-check + test paths), so the module is picked up
-by the host and by `make lint`/`make test` without further wiring.
+`make new-module` also edits `host/pyproject.toml` (adds the workspace dep), the
+root `pyproject.toml` (type-check + test paths) and the `publish-pypi` matrix in
+`release.yml`, so the module is picked up by the host and by `make lint`/`make
+test` without further wiring. Commit the `uv.lock`, `package-lock.json` and
+regenerated i18n key files it leaves behind.
 
 ## The contract: pyproject.toml + module.py
 

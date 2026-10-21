@@ -29,6 +29,9 @@ import os
 from typing import Any
 
 from fastapi import FastAPI
+
+# Private APIs: see tests/test_route_guard_fastapi_contract.py before widening
+# the fastapi>=0.140,<0.157 dependency bound.
 from starlette._utils import get_route_path
 from starlette.routing import Match
 from starlette.types import Scope
