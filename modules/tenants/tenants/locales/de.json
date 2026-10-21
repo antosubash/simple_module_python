@@ -87,7 +87,7 @@
     "invalid_title": "Ungültiger Einladungslink",
     "invalid_description": "Dieser Einladungslink ist ungültig. Bitten Sie die einladende Person um einen neuen Link.",
     "expired_title": "Diese Einladung ist abgelaufen",
-    "expired_description": "Bitten Sie die Person, die Sie zu {tenant} eingeladen hat, um eine neue Einladung.",
+    "expired_description": "Bitten Sie die Person, die Sie zu {tenant} eingeladen hat, Ihnen eine neue Einladung zu senden.",
     "accepted_title": "Diese Einladung wurde bereits verwendet",
     "accepted_description": "Diese Einladung zu {tenant} wurde bereits angenommen.",
     "title": "{tenant} beitreten",

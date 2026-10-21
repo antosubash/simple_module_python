@@ -8,9 +8,9 @@
   "errors": {
     "session_required": "API-Tokens können nur in einer angemeldeten Browsersitzung verwaltet werden, nicht mit einem Token.",
     "scopes_required": "Wählen Sie mindestens einen Geltungsbereich.",
-    "scope_not_held": "Sie können den Geltungsbereich \"{value}\" nicht vergeben, da Sie ihn selbst nicht besitzen.",
-    "role_forbidden": "Ein Dienstschlüssel kann nicht die Rolle \"{role}\" haben.",
-    "role_not_assignable": "Die Rolle \"{value}\" kann keinem Dienstschlüssel zugewiesen werden.",
+    "scope_not_held": "Sie können den Geltungsbereich „{value}“ nicht vergeben, da Sie ihn selbst nicht besitzen.",
+    "role_forbidden": "Ein Dienstschlüssel kann nicht die Rolle „{role}“ haben.",
+    "role_not_assignable": "Die Rolle „{value}“ kann keinem Dienstschlüssel zugewiesen werden.",
     "lifetime_too_long": "Ein Token darf höchstens {days} Tage gültig sein.",
     "invalid_kind": "Dieser Tokentyp kann hier nicht erstellt werden.",
     "tenant_required": "Wählen Sie eine Organisation, bevor Sie deren Tokens verwalten.",
@@ -82,7 +82,7 @@
     "done": "Fertig"
   },
   "revoke": {
-    "title": "\"{name}\" widerrufen?",
+    "title": "„{name}“ widerrufen?",
     "description": "Alles, was dieses Token verwendet, funktioniert ab der nächsten Anfrage nicht mehr. Dies kann nicht rückgängig gemacht werden.",
     "confirm": "Widerrufen",
     "cancel": "Abbrechen"

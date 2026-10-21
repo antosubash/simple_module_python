@@ -101,7 +101,7 @@
     "scope_no_search": "Beliebiger Aufgabenname"
   },
   "toasts": {
-    "retried": "Aufgabe \"{name}\" erneut eingereiht",
+    "retried": "Aufgabe „{name}“ erneut eingereiht",
     "retry_failed": "Aufgabe konnte nicht erneut gestartet werden",
     "bulk_retried_one": "{count} Wiederholung eingereiht",
     "bulk_retried_other": "{count} Wiederholungen eingereiht",

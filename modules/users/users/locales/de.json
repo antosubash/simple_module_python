@@ -47,7 +47,7 @@
     "toast_user_created": "Benutzer erstellt",
     "error_invite_failed": "Einladungen konnten nicht gesendet werden",
     "error_create_failed": "Benutzer konnte nicht erstellt werden",
-    "mailer_banner_prefix": "Mailversand über",
+    "mailer_banner_prefix": "Mailversand:",
     "mailer_banner_suffix": "— Einladungslinks werden im Serverprotokoll ausgegeben statt per E-Mail gesendet. Jede Ergebniszeile unten enthält eine Schaltfläche zum Kopieren des Links.",
     "configure_smtp": "SMTP konfigurieren"
   },
@@ -131,7 +131,7 @@
     "toast_unlock_failed": "Konto konnte nicht entsperrt werden"
   },
   "empty": {
-    "solo_title": "Sie haben das einzige Konto",
+    "solo_title": "Bisher gibt es nur Ihr Konto",
     "invite_description": "Laden Sie Teammitglieder per E-Mail ein oder erstellen Sie Konten mit selbst festgelegten Passwörtern.",
     "add_people": "Personen hinzufügen",
     "filtered_title": "Keine Benutzer für diese Filter",
@@ -155,8 +155,8 @@
     "submit": "Link zum Zurücksetzen senden",
     "submitting": "Wird gesendet…",
     "sent_title": "Prüfen Sie Ihr Postfach",
-    "sent_body_prefix": "Falls ein Konto existiert für",
-    "sent_body_suffix": ", ist ein Link zum Zurücksetzen unterwegs. Diese Meldung erscheint in jedem Fall.",
+    "sent_body_prefix": "Falls ein Konto für",
+    "sent_body_suffix": " existiert, ist ein Link zum Zurücksetzen unterwegs. Diese Meldung erscheint in jedem Fall.",
     "console_mailer_note": "Konsolen-Mailversand: Der Link steht im Serverprotokoll.",
     "resend_in": "Erneut senden in {countdown}",
     "resend": "Link erneut senden",

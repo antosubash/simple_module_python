@@ -41,9 +41,9 @@
     "cancel": "Abbrechen"
   },
   "toasts": {
-    "enabled": "\"{name}\" aktiviert",
-    "disabled": "\"{name}\" deaktiviert",
-    "cleared": "Überschreibung für \"{name}\" entfernt",
+    "enabled": "„{name}“ aktiviert",
+    "disabled": "„{name}“ deaktiviert",
+    "cleared": "Überschreibung für „{name}“ entfernt",
     "toggle_failed": "Funktionsschalter konnte nicht aktualisiert werden"
   },
   "audit": {
