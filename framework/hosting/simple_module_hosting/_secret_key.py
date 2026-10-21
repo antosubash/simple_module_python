@@ -27,11 +27,11 @@ from simple_module_db.stored_settings import (
     COL_VALUE_TYPE,
     SCOPE_SYSTEM,
     SYSTEM_SCOPE_ID,
-    TABLE_SETTING,
     VALUE_TYPE_STRING,
     settings_table_clause,
+    settings_table_exists_on,
 )
-from sqlalchemy import and_, insert, inspect, select, update
+from sqlalchemy import and_, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -104,7 +104,7 @@ async def _ensure(database_url: str) -> str | None:
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
-            if not await conn.run_sync(lambda sync: inspect(sync).has_table(TABLE_SETTING)):
+            if not await settings_table_exists_on(conn):
                 return None
             existing = await _fetch(conn)
             if existing:

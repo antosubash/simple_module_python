@@ -2,8 +2,8 @@
 
 The read-only queries (``package_overrides``, ``get_overrides_sync``) moved to
 ``simple_module_db.stored_settings`` with the table (#500) and are re-exported
-here. ``SettingsStore`` satisfies ``simple_module_core.settings_hydrate.
-OverrideSource``.
+here. ``SettingsStore`` satisfies
+``simple_module_core.settings_hydrate.OverrideSource``.
 
 Wraps the existing SettingService. Keys are namespaced ``<package>.<field>``
 to avoid collision with free-form user-defined setting keys.

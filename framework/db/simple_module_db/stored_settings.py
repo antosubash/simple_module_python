@@ -18,7 +18,7 @@ from typing import Final
 from pydantic_settings import BaseSettings
 from simple_module_core.settings_hydrate import build_settings
 from sqlalchemy import Select, UniqueConstraint, inspect, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import TableClause, column, table
 from sqlmodel import Field
@@ -156,7 +156,11 @@ async def get_overrides(session: AsyncSession, package: str) -> dict[str, tuple[
 
 async def settings_table_exists(session: AsyncSession) -> bool:
     """Whether the settings table has been created (false on a fresh install)."""
-    conn = await session.connection()
+    return await settings_table_exists_on(await session.connection())
+
+
+async def settings_table_exists_on(conn: AsyncConnection) -> bool:
+    """:func:`settings_table_exists` for a caller that already holds a connection."""
     return await conn.run_sync(lambda sync: inspect(sync).has_table(TABLE_SETTING))
 
 

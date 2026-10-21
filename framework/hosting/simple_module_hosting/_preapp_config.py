@@ -39,11 +39,11 @@ from simple_module_db.stored_settings import (
     COL_VALUE_TYPE,
     SCOPE_SYSTEM,
     SYSTEM_SCOPE_ID,
-    TABLE_SETTING,
     package_overrides,
     settings_table_clause,
+    settings_table_exists_on,
 )
-from sqlalchemy import inspect, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -89,7 +89,7 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]]:
             # table" is a fresh install and must stay quiet, while a refused
             # connection or a failing query is not, and the driver errors for
             # the two are not reliably distinguishable across backends.
-            if not await conn.run_sync(lambda sync: inspect(sync).has_table(TABLE_SETTING)):
+            if not await settings_table_exists_on(conn):
                 return {}
             rows = (await conn.execute(stmt)).tuples().all()
     finally:
