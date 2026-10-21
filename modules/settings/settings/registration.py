@@ -15,5 +15,6 @@ warnings.warn(
     "settings.registration is deprecated; import register_module_settings from "
     "simple_module_core.module_settings",
     DeprecationWarning,
-    stacklevel=2,
+    # Attribute the warning to the importer, not importlib's frozen frames.
+    skip_file_prefixes=("<frozen importlib",),
 )

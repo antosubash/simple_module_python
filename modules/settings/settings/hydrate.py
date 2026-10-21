@@ -33,5 +33,6 @@ warnings.warn(
     "settings.hydrate is deprecated; import from simple_module_core.settings_hydrate "
     "(hydrate_settings_sync: simple_module_db.stored_settings)",
     DeprecationWarning,
-    stacklevel=2,
+    # Attribute the warning to the importer, not importlib's frozen frames.
+    skip_file_prefixes=("<frozen importlib",),
 )

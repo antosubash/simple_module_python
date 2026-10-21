@@ -184,7 +184,11 @@ def build_settings[T: BaseSettings](
 
 
 async def hydrate_settings[T: BaseSettings](
-    cls: type[T], source: OverrideSource, package: str, *, lenient: bool = False
+    cls: type[T], store: OverrideSource, package: str, *, lenient: bool = False
 ) -> T:
-    """Construct ``cls`` with ``source``'s overrides merged over pydantic defaults."""
-    return build_settings(cls, await source.get_overrides(package), lenient=lenient)
+    """Construct ``cls`` with ``store``'s overrides merged over pydantic defaults.
+
+    The parameter keeps its pre-#500 name ``store`` so keyword callers of the
+    old ``settings.hydrate.hydrate_settings`` keep working.
+    """
+    return build_settings(cls, await store.get_overrides(package), lenient=lenient)
