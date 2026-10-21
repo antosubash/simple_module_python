@@ -235,7 +235,7 @@ class TestCreateModule:
         create_module(dest, name="Widget")
         pages_dir = dest / "widget" / "pages"
         assert pages_dir.is_dir()
-        assert (pages_dir / "Index.tsx").is_file()
+        assert (pages_dir / "Browse.tsx").is_file()
 
     async def test_pyproject_ships_static_dist_when_present(self, tmp_path):
         """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel.
