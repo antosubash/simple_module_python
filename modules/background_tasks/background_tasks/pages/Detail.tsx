@@ -2,11 +2,13 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@simple-module-py/ui/components/ui/tabs';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
 import { DetailFacts } from './components/DetailFacts';
+import { LogsPanel } from './components/LogsPanel';
 import { PayloadCards } from './components/PayloadCards';
 import { ProgressCard } from './components/ProgressCard';
 import { RetryConfirmDialog } from './components/RetryConfirmDialog';
@@ -99,13 +101,27 @@ function Detail() {
             anyone opened this page. On desktop the deck's order returns. */}
         <ProgressCard execution={execution} className="mb-3.5" />
 
-        <div className="grid gap-3.5 lg:grid-cols-[320px_1fr]">
-          <DetailFacts execution={execution} className="order-1 lg:order-1 lg:row-span-2" />
-          <PayloadCards execution={execution} className="order-3 lg:order-2" />
-          {/* `h-full` so a short payload card does not leave the traceback
-              floating with 300px of empty card under it. */}
-          <TracebackCard traceback={execution.traceback} className="order-2 h-full lg:order-3" />
-        </div>
+        <Tabs defaultValue="details">
+          <TabsList aria-label={t(keys.background_tasks.logs.tab_list_label)}>
+            <TabsTrigger value="details">{t(keys.background_tasks.logs.tab_details)}</TabsTrigger>
+            <TabsTrigger value="logs">{t(keys.background_tasks.logs.tab_logs)}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="details">
+            <div className="grid gap-3.5 lg:grid-cols-[320px_1fr]">
+              <DetailFacts execution={execution} className="order-1 lg:order-1 lg:row-span-2" />
+              <PayloadCards execution={execution} className="order-3 lg:order-2" />
+              {/* `h-full` so a short payload card does not leave the traceback
+                floating with 300px of empty card under it. */}
+              <TracebackCard
+                traceback={execution.traceback}
+                className="order-2 h-full lg:order-3"
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="logs">
+            <LogsPanel executionId={execution.id} />
+          </TabsContent>
+        </Tabs>
 
         {retryable && (
           <Button

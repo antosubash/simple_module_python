@@ -14,11 +14,15 @@ from sqlmodel import Field
 
 from background_tasks.constants import (
     DEFAULT_QUEUE,
+    LOG_ID_MAX_LENGTH,
+    LOG_MESSAGE_MAX_LENGTH,
+    LOG_NAME_MAX_LENGTH,
     MODULE_NAME,
     OUTBOX_KEY_MAX_LENGTH,
     OWNER_ID_MAX_LENGTH,
     PROGRESS_MESSAGE_MAX_LENGTH,
     PROGRESS_PHASE_MAX_LENGTH,
+    TABLE_LOG_RECORD,
     TABLE_OUTBOX,
     TABLE_TASK_EXECUTION,
     TENANT_ID_MAX_LENGTH,
@@ -181,4 +185,37 @@ class OutboxMessage(Base, table=True):  # ty: ignore[unsupported-base]
         # Lease reclaim and the delivered-rows purge.
         Index("ix_background_tasks_outbox_status_locked", "status", "locked_until"),
         Index("ix_background_tasks_outbox_status_delivered", "status", "delivered_at"),
+    )
+
+
+class RetainedLog(Base, table=True):  # ty: ignore[unsupported-base]
+    """One retained log line from the web process or a worker (GH #537).
+
+    Written in batches by the log sink, never inside a request transaction, and
+    only while ``log_sink_enabled`` is on. ``tenant_id`` is a plain column, not
+    ``MultiTenantMixin``, for the same reason as ``TaskExecution``: worker and
+    platform lines carry no tenant and strict mode would raise on their insert;
+    the admin views filter on the column instead. ``task_id`` is the Celery task
+    id, which is what ``TaskExecution.celery_task_id`` holds.
+    """
+
+    __tablename__ = TABLE_LOG_RECORD
+    # Telemetry, written many times a second: auditing it would log the log.
+    __audit_exclude__ = True
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    ts: datetime = Field(sa_type=AwareDateTime(), nullable=False)
+    level: int = Field(nullable=False)
+    logger: str = Field(max_length=LOG_NAME_MAX_LENGTH)
+    message: str = Field(max_length=LOG_MESSAGE_MAX_LENGTH)
+    task_id: str | None = Field(default=None, max_length=LOG_ID_MAX_LENGTH)
+    job_id: str | None = Field(default=None, max_length=LOG_ID_MAX_LENGTH)
+    tenant_id: str | None = Field(default=None, max_length=TENANT_ID_MAX_LENGTH)
+    correlation_id: str | None = Field(default=None, max_length=LOG_ID_MAX_LENGTH)
+    extra: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+
+    __table_args__ = (
+        Index("ix_background_tasks_log_record_task_ts", "task_id", "ts"),
+        Index("ix_background_tasks_log_record_ts", "ts"),
+        Index("ix_background_tasks_log_record_level_ts", "level", "ts"),
     )

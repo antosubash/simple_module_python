@@ -129,6 +129,7 @@ export default defineConfig({
             { text: "Cache invalidation", link: "/framework/invalidation" },
             { text: "Multi-tenancy", link: "/framework/multi-tenancy" },
             { text: "Internationalization", link: "/framework/i18n" },
+            { text: "Retained logging", link: "/framework/logging" },
           ],
         },
       ],

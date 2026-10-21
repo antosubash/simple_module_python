@@ -18,6 +18,8 @@ from simple_module_core.permissions import PermissionRegistry
 from background_tasks.constants import (
     _MODULE_SETTINGS,
     API_PREFIX,
+    LOGS_MENU_ICON,
+    LOGS_MENU_LABEL,
     MENU_ICON,
     MENU_LABEL,
     MENU_ORDER,
@@ -120,10 +122,25 @@ class BackgroundTasksModule(ModuleBase):
                 group_key="ui.nav_groups.system",
             )
         )
+        registry.add(
+            MenuItem(
+                label=LOGS_MENU_LABEL,
+                label_key="background_tasks.nav.logs",
+                url=f"{VIEW_PREFIX}/logs",
+                icon=LOGS_MENU_ICON,
+                order=MENU_ORDER + 1,
+                section=MenuSection.ADMIN_SIDEBAR,
+                roles=["admin"],
+                group="System",
+                group_key="ui.nav_groups.system",
+            )
+        )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from background_tasks.endpoints.api_admin import router as api_admin
         from background_tasks.endpoints.api_status import router as api_status
+        from background_tasks.endpoints.logs_api import router as logs_api
+        from background_tasks.endpoints.logs_views import router as logs_views
         from background_tasks.endpoints.outbox_api import router as outbox_api
         from background_tasks.endpoints.outbox_views import router as outbox_views
         from background_tasks.endpoints.views import router as views
@@ -131,8 +148,10 @@ class BackgroundTasksModule(ModuleBase):
         api_router.include_router(api_admin)
         api_router.include_router(api_status)
         api_router.include_router(outbox_api)
+        api_router.include_router(logs_api)
         # Before ``views``: its ``/{execution_id}`` would otherwise swallow ``/outbox``.
         view_router.include_router(outbox_views)
+        view_router.include_router(logs_views)
         view_router.include_router(views)
 
     def locale_dirs(self) -> dict[str, Path]:
@@ -144,6 +163,7 @@ class BackgroundTasksModule(ModuleBase):
         import asyncio
 
         from background_tasks.celery_app import build_celery
+        from background_tasks.log_sink import install_log_sink
         from background_tasks.signals import bind_event_bus
         from background_tasks.sync_db import set_database_url
         from background_tasks.tenant_context import set_default_tenant
@@ -166,6 +186,7 @@ class BackgroundTasksModule(ModuleBase):
         # stay a silent no-op — that's the documented cross-process limit.
         bind_event_bus(app.state.sm.event_bus, asyncio.get_running_loop())
         self._install_durable_transport(app)
+        install_log_sink(services.settings)
         logger.info(
             "BackgroundTasks: Celery app ready (broker=%s, queue=%s)",
             services.settings.broker_url,
@@ -253,6 +274,7 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     async def on_shutdown(self, app: FastAPI) -> None:
+        from background_tasks.log_sink import uninstall_log_sink
         from background_tasks.outbox_worker import reset_worker_state
         from background_tasks.signals import unbind_event_bus
         from background_tasks.sync_db import dispose_sync_engine
@@ -273,4 +295,6 @@ class BackgroundTasksModule(ModuleBase):
         if services.celery is not None:
             services.celery.close()
         unbind_event_bus()
+        # Before the engine goes: the final flush still needs it.
+        uninstall_log_sink()
         dispose_sync_engine()

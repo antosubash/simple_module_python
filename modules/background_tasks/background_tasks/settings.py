@@ -67,6 +67,7 @@ from background_tasks.settings_env_checks import (
     forbid_localhost_broker_in_production,
     warn_on_legacy_redis_vars,
 )
+from background_tasks.settings_logs import LogSinkFields
 
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 
@@ -84,13 +85,12 @@ def _redis_from_env(default: str) -> str:
     return os.environ.get(ENV_REDIS_URL) or default
 
 
-class BackgroundTasksSettings(BaseSettings):
+class BackgroundTasksSettings(LogSinkFields, BaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
-    # Without ``env_prefix`` pydantic-settings resolves each field from its
-    # bare, case-insensitive name — so a container setting ``broker_url`` or
-    # ``retention_days`` for any other purpose silently reconfigured Celery,
-    # and the documented ``SM_BG_TASKS_*`` names did nothing (GH #283).
+    # Without ``env_prefix`` each field resolved from its bare name, so a
+    # container setting ``broker_url`` or ``retention_days`` for another purpose
+    # reconfigured Celery and ``SM_BG_TASKS_*`` did nothing (GH #283).
     model_config = SettingsConfigDict(extra="ignore", env_prefix=ENV_PREFIX)
 
     @classmethod
