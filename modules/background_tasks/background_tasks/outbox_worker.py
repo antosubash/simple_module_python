@@ -65,7 +65,16 @@ def worker_session_factory() -> async_sessionmaker[Any]:
     if cached is not None:
         _dispose_soon(cached[2])
     # Each outbox thread uses the same configured pool limits as sync workers.
-    state = init_db(url, **({"pool_size": 2, "max_overflow": 3} | options))
+    state = init_db(
+        url,
+        pool_size=options.get("pool_size", 2),
+        max_overflow=options.get("max_overflow", 3),
+        pool_recycle=options.get("pool_recycle", 1800),
+        pool_timeout=options.get("pool_timeout", 30),
+        connect_timeout=options.get("connect_timeout", 10),
+        statement_timeout_ms=options.get("statement_timeout_ms", 0),
+        idle_in_tx_timeout_ms=options.get("idle_in_tx_timeout_ms", 0),
+    )
     attach_session_listeners(state.sync_session_class)
     bind_engine_policy(state.engine.sync_engine, policy)
     cache[_ENGINE_KEY] = (key, state.session_factory, state.engine)

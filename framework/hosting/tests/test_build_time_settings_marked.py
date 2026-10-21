@@ -26,13 +26,6 @@ from simple_module_hosting.settings import Settings
 # setup_logging once, before create_app runs.
 _READ_BY_HOST_ENTRYPOINT = frozenset({"log_level", "log_format"})
 
-# Declared by hosting batch 1 groundwork (S0) before the feature slices that read
-# them in create_app. Each slice deletes its own fields from this set.
-_NOT_YET_CONSUMED = frozenset(
-    {
-    }
-)
-
 
 class _RecordingSettings(Settings):
     reads: ClassVar[set[str]] = set()
@@ -73,7 +66,7 @@ def test_every_build_time_field_is_marked(build_time_fields: set[str]) -> None:
 
 
 def test_every_marked_field_is_read_at_build_time(build_time_fields: set[str]) -> None:
-    stale = sorted(_marked() - build_time_fields - _NOT_YET_CONSUMED)
+    stale = sorted(_marked() - build_time_fields)
     assert not stale, f"marked requires_restart but create_app never reads them: {stale}"
 
 
