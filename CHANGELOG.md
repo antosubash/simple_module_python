@@ -25,6 +25,11 @@ All notable changes to this project are documented in this file. The format is b
 - `captured_mail` pytest fixture in `simple_module_test` records sent mail.
 
 ### Changed
+- Bound FastAPI to `>=0.140,<0.157` in framework and module dependencies; a
+  contract test guards the route guard's private FastAPI/Starlette APIs (#516).
+- Declare and document the optional `file_storage[tasks]` extra for the lockstep
+  background-tasks package; document `DurableTransport` as the durable-event
+  extension point and verify uploads without background tasks (#502).
 - The module-settings mechanism moved from the `settings` plugin into the
   framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
   `simple_module_core.module_settings`, hydration (`hydrate_settings`,
