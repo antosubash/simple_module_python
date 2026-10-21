@@ -40,15 +40,11 @@ async def resolve_user_labels(db: Any, ids: list[str]) -> dict[str, str]:
 
 def build_user_audit_link(admin_url_prefix: str) -> AuditLink:
     """The registry entry for user rows, rooted at the module's admin route."""
-    return AuditLink(
-        # The model class name — what snapshot_changes records. Keying this
-        # off __tablename__ ("users_user") silently never matches; the table
-        # name travels alongside, as the tag shown beside the row's name.
-        entity_type=User.__name__,
+    return AuditLink.for_model(
+        User,
         url_template=f"{admin_url_prefix}{{id}}",
         label=_LABEL,
         label_key=_LABEL_KEY,
-        table_name=User.__tablename__,
         label_resolver=resolve_user_labels,
         # A name here is the same disclosure the user list makes, so it takes
         # the same permission. Without it, a role holding `audit_log.view` and

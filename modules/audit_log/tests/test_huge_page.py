@@ -15,7 +15,7 @@ async def test_view_with_huge_page_clamps(authenticated_client) -> None:
     assert resp.json()["props"]["page"] == 1
 
 
-async def test_api_with_huge_page_does_not_500(authenticated_client) -> None:
+async def test_api_with_huge_page_is_422(authenticated_client) -> None:
     resp = await authenticated_client.get("/api/audit_log/", params={"page": HUGE})
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["items"] == []
+    # Past MAX_PAGE the strict dependency rejects it before any offset is built.
+    assert resp.status_code == 422, resp.text

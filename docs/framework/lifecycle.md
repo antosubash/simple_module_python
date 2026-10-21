@@ -279,8 +279,8 @@ def register_audit_links(self, registry: AuditLinkRegistry) -> None:
     from users.models import User
 
     registry.register(
-        AuditLink(
-            entity_type=User.__name__,  # class name — NOT __tablename__
+        AuditLink.for_model(
+            User,  # fills entity_type=User.__name__ (NOT __tablename__) and table_name
             url_template="/admin/users/{id}",
             label="User",
             label_key="users.audit.user",
@@ -288,7 +288,7 @@ def register_audit_links(self, registry: AuditLinkRegistry) -> None:
     )
 ```
 
-`entity_type` matches `AuditEntry.entity_type`, which `snapshot_changes` writes as `type(obj).__name__`. Keying it off `__tablename__` (`"users_user"`) produces a link that never matches — and nothing errors: an unmatched lookup falls back to rendering `entity_type` as a plain label, so the row still shows text while silently never becoming a link. Using `Model.__name__` rather than a string literal makes a rename impossible to get wrong.
+`entity_type` matches `AuditEntry.entity_type`, which `snapshot_changes` writes as `type(obj).__name__`. Keying it off `__tablename__` (`"users_user"`) produces a link that never matches — and nothing errors: an unmatched lookup falls back to rendering `entity_type` as a plain label, so the row still shows text while silently never becoming a link. `AuditLink.for_model(Model, ...)` fills `entity_type` from `Model.__name__` and `table_name` from `Model.__tablename__`, so a rename or a table-name mix-up is impossible; the plain `AuditLink(...)` constructor stays available for links without a model class.
 
 `url_template` must contain the literal `{id}` placeholder, substituted with the entity id. A template without it raises at boot rather than pointing every row at the same page.
 

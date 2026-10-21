@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-i18n-fresh ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-doc-paths ci-docs-build ci-i18n-fresh ci-css-build ci-doctor ci-build-packages worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -124,7 +124,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-i18n-fresh ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-doc-paths ci-i18n-fresh ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -158,6 +158,14 @@ ci-js-typecheck: gen-pages
 ci-check-metadata:
 	uv run python scripts/check_metadata.py
 	uv run python scripts/check_readmes.py
+
+# Every backticked repo path in the user docs must exist (#519).
+ci-doc-paths:
+	uv run python scripts/check_doc_paths.py
+
+# The VitePress site must build (docs/ is not an npm workspace; own lockfile).
+ci-docs-build:
+	cd docs && npm ci && npm run build
 
 # The checked-in typed-key files must match what the installed modules' catalogs
 # emit. Catches a catalog edit committed without regenerating, and (with the
@@ -255,6 +263,8 @@ new-module:                 ## Scaffold a new module (usage: make new-module nam
 	@test -n "$(name)" || (echo "Error: Please provide a module name, e.g. make new-module name=orders" && exit 1)
 	uv run python scripts/new_module.py $(name)
 	uv sync --all-packages
+	npm install
+	$(MAKE) gen-i18n
 
 # Kill dev servers
 kill:

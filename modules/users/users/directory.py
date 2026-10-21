@@ -101,12 +101,17 @@ class UsersDirectory:
         now = datetime.now(UTC)
         # Calendar month, not a rolling 30 days: the tile reads "+6 this month".
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        count = select(func.count()).select_from(User)
-        total = (await db.execute(count)).scalar_one()
-        active = (
-            await db.execute(count.where(User.last_login_at >= now - active_window))
-        ).scalar_one()
-        created = (await db.execute(count.where(User.created_at >= month_start))).scalar_one()
+        # One scan for all three figures rather than a query each.
+        row = (
+            await db.execute(
+                select(
+                    func.count(),
+                    func.count().filter(User.last_login_at >= now - active_window),
+                    func.count().filter(User.created_at >= month_start),
+                ).select_from(User)
+            )
+        ).one()
+        total, active, created = row
         return DirectoryStats(total=total, active_since=active, created_this_month=created)
 
 

@@ -1,6 +1,6 @@
 # Events
 
-`EventBus` is an **in-process** pub/sub mechanism. `publish` is not a message broker — no persistence, no retries, no cross-process delivery. For events that must be handled even across a crash, use [durable delivery](#durable-delivery) (`subscribe_durable` / `publish_durable`), which the `background_tasks` module backs with an outbox. To tell *other worker processes* that something they cached is stale, use the [invalidation bus](/framework/invalidation) instead — same shape, deliberately narrower contract.
+`EventBus` is an **in-process** pub/sub mechanism. `publish` is not a message broker — no persistence, no retries, no cross-process delivery. For events that must be handled even across a crash, use [durable delivery](#durable-delivery) (`subscribe_durable` / `publish_durable`), through the `DurableTransport` protocol extension point. The framework ships an outbox implementation in `background_tasks`. To tell *other worker processes* that something they cached is stale, use the [invalidation bus](/framework/invalidation) instead — same shape, deliberately narrower contract.
 
 Events are the preferred way for modules to react to **other modules'** actions without creating a direct code dependency.
 
@@ -186,7 +186,7 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
   `register_event_handlers(bus, None)` — subscribe durably *before* any early
   `return` taken when `app is None`.
 
-`DurableTransport` is a protocol (`async enqueue(event, handler_names, db)`), so
+`DurableTransport` (`simple_module_core.durable_events`) is the extension point: a protocol (`async enqueue(event, handler_names, db)`), so
 another module could provide one; `background_tasks` is the shipped
 implementation — see [its docs](/modules/background_tasks#durable-events-outbox)
 for the outbox, retries, the admin page and the worker side.

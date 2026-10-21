@@ -101,5 +101,10 @@
     "unauthorized_title": "Sign in required",
     "unavailable_description": "The service is temporarily unavailable. Please try again shortly.",
     "unavailable_title": "Service unavailable"
+  },
+  "pagination": {
+    "showing": "Showing {from}–{to} of {total}",
+    "previous": "Previous",
+    "next": "Next"
   }
 }

@@ -133,6 +133,21 @@ async def worker(db: DatabaseState):
 
 The `async with session.begin()` pattern opens a transaction you control. Use it in code that runs **outside** a request scope.
 
+### `independent_session(app)`
+
+For the common case, a short unit of work outside the request that should commit when it succeeds and roll back when it fails, use `independent_session`:
+
+```python
+from simple_module_db import independent_session
+
+
+async def on_startup(self, app):
+    async with independent_session(app) as db:
+        await replay_rows(db)  # committed on clean exit, rolled back on error
+```
+
+It opens a session from `app.state.sm.db.session_factory`, commits when the block exits cleanly, and rolls back and re-raises otherwise. Do not call `commit()` inside the block. Keep using `session_factory()` directly when the block is read-only, must commit mid-way (for example to do follow-up work after the commit, as the branding image reaper does), or runs against another engine.
+
 ## Sessions and `MultiTenantMixin`
 
 The active tenant is carried in the `current_tenant_id` contextvar (set by `TenantMiddleware`, not on the session). The tenant listeners read that contextvar to filter SELECTs and stamp INSERTs. Sessions stay **request-scoped** so they always run under the request's tenant context — sharing one across tenants would silently leak data.

@@ -108,6 +108,33 @@ class AuditLink:
                 f"every row would link to the same page"
             )
 
+    @classmethod
+    def for_model(
+        cls,
+        model: type,
+        *,
+        url_template: str,
+        label: str = "",
+        label_key: str = "",
+        label_resolver: LabelResolver | None = None,
+        label_permission: str = "",
+    ) -> AuditLink:
+        """Build the link for a SQLModel table class.
+
+        Fills ``entity_type`` from ``model.__name__`` (the class name, never the
+        table name) and ``table_name`` from ``model.__tablename__``, so a caller
+        cannot key it off the wrong one. ``model`` must be a table model.
+        """
+        return cls(
+            entity_type=model.__name__,
+            url_template=url_template,
+            label=label,
+            label_key=label_key,
+            table_name=model.__tablename__,
+            label_resolver=label_resolver,
+            label_permission=label_permission,
+        )
+
     def url_for(self, entity_id: str) -> str | None:
         """The row's page, or ``None`` when this kind of row has no screen."""
         if not self.url_template:

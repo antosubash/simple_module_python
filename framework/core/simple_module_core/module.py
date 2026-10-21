@@ -178,8 +178,8 @@ class ModuleBase(RequestHooksMixin, ABC):
 
             def register_audit_links(self, registry):
                 registry.register(
-                    AuditLink(
-                        entity_type=User.__name__,
+                    AuditLink.for_model(
+                        User,
                         url_template="/admin/users/{id}/edit",
                         label="User",
                     )

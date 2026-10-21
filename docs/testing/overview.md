@@ -40,7 +40,7 @@ tests/
 └── e2e/                       # Playwright tests (marked `e2e`)
 ```
 
-These directories are enumerated in `testpaths` in the root `pyproject.toml`. Any `conftest.py` under a subtree can add more fixtures; they cascade down but don't leak sideways. Keep module-specific fixtures in the module's `tests/conftest.py`.
+These directories are enumerated in `testpaths` in the root `pyproject.toml`. Any `conftest.py` under a subtree can add more fixtures; they cascade down but don't leak sideways. Keep module-specific fixtures in the module's `modules/<m>/tests/conftest.py`.
 
 ## What good tests look like
 
