@@ -33,6 +33,7 @@ All notable changes to this project are documented in this file. The format is b
   else the new framework table `sm_lease` (migration `d263ea727663`, a new root
   labelled `leases`), else in-process; `create_app` and the Celery worker
   bootstrap install it. An expired owner can neither refresh nor release (#539).
+- Optional Sentry error reporting: `pip install simple_module_hosting[sentry]` and set `SM_SENTRY_DSN` (plus `SM_SENTRY_ENVIRONMENT`, `SM_SENTRY_TRACES_SAMPLE_RATE`). Web and Celery worker processes tag events with request id, tenant, user id, module and task, and scrub auth headers, cookies, `token`/`code` query values and request bodies. Without a DSN the SDK is never imported (#538).
 - `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
   `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
   `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial

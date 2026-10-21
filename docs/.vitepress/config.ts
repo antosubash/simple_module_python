@@ -128,6 +128,7 @@ export default defineConfig({
             { text: "Events", link: "/framework/events" },
             { text: "Cache invalidation", link: "/framework/invalidation" },
             { text: "Leases & semaphores", link: "/framework/leases" },
+            { text: "Sentry", link: "/framework/sentry" },
             { text: "Multi-tenancy", link: "/framework/multi-tenancy" },
             { text: "Internationalization", link: "/framework/i18n" },
           ],
