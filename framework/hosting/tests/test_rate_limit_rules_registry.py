@@ -5,7 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import httpx
-from fastapi import Depends, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.rate_limit import (
     InProcessWindowStore,
     RateKey,
@@ -159,3 +160,32 @@ async def test_dependency_limits_per_user_with_retry_after() -> None:
     assert codes == [200] * 3
     assert over.status_code == 429 and int(over.headers["retry-after"]) >= 1
     assert other.status_code == 200
+
+
+async def test_public_rate_and_registry_rule_on_one_path_count_separately() -> None:
+    # Same kind/pattern/methods: each request must bump each counter once.
+    reg = RateLimitRegistry()
+    reg.add_exact("/api/things", RateLimitRule("2/minute", key="ip"))
+    app = _app(reg)
+    public = PublicRouteRegistry()
+    public.add_exact("/api/things", rate="2/minute")
+    app.state.public_routes = public
+    async with _client(app) as c:
+        assert await _burst(c, None, 3, "GET") == [200, 200, 429]
+
+
+async def test_dependency_budget_is_per_include_prefix() -> None:
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(rate_limit_store=InProcessWindowStore())
+    router = APIRouter()
+
+    @router.post("/dep", dependencies=[Depends(RateLimit("1/minute", key="ip"))])
+    async def dep() -> dict[str, bool]:
+        return {"ok": True}
+
+    app.include_router(router, prefix="/a")
+    app.include_router(router, prefix="/b")
+    async with _client(app) as c:
+        assert (await c.post("/a/dep")).status_code == 200
+        assert (await c.post("/b/dep")).status_code == 200
+        assert (await c.post("/a/dep")).status_code == 429

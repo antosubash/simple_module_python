@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request
 from simple_module_core.rate_limit import RateKey, RateSpec, parse_rate
 
 from simple_module_hosting._rate_limit_keys import KEY_USER_OR_IP, methods_label, rule_key
+from simple_module_hosting.token_guard import effective_route
 
 _TOO_MANY = 429
 _DETAIL = "Too many requests. Please slow down and try again shortly."
@@ -32,7 +33,7 @@ class RateLimit:
         self.key = key
 
     async def __call__(self, request: Request) -> None:
-        route = request.scope.get("route")
+        route = effective_route(request.scope)  # carries the include prefix
         path = getattr(route, "path", None) or request.url.path
         bucket = f"dep:{methods_label([request.method])}:{path}:{self.rate}"
         store = request.app.state.sm.rate_limit_store

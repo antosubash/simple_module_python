@@ -78,7 +78,9 @@ class RateLimitMiddleware:
             return None  # health probes and static assets are not an API surface
         if rule is not None and rule.rate is not None:
             spec = rule.rate_spec
-            bucket = rule_bucket(rule.kind, rule.pattern, rule.methods)
+            # Own namespace: a registry rule on the same pattern must not share
+            # this counter (one request would count twice, periods would mix).
+            bucket = f"public:{rule_bucket(rule.kind, rule.pattern, rule.methods)}"
             return (bucket, spec, KEY_IP) if spec is not None else None
         if self.public_rate is None:
             return None
