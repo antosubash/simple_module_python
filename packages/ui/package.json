@@ -65,7 +65,6 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@base-ui/react": "^1.8.0",
     "@simple-module-py/i18n": "0.0.37",
     "@tailwindcss/typography": "^0.5.20",
     "class-variance-authority": "^0.7.1",
