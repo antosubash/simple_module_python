@@ -7,10 +7,7 @@
     "empty_description": "Änderungen an Objekten erscheinen hier automatisch.",
     "no_match_title": "Keine Einträge für diese Filter",
     "no_match_description": "Außerhalb der aktuellen Filter sind Einträge vorhanden.",
-    "clear_filters": "Filter zurücksetzen",
-    "showing": "{from}–{to} von {total}",
-    "previous": "Zurück",
-    "next": "Weiter"
+    "clear_filters": "Filter zurücksetzen"
   },
   "filters": {
     "entity_type_label": "Objekttyp",

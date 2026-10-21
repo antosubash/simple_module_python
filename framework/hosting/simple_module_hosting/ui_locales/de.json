@@ -101,5 +101,10 @@
     "unauthorized_title": "Anmeldung erforderlich",
     "unavailable_description": "Der Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in Kürze erneut.",
     "unavailable_title": "Dienst nicht verfügbar"
+  },
+  "pagination": {
+    "showing": "{from}–{to} von {total}",
+    "previous": "Zurück",
+    "next": "Weiter"
   }
 }
