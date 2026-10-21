@@ -26,6 +26,9 @@ async def independent_session(app: Any) -> AsyncGenerator[AsyncSession]:
         try:
             yield session
             await session.commit()
-        except BaseException:
+        except Exception:
             await session.rollback()
             raise
+        # Cancellation and other BaseExceptions skip the explicit rollback: awaiting
+        # it there could be cancelled too and mask the original error, and closing
+        # the session discards the open transaction anyway.
