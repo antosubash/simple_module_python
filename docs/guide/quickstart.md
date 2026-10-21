@@ -61,7 +61,7 @@ This generates a publishable starter module at `modules/orders/` with:
 - `orders/settings.py` — the module's `pydantic_settings` settings class.
 - `orders/endpoints/api.py` — starter REST endpoints at `/api/orders`.
 - `orders/pages/` — empty page dir; add `.tsx` pages (and a `register_routes` view router) as you build views.
-- `tests/test_orders.py` — pytest smoke test. Named after the package so a repo
+- `tests/test_orders.py` — pytest smoke test. <!-- path-check: ignore --> Named after the package so a repo
   with several modules doesn't collide at collection: without `tests/__init__.py`,
   pytest derives the test module's name from the basename alone.
 

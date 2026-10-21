@@ -11,7 +11,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Removed
+- Committed QA scratch directories `qa-shots/`, `.qa/` and `.verify/` (159 files); they are now gitignored (`dataset/` stays) (#511).
+- Unused `Combobox` shadcn component and the `@base-ui/react` dependency (nothing imported it; Radix has no combobox, use `cmdk` `Command` + `Popover`). **Behaviour change** for anyone importing `@simple-module-py/ui/components/ui/combobox` (#521).
+- `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
+
 ### Added
+- `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
+  `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
+  `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial
+  examples go in `scripts/doc_path_allowlist.txt` (#519).
+- New `docs-build` PR job (`make ci-docs-build`) builds the VitePress site, which
+  `docs/superpowers/` and `docs/plans/` are excluded from (#519).
 - `AuditLink.for_model(Model, url_template=..., ...)` fills `entity_type` (class
   name) and `table_name` from the model; every module's `register_audit_links`
   now uses it. `simple_module_db.independent_session(app)` is an async context
@@ -51,6 +62,10 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- `host/client_app` now depends on `@simple-module-py/ui`; `tailwindcss` floor raised to `^4.3.3` to match the installed version (#521).
+- `@simple-module-py/ui` now declares `react-hook-form`, which `components/ui/form.tsx` imports (it was only reachable through the host app) (#521).
+- Docs: stale example paths in `README.md`, `CLAUDE.md`, the testing overview and the
+  quickstart corrected; the historical `docs/perf` note is marked as exempt (#519).
 - Bound FastAPI to `>=0.140,<0.157` in framework and module dependencies; a
   contract test guards the route guard's private FastAPI/Starlette APIs (#516).
 - Declare and document the optional `file_storage[tasks]` extra for the lockstep
