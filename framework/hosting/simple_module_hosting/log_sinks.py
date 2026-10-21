@@ -25,7 +25,7 @@ import queue
 import threading
 import time
 from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from simple_module_core.correlation import correlation_id
 
@@ -60,15 +60,18 @@ def redact(text: str) -> str:
     return scrub_text(text)
 
 
+def standard_extra_attrs(record: logging.LogRecord) -> dict[str, Any]:
+    """The attributes a caller attached via ``extra=``, i.e. everything not a stock record field."""
+    return {k: v for k, v in record.__dict__.items() if k not in _STANDARD_ATTRS}
+
+
 def redact_record(record: logging.LogRecord) -> None:
     """Mask ``record`` in place: the message, the traceback text and any extra attributes."""
     record.msg = redact(record.getMessage())
     record.args = None
     if record.exc_text:
         record.exc_text = redact(record.exc_text)
-    for key, value in list(record.__dict__.items()):
-        if key in _STANDARD_ATTRS:
-            continue
+    for key, value in list(standard_extra_attrs(record).items()):
         if is_sensitive_key(key):
             record.__dict__[key] = REDACTED
         elif isinstance(value, str):

@@ -17,7 +17,12 @@ from typing import Any
 
 from celery.signals import worker_process_init
 from simple_module_db import current_tenant_id
-from simple_module_hosting.log_sinks import QueueSinkHandler, install_sink, uninstall_sink
+from simple_module_hosting.log_sinks import (
+    QueueSinkHandler,
+    install_sink,
+    standard_extra_attrs,
+    uninstall_sink,
+)
 
 from background_tasks.constants import (
     LOG_EXTRA_MAX_KEYS,
@@ -35,7 +40,6 @@ from background_tasks.sync_db import sync_session
 _log = logging.getLogger(__name__)
 
 _COLUMN_ATTRS = ("task_id", "job_id", "tenant_id", "correlation_id")
-_STANDARD_ATTRS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
 _handler: QueueSinkHandler | None = None
 
 
@@ -45,8 +49,8 @@ def _text(value: object, limit: int) -> str | None:
 
 def _extra(record: logging.LogRecord) -> dict[str, Any]:
     extra: dict[str, Any] = {}
-    for key, value in record.__dict__.items():
-        if key in _STANDARD_ATTRS or key in _COLUMN_ATTRS:
+    for key, value in standard_extra_attrs(record).items():
+        if key in _COLUMN_ATTRS:
             continue
         if len(extra) >= LOG_EXTRA_MAX_KEYS:
             break

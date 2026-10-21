@@ -134,8 +134,11 @@ def sweep_stuck_tasks(self: Task) -> int:
 @shared_task(name=INTERNAL_TASK_PURGE_OLD)
 def purge_old_executions() -> int:
     """Delete terminal rows, delivered outbox rows and log lines past their retention."""
-    retention_days = load_runner_settings().retention_days
-    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    runner = load_runner_settings()
+    retention_days = runner.retention_days
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(days=retention_days)
+    log_cutoff = now - timedelta(days=runner.log_retention_days)
 
     with sync_session() as session:
         result = session.execute(
@@ -150,7 +153,7 @@ def purge_old_executions() -> int:
             .where(OutboxMessage.delivered_at < cutoff)
         )
         count += delivered.rowcount or 0
-        count += purge_log_records(session)
+        count += purge_log_records(session, log_cutoff)
         if count:
             logger.info(
                 "purge_old_executions removed %d row(s) older than %d days",
