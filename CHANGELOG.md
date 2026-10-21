@@ -45,7 +45,7 @@ All notable changes to this project are documented in this file. The format is b
 - Users, file_storage, background_tasks (executions and outbox), audit_log,
   settings and tenants lists now share the pagination helpers instead of
   per-module copies (#513). Browser view routes (`background_tasks`
-  including the outbox page, `file_storage`, `tenants` admin) clamp
+  including the outbox page, `file_storage`, `tenants` admin, `users` admin) clamp
   `?page=0`/negative/garbage to page 1 rather than reject; every JSON list API
   (`background_tasks` executions and outbox, `audit_log`, `file_storage`,
   `users` admin) answers 422 for `page` outside 1..1,000,000 and `per_page`

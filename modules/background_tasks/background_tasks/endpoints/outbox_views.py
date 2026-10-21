@@ -25,7 +25,9 @@ async def outbox(
     params: PageParams = Depends(lenient_page_params(PER_PAGE)),
     service: OutboxService = Depends(get_outbox_service),
 ) -> InertiaResponse:
-    response = await service.list(status_filter=status, page=params.page, per_page=params.per_page)
+    # Fixed page size: the page's Previous/Next navigation carries only ``page``, so
+    # honouring a hand-edited ``?per_page=`` would skip rows on the next click.
+    response = await service.list(status_filter=status, page=params.page, per_page=PER_PAGE)
     return await inertia.render(
         "BackgroundTasks/Outbox",
         {
