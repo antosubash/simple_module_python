@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 - Optional Sentry error reporting: `pip install simple_module_hosting[sentry]` and set `SM_SENTRY_DSN` (plus `SM_SENTRY_ENVIRONMENT`, `SM_SENTRY_TRACES_SAMPLE_RATE`). Web and Celery worker processes tag events with request id, tenant, user id, module and task, and scrub auth headers, cookies, `token`/`code` query values and request bodies. Without a DSN the SDK is never imported (#538).
+- Sentry events no longer leak secrets the SDK's exact-name scrubber misses: auth-, session- and token-like headers (`X-Auth-Token`, `Proxy-Authorization`, `X-Forwarded-For`), nested secrets in `extra`/`contexts`, tokens in log and HTTP breadcrumbs, credentials in exception messages, and Celery task args/kwargs are scrubbed for errors and transactions alike (#538).
 - `make ci-doc-paths` (`scripts/check_doc_paths.py`, part of `make lint` and the
   `python-lint` job) fails when a backticked repo-rooted path in `docs/`,
   `CLAUDE.md`, `README.md` or `skills/**/SKILL.md` does not exist; tutorial

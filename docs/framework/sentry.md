@@ -38,7 +38,23 @@ is open. The DSN is never logged.
 ## Scrubbing
 
 `send_default_pii` is off and local variables are not attached to stack frames
-(they hold the ASGI scope). Before send, events lose the `Authorization`,
-`Cookie`, `Set-Cookie`, `X-CSRF-Token` and `X-Api-Key` headers, request cookies
-and bodies, and the values of `token` and `code` query parameters (in the query
-string and the URL).
+(they hold the ASGI scope). The SDK's own scrubber matches exact key names
+only, so `simple_module_hosting.sentry_scrub` runs a stricter pass from both
+`before_send` and `before_send_transaction`:
+
+- Any key, at any depth of `request`, `extra`, `contexts`, breadcrumbs and
+  span data, whose name contains `password`, `secret`, `token`, `auth`
+  (`Authorization`, `X-Auth-*`), `cookie`, `session`, `api_key`, `csrf`,
+  `credential`, `signature`, `dsn` or a client-address word (`forwarded`,
+  `real_ip`, `remote_addr`, …) is replaced with `[Filtered]`; such request
+  headers are removed outright.
+- Request cookies, bodies and `env` (`REMOTE_ADDR`) are dropped; the event
+  user is reduced to `{"id": …}`.
+- Free text (exception messages, log messages and params, breadcrumb messages
+  and URLs, span descriptions, query strings, source context) loses
+  `key=value` / `key: value` pairs with a sensitive key, the OAuth `code`
+  query parameter, `Bearer`/`Basic` credentials and URL userinfo.
+- Celery task `args`, `kwargs` and return values are dropped (the Celery
+  integration and Celery's own trace log records both attach them).
+- URL-sourced transaction names and request URL paths have id- and
+  token-shaped segments replaced with `*`.
