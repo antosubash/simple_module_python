@@ -82,6 +82,7 @@ export const keys = {
     nav: {
       api_tokens: 'api_tokens.nav.api_tokens',
     },
+    permission_group: 'api_tokens.permission_group',
     revoke: {
       cancel: 'api_tokens.revoke.cancel',
       confirm: 'api_tokens.revoke.confirm',
@@ -164,6 +165,7 @@ export const keys = {
     nav: {
       audit_log: 'audit_log.nav.audit_log',
     },
+    permission_group: 'audit_log.permission_group',
     table: {
       action: 'audit_log.table.action',
       changes: 'audit_log.table.changes',
@@ -291,6 +293,7 @@ export const keys = {
       status_running: 'background_tasks.outbox.status_running',
       title: 'background_tasks.outbox.title',
     },
+    permission_group: 'background_tasks.permission_group',
     retry_all_dialog: {
       cancel: 'background_tasks.retry_all_dialog.cancel',
       confirm: 'background_tasks.retry_all_dialog.confirm',
@@ -462,6 +465,7 @@ export const keys = {
     nav: {
       branding: 'branding.nav.branding',
     },
+    permission_group: 'branding.permission_group',
     tenant_settings: {
       app_name: 'branding.tenant_settings.app_name',
       design_pack: 'branding.tenant_settings.design_pack',
@@ -561,6 +565,7 @@ export const keys = {
       dashboard: 'dashboard.nav.dashboard',
       doctor: 'dashboard.nav.doctor',
     },
+    permission_group: 'dashboard.permission_group',
   },
   feature_flags: {
     audit: {
@@ -595,6 +600,7 @@ export const keys = {
     nav: {
       feature_flags: 'feature_flags.nav.feature_flags',
     },
+    permission_group: 'feature_flags.permission_group',
     table: {
       actions: 'feature_flags.table.actions',
       clear_override: 'feature_flags.table.clear_override',
@@ -671,6 +677,9 @@ export const keys = {
       too_large: 'file_storage.errors.too_large',
       upload_session_closed: 'file_storage.errors.upload_session_closed',
     },
+    feature_flags: {
+      public_uploads: 'file_storage.feature_flags.public_uploads',
+    },
     filters: {
       search_placeholder: 'file_storage.filters.search_placeholder',
       type_all: 'file_storage.filters.type_all',
@@ -683,6 +692,7 @@ export const keys = {
     nav: {
       files: 'file_storage.nav.files',
     },
+    permission_group: 'file_storage.permission_group',
     table: {
       actions: 'file_storage.table.actions',
       filename: 'file_storage.table.filename',
@@ -881,6 +891,7 @@ export const keys = {
     filters: {
       modules_placeholder: 'permissions.filters.modules_placeholder',
     },
+    permission_group: 'permissions.permission_group',
     table: {
       actions: 'permissions.table.actions',
       assigned: 'permissions.table.assigned',
@@ -1032,6 +1043,7 @@ export const keys = {
     nav: {
       settings: 'settings.nav.settings',
     },
+    permission_group: 'settings.permission_group',
     resolved: {
       env_fallback: 'settings.resolved.env_fallback',
       module_default: 'settings.resolved.module_default',
@@ -1181,6 +1193,8 @@ export const keys = {
       remove_confirm_title: 'tenants.members.remove_confirm_title',
       revoke_button: 'tenants.members.revoke_button',
       seats_unlimited: 'tenants.members.seats_unlimited',
+      seats_unlimited_one: 'tenants.members.seats_unlimited_one',
+      seats_unlimited_other: 'tenants.members.seats_unlimited_other',
       seats_used: 'tenants.members.seats_used',
       table_actions: 'tenants.members.table_actions',
       table_email: 'tenants.members.table_email',
@@ -1202,6 +1216,7 @@ export const keys = {
       settings: 'tenants.nav.settings',
       tenants: 'tenants.nav.tenants',
     },
+    permission_group: 'tenants.permission_group',
     roles: {
       admin: 'tenants.roles.admin',
       member: 'tenants.roles.member',
@@ -1603,6 +1618,7 @@ export const keys = {
       profile: 'users.nav.profile',
       users: 'users.nav.users',
     },
+    permission_group: 'users.permission_group',
     profile: {
       avatar_hint: 'users.profile.avatar_hint',
       change_password: 'users.profile.change_password',

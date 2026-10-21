@@ -91,7 +91,11 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(PERM_GROUP, [PERM_VIEW, PERM_MANAGE])
+        registry.add_group(
+            PERM_GROUP,
+            [PERM_VIEW, PERM_MANAGE],
+            label_key="background_tasks.permission_group",
+        )
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from simple_module_core.audit_links import AuditLink

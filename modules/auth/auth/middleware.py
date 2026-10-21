@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 
+from simple_module_core.public_routes import legacy_provider_public_paths
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
 from starlette.requests import Request
@@ -94,10 +95,10 @@ class AuthMiddleware:
         if not is_public:
             public_routes = getattr(app_state, "public_routes", None)
             is_public = public_routes is not None and public_routes.matches(method, path)
-        # Legacy provider-declared paths (prefix-only, method-agnostic). Kept for
-        # back-compat with AuthProvider implementations.
+        # Deprecated provider-declared paths (prefix-only, method-agnostic); honoured
+        # until 0.1.0 for third-party providers. users/keycloak use the registry.
         if not is_public:
-            prefix_paths, exact_paths = provider.get_public_paths()
+            prefix_paths, exact_paths = legacy_provider_public_paths(provider)
             is_public = any(path.startswith(p) for p in prefix_paths) or path in exact_paths
 
         # Contract with the host's RateLimitMiddleware (plain scope key, no import

@@ -1,0 +1,27 @@
+{
+  "setup": {
+    "title": "Installation einrichten",
+    "subtitle": "Noch ein paar Schritte, bevor diese Anwendung einsatzbereit ist.",
+    "connections": {
+      "heading": "Verbindungen",
+      "description": "Die für diese Installation benötigten Dienste werden geprüft.",
+      "retest": "Erneut testen",
+      "testing": "Wird getestet…"
+    },
+    "migrations": {
+      "apply": "Migrationen anwenden"
+    },
+    "steps": {
+      "heading": "Einrichtungsschritte",
+      "migrations": {
+        "title": "Datenbankmigrationen anwenden",
+        "description": "Datenbankschema auf die von diesem Code erwartete Version aktualisieren."
+      }
+    },
+    "working": "In Bearbeitung…",
+    "done": "Fertig. Wird neu geladen…"
+  },
+  "errors": {
+    "token_not_allowed": "API-Tokens können auf dieser Route nicht verwendet werden. Verwenden Sie eine angemeldete Sitzung oder eine Route, deren Berechtigung zum Geltungsbereich des Tokens gehört."
+  }
+}

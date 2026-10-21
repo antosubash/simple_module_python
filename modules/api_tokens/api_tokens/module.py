@@ -87,7 +87,11 @@ class ApiTokensModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(c.PERM_GROUP, [c.PERM_USE, c.PERM_MANAGE])
+        registry.add_group(
+            c.PERM_GROUP,
+            [c.PERM_USE, c.PERM_MANAGE],
+            label_key=f"{c.LOCALE_NAMESPACE}.permission_group",
+        )
         registry.map_role(c.USER_ROLE, [c.PERM_USE])
         for role in TenantRole:
             registry.map_role(tenant_role(role), [c.PERM_USE])

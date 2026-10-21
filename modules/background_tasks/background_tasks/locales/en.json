@@ -217,5 +217,6 @@
     "empty_description": "Nothing matches. Retained logging is off by default: turn on log_sink_enabled in the Background tasks settings, then restart the web process and workers.",
     "load_failed": "Failed to load log lines",
     "platform": "Platform"
-  }
+  },
+  "permission_group": "Background tasks"
 }

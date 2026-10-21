@@ -1,0 +1,108 @@
+{
+  "audit": {
+    "file": "Datei"
+  },
+  "browse": {
+    "title": "Dateispeicher",
+    "head_title": "Dateispeicher",
+    "subtitle": "Backend {backend} · {used} belegt · {max} pro Datei",
+    "subtitle_quota": "Backend {backend} · {used} von {quota} belegt · {max} pro Datei",
+    "upload_button": "Dateien hochladen",
+    "delete_selected": "Ausgewählte löschen",
+    "uploading": "Wird hochgeladen…",
+    "empty_title": "Noch keine Dateien",
+    "empty_description": "Laden Sie Ihre erste Datei hoch.",
+    "no_match_title": "Keine passenden Dateien",
+    "no_match_description": "Keine Dateien entsprechen den aktuellen Filtern für Suche, Typ oder hochladende Person.",
+    "clear_filters": "Filter zurücksetzen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "showing": "{from}–{to} von {total}",
+    "selected_showing_one": "{count} ausgewählt · {from}–{to} von {total}",
+    "selected_showing_other": "{count} ausgewählt · {from}–{to} von {total}"
+  },
+  "table": {
+    "filename": "Dateiname",
+    "size": "Größe",
+    "type": "Typ",
+    "uploaded_by": "Hochgeladen von",
+    "when": "Zeitpunkt",
+    "actions": "Aktionen",
+    "select_all": "Alle Dateien auf dieser Seite auswählen",
+    "select_row": "{name} auswählen",
+    "public": "Öffentlich"
+  },
+  "actions": {
+    "download": "Herunterladen",
+    "make_public": "Öffentlich machen",
+    "make_private": "Privat machen"
+  },
+  "delete_dialog": {
+    "title_one": "„{name}“ löschen?",
+    "title_other": "{count} Dateien löschen?",
+    "description_one": "Dies entfernt die Datei aus dem Backend {backend}. Bereits geteilte Links funktionieren sofort nicht mehr.",
+    "description_other": "Dies entfernt {count} Dateien aus dem Backend {backend}. Bereits geteilte Links funktionieren sofort nicht mehr.",
+    "cancel": "Abbrechen",
+    "confirm_one": "Datei löschen",
+    "confirm_other": "Dateien löschen"
+  },
+  "toasts": {
+    "upload_failed": "Hochladen fehlgeschlagen",
+    "deleted_one": "„{name}“ gelöscht",
+    "deleted_other": "{count} Dateien gelöscht",
+    "delete_failed": "Datei konnte nicht gelöscht werden",
+    "already_deleted_one": "Diese Datei wurde bereits gelöscht",
+    "already_deleted_other": "Diese {count} Dateien wurden bereits gelöscht",
+    "deleted_partial": "{deleted} von {total} Dateien gelöscht; die übrigen waren bereits gelöscht",
+    "made_public": "„{name}“ ist jetzt öffentlich",
+    "made_private": "„{name}“ ist jetzt privat",
+    "visibility_failed": "Sichtbarkeit konnte nicht geändert werden",
+    "uploaded_count_one": "{count} Datei hochgeladen",
+    "uploaded_count_other": "{count} Dateien hochgeladen",
+    "upload_failed_named": "„{name}“ konnte nicht hochgeladen werden"
+  },
+  "errors": {
+    "not_found": "Datei nicht gefunden",
+    "too_large": "Datei überschreitet die Größenbegrenzung von {max_size} pro Upload",
+    "bad_type": "Dieser Dateityp ist nicht erlaubt",
+    "backend_error": "Fehler im Speicher-Backend",
+    "bad_image": "Dieses Bild konnte nicht verarbeitet werden",
+    "quota_exceeded": "Diese Datei würde das Speicherkontingent überschreiten",
+    "direct_upload_unsupported": "Das Speicher-Backend unterstützt keine fortsetzbaren Uploads",
+    "bad_part": "Dieser Upload-Teil ist für diese Datei ungültig",
+    "parts_mismatch": "Die hochgeladenen Teile stimmen nicht mit den gesendeten Daten überein. Setzen Sie den Upload fort, um den Rest zu senden",
+    "size_mismatch": "Die zusammengesetzte Datei hat die Größe {actual}, erwartet wurde {expected}. Laden Sie sie erneut hoch",
+    "upload_session_closed": "Dieser Upload ist nicht mehr aktiv. Starten Sie ihn erneut"
+  },
+  "filters": {
+    "search_placeholder": "Dateinamen suchen…",
+    "type_label": "Typ",
+    "type_all": "Alle Typen",
+    "type_selected": "Typ: {value} ({count})",
+    "uploader_label": "Hochgeladen von",
+    "uploader_all": "Alle Personen",
+    "uploader_selected": "Hochgeladen von: {value}"
+  },
+  "upload": {
+    "drop_here": "Dateien hier ablegen",
+    "browse_hint": "oder zum Auswählen klicken · {types} · max. {size}",
+    "any_type": "beliebiger Typ",
+    "card_title": "Laufende Uploads",
+    "card_subtitle": "Bleibt beim Filtern oder Blättern der Tabelle sichtbar",
+    "failed_reason": "Fehlgeschlagen — {reason}",
+    "retry": "Erneut versuchen",
+    "in_progress": "{name} wird hochgeladen",
+    "cancel": "Upload abbrechen",
+    "dismiss": "Schließen",
+    "resume_prompt": "Bereits teilweise hochgeladen — {percent}% abgeschlossen",
+    "resume": "Upload fortsetzen",
+    "start_over": "Neu beginnen"
+  },
+  "nav": {
+    "files": "Dateien"
+  },
+  "permission_group": "Dateien",
+  "feature_flags": {
+    "public_uploads": "Nicht authentifizierte Uploads erlauben (künftig)."
+  }
+}

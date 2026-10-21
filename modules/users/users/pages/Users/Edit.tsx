@@ -1,5 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
+import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
@@ -29,7 +29,7 @@ function joinedMonth(value: string | null): string {
   if (!value) return '';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '';
-  return parsed.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  return parsed.toLocaleDateString(activeLocale(), { month: 'short', year: 'numeric' });
 }
 
 /**

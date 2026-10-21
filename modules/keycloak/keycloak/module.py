@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
+from simple_module_core.public_routes import PublicRouteRegistry
+
+from keycloak.constants import PUBLIC_PATH_PREFIXES
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -50,6 +53,10 @@ class KeycloakModule(ModuleBase):
         from keycloak.directory import KeycloakDirectory
 
         set_user_directory(app, KeycloakDirectory())
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        for prefix in PUBLIC_PATH_PREFIXES:
+            registry.add_prefix(prefix)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

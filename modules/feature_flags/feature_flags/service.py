@@ -7,6 +7,8 @@ mirrors mutations into the registry.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,16 +23,25 @@ def _registry_tenant_id(scope: str, scope_id: str) -> str | None:
     return scope_id if scope == SCOPE_TENANT else None
 
 
+def _description(flag: FeatureFlagDefinition, translate: Callable[[str], str] | None) -> str:
+    # Translator.t() echoes an unknown key back; keep the literal in that case.
+    if not flag.description_key or translate is None:
+        return flag.description
+    translated = translate(flag.description_key)
+    return flag.description if translated == flag.description_key else translated
+
+
 def _build_view(
     flag: FeatureFlagDefinition,
     *,
     enabled: bool,
     overridden: bool,
     system_enabled: bool | None = None,
+    translate: Callable[[str], str] | None = None,
 ) -> FeatureFlagView:
     return FeatureFlagView(
         name=flag.name,
-        description=flag.description,
+        description=_description(flag, translate),
         default_enabled=flag.default_enabled,
         enabled=enabled,
         overridden=overridden,
@@ -73,7 +84,10 @@ class FeatureFlagService:
         return list(result.scalars())
 
     async def list_flags(
-        self, registry: FeatureFlagRegistry, tenant_id: str | None = None
+        self,
+        registry: FeatureFlagRegistry,
+        tenant_id: str | None = None,
+        translate: Callable[[str], str] | None = None,
     ) -> list[FeatureFlagView]:
         """Join registered definitions with persisted overrides for admin display.
 
@@ -95,7 +109,12 @@ class FeatureFlagService:
             system_enabled = system_value if system_value is not None else flag.default_enabled
             if tenant_id is None:
                 views.append(
-                    _build_view(flag, enabled=system_enabled, overridden=system_value is not None)
+                    _build_view(
+                        flag,
+                        enabled=system_enabled,
+                        overridden=system_value is not None,
+                        translate=translate,
+                    )
                 )
                 continue
             tenant_value = registry.tenant_override(flag.name, tenant_id)
@@ -105,6 +124,7 @@ class FeatureFlagService:
                     enabled=tenant_value if tenant_value is not None else system_enabled,
                     overridden=tenant_value is not None,
                     system_enabled=system_enabled,
+                    translate=translate,
                 )
             )
         return views

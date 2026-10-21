@@ -9,6 +9,7 @@ frontend doesn't need separate routes per scope.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
@@ -75,9 +76,10 @@ async def browse(
     inertia: InertiaDep,
     service: FeatureFlagServiceDep,
     registry: FeatureFlagRegistryDep,
+    translator: TranslatorDep,
     tenant_id: str | None = None,
 ) -> InertiaResponse:
-    flags = await service.list_flags(registry, tenant_id=tenant_id)
+    flags = await service.list_flags(registry, tenant_id=tenant_id, translate=translator.t)
     tenants = await service.list_tenants_with_overrides()
     return await inertia.render(
         PAGE_BROWSE,

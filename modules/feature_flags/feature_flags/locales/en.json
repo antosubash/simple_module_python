@@ -51,5 +51,6 @@
   },
   "nav": {
     "feature_flags": "Feature flags"
-  }
+  },
+  "permission_group": "Feature flags"
 }

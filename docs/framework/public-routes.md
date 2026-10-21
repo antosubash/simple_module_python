@@ -9,7 +9,7 @@ inbound webhook, a status page) declare those routes through the
 into one `PublicRouteRegistry` at boot, and the middleware consults it on every
 request.
 
-This is the supported alternative to the legacy `AuthProvider.get_public_paths`
+This is the supported replacement for the deprecated `AuthProvider.get_public_paths`
 contract, which is **prefix-only and method-agnostic** — it cannot express
 "expose `GET /api/gis/datasets/{id}/tilejson` but keep `PATCH …/visibility`
 authenticated" because read and write routes share a prefix.
@@ -86,8 +86,10 @@ For each request, `AuthMiddleware` treats the path as public if **any** of:
    `/api/openapi.json` (only when served), `/i18n/`, the root `/`.
 2. **`app.state.public_routes`** — the `PublicRouteRegistry` (module hooks +
    `SM_AUTH_PUBLIC_PATHS`). Method-aware.
-3. **`provider.get_public_paths()`** — the auth provider's own login / register
-   routes (legacy, prefix-only). Kept for back-compat.
+3. **`provider.get_public_paths()`** — *deprecated* (removed in 0.1.0). A
+   third-party provider that still implements it is honoured, with one
+   `DeprecationWarning`; `users` and `keycloak` register their login routes in
+   the registry instead. The maintenance gate consults the registry the same way.
 
 A public path still resolves the user when a valid session is present (so a
 public landing page can show "Open Dashboard" to a logged-in visitor) — it just

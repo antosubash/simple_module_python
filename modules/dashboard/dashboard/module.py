@@ -45,7 +45,11 @@ class DashboardModule(ModuleBase):
         # ``admin`` holds it through ``*`` and no other role is mapped — not
         # even ``user`` on a single-tenant install, or any self-registered
         # account could read it (#464). Grant it to a role in the role editor.
-        registry.add_group(PERM_GROUP, [PERM_VIEW])
+        registry.add_group(
+            PERM_GROUP,
+            [PERM_VIEW],
+            label_key="dashboard.permission_group",
+        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

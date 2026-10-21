@@ -125,6 +125,7 @@ export default defineConfig({
             { text: "Principal resolvers", link: "/framework/principal-resolvers" },
             { text: "User directory", link: "/framework/user-directory" },
             { text: "Public routes", link: "/framework/public-routes" },
+            { text: "Deprecations", link: "/framework/deprecations" },
             { text: "Events", link: "/framework/events" },
             { text: "Cache invalidation", link: "/framework/invalidation" },
             { text: "Leases & semaphores", link: "/framework/leases" },
