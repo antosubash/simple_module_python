@@ -51,6 +51,7 @@ All notable changes to this project are documented in this file. The format is b
 - `make new-module` / `smpy create-module` scaffolds subclass `DbBackedSettings`
   and register through `register_module_settings` instead of assigning
   `app.state.<pkg>` directly (#500).
+- SM009 now detects dynamic framework imports of plugin packages, including importlib aliases and fixed f-string package prefixes (#500).
 - **Behaviour change:** the `users` mailer settings (`mailer`, `smtp_*`) moved to
   the `mail` module as `backend` and `smtp_*`; a data migration (`d7b3a9e5c1f2`)
   moves stored values (#496). `simple_module_users` now depends on `simple_module_mail`, and
