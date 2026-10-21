@@ -86,6 +86,12 @@ jobs:
       - uses: ./.github/actions/bump-version
         with:
           version: ${{ needs.resolve.outputs.version }}
+      # `checks` ran at the pre-bump version; a deprecation whose remove_in is
+      # this release must block it, so re-run the expiry gate post-bump.
+      - name: Deprecation expiry gate (post-bump)
+        run: |
+          uv sync --all-packages
+          uv run pytest host/tests/test_deprecation_expiry.py -q -p no:cacheprovider -n 0
       - name: Build Python wheels + sdists
         run: uv build --all-packages --out-dir dist-py
       - name: Pack npm tarballs

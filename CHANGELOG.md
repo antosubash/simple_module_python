@@ -905,7 +905,7 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.27...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.37...HEAD
 [0.0.27]: https://github.com/antosubash/simple_module_python/compare/v0.0.26...v0.0.27
 [0.0.16]: https://github.com/antosubash/simple_module_python/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/antosubash/simple_module_python/compare/v0.0.14...v0.0.15
