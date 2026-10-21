@@ -8,6 +8,8 @@
 
 export interface PermissionGroup {
   name: string;
+  /** `name` in the request's locale; falls back to `name` when absent. */
+  label?: string;
   permissions: string[];
   /** Human labels a runtime permission source supplied, keyed by permission. */
   labels?: Record<string, string>;
@@ -66,6 +68,7 @@ export function filterGroups(
     const moduleMatches =
       needle === '' ||
       group.name.toLowerCase().includes(needle) ||
+      (group.label ?? '').toLowerCase().includes(needle) ||
       groupPrefix(group).includes(needle);
     if (!moduleMatches && !matchKeys) continue;
     const permissions = group.permissions.filter(

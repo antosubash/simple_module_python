@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
+import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 
@@ -24,14 +24,14 @@ interface Props {
 function stamp(iso: string): string {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return iso;
-  const time = parsed.toLocaleTimeString(undefined, {
+  const time = parsed.toLocaleTimeString(activeLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: false,
   });
   if (parsed.toDateString() === new Date().toDateString()) return time;
-  const date = parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const date = parsed.toLocaleDateString(activeLocale(), { day: 'numeric', month: 'short' });
   return `${date} ${time.slice(0, 5)}`;
 }
 

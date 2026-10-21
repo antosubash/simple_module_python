@@ -1,0 +1,151 @@
+{
+  "browse": {
+    "title": "Einstellungen",
+    "new_button": "Neue Überschreibung",
+    "empty_title": "Noch keine Einstellungen",
+    "empty_description": "Erstellen Sie Ihre erste Einstellung.",
+    "no_match_title": "Keine passenden Überschreibungen",
+    "no_match_description": "Kein Schlüssel entspricht dieser Suche in diesem Geltungsbereich.",
+    "edit_link": "Bearbeiten",
+    "delete_link": "Löschen",
+    "delete_title": "Überschreibung löschen",
+    "delete_description": "„{key}“ wird entfernt. Der Schlüssel verwendet dann den Wert des nächsten nachrangigen Geltungsbereichs. Dies kann nicht rückgängig gemacht werden.",
+    "delete_confirm_button": "Überschreibung löschen",
+    "delete_failed": "Die Überschreibung konnte nicht gelöscht werden.",
+    "delete_managed_error": "„{setting}“ wird an anderer Stelle verwaltet und kann hier nicht gelöscht werden. Entfernen Sie den Wert unter {clear_via}.",
+    "description": "Datenbanküberschreibungen. Rangfolge: Benutzer vor Organisation vor System vor Umgebungsstandard.",
+    "search_placeholder": "Schlüssel suchen…",
+    "scope_filter_label": "Überschreibungen nach Geltungsbereich filtern",
+    "scope_all": "Alle",
+    "showing": "{from}–{to} von {total}",
+    "previous": "Zurück",
+    "next": "Weiter"
+  },
+  "table": {
+    "scope": "Geltungsbereich",
+    "key": "Schlüssel",
+    "value": "Wert",
+    "value_type": "Typ",
+    "actions": "Aktionen"
+  },
+  "scopes": {
+    "system": "System",
+    "tenant": "Organisation",
+    "user": "Benutzer"
+  },
+  "value_types": {
+    "string": "string",
+    "bool": "bool",
+    "int": "int",
+    "float": "float",
+    "json": "json"
+  },
+  "value_types_short": {
+    "string": "str",
+    "bool": "bool",
+    "int": "int",
+    "float": "float",
+    "json": "json"
+  },
+  "form": {
+    "scope_label": "Geltungsbereich",
+    "scope_id_label": "Geltungsbereichs-ID",
+    "scope_id_placeholder": "Für den systemweiten Geltungsbereich leer lassen",
+    "key_label": "Schlüssel",
+    "key_placeholder": "z. B. feature.enabled",
+    "value_type_label": "Typ",
+    "value_label": "Wert",
+    "value_placeholder": "Wert eingeben",
+    "description_label": "Beschreibung",
+    "description_placeholder": "Grund für diese Überschreibung.",
+    "key_unknown_warning": "Kein installiertes Modul deklariert diesen Schlüssel. Er wird gespeichert, aber nur gelesen, wenn ein Modul ihn abfragt.",
+    "cancel_button": "Abbrechen",
+    "bool_true": "true",
+    "bool_false": "false",
+    "suggestions_header": "Von Modulen registriert",
+    "suggestion_env": "{type} · Umgebung {env_var}",
+    "suggestion_default": "{type} · Standard {default}"
+  },
+  "resolved": {
+    "title": "Ermittelter Wert",
+    "this_override": "diese Überschreibung",
+    "env_fallback": "Umgebungsersatzwert",
+    "module_default": "Modulstandard",
+    "not_read": "nicht gelesen",
+    "not_set": "nicht gesetzt",
+    "unset": "nicht gesetzt",
+    "no_restart_note": "Speichern wirkt ab der nächsten Anfrage. Kein Neustart nötig.",
+    "restart_note": "Dieser Schlüssel wird einmal beim Start gelesen. Die App muss neu gestartet werden, bevor der neue Wert gilt."
+  },
+  "create": {
+    "title": "Neue Überschreibung",
+    "description": "Die Werteingabe richtet sich nach dem Typ. Beim Bearbeiten ist der Schlüssel gesperrt.",
+    "submit_button": "Überschreibung speichern",
+    "head_title": "Neue Überschreibung"
+  },
+  "edit": {
+    "title": "Einstellung bearbeiten",
+    "submit_button": "Speichern"
+  },
+  "modules": {
+    "title": "Moduleinstellungen",
+    "description": "Aus den deklarierten Einstellungen des Moduls generiert. Umgebungsersatzwert wird je Feld angezeigt.",
+    "heading_suffix": "Einstellungen",
+    "back_link": "Zurück zu den Überschreibungen",
+    "empty_title": "Keine Module mit Einstellungen",
+    "no_fields": "Keine Felder deklariert.",
+    "secret_badge": "geheim",
+    "browse_link": "Formulare pro Modul",
+    "search_placeholder": "Module suchen…",
+    "field_count_one": "{count} Feld",
+    "field_count_other": "{count} Felder",
+    "overridden_count_one": "{count} überschrieben",
+    "overridden_count_other": "{count} überschrieben",
+    "unsaved_count_one": "{count} ungespeichert",
+    "unsaved_count_other": "{count} ungespeichert",
+    "browse_free_form_link": "Rohe Überschreibungen anzeigen →",
+    "table": {
+      "field": "Feld",
+      "env_var": "Umgebungsvariable",
+      "value": "Wert",
+      "default": "Standard",
+      "description": "Beschreibung"
+    },
+    "test_connection": "Verbindung zu {name} testen",
+    "test_connection_generic": "Verbindung testen",
+    "testing": "Wird getestet…",
+    "last_test_success": "Letzter Test erfolgreich {ago}",
+    "last_test_failure": "Letzter Test fehlgeschlagen {ago}",
+    "env_var_hint": "Name der Umgebungsvariable für dieses Feld, verwendet von „smpy settings import-from-env“",
+    "env_var_not_read_hint": "{env_var} ist nur eine Bezeichnung. Dieses Modul liest seine Einstellungen ausschließlich aus der Datenbank, nie aus der Umgebung",
+    "source_db": "in der DB überschrieben",
+    "source_db_ignored_for_env": "in der DB gespeichert · Umgebungsvariable hat Vorrang",
+    "secret_write_only": "nur schreibbar · wird nie zurückgegeben",
+    "head_title": "Moduleinstellungen",
+    "managed_title": "Auf eigener Seite verwaltet",
+    "managed_description": "{module} hat eine eigene Einstellungsseite. Bearbeiten Sie die Werte dort, damit Validierung und Vorschau greifen.",
+    "managed_open": "Einstellungen für {module} öffnen"
+  },
+  "modules_form": {
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "saved_toast": "Einstellungen gespeichert",
+    "validation_failed": "Diese Einstellungen konnten nicht gespeichert werden",
+    "save_failed": "Speichern fehlgeschlagen. Versuchen Sie es erneut.",
+    "requires_restart": "Neustart erforderlich",
+    "reset_to_default": "Zurücksetzen",
+    "set_new_value": "Neuen Wert setzen",
+    "invalid_json": "Ungültiges JSON — wird beim Speichern abgelehnt.",
+    "not_set": "Nicht gesetzt (Standard)",
+    "option_on": "Ein",
+    "option_off": "Aus",
+    "env_pinned": "Durch eine vorrangige Umgebungsvariable festgelegt. Ändern Sie den Wert dort."
+  },
+  "nav": {
+    "settings": "Einstellungen"
+  },
+  "audit": {
+    "setting": "Einstellung"
+  },
+  "permission_group": "Einstellungen"
+}

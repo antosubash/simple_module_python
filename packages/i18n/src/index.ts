@@ -74,6 +74,15 @@ export function updateI18n(opts: ConfigureOptions): void {
   }
 }
 
+/**
+ * The active UI language, for `Intl` / `toLocale*String` calls. Passing
+ * `undefined` there follows the browser's locale, which shows US dates on a
+ * German page when the browser is en-US.
+ */
+export function activeLocale(): string | undefined {
+  return i18next.language || undefined;
+}
+
 export { t } from 'i18next';
 export { useTranslation as useT } from 'react-i18next';
 export { keys } from './keys.generated';

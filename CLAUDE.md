@@ -483,7 +483,7 @@ app-level fixtures to every test directory; the root `conftest.py` is thin.
   `authenticated_client` (`httpx.AsyncClient`, the latter with a forged admin
   session); `tenant_client(role)` for tenant-scoped requests;
   `setup_pending_app`, `fake_event_bus`, `build_test_app`, `redis_server`.
-- Module-specific fixtures live in each module's `tests/conftest.py`
+- Module-specific fixtures live in each module's `modules/<m>/tests/conftest.py`
   (`background_tasks`, `file_storage` override some of the above).
 - Importing the plugin drops `PasswordHelper()`'s Argon2/bcrypt work factor to
   the minimum (hashes stay real `$argon2`/`$2b`); production-cost hashing of
