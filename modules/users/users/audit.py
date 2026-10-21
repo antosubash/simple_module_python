@@ -2,9 +2,7 @@
 
 An audit entry stores ``User`` and a uuid. Turning that back into something a
 reader can act on has two halves and both belong here: *where* the record
-lives (the admin route) and *what it is called*. Only this module knows the
-second — a user is named by ``full_name``, or by the email while an invite is
-still outstanding and no name exists yet.
+lives (the admin route) and *what it is called* (``DirectoryUser.label``).
 
 The resolver is deliberately batched: an audit page is 50 rows and a busy
 afternoon is 50 edits to the same handful of accounts, so it takes every id on

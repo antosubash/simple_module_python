@@ -61,8 +61,6 @@ class UsersDirectory:
         self, db: Any, ids: Collection[str], *, with_roles: bool = False
     ) -> dict[str, DirectoryUser]:
         parsed = parse_user_ids(ids)
-        if not parsed:
-            return {}
         found: dict[str, DirectoryUser] = {}
         for chunk in chunked(list(parsed)):
             rows = (await db.execute(select(*_COLUMNS).where(User.id.in_(chunk)))).all()

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api_tokens.constants import FORBIDDEN_SERVICE_ROLES, TokenKind
 from api_tokens.contracts.schemas import TokenView
 from api_tokens.models import ApiToken
+from api_tokens.owner import usable_owner
 from api_tokens.tokens import generate
 
 
@@ -92,9 +93,7 @@ class ApiTokenService:
         minted for the id would be dead on arrival, since the resolver refuses
         a personal token whose owner's roles it cannot read.
         """
-        found = await self.directory.get_many(self.db, [str(user_id)], with_roles=True)
-        owner = found.get(str(user_id))
-        return owner is not None and owner.is_active and owner.roles is not None
+        return await usable_owner(self.directory, self.db, str(user_id)) is not None
 
     async def revoke_all_for_owner(self, owner_user_id: uuid.UUID) -> int:
         """Revoke every live personal token *owner_user_id* holds, in any tenant."""

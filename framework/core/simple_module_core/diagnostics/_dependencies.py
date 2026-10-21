@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
+from simple_module_core.discovery import missing_dependencies
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
@@ -19,24 +20,17 @@ if TYPE_CHECKING:
 CODE = "SM030"
 
 
-def check_missing_dependencies(
-    modules: list[ModuleBase], level: DiagnosticLevel = DiagnosticLevel.WARNING
-) -> list[Diagnostic]:
-    names = {m.meta.name for m in modules}
+def check_missing_dependencies(modules: list[ModuleBase]) -> list[Diagnostic]:
     return [
         Diagnostic(
-            level=level,
+            level=DiagnosticLevel.WARNING,
             code=CODE,
             message=(
-                f"Module '{mod.meta.name}' depends on '{dep}', which is not loaded; "
+                f"Module '{name}' depends on '{dep}', which is not loaded; "
                 "a non-development boot refuses to start"
             ),
-            module_name=mod.meta.name,
-            suggestion=(
-                f"Install and enable '{dep}', or leave '{mod.meta.name}' out (SM_MODULES_ENABLED)"
-            ),
+            module_name=name,
+            suggestion=f"Install and enable '{dep}', or leave '{name}' out (SM_MODULES_ENABLED)",
         )
-        for mod in modules
-        for dep in mod.meta.depends_on
-        if dep not in names
+        for name, dep in missing_dependencies(modules)
     ]

@@ -37,11 +37,7 @@ class AuditActivityFeed:
         refs = [(entry.entity_type, entry.entity_id) for entry in page.items]
         # The reader's grants reach the resolvers, which skip entity types
         # whose owner gated their names (GH #300), exactly as the audit screen.
-        labels = (
-            await resolve_entity_labels(db, self._app.state.sm.audit_links, refs, permissions)
-            if refs
-            else {}
-        )
+        labels = await resolve_entity_labels(db, self._app.state.sm.audit_links, refs, permissions)
         return [
             ActivityItem(
                 at=entry.created_at,

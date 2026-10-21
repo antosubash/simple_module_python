@@ -33,6 +33,7 @@ from api_tokens.constants import (
     TokenKind,
 )
 from api_tokens.models import ApiToken
+from api_tokens.owner import usable_owner
 from api_tokens.tokens import hash_token, is_well_formed
 
 logger = logging.getLogger(__name__)
@@ -57,17 +58,14 @@ async def _personal(db: Any, directory: UserDirectory, token: ApiToken) -> UserC
     if token.owner_user_id is None:
         return None
     owner_id = str(token.owner_user_id)
-    user = (await directory.get_many(db, [owner_id], with_roles=True)).get(owner_id)
-    # Unknown roles (an IdP that keeps them, like Keycloak) refuse the token
-    # rather than authenticate an owner with none: the roles are what the
-    # scopes are intersected with, and "none" is not what the owner holds.
-    if user is None or not user.is_active or user.roles is None:
+    user = await usable_owner(directory, db, owner_id)
+    if user is None:
         return None
     principal = UserContext(
         id=owner_id,
         email=user.email,
         name=user.label,
-        roles=list(user.roles),
+        roles=list(user.roles or ()),
         auth_kind=AUTH_KIND_PAT,
         scopes=list(token.scopes),
     )

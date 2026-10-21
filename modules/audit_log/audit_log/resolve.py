@@ -57,7 +57,7 @@ async def resolve_actors(
     ``audit_log.view`` therefore does imply "may see who acted"; that is stated
     in docs/modules/audit_log.md so it is granted knowingly. See GH #300.
     """
-    return await resolve_user_labels(directory, db, [uid for uid in user_ids if uid])
+    return await resolve_user_labels(directory, db, user_ids)
 
 
 def actor_filter(directory: UserDirectory, term: str) -> Any | None:

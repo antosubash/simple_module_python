@@ -71,7 +71,7 @@ class UserContext:
         auth_kind: str = AUTH_KIND_SESSION,
         scopes: list[str] | None = None,
     ) -> UserContext:
-        """Build a UserContext from a users.models.User with eagerly-loaded roles.
+        """Build a UserContext from an :class:`AccountLike` with eagerly-loaded roles.
 
         Duck-typed to avoid importing users.models at runtime — any object
         exposing .id, .email, .full_name, .roles[*].name works. The user row
