@@ -5,6 +5,7 @@ from simple_module_db.base import create_module_base
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.deps import get_db
 from simple_module_db.extensions import UnsupportedDatabaseError, ensure_db_extensions
+from simple_module_db.independent import independent_session
 from simple_module_db.migration_portability import drop_enums_if_postgres
 from simple_module_db.migrations import (
     build_module_metadata,
@@ -13,6 +14,13 @@ from simple_module_db.migrations import (
     render_item,
 )
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.pagination import (
+    Page,
+    PageParams,
+    clamp_page,
+    paginate,
+    total_pages,
+)
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
 from simple_module_db.session import DatabaseState, RequestSession, init_db
@@ -50,6 +58,8 @@ __all__ = [
     "MissingTenantError",
     "MultiTenantMixin",
     "OnCommitCallback",
+    "Page",
+    "PageParams",
     "RequestSession",
     "SoftDeleteMixin",
     "TSVector",
@@ -59,6 +69,7 @@ __all__ = [
     "all_tenants",
     "bind_current_tenant",
     "build_module_metadata",
+    "clamp_page",
     "create_module_base",
     "current_tenant_id",
     "detect_provider",
@@ -67,6 +78,7 @@ __all__ = [
     "finalize_session",
     "get_db",
     "hard_delete",
+    "independent_session",
     "init_db",
     "is_valid_tenant_id",
     "like_contains_pattern",
@@ -75,6 +87,8 @@ __all__ = [
     "make_process_revision_directives",
     "mark_written",
     "no_tenant",
+    "paginate",
     "render_item",
     "tenant_context",
+    "total_pages",
 ]

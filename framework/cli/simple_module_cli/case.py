@@ -13,6 +13,7 @@ __all__ = [
     "InvalidScaffoldNameError",
     "to_kebab_case",
     "to_pascal_case",
+    "to_singular",
     "to_snake_case",
     "validate_scaffold_name",
 ]
@@ -58,6 +59,31 @@ def to_pascal_case(name: str) -> str:
     """'my-feature' / 'my_feature' -> 'MyFeature' (the display name in Meta)."""
     snake = to_snake_case(name)
     return "".join(part.capitalize() for part in snake.split("_") if part)
+
+
+_UNCOUNTABLE = frozenset({"news", "status", "series", "species", "data"})
+_ES_SUFFIXES = ("uses", "sses", "xes", "ches", "shes")
+
+
+def to_singular(snake: str) -> str:
+    """Conservative singularization of a snake_case name: 'orders' -> 'order'.
+
+    Only the last ``_`` segment is inflected. Handles ``ies`` -> ``y`` and
+    ``uses``/``xes``/``ches``/``shes``/``sses`` -> drop ``es``; leaves ``ss``/``us``/``is``
+    endings and a few uncountables alone; otherwise drops one trailing ``s``.
+    The author renames the sample entity when this guesses wrong.
+    """
+    head, sep, word = snake.rpartition("_")
+    if word in _UNCOUNTABLE or not word.endswith("s") or word.endswith(("ss", "us", "is")):
+        return snake
+    # Irregular -ie plurals ("movies", "cookies") are not handled: "ies" -> "y".
+    if word.endswith("ies") and len(word) > 3:
+        word = word[:-3] + "y"
+    elif word.endswith(_ES_SUFFIXES):
+        word = word[:-2]
+    else:
+        word = word[:-1]
+    return head + sep + word
 
 
 _VALID_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$")

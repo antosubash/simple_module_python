@@ -255,6 +255,8 @@ new-module:                 ## Scaffold a new module (usage: make new-module nam
 	@test -n "$(name)" || (echo "Error: Please provide a module name, e.g. make new-module name=orders" && exit 1)
 	uv run python scripts/new_module.py $(name)
 	uv sync --all-packages
+	npm install
+	$(MAKE) gen-i18n
 
 # Kill dev servers
 kill:

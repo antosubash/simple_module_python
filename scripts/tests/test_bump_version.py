@@ -54,6 +54,20 @@ def test_python_bump_handles_unpinned_simple_module_dep(tmp_pkg_dir: Path, write
     assert '"simple_module_core==0.0.2"' in text
 
 
+def test_python_bump_rewrites_optional_dependency_pins(tmp_pkg_dir: Path, writer) -> None:
+    p = writer(
+        tmp_pkg_dir / "pyproject.toml",
+        '[project]\nname = "x"\nversion = "0.0.1"\n'
+        "[project.optional-dependencies]\n"
+        'tasks = ["simple_module_background_tasks==0.0.1", "celery>=5"]\n',
+    )
+    bump_python_package(p, "0.0.2")
+    text = p.read_text()
+    assert '"simple_module_background_tasks==0.0.2"' in text
+    assert '"celery>=5"' in text
+    assert bump_python_package(p, "0.0.2", check=True)
+
+
 # -------- npm --------
 
 NPM_SAMPLE = {

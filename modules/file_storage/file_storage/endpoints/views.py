@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import math
-
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Request
 from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
+from simple_module_db.pagination import PageParams, clamp_page
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +32,7 @@ _PER_PAGE = 20
 async def browse(
     request: Request,
     inertia: InertiaDep,
-    page: int = Query(default=1),
+    params: PageParams = Depends(lenient_page_params(_PER_PAGE)),
     q: str = "",
     content_type: str = "",
     uploaded_by: str = "",
@@ -40,11 +40,9 @@ async def browse(
     service: FileStorageService = Depends(get_file_storage_service),
     owner: str | None = OwnerScope,
 ) -> InertiaResponse:
-    # A user-supplied page below 1 (0, negative, a hand-edited ?page=) must
-    # clamp to the first page rather than reject — mirrors the past-the-end
-    # clamp below so no value of ?page= can produce a raw validation-error
-    # page for a browser-facing route.
-    page = max(page, 1)
+    # ``lenient_page_params`` clamps a page below 1 (0, negative, a hand-edited
+    # ?page=) to the first page, so no ?page= value can produce a raw
+    # validation-error page for a browser-facing route.
     filters = {
         "search": q or None,
         "content_type": content_type or None,
@@ -60,8 +58,7 @@ async def browse(
     # for the rows first meant fetching, and throwing away, a page nobody would
     # ever see; the total is what decides which page to fetch, so it goes first.
     total = await service.count_files(**filters)
-    total_pages = max(1, math.ceil(total / _PER_PAGE))
-    page = min(page, total_pages)
+    page = clamp_page(params.page, total, _PER_PAGE)
     items = await service.page_of_files(page=page, per_page=_PER_PAGE, **filters)
     # The bucket-wide numbers — usage and both facet lists — come from one
     # scan, cached with a short TTL. They ignore the active filters so the

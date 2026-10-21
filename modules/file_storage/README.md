@@ -12,6 +12,14 @@ pip install simple_module_file_storage
 pip install "simple_module_file_storage[s3]"
 ```
 
+Install `simple_module_file_storage[tasks]` to include the matching
+`simple_module_background_tasks` package, then enable `background_tasks` and run
+its worker for asynchronous multipart-upload checksums. Run its beat scheduler
+as well for upload cleanup jobs.
+The extras combine as `simple_module_file_storage[s3,tasks]`. Without
+`background_tasks`, uploads still work; completed multipart uploads keep
+`checksum_sha256` null. Streamed uploads compute their checksum inline.
+
 ## What it provides
 
 - `POST /api/file-storage/upload` multipart upload endpoint.
@@ -45,6 +53,7 @@ Backend and S3 credentials are configured from the admin UI at **/settings/modul
 - `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_settings`
 - `aiofiles`
 - Optional: `aioboto3` (install the `[s3]` extra)
+- Optional: `simple_module_background_tasks` (install the `[tasks]` extra)
 
 ## License
 

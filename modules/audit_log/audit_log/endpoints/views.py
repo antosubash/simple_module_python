@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import math
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
+from simple_module_db.pagination import PageParams, clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from audit_log.constants import (
     API_PREFIX,
     DEFAULT_PAGE_SIZE,
-    MAX_PAGE_SIZE,
     PAGE_BROWSE,
     PERM_VIEW,
     PLATFORM_TENANT_FILTER,
@@ -87,8 +86,8 @@ async def browse(
 ) -> InertiaResponse:
     directory = get_user_directory(request.app)
     # Sanitize pagination — never raise a validation error for bad values.
-    page_int = max(_safe_int(page, 1), 1)
-    page_size_int = max(1, min(_safe_int(page_size, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE))
+    params = PageParams(page=_safe_int(page, 1), per_page=_safe_int(page_size, DEFAULT_PAGE_SIZE))
+    page_int, page_size_int = params.page, params.per_page
     # The Actor box takes a name or an email as well as an id. Whitespace is
     # not a search: an all-spaces term means the box is empty, not that nobody
     # is called that.
@@ -110,9 +109,9 @@ async def browse(
     # and re-queried — otherwise the client gets an empty `items` list with a
     # nonzero `total`, which renders the correlation banner ("N entries") right
     # above an empty-state saying nothing matches.
-    total_pages = max(1, math.ceil(result.total / page_size_int))
-    if page_int > total_pages:
-        page_int = total_pages
+    clamped = clamp_page(page_int, result.total, page_size_int)
+    if clamped != page_int:
+        page_int = clamped
         result = await service.list_filtered(filters, page=page_int, page_size=page_size_int)
 
     # Resolve ids for display only — the stored row keeps the bare id, which

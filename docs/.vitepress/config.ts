@@ -142,6 +142,7 @@ export default defineConfig({
             { text: "Per-module Base", link: "/database/per-module-base" },
             { text: "Mixins", link: "/database/mixins" },
             { text: "Session lifecycle", link: "/database/sessions" },
+            { text: "Pagination", link: "/database/pagination" },
             { text: "Migrations", link: "/database/migrations" },
             { text: "Extensions and column types", link: "/database/extensions" },
           ],

@@ -7,7 +7,9 @@ which no tenant role grants.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from simple_module_db.pagination import PageParams
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
@@ -25,10 +27,16 @@ _PAGE_SIZE = 50
 
 @views.get("/", response_model=None, dependencies=_VIEW)
 async def browse(
-    inertia: InertiaDep, service: TenantServiceDep, q: str = "", page: int = 1
+    inertia: InertiaDep,
+    service: TenantServiceDep,
+    q: str = "",
+    params: PageParams = Depends(lenient_page_params(_PAGE_SIZE)),
 ) -> InertiaResponse:
-    page = max(page, 1)
-    tenants = await service.list_all(search=q, limit=_PAGE_SIZE, offset=(page - 1) * _PAGE_SIZE)
+    # The page size is fixed: the page's Previous/Next links carry only ``page``,
+    # so honouring a hand-edited ``?per_page=`` would skip rows on the next click.
+    tenants = await service.list_all(
+        search=q, limit=_PAGE_SIZE, offset=(params.page - 1) * _PAGE_SIZE
+    )
     counts = await service.member_counts([t.id for t in tenants])
     return await inertia.render(
         PAGE_ADMIN,
@@ -41,7 +49,7 @@ async def browse(
                 for t in tenants
             ],
             "q": q,
-            "page": page,
+            "page": params.page,
             "has_more": len(tenants) == _PAGE_SIZE,
         },
     )
