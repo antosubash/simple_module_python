@@ -526,4 +526,4 @@ def convert(file_id: int) -> None:
     cfg = settings_for(FileStorageSettings, "file_storage")
 ```
 
-It reads SYSTEM-scope overrides through the worker's sync session and caches per process for 30 seconds (`ttl=0` always re-reads; `clear_settings_cache()` drops the cache). The underlying sync helper is `settings.hydrate.hydrate_settings_sync`.
+It reads SYSTEM-scope overrides through the worker's sync session and caches per process for 30 seconds (`ttl=0` always re-reads; `clear_settings_cache()` drops the cache). The underlying sync helper is `simple_module_db.stored_settings.hydrate_settings_sync`.

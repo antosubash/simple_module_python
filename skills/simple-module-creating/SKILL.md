@@ -92,7 +92,7 @@ In execution order — all no-op by default:
 
 | Hook | Use it for |
 |---|---|
-| `register_settings(app)` | Read `SM_<MODULE>_*` env into a dataclass on `app.state.<lower_name>` |
+| `register_settings(app)` | `register_module_settings(app, "<pkg>", SettingsCls, factory)` (from `simple_module_core.module_settings`): DB-hydrated settings on `app.state.<lower_name>` |
 | `register_menu_items(registry)` | Sidebar / navbar entries |
 | `register_permissions(registry)` | `<module>.<action>` strings, grouped |
 | `register_feature_flags(registry)` | `FeatureFlagDefinition` constants |

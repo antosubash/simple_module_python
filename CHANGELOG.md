@@ -25,6 +25,32 @@ All notable changes to this project are documented in this file. The format is b
 - `captured_mail` pytest fixture in `simple_module_test` records sent mail.
 
 ### Changed
+- The module-settings mechanism moved from the `settings` plugin into the
+  framework (#500): `register_module_settings` / `ModuleSettingsRegistry` to
+  `simple_module_core.module_settings`, hydration (`hydrate_settings`,
+  `build_settings`, `OverrideSource`, field helpers) to
+  `simple_module_core.settings_hydrate`, secret-field masking to
+  `simple_module_core.secret_fields`, and the `Setting` model, its constants,
+  the read-only override queries and `hydrate_settings_sync` to
+  `simple_module_db.stored_settings`. The table (`settings_setting`) is
+  unchanged; no migration. The hosting layer imports these statically instead
+  of reaching the plugin through `importlib` strings, and builds its pre-app
+  and secret-key SQL from the shared column constants.
+- **Behaviour change (#500):** registration and boot-time hydration no longer
+  need the `settings` plugin. The registry is created on `app.state` on first
+  use, `host` settings are always registered, and the lifespan hydrates from the
+  table directly, so module and host settings still come from the DB with the
+  plugin disabled (it keeps the admin UI, hot reload and the key/value API).
+  The pre-app host read and the generated `SM_SECRET_KEY` are likewise stored
+  and read without it; outside development an unreachable database now refuses
+  the boot even when the plugin is not installed.
+- **Out-of-tree hosts without the `settings` plugin (#500):** the framework now
+  always contributes `settings_setting` to the migration metadata, so the next
+  `alembic revision --autogenerate` will emit a `create_table` for it. Keep that
+  operation (the framework reads the table at boot).
+- `make new-module` / `smpy create-module` scaffolds subclass `DbBackedSettings`
+  and register through `register_module_settings` instead of assigning
+  `app.state.<pkg>` directly (#500).
 - **Behaviour change:** the `users` mailer settings (`mailer`, `smtp_*`) moved to
   the `mail` module as `backend` and `smtp_*`; a data migration (`d7b3a9e5c1f2`)
   moves stored values (#496). `simple_module_users` now depends on `simple_module_mail`, and
@@ -139,6 +165,14 @@ All notable changes to this project are documented in this file. The format is b
   `/api/openapi.json`, and is no longer served outside development unless
   `openapi_public` (`SM_OPENAPI_PUBLIC`) is on. The bare `/openapi.json` was
   previously served, and anonymous, in production.
+
+### Deprecated
+- `settings.registration`, `settings.module_registry` and `settings.hydrate`
+  re-export the framework objects above and emit a `DeprecationWarning`;
+  `settings.models.Setting`, `settings._secrets` and the moved names in
+  `settings.store` / `settings.constants` re-export them silently (the same
+  objects, never a second `Setting` mapping). Removal no earlier than 0.1.0
+  (#500).
 
 ### Added
 - `TenantDeleted` event and `TenantService.delete_tenant` (#491). No endpoint
