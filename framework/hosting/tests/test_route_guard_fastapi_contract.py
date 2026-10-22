@@ -92,3 +92,37 @@ def test_private_routing_contract():
     assert included.matches(scope) == (Match.NONE, {}), (
         f"assigned matches(scope) must be callable; update {GUARD}"
     )
+
+
+PATHS = "framework/hosting/simple_module_hosting/_route_paths.py"
+
+
+def test_private_include_context_contract():
+    included_type = routing._IncludedRouter
+    leaf = APIRouter()
+
+    @leaf.get("/item")
+    async def item():
+        return {}
+
+    parent = APIRouter()
+    parent.include_router(leaf, prefix="/leaf")
+    app = FastAPI()
+    app.include_router(parent, prefix="/api")
+    included = next(r for r in app.router.routes if isinstance(r, included_type))
+
+    context = getattr(included, "include_context", None)
+    assert context is not None, f"_IncludedRouter.include_context must exist; update {PATHS}"
+    nested = next(r for r in parent.routes if isinstance(r, included_type))
+    combine = _accepts(
+        getattr(context, "combine", None), "include_context.combine(child)", nested.include_context
+    )
+    child = combine(nested.include_context)
+    route = next(r for r in leaf.routes if getattr(r, "name", "") == "item")
+    path_for = _accepts(getattr(child, "path_for", None), "include_context.path_for(route)", route)
+    assert path_for(route) == "/api/leaf/item", (
+        f"combine/path_for must compose include prefixes; update {PATHS}"
+    )
+    included_type(original_router=leaf, include_context=child)  # constructible by keyword
+    build = getattr(included, "_build_effective_context", None)
+    _accepts(build, "_IncludedRouter._build_effective_context(route)", route)
