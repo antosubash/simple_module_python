@@ -73,14 +73,7 @@ class FileStorageDeletes:
             # no row left pointing at them. A failure here is a janitor's
             # problem, not the caller's.
             try:
-                try:
-                    await self.backend.delete(row.key)
-                finally:
-                    # Variants go even when the original's delete fails.
-                    await thumbnails.delete_variants(self.backend, row.key)
-            except StorageNotFoundError:
-                # Acceptably absent — eg. a previous delete partially succeeded.
-                pass
+                await self.drop_object(row)
             except Exception:
                 _logger.exception(
                     "file_storage.bulk_delete_object_failed key=%s — row is deleted, "
