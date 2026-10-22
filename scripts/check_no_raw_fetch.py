@@ -50,7 +50,7 @@ def is_checked(path: Path) -> bool:
         return False
     if any(parts[: len(root)] == root for root in _SOURCE_ROOTS):
         return True
-    return len(parts) > 4 and parts[0] == "modules" and "tests" not in parts
+    return len(parts) > 3 and parts[0] == "modules" and "tests" not in parts
 
 
 def find_raw_fetches(text: str) -> list[tuple[int, str]]:

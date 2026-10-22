@@ -33,6 +33,7 @@ def test_marker_two_lines_above_does_not_count():
 def test_is_checked_directories():
     assert is_checked(Path("modules/users/users/pages/Login.tsx"))
     assert is_checked(Path("modules/users/users/auth_local/components/AuthIntro.tsx"))
+    assert is_checked(Path("modules/users/users/index.ts"))
     assert is_checked(Path("packages/ui/src/layouts/SidebarLayout.tsx"))
     assert is_checked(Path("host/client_app/i18n.ts"))
     assert is_checked(Path("framework/hosting/simple_module_hosting/setup_wizard/Wizard.tsx"))
@@ -45,4 +46,5 @@ def test_is_checked_exemptions():
     assert not is_checked(Path("modules/users/users/pages/api.generated.ts"))
     assert not is_checked(Path("modules/users/users/pages/Login.test.tsx"))
     assert not is_checked(Path("modules/users/tests-js/Login.tsx"))
+    assert not is_checked(Path("modules/users/vite.config.ts"))
     assert not is_checked(Path("modules/users/users/pages/notes.md"))
