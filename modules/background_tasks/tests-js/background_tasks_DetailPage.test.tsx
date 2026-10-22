@@ -73,12 +73,14 @@ describe('background_tasks Detail page', () => {
   });
 
   it('shows a progress bar only when the task reported progress', () => {
-    const { unmount } = render(<Detail />);
+    const { unmount } = render(
+      <Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />,
+    );
     expect(screen.queryByTestId('task-progress')).toBeNull();
     unmount();
 
     setProps({ progress_current: 3, progress_total: 10, progress_message: 'copying rows' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(screen.getByTestId('task-progress')).toBeInTheDocument();
     expect(screen.getByText('copying rows')).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30');

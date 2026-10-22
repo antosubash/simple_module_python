@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -17,8 +17,7 @@ interface Props {
   filters: { q: string; level: string; task_id: string };
 }
 
-function Logs() {
-  const { logs, pagination, filters } = usePage<{ props: Props }>().props as unknown as Props;
+function Logs({ logs, pagination, filters }: Props) {
   const { t } = useT();
   const [q, setQ] = useState(filters.q);
   const [level, setLevel] = useState(filters.level);
