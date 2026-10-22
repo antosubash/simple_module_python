@@ -84,5 +84,6 @@
   "nav": {
     "dashboard": "Panel",
     "doctor": "Doctor"
-  }
+  },
+  "permission_group": "Panel"
 }
