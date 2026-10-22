@@ -35,6 +35,9 @@ def test_template_types_match_generated(tmp_path: Path, monkeypatch) -> None:
 
     monkeypatch.syspath_prepend(str(dest))
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'x.db'}")
+    # A development boot would write the sample's i18n keys into the repo.
+    monkeypatch.setenv("SM_ENVIRONMENT", "testing")
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     module = importlib.import_module(f"{NAME}.module")
     cls = next(
         c
