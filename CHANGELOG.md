@@ -104,6 +104,10 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+
+- Behaviour change: `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
+  `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
+  `OutboxMessage`, `TaskExecutionLog`-style telemetry), so retained logs cannot re-log their own writes.
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
   `package.json` versions are now in lockstep with the Python packages (they were
   0.1.0, keycloak 0.0.0) (#510).

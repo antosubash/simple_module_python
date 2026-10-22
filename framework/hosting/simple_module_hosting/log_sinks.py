@@ -115,6 +115,7 @@ class QueueSinkHandler(logging.handlers.QueueHandler):
         self._failed_batches = 0
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
+        self._writer = threading.local()
         self.addFilter(self._not_own_record)
         self.addFilter(self._not_from_writer_thread)
 
@@ -122,7 +123,7 @@ class QueueSinkHandler(logging.handlers.QueueHandler):
         # Anything logged while the sink writes (entity-change logs from the
         # insert itself, session or driver chatter) would be retained, written,
         # and logged again: drop it at the source.
-        return threading.current_thread() is not self._thread
+        return not getattr(self._writer, "active", False)
 
     @staticmethod
     def _not_own_record(record: logging.LogRecord) -> bool:
@@ -177,6 +178,7 @@ class QueueSinkHandler(logging.handlers.QueueHandler):
         thread.join(STOP_TIMEOUT_SECONDS)
 
     def _run(self) -> None:
+        self._writer.active = True
         stopping = False
         while not stopping:
             batch: list[logging.LogRecord] = []
