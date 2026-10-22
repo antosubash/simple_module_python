@@ -17,6 +17,18 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- Typed API client (#504). `@simple-module-py/ui` ships `createApi<paths>()` (an
+  `openapi-fetch` client with same-origin credentials, `Accept: application/json` and
+  the CSRF header), `apiResult()` / `apiFetch()` normalising every call to
+  `{ ok, status, data, detail, fieldErrors, error }` (network failure: `status: 0`),
+  and `useApiErrorToast(fallbackKey)`. `smpy openapi gen-types [--module X]` writes
+  each module's `pages/api.generated.ts` from its routes; `make gen-api-types`
+  regenerates them and `make ci-api-types-fresh` (in `make lint` and CI) fails on a
+  stale one. `*.generated.ts` is exempt from Biome and the 300-line cap. New modules
+  ship `pages/api.ts`, the generated types and a Browse page that deletes through
+  the client. `TranslationKey` is exported from `@simple-module-py/i18n`.
+- `csrfToken` Inertia shared prop for signed-in sessions (#504), which the API client
+  sends as `X-CSRF-Token` to the page's own origin. Anonymous pages never carry it.
 - Per-route rate limits (#529): modules declare `RateLimitRule(rate, key=...)` in the new
   `register_rate_limits(registry)` hook, and handlers use the
   `RateLimit("10/minute", key="user")` dependency. Keys: `user`, `ip`, `user_or_ip`,
@@ -101,6 +113,9 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- tenants and api_tokens pages call their APIs through the typed client and take
+  typed component props (#504). **Behaviour change:** the api_tokens pages no longer
+  receive the unused `api_url` prop.
 - **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
   signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all

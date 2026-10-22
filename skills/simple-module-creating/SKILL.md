@@ -52,6 +52,8 @@ modules/orders/
     ├── deps.py             # FastAPI dependencies
     ├── endpoints/{api,views}.py
     ├── pages/{Browse,Create,Edit}.tsx  # *.tsx, auto-discovered by Vite
+    ├── pages/api.ts        # typed /api client: createApi<paths>()
+    ├── pages/api.generated.ts  # from `smpy openapi gen-types`; never edit
     └── locales/en.json
 ```
 

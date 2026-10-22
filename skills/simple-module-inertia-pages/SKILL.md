@@ -75,19 +75,26 @@ Inertia's `router.post(...)` / `.patch(...)` / `.put(...)` / `.delete(...)` expe
 Two fixes, in preference order:
 
 1. **Stay Inertia-native** — point the call at a *view* endpoint (under `view_prefix`, e.g. `/orders/...`) that returns `RedirectResponse(..., status_code=303)`. Inertia follows the redirect and re-renders the page.
-2. **Need the JSON payload back** — use plain `fetch()` against the `/api/*` endpoint instead of Inertia's `router`:
+2. **Need the JSON payload back** — call the `/api/*` endpoint through the module's typed client, `pages/api.ts`, instead of Inertia's `router` or a raw `fetch()`:
 
 ```tsx
-await fetch("/api/orders", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(payload),
-});
+import { apiResult } from "@simple-module-py/ui/lib/api";
+import { api } from "./api"; // export const api = createApi<paths>();
+
+const result = await apiResult(api.POST("/api/orders/", { body: payload }));
+if (!result.ok) return setError(result.detail ?? t(keys.orders.errors.generic));
+result.data; // typed from the route's response_model
 ```
 
 `SM018` warns when it spots Inertia `router.{post,patch,put,delete}()` targeting `/api/*` paths.
 
-Two things to know about that `fetch()` path: errors from `/api/*` come back as JSON (`{"detail": ...}`) rather than the HTML error page, so read `resp.json().detail` for the real reason; and if the module's router opted into `RequiresCsrf`, include the token from the view's props as an `X-CSRF-Token` header or the mutation is rejected with 403.
+The typed client (#504):
+
+- **Types are generated.** `pages/api.generated.ts` comes from the module's routes — run `smpy openapi gen-types --module <pkg>` (`make gen-api-types` in the framework repo) after changing an endpoint or DTO, and commit it. Never edit it. A route without `response_model` (or a return annotation) generates an `unknown` body.
+- **One result shape.** `apiResult(...)` resolves to `{ ok, status, data, detail, fieldErrors, error }`: `detail` is the server's string `detail` (a message or a stable code), `fieldErrors` maps a 422's last `loc` element to its `msg`, and a network failure is `status: 0` — it never throws. `useApiErrorToast(fallbackKey)` toasts `detail ?? t(fallbackKey)`.
+- **CSRF is automatic.** Signed-in sessions get a `csrfToken` shared prop; the client sends it as `X-CSRF-Token` on POST/PUT/PATCH/DELETE to the same origin, so `RequiresCsrf` routes just work. Anonymous pages get no token.
+- **Off-schema calls** (another module's route, a server-supplied URL, multipart uploads, `/setup/*`) use `apiFetch<T>(url, { method, json })` — same conventions and result shape, untyped.
+- **Page props are component args**: `export default function Browse({ items }: Props)` — not `usePage().props as unknown as Props`. Reuse generated DTOs: `type Item = components["schemas"]["OrderOut"]`.
 
 ## Other gotchas
 

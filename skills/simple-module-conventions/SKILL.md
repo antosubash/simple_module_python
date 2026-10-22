@@ -89,8 +89,9 @@ Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site P
 from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
-# expose get_csrf_token(request) as a view prop; fetch() callers echo it as X-CSRF-Token
 ```
+
+Signed-in sessions receive the token as the `csrfToken` shared prop, and the module's typed client (`pages/api.ts`: `createApi<paths>()` from `@simple-module-py/ui/lib/api`) echoes it as `X-CSRF-Token` on unsafe same-origin calls — page code adds nothing. Call `/api/*` from pages through that client (types from `smpy openapi gen-types`), not raw `fetch()`; `apiFetch` covers routes outside the module's schema.
 
 Safe methods are never checked, and bare test apps without `SessionMiddleware` are exempt.
 
