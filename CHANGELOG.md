@@ -136,6 +136,11 @@ All notable changes to this project are documented in this file. The format is b
   role needs `CREATEDB`. `make test-py-pg` now runs with
   `-n $(PYTEST_WORKERS) --dist loadgroup` like `make test-py`
   (`PYTEST_WORKERS=0` keeps the old serial run on the named database).
+- `simple_module_test` on Postgres builds the schema once per process and, before
+  each later test, deletes every row and restarts the sequences instead of
+  dropping and re-creating `public` (~0.05 s instead of ~0.25 s per test). A
+  direct `reset_schema()` call or any change to the catalog (a test's own
+  tables, extensions, constraints) falls back to the full rebuild.
 - **Behaviour change:** `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
   `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
   `OutboxMessage`, `RetainedLog`), so retained logs cannot re-log their own writes (#537).
