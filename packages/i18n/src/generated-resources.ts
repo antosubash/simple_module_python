@@ -796,6 +796,7 @@ export default {
     'settings.modules.table.value': '',
     'settings.modules.test_connection': '',
     'settings.modules.test_connection_generic': '',
+    'settings.modules.test_failed': '',
     'settings.modules.testing': '',
     'settings.modules.title': '',
     'settings.modules.unsaved_count_one': '',

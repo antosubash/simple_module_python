@@ -2,7 +2,9 @@ import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useEffect, useMemo, useState } from 'react';
+import { api } from '../api';
 import type { FieldMeta } from './FieldInput';
 import { ModuleFieldRow } from './ModuleFieldRow';
 import { TestConnectionButton } from './TestConnectionButton';
@@ -87,20 +89,20 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     setFormErrors([]);
     const changed: Record<string, unknown> = {};
     for (const name of modifiedFields) changed[name] = values[name];
-    const resp = await fetch(`/api/settings/modules/${m.package}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changed),
-    });
-    if (resp.status === 422) {
-      const body = await resp.json();
+    const result = await apiResult(
+      api.PUT('/api/settings/modules/{package}', {
+        params: { path: { package: m.package } },
+        body: changed,
+      }),
+    );
+    if (result.status === 422) {
       const split = splitValidationErrors(
-        body.detail,
+        (result.error as { detail?: unknown } | null)?.detail,
         m.fields.map((f) => f.name),
       );
       setErrors(split.fields);
       setFormErrors(split.form);
-    } else if (!resp.ok) {
+    } else if (!result.ok) {
       setFormErrors([t(keys.settings.modules_form.save_failed)]);
     } else {
       // Keeping the form mounted lets the confirmation remain visible instead
@@ -113,7 +115,12 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
 
   async function onReset(name: string) {
     setSaved(false);
-    await fetch(`/api/settings/modules/${m.package}/${name}`, { method: 'DELETE' });
+    // A failed clear still reloads: the reload shows what the server holds.
+    await apiResult(
+      api.DELETE('/api/settings/modules/{package}/{field}', {
+        params: { path: { package: m.package, field: name } },
+      }),
+    );
     router.reload({ only: ['modules'] });
   }
 

@@ -1024,6 +1024,7 @@ export const keys = {
       },
       test_connection: 'settings.modules.test_connection',
       test_connection_generic: 'settings.modules.test_connection_generic',
+      test_failed: 'settings.modules.test_failed',
       testing: 'settings.modules.testing',
       title: 'settings.modules.title',
       unsaved_count: 'settings.modules.unsaved_count',

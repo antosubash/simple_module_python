@@ -1,6 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
+import { apiFetch } from '@simple-module-py/ui/lib/api';
 import { CheckCircle2, PlugZap, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ROUTES } from '../routes';
@@ -52,11 +53,12 @@ export function TestConnectionButton({ pkg, checks }: Props) {
     setBusy(true);
     setError(null);
     setResults(null);
-    try {
-      const resp = await fetch(ROUTES.testConnection(pkg), { method: 'POST' });
-      if (!resp.ok) throw new Error(resp.statusText);
-      const body = await resp.json();
-      const checkResults: CheckResult[] = body.checks ?? [];
+    // A view route (`/admin/settings/test-connection/…`), not in the OpenAPI document.
+    const result = await apiFetch<{ checks?: CheckResult[] }>(ROUTES.testConnection(pkg), {
+      method: 'POST',
+    });
+    if (result.ok) {
+      const checkResults = result.data?.checks ?? [];
       setResults(checkResults);
       setLast(
         writeLastTest(
@@ -64,12 +66,11 @@ export function TestConnectionButton({ pkg, checks }: Props) {
           checkResults.every((c) => c.status === 'healthy'),
         ),
       );
-    } catch (err) {
-      setError((err as Error).message);
+    } else {
+      setError(result.detail ?? t(keys.settings.modules.test_failed));
       setLast(writeLastTest(pkg, false));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   }
 
   return (
