@@ -39,6 +39,10 @@ class DatabaseState:
     session_factory: async_sessionmaker[RequestSession]
     sync_session_class: type[Session] = field(repr=False, default=Session)
     audit_callback: Callable | None = field(default=None, repr=False)
+    # Strict bulk auditing (#557): a bool, or a zero-arg callable read per
+    # statement so a settings save applies without a restart. When true an
+    # ``execution_options(sm_audit=False)`` write to an audited model raises.
+    refuse_unaudited_dml: bool | Callable[[], bool] = field(default=False, repr=False)
     # Fail closed: a query on a MultiTenantMixin model with no tenant context
     # raises instead of reading every tenant. The host turns this on whenever
     # it runs with ``multi_tenant``; see ``simple_module_db.tenancy``.

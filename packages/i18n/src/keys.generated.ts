@@ -112,6 +112,10 @@ export const keys = {
   },
   audit_log: {
     actions: {
+      bulk_deleted: 'audit_log.actions.bulk_deleted',
+      bulk_inserted: 'audit_log.actions.bulk_inserted',
+      bulk_soft_deleted: 'audit_log.actions.bulk_soft_deleted',
+      bulk_updated: 'audit_log.actions.bulk_updated',
       created: 'audit_log.actions.created',
       deleted: 'audit_log.actions.deleted',
       soft_deleted: 'audit_log.actions.soft_deleted',

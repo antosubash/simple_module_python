@@ -17,6 +17,15 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- Statement DML is audited (#557): `simple_module_db.bulk_audit` audits ORM bulk
+  `update()` / `delete()` / `insert()` and Core DML on `Model.__table__` through
+  the engine's audit sink, one `bulk_updated` / `bulk_deleted` /
+  `bulk_soft_deleted` entry per row (ids prefetched with the statement's `WHERE`
+  and tenant scope) up to 500 rows, else one `"*"` summary; `bulk_inserted` is one
+  summary per statement. `execution_options(sm_audit=False)` opts out;
+  `record_bulk_audit(session, Model, action, ids, changes)` records `text()`
+  writes; the new `audit_log` setting `refuse_unaudited_dml` (default off) makes
+  the opt-out raise `UnauditedWriteError`. No migration.
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps
@@ -76,6 +85,11 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- **Behaviour change:** bulk and Core DML writes on audited models now produce
+  audit entries (actions `bulk_*`), in requests and Celery workers. Statements
+  that set only excluded columns (the outbox, `TaskExecution.heartbeat_at`) are
+  still not recorded. Opt a statement out with
+  `execution_options(sm_audit=False)` (#557).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
   `package.json` versions are now in lockstep with the Python packages (they were
   0.1.0, keycloak 0.0.0) (#510).

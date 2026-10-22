@@ -15,7 +15,16 @@ import { DateRangeField } from './DateRangeField';
 export const ALL = '__all__';
 /** Exported so other panels (the empty-state filter summary) name the same
  * set of actions instead of hand-copying it and risking drift. */
-export const ACTIONS = ['created', 'updated', 'deleted', 'soft_deleted'] as const;
+export const ACTIONS = [
+  'created',
+  'updated',
+  'deleted',
+  'soft_deleted',
+  'bulk_inserted',
+  'bulk_updated',
+  'bulk_deleted',
+  'bulk_soft_deleted',
+] as const;
 
 /** A filterable entity type: the class name the column stores, shown as the
  * table name an operator recognises. Built server-side from the registry. */
