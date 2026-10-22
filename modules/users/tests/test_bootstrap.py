@@ -247,3 +247,31 @@ async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_
     assert user.is_superuser is True
     assert user.is_verified is True
     assert user.is_active is True
+
+
+@pytest.mark.parametrize("generated", [False, True])
+async def test_bootstrap_logs_generated_password_only_once(
+    users_app_empty, monkeypatch, caplog, generated
+):
+    if generated:
+        monkeypatch.setenv("SM_USERS_BOOTSTRAP_PASSWORD_GENERATED", "1")
+    fake_app = _make_fake_app(
+        users_app_empty.state.sm.db.session_factory,
+        bootstrap_email="first@test.example",
+        bootstrap_password="GeneratedPass1!",
+    )
+    with caplog.at_level("WARNING", logger="users.bootstrap"):
+        await bootstrap_admin_from_env(fake_app)
+        first_messages = list(caplog.messages)
+        caplog.clear()
+        # A restart generates a different unused password for an existing install.
+        fake_app.state.users.settings.bootstrap_password = "UnusedPass2!"
+        await bootstrap_admin_from_env(fake_app)
+    assert caplog.messages == []
+    if generated:
+        assert first_messages == [
+            "first-boot admin created; store this password securely: "
+            "first@test.example / GeneratedPass1!"
+        ]
+    else:
+        assert first_messages == []

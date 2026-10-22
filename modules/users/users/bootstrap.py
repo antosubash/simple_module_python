@@ -254,7 +254,13 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
             return
 
         try:
-            await create_admin(session, email=email, password=password)
+            result = await create_admin(session, email=email, password=password)
+            if result.created and os.environ.get("SM_USERS_BOOTSTRAP_PASSWORD_GENERATED") == "1":
+                logger.warning(
+                    "first-boot admin created; store this password securely: %s / %s",
+                    email,
+                    password,
+                )
             if user_email and user_password:
                 await create_standard_user(
                     session,

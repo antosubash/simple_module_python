@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useRef, useState } from 'react';
 
-import { RELOAD_PROPS, ROUTES } from './constants';
+import { RELOAD_PROPS, ROUTES, UPLOAD_CONCURRENCY } from './constants';
 import type { RemoteSession } from './resumable-upload';
 import { discardSession, findSession, runResumable } from './resumable-upload';
 import { loadSessionId } from './resume-store';
@@ -33,13 +33,6 @@ function nextId(): string {
   counter += 1;
   return `upload-${counter}`;
 }
-
-// Files in a batch have no ordering dependency on one another, so uploading
-// strictly one at a time makes a 10-file drop take the sum of every file's
-// duration. A small worker pool instead bounds the batch to roughly the
-// slowest file's duration without opening enough simultaneous connections to
-// swamp the server or the browser's per-origin connection limit.
-const UPLOAD_CONCURRENCY = 4;
 
 /**
  * Uploads files with bounded concurrency, reporting byte progress per file.
@@ -199,7 +192,9 @@ export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}
         while (next < list.length) {
           const index = next;
           next += 1;
-          const outcome = await upload(queued[index].id, list[index]);
+          const jobId = queued[index].id;
+          if (!files.current.has(jobId)) continue;
+          const outcome = await upload(jobId, list[index]);
           if (outcome === 'done') uploaded += 1;
           // A cancel is the user's own doing — it needs no toast and no row.
           else if (outcome === 'error') failed.push(list[index].name);

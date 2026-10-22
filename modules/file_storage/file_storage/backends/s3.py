@@ -8,6 +8,7 @@ even when the optional S3 extra isn't installed; the failure mode is a clear
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, AsyncIterator
+from datetime import datetime
 from tempfile import SpooledTemporaryFile
 from typing import Any
 
@@ -128,6 +129,15 @@ class S3Backend(S3MultipartMixin):
                 await client.delete_object(Bucket=self.bucket, Key=key)
         except Exception as exc:
             raise StorageBackendError(f"S3 delete_object failed: {exc}") from exc
+
+    async def list_stale_objects(self, cutoff: datetime) -> AsyncIterator[str]:
+        """Yield keys last modified before the reconciliation cutoff."""
+        async with self._client() as client:
+            pages = client.get_paginator("list_objects_v2")
+            async for page in pages.paginate(Bucket=self.bucket):
+                for obj in page.get("Contents", []):
+                    if obj["LastModified"] < cutoff:
+                        yield obj["Key"]
 
     async def exists(self, key: str) -> bool:
         try:

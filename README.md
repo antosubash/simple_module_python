@@ -68,20 +68,19 @@ docker build -t simple-module-python .
 docker run --rm -p 8000:8000 -v simple-module-python-data:/app/data simple-module-python
 ```
 
-**Logging in.** With no `SM_USERS_BOOTSTRAP_*` set, the container seeds
-**`admin@example.com` / `changeme`** — the same pair `.env.example` uses for
-local dev — and says so on every boot that uses it:
+**Logging in.** With no `SM_USERS_BOOTSTRAP_PASSWORD` set, the container seeds
+`admin@example.com` with a randomly generated password. The users module logs it
+once when the first admin is created:
 
 ```
-entrypoint: WARNING - no SM_USERS_BOOTSTRAP_PASSWORD set, so the
-entrypoint: first-boot admin is the public default:
-entrypoint:     admin@example.com / changeme
+first-boot admin created; store this password securely: admin@example.com / <generated password>
 ```
 
-Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BOOTSTRAP_PASSWORD=…` to seed
-your own instead, and change it before the container is reachable by anyone but
-you. The seed only applies while the users table is empty, so on a reused volume
-the existing password still stands — reset it with
+Read it with `docker logs`. Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BOOTSTRAP_PASSWORD=…`
+to seed your own instead; an explicit `changeme` is refused because the image runs
+with `SM_ENVIRONMENT=production`. The seed only applies while the users table is
+empty, so on a reused volume the existing password still stands and no credentials
+are logged — reset it with
 `smpy users create-admin --email … --password … --force`.
 
 `make docker-compose-app` (or `docker compose up --build app`) runs the same
@@ -101,7 +100,7 @@ bundle rather than a Vite dev server. Useful overrides:
 |---|---|---|
 | `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
-| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / `changeme` | Seed a first admin nobody else can guess |
+| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / generated and logged | Seed a first admin with a password you chose |
 | `SM_TRUSTED_PROXY` | unset | Set to `*` behind a reverse proxy, so logs record the visitor's IP and not the proxy's |
 
 **No background tasks.** The image skips installing the Celery module

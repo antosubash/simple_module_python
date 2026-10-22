@@ -82,6 +82,7 @@ Most users settings (signup, OAuth/OIDC credentials, rate limits; SMTP lives in 
 |---|---|---|
 | `SM_USERS_BOOTSTRAP_EMAIL` | unset | Auto-creates an admin if set **and** the users table is empty. |
 | `SM_USERS_BOOTSTRAP_PASSWORD` | unset | Paired with the email above. |
+| `SM_USERS_BOOTSTRAP_PASSWORD_GENERATED` | unset | Internal entrypoint marker (`1`): log generated credentials at WARNING only when the bootstrap admin is created. |
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second non-admin seed user (handy in dev). |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
 | `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | dev placeholder | HMAC key for password-reset tokens. **Must** be overridden in production (boot fails otherwise). |

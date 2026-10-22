@@ -134,7 +134,7 @@ Expected wall time: 5–8 minutes.
 
 ### Step 4. CHANGELOG and GitHub Release notes
 
-`finalize` runs `scripts/cut_changelog.py X.Y.Z` before the bump commit: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD`, a fresh empty `## [Unreleased]` is inserted above it and the compare links are updated. Re-running is a no-op once the section exists. Keep `[Unreleased]` current in every user-visible PR; whatever is there at release time is the release's notes.
+`finalize` enables `cut-changelog` on the shared `.github/actions/bump-version` action, which runs `scripts/cut_changelog.py X.Y.Z` before the bump commit: `## [Unreleased]` becomes `## [X.Y.Z] — YYYY-MM-DD`, a fresh empty `## [Unreleased]` is inserted above it and the compare links are updated. Re-running is a no-op once the section exists. Keep `[Unreleased]` current in every user-visible PR; whatever is there at release time is the release's notes.
 
 The GitHub Release is created with `--notes-file` from that dated section (`scripts/cut_changelog.py X.Y.Z --notes`), falling back to `--generate-notes` only when the section is empty.
 
@@ -160,16 +160,24 @@ A test (`framework/cli/tests/test_template_requires_framework.py`) pins that the
 
 ## Local pre-flight (optional but recommended)
 
-Before running the workflow, you can rehearse the whole pipeline offline. Nothing leaves your machine:
+Before running the workflow, rehearse in a disposable worktree. Nothing is published.
+The worktree starts at `HEAD`; uncommitted changes in your original checkout are
+not included and remain untouched. Run the following from the repository root:
 
 ```bash
+# 0. Isolate version edits and build artifacts from your working checkout
+release_checkout="$PWD"
+release_rehearsal=$(mktemp -d "${TMPDIR:-/tmp}/smpy-release.XXXXXX")
+git worktree add --detach "$release_rehearsal/worktree" HEAD
+cd "$release_rehearsal/worktree"
+
 # 1. Check every workspace package is currently at 0.0.1 (or your expected base)
 uv run python scripts/bump_version.py 0.0.1 --check
 
 # 2. Dry-run the bump (writes nothing, shows what would change)
 uv run python scripts/bump_version.py 0.0.2 --dry-run
 
-# 3. Actually bump (commit on a throwaway branch if you want to keep it)
+# 3. Actually bump inside the disposable worktree
 uv run python scripts/bump_version.py 0.0.2
 npm install --package-lock-only
 
@@ -186,11 +194,14 @@ mkdir -p dist-npm && for p in packages/*/; do npm pack "$p" --pack-destination d
 ls dist-py/ | wc -l        # expect 30 (a wheel + sdist for each of the 15 buildable packages; only 13 are later published)
 ls dist-npm/ | wc -l       # expect 3
 
-# 7. Revert (if you don't actually want to release)
-git reset --hard HEAD~1
+# 7. Discard only the rehearsal worktree, including its version edits
+cd "$release_checkout"
+git worktree remove --force "$release_rehearsal/worktree"
+rmdir "$release_rehearsal"
 ```
 
 If step 5 fails for any package, the workflow will fail the same way — fix it before dispatching.
+Run step 7 even if an earlier step fails; it removes only the disposable worktree.
 
 ---
 

@@ -8,10 +8,29 @@ All notable changes to this project are documented in this file. The format is b
 > was still unreleased (GH issue #253). Those entries have been moved to the
 > release they actually shipped in, verified with `git tag --contains`.
 > Versions not listed below still have no entry; consult the commit log.
+>
+> 0.0.28 through 0.0.37 were released before the release workflow cut this
+> file (#572), so their changes are still listed under `[Unreleased]` and will
+> land in the next dated section (#584).
 
 ## [Unreleased]
 
 ### Fixed
+- File storage: `DELETE /api/file_storage/files/{id}` and the bulk delete now drop the stored
+  bytes only after the request transaction commits, so a failed commit no longer leaves a live
+  row with no bytes. A new hourly `file_storage.reap_objects` beat task (needs
+  `background_tasks`) retries objects of soft-deleted rows and removes objects left by uploads
+  whose row never committed, after twice the upload-session TTL (#582).
+- File storage: cancelling an upload still waiting for a free slot no longer uploads it later in
+  the background (#588).
+- Tenants: the organisation settings page and its menu item are registered only when the
+  `settings` module is enabled; without it `/tenants/settings` used to 500 with an
+  `ImportError`. `file_storage` now orders after `background_tasks` when both are installed (#585).
+- Docker: **Behaviour change.** With `SM_USERS_BOOTSTRAP_PASSWORD` unset, the entrypoint now
+  generates a random first-boot admin password and prints it (the compose file already said so),
+  instead of seeding the public `changeme`. An explicit `changeme` is refused when
+  `SM_ENVIRONMENT` is `production` (the image default). `docs/release.md`'s local rehearsal now
+  runs in a disposable worktree instead of ending with `git reset --hard HEAD~1` (#587).
 - Retained logs: a NUL character no longer drops the whole log batch on Postgres.
 - Users: after a self-service password change the same browser kept its page session but
   every `/api/users/me*` call (including "Sign out everywhere") answered 401, because the

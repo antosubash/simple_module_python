@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from functools import partial
 from typing import Literal
 
 from fastapi import (
@@ -19,6 +20,7 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse
 from simple_module_core.events import EventBus
+from simple_module_db.callbacks import register_on_commit
 from simple_module_db.pagination import PageParams
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.pagination import page_params
@@ -250,8 +252,9 @@ async def bulk_delete_files(
     subscriber that mirrors or reindexes files cannot tell a bulk delete from a
     run of single ones.
     """
-    rows = await service.delete_many(body.ids, owner=owner)
+    rows = await service.delete_many(body.ids, owner=owner, drop_object=False)
     for row in rows:
+        register_on_commit(service.db, partial(service.drop_object, row))
         await bus.publish(FileDeleted(file_id=row.id, key=row.key))
     return BulkDeleteResult(deleted=len(rows), ids=[row.id for row in rows])
 
@@ -269,7 +272,8 @@ async def delete_file(
     owner: str | None = OwnerScope,
 ) -> None:
     try:
-        row = await service.delete(file_id, owner=owner)
+        row = await service.delete(file_id, owner=owner, drop_object=False)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
+    register_on_commit(service.db, partial(service.drop_object, row))
     await bus.publish(FileDeleted(file_id=row.id, key=row.key))

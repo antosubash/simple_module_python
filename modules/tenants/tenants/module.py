@@ -60,6 +60,13 @@ def _tenant_members() -> TenantMembers:
 
 
 class TenantsModule(ModuleBase):
+    # ModuleBase instances are built per app. register_settings runs before
+    # register_routes/register_menu_items, so _app is set when those hooks read it.
+    _app: FastAPI | None = None
+
+    def _settings_available(self) -> bool:
+        return self._app is not None and getattr(self._app.state, "settings", None) is not None
+
     meta = ModuleMeta(
         name=c.DISPLAY_NAME,
         route_prefix="/api/tenants",
@@ -88,6 +95,7 @@ class TenantsModule(ModuleBase):
         from tenants.settings import TenantsSettings
         from tenants.shared_props import tenant_shared_props
 
+        self._app = app
         register_module_settings(
             app,
             c.MODULE_PACKAGE,
@@ -113,11 +121,14 @@ class TenantsModule(ModuleBase):
         from tenants.endpoints.admin import api as admin_api
         from tenants.endpoints.api import router as api
         from tenants.endpoints.views import router as views
+        from tenants.endpoints.views import settings_router
 
         # Admin first: "/admin" must not be captured by "/{tenant_id}/…".
         api_router.include_router(admin_api)
         api_router.include_router(api)
         view_router.include_router(views)
+        if self._settings_available():
+            view_router.include_router(settings_router)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
         from tenants.endpoints.admin import views as admin_views
@@ -146,17 +157,18 @@ class TenantsModule(ModuleBase):
                 permissions=[c.PERM_MEMBERS_VIEW],
             )
         )
-        registry.add(
-            MenuItem(
-                label="Organisation settings",
-                label_key="tenants.nav.settings",
-                url="/tenants/settings",
-                icon="settings",
-                order=92,
-                section=MenuSection.SIDEBAR,
-                permissions=[c.PERM_TENANT_SETTINGS],
+        if self._settings_available():
+            registry.add(
+                MenuItem(
+                    label="Organisation settings",
+                    label_key="tenants.nav.settings",
+                    url="/tenants/settings",
+                    icon="settings",
+                    order=92,
+                    section=MenuSection.SIDEBAR,
+                    permissions=[c.PERM_TENANT_SETTINGS],
+                )
             )
-        )
         registry.add(
             MenuItem(
                 label="Tenants",

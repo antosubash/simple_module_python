@@ -9,7 +9,7 @@
 #      place for one), so any that are still unset get an ephemeral random
 #      value — enough to boot and log in, gone on the next start.
 #   2. Seed an admin, so a bare `docker run` lands on a login you can pass
-#      (admin@example.com / changeme unless SM_USERS_BOOTSTRAP_* say otherwise).
+#      (admin@example.com / a generated password unless overridden).
 #   3. Apply migrations. A fresh SQLite volume has no tables at all, and the
 #      boot-time SM010 check fails the app in production when the DB revision
 #      is behind head.
@@ -32,24 +32,21 @@ if [ -n "$_ephemeral" ]; then
     echo "entrypoint: sessions and any reset/verification links they sign die on restart — set these to persist them." >&2
 fi
 
-# The seed the users module applies only while its table is empty, so this
-# can't overwrite an account on a persistent volume — and without it a fresh
-# container serves a login page nobody holds credentials for. The default is
-# deliberately a well-known one: this image is a starting point you are meant
-# to log straight into. Anything running where that matters should pass both
-# vars, which is why the banner below is loud rather than silent.
+# The users module seeds only while its table is empty. These credentials
+# are for first boot, not a password reset for an existing volume.
 : "${SM_USERS_BOOTSTRAP_EMAIL:=admin@example.com}"
-: "${SM_USERS_BOOTSTRAP_PASSWORD:=changeme}"
+if [ -z "${SM_USERS_BOOTSTRAP_PASSWORD:-}" ]; then
+    SM_USERS_BOOTSTRAP_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+    export SM_USERS_BOOTSTRAP_PASSWORD_GENERATED=1
+fi
 export SM_USERS_BOOTSTRAP_EMAIL SM_USERS_BOOTSTRAP_PASSWORD
 
 if [ "$SM_USERS_BOOTSTRAP_PASSWORD" = "changeme" ]; then
-    echo "entrypoint: WARNING - no SM_USERS_BOOTSTRAP_PASSWORD set, so the" >&2
-    echo "entrypoint: first-boot admin is the public default:" >&2
-    echo "entrypoint:     $SM_USERS_BOOTSTRAP_EMAIL / changeme" >&2
-    echo "entrypoint: Seeded only while no user exists — an existing install is" >&2
-    echo "entrypoint: left alone. Set SM_USERS_BOOTSTRAP_EMAIL/_PASSWORD before" >&2
-    echo "entrypoint: first boot, or change it later with:" >&2
-    echo "entrypoint:     smpy users create-admin --email ... --password ... --force" >&2
+    if [ "${SM_ENVIRONMENT:-production}" = "production" ]; then
+        echo "entrypoint: refusing SM_USERS_BOOTSTRAP_PASSWORD=changeme in production; set a secure password or leave it unset to generate one." >&2
+        exit 1
+    fi
+    echo "entrypoint: WARNING - SM_USERS_BOOTSTRAP_PASSWORD is the public default; set a secure password before deploying." >&2
 fi
 
 # `upgrade heads` (plural) applies every per-module migration branch;
