@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from sqlmodel import SQLModel
 
 from background_tasks.constants import TaskStatus
@@ -39,6 +39,16 @@ class TaskExecutionListItem(SQLModel):
     exception_type: str | None = None
     retried_from_id: uuid.UUID | None = None
 
+    @field_validator("args", mode="before")
+    @classmethod
+    def _args_none(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def _kwargs_none(cls, v: Any) -> Any:
+        return {} if v is None else v
+
 
 class TaskExecutionDetail(SQLModel):
     """Full row for the detail page (adds args/kwargs/result/traceback)."""
@@ -68,6 +78,16 @@ class TaskExecutionDetail(SQLModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     heartbeat_at: datetime | None = None
+
+    @field_validator("args", mode="before")
+    @classmethod
+    def _args_none(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def _kwargs_none(cls, v: Any) -> Any:
+        return {} if v is None else v
 
 
 class TaskStatusDTO(SQLModel):

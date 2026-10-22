@@ -13,8 +13,9 @@ Guarantees, in order of importance:
 * **Secrets are masked before queueing.** :func:`redact` runs on a copy of the
   record in the emitting thread, so neither the queue nor any sink ever holds
   an ``Authorization`` header, cookie, password, token or ``secret=`` value.
-* **No feedback loop.** Records from this module's own logger and from
-  ``sqlalchemy.*`` (what a database sink itself triggers) are skipped.
+* **No feedback loop.** Records from this module's own logger, from
+  ``sqlalchemy.*`` and any record emitted on the writer thread while a sink
+  is writing (what a database sink itself triggers) are skipped.
 """
 
 from __future__ import annotations
@@ -115,6 +116,13 @@ class QueueSinkHandler(logging.handlers.QueueHandler):
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self.addFilter(self._not_own_record)
+        self.addFilter(self._not_from_writer_thread)
+
+    def _not_from_writer_thread(self, record: logging.LogRecord) -> bool:
+        # Anything logged while the sink writes (entity-change logs from the
+        # insert itself, session or driver chatter) would be retained, written,
+        # and logged again: drop it at the source.
+        return threading.current_thread() is not self._thread
 
     @staticmethod
     def _not_own_record(record: logging.LogRecord) -> bool:
