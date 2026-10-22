@@ -635,6 +635,7 @@ export default {
     'hosting.setup.connections.testing': '',
     'hosting.setup.done': '',
     'hosting.setup.migrations.apply': '',
+    'hosting.setup.request_failed': '',
     'hosting.setup.steps.heading': '',
     'hosting.setup.steps.migrations.description': '',
     'hosting.setup.steps.migrations.title': '',

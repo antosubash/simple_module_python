@@ -813,6 +813,7 @@ export const keys = {
       migrations: {
         apply: 'hosting.setup.migrations.apply',
       },
+      request_failed: 'hosting.setup.request_failed',
       steps: {
         heading: 'hosting.setup.steps.heading',
         migrations: {
