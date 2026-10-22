@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,8 @@ from file_storage.thumbnails import variant_key
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
+_logger = logging.getLogger(__name__)
 
 _PURGE_HANDLER = "file_storage.tenant_deletion.purge_rows"
 _OBJECT_HANDLER = "file_storage.tenant_deletion.purge_objects"
@@ -68,11 +71,20 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
                         if row.status == constants.UploadStatus.ACTIVE
                     ],
                 )
+                on_commit = getattr(ctx.db, "on_commit", None)
                 if bus.durable_transport is not None:
                     await bus.publish_durable(manifest, ctx.db)
-                else:
+                elif on_commit is not None:
                     # Backend objects must survive a rollback of the row purge.
-                    ctx.db.on_commit(lambda: bus.publish_durable_or_inline(manifest, ctx.db))
+                    on_commit(lambda: bus.publish_durable_or_inline(manifest, ctx.db))
+                else:
+                    # A plain session has no post-commit hook; the object reaper
+                    # reclaims unreferenced objects after its grace period.
+                    _logger.warning(
+                        "file_storage.tenant_cleanup_deferred tenant=%s objects=%d",
+                        event.tenant_id,
+                        len(manifest.files),
+                    )
             for model in (UploadSession, StoredFile):
                 await ctx.db.execute(
                     delete(model)
@@ -86,6 +98,16 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
         settings = _settings(app)
         backends: dict[str, StorageBackend] = {}
         for backend_id, key in event.files:
+            if backend_id != settings.backend:
+                # Only the active provider is configured; building another from
+                # these settings would raise on every retry and wedge the rest.
+                _logger.warning(
+                    "file_storage.backend_mismatch key=%s stored=%s active=%s — object retained",
+                    key,
+                    backend_id,
+                    settings.backend,
+                )
+                continue
             backend = backends.get(backend_id)
             if backend is None:
                 backend = build_backend(settings.model_copy(update={"backend": backend_id}))

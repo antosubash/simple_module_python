@@ -15,6 +15,7 @@ from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage import constants
 from file_storage.deps import get_file_storage_service
+from file_storage.scope import PLATFORM_TENANT_ID
 from file_storage.service import FileStorageService, StoredFileNotFoundError
 from file_storage.serving import not_found, public_file_response, thumbnail_response
 
@@ -26,7 +27,11 @@ async def _public_row(
 ):
     try:
         row = await service.get_public(file_id)
-        if await tenant_exists(request.app, row.tenant_id) is False:
+        # Platform-owned files (branding logo/favicon) have no tenant row by design.
+        if (
+            row.tenant_id != PLATFORM_TENANT_ID
+            and await tenant_exists(request.app, row.tenant_id) is False
+        ):
             raise StoredFileNotFoundError(str(file_id))
         return row
     except StoredFileNotFoundError as exc:
