@@ -86,8 +86,6 @@ class UploadGuards(StorageQuota):
     """Mixed into :class:`~file_storage.uploads.UploadSessionService`."""
 
     files: FileStorageService
-    db: AsyncSession
-    settings: FileStorageSettings
 
     @property
     def backend(self) -> DirectUploadBackend:
