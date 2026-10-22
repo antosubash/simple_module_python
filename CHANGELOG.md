@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- Retained logs: a NUL character no longer drops the whole log batch on Postgres.
 - UX polish (#575): `/tenants/settings` shows translated labels instead of raw keys
   (`SettingDefinition.label_key` / `TenantSettingView.label_key`, set by `branding`; en + de);
   a signed-in 404 for an unknown URL keeps the app layout (sidebar, user menu); the tenant
