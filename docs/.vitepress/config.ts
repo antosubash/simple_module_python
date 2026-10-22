@@ -122,6 +122,7 @@ export default defineConfig({
             { text: "Middleware pipeline", link: "/framework/middleware" },
             { text: "Settings & app.state", link: "/framework/settings" },
             { text: "Permissions", link: "/framework/permissions" },
+            { text: "Resource-scoped access", link: "/framework/resource-access" },
             { text: "Principal resolvers", link: "/framework/principal-resolvers" },
             { text: "User directory", link: "/framework/user-directory" },
             { text: "Public routes", link: "/framework/public-routes" },

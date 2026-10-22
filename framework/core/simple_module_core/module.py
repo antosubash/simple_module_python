@@ -22,51 +22,18 @@ if TYPE_CHECKING:
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
+    from simple_module_core.resources import ResourceTypeRegistry
     from simple_module_core.setup_steps import SetupRegistry
 
 
 class ModuleBase(ABC):
     """Base class for all modules.
 
-    Subclasses override only the methods they need.
-    Every method has a default no-op implementation.
-
-    Hook execution order during app boot:
-
-        Phase 1: Bootstrap
-          - Load framework Settings
-          - Discover & topological-sort modules
-          - Run diagnostics (dev only)
-
-        Phase 2: App creation
-          - Create FastAPI app
-          - Store framework registries + settings on app.state
-
-        Phase 3: Module settings
-          - register_settings(app)
-
-        Phase 4: Module registrations
-          - register_menu_items(registry)
-          - register_permissions(registry)
-          - register_feature_flags(registry)
-          - register_event_handlers(bus)
-          - register_invalidations(bus, app)
-          - register_health_checks(registry)
-
-        Phase 5: Database
-          - init_db() -> DatabaseState
-          - register_listeners(db_state)
-
-        Phase 6: App wiring
-          - Inertia setup
-          - register_exception_handlers(app)
-          - Middleware pipeline (register_middleware per module)
-          - register_routes(api_router, view_router)
-          - Mount health router + static files
-
-        Phase 7: Runtime (async)
-          - on_startup(app) — per module, in dependency order
-          - on_shutdown(app) — per module, reverse order
+    Subclasses override only the methods they need; every hook is a no-op by
+    default. The boot order the host calls them in is documented in
+    ``docs/framework/lifecycle.md`` (settings, then the declarative
+    registrations in ``_registrations.run_module_registrations``, then
+    database, Inertia, middleware, routes, and finally ``on_startup``).
     """
 
     meta: ModuleMeta
@@ -228,6 +195,16 @@ class ModuleBase(ABC):
         Registering only supplies the URL — the target route still enforces
         its own permissions, so linking never widens access. Called once at
         boot, in dependency order.
+        """
+
+    def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
+        """Declare resource types whose rows carry object-level access (GH #526).
+
+        ``registry.register(ResourceType(name="notes.note", policy=...,
+        select_by_id=...))`` makes the type's :class:`ResourcePolicy` reachable
+        by cross-cutting code such as the ``sharing`` module. Names are dotted
+        and unique; a duplicate raises at boot. See
+        ``docs/framework/resource-access.md``.
         """
 
     def register_middleware(self, app: FastAPI) -> None:

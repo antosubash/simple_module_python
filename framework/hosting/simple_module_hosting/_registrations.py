@@ -32,6 +32,7 @@ def run_module_registrations(
     audit_link_registry,
     csp_registry,
     body_limit_registry=None,
+    resource_type_registry=None,
 ) -> None:
     """Invoke each module's registration hooks, in dependency order.
 
@@ -59,6 +60,8 @@ def run_module_registrations(
         mod.register_csp_sources(csp_registry)
         mod.register_design_packs(design_pack_registry)
         mod.register_audit_links(audit_link_registry)
+        if resource_type_registry is not None:
+            mod.register_resource_types(resource_type_registry)
 
     health_registry.set_owner("")
     setup_registry.set_owner("")
