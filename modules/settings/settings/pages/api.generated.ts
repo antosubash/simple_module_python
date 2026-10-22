@@ -321,6 +321,11 @@ export interface components {
              * @default
              */
             description_key: string;
+            /**
+             * Label Key
+             * @default
+             */
+            label_key: string;
         };
         /** ValidationError */
         ValidationError: {

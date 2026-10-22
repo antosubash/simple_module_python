@@ -47,13 +47,25 @@ async def public_thumbnail(
     )
 
 
+# Two functions, not stacked decorators: the operationId is derived from the
+# function name, so sharing one would give both routes the same id.
 @router.get(constants.PATH_PUBLIC, response_model=None)
-@router.get(constants.PATH_PUBLIC_NAMED, response_model=None)
 async def public_file(
     file_id: uuid.UUID,
     request: Request,
     t: TranslatorDep,
-    filename: str | None = None,  # cosmetic: lets the URL end in a readable name
+    service: FileStorageService = Depends(get_file_storage_service),
+) -> Response:
+    row = await _public_row(service, file_id, t)
+    return await public_file_response(service, row, request, t)
+
+
+@router.get(constants.PATH_PUBLIC_NAMED, response_model=None)
+async def public_file_named(
+    file_id: uuid.UUID,
+    request: Request,
+    t: TranslatorDep,
+    filename: str,  # cosmetic: lets the URL end in a readable name
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> Response:
     row = await _public_row(service, file_id, t)

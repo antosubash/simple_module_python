@@ -166,6 +166,17 @@ All notable changes to this project are documented in this file. The format is b
 - tenants and api_tokens pages call their APIs through the typed client and take
   typed component props (#504). **Behaviour change:** the api_tokens pages no longer
   receive the unused `api_url` prop.
+- users, background_tasks, branding, settings, file_storage and the first-run setup
+  wizard call their APIs through the typed client (#504), completing the migration.
+  **Behaviour change:** failed requests from these pages now show translated error
+  toasts (the server's `detail` or a localized fallback) instead of raw or generic
+  English text. `make lint` / CI reject raw `fetch(` in shipped `.ts`/`.tsx`
+  (`ci-check-no-raw-fetch`, `scripts/check_no_raw_fetch.py`) unless marked
+  `// raw-fetch-ok: <reason>`.
+- file_storage's public file routes (`/api/file-storage/public/{file_id}` and
+  `.../{filename}`) now have distinct OpenAPI operation ids (`file_storage_public_file`,
+  `file_storage_public_file_named`); the cosmetic `filename` is a path segment on the
+  named route only. Paths and responses are unchanged.
 - Typed page props (#505): `@simple-module-py/ui` registers `SharedProps` (now including `i18n`) with
   Inertia, so `usePage().props.auth` is typed, and exports `usePageProps<T>()` for components and
   layouts. Pages take typed component arguments. The `as unknown as` casts in module pages, `packages/ui`

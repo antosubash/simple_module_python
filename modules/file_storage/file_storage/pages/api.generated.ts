@@ -227,7 +227,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/file-storage/public/{file_id}/{filename}": {
+    "/api/file-storage/public/{file_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -244,15 +244,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/file-storage/public/{file_id}": {
+    "/api/file-storage/public/{file_id}/{filename}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Public File */
-        get: operations["file_storage_public_file_get_api_file_storage_public_file_id"];
+        /** Public File Named */
+        get: operations["file_storage_public_file_named"];
         put?: never;
         post?: never;
         delete?: never;
@@ -990,7 +990,6 @@ export interface operations {
             header?: never;
             path: {
                 file_id: string;
-                filename: string | null;
             };
             cookie?: never;
         };
@@ -1016,14 +1015,13 @@ export interface operations {
             };
         };
     };
-    file_storage_public_file_get_api_file_storage_public_file_id: {
+    file_storage_public_file_named: {
         parameters: {
-            query?: {
-                filename?: string | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 file_id: string;
+                filename: string;
             };
             cookie?: never;
         };

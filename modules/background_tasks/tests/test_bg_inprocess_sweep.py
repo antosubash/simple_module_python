@@ -18,6 +18,20 @@ from simple_module_test import wait_for
 from sqlalchemy import select
 
 
+@pytest.fixture
+def settings(settings, tmp_path):
+    """Run on a file database, not the default in-memory one.
+
+    An in-memory SQLite engine holds ONE shared connection. The sweep loop and
+    the test's polling session then run on the same DBAPI connection, so a poll
+    closing its session rolls back the sweeper's uncommitted DELIVERED update
+    (row stuck RUNNING under a 300 s lease), and a cancelled poll invalidates the
+    connection so the next checkout is an empty database ("no such table").
+    A file database gives each session its own connection, like production.
+    """
+    return settings.model_copy(update={"database_url": f"sqlite+aiosqlite:///{tmp_path}/sweep.db"})
+
+
 @pytest.fixture(autouse=True)
 def eager_mode(monkeypatch):
     monkeypatch.setenv("SM_BG_TASKS_TASK_ALWAYS_EAGER", "true")
@@ -47,7 +61,6 @@ async def seed(app, *, crashed=False):
 
 async def restart_short(app):
     services = app.state.background_tasks
-    await stop_sweep(services)
     # Validation stays >= 1 in production; shorten only this test's clock.
     services.settings.outbox_sweep_interval_seconds = 0.05
     start_sweep(
@@ -69,6 +82,9 @@ async def test_eager_sweep_recovers_without_schedule(app, crashed):
         seen.append(event.value)
 
     app.state.sm.event_bus.subscribe_durable(SweepPing, handler, name="sweep-test")
+    # Quiesce the lifespan's sweeper BEFORE seeding, so a tick cannot claim the row
+    # and then be cancelled mid-delivery, stranding it RUNNING under a live lease.
+    await stop_sweep(app.state.background_tasks)
     row_id = await seed(app, crashed=crashed)
     task = await restart_short(app)
 
