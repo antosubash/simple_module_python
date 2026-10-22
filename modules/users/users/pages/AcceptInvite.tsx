@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
@@ -31,9 +31,8 @@ interface Props {
   branding?: { appName: string } | null;
 }
 
-function AcceptInvite() {
+function AcceptInvite({ token, invite, branding }: Props) {
   const homeUrl = useHomeUrl();
-  const { token, invite, branding } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
   const [fullName, setFullName] = useState(invite?.full_name ?? '');

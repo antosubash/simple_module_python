@@ -13,6 +13,7 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 configureI18n({
@@ -65,7 +66,7 @@ const BASE = {
 
 function renderBrowse(overrides: Record<string, unknown> = {}) {
   pageProps = { ...BASE, ...overrides };
-  render(<Browse />);
+  render(<Browse {...(pageProps as unknown as ComponentProps<typeof Browse>)} />);
 }
 
 beforeEach(() => {

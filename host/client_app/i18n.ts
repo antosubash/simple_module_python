@@ -6,20 +6,12 @@
  * catalog the server chose to send (see `subscribeI18nToNavigation`).
  */
 
-import type { PageProps } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { configureI18n, updateI18n } from '@simple-module-py/i18n';
+import type { SharedProps } from '@simple-module-py/ui/types';
 
-interface I18nSharedProps {
-  locale: string;
-  supportedLocales: string[];
-  // ``null`` on Inertia XHR visits where the backend skipped the messages
-  // payload because the client already has them from the initial page load.
-  messages: Record<string, string> | null;
-}
-
-export function bootI18nFromInitialPage(props: PageProps): void {
-  const i18n = (props as unknown as { i18n?: I18nSharedProps }).i18n;
+export function bootI18nFromInitialPage(props: Partial<SharedProps>): void {
+  const i18n = props.i18n;
   if (!i18n) {
     configureI18n({ locale: 'en', messages: {} });
     return;
@@ -29,7 +21,7 @@ export function bootI18nFromInitialPage(props: PageProps): void {
 
 export function subscribeI18nToNavigation(): () => void {
   return router.on('success', (event) => {
-    const i18n = (event.detail.page.props as unknown as { i18n?: I18nSharedProps }).i18n;
+    const i18n = event.detail.page.props.i18n;
     if (!i18n) return;
     // A non-null `messages` payload IS the server's signal that the client
     // needs it — it sends `null` whenever the cached catalog is still good.

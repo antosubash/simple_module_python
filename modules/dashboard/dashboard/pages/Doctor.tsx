@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -17,8 +17,7 @@ import type { DoctorProps } from './components/doctor/types';
 
 const RERUN_URL = '/admin/doctor/rerun';
 
-function Doctor() {
-  const props = usePage<{ props: DoctorProps }>().props as unknown as DoctorProps;
+function Doctor(props: DoctorProps) {
   const { t } = useT();
   const checkLabels = useCheckLabels();
 

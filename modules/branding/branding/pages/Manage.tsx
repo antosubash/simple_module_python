@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -35,15 +35,16 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-function Manage() {
+// ``designPacks`` and ``presets`` are page props, not shared ones: the
+// choices depend on which modules the host has installed, so only the view
+// can supply them.
+type ManageProps = SharedProps & {
+  designPacks?: DesignPackOption[];
+  presets?: PresetOption[];
+};
+
+function Manage(page: ManageProps) {
   const { t } = useT();
-  // ``designPacks`` and ``presets`` are page props, not shared ones: the
-  // choices depend on which modules the host has installed, so only the view
-  // can supply them.
-  const page = usePage<{ props: SharedProps }>().props as unknown as SharedProps & {
-    designPacks?: DesignPackOption[];
-    presets?: PresetOption[];
-  };
   const { auth, branding } = page;
   const canManage = auth?.permissions?.includes('branding.manage');
 

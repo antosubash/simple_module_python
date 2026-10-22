@@ -1,11 +1,11 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { usePageProps } from '@simple-module-py/ui/hooks/usePageProps';
 import { PublicLayout } from '@simple-module-py/ui/layouts/PublicLayout';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
-import type { SharedProps } from '@simple-module-py/ui/types';
 import { Database, LayoutTemplate, Package, Route, ShieldCheck, Stethoscope } from 'lucide-react';
 import { CopyCommand } from '../components/CopyCommand';
 
@@ -38,7 +38,7 @@ const QUICKSTART: { comment: string; command: string; ok?: string }[] = [
 
 function Landing() {
   const { t } = useT();
-  const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth } = usePageProps();
   const appHome = useHomeUrl();
 
   // The admin UI is the only thing behind a session here, so the one CTA that

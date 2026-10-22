@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
@@ -17,12 +17,7 @@ interface Props {
 
 type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'expired' | 'incomplete';
 
-function VerifyEmail() {
-  const {
-    token,
-    email,
-    verification_lifetime_days: lifetimeDays,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+function VerifyEmail({ token, email, verification_lifetime_days: lifetimeDays }: Props) {
   const { t } = useT();
 
   const [status, setStatus] = useState<VerifyStatus>('pending');

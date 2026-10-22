@@ -1,10 +1,10 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { usePageProps } from '@simple-module-py/ui/hooks/usePageProps';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import type { SharedProps } from '@simple-module-py/ui/types';
 import { Activity, Box, Stethoscope, Users } from 'lucide-react';
 import { type ModuleHealth, ModuleTile } from './components/ModuleTile';
 import { moduleTargetResolver } from './components/module-target';
@@ -48,10 +48,8 @@ interface Props {
   system_info: SystemInfo;
 }
 
-function Home() {
-  const page = usePage();
-  const props = page.props as unknown as Props;
-  const { menus } = page.props as unknown as SharedProps;
+function Home(props: Props) {
+  const { menus } = usePageProps();
   const { t } = useT();
 
   // The stats span every tenant and need `dashboard.view`; anyone else lands

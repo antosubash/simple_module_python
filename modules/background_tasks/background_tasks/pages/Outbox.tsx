@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -27,9 +27,7 @@ interface Props {
 
 const RELOAD_ONLY = ['messages', 'counts', 'pagination'];
 
-function Outbox() {
-  const { messages, counts, pagination, filters } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+function Outbox({ messages, counts, pagination, filters }: Props) {
   const { t } = useT();
   const { can } = usePermissions();
   const canManage = can('background_tasks.manage');

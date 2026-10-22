@@ -1,10 +1,9 @@
-import { usePage } from '@inertiajs/react';
 import type React from 'react';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingHead } from '../components/BrandingHead';
 import { BrandingMark } from '../components/BrandingMark';
+import { usePageProps } from '../hooks/usePageProps';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_TECH } from '../lib/brand';
-import type { SharedProps } from '../types';
 
 interface AuthCardShellProps {
   children: React.ReactNode;
@@ -65,7 +64,7 @@ export function AuthCardShell({
   width = 'md',
   tone = 'default',
 }: AuthCardShellProps) {
-  const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { branding } = usePageProps();
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
   const widthClass = width === 'lg' ? 'max-w-lg' : 'max-w-md';

@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -59,19 +59,17 @@ function pushFilters(filters: Filters, page: number): void {
   router.get(VIEW_BASE, params, { preserveState: true, preserveScroll: true });
 }
 
-function Index() {
-  const {
-    executions,
-    pagination,
-    filters: initialFilters,
-    status_counts: statusCounts,
-    queues,
-    tenant_ids: tenantIds,
-    platform_tenant_value: platformTenantValue,
-    worker_presence: workerPresence,
-    has_executions: hasExecutions,
-  } = usePage<{ props: Props }>().props as unknown as Props;
-
+function Index({
+  executions,
+  pagination,
+  filters: initialFilters,
+  status_counts: statusCounts,
+  queues,
+  tenant_ids: tenantIds,
+  platform_tenant_value: platformTenantValue,
+  worker_presence: workerPresence,
+  has_executions: hasExecutions,
+}: Props) {
   const { t } = useT();
   const { can } = usePermissions();
   const canRetry = can('background_tasks.manage');
