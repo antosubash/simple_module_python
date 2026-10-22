@@ -194,6 +194,7 @@ export default defineConfig({
             { text: "audit_log", link: "/modules/audit_log" },
             { text: "site_lock", link: "/modules/site_lock" },
             { text: "mail", link: "/modules/mail" },
+            { text: "sharing", link: "/modules/sharing" },
             { text: "tenants", link: "/modules/tenants" },
             { text: "dashboard", link: "/modules/dashboard" },
           ],
