@@ -59,12 +59,13 @@ async def get_event_bus(request: Request) -> EventBus:
 
 
 async def get_user_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user_manager: UserManager = Depends(get_user_manager),
 ) -> UserService:
     from users.admin.service import UserService
 
-    return UserService(db, user_manager)
+    return UserService(db, user_manager, request.app)
 
 
 __all__ = [
