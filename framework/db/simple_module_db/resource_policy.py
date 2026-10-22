@@ -88,6 +88,13 @@ class OwnedResourcePolicy:
             clauses.append(self.visibility_col == self.public_value)
         return or_(*clauses) if clauses else false()
 
+    def _owns(self, owner: Any, principal: ResourcePrincipal) -> bool:
+        """The same comparison :meth:`predicate` sends to SQL, in Python."""
+        try:
+            return owner == _coerce(self.owner_col, principal.user_id or "")
+        except ValueError:
+            return False
+
     def filter(self, principal: ResourcePrincipal, action: str, stmt: Any) -> Any:
         clause = self.predicate(principal, action)
         return stmt if clause is None else stmt.where(clause)
@@ -96,8 +103,7 @@ class OwnedResourcePolicy:
         if principal.has(self.bypass_perm):
             return True
         owner = getattr(obj, self.owner_col.key, None)
-        uid = principal.user_id
-        if uid is not None and owner is not None and str(owner).lower() == uid.lower():
+        if principal.user_id is not None and owner is not None and self._owns(owner, principal):
             return True
         if self.visibility_col is not None and action == ACTION_VIEW:
             return getattr(obj, self.visibility_col.key, None) == self.public_value
