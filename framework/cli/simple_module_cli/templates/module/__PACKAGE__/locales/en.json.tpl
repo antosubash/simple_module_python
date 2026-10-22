@@ -8,7 +8,9 @@
     "new_button": "New {{SINGULAR_CLASS}}",
     "empty_title": "No {{PACKAGE_NAME}} yet",
     "empty_description": "Get started by creating your first {{SINGULAR}}.",
-    "edit_link": "Edit"
+    "edit_link": "Edit",
+    "delete_button": "Delete",
+    "delete_failed": "Could not delete the {{SINGULAR}}."
   },
   "form": {
     "name_label": "Name",
