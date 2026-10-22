@@ -1,7 +1,9 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../api';
 
 export interface EditableUser {
   id: string;
@@ -108,29 +110,36 @@ export function useEditUserForm(user: EditableUser) {
       // "unsaved" — it is already persisted, and saying otherwise invites the
       // admin to redo work or distrust the indicator entirely.
       if (detailsDirty) {
-        const resp = await fetch(`/api/users/admin/${user.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: form.email, full_name: form.fullName || null }),
-        });
+        const resp = await apiResult(
+          api.PATCH('/api/users/admin/{user_id}', {
+            params: { path: { user_id: user.id } },
+            body: { email: form.email, full_name: form.fullName || null },
+          }),
+        );
         if (!resp.ok) {
-          const body = await resp.json().catch(() => ({}));
           setError(
-            typeof body?.detail === 'string' ? body.detail : t(keys.users.edit.error_details),
+            resp.status === NETWORK_FAILURE
+              ? t(keys.users.common.error_occurred)
+              : (resp.detail ?? t(keys.users.edit.error_details)),
           );
           return;
         }
         setBaseline((prev) => ({ ...prev, email: form.email, fullName: form.fullName }));
       }
       if (rolesDirty) {
-        const resp = await fetch(`/api/users/admin/${user.id}/roles`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role_names: form.roles }),
-        });
+        const resp = await apiResult(
+          api.PUT('/api/users/admin/{user_id}/roles', {
+            params: { path: { user_id: user.id } },
+            body: { role_names: form.roles },
+          }),
+        );
         if (!resp.ok) {
           setError(
-            detailsDirty ? t(keys.users.edit.error_partial) : t(keys.users.edit.error_roles),
+            resp.status === NETWORK_FAILURE
+              ? t(keys.users.common.error_occurred)
+              : detailsDirty
+                ? t(keys.users.edit.error_partial)
+                : t(keys.users.edit.error_roles),
           );
           return;
         }
@@ -138,8 +147,6 @@ export function useEditUserForm(user: EditableUser) {
       }
       toast.success(t(keys.users.edit.toast_saved));
       router.reload();
-    } catch {
-      setError(t(keys.users.common.error_occurred));
     } finally {
       setSaving(false);
       savingRef.current = false;

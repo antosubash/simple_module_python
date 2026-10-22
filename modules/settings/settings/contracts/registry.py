@@ -58,6 +58,8 @@ class SettingDefinition:
     of offering a text box for an opaque id. ``description_key`` is the i18n
     key the tenant settings page translates ``description`` with (the English
     ``description`` stays the fallback when the key is missing or unset).
+    ``label_key`` does the same for the row's title (the raw ``key`` is the
+    fallback).
     ``clear_via`` names the route that owns clearing the key (e.g. an upload
     route that also reaps the stored file): the generic DELETE routes answer
     422 pointing there while the tenant exists. A platform operator may still
@@ -76,6 +78,7 @@ class SettingDefinition:
     clear_via: str | Mapping[SettingScope, str] = ""
     upload_url: str = ""
     description_key: str = ""
+    label_key: str = ""
 
 
 def clear_route(definition: SettingDefinition, scope: SettingScope | str) -> str:

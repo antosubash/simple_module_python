@@ -3,10 +3,12 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { useState } from 'react';
 import { AuthField } from '../auth_local/components/AuthField';
 import { ResetLinkSent } from '../auth_local/components/ResetLinkSent';
+import { api } from './api';
 
 interface Props {
   /** How long the emailed link stays usable — straight from settings. */
@@ -23,13 +25,9 @@ function ForgotPassword({ reset_link_lifetime_minutes, mailer_delivers }: Props)
 
   /** Resolves to whether the server took the request — never rejects. */
   const requestLink = (): Promise<boolean> =>
-    fetch('/api/users/auth/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
-      .then((res) => res.ok)
-      .catch(() => false);
+    apiResult(api.POST('/api/users/auth/forgot-password', { body: { email } })).then(
+      (res) => res.ok,
+    );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

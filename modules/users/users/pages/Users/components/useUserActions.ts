@@ -1,6 +1,9 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../api';
+import { failureMessage } from '../../failureMessage';
 
 /**
  * The immediate account actions on the edit page — disable/enable, mark
@@ -23,24 +26,30 @@ export function useUserActions(
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingVerify, setSavingVerify] = useState(false);
 
-  const patch = (url: string, onSuccess: () => void, okMsg: string, failMsg: string) => {
+  const patch = (
+    call: Promise<{ response: Response; data?: unknown; error?: unknown }>,
+    onSuccess: () => void,
+    okMsg: string,
+    failMsg: string,
+  ) => {
     setSavingStatus(true);
-    fetch(url, { method: 'PATCH' })
+    apiResult(call)
       .then((res) => {
         if (res.ok) {
           onSuccess();
           toast.success(okMsg);
         } else {
-          toast.error(failMsg);
+          toast.error(failureMessage(res, failMsg, t(keys.users.common.error_occurred)));
         }
       })
-      .catch(() => toast.error(t(keys.users.common.error_occurred)))
       .finally(() => setSavingStatus(false));
   };
 
+  const params = { params: { path: { user_id: userId } } };
+
   const disable = () =>
     patch(
-      `/api/users/admin/${userId}/disable`,
+      api.PATCH('/api/users/admin/{user_id}/disable', params),
       () => setIsActive(false),
       t(keys.users.edit.toast_disabled),
       t(keys.users.edit.toast_disable_failed),
@@ -48,7 +57,7 @@ export function useUserActions(
 
   const enable = () =>
     patch(
-      `/api/users/admin/${userId}/enable`,
+      api.PATCH('/api/users/admin/{user_id}/enable', params),
       () => setIsActive(true),
       t(keys.users.edit.toast_enabled),
       t(keys.users.edit.toast_enable_failed),
@@ -56,7 +65,7 @@ export function useUserActions(
 
   const unlock = () =>
     patch(
-      `/api/users/admin/${userId}/unlock`,
+      api.PATCH('/api/users/admin/{user_id}/unlock', params),
       () => setLockedUntil(null),
       t(keys.users.edit.toast_unlocked),
       t(keys.users.edit.toast_unlock_failed),
@@ -64,28 +73,38 @@ export function useUserActions(
 
   const markVerified = () => {
     setSavingVerify(true);
-    fetch(`/api/users/admin/${userId}/verify`, { method: 'PATCH' })
+    apiResult(api.PATCH('/api/users/admin/{user_id}/verify', params))
       .then((res) => {
         if (res.ok) {
           setIsVerified(true);
           toast.success(t(keys.users.edit.toast_verified));
         } else {
-          toast.error(t(keys.users.edit.toast_verify_failed));
+          toast.error(
+            failureMessage(
+              res,
+              t(keys.users.edit.toast_verify_failed),
+              t(keys.users.common.error_occurred),
+            ),
+          );
         }
       })
-      .catch(() => toast.error(t(keys.users.common.error_occurred)))
       .finally(() => setSavingVerify(false));
   };
 
   const copyResetLink = () => {
-    fetch(`/api/users/admin/${userId}/reset-password-link`, { method: 'POST' })
+    apiResult(api.POST('/api/users/admin/{user_id}/reset-password-link', params))
       .then(async (res) => {
         if (res.ok) {
-          const data = await res.json();
-          await navigator.clipboard.writeText(data.link ?? data.url ?? '');
+          await navigator.clipboard.writeText(res.data?.link ?? '');
           toast.success(t(keys.users.edit.toast_reset_copied));
         } else {
-          toast.error(t(keys.users.edit.toast_reset_failed));
+          toast.error(
+            failureMessage(
+              res,
+              t(keys.users.edit.toast_reset_failed),
+              t(keys.users.common.error_occurred),
+            ),
+          );
         }
       })
       .catch(() => toast.error(t(keys.users.common.error_occurred)));

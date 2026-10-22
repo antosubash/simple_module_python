@@ -18,6 +18,7 @@ from simple_module_core.events import EventBus
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.admin.links import admin_link_base
 from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
@@ -69,17 +70,10 @@ def _failure_detail(exc: Exception) -> str:
 def invite_link(request: Request, token: str) -> str:
     """Build the accept URL the admin will hand to the invitee.
 
-    Uses the module's configured ``base_url`` — the same value both mailers
-    build their links from — rather than ``request.base_url``. Behind a reverse
-    proxy without ``SM_TRUSTED_PROXY``, the request's own base URL is the
-    internal origin (``http://10.0.0.5:8000``), and this link is *only* ever
-    surfaced when mail could not be delivered, i.e. exactly when the admin has
-    to pass it on by hand. Falls back to the request when the module's settings
-    are unavailable, so the link is never simply missing.
+    Surfaced only when mail could not be delivered, i.e. exactly when the admin
+    has to pass it on by hand. The origin follows :func:`admin_link_base`.
     """
-    services = getattr(request.app.state, "users", None)
-    configured = getattr(getattr(services, "settings", None), "base_url", "")
-    base = str(configured or request.base_url).rstrip("/")
+    base = admin_link_base(request)
     return f"{base}/users/invite/accept?token={token}"
 
 

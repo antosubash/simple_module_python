@@ -2,11 +2,13 @@ import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { CheckCircle2, Loader2, TimerOff, Unlink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AuthStateCard, type AuthStateTone } from '../auth_local/components/AuthStateCard';
 import { ResendVerification } from '../auth_local/components/ResendVerification';
+import { api } from './api';
 
 interface Props {
   token: string;
@@ -31,21 +33,13 @@ function VerifyEmail({ token, email, verification_lifetime_days: lifetimeDays }:
       return;
     }
 
-    fetch('/api/users/auth/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    })
-      .then(async (res) => {
-        if (res.status === 200 || res.status === 204) {
-          setStatus('success');
-          return;
-        }
-        const data = await res.json().catch(() => ({}));
-        const detail = typeof data?.detail === 'string' ? data.detail : '';
-        setStatus(detail === 'VERIFY_USER_ALREADY_VERIFIED' ? 'already_verified' : 'expired');
-      })
-      .catch(() => setStatus('expired'));
+    apiResult(api.POST('/api/users/auth/verify', { body: { token } })).then((res) => {
+      if (res.status === 200 || res.status === 204) {
+        setStatus('success');
+        return;
+      }
+      setStatus(res.detail === 'VERIFY_USER_ALREADY_VERIFIED' ? 'already_verified' : 'expired');
+    });
   }, [token]);
 
   const signInButton = (

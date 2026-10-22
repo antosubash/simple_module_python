@@ -1,6 +1,7 @@
 // Frontend mirror of the retained-log DTOs (background_tasks/contracts/logs.py).
 
-import { API_BASE } from './constants';
+import { apiResult } from '@simple-module-py/ui/lib/api';
+import { api } from './api';
 
 export interface LogItem {
   id: string;
@@ -42,9 +43,11 @@ export async function fetchExecutionLogs(
   level: string,
   page: number,
 ): Promise<LogPage> {
-  const query = new URLSearchParams({ page: String(page) });
-  if (level) query.set('level', level);
-  const res = await fetch(`${API_BASE}/executions/${executionId}/logs?${query}`);
-  if (!res.ok) throw new Error(String(res.status));
-  return (await res.json()) as LogPage;
+  const result = await apiResult(
+    api.GET('/api/background_tasks/admin/executions/{execution_id}/logs', {
+      params: { path: { execution_id: executionId }, query: { page, level: level || undefined } },
+    }),
+  );
+  if (!result.ok) throw new Error(String(result.status));
+  return result.data as LogPage;
 }

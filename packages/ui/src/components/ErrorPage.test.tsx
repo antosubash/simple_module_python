@@ -61,6 +61,12 @@ vi.mock('../layouts/AdminLayout', () => ({
   ),
 }));
 
+vi.mock('../layouts/AuthenticatedLayout', () => ({
+  AuthenticatedLayout: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="app-layout">{children}</div>
+  ),
+}));
+
 const { default: ErrorPage } = await import('./ErrorPage');
 
 function renderError(props: Record<string, unknown>) {
@@ -162,5 +168,37 @@ describe('an error under /admin', () => {
     renderError({ status: 500, message: '' });
 
     expect(screen.queryByTestId('admin-layout')).not.toBeInTheDocument();
+  });
+});
+
+describe('an unknown URL outside /admin (#575)', () => {
+  test('keeps the app layout for a signed-in viewer', () => {
+    setPage('/does-not-exist', {
+      auth: { isAuthenticated: true },
+      menus: { sidebar: [{ label: 'Home', url: '/' }] },
+    });
+    renderError({ status: 404, message: '' });
+
+    expect(screen.getByTestId('app-layout')).toBeInTheDocument();
+  });
+
+  test('also wraps a 403 for a signed-in viewer', () => {
+    setPage('/reports', {
+      auth: { isAuthenticated: true },
+      menus: { sidebar: [{ label: 'Home', url: '/' }] },
+    });
+    renderError({ status: 403, message: '' });
+
+    expect(screen.getByTestId('app-layout')).toBeInTheDocument();
+  });
+
+  test('stays bare for an anonymous visitor', () => {
+    setPage('/does-not-exist', {
+      auth: { isAuthenticated: false },
+      menus: { sidebar: [{ label: 'Home', url: '/' }] },
+    });
+    renderError({ status: 404, message: '' });
+
+    expect(screen.queryByTestId('app-layout')).not.toBeInTheDocument();
   });
 });

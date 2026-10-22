@@ -29,8 +29,10 @@ class FakeServer {
   completeStatus = 200;
   total = 0;
 
-  fetch = async (url: string, init: RequestInit = {}): Promise<Response> => {
-    const method = init.method ?? 'GET';
+  fetch = async (request: Request): Promise<Response> => {
+    const method = request.method;
+    const url = new URL(request.url).pathname;
+    const init = { body: await request.text() };
     this.calls.push(`${method} ${url}`);
     const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
     if (method === 'POST' && url === '/api/file-storage/uploads') {
@@ -150,9 +152,9 @@ describe('runResumable', () => {
     let seen: string | null = null;
     server.putStatuses.set(1, [200]);
     const original = server.fetch;
-    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-      if (url.endsWith('/complete')) seen = window.localStorage.getItem(key);
-      return original(url, init);
+    vi.stubGlobal('fetch', async (request: Request) => {
+      if (request.url.endsWith('/complete')) seen = window.localStorage.getItem(key);
+      return original(request);
     });
 
     await runResumable(file, OPTIONS());

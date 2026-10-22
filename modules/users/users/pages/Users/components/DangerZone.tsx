@@ -3,9 +3,12 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../api';
+import { failureMessage } from '../../failureMessage';
 
 interface Props {
   userId: string;
@@ -31,25 +34,25 @@ export function DangerZone({ userId, email, isSelf }: Props) {
 
   const handleDelete = () => {
     setDeleting(true);
-    fetch(`/api/users/admin/${userId}`, { method: 'DELETE' })
-      .then(async (res) => {
-        if (res.ok) {
-          toast.success(t(keys.users.danger_zone.toast_deleted));
-          router.visit('/admin/users/');
-          return; // navigating away — leave `deleting` set
-        }
-        const data = await res.json().catch(() => ({}));
-        toast.error(
-          typeof data?.detail === 'string' ? data.detail : t(keys.users.danger_zone.toast_failed),
-        );
-        setDeleting(false);
-        setOpen(false);
-      })
-      .catch(() => {
-        toast.error(t(keys.users.common.error_occurred));
-        setDeleting(false);
-        setOpen(false);
-      });
+    apiResult(
+      api.DELETE('/api/users/admin/{user_id}', { params: { path: { user_id: userId } } }),
+    ).then((res) => {
+      if (res.ok) {
+        toast.success(t(keys.users.danger_zone.toast_deleted));
+        router.visit('/admin/users/');
+        return; // navigating away — leave `deleting` set
+      }
+      toast.error(
+        failureMessage(
+          res,
+          t(keys.users.danger_zone.toast_failed),
+          t(keys.users.common.error_occurred),
+          true,
+        ),
+      );
+      setDeleting(false);
+      setOpen(false);
+    });
   };
 
   return (

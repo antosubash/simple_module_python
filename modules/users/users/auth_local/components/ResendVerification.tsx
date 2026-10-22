@@ -1,7 +1,9 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
+import { api } from '../../pages/api';
 
 interface ResendVerificationProps {
   /** Decoded from the dead token. Null when it could not be read at all. */
@@ -35,13 +37,8 @@ export function ResendVerification({ email }: ResendVerificationProps) {
   const resend = () => {
     setFailed(false);
     setSending(true);
-    fetch('/api/users/auth/request-verify-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: address }),
-    })
+    apiResult(api.POST('/api/users/auth/request-verify-token', { body: { email: address } }))
       .then((res) => (res.ok ? setSent(true) : setFailed(true)))
-      .catch(() => setFailed(true))
       .finally(() => setSending(false));
   };
 

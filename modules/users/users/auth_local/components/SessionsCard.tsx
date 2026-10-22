@@ -3,10 +3,13 @@ import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActi
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { describeUserAgent } from '@simple-module-py/ui/lib/user-agent';
 import { LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../pages/api';
+import { failureMessage } from '../../pages/failureMessage';
 
 interface Props {
   lastLoginAt: string | null;
@@ -27,6 +30,10 @@ export function SessionsCard({ lastLoginAt }: Props) {
   const { ago } = useRelativeTime();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Kept on the card as well as toasted: the toast lands as the dialog closes
+  // and is easy to miss, and a failed sign-out has to be impossible to mistake
+  // for a successful one.
+  const [error, setError] = useState<string | null>(null);
   // Read in an effect rather than during render: `navigator` does not exist
   // while the page is server-rendered, and naming the browser in the first
   // client render would make it disagree with the markup it is hydrating.
@@ -35,22 +42,23 @@ export function SessionsCard({ lastLoginAt }: Props) {
 
   async function revokeAll() {
     setBusy(true);
-    try {
-      const resp = await fetch('/api/users/me/sessions/revoke-all', { method: 'POST' });
-      if (!resp.ok) {
-        toast.error(t(keys.users.profile.toast_signed_out_failed));
-        setBusy(false);
-        setConfirming(false);
-        return;
-      }
-      // This browser is signed out too, so a full page load is the point —
-      // an Inertia visit would carry a session the server has just refused.
-      window.location.assign('/users/login');
-    } catch {
-      toast.error(t(keys.users.common.error_occurred));
+    setError(null);
+    const resp = await apiResult(api.POST('/api/users/me/sessions/revoke-all'));
+    if (!resp.ok) {
+      const message = failureMessage(
+        resp,
+        t(keys.users.profile.toast_signed_out_failed),
+        t(keys.users.common.error_occurred),
+      );
+      setError(message);
+      toast.error(message);
       setBusy(false);
       setConfirming(false);
+      return;
     }
+    // This browser is signed out too, so a full page load is the point —
+    // an Inertia visit would carry a session the server has just refused.
+    window.location.assign('/users/login');
   }
 
   return (
@@ -79,6 +87,11 @@ export function SessionsCard({ lastLoginAt }: Props) {
         >
           {t(keys.users.profile.sign_out_everywhere)}
         </button>
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </CardContent>
 
       <ConfirmActionDialog

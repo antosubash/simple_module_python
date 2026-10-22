@@ -43,8 +43,13 @@ _COLUMN_ATTRS = ("task_id", "job_id", "tenant_id", "correlation_id")
 _handler: QueueSinkHandler | None = None
 
 
+def _clean(value: object, limit: int) -> str:
+    """*value* as text with NULs removed (Postgres rejects them, losing the whole batch)."""
+    return str(value).replace("\x00", "")[:limit]
+
+
 def _text(value: object, limit: int) -> str | None:
-    return None if value in (None, "") else str(value)[:limit]
+    return None if value in (None, "") else _clean(value, limit)
 
 
 def _extra(record: logging.LogRecord) -> dict[str, Any]:
@@ -54,10 +59,10 @@ def _extra(record: logging.LogRecord) -> dict[str, Any]:
             continue
         if len(extra) >= LOG_EXTRA_MAX_KEYS:
             break
-        extra[key[:LOG_NAME_MAX_LENGTH]] = (
+        extra[_clean(key, LOG_NAME_MAX_LENGTH)] = (
             value
             if isinstance(value, bool | int | float)
-            else str(value)[:LOG_EXTRA_VALUE_MAX_LENGTH]
+            else _clean(value, LOG_EXTRA_VALUE_MAX_LENGTH)
         )
     return extra
 
@@ -67,8 +72,8 @@ def to_row(record: logging.LogRecord) -> RetainedLog:
     return RetainedLog(
         ts=datetime.fromtimestamp(record.created, UTC),
         level=record.levelno,
-        logger=record.name[:LOG_NAME_MAX_LENGTH],
-        message=str(record.msg)[:LOG_MESSAGE_MAX_LENGTH],
+        logger=_clean(record.name, LOG_NAME_MAX_LENGTH),
+        message=_clean(record.msg, LOG_MESSAGE_MAX_LENGTH),
         task_id=_text(getattr(record, "task_id", None), LOG_ID_MAX_LENGTH),
         job_id=_text(getattr(record, "job_id", None), LOG_ID_MAX_LENGTH),
         tenant_id=_text(getattr(record, "tenant_id", None), TENANT_ID_MAX_LENGTH),

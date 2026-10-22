@@ -8,7 +8,7 @@ import {
   retryOutboxMessage,
   shortName,
 } from '../background_tasks/pages/outbox';
-import { stubFetch } from './stub-fetch';
+import { requestsOf, stubFetch } from './stub-fetch';
 
 describe('outbox actions', () => {
   afterEach(() => {
@@ -19,19 +19,19 @@ describe('outbox actions', () => {
   it('retries with a POST to the row', async () => {
     const fetchMock = stubFetch(200, { id: 'm1', status: 'pending' });
     expect(await retryOutboxMessage('m1')).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/outbox/m1/retry',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/outbox/m1/retry',
+      method: 'POST',
+    });
   });
 
   it('discards with a DELETE and accepts 204', async () => {
     const fetchMock = stubFetch(204);
     expect(await discardOutboxMessage('m1')).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/outbox/m1',
-      expect.objectContaining({ method: 'DELETE' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/outbox/m1',
+      method: 'DELETE',
+    });
   });
 
   it('shows a translated conflict message, never the server English', async () => {

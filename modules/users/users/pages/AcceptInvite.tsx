@@ -3,6 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { BRAND_DEFAULT_APP_NAME } from '@simple-module-py/ui/lib/brand';
 import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
@@ -13,6 +14,7 @@ import { AuthIntro } from '../auth_local/components/AuthIntro';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { InviteSummary } from '../auth_local/components/InviteSummary';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
+import { api } from './api';
 
 interface InvitePreview {
   email: string;
@@ -51,25 +53,22 @@ function AcceptInvite({ token, invite, branding }: Props) {
     }
     setMismatch(false);
     setLoading(true);
-    fetch('/api/users/auth/accept-invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password, full_name: fullName }),
-    })
-      .then(async (res) => {
-        if (res.status === 204 || res.status === 200) {
+    apiResult(
+      api.POST('/api/users/auth/accept-invite', {
+        body: { token, password, full_name: fullName },
+      }),
+    )
+      .then((res) => {
+        if (res.status === NETWORK_FAILURE) {
+          setError(t(keys.users.common.error_try_again));
+        } else if (res.ok) {
           router.visit(homeUrl);
+        } else if (res.detail === 'INVITE_BAD_TOKEN') {
+          setError(t(keys.users.accept_invite.error_bad_token));
         } else {
-          const data = await res.json().catch(() => ({}));
-          const detail = typeof data?.detail === 'string' ? data.detail : '';
-          if (detail === 'INVITE_BAD_TOKEN') {
-            setError(t(keys.users.accept_invite.error_bad_token));
-          } else {
-            setError(detail || t(keys.users.accept_invite.error_failed));
-          }
+          setError(res.detail || t(keys.users.accept_invite.error_failed));
         }
       })
-      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 

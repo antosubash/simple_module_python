@@ -64,5 +64,14 @@
     "logo_dark_file_id": "Logo for dark surfaces; falls back to this organisation's own logo.",
     "favicon_file_id": "Browser tab icon."
   },
+  "tenant_setting_labels": {
+    "app_name": "Application name",
+    "primary_color": "Primary colour",
+    "design_pack": "Design pack",
+    "footer_text": "Footer text",
+    "logo_file_id": "Logo",
+    "logo_dark_file_id": "Logo (dark surfaces)",
+    "favicon_file_id": "Favicon"
+  },
   "permission_group": "Branding"
 }

@@ -1,5 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { apiFetch } from '@simple-module-py/ui/lib/api';
 import { CheckCircle2, PlugZap, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
@@ -32,22 +33,15 @@ export function ConnectionList({
   async function retest() {
     setBusy(true);
     setError(null);
-    try {
-      const resp = await fetch('/setup/test-connections', {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken },
-      });
-      // A 404 here means setup completed in another tab, and the body is not
-      // the JSON this expects. Without the check, `resp.json()` throws into an
-      // unhandled rejection and the button just stops responding.
-      if (!resp.ok) throw new Error(resp.statusText || String(resp.status));
-      const body = await resp.json();
-      setChecks(body.checks ?? []);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    // A 404 here means setup completed in another tab; it arrives as a failed
+    // result instead of a JSON parse error.
+    const result = await apiFetch<{ checks?: CheckResult[] }>('/setup/test-connections', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    if (result.ok) setChecks(result.data?.checks ?? []);
+    else setError(result.detail ?? t(keys.hosting.setup.request_failed));
+    setBusy(false);
   }
 
   return (

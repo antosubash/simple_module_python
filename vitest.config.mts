@@ -13,6 +13,8 @@ export default defineConfig({
     include: [
       'packages/**/*.test.ts',
       'packages/**/*.test.tsx',
+      'framework/hosting/tests-js/**/*.test.ts',
+      'framework/hosting/tests-js/**/*.test.tsx',
       'host/client_app/**/*.test.ts',
       'host/client_app/**/*.test.tsx',
       'modules/**/tests-js/**/*.test.ts',

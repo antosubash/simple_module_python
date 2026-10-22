@@ -11,6 +11,24 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- Retained logs: a NUL character no longer drops the whole log batch on Postgres.
+- Users: after a self-service password change the same browser kept its page session but
+  every `/api/users/me*` call (including "Sign out everywhere") answered 401, because the
+  change deleted the `sm_auth` access-token row that browser's cookie pointed at.
+  `POST /api/users/me/password` now re-issues that cookie under the new `session_version`
+  (keeping a remembered sign-in's window); other sessions and bearer tokens are still revoked.
+  The profile's password and sessions cards show the translated failure inline.
+- Users: the admin "Copy reset link" (and the bulk-invite fallback link) no longer points at
+  `http://localhost:8000` on installs that never set `users.base_url`: an explicitly set
+  `users.base_url` wins, then `HostSettings.public_base_url`, then the origin the admin is
+  browsing. Emailed links are unchanged.
+- UX polish (#575): `/tenants/settings` shows translated labels instead of raw keys
+  (`SettingDefinition.label_key` / `TenantSettingView.label_key`, set by `branding`; en + de);
+  signed-in error pages outside `/admin` (e.g. a 404 for an unknown URL) keep the app layout (sidebar, user menu); the tenant
+  invite form shows a translated inline error for an invalid email instead of the browser's
+  silent native validation.
+
 ### Removed
 - Committed QA scratch directories `qa-shots/`, `.qa/` and `.verify/` (159 files); they are now gitignored (`dataset/` stays) (#511).
 - Unused `Combobox` shadcn component and the `@base-ui/react` dependency (nothing imported it; Radix has no combobox, use `cmdk` `Command` + `Popover`). **Behaviour change** for anyone importing `@simple-module-py/ui/components/ui/combobox` (#521).
@@ -159,6 +177,17 @@ All notable changes to this project are documented in this file. The format is b
 - tenants and api_tokens pages call their APIs through the typed client and take
   typed component props (#504). **Behaviour change:** the api_tokens pages no longer
   receive the unused `api_url` prop.
+- users, background_tasks, branding, settings, file_storage and the first-run setup
+  wizard call their APIs through the typed client (#504), completing the migration.
+  **Behaviour change:** failed requests from these pages now show translated error
+  toasts (the server's `detail` or a localized fallback) instead of raw or generic
+  English text. `make lint` / CI reject raw `fetch(` in shipped `.ts`/`.tsx`
+  (`ci-check-no-raw-fetch`, `scripts/check_no_raw_fetch.py`) unless marked
+  `// raw-fetch-ok: <reason>`.
+- file_storage's public file routes (`/api/file-storage/public/{file_id}` and
+  `.../{filename}`) now have distinct OpenAPI operation ids (`file_storage_public_file`,
+  `file_storage_public_file_named`); the cosmetic `filename` is a path segment on the
+  named route only. Paths and responses are unchanged.
 - Typed page props (#505): `@simple-module-py/ui` registers `SharedProps` (now including `i18n`) with
   Inertia, so `usePage().props.auth` is typed, and exports `usePageProps<T>()` for components and
   layouts. Pages take typed component arguments. The `as unknown as` casts in module pages, `packages/ui`

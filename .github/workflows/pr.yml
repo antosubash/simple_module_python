@@ -57,6 +57,8 @@ jobs:
       - run: make ci-check-test-sleeps
       # `as unknown as` switches the type checker off; use typed page args / usePageProps.
       - run: make ci-check-no-double-cast
+      # Requests go through the typed client (packages/ui/src/lib/api.ts), not raw fetch().
+      - run: make ci-check-no-raw-fetch
       # The checked-in typed-key files must match what the installed modules'
       # catalogs emit. Catches a catalog edit committed without regenerating, and
       # (with the namespace guard in gen_i18n.py) a regeneration that dropped keys.

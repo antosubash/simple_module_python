@@ -256,3 +256,19 @@ class TestErrorPageUrl:
         resp = await guarded_client.get(_GUARDED_PATH)
         assert resp.status_code == _FORBIDDEN
         assert _inertia_page(resp.text)["url"] == _GUARDED_PATH
+
+
+class TestSignedInNotFoundCarriesLayoutProps:
+    """The client wraps a signed-in unknown-URL 404 in the app layout (#575).
+
+    That needs ``auth.isAuthenticated`` and a non-empty menu in the page props;
+    pin that the host-level catch-all 404 delivers both.
+    """
+
+    async def test_unknown_url_has_signed_in_auth_and_a_menu(
+        self, authenticated_client: httpx.AsyncClient
+    ) -> None:
+        props = _inertia_page((await authenticated_client.get(_MISSING_PATH)).text)["props"]
+        assert props["auth"]["isAuthenticated"] is True
+        menus = props["menus"]
+        assert menus.get("sidebar") or menus.get("adminSidebar"), sorted(menus)

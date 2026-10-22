@@ -192,16 +192,20 @@ class TestAPasswordChangeStrandsBearerTokens:
     async def test_changing_the_password_deletes_the_rows(self, users_app, anon_client):
         """The stamped counter already strands them; deleting is what stops a
         stolen token resolving a row at all, and stops the refresh tokens
-        minting fresh ones behind it."""
+        minting fresh ones behind it. The one row left is the changing
+        browser's reissued ``sm_auth`` credential, minted under the new counter."""
         assert (await anon_client.post(_LOGIN, data=_CREDS)).status_code == 204
-        assert await _tokens(users_app)
+        before = {row.token for row in await _tokens(users_app)}
+        assert before
 
         resp = await anon_client.post(
             "/api/users/me/password",
             json={"current_password": "AdminPass1!", "new_password": "NewAdminPass1!"},
         )
         assert resp.status_code == 204, resp.text
-        assert await _tokens(users_app) == []
+        reissued = await _only_token(users_app)
+        assert reissued.token not in before
+        assert reissued.session_version == 1
 
 
 class TestTheMintedCounterIsCurrent:

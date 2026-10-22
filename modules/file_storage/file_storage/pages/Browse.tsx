@@ -1,26 +1,27 @@
 import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
-import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { FileBox, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
+import { BrowseEmpty } from './components/BrowseEmpty';
 import { DropzoneStrip } from './components/DropzoneStrip';
 import { FileFilterBar } from './components/FileFilterBar';
 import { FileTable } from './components/FileTable';
 import { SelectionFooter } from './components/SelectionFooter';
 import { UploadDropzone } from './components/UploadDropzone';
 import { UploadsCard } from './components/UploadsCard';
-import { PERMISSIONS, RELOAD_PROPS, ROUTES } from './constants';
+import { PERMISSIONS, ROUTES } from './constants';
 import { describeTypes, formatBytes } from './format';
-import type { BrowseProps, FileFilters, StoredFile } from './types';
+import type { BrowseProps, FileFilters } from './types';
 import { useUploadQueue } from './upload-queue';
+import { useFileActions } from './use-file-actions';
 
 function Browse(props: BrowseProps) {
   const { files, pagination, content_types: contentTypes, uploaders } = props;
@@ -55,8 +56,11 @@ function Browse(props: BrowseProps) {
   // one: rows ingested before a backend switch still live where they landed.
   const confirmBackend = selectedFiles.length === 1 ? selectedFiles[0].backend : props.backend;
 
-  const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const { confirming, setConfirming, deleting, togglePublic, deleteSelected } = useFileActions({
+    files,
+    selectedIds,
+    clearSelection: () => select([]),
+  });
 
   const navigate = useCallback((next: FileFilters, target = 1) => {
     const params: Record<string, string> = {};
@@ -85,65 +89,6 @@ function Browse(props: BrowseProps) {
     // the user has already scrolled away from the card.
     for (const name of failed) {
       toast.error(t(keys.file_storage.toasts.upload_failed_named, { name }));
-    }
-  }
-
-  async function handleTogglePublic(file: StoredFile) {
-    try {
-      const resp = await fetch(ROUTES.apiFile(file.id), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ public: !file.public }),
-      });
-      if (!resp.ok) throw new Error('visibility change failed');
-      toast.success(
-        t(
-          file.public
-            ? keys.file_storage.toasts.made_private
-            : keys.file_storage.toasts.made_public,
-          {
-            name: file.filename,
-          },
-        ),
-      );
-      router.reload({ only: RELOAD_PROPS });
-    } catch {
-      toast.error(t(keys.file_storage.toasts.visibility_failed));
-    }
-  }
-
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      const resp = await fetch(ROUTES.API_BULK_DELETE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedIds }),
-      });
-      if (!resp.ok) throw new Error('bulk delete failed');
-      const { deleted, ids } = (await resp.json()) as { deleted: number; ids: string[] };
-      // Named from what the server *removed*, not from what was selected: part
-      // of a selection can already be gone, and naming the first file the user
-      // ticked would credit a deletion that did not happen.
-      const removed = ids.length === 1 ? files.find((f) => f.id === ids[0]) : undefined;
-      const requested = selectedIds.length;
-      if (deleted === 0) {
-        // A stale tab: every selected file was removed elsewhere already.
-        toast.info(t(keys.file_storage.toasts.already_deleted, { count: requested }));
-      } else if (deleted < requested) {
-        toast.success(t(keys.file_storage.toasts.deleted_partial, { deleted, total: requested }));
-      } else {
-        toast.success(
-          t(keys.file_storage.toasts.deleted, { count: deleted, name: removed?.filename ?? '' }),
-        );
-      }
-      select([]);
-      router.reload({ only: RELOAD_PROPS });
-    } catch {
-      toast.error(t(keys.file_storage.toasts.delete_failed));
-    } finally {
-      setDeleting(false);
-      setConfirming(false);
     }
   }
 
@@ -222,35 +167,16 @@ function Browse(props: BrowseProps) {
             selectedIds={selectedIds}
             canDelete={canDelete}
             canPublish={canUpload}
-            onTogglePublic={handleTogglePublic}
+            onTogglePublic={togglePublic}
             onToggleRow={(id, on) =>
               select(on ? [...selectedIds, id] : selectedIds.filter((x) => x !== id))
             }
             onToggleAll={(on) => select(on ? files.map((f) => f.id) : [])}
             empty={
               showEmpty ? (
-                <EmptyState
-                  icon={FileBox}
-                  title={
-                    isFiltered
-                      ? t(keys.file_storage.browse.no_match_title)
-                      : t(keys.file_storage.browse.empty_title)
-                  }
-                  description={
-                    isFiltered
-                      ? t(keys.file_storage.browse.no_match_description)
-                      : t(keys.file_storage.browse.empty_description)
-                  }
-                  action={
-                    isFiltered ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => applyFilters({ q: '', content_type: '', uploaded_by: '' })}
-                      >
-                        {t(keys.file_storage.browse.clear_filters)}
-                      </Button>
-                    ) : undefined
-                  }
+                <BrowseEmpty
+                  isFiltered={isFiltered}
+                  onClear={() => applyFilters({ q: '', content_type: '', uploaded_by: '' })}
                 />
               ) : null
             }
@@ -286,7 +212,7 @@ function Browse(props: BrowseProps) {
           })}
           cancelLabel={t(keys.file_storage.delete_dialog.cancel)}
           busy={deleting}
-          onConfirm={handleDelete}
+          onConfirm={deleteSelected}
         />
       </PageShell>
     </>
