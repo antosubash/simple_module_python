@@ -12,9 +12,13 @@ Mirrors the allow-list and signature check in the IIASA.GeoWiki Branding module
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from fastapi import HTTPException, UploadFile
+
+if TYPE_CHECKING:
+    from file_storage.contracts.schemas import StoredFileOut
+    from file_storage.service import FileStorageService
 
 # Raster + icon only. SVG is excluded on purpose: it is an XML document that can
 # carry <script>, so serving one back from our own origin would be stored XSS.
@@ -98,7 +102,9 @@ async def validate_image(file: UploadFile) -> None:
         )
 
 
-async def store_image(storage, file: UploadFile, *, platform: bool = False):
+async def store_image(
+    storage: FileStorageService, file: UploadFile, *, platform: bool = False
+) -> StoredFileOut:
     """Hand a validated image to ``file_storage``, answering 413 when the quota is full.
 
     ``file_storage`` enforces ``quota_bytes`` on every upload; its own endpoint
