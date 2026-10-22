@@ -27,6 +27,7 @@ members = [
     "simple-module-permissions",
     "simple-module-python",
     "simple-module-settings",
+    "simple-module-sharing",
     "simple-module-site-lock",
     "simple-module-tenants",
     "simple-module-test",
@@ -3284,6 +3285,7 @@ dependencies = [
     { name = "simple-module-mail" },
     { name = "simple-module-permissions" },
     { name = "simple-module-settings" },
+    { name = "simple-module-sharing" },
     { name = "simple-module-site-lock" },
     { name = "simple-module-tenants" },
 ]
@@ -3303,6 +3305,7 @@ requires-dist = [
     { name = "simple-module-mail", editable = "modules/mail" },
     { name = "simple-module-permissions", editable = "modules/permissions" },
     { name = "simple-module-settings", editable = "modules/settings" },
+    { name = "simple-module-sharing", editable = "modules/sharing" },
     { name = "simple-module-site-lock", editable = "modules/site_lock" },
     { name = "simple-module-tenants", editable = "modules/tenants" },
 ]
@@ -3493,6 +3496,25 @@ requires-dist = [
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
     { name = "typer", specifier = ">=0.12" },
+]
+
+[[package]]
+name = "simple-module-sharing"
+version = "0.0.37"
+source = { editable = "modules/sharing" }
+dependencies = [
+    { name = "simple-module-core" },
+    { name = "simple-module-db" },
+    { name = "simple-module-hosting" },
+    { name = "simple-module-inertia" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "simple-module-core", editable = "framework/core" },
+    { name = "simple-module-db", editable = "framework/db" },
+    { name = "simple-module-hosting", editable = "framework/hosting" },
+    { name = "simple-module-inertia", editable = "framework/inertia" },
 ]
 
 [[package]]

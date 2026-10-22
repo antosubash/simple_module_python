@@ -17,6 +17,7 @@ from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
@@ -110,11 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         installed_modules, settings.auth_provider, strict=not settings.is_development
     )
     modules = topological_sort(modules, strict=not settings.is_development)
-    logger.info(
-        "Loaded %d module(s): %s",
-        len(modules),
-        ", ".join(m.meta.name for m in modules),
-    )
+    logger.info("Loaded %d module(s): %s", len(modules), ", ".join(m.meta.name for m in modules))
 
     # Build the i18n registry up front so diagnostics can validate key parity
     # against host/ui locales, not just module-contributed ones.
@@ -147,6 +144,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_migration_step(setup_registry)
     design_pack_registry = DesignPackRegistry()
     audit_link_registry = AuditLinkRegistry()
+    resource_type_registry = ResourceTypeRegistry()
 
     lifespan = build_lifespan(modules)
 
@@ -200,6 +198,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
         body_limit_registry=body_limit_registry,
+        resource_type_registry=resource_type_registry,
     )
     app.state.body_limits = body_limit_registry
 
@@ -292,6 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tenancy=mode_for(settings),
         view_prefixes=view_prefixes,
         rate_limit_store=rate_limit_store,
+        resource_types=resource_type_registry,
     )
 
     return app

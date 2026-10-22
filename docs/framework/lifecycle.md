@@ -17,6 +17,7 @@ register_body_limits
 register_csp_sources
 register_design_packs
 register_audit_links
+register_resource_types
 register_exception_handlers
 register_middleware
 register_routes
@@ -292,6 +293,19 @@ def register_audit_links(self, registry: AuditLinkRegistry) -> None:
 `label_permission` gates that name. **Set it whenever naming the row discloses something the module gates elsewhere.** The name travels inside the audit payload, so no downstream route ever gets the chance to refuse it — a reader holding `audit_log.view` and nothing else would otherwise read the display name (and, for accounts with an outstanding invite, the email) of every account that has ever been edited. `users` therefore declares `users.manage`. Readers without it still see the entry, the action and the id; they just do not get the name. Leaving it empty — the default — says the name is safe for anyone who may read the trail at all, which is true of setting keys, filenames and task names.
 
 A link is a route, not an authorisation: apart from `label_permission`, the registry does not check that the row still exists or that the reader may open it. A link to a deleted record lands on the target screen's own 404, and permissions are enforced by the target route as usual.
+
+## `register_resource_types(registry)`
+
+Declare a resource type whose rows carry object-level access (owner, shares,
+public), so cross-cutting code such as the `sharing` module can find its
+policy and load a row by id. See [Resource-scoped access](./resource-access.md).
+
+```python
+def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
+    registry.register(
+        ResourceType(name="notes.note", policy=NOTE_POLICY, select_by_id=select_by_id(Note))
+    )
+```
 
 ## `on_startup()` / `on_shutdown()`
 

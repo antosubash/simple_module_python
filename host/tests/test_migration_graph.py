@@ -44,9 +44,10 @@ _OWNER: dict[str, str] = {
     "f1a9c3d7b2e4": "tenants",
     "70786227af4c": "audit_log",
     "a7c2e91d4b58": "audit_log",
+    "f733c7938fd1": "sharing",
 }
 
-_ROOTS = {"77162e7b184b", "e36ab09c4a92"}
+_ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1"}
 
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
@@ -54,6 +55,7 @@ _HEADS = {
     "d7b3a9e5c1f2": "mail",  # reported as ``api_tokens`` (inherited label)
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
+    "f733c7938fd1": "sharing",
 }
 
 # Labels written in the revision files themselves.
@@ -62,6 +64,7 @@ _DECLARED_LABELS = {
     "51b2058d8afd": "api_tokens",
     "168a2882f443": "keycloak",
     "e36ab09c4a92": "tenants",
+    "f733c7938fd1": "sharing",
 }
 
 # Known mislabels: revisions that inherit a label from an ancestor owned by a
