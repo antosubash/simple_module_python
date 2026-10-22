@@ -23,7 +23,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from 'sonner';
 import Outbox from '../background_tasks/pages/Outbox';
 import type { OutboxMessage } from '../background_tasks/pages/outbox';
-import { stubFetch } from './stub-fetch';
+import { requestsOf, stubFetch } from './stub-fetch';
 
 const ob = keys.background_tasks.outbox;
 
@@ -99,10 +99,10 @@ describe('background_tasks Outbox page', () => {
     fireEvent.click(screen.getByRole('button', { name: ob.retry }));
 
     await waitFor(() => expect(reload).toHaveBeenCalled());
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/outbox/m1/retry',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/outbox/m1/retry',
+      method: 'POST',
+    });
     expect(toast.success).toHaveBeenCalledWith(ob.retried);
     expect(reload).toHaveBeenCalledWith({ only: ['messages', 'counts', 'pagination'] });
   });
@@ -150,10 +150,10 @@ describe('background_tasks Outbox page', () => {
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith(ob.discarded));
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/outbox/m1',
-      expect.objectContaining({ method: 'DELETE' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/outbox/m1',
+      method: 'DELETE',
+    });
     expect(reload).toHaveBeenCalled();
   });
 

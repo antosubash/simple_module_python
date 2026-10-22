@@ -22,7 +22,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from 'sonner';
 import Index from '../background_tasks/pages/Index';
 import type { Execution } from '../background_tasks/pages/retry';
-import { stubFetch } from './stub-fetch';
+import { requestsOf, stubFetch } from './stub-fetch';
 
 const rd = keys.background_tasks.retry_dialog;
 const ra = keys.background_tasks.retry_all_dialog;
@@ -97,10 +97,10 @@ describe('background_tasks Index page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: rd.confirm }));
     await waitFor(() => expect(reload).toHaveBeenCalledWith(RELOAD));
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/executions/e1/retry',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/executions/e1/retry',
+      method: 'POST',
+    });
     expect(toast.success).toHaveBeenCalledTimes(1);
   });
 
@@ -135,10 +135,10 @@ describe('background_tasks Index page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: ra.confirm }));
     await waitFor(() => expect(reload).toHaveBeenCalledWith(RELOAD));
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/executions/retry-failed?status=failed&q=demo&queue=default',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/executions/retry-failed?status=failed&q=demo&queue=default',
+      method: 'POST',
+    });
     expect(toast.success).toHaveBeenCalledTimes(1);
   });
 

@@ -8,7 +8,7 @@ configureI18n({ locale: 'en', messages: {} });
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { LogsPanel } from '../background_tasks/pages/components/LogsPanel';
-import { stubFetch } from './stub-fetch';
+import { requestsOf, stubFetch } from './stub-fetch';
 
 const line = (message: string, level_name = 'INFO', level = 20) => ({
   id: message,
@@ -34,7 +34,7 @@ describe('LogsPanel', () => {
       per_page: 50,
     });
     render(<LogsPanel executionId="e1" />);
-    const urls = () => (fetchMock.mock.calls as unknown as string[][]).map((c) => c[0]);
+    const urls = () => requestsOf(fetchMock).map((c) => c.url);
 
     expect(await screen.findByText('copied 3 rows')).toBeInTheDocument();
     expect(screen.getByText('disk full')).toBeInTheDocument();

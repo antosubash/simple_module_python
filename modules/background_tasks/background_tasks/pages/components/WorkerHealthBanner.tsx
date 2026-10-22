@@ -2,9 +2,11 @@ import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { ServerCrash, ServerOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { API_BASE, VIEW_BASE, type WorkerSnapshot } from '../constants';
+import { api } from '../api';
+import { VIEW_BASE, type WorkerSnapshot } from '../constants';
 import { diagnoseWorkerHealth, type WorkerHealthState } from '../worker-health';
 
 interface Props {
@@ -46,17 +48,14 @@ export function WorkerHealthBanner({ backlog }: Props) {
       setState(null);
       return;
     }
-    const controller = new AbortController();
-    fetch(`${API_BASE}/workers`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    })
-      .then((res) => (res.ok ? (res.json() as Promise<WorkerSnapshot>) : null))
-      .then((snapshot) => snapshot && setState(diagnose(snapshot)))
-      .catch(() => {
-        /* offline, aborted, or forbidden — say nothing rather than guess */
-      });
-    return () => controller.abort();
+    let live = true;
+    apiResult(api.GET('/api/background_tasks/admin/workers')).then((result) => {
+      // Offline, forbidden or unmounted — say nothing rather than guess.
+      if (live && result.ok) setState(diagnose(result.data as WorkerSnapshot));
+    });
+    return () => {
+      live = false;
+    };
   }, [backlog]);
 
   if (!state) return null;
