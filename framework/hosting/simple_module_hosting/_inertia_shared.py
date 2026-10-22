@@ -12,12 +12,16 @@ from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import Scope
 
+from simple_module_hosting.csrf import get_csrf_token
+
 logger = logging.getLogger(__name__)
 
 _I18N_SESSION_LOCALE_KEY = "__i18n_locale"
 _I18N_SESSION_AUDIENCE_KEY = "__i18n_audience"
 _INERTIA_HEADER = "x-inertia"
 _INERTIA_HEADER_TRUE = "true"
+#: Shared-prop key the frontend API client reads its ``X-CSRF-Token`` from (#504).
+CSRF_SHARED_PROP = "csrfToken"
 
 
 def _accepts_html(scope: Scope) -> bool:
@@ -90,6 +94,20 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
             else None
         ),
     }
+
+
+def csrf_shared_prop(request: Request, *, is_authenticated: bool) -> dict[str, str]:
+    """``{"csrfToken": ...}`` for a signed-in session, ``{}`` for anyone else (#504).
+
+    Anonymous pages never carry it: minting would write the session and set a
+    cookie on every public response (GH #349), and a page a module marks
+    cacheable is, by construction, an anonymous one — a token in it would be
+    served to the next visitor. API-token principals reach here as anonymous.
+    """
+    if not is_authenticated:
+        return {}
+    token = get_csrf_token(request)
+    return {CSRF_SHARED_PROP: token} if token else {}
 
 
 def build_menu_translator(request: Request) -> Callable[[str], str] | None:

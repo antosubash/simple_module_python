@@ -58,6 +58,9 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
+  // The session's CSRF token, sent to signed-in sessions only (#504). The API
+  // client (`createApi`/`apiFetch`) echoes it as `X-CSRF-Token`.
+  csrfToken?: string;
   // Injected by the users module's shared-props provider. Absent when no local
   // auth provider is installed (e.g. a Keycloak-only deployment), which reads
   // the same as "closed" — the host isn't the one taking signups.
