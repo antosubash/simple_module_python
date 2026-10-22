@@ -13,6 +13,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 - Retained logs: a NUL character no longer drops the whole log batch on Postgres.
+- Users: after a self-service password change the same browser kept its page session but
+  every `/api/users/me*` call (including "Sign out everywhere") answered 401, because the
+  change deleted the `sm_auth` access-token row that browser's cookie pointed at.
+  `POST /api/users/me/password` now re-issues that cookie under the new `session_version`
+  (keeping a remembered sign-in's window); other sessions and bearer tokens are still revoked.
+  The profile's password and sessions cards show the translated failure inline.
+- Users: the admin "Copy reset link" (and the bulk-invite fallback link) no longer points at
+  `http://localhost:8000` on installs that never set `users.base_url`: an explicitly set
+  `users.base_url` wins, then `HostSettings.public_base_url`, then the origin the admin is
+  browsing. Emailed links are unchanged.
 - UX polish (#575): `/tenants/settings` shows translated labels instead of raw keys
   (`SettingDefinition.label_key` / `TenantSettingView.label_key`, set by `branding`; en + de);
   signed-in error pages outside `/admin` (e.g. a 404 for an unknown URL) keep the app layout (sidebar, user menu); the tenant

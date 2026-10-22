@@ -136,7 +136,11 @@ export function PasswordCard() {
             }}
           />
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           <div className="flex justify-end">
             <Button

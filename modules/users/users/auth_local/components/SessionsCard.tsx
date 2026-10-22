@@ -30,6 +30,10 @@ export function SessionsCard({ lastLoginAt }: Props) {
   const { ago } = useRelativeTime();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Kept on the card as well as toasted: the toast lands as the dialog closes
+  // and is easy to miss, and a failed sign-out has to be impossible to mistake
+  // for a successful one.
+  const [error, setError] = useState<string | null>(null);
   // Read in an effect rather than during render: `navigator` does not exist
   // while the page is server-rendered, and naming the browser in the first
   // client render would make it disagree with the markup it is hydrating.
@@ -38,15 +42,16 @@ export function SessionsCard({ lastLoginAt }: Props) {
 
   async function revokeAll() {
     setBusy(true);
+    setError(null);
     const resp = await apiResult(api.POST('/api/users/me/sessions/revoke-all'));
     if (!resp.ok) {
-      toast.error(
-        failureMessage(
-          resp,
-          t(keys.users.profile.toast_signed_out_failed),
-          t(keys.users.common.error_occurred),
-        ),
+      const message = failureMessage(
+        resp,
+        t(keys.users.profile.toast_signed_out_failed),
+        t(keys.users.common.error_occurred),
       );
+      setError(message);
+      toast.error(message);
       setBusy(false);
       setConfirming(false);
       return;
@@ -82,6 +87,11 @@ export function SessionsCard({ lastLoginAt }: Props) {
         >
           {t(keys.users.profile.sign_out_everywhere)}
         </button>
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </CardContent>
 
       <ConfirmActionDialog

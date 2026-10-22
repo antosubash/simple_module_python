@@ -13,6 +13,7 @@ from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 
 from users.admin.bulk_invite import bulk_router
+from users.admin.links import admin_link_base
 from users.admin.resend_invite import resend_router
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
@@ -263,9 +264,8 @@ async def admin_reset_password_link(
     service: UserService = Depends(get_user_service),
 ):
     """Generate a password-reset link for the given user (admin copy)."""
-    base_url = request.app.state.users.settings.base_url
     try:
-        link = await service.generate_reset_link(user_id, base_url)
+        link = await service.generate_reset_link(user_id, admin_link_base(request))
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
     except ExternalUserNoPasswordError:

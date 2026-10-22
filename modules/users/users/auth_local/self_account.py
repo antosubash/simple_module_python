@@ -17,12 +17,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
+from simple_module_hosting.session import SESSION_REMEMBER_KEY
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import delete, update
 
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
+from users.backend import build_cookie_transport, build_strategy
 from users.constants import SESSION_VERSION_KEY
 from users.contracts.schemas import SelfPasswordChange, UserUpdate
+from users.db_adapter import get_access_token_db
 from users.deps import fastapi_users, get_user_manager
 from users.manager import UserManager
 from users.models import RefreshToken, UserAccessToken
@@ -46,6 +49,7 @@ async def change_my_password(
     user=Depends(fastapi_users.current_user(active=True)),
     user_manager: UserManager = Depends(get_user_manager),
     db: RequestSession = Depends(get_db),
+    access_token_db=Depends(get_access_token_db),
 ) -> Response:
     """Change your own password, proving you know the current one.
 
@@ -62,7 +66,9 @@ async def change_my_password(
     in the wrong hands, and a change that leaves those signed in does not do the
     one thing it was reached for. The browser doing the changing keeps working:
     its session is re-stamped with the new value rather than being caught by its
-    own bump. A bearer client is not re-stamped and must sign in again — there
+    own bump, and its ``sm_auth`` cookie — the credential ``/api/users/me*``
+    reads, whose row the revocation below deletes — is replaced by one minted
+    under the new counter. A bearer client is not re-stamped and must sign in again — there
     is nowhere to write the new counter to a caller holding only a token.
     """
     if user.is_external or user.hashed_password is None:
@@ -115,7 +121,37 @@ async def change_my_password(
     )
     await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))  # ty: ignore[invalid-argument-type]
     await db.flush()
-    return Response(status_code=204)
+    return await _reissue_browser_cookie(request, user, access_token_db)
+
+
+async def _reissue_browser_cookie(request: Request, user, access_token_db) -> Response:
+    """The 204 for a password change, carrying a fresh ``sm_auth`` cookie.
+
+    The delete above takes this browser's own access-token row with it, and the
+    bump would strand it anyway, so re-stamping the session alone left the page
+    routes working and every ``/api`` route behind ``current_user`` answering
+    401. Minted after the bump, the new row carries the new counter. The window
+    follows the sign-in it replaces: a remembered session keeps its thirty days.
+    A caller without the cookie (bearer) gets nothing — it has nowhere to keep it.
+    """
+    settings = request.app.state.users.settings
+    if settings.cookie_name not in request.cookies:
+        return Response(status_code=204)
+    # Login records the remembered window as an int; ``True`` is the legacy shape.
+    remembered = request.session.get(SESSION_REMEMBER_KEY)
+    window = settings.cookie_max_age_seconds
+    if remembered is True:
+        window = settings.remember_me_max_age_seconds
+    elif not isinstance(remembered, bool) and isinstance(remembered, int) and remembered > 0:
+        window = remembered
+    transport = build_cookie_transport(
+        cookie_name=settings.cookie_name,
+        cookie_max_age_seconds=window,
+        cookie_secure=settings.cookie_secure,
+        cookie_samesite=settings.cookie_samesite,
+    )
+    token = await build_strategy(access_token_db, window).write_token(user)
+    return await transport.get_login_response(token)
 
 
 @router.post("/me/sessions/revoke-all", status_code=204, dependencies=[Depends(Authenticated())])

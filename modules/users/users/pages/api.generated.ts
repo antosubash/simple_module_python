@@ -117,7 +117,9 @@ export interface paths {
          *     in the wrong hands, and a change that leaves those signed in does not do the
          *     one thing it was reached for. The browser doing the changing keeps working:
          *     its session is re-stamped with the new value rather than being caught by its
-         *     own bump. A bearer client is not re-stamped and must sign in again — there
+         *     own bump, and its ``sm_auth`` cookie — the credential ``/api/users/me*``
+         *     reads, whose row the revocation below deletes — is replaced by one minted
+         *     under the new counter. A bearer client is not re-stamped and must sign in again — there
          *     is nowhere to write the new counter to a caller holding only a token.
          */
         post: operations["users_change_my_password"];
