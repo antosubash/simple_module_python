@@ -25,6 +25,7 @@ from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from simple_module_hosting._route_paths import app_route_paths
 from simple_module_hosting.static_files import IMMUTABLE_CACHE_CONTROL
 
 logger = logging.getLogger(__name__)
@@ -100,24 +101,9 @@ def _is_page_request(path: str, scope: Scope) -> bool:
     return "text/html" in Headers(scope=scope).get("accept", "").lower()
 
 
-def _registered_route_paths(app: FastAPI) -> list[str]:
-    """Every path registered on *app*, flattening FastAPI's lazy included routers."""
-    paths: list[str] = []
-    for route in app.routes:
-        contexts = getattr(route, "effective_route_contexts", None)
-        if contexts is None:
-            paths.append(getattr(route, "path", "") or "")
-            continue
-        for ctx in contexts():
-            starlette_route = ctx.starlette_route
-            path = getattr(starlette_route, "path", "") if starlette_route is not None else ctx.path
-            paths.append(path or "")
-    return paths
-
-
 def mount_spa_mounts(app: FastAPI, modules: list) -> None:
     """Mount every module's SPAs, exempt the public ones from auth, publish prefixes."""
-    problems = check_spa_mount_overlaps(modules, _registered_route_paths(app))
+    problems = check_spa_mount_overlaps(modules, app_route_paths(app))
     if problems:
         raise SpaMountError("\n".join(str(p) for p in problems))
 

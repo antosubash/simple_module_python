@@ -36,20 +36,14 @@ from starlette._utils import get_route_path
 from starlette.routing import Match
 from starlette.types import Scope
 
+from simple_module_hosting._route_paths import included_route_paths
+
 try:  # private, and absent before FastAPI 0.140
     from fastapi.routing import _IncludedRouter
 except ImportError:  # pragma: no cover - older FastAPI flattens eagerly
     _IncludedRouter = None
 
 __all__ = ["guard_included_routers"]
-
-
-def _effective_paths(included: Any) -> list[str]:
-    paths: list[str] = []
-    for ctx in included.effective_route_contexts():
-        route = ctx.starlette_route
-        paths.append((getattr(route, "path", "") if route is not None else ctx.path) or "")
-    return paths
 
 
 def _common_prefix(paths: list[str]) -> str:
@@ -73,7 +67,7 @@ class _PrefixGuard:
     def _current_prefix(self) -> str:
         version = self._included.original_router._get_routes_version()
         if version != self._version:
-            self._prefix = _common_prefix(_effective_paths(self._included))
+            self._prefix = _common_prefix(included_route_paths(self._included))
             self._version = version
         return self._prefix
 
@@ -85,14 +79,16 @@ class _PrefixGuard:
         return self._matches(scope)
 
 
-def guard_included_routers(app: FastAPI) -> None:
+def guard_included_routers(app: FastAPI, *, warm: bool = True) -> None:
     """Install a prefix guard on each router included directly into ``app``.
 
-    Computing a guard's prefix resolves its router's effective routes, which is
-    also what FastAPI does lazily on the first request to reach them — building
-    every route's dependant, signature and pydantic adapters. Doing it here
-    moves that one-time cost (hundreds of ms for a full module set) from the
-    first request after boot into startup.
+    A guard's prefix comes from its routes' paths alone, so installing it
+    resolves nothing. ``warm`` then resolves every router's effective routes, as
+    FastAPI would lazily on the first request to reach each one (building every
+    route's dependant, signature and pydantic adapters), moving that one-time
+    cost (hundreds of ms for a full module set) from the first requests after
+    boot into startup. Test apps skip it: each is built for a handful of
+    requests, so resolving all ~400 routes was most of their setup time.
     """
     if _IncludedRouter is None:
         return
@@ -101,3 +97,6 @@ def guard_included_routers(app: FastAPI) -> None:
             guard = _PrefixGuard(route)
             guard._current_prefix()
             route.matches = guard  # ty: ignore[invalid-assignment]
+            if warm:
+                for _ in route.effective_route_contexts():
+                    pass

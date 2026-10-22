@@ -25,9 +25,14 @@ def wire_module_routes(app: FastAPI, module) -> bool:
     The single canonical implementation so ``create_app`` and the test harness
     in ``simple_module_test`` stay in lockstep if ``ModuleBase`` ever gains
     a new router type.
+
+    Each prefix is given to ``include_router``, not to the ``APIRouter``: the
+    effective paths are the same, but FastAPI only checks an un-prefixed
+    include for empty paths, and that check resolves every nested route
+    (dependants, signatures, adapters; ~0.2 s per app build) that would
+    otherwise resolve lazily on first use.
     """
     api_router = APIRouter(
-        prefix=module.meta.route_prefix,
         tags=[module.meta.name],
         generate_unique_id_function=make_unique_id_function(),
     )
@@ -36,7 +41,6 @@ def wire_module_routes(app: FastAPI, module) -> bool:
     # not (``token_guard``).
     pages = [Depends(page_route)]
     view_router = APIRouter(
-        prefix=module.meta.view_prefix,
         tags=[f"{module.meta.name} Views"],
         include_in_schema=False,
         dependencies=pages,
@@ -44,8 +48,8 @@ def wire_module_routes(app: FastAPI, module) -> bool:
     module.register_routes(api_router, view_router)
     _clone_bare_prefix_route(view_router, module.meta.view_prefix)
     has_views = bool(view_router.routes)
-    app.include_router(api_router)
-    app.include_router(view_router, include_in_schema=False)
+    app.include_router(api_router, prefix=module.meta.route_prefix)
+    app.include_router(view_router, prefix=module.meta.view_prefix, include_in_schema=False)
 
     # Second view router for modules that serve both public and admin pages
     # and therefore cannot express both under a single view_prefix — see
@@ -53,14 +57,13 @@ def wire_module_routes(app: FastAPI, module) -> bool:
     admin_prefix = getattr(module.meta, "admin_view_prefix", "")
     if admin_prefix:
         admin_router = APIRouter(
-            prefix=admin_prefix,
             tags=[f"{module.meta.name} Admin Views"],
             include_in_schema=False,
             dependencies=pages,
         )
         module.register_admin_routes(admin_router)
         _clone_bare_prefix_route(admin_router, admin_prefix)
-        app.include_router(admin_router, include_in_schema=False)
+        app.include_router(admin_router, prefix=admin_prefix, include_in_schema=False)
     return has_views
 
 
@@ -80,9 +83,9 @@ def _clone_bare_prefix_route(router: APIRouter, prefix: str) -> None:
     """
     if not prefix:
         return
-    bare_target = f"{prefix}/"
+    # Paths are relative to the router: the prefix is added on include.
     for route in list(router.routes):
-        if isinstance(route, APIRoute) and route.path == bare_target:
+        if isinstance(route, APIRoute) and route.path == "/":
             router.add_api_route(
                 "",
                 route.endpoint,

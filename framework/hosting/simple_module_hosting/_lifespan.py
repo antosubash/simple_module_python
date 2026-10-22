@@ -187,7 +187,8 @@ def build_lifespan(modules: Sequence) -> Callable:
                 app.state.deferred_startup.append(mod)
         # Here rather than in create_app: the host includes its own routers
         # after create_app returns, and those should be guarded too.
-        guard_included_routers(app)
+        settings = getattr(app.state.sm, "settings", None)
+        guard_included_routers(app, warm=getattr(settings, "environment", None) != "testing")
         yield
         for mod in reversed(modules):
             await mod.on_shutdown(app)
