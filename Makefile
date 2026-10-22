@@ -67,11 +67,12 @@ test-py:
 # `@pytest.mark.anyio` would otherwise run on anyio's event loop while the
 # async fixtures ran on pytest-asyncio's, and an asyncpg connection cannot
 # cross loops (aiosqlite's thread hides this on SQLite). asyncio_mode=auto
-# still runs those tests. Serial on purpose: every test drops and recreates
-# `public` in the one database, so parallel workers would wipe each other's.
+# still runs those tests. Parallel like test-py: every test drops and recreates
+# `public`, so each xdist worker creates and uses its own `<db>_gw<N>` database
+# (the role needs CREATEDB); PYTEST_WORKERS=0 uses the named database itself.
 SM_TEST_PG_URL ?= postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test
 test-py-pg:
-	SM_TEST_DATABASE_URL=$(SM_TEST_PG_URL) uv run pytest -p no:anyio
+	SM_TEST_DATABASE_URL=$(SM_TEST_PG_URL) uv run pytest -p no:anyio -n $(PYTEST_WORKERS) --dist loadgroup
 
 test-js:
 	npm test

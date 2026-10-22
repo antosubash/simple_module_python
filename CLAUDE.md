@@ -28,7 +28,7 @@ Everything goes through `make`. Full list: `docs/reference/make-commands.md`.
 | `make install` | `uv sync --all-packages` + `npm install` |
 | `make dev` | Shared Docker stack up + `gen-pages` + API (:8000) and Vite (:5050) |
 | `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n auto --dist loadgroup`, `PYTEST_WORKERS=0` for serial) then Vitest |
-| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); serial, the plugin refuses `-n` there; not run in CI |
+| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
 | `make lint` | Ruff format + Ruff + `ty` + Biome + per-workspace `tsc` + file-size cap + hardcoded-string check + untranslated-string check + package metadata/README checks |
 | `make doctor` | Module diagnostics (`SM0xx`); a dev boot runs the same plus `SM012`/`SM025` |

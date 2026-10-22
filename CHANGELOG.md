@@ -130,6 +130,12 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- **Behaviour change:** the `simple_module_test` plugin no longer refuses `-n`
+  on Postgres: each pytest-xdist worker creates and uses its own database
+  (`<db>_gw0`, `<db>_gw1`, ...) and points `SM_TEST_DATABASE_URL` at it, so the
+  role needs `CREATEDB`. `make test-py-pg` now runs with
+  `-n $(PYTEST_WORKERS) --dist loadgroup` like `make test-py`
+  (`PYTEST_WORKERS=0` keeps the old serial run on the named database).
 - **Behaviour change:** `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
   `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
   `OutboxMessage`, `RetainedLog`), so retained logs cannot re-log their own writes (#537).

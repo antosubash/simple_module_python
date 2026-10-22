@@ -68,4 +68,6 @@ pytestmark = pytest.mark.postgres
 They are skipped unless `SM_TEST_DATABASE_URL` is a Postgres URL (see
 `make test-py-pg`); the marker is registered by the `simple_module_test`
 plugin. The fixtures drop and re-create `public` per test, and then re-create
-every installed module's declared extensions.
+every installed module's declared extensions. Under pytest-xdist each worker
+runs on its own database (`<db>_gw0`, ...), which the plugin creates on first
+use, so the role needs `CREATEDB`.
