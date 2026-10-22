@@ -188,4 +188,6 @@ async def test_broken_prefetch_never_breaks_the_write(audited, monkeypatch):
     assert [r.entity_id for r in recorder.records] == ["*"]
     monkeypatch.setattr(bulk_audit, "_plan", _boom)
     await session.execute(update(AuditTestItem).values(name="ok2"))
-    await session.execute(update(AuditTestItem).values(name="ok3").execution_options(sm_audit=False))
+    await session.execute(
+        update(AuditTestItem).values(name="ok3").execution_options(sm_audit=False)
+    )
