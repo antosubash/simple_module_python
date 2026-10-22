@@ -18,6 +18,21 @@ All notable changes to this project are documented in this file. The format is b
 ## [0.0.38] — 2026-10-23
 
 ### Fixed
+- Tenants: deleting a tenant now tears down its data. `TenantDeleted` (now defined in
+  `simple_module_core.tenant_events`, still importable from `tenants.contracts.events`) is
+  published durably, and file_storage (files, upload sessions, then backend objects after
+  commit), api_tokens, sharing, feature_flags and the framework's tenant-scoped settings
+  overrides (including branding) purge that tenant's rows; audit history is kept. Public files
+  of a deleted tenant answer 404 at once. Without `background_tasks` the handlers run inline in
+  the deleting transaction. Rows orphaned by earlier deletions are not purged retroactively (#583).
+- File storage: a file whose `backend` is not the active backend is no longer read or deleted
+  through the wrong store: downloads, public reads and thumbnails answer 409 with a translated
+  message, and a delete soft-deletes the row but leaves the object alone (logged). Switching
+  backends still needs a manual migration; see `docs/modules/file_storage.md` (#589).
+- Background tasks: `enqueue_after_commit` is documented as at-most-once (a broker outage after
+  commit loses the task; use `publish_durable` for must-run work). file_storage gains an hourly
+  `file_storage.reconcile_checksums` beat task that re-enqueues checksums for files left without
+  one for 30 minutes, up to 500 per run (#590).
 - Users (security): disabling or enabling an account, or replacing its roles from the admin
   screens, now bumps `session_version` in the same transaction and evicts the cached counter on
   every worker after commit (an atomic SQL increment, so overlapping changes cannot lose one), so
@@ -68,6 +83,8 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- `EventBus.publish_durable_or_inline(event, db)`: enqueue durably when a transport is
+  installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
 - Typed API client (#504). `@simple-module-py/ui` ships `createApi<paths>()` (an
   `openapi-fetch` client with same-origin credentials, `Accept: application/json` and
   the CSRF header), `apiResult()` / `apiFetch()` normalising every call to
