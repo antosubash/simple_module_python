@@ -12,7 +12,7 @@ from _audit_models import (
 from _models import _TenantItem
 from simple_module_db import bulk_audit, record_bulk_audit, tenant_context
 from simple_module_db.audit import AuditRecord
-from sqlalchemy import delete, func, insert, select, text, update
+from sqlalchemy import bindparam, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -160,3 +160,32 @@ async def test_unaudited_engine_records_nothing(audited):
     await session.execute(update(AuditTestItem).values(name="n"))
     record_bulk_audit(session, AuditTestItem, "bulk_updated", [1])
     assert recorder.records == []
+
+
+async def test_parameterized_update_and_delete_are_audited(audited):
+    _state, session, recorder = audited
+    target = (await _ids(session, AuditTestItem.name == "n1"))[0]
+    stmt = update(AuditTestItem).where(AuditTestItem.name == bindparam("target")).values(value=50)
+    await session.execute(stmt, {"target": "n1"})
+    assert [(r.action, r.entity_id) for r in recorder.records] == [("bulk_updated", target)]
+    recorder.records.clear()
+    gone = delete(AuditTestItem).where(AuditTestItem.name == bindparam("target"))
+    await session.execute(gone, {"target": "n2"})
+    assert [r.action for r in recorder.records] == ["bulk_deleted"]
+    assert len(recorder.records) == 1 and recorder.records[0].entity_id != "*"
+
+
+async def test_broken_prefetch_never_breaks_the_write(audited, monkeypatch):
+    _state, session, recorder = audited
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("prefetch broke")
+
+    monkeypatch.setattr(bulk_audit, "_prefetch_ids", _boom)
+    await session.execute(update(AuditTestItem).where(AuditTestItem.value >= 0).values(name="ok"))
+    count = (await session.execute(select(func.count()).where(AuditTestItem.name == "ok"))).one()
+    assert count[0] == 3
+    assert [r.entity_id for r in recorder.records] == ["*"]
+    monkeypatch.setattr(bulk_audit, "_plan", _boom)
+    await session.execute(update(AuditTestItem).values(name="ok2"))
+    await session.execute(update(AuditTestItem).values(name="ok3").execution_options(sm_audit=False))

@@ -32,6 +32,8 @@ from simple_module_core.correlation import correlation_id
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import ORMExecuteState, Session
+from sqlalchemy.sql.elements import BindParameter
+from sqlalchemy.sql.visitors import iterate
 
 from simple_module_db import model_registry as registry
 from simple_module_db.audit import AuditRecord, _excluded_fields, _serialize, format_pk
@@ -143,6 +145,15 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     return ctx
 
 
+def _where_params(stmt: Any, params: Any) -> dict[str, Any] | None:
+    """The execute params the ``WHERE`` clause binds, so the prefetch can run it."""
+    where = getattr(stmt, "whereclause", None)
+    if where is None or not isinstance(params, dict):
+        return None
+    keys = {e.key for e in iterate(where) if isinstance(e, BindParameter)}
+    return {k: v for k, v in params.items() if k in keys} or None
+
+
 def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[str]:
     """Primary keys of the rows the statement will touch, at most ``cap + 1``."""
     stmt = execute_state.statement
@@ -156,7 +167,9 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
     options = {"include_deleted": True}
     if execute_state.execution_options.get(ALL_TENANTS_OPTION):
         options[ALL_TENANTS_OPTION] = True
-    rows = execute_state.session.execute(query.execution_options(**options)).all()
+    rows = execute_state.session.execute(
+        query.execution_options(**options), _where_params(stmt, execute_state.parameters)
+    ).all()
     return [format_pk(tuple(row)) for row in rows]
 
 
@@ -181,6 +194,15 @@ def _summary(ctx: _Ctx, stmt: Any, rowcount: Any, action: str) -> AuditRecord:
     return ctx.record(SUMMARY_ENTITY_ID, [*ctx.changes, *summary], action)
 
 
+def _plans_a_record(execute_state: ORMExecuteState, cls: type) -> bool:
+    """Whether the statement would be audited; a planning failure never refuses the write."""
+    try:
+        return _plan(execute_state, cls) is not None
+    except Exception:
+        logger.exception("Could not plan a bulk audit record for %s", cls.__name__)
+        return False
+
+
 def audit_statement(execute_state: ORMExecuteState) -> Any:
     """``do_orm_execute`` hook: audit statement DML on an audited model."""
     if not (execute_state.is_insert or execute_state.is_update or execute_state.is_delete):
@@ -193,7 +215,7 @@ def audit_statement(execute_state: ORMExecuteState) -> Any:
         return None
     policy = engine_policy(session)
     if execute_state.execution_options.get(AUDIT_OPTION, True) is False:
-        if _refuses_unaudited(policy) and _plan(execute_state, cls) is not None:
+        if _refuses_unaudited(policy) and _plans_a_record(execute_state, cls):
             raise UnauditedWriteError(
                 f"Unaudited {AUDIT_OPTION}=False write to audited model {cls.__name__}"
             )
@@ -212,7 +234,12 @@ def audit_statement(execute_state: ORMExecuteState) -> Any:
     ids = _bulk_by_pk_ids(execute_state, cls)
     by_row = ids is not None and len(ids) == len(ctx.row_actions)
     if ids is None and not (execute_state.is_insert or isinstance(params, list)):
-        ids = _prefetch_ids(execute_state, cls, BULK_AUDIT_ID_CAP)
+        try:
+            ids = _prefetch_ids(execute_state, cls, BULK_AUDIT_ID_CAP)
+        except Exception:
+            # Fail open: the write goes ahead, recorded as a summary row.
+            logger.exception("Could not read the rows a bulk write touches on %s", cls.__name__)
+            ids = None
     stmt = execute_state.statement
     result = execute_state.invoke_statement()
     if ids is not None and len(ids) <= BULK_AUDIT_ID_CAP:
