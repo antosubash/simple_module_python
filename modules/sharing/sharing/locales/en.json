@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "title": "Sharing"
+  },
+  "permission_group": "Sharing",
+  "audit": {
+    "share": "Share"
+  },
+  "admin": {
+    "title": "Shares",
+    "description": "Who has been given access to which resource in this workspace.",
+    "tenant_required": "Select a workspace to see its shares."
+  },
+  "list": {
+    "resource": "Resource",
+    "subject": "Shared with",
+    "role": "Role",
+    "granted_by": "Granted by",
+    "expires": "Expires",
+    "actions": "Actions",
+    "never": "Never",
+    "expired": "Expired",
+    "revoke": "Revoke",
+    "empty_title": "Nothing shared yet",
+    "empty_description": "Shares appear here when someone gives another user access to a resource."
+  },
+  "revoke": {
+    "title": "Revoke this share?",
+    "description": "The user loses access to the resource immediately.",
+    "confirm": "Revoke",
+    "cancel": "Cancel"
+  }
+}

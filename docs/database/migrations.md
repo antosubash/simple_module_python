@@ -16,13 +16,17 @@ The history is **not** a single linear chain. It has several roots and several h
 |---|---|
 | `77162e7b184b` initial schema | the users trunk (also holds file_storage, background_tasks, api_tokens revisions) |
 | `e36ab09c4a92` tenants initial schema | tenants (`f1a9c3d7b2e4` head) |
+| `f733c7938fd1` sharing resource share | sharing (root and head) |
+| `d263ea727663` framework `sm_lease` table | leases (its own head; [leases](../framework/leases.md)) |
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
 | `c8e4f1a2b6d9` | users (login lockout) | `api_tokens` |
 | `a7c2e91d4b58` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
+| `d263ea727663` | framework (`sm_lease`) | `leases` |
 | `f6a3b9d2e8c4` | keycloak | `keycloak` |
+| `f733c7938fd1` | sharing | `sharing` |
 
 `audit_log` forks off the trunk at `41cf2c53660e`, and `keycloak` forks off the users revision `873ca2015033`.
 
@@ -30,7 +34,7 @@ A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **
 
 ### Known mislabels
 
-Only four of the revisions set `branch_labels` (`audit_log`, `api_tokens`, `keycloak`, `tenants`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
+Only six of the revisions set `branch_labels` (`audit_log`, `api_tokens`, `keycloak`, `tenants`, `sharing`, `leases`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
 
 - `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.

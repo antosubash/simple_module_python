@@ -42,6 +42,11 @@ function execution(over: Partial<TaskDetail> = {}): TaskDetail {
     worker: 'w1',
     retries: 2,
     retried_from_id: null,
+    owner_user_id: null,
+    progress_current: null,
+    progress_total: null,
+    progress_message: null,
+    progress_phase: null,
     queued_at: '2026-01-01T00:00:00Z',
     started_at: '2026-01-01T00:00:01Z',
     finished_at: '2026-01-01T00:00:02Z',
@@ -65,6 +70,18 @@ describe('background_tasks Detail page', () => {
     render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(screen.getAllByText('demo.task').length).toBeGreaterThan(0);
     expect(screen.getByText('Traceback (most recent call last)')).toBeInTheDocument();
+  });
+
+  it('shows a progress bar only when the task reported progress', () => {
+    const { unmount } = render(<Detail />);
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    unmount();
+
+    setProps({ progress_current: 3, progress_total: 10, progress_message: 'copying rows' });
+    render(<Detail />);
+    expect(screen.getByTestId('task-progress')).toBeInTheDocument();
+    expect(screen.getByText('copying rows')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30');
   });
 
   it('offers no retry to a viewer without the manage permission', () => {

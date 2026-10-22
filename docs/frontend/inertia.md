@@ -150,6 +150,49 @@ createInertiaApp({
 `resolvePage` lives in `host/client_app/pages.ts` (hand-written). It builds a page-key → loader map from `moduleGlobs` (the `import.meta.glob` calls in the generated `modules.generated.ts`) plus the host's own `./pages/**/*.tsx` glob, mapping a page key (e.g. `"Orders/Browse"`) to a dynamic import of the matching `.tsx` file.
 
 
+## SEO head
+
+Crawlers and link unfurlers (Slack, LinkedIn) do not run JS, so a React `<Head>` is invisible to
+them. Pass a `Head` to `inertia.render` and the first (document) response carries the tags:
+
+```python
+from simple_module_inertia import Head
+
+return await inertia.render(
+    PAGE_PUBLIC,
+    {"page": page},
+    head=Head(
+        title=page.title,
+        description=page.summary,
+        canonical=f"/p/{page.slug}",
+        og={"image": page.cover_url, "type": "article"},
+        twitter={"card": "summary_large_image"},
+        json_ld=[{"@context": "https://schema.org", "@type": "Article", "name": page.title}],
+    ),
+)
+```
+
+- `title` gets the app-name suffix, as `<Head title>` does. `og:title`, `og:description` and
+  `og:url` default from `title`, `description` and `canonical`; set them in `og` to override.
+- URL fields (`canonical`, and `og`/`twitter` keys `url`, `image`, `image:url`, `video`, `audio`)
+  must be `http(s)` or a site-relative path; anything else (`javascript:`, `data:`, `//host`) raises
+  a validation error when the `Head` is built. Text is HTML-escaped; JSON-LD is serialised so
+  `</script>` and `<!--` inside a value cannot end the element.
+- Relative URLs are joined onto the **`public_base_url`** host setting (Settings, read on every
+  request, no restart). The request `Host` is never used, because it is client-controlled. While
+  it is unset, relative canonical / image URLs are omitted rather than guessed, so set it on any
+  install that serves public pages.
+- Every tag carries a `data-inertia` key, which is how Inertia's client head manager replaces an
+  element instead of appending a duplicate. The same tags are sent as the `_head` prop and
+  `app.tsx` passes `serverHead: resolveServerHead` (`@simple-module-py/ui/lib/server-head`), so
+  client-side visits keep the head in step with no per-page code. A page that passes no `head` falls
+  back to the branded default title.
+- A custom root template needs `{% inertia_head %}` plus
+  `{% if not (inertia and inertia.has_head_title) %}<title ...>{% endif %}` around its static
+  title (the shipped `host/templates/index.html` does this).
+
+This is server-rendered **head** only; body SSR (a Node sidecar) is a separate step in #535.
+
 ## Link navigation
 
 The app is client-rendered: the root template ships `<div id="app"></div>` empty

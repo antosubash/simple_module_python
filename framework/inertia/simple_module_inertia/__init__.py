@@ -9,6 +9,7 @@ from simple_module_inertia.errors import (
     inertia_request_validation_exception_handler,
     inertia_version_conflict_exception_handler,
 )
+from simple_module_inertia.head import Head, SiteInfo
 from simple_module_inertia.inertia import Inertia
 from simple_module_inertia.page import PropEncodingError
 from simple_module_inertia.props import (
@@ -26,12 +27,14 @@ from simple_module_inertia.response import InertiaResponse
 from simple_module_inertia.templating import InertiaExtension
 
 __all__ = [
+    "Head",
     "Inertia",
     "InertiaConfig",
     "InertiaExtension",
     "InertiaResponse",
     "InertiaVersionConflictException",
     "PropEncodingError",
+    "SiteInfo",
     "always",
     "deep_merge",
     "defer",

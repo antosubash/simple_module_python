@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import asyncio
+
     from celery import Celery
 
     from background_tasks.contracts.schemas import WorkerSnapshot
@@ -40,3 +42,5 @@ class BackgroundTasksServices:
     # framework bus, kept only so ``on_shutdown`` can stop its listener task.
     # ``None`` when ``broadcast_invalidations`` is off.
     invalidation_transport: RedisInvalidationTransport | None = None
+
+    outbox_sweep_task: asyncio.Task[None] | None = None

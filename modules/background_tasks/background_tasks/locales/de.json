@@ -73,7 +73,9 @@
     "copy": "Kopieren",
     "copied": "Kopiert",
     "no_traceback": "Kein Traceback aufgezeichnet.",
-    "tenant": "Organisation"
+    "tenant": "Organisation",
+    "progress": "Fortschritt",
+    "progress_count": "{current} von {total} ({percent} %)"
   },
   "retry_dialog": {
     "title": "{name} erneut starten?",
@@ -156,7 +158,8 @@
     "routes_empty": "Keine Aufgabenrouten konfiguriert. Jede Aufgabe wird an die Standardwarteschlange gesendet. Fügen Sie Routen in task_config.py (TASK_ROUTES) eines Moduls hinzu."
   },
   "nav": {
-    "background_tasks": "Hintergrundaufgaben"
+    "background_tasks": "Hintergrundaufgaben",
+    "logs": "Protokolle"
   },
   "audit": {
     "task_execution": "Aufgabenausführung"
@@ -191,5 +194,29 @@
     "conflict": "Dieses Ereignis wird gerade zugestellt und kann daher nicht geändert werden. Die Liste wurde aktualisiert.",
     "gone": "Dieses Ereignis existiert nicht mehr. Die Liste wurde aktualisiert."
   },
-  "permission_group": "Hintergrundaufgaben"
+  "permission_group": "Hintergrundaufgaben",
+  "logs": {
+    "title": "Protokolle",
+    "description": "Gespeicherte Anwendungs- und Aufgabenprotokollzeilen",
+    "back_button": "Ausführungen",
+    "tab_details": "Details",
+    "tab_logs": "Protokolle",
+    "tab_list_label": "Aufgabenbereiche",
+    "search_label": "Meldungen durchsuchen",
+    "search_placeholder": "Meldungen durchsuchen",
+    "task_label": "Aufgaben-ID",
+    "task_placeholder": "Aufgaben-ID",
+    "level_label": "Mindeststufe",
+    "level_all": "Alle Stufen",
+    "apply": "Suchen",
+    "col_time": "Zeit",
+    "col_level": "Stufe",
+    "col_logger": "Logger",
+    "col_message": "Meldung",
+    "col_task": "Aufgabe",
+    "empty_title": "Keine Protokollzeilen",
+    "empty_description": "Es gibt keine Treffer. Die Protokollspeicherung ist standardmäßig deaktiviert: Aktivieren Sie log_sink_enabled in den Einstellungen für Hintergrundaufgaben und starten Sie anschließend den Webprozess und die Worker neu.",
+    "load_failed": "Protokollzeilen konnten nicht geladen werden",
+    "platform": "Plattform"
+  }
 }

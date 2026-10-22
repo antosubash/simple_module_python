@@ -33,13 +33,29 @@ audit_log = "audit_log.capture:audit_callback"
 
 `background_tasks` binds whatever `simple_module_db.audit_sinks.discover_audit_callback()` finds to both of its worker engines — the sync engine task bodies and signal handlers use (`sync_db`) and the async engine durable outbox handlers run on (`outbox_worker`). A task's ORM writes, including `TaskExecution` lifecycle rows, are therefore audited exactly like a request's whenever `audit_log` is installed; neither package imports the other. The worker's audit rows carry no `user_id` (no request principal).
 
-### Known gaps
+### Statement DML: bulk, Core and raw writes
 
-Capture sees only what the ORM unit of work flushes. These writes are **not** audited, in requests or in workers:
+`session.execute(update(Model)...)`, its `delete()` / `insert()` siblings and Core DML on `Model.__table__` never reach a flush, so a `do_orm_execute` listener (`simple_module_db.bulk_audit`) audits them instead, through the same per-engine `audit_callback` (requests and Celery workers alike):
 
-- ORM bulk `update()` / `delete()` and Core DML run through `session.execute(...)`;
-- raw `text("UPDATE ...")` DML;
-- the outbox's own state-change bulk `UPDATE`s (claims, delivery status, fences) and the task heartbeat's `heartbeat_at` refresh.
+- **`UPDATE` / `DELETE`.** Before the statement runs, the listener reads the primary keys it will touch, with the same `WHERE` and the same tenant scope (soft-deleted rows included, as the write includes them). Up to 500 rows each get one entry (`bulk_updated`, `bulk_deleted`; an update that writes `is_deleted` is `bulk_soft_deleted` when the value is truthy or SQL such as `sa.true()`, else `bulk_restored`, decided per row for executemany; the statement's other written columns stay in `changes`); `changes` holds the `SET` values as `{field, new}` (a SQL expression is stored as SQL with bind placeholders). `session.execute(update(Model), [{"id": ..., ...}, ...])` takes the ids from the rows instead.
+- **More than 500 rows.** One summary entry with `entity_id` `"*"`: the `SET` values plus `where_sql` (the `WHERE` with bind placeholders, never the literal values), `rowcount` and `truncated: true`.
+- **`INSERT`.** One `bulk_inserted` summary entry per statement (`entity_id` `"*"`, the column values, or the column names for a multi-row insert).
+- **Only real targets count.** `changes` comes from the statement's `SET` / `VALUES` targets, each resolved to its model attribute (bound values read through the execute params). An execute-param key that names a column (and is not one of the statement's bind parameters) is written by SQLAlchemy, so it is a target too, for a single dict and for every executemany row; any other param key is ignored. Primary-key and `is_deleted` writes are never treated as excluded bookkeeping.
+- **Exclusions apply as for a flush.** `__audit_exclude__` models (the outbox, `AuditEntry` itself) are skipped; `__audit_exclude_fields__` and mixin bookkeeping columns are dropped from `changes`; a statement that sets *only* excluded columns writes no entry. So the outbox's claim / delivery `UPDATE`s and the task heartbeat's `heartbeat_at` refresh stay unaudited.
+- **Same transaction.** Entries are added to the writing session, so a rollback discards them with the write. The sink catches and logs its own failures: auditing never fails the write it describes.
+
+Opt one statement out with `.execution_options(sm_audit=False)`. The module setting **`refuse_unaudited_dml`** (default off, edited in the module-settings screen, applies without a restart) turns that opt-out into an `UnauditedWriteError` for any audited model.
+
+Raw `text("UPDATE ...")` is invisible to the listener (SQLAlchemy cannot tell which table it writes). Record it yourself in the same transaction:
+
+```python
+from simple_module_db import record_bulk_audit
+
+await session.execute(text("UPDATE orders_order SET status = 'archived' WHERE ..."))
+record_bulk_audit(session, Order, "bulk_updated", ids, {"status": "archived"})
+```
+
+`ids=None` records one `"*"` entry. The helper is a no-op on an engine with no audit sink.
 
 ### What gets recorded
 
@@ -49,6 +65,8 @@ Capture sees only what the ORM unit of work flushes. These writes are **not** au
 | `updated` | object in `session.dirty` with real column changes (empty diffs are skipped) |
 | `deleted` | object in `session.deleted` (hard delete) |
 | `soft_deleted` | a `SoftDeleteMixin` row the soft-delete listener moved into `session.new` with `is_deleted=True` |
+| `bulk_updated` / `bulk_deleted` / `bulk_soft_deleted` / `bulk_restored` | statement `UPDATE` / `DELETE` (see above), one per row or one `"*"` summary |
+| `bulk_inserted` | statement `INSERT`, one `"*"` summary per statement |
 
 `changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; deletes and soft-deletes carry an empty change list. Column values are normalised to JSON-safe scalars (non-primitives are stringified).
 

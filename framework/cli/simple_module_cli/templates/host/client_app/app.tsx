@@ -1,7 +1,12 @@
 import { createInertiaApp, router } from '@inertiajs/react';
 import { configureI18n, updateI18n } from '@simple-module-py/i18n';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
-import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
+import { resolveServerHead } from '@simple-module-py/ui/lib/server-head';
+import {
+  isExcluded,
+  readNativePrefixes,
+  startSpaLinkInterception,
+} from '@simple-module-py/ui/lib/spa-links';
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { createRoot } from 'react-dom/client';
 import { resolvePage } from './pages';
@@ -14,6 +19,8 @@ type I18nBlock = {
 
 createInertiaApp({
   title: (title) => formatTitle(title),
+  // Re-emits the `_head` prop (server-rendered SEO tags) on client visits.
+  serverHead: resolveServerHead,
   resolve: async (name) => {
     return await resolvePage(name);
   },
@@ -47,7 +54,12 @@ createInertiaApp({
     // renders author-entered URLs as plain <a href>, which the browser would
     // follow with a full document load. This app is client-rendered, so that
     // means a blank page until the bundle boots. Route them through Inertia.
-    startSpaLinkInterception();
+    // Legacy SPA mounts and `native_link_prefixes` stay full navigations.
+    let nativePrefixes = readNativePrefixes(props.initialPage.props);
+    router.on('navigate', (event) => {
+      nativePrefixes = readNativePrefixes(event.detail.page.props);
+    });
+    startSpaLinkInterception({ exclude: (url) => isExcluded(url, nativePrefixes) });
     createRoot(el).render(<App {...props} />);
   },
   progress: {

@@ -35,6 +35,8 @@ dev = [
     # needs this. Declared explicitly because it was otherwise only present as a
     # transitive dep of locust's geventhttpclient.
     "brotli>=1.1",
+    # Test-only: the optional ``simple_module_hosting[sentry]`` extra, exercised with a fake transport.
+    "sentry-sdk[fastapi,celery]>=2.20,<3",
 ]
 
 [tool.ruff]
@@ -88,6 +90,7 @@ extra-paths = [
     "modules/tenants",
     "modules/api_tokens",
     "modules/mail",
+    "modules/sharing",
     "host",
     "scripts",
 ]
@@ -129,7 +132,7 @@ invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/inertia/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "modules/site_lock/tests", "modules/tenants/tests", "modules/api_tokens/tests", "modules/mail/tests", "scripts/tests", "tests"]
+testpaths = ["framework/cli/tests", "framework/core/tests", "framework/db/tests", "framework/hosting/tests", "framework/inertia/tests", "framework/testing/tests", "host/tests", "modules/auth/tests", "modules/dashboard/tests", "modules/users/tests", "modules/permissions/tests", "modules/background_tasks/tests", "modules/file_storage/tests", "modules/settings/tests", "modules/feature_flags/tests", "modules/keycloak/tests", "modules/audit_log/tests", "modules/branding/tests", "modules/site_lock/tests", "modules/tenants/tests", "modules/api_tokens/tests", "modules/mail/tests", "modules/sharing/tests", "scripts/tests", "tests"]
 markers = [
     "e2e: end-to-end tests requiring a live browser",
     "perf: performance benchmarks (opt-in; run via `make bench`)",

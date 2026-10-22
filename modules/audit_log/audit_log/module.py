@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 
 from audit_log.constants import (
@@ -19,6 +20,7 @@ from audit_log.constants import (
     MENU_ORDER,
     MENU_URL,
     MODULE_NAME,
+    MODULE_PACKAGE,
     PERM_GROUP,
     PERM_VIEW,
     VIEW_PREFIX,
@@ -32,6 +34,14 @@ class AuditLogModule(ModuleBase):
         view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )
+
+    def register_settings(self, app: FastAPI) -> None:
+        from audit_log.services import AuditLogServices
+        from audit_log.settings import AuditLogSettings
+
+        register_module_settings(
+            app, MODULE_PACKAGE, AuditLogSettings, lambda s: AuditLogServices(settings=s)
+        )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from audit_log.endpoints.api import router as api
@@ -70,17 +80,18 @@ class AuditLogModule(ModuleBase):
         from audit_log.activity import AuditActivityFeed
         from audit_log.capture import audit_callback
 
-        app.state.sm.db.audit_callback = audit_callback
-        # Offer the audit trail as the app's activity feed (GH #501). Installed
-        # here, not in ``register_settings``: this module has no settings, and
-        # overriding that hook without touching ``app.state.audit_log`` raises
-        # SM012.
+        db = app.state.sm.db
+        db.audit_callback = audit_callback
+        # Read per statement, so a settings save applies without a restart (#557).
+        db.refuse_unaudited_dml = lambda: app.state.audit_log.settings.refuse_unaudited_dml
+        # Offer the audit trail as the app's activity feed (GH #501).
         set_activity_feed(app, AuditActivityFeed(app))
 
     async def on_shutdown(self, app: FastAPI) -> None:
         from simple_module_core.activity_feed import set_activity_feed
 
         app.state.sm.db.audit_callback = None
+        app.state.sm.db.refuse_unaudited_dml = False
         set_activity_feed(app, None)
 
     def locale_dirs(self) -> dict[str, Path]:

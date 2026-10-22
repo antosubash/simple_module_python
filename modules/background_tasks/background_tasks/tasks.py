@@ -14,7 +14,6 @@ Both are driven by Celery beat; see :mod:`.celery_app`.
 from __future__ import annotations
 
 import logging
-import os
 from collections import defaultdict
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -24,8 +23,6 @@ from celery import Task, shared_task
 from sqlalchemy import ColumnElement, and_, delete, or_, update
 
 from background_tasks.constants import (
-    DEFAULT_RETENTION_DAYS,
-    DEFAULT_STUCK_AFTER_SECONDS,
     DEMO_ECHO_TASK,
     INTERNAL_TASK_DISPATCH_OUTBOX,
     INTERNAL_TASK_PURGE_OLD,
@@ -36,9 +33,11 @@ from background_tasks.constants import (
     OutboxStatus,
     TaskStatus,
 )
+from background_tasks.log_purge import purge_log_records
 from background_tasks.models import OutboxMessage, TaskExecution
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.sync_db import sync_session
+from background_tasks.worker_settings import load_runner_settings
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +111,7 @@ def sweep_stuck_tasks(self: Task) -> int:
 
     Returns the number of rows flipped — handy for metrics/log scraping.
     """
-    # Avoid import-time coupling to settings (beat schedules this task
-    # before the worker has hydrated settings in some edge cases).
-    stuck_after = int(
-        os.environ.get("SM_BG_TASKS_STUCK_AFTER_SECONDS", DEFAULT_STUCK_AFTER_SECONDS)
-    )
+    stuck_after = load_runner_settings().stuck_after_seconds
     now = datetime.now(UTC)
     overrides = stuck_thresholds(self.app.tasks)
 
@@ -138,9 +133,12 @@ def sweep_stuck_tasks(self: Task) -> int:
 
 @shared_task(name=INTERNAL_TASK_PURGE_OLD)
 def purge_old_executions() -> int:
-    """Delete terminal rows older than the retention window."""
-    retention_days = int(os.environ.get("SM_BG_TASKS_RETENTION_DAYS", DEFAULT_RETENTION_DAYS))
-    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    """Delete terminal rows, delivered outbox rows and log lines past their retention."""
+    runner = load_runner_settings()
+    retention_days = runner.retention_days
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(days=retention_days)
+    log_cutoff = now - timedelta(days=runner.log_retention_days)
 
     with sync_session() as session:
         result = session.execute(
@@ -155,6 +153,7 @@ def purge_old_executions() -> int:
             .where(OutboxMessage.delivered_at < cutoff)
         )
         count += delivered.rowcount or 0
+        count += purge_log_records(session, log_cutoff)
         if count:
             logger.info(
                 "purge_old_executions removed %d row(s) older than %d days",

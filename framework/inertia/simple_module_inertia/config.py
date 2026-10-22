@@ -14,6 +14,8 @@ from typing import Any, Literal
 
 from fastapi.templating import Jinja2Templates
 
+from simple_module_inertia.head import SiteResolver
+
 
 @dataclass
 class InertiaConfig:
@@ -33,6 +35,9 @@ class InertiaConfig:
     flash_error_key: str = "errors"
     assets_prefix: str = ""
     extra_template_context: dict[str, Any] = field(default_factory=dict)
+    site: SiteResolver | None = None
+    """Per-request ``SiteInfo`` (public base URL, app name) for server-rendered
+    ``<head>`` tags. Read on every render so an edited setting applies live."""
 
 
 def resolved_version(config: InertiaConfig) -> str:

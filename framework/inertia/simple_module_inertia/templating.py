@@ -6,7 +6,7 @@ same, but nothing in this package calls an SSR server.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from jinja2 import nodes
@@ -26,6 +26,8 @@ class InertiaContext:
     data: str | None = None
     ssr_head: str | None = None
     ssr_body: str | None = None
+    head_tags: list[str] = field(default_factory=list)
+    has_head_title: bool = False
 
 
 class InertiaExtension(Extension):
@@ -49,6 +51,7 @@ class InertiaExtension(Extension):
                 raise ValueError("SSR is enabled but no SSR head was provided")
             fragments.append(inertia.ssr_head)
         fragments.extend(f'<link rel="stylesheet" href="{css}">' for css in inertia.css)
+        fragments.extend(inertia.head_tags)
         return Markup("\n".join(fragments))
 
     def _render_inertia_body(self, context: Context) -> Markup:

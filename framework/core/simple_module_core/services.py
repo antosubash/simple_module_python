@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.rate_limit import InProcessWindowStore, WindowStore
+from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.tenancy import TenancyMode
 
 if TYPE_CHECKING:
@@ -113,3 +114,6 @@ class Services:
     #: lockout — counts in the same place across workers instead of opening a
     #: second Redis client. Defaulted for apps built outside ``create_app``.
     rate_limit_store: WindowStore = field(default_factory=InProcessWindowStore)
+    #: Resource types from ``register_resource_types`` (GH #526). Defaulted
+    #: for apps built outside ``create_app``.
+    resource_types: ResourceTypeRegistry = field(default_factory=ResourceTypeRegistry)

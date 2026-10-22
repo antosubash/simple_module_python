@@ -20,64 +20,29 @@ if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.resources import ResourceTypeRegistry
     from simple_module_core.setup_steps import SetupRegistry
+    from simple_module_core.spa_mount import SpaMount
 
 
 class ModuleBase(RequestHooksMixin, ABC):
     """Base class for all modules.
 
-    Subclasses override only the methods they need.
-    Every method has a default no-op implementation.
-
-    Hook execution order during app boot:
-
-        Phase 1: Bootstrap
-          - Load framework Settings
-          - Discover & topological-sort modules
-          - Run diagnostics (dev only)
-
-        Phase 2: App creation
-          - Create FastAPI app
-          - Store framework registries + settings on app.state
-
-        Phase 3: Module settings
-          - register_settings(app)
-
-        Phase 4: Module registrations
-          - register_menu_items(registry)
-          - register_permissions(registry)
-          - register_feature_flags(registry)
-          - register_event_handlers(bus)
-          - register_invalidations(bus, app)
-          - register_health_checks(registry)
-          - request hooks from ``_request_hooks.RequestHooksMixin`` (public routes,
-            body limits, CORS policies, rate limits, CSP sources)
-
-        Phase 5: Database
-          - init_db() -> DatabaseState
-          - register_listeners(db_state)
-
-        Phase 6: App wiring
-          - Inertia setup
-          - register_exception_handlers(app)
-          - Middleware pipeline (register_middleware per module)
-          - register_routes(api_router, view_router)
-          - Mount health router + static files
-
-        Phase 7: Runtime (async)
-          - on_startup(app) — per module, in dependency order
-          - on_shutdown(app) — per module, reverse order
+    Subclasses override only the methods they need; every hook is a no-op by
+    default. Request-pipeline hooks (public routes, body limits, CSP sources,
+    CORS policies, rate limits, middleware, exception handlers) live in
+    ``_request_hooks.RequestHooksMixin``. The boot order the host calls them
+    in is documented in ``docs/framework/lifecycle.md`` (settings, then the
+    declarative registrations in ``_registrations.run_module_registrations``,
+    then database, Inertia, middleware, routes, and finally ``on_startup``).
     """
 
     meta: ModuleMeta
 
-    # ── Settings ─────────────────────────────────────────────
-
     def register_settings(self, app: FastAPI) -> None:
         """Load module-specific settings and store on ``app.state``.
 
-        Called before all other registration hooks. Convention:
-        store as ``app.state.<module_name_lower>_settings``.
+        Called before all other registration hooks.
         """
 
     # ── Service Registration ──────────────────────────────────
@@ -92,14 +57,10 @@ class ModuleBase(RequestHooksMixin, ABC):
     def register_admin_routes(self, admin_router: APIRouter) -> None:
         """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
 
-        Only needed by modules that serve both public and administrative
-        pages — see ``ModuleMeta.admin_view_prefix``. A module whose views are
-        all administrative should point ``view_prefix`` at ``/admin/...`` and
-        keep using ``register_routes``.
-
-        Nothing here is gated automatically: the prefix is a URL convention,
-        not a permission. Guard these routes with the same dependencies you
-        would use anywhere else.
+        Only for modules serving both public and admin pages (see
+        ``ModuleMeta.admin_view_prefix``); all-admin modules point
+        ``view_prefix`` at ``/admin/...``. Nothing is gated automatically:
+        the prefix is a URL convention, not a permission.
         """
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
@@ -122,9 +83,8 @@ class ModuleBase(RequestHooksMixin, ABC):
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         """Subscribe this module's per-process caches to their channels.
 
-        Handlers may only *forget* — drop a cache entry, clear a dict. The bus
-        carries no delivery guarantee, so a handler that wrote to the database
-        would do it an unknowable number of times::
+        Handlers may only *forget* (drop a cache entry); the bus has no
+        delivery guarantee, so a database write would repeat unpredictably::
 
             def register_invalidations(self, bus, app):
                 bus.subscribe("orders.totals", lambda inv: _TOTALS.pop(inv.key, None))
@@ -194,6 +154,16 @@ class ModuleBase(RequestHooksMixin, ABC):
         boot, in dependency order.
         """
 
+    def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
+        """Declare resource types whose rows carry object-level access (GH #526).
+
+        ``registry.register(ResourceType(name="notes.note", policy=...,
+        select_by_id=...))`` makes the type's :class:`ResourcePolicy` reachable
+        by cross-cutting code such as the ``sharing`` module. Names are dotted
+        and unique; a duplicate raises at boot. See
+        ``docs/framework/resource-access.md``.
+        """
+
     # ── Asset contribution (templates & static files) ─────────
 
     def template_dirs(self) -> list[Path]:
@@ -214,6 +184,14 @@ class ModuleBase(RequestHooksMixin, ABC):
         Convention: prefix with ``/modules/<name>/static``. Default: none.
         """
         return {}
+
+    def spa_mounts(self) -> list[SpaMount]:
+        """Return legacy client-routed SPAs to serve under a URL prefix.
+
+        Served from ``dist_dir`` with an ``index.html`` deep-link fallback and
+        excluded from Inertia link interception. See ``docs/framework/spa-mounts.md``.
+        """
+        return []
 
     def locale_dirs(self) -> dict[str, Path]:
         """Return ``{namespace: directory}`` mapping for locale JSON files.

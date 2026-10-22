@@ -18,6 +18,9 @@ tenant_classes: set[type] = set()
 soft_delete_classes: set[type] = set()
 tenant_table_names: set[str] = set()
 soft_delete_table_names: set[str] = set()
+# Mapped class per ``Table`` — resolves a Core DML target (``Model.__table__``)
+# back to its model, for bulk-write auditing (#557).
+classes_by_table: dict[Any, type] = {}
 
 # ``(is_soft_delete, is_multi_tenant)`` per class, for the hot path.
 _flags_cache: dict[type, tuple[bool, bool]] = {}
@@ -36,6 +39,7 @@ def register(cls: type) -> None:
     table = getattr(cls, "__table__", None)
     if table is None:
         return
+    classes_by_table.setdefault(table, cls)
     if issubclass(cls, MultiTenantMixin) and cls not in tenant_classes:
         tenant_classes.add(cls)
         tenant_table_names.add(table.name)

@@ -208,6 +208,14 @@ def _dispose_inherited_engine(**_: object) -> None:
     _drop_engine()
 
 
+@worker_process_init.connect
+def _init_sentry(**_: object) -> None:
+    """Start Sentry in each prefork child (no-op without ``SM_SENTRY_DSN``)."""
+    from simple_module_hosting.sentry import PROCESS_WORKER, init_sentry
+
+    init_sentry(PROCESS_WORKER)
+
+
 @contextmanager
 def sync_session() -> Generator[Session]:
     """Open a short-lived sync session; commit on success, rollback on error."""

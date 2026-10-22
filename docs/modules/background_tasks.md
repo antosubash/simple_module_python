@@ -89,6 +89,35 @@ Celery copies extra decorator options onto the task class; the sweep reads `stuc
 
 Not provided: an automatic heartbeat thread. A task that blocks in one long call (a single huge query, an external process) cannot heartbeat from inside it — give it a `stuck_after` that covers the call instead.
 
+## Progress and owner-scoped status
+
+A task can report how far along it is, and the user whose request enqueued it can poll that without any `background_tasks.*` permission:
+
+```python
+@shared_task(name="reports.rebuild")
+def rebuild(report_id: int) -> None:
+    chunks = list(chunks_of(report_id))
+    for i, chunk in enumerate(chunks, start=1):
+        process(chunk)
+        heartbeat(progress=(i, len(chunks)), message=f"chunk {i}", phase="rebuild")
+```
+
+`progress=(done, total)`, `message` (255 characters) and `phase` (64) are stored on the execution row. They share the heartbeat's 30-second throttle: a throttled call keeps only the latest report and the next write carries it, and `done == total` writes at once so a finished task never shows 9/10. None of these columns is audited, so reporting progress adds no `audit_log` rows.
+
+The enqueuing user is recorded as `owner_user_id` from the `sm_owner_id` message header (stamped from `current_user_id` at publish, next to the tenant header). A task that enqueues another task passes the owner on, and a retry keeps the original owner rather than adopting the operator. Beat and other platform publishes have no owner.
+
+`GET /api/background_tasks/tasks/{celery_task_id}/status` returns a `TaskStatusDTO`: status, the progress fields, timestamps and the exception's type name. It never returns args, kwargs, result, traceback or an error message. It is visible to the owner while acting in the row's tenant (any tenant when multi-tenancy is off) and to holders of `background_tasks.view`; everyone else, and every unknown id, gets `404` so the route does not reveal which ids exist. The task detail page shows a progress bar once a report exists.
+
+## Retained task and app logs
+
+Opt-in: with `log_sink_enabled` on, every log line at or above `log_sink_level` (default `INFO`) from the web process and from workers is kept in `background_tasks_log_record` for `log_retention_days` (default 7). It is off by default because it writes a row per line. The three settings are in the **Logs** group; changing the first two needs a restart of the web process and the workers.
+
+Lines are queued in memory and written in batches (200 records or 1 second) by a listener thread through the worker-style sync session, so logging never waits on the database; if the queue fills, lines are dropped and counted rather than blocking. Secrets (`Authorization`, `Cookie`, bearer tokens, and `password` / `token` / `secret` / `api_key` values) are masked before a line is queued. Messages are truncated to 4096 characters. The mechanism (`LogSink`, `QueueSinkHandler`) lives in the framework: see [Retained logging](/framework/logging).
+
+Each row carries the Celery `task_id` and the task's `job_id` when bound through `bind_task_context`, the tenant active when the line was emitted, the request correlation id, and the record's extra attributes as JSON. `tenant_id` is a plain column (no `MultiTenantMixin`) because worker and platform lines have no tenant. The admin views show a platform admin every tenant's lines and anyone else only the active tenant's. The table is excluded from auditing, and `purge_old_executions` deletes rows past retention in the same pass as terminal executions.
+
+The task detail page has a **Logs** tab (minimum-level filter, paginated), and `/admin/background-tasks/logs` searches across everything retained by message text, task id and level.
+
 ## Scheduling periodic work (beat)
 
 A module schedules recurring work the same way it registers tasks — by shipping a `tasks.py` — and additionally exporting a module-level `BEAT_SCHEDULE` dict. `build_celery` merges every installed module's `BEAT_SCHEDULE` into the beat schedule at boot (identically in the web and worker processes), so `make beat` runs them alongside the built-ins:
@@ -175,6 +204,16 @@ Each field defaults to `None`, which keeps Celery's own default; all require a w
 
 ## Durable events (outbox)
 
+`outbox_mode` defaults to `celery`: workers deliver committed rows and beat
+recovers missed dispatches. Set it to `inprocess` to deliver on the web app's
+async engine without a worker for durable events. `task_always_eager` also
+selects `inprocess` automatically. Each web process sweeps pending rows and
+expired leases every `outbox_sweep_interval_seconds` (default 5, minimum 1),
+with small jitter and at most one retry per failed sweep. Shutdown cancels
+and joins the sweep, then drains scheduled deliveries. Mode and interval
+changes require a restart. Ordinary Celery tasks still use their configured queue.
+
+
 `bus.publish` is in-process: a crash, a restart or a failing handler loses the
 event. For side effects that must happen — an invoice email, a search-index
 update, a call to another system — subscribe a **durable** handler and publish
@@ -209,7 +248,7 @@ How it is delivered:
 - After the commit, `background_tasks.dispatch_outbox(ids)` is sent to the broker.
   If that never happens (the process died between commit and publish, or the
   broker was down), the beat task `background_tasks.sweep_outbox` delivers the row
-  within `outbox_sweep_interval_seconds` (30 s).
+  within `outbox_sweep_interval_seconds` (5 s).
 - A worker **claims** a row with one conditional `UPDATE` (`pending → running`,
   `attempts + 1`, `claim_seq + 1`, `locked_until = now + outbox_lease_seconds`);
   on Postgres the candidate select uses `FOR UPDATE SKIP LOCKED`. Two workers
@@ -343,7 +382,10 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 |---|---|---|
 | `GET /api/background_tasks/admin/executions` | `?status=&task_name=&page=&per_page=` → `TaskExecutionListResponse` | per_page max 200 |
 | `GET /api/background_tasks/admin/executions/{execution_id}` | → `TaskExecutionDetail` | 404 if missing |
+| `GET /api/background_tasks/admin/executions/{execution_id}/logs` | `?level=&page=&per_page=` → `LogListResponse` | the task's retained lines, newest first; `level` is a minimum |
+| `GET /api/background_tasks/admin/logs` | `?q=&level=&task_id=&logger=&page=&per_page=` → `LogListResponse` | search across retained lines |
 | `POST /api/background_tasks/admin/executions/{execution_id}/retry` | → `TaskExecutionDetail` | 409 unless status is `failed` or `stuck` |
+| `GET /api/background_tasks/tasks/{celery_task_id}/status` | → `TaskStatusDTO` | no permission gate: owner in the active tenant or `view`; otherwise 404 |
 | `GET /api/background_tasks/admin/workers` | → `WorkerSnapshot` | live ping; consumed by the `Workers` page |
 | `GET /api/background_tasks/admin/outbox` | `?status=&page=&per_page=` → `OutboxListResponse` | undelivered rows (pending, running, dead) and per-status counts |
 | `POST /api/background_tasks/admin/outbox/{id}/retry` | → `OutboxItem` | `manage`; 409 unless `dead`; resets attempts and dispatches after commit |
@@ -356,6 +398,7 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 | `GET /admin/background-tasks/` | `BackgroundTasks/Index` | `background_tasks.view` |
 | `GET /admin/background-tasks/workers` | `BackgroundTasks/Workers` | `background_tasks.view` |
 | `GET /admin/background-tasks/outbox` | `BackgroundTasks/Outbox` | `background_tasks.view` |
+| `GET /admin/background-tasks/logs` | `BackgroundTasks/Logs` | `background_tasks.view` |
 | `GET /admin/background-tasks/{execution_id}` | `BackgroundTasks/Detail` | `background_tasks.view` |
 
 ## Public contracts
@@ -397,6 +440,9 @@ from background_tasks.contracts.schemas import (
 | `worker` | `str(255) \| None` | hostname that ran it |
 | `retries` | `int` | |
 | `retried_from_id` | `UUID \| None` | self-FK; tracks retry chains |
+| `owner_user_id` | `str(64) \| None` | indexed; user whose request enqueued the task (#536) |
+| `progress_current` / `progress_total` | `int \| None` | latest `heartbeat(progress=...)` report |
+| `progress_message` / `progress_phase` | `str(255) \| None` / `str(64) \| None` | not audited |
 | `queued_at` / `started_at` / `finished_at` / `heartbeat_at` | `datetime` | |
 | audit | from `AuditMixin` | |
 
@@ -434,9 +480,14 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `retention_days` | `14` | how long to keep terminal rows; range 1-3650 |
 | `max_retries` | `3` | informational; tasks define their own policies; range 0-100 |
 | `outbox_max_attempts` | `8` | durable-event delivery attempts before `dead`; range 1-100 |
-| `outbox_sweep_interval_seconds` | `30` | restart required; beat cadence of `sweep_outbox` |
+| `outbox_mode` | `"celery"` | restart required; `celery` or `inprocess`; eager forces `inprocess` |
+| `outbox_sweep_interval_seconds` | `5` | restart required; sweep cadence in either mode; minimum 1 |
 | `outbox_lease_seconds` | `300` | how long a claimed delivery may run before another worker reclaims it; range 10-86400 — keep it above your slowest durable handler |
 | `outbox_handler_timeout_seconds` | unset | per-attempt handler timeout; unset means the lease minus a safety margin (10 %, at least 5 s), which is also the most it may be set to |
+
+| `log_sink_enabled` | `False` | restart required; keep log lines in the database — see [Retained task and app logs](#retained-task-and-app-logs) |
+| `log_sink_level` | `"INFO"` | restart required; lowest level kept |
+| `log_retention_days` | `7` | how long to keep log lines; range 1-3650 |
 
 Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at first boot — once a value lives in the DB, it's authoritative.
 
@@ -506,11 +557,12 @@ Production deployments running multiple workers can write concurrently because e
 - `BackgroundTasks/Detail.tsx` — full execution view with retry button (`background_tasks.manage`).
 - `BackgroundTasks/Workers.tsx` — live worker dashboard.
 - `BackgroundTasks/Outbox.tsx` — undelivered durable events with retry / discard.
+- `BackgroundTasks/Logs.tsx` — search across retained log lines.
 - Components: `ExecutionRow.tsx`, `RetryConfirmDialog.tsx`.
 
 ## Locales
 
-Top-level keys in `background_tasks/locales/en.json`: `index`, `filters`, `status` (per-state labels), `table`, `detail`, `retry_dialog`, `toasts`, `outbox`.
+Top-level keys in `background_tasks/locales/en.json`: `index`, `filters`, `status` (per-state labels), `table`, `detail`, `retry_dialog`, `toasts`, `outbox`, `logs`.
 
 ## Reading DB-backed settings in a task
 

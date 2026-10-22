@@ -17,6 +17,7 @@ from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
@@ -41,6 +42,7 @@ from simple_module_hosting._phase_helpers import (
     wire_module_routes,
 )
 from simple_module_hosting._preapp_config import merge_host_settings
+from simple_module_hosting._process_services import configure_process_services
 from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
 from simple_module_hosting._rate_limit_store import build_store
 from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
@@ -111,11 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         installed_modules, settings.auth_provider, strict=not settings.is_development
     )
     modules = topological_sort(modules, strict=not settings.is_development)
-    logger.info(
-        "Loaded %d module(s): %s",
-        len(modules),
-        ", ".join(m.meta.name for m in modules),
-    )
+    logger.info("Loaded %d module(s): %s", len(modules), ", ".join(m.meta.name for m in modules))
 
     # Build the i18n registry up front so diagnostics can validate key parity
     # against host/ui locales, not just module-contributed ones.
@@ -148,6 +146,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_migration_step(setup_registry)
     design_pack_registry = DesignPackRegistry()
     audit_link_registry = AuditLinkRegistry()
+    resource_type_registry = ResourceTypeRegistry()
 
     lifespan = build_lifespan(modules)
 
@@ -200,6 +199,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
         request_registries=request_registries,
+        resource_type_registry=resource_type_registry,
     )
     request_registries.attach(app)
 
@@ -235,6 +235,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.multi_tenant and settings.default_tenant:
         db_state.default_tenant_id = settings.default_tenant
     register_listeners(db_state)
+    configure_process_services(settings.redis_url, engine=db_state.engine)
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.
     register_database_check(health_registry, db_state)
@@ -289,6 +290,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tenancy=mode_for(settings),
         view_prefixes=view_prefixes,
         rate_limit_store=rate_limit_store,
+        resource_types=resource_type_registry,
     )
     if settings.is_development:
         report_unguarded_routes(app, diagnostics_state)  # SM031

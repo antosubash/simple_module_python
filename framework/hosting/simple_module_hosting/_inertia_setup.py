@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI
-from simple_module_inertia import InertiaConfig, inertia_dependency_factory
+from simple_module_inertia import InertiaConfig, SiteInfo, inertia_dependency_factory
 from starlette.requests import Request
 
 from simple_module_hosting._favicon import default_favicon_data_uri
@@ -64,6 +64,13 @@ def branding_head(request: Request) -> dict:
         "theme_color": accent or None,
         "favicon_url": favicon_url,
     }
+
+
+def site_info(request: Request) -> SiteInfo:
+    """The public base URL (operator setting, never the request ``Host``) and app name."""
+    host = getattr(request.app.state, "host", None)
+    base_url = getattr(getattr(host, "settings", None), "public_base_url", "") or ""
+    return SiteInfo(base_url=base_url, app_name=branding_head(request)["app_name"])
 
 
 def _prod_manifest_path(project_root: Path) -> str:
@@ -149,6 +156,7 @@ def setup_inertia(
         entrypoint_filename=_ENTRYPOINT_FILENAME,
         root_directory=_ROOT_DIRECTORY,
         use_flash_errors=True,
+        site=site_info,
     )
     app.state.inertia_dependency = inertia_dependency_factory(inertia_config)
     return inertia_config

@@ -8,6 +8,7 @@ from simple_module_core.permissions import is_admin
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.deps import get_db
 
+from background_tasks.log_service import LogScope, LogService
 from background_tasks.outbox_service import OutboxScope, OutboxService
 from background_tasks.outbox_transport import OutboxTransport
 from background_tasks.service import BackgroundTaskService
@@ -49,3 +50,11 @@ def outbox_scope(request: Request) -> OutboxScope:
         return OutboxScope(tenant_id=tenant_id)
     multi_tenant = bool(getattr(request.app.state.sm.settings, "multi_tenant", False))
     return OutboxScope(everything=not multi_tenant)
+
+
+async def get_log_service(
+    request: Request,
+    db: RequestSession = Depends(get_db),
+) -> LogService:
+    scope = outbox_scope(request)
+    return LogService(db=db, scope=LogScope(everything=scope.everything, tenant_id=scope.tenant_id))

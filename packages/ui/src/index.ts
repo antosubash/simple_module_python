@@ -51,7 +51,13 @@ export {
   relativeUntil,
   STALE_AFTER_MS,
 } from './lib/relative-time';
-export { shouldInterceptNavigation, startSpaLinkInterception } from './lib/spa-links';
+export {
+  isExcluded,
+  readNativePrefixes,
+  type SpaLinkExclude,
+  shouldInterceptNavigation,
+  startSpaLinkInterception,
+} from './lib/spa-links';
 export {
   applyTheme,
   initTheme,

@@ -29,6 +29,7 @@ from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
+from simple_module_hosting._spa_mount import native_prefixes
 from simple_module_hosting._tenant import (
     TENANT_HEADER,
     TenantMiddleware,
@@ -268,6 +269,7 @@ class InertiaLayoutDataMiddleware:
             ),
             "i18n": i18n_block,
             **lazy_csrf_shared_prop(request, is_authenticated=is_authenticated),
+            "nativePrefixes": native_prefixes(scope["app"]),
         }
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off

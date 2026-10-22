@@ -22,6 +22,7 @@ import typer
 
 from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
+from simple_module_cli.docker_cmd import docker_app
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
 from simple_module_cli.openapi_cmd import openapi_app
@@ -44,6 +45,7 @@ app.command("new")(new_project)
 app.command("add")(add_module)
 app.command("update")(update_modules)
 app.command("package-update")(package_update)
+app.add_typer(docker_app, name="docker")
 app.add_typer(skills_app, name="skills")
 app.add_typer(module_app, name="module")
 app.add_typer(openapi_app, name="openapi")

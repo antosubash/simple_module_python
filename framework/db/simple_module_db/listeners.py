@@ -12,6 +12,7 @@ from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db.bulk_audit import audit_statement
 from simple_module_db.flush_guard import guard_flush
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.query_filter import bind_engine_policy, engine_policy, filter_statements
@@ -126,9 +127,20 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         ("after_flush_postexec", _after_flush_audit),
         ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
+        # Last: it reads the statement after tenant scoping and guards, and
+        # runs it itself (``invoke_statement``) between prefetch and record.
+        ("do_orm_execute", audit_statement),
     ):
         event.listen(session_class, name, fn)
     setattr(session_class, _LISTENERS_ATTACHED, True)
+
+
+def _log_entity_change(obj: object, event_name: str, *, extra: dict[str, object]) -> None:
+    # Models flagged ``__audit_exclude__`` (telemetry such as retained logs) are
+    # not logged either: the log record would be retained and written again.
+    if getattr(obj, "__audit_exclude__", False) is True:
+        return
+    _db_logger.info(event_name, extra=extra)
 
 
 def _before_flush_listener(
@@ -147,7 +159,8 @@ def _before_flush_listener(
             if obj.updated_by is None:
                 obj.updated_by = user_id
 
-        _db_logger.info(
+        _log_entity_change(
+            obj,
             _EVENT_ENTITY_CREATED,
             extra={
                 "operation": _OP_CREATE,
@@ -167,7 +180,8 @@ def _before_flush_listener(
         if isinstance(obj, VersionedMixin):
             obj.version += 1
 
-        _db_logger.info(
+        _log_entity_change(
+            obj,
             _EVENT_ENTITY_UPDATED,
             extra={
                 "operation": _OP_UPDATE,
@@ -189,7 +203,8 @@ def _before_flush_listener(
             obj.deleted_by = user_id
             session.add(obj)
 
-            _db_logger.info(
+            _log_entity_change(
+                obj,
                 _EVENT_ENTITY_SOFT_DELETED,
                 extra={
                     "operation": _OP_SOFT_DELETE,

@@ -83,6 +83,13 @@ def _excluded_fields(obj: object) -> frozenset[str]:
     return _EXCLUDED_MIXIN_FIELDS | per_model
 
 
+def format_pk(values: tuple | list) -> str:
+    """One primary-key rendering for ``entity_id``: bare value, or a tuple string."""
+    if len(values) == 1:
+        return str(values[0]) if values[0] is not None else ""
+    return str(tuple(values))
+
+
 def _entity_pk_str(obj: object) -> str:
     """Return the primary-key value(s) as a string."""
     inspector = sa_inspect(obj)
@@ -90,13 +97,8 @@ def _entity_pk_str(obj: object) -> str:
     if identity is None:
         # Pre-flush: fall back to the mapper-level key attrs
         mapper = inspector.mapper
-        vals = tuple(getattr(obj, col.key) for col in mapper.primary_key)
-        if len(vals) == 1:
-            return str(vals[0]) if vals[0] is not None else ""
-        return str(vals)
-    if len(identity) == 1:
-        return str(identity[0])
-    return str(identity)
+        return format_pk([getattr(obj, col.key) for col in mapper.primary_key])
+    return format_pk(identity)
 
 
 def _column_names(obj: object) -> list[str]:

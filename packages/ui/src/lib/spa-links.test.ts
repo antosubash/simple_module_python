@@ -1,6 +1,10 @@
 import { router } from '@inertiajs/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { shouldInterceptNavigation, startSpaLinkInterception } from './spa-links';
+import {
+  readNativePrefixes,
+  shouldInterceptNavigation,
+  startSpaLinkInterception,
+} from './spa-links';
 
 /**
  * The rule has to be conservative in both directions. Taking over a link
@@ -180,5 +184,47 @@ describe('startSpaLinkInterception', () => {
     expect(click(anchor('<a href="/p/outputs">Outputs</a>')).prevented).toBe(false);
     expect(visit).not.toHaveBeenCalled();
     stop = () => undefined; // afterEach must not tear down twice
+  });
+});
+
+describe('exclude', () => {
+  it('leaves an excluded prefix to the browser, deep paths included', () => {
+    const el = anchor('<a href="/legacy/a/b/c">Legacy</a>');
+    expect(shouldInterceptNavigation(el, HERE, ['/legacy/'])).toBe(false);
+    expect(shouldInterceptNavigation(el, HERE)).toBe(true);
+  });
+
+  it('does not exclude a sibling that merely shares the leading characters', () => {
+    expect(shouldInterceptNavigation(anchor('<a href="/legacy2/x">x</a>'), HERE, '/legacy/')).toBe(
+      true,
+    );
+  });
+
+  it('accepts a predicate', () => {
+    const el = anchor('<a href="/p/outputs">o</a>');
+    expect(shouldInterceptNavigation(el, HERE, (url) => url.pathname.startsWith('/p/'))).toBe(
+      false,
+    );
+  });
+
+  it('does not take over a click on an excluded link', () => {
+    window.history.pushState({}, '', '/p/who-we-are');
+    const visit = vi.spyOn(router, 'visit').mockImplementation(() => undefined);
+    const stop = startSpaLinkInterception({ exclude: ['/legacy/'] });
+    const el = anchor('<a href="/legacy/a">Legacy</a>');
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    window.addEventListener('click', (e) => e.preventDefault(), { once: true });
+    el.dispatchEvent(event);
+    expect(visit).not.toHaveBeenCalled();
+    stop();
+    visit.mockRestore();
+  });
+});
+
+describe('readNativePrefixes', () => {
+  it('reads the shared prop and tolerates its absence', () => {
+    expect(readNativePrefixes({ nativePrefixes: ['/legacy/'] })).toEqual(['/legacy/']);
+    expect(readNativePrefixes({})).toEqual([]);
+    expect(readNativePrefixes(null)).toEqual([]);
   });
 });
