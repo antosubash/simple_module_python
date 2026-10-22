@@ -8,6 +8,9 @@ visitor's token to the next.
 
 from __future__ import annotations
 
+import base64
+import json
+
 import httpx
 from fastapi import Depends
 from simple_module_hosting._inertia_shared import csrf_shared_prop
@@ -61,3 +64,22 @@ def test_helper_needs_a_signed_in_session() -> None:
     assert csrf_shared_prop(Request({"type": "http"}), is_authenticated=True) == {}
     token = csrf_shared_prop(with_session, is_authenticated=True)["csrfToken"]
     assert token == with_session.scope["session"]["sm_csrf_token"]
+
+
+async def test_json_api_call_does_not_mint_a_token(app, authenticated_client) -> None:
+    """Only a rendered page resolves the token (it is lazy), so a JSON call
+    neither writes the session nor sets a cookie because of it."""
+
+    async def _json() -> dict[str, bool]:
+        return {"ok": True}
+
+    app.add_api_route("/api/csrf-lazy-probe", _json, methods=["GET"])
+    resp = await authenticated_client.get("/api/csrf-lazy-probe")
+    assert resp.status_code == 200, resp.text
+    # Starlette re-issues a non-empty session cookie; what matters is that it
+    # carries no CSRF token the request minted.
+    for header in resp.headers.get_list("set-cookie"):
+        if header.startswith("session="):
+            payload = header.split("=", 1)[1].split(";", 1)[0].split(".", 1)[0]
+            claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            assert "sm_csrf_token" not in claims

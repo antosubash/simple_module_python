@@ -8,7 +8,7 @@ better seam) stays, marked on the same line or the line above:
 
     // cast-ok: <reason>
 
-Covers ``.ts``/``.tsx`` under ``modules/<m>/<pkg>/pages``, ``modules/<m>/<pkg>/components``,
+Covers ``.ts``/``.tsx`` under ``modules/<m>/<pkg>/pages``, ``components``, ``hooks``, ``lib``,
 ``packages/ui/src`` and ``host/client_app``. Test files are exempt.
 
 Usage:
@@ -27,7 +27,6 @@ MARKER = "// cast-ok:"
 _CAST = re.compile(r"\bas\s+unknown\s+as\b")
 _TEST_NAME = re.compile(r"\.(test|spec)\.tsx?$")
 _SOURCE_ROOTS = (("packages", "ui", "src"), ("host", "client_app"))
-_MODULE_DIRS = {"pages", "components"}
 
 
 def is_checked(path: Path) -> bool:
@@ -39,8 +38,8 @@ def is_checked(path: Path) -> bool:
         return False
     if any(parts[: len(root)] == root for root in _SOURCE_ROOTS):
         return True
-    # modules/<name>/<package>/(pages|components)/...
-    return len(parts) > 4 and parts[0] == "modules" and parts[3] in _MODULE_DIRS
+    # modules/<name>/<package>/<any frontend dir>/... (pages, components, hooks, lib, ...)
+    return len(parts) > 4 and parts[0] == "modules" and "tests" not in parts
 
 
 def find_double_casts(text: str) -> list[tuple[int, str]]:

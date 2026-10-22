@@ -156,6 +156,21 @@ describe('apiFetch', () => {
     expect(sent(fetchMock).headers.get('Content-Type')).toMatch(/^multipart\/form-data/);
   });
 
+  it('passes a FormData body and an AbortSignal through unchanged', async () => {
+    const fetchMock = stubFetch(204, undefined);
+    const body = new FormData();
+    body.append('file', new Blob(['payload']), 'logo.png');
+    const controller = new AbortController();
+    await apiFetch('/api/upload', { method: 'POST', body, signal: controller.signal });
+    const request = sent(fetchMock);
+    expect(request.headers.get('X-CSRF-Token')).toBe('tok-1');
+    expect(request.headers.get('Content-Type')).toMatch(/^multipart\/form-data; boundary=/);
+    expect(await request.text()).toContain('name="file"');
+    expect(request.signal.aborted).toBe(false);
+    controller.abort();
+    expect(request.signal.aborted).toBe(true);
+  });
+
   it('keeps a non-JSON error body as text and a network error as status 0', async () => {
     vi.stubGlobal(
       'fetch',

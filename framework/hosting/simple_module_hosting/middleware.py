@@ -21,8 +21,8 @@ from simple_module_hosting._csp_dynamic import DynamicCsp
 from simple_module_hosting._inertia_shared import (
     build_i18n_block,
     build_menu_translator,
-    csrf_shared_prop,
     default_home_url,
+    lazy_csrf_shared_prop,
     merge_shared_prop_providers,
 )
 from simple_module_hosting._observability import (
@@ -267,7 +267,7 @@ class InertiaLayoutDataMiddleware:
                 translate=build_menu_translator(request),
             ),
             "i18n": i18n_block,
-            **csrf_shared_prop(request, is_authenticated=is_authenticated),
+            **lazy_csrf_shared_prop(request, is_authenticated=is_authenticated),
         }
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off

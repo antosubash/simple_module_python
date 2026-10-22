@@ -32,6 +32,9 @@ def test_is_checked_directories():
     assert is_checked(Path("modules/users/users/pages/Login.tsx"))
     assert is_checked(Path("modules/users/users/pages/Users/Edit.tsx"))
     assert is_checked(Path("modules/branding/branding/components/dirty.ts"))
+    assert is_checked(Path("modules/users/users/hooks/useThing.ts"))
+    assert is_checked(Path("modules/users/users/auth_local/components/AuthIntro.tsx"))
+    assert is_checked(Path("modules/users/users/lib/format.ts"))
     assert is_checked(Path("packages/ui/src/layouts/SidebarLayout.tsx"))
     assert is_checked(Path("host/client_app/i18n.ts"))
 
@@ -40,7 +43,6 @@ def test_is_checked_excludes_tests_and_other_dirs():
     assert not is_checked(Path("packages/ui/src/layouts/useDrawerA11y.test.tsx"))
     assert not is_checked(Path("modules/users/tests-js/Login.test.tsx"))
     assert not is_checked(Path("modules/users/users/service.py"))
-    assert not is_checked(Path("modules/users/users/hooks/useThing.ts"))
     assert not is_checked(Path("packages/i18n/src/index.ts"))
 
 

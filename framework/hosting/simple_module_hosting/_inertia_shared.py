@@ -110,6 +110,21 @@ def csrf_shared_prop(request: Request, *, is_authenticated: bool) -> dict[str, s
     return {CSRF_SHARED_PROP: token} if token else {}
 
 
+def lazy_csrf_shared_prop(
+    request: Request, *, is_authenticated: bool
+) -> dict[str, Callable[[], str]]:
+    """Like :func:`csrf_shared_prop`, but the token is resolved at render time.
+
+    The shared props are built for every request; a JSON call or a download
+    never renders a page, so minting eagerly would write the session (a
+    ``Set-Cookie``) on responses that have no use for the token. Inertia calls
+    the callable only when it serialises props.
+    """
+    if not is_authenticated or request.scope.get("session") is None:
+        return {}
+    return {CSRF_SHARED_PROP: lambda: get_csrf_token(request)}
+
+
 def build_menu_translator(request: Request) -> Callable[[str], str] | None:
     """Return a locale-bound translator for menu labels, or None if unavailable.
 
