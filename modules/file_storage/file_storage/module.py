@@ -21,43 +21,13 @@ from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
 
 from file_storage import constants
-from file_storage.upload_support import choose_part_size
+from file_storage.audit_labels import _resolve_file_labels
+from file_storage.body_limits import register_upload_body_limits
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
-
-
-async def _resolve_file_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
-    """Name a stored file by its filename — "q3-report.pdf", not a uuid.
-
-    Ids that are not uuids belong to some other id space and are left unnamed,
-    which falls back to showing the id as stored.
-    """
-    import uuid as _uuid
-
-    from sqlalchemy import select
-
-    from file_storage.models import StoredFile
-
-    wanted: dict[_uuid.UUID, str] = {}
-    for raw in ids:
-        try:
-            wanted[_uuid.UUID(raw)] = raw
-        except (ValueError, AttributeError, TypeError):
-            continue
-    if not wanted:
-        return {}
-    # Deliberately cross-tenant: the audit log is a platform screen listing
-    # every tenant's entries, and the entry it labels already records the
-    # filename among its captured fields, so naming it discloses nothing new.
-    # Scoped to the bound tenant instead, it would fail closed for a platform
-    # admin with no organisation and leave every other tenant's file a uuid.
-    stmt = select(StoredFile.id, StoredFile.filename).where(StoredFile.id.in_(list(wanted)))
-    rows = (await db.execute(stmt.execution_options(all_tenants=True))).all()
-    return {wanted.get(file_id, str(file_id)): filename for file_id, filename in rows}
 
 
 class FileStorageModule(ModuleBase):
@@ -186,31 +156,7 @@ class FileStorageModule(ModuleBase):
         )
 
     def register_body_limits(self, registry: BodyLimitRegistry) -> None:
-        # The upload is multipart and its own ceiling (``max_file_size_bytes``,
-        # a runtime setting, 100 MB by default) is far above the host's global
-        # body guard. Track it, plus headroom for the multipart framing.
-        registry.add_exact(
-            constants.ROUTE_PREFIX_API + constants.PATH_UPLOAD,
-            lambda app: (
-                app.state.file_storage.settings.max_file_size_bytes
-                + constants.MULTIPART_OVERHEAD_BYTES
-            ),
-            methods={"POST"},
-        )
-
-        # Filesystem parts are relayed through the app: one part at most, plus
-        # slack. (S3 parts never reach us — they go straight to the bucket.)
-        registry.add_regex(
-            constants.ROUTE_PREFIX_API + r"/uploads/[^/]+/parts/\d+$",
-            lambda app: (
-                choose_part_size(
-                    app.state.file_storage.settings.max_direct_upload_bytes,
-                    app.state.file_storage.settings.multipart_part_size_bytes,
-                )
-                + constants.PART_BODY_SLACK_BYTES
-            ),
-            methods={"PUT"},
-        )
+        register_upload_body_limits(registry)
 
     def register_csp_sources(self, registry: CspSourceRegistry) -> None:
         """Let the browser PUT multipart parts straight to the S3 endpoint."""
