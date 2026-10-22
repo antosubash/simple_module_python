@@ -46,6 +46,7 @@ const ACTION_PILL: Record<string, string> = {
   bulk_updated: 'bg-blue-50 text-blue-700',
   bulk_deleted: 'bg-red-50 text-red-700',
   bulk_soft_deleted: 'bg-amber-50 text-amber-700',
+  bulk_restored: 'bg-blue-50 text-blue-700',
 };
 const PILL = 'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium';
 const TH = 'sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';

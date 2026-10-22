@@ -33,6 +33,7 @@ ACTION_BULK_INSERTED: Final = "bulk_inserted"
 ACTION_BULK_UPDATED: Final = "bulk_updated"
 ACTION_BULK_DELETED: Final = "bulk_deleted"
 ACTION_BULK_SOFT_DELETED: Final = "bulk_soft_deleted"
+ACTION_BULK_RESTORED: Final = "bulk_restored"
 ALL_ACTIONS: Final = (
     ACTION_CREATED,
     ACTION_UPDATED,
@@ -42,6 +43,7 @@ ALL_ACTIONS: Final = (
     ACTION_BULK_UPDATED,
     ACTION_BULK_DELETED,
     ACTION_BULK_SOFT_DELETED,
+    ACTION_BULK_RESTORED,
 )
 
 ENTITY_TYPE_MAX_LENGTH: Final = 255

@@ -23,7 +23,7 @@ All notable changes to this project are documented in this file. The format is b
 - Statement DML is audited (#557): `simple_module_db.bulk_audit` audits ORM bulk
   `update()` / `delete()` / `insert()` and Core DML on `Model.__table__` through
   the engine's audit sink, one `bulk_updated` / `bulk_deleted` /
-  `bulk_soft_deleted` entry per row (ids prefetched with the statement's `WHERE`
+  `bulk_soft_deleted` / `bulk_restored` entry per row (ids prefetched with the statement's `WHERE`
   and tenant scope) up to 500 rows, else one `"*"` summary; `bulk_inserted` is one
   summary per statement. `execution_options(sm_audit=False)` opts out;
   `record_bulk_audit(session, Model, action, ids, changes)` records `text()`

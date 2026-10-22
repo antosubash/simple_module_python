@@ -37,9 +37,10 @@ audit_log = "audit_log.capture:audit_callback"
 
 `session.execute(update(Model)...)`, its `delete()` / `insert()` siblings and Core DML on `Model.__table__` never reach a flush, so a `do_orm_execute` listener (`simple_module_db.bulk_audit`) audits them instead, through the same per-engine `audit_callback` (requests and Celery workers alike):
 
-- **`UPDATE` / `DELETE`.** Before the statement runs, the listener reads the primary keys it will touch, with the same `WHERE` and the same tenant scope (soft-deleted rows included, as the write includes them). Up to 500 rows each get one entry (`bulk_updated`, `bulk_deleted`, or `bulk_soft_deleted` for an update setting `is_deleted = True`); `changes` holds the `SET` values as `{field, new}` (a SQL expression is stored as SQL with bind placeholders). `session.execute(update(Model), [{"id": ..., ...}, ...])` takes the ids from the rows instead.
+- **`UPDATE` / `DELETE`.** Before the statement runs, the listener reads the primary keys it will touch, with the same `WHERE` and the same tenant scope (soft-deleted rows included, as the write includes them). Up to 500 rows each get one entry (`bulk_updated`, `bulk_deleted`; an update that writes `is_deleted` is `bulk_soft_deleted` when the value is truthy or SQL such as `sa.true()`, else `bulk_restored`, in any statement shape including executemany rows); `changes` holds the `SET` values as `{field, new}` (a SQL expression is stored as SQL with bind placeholders). `session.execute(update(Model), [{"id": ..., ...}, ...])` takes the ids from the rows instead.
 - **More than 500 rows.** One summary entry with `entity_id` `"*"`: the `SET` values plus `where_sql` (the `WHERE` with bind placeholders, never the literal values), `rowcount` and `truncated: true`.
 - **`INSERT`.** One `bulk_inserted` summary entry per statement (`entity_id` `"*"`, the column values, or the column names for a multi-row insert).
+- **Only real targets count.** `changes` comes from the statement's `SET` / `VALUES` targets, each resolved to its model attribute (bound values read through the execute params). An execute-param key that names a column is written by SQLAlchemy, so it is a target too; any other param key is ignored. Primary-key and `is_deleted` writes are never treated as excluded bookkeeping.
 - **Exclusions apply as for a flush.** `__audit_exclude__` models (the outbox, `AuditEntry` itself) are skipped; `__audit_exclude_fields__` and mixin bookkeeping columns are dropped from `changes`; a statement that sets *only* excluded columns writes no entry. So the outbox's claim / delivery `UPDATE`s and the task heartbeat's `heartbeat_at` refresh stay unaudited.
 - **Same transaction.** Entries are added to the writing session, so a rollback discards them with the write. The sink catches and logs its own failures: auditing never fails the write it describes.
 
@@ -64,7 +65,7 @@ record_bulk_audit(session, Order, "bulk_updated", ids, {"status": "archived"})
 | `updated` | object in `session.dirty` with real column changes (empty diffs are skipped) |
 | `deleted` | object in `session.deleted` (hard delete) |
 | `soft_deleted` | a `SoftDeleteMixin` row the soft-delete listener moved into `session.new` with `is_deleted=True` |
-| `bulk_updated` / `bulk_deleted` / `bulk_soft_deleted` | statement `UPDATE` / `DELETE` (see above), one per row or one `"*"` summary |
+| `bulk_updated` / `bulk_deleted` / `bulk_soft_deleted` / `bulk_restored` | statement `UPDATE` / `DELETE` (see above), one per row or one `"*"` summary |
 | `bulk_inserted` | statement `INSERT`, one `"*"` summary per statement |
 
 `changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; deletes and soft-deletes carry an empty change list. Column values are normalised to JSON-safe scalars (non-primitives are stringified).

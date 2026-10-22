@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
+from _bulk_audit_support import audited_engine
 from _models import _tenant_session, _TenantBase
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,3 +29,10 @@ async def acme_default_session() -> AsyncGenerator[AsyncSession, None]:
     """Single-tenant install with ``default_tenant="acme"``."""
     async for session in _tenant_session(_TenantBase.metadata, strict=False, default_tenant="acme"):
         yield session
+
+
+@pytest.fixture
+async def audited():
+    """``(state, session, recorder)``: an engine whose audit sink records (#557)."""
+    async for value in audited_engine():
+        yield value
