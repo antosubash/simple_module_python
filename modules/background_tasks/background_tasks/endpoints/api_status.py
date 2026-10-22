@@ -1,9 +1,10 @@
 """Owner-scoped task status (#536).
 
 Mounted apart from the admin router because it carries no ``PERM_VIEW`` gate:
-the person who started a job may follow it without being a task operator. The
-check lives in the handler instead, and every refusal is a 404 so the route
-does not reveal which task ids exist.
+the person who started a job may follow it without being a task operator. It
+is marked ``Authenticated()`` (SM031); the ownership check lives in the
+handler, and every refusal is a 404 so the route does not reveal which task
+ids exist.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from simple_module_core.permissions import grants
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.deps import get_db
 from simple_module_hosting.permissions import ensure_resolved_permissions
+from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import select
 
 from background_tasks.constants import MODULE_NAME, PERM_VIEW, STATUS_ROUTER_PREFIX
@@ -38,7 +40,11 @@ async def _visible(request: Request, row: TaskExecution, user_id: str) -> bool:
     return tenant_id is not None and row.tenant_id == tenant_id
 
 
-@router.get("/{celery_task_id}/status", response_model=TaskStatusDTO)
+@router.get(
+    "/{celery_task_id}/status",
+    response_model=TaskStatusDTO,
+    dependencies=[Depends(Authenticated())],
+)
 async def get_task_status(
     celery_task_id: str,
     request: Request,

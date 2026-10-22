@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file. The format is b
   (buffered under the existing 30 s throttle, `i == n` writes at once, never
   audited), and `GET /api/background_tasks/tasks/{celery_task_id}/status` lets the user who
   enqueued a task read its status and progress without `background_tasks.view`
+  (marked `Authenticated()`; tokens are refused)
   (owner in the active tenant, or `view` holders; anyone else gets 404; never
   returns args, result or traceback). `TaskExecution` gains `progress_*` and an
   indexed `owner_user_id` stamped from the new `sm_owner_id` message header;
