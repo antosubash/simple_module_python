@@ -35,14 +35,19 @@ async def backend(request: pytest.FixtureRequest, engine) -> AsyncIterator[Lease
         redis_backend = RedisLeaseBackend(url)
         yield redis_backend
         client = redis_backend._redis()
-        keys = [k async for k in client.scan_iter(match="sm:*:t-*")]
+        # Only this process's names: CI's xdist workers share one Redis, and a
+        # broader pattern deleted another worker's live semaphore mid-test.
+        keys = [k async for k in client.scan_iter(match=f"sm:*:{_PREFIX}*")]
         if keys:
             await client.delete(*keys)
         await client.aclose()
 
 
+_PREFIX = f"t-{uuid.uuid4().hex[:12]}-"
+
+
 def _name() -> str:
-    return f"t-{uuid.uuid4().hex}"
+    return f"{_PREFIX}{uuid.uuid4().hex}"
 
 
 async def test_two_racing_acquirers_one_wins(backend: LeaseBackend) -> None:
