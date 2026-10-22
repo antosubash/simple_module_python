@@ -121,6 +121,7 @@ class UploadStatus:
 class Task:
     """Celery task names (``tasks.py``; only loaded when background_tasks is installed)."""
 
+    REAP_OBJECTS: Final = "file_storage.reap_objects"
     REAP_STALE_UPLOADS: Final = "file_storage.reap_stale_uploads"
     COMPUTE_CHECKSUM: Final = "file_storage.compute_checksum"
 

@@ -26,6 +26,10 @@ from file_storage import constants
 logger = logging.getLogger(__name__)
 
 BEAT_SCHEDULE = {
+    "file-storage-reap-objects": {
+        "task": constants.Task.REAP_OBJECTS,
+        "schedule": 3600.0,
+    },
     "file-storage-reap-stale-uploads": {
         "task": constants.Task.REAP_STALE_UPLOADS,
         "schedule": 3600.0,
@@ -169,3 +173,20 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
             if row is not None and not row.checksum_sha256:
                 row.checksum_sha256 = digest
     return digest
+
+
+@shared_task(name=constants.Task.REAP_OBJECTS)
+def reap_objects() -> int:
+    """Reconcile completed objects, with twice the upload TTL as a safety window."""
+    from background_tasks.sync_db import sync_session
+
+    from file_storage.object_reaper import reap_objects as reconcile
+
+    backend, settings = _backend_and_settings()
+    return asyncio.run(
+        reconcile(
+            backend,
+            sync_session,
+            grace=timedelta(seconds=2 * settings.upload_session_ttl_seconds),
+        )
+    )

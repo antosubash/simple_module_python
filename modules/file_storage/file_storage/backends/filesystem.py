@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import uuid
 from collections.abc import AsyncIterator
+from datetime import datetime
 from pathlib import Path
 
 import aiofiles
@@ -81,6 +82,14 @@ class FilesystemBackend(FilesystemMultipartMixin):
     async def delete(self, key: str) -> None:
         path = self._resolve(key)
         path.unlink(missing_ok=True)
+
+    async def list_stale_objects(self, cutoff: datetime) -> AsyncIterator[str]:
+        """Yield keys last modified before the reconciliation cutoff."""
+        for path in self.root.glob("*/*/**/*"):
+            # Another delete (including this sweep) may have removed a variant.
+            with contextlib.suppress(FileNotFoundError):
+                if path.is_file() and path.stat().st_mtime < cutoff.timestamp():
+                    yield path.relative_to(self.root).as_posix().split("/", 1)[1]
 
     async def exists(self, key: str) -> bool:
         return self._resolve(key).exists()

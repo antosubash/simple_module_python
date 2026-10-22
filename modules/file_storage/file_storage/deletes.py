@@ -40,7 +40,7 @@ class FileStorageDeletes:
         ) -> StoredFile: ...
 
     async def delete_many(
-        self, file_ids: Sequence[uuid.UUID], *, owner: str | None = None
+        self, file_ids: Sequence[uuid.UUID], *, owner: str | None = None, drop_object: bool = True
     ) -> list[StoredFile]:
         """Soft-delete every id that still resolves, returning the rows removed.
 
@@ -63,6 +63,8 @@ class FileStorageDeletes:
         # One flush for the batch: the DB rows are what the next page load
         # reads, so they must all be marked before any object is dropped.
         await self.db.flush()
+        if not drop_object:
+            return rows
         for row in rows:
             # Every object is dropped independently. The rows are already
             # marked deleted, so letting one unreachable object abort the loop
