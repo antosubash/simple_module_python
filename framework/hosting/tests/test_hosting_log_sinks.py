@@ -186,3 +186,24 @@ def test_log_and_sentry_redact_identically(raw):
 
     assert redact(raw) == scrub_text(raw)
     assert not any(s in redact(raw) for s in SECRETS)
+
+
+def test_structured_extras_are_scrubbed_recursively() -> None:
+    from simple_module_hosting.log_sinks import redact_record
+
+    record = logging.makeLogRecord(
+        {
+            "msg": "x",
+            "payload": {"password": "hunter2", "nested": [{"api_key": "k1"}], "ok": "fine"},
+            "pair": ("authorization", "Bearer abc"),
+            "opaque": object(),
+        }
+    )
+    original = record.payload
+    redact_record(record)
+    dumped = repr((record.payload, record.pair))
+    assert "hunter2" not in dumped
+    assert "k1" not in dumped
+    assert "abc" not in dumped
+    assert record.payload["ok"] == "fine"
+    assert original["password"] == "hunter2"  # the caller's object is untouched

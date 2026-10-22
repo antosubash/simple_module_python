@@ -64,7 +64,7 @@ async def test_route_exception_is_tagged_and_scrubbed(transport: FakeTransport) 
         base_url="http://test",
     ) as client:
         await client.post(
-            "/boom?token=s3cret&code=abc&keep=1",
+            "/boom?token=s3cret&code=oauthcode9&keep=1",
             headers={
                 "Authorization": "Bearer x",
                 "Cookie": "sm=1",
@@ -83,7 +83,7 @@ async def test_route_exception_is_tagged_and_scrubbed(transport: FakeTransport) 
     request = event["request"]
     assert not {h.lower() for h in request.get("headers", {})} & set(_SECRET_HEADERS)
     dumped = str(event)
-    for leaked in ("s3cret", "abc", "hunter2", "Bearer x", "private@example.com"):
+    for leaked in ("s3cret", "oauthcode9", "hunter2", "Bearer x", "private@example.com"):
         assert leaked not in dumped
     assert "keep=1" in dumped
 

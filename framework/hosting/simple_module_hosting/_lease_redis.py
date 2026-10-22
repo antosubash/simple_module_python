@@ -18,9 +18,12 @@ import asyncio
 import os
 from typing import Any
 
-_KEY_PREFIX = "sm:lease:"
-_SEM_PREFIX = "sm:sem:"
-_FENCE_SUFFIX = ":fence"
+# Holder and fence-counter keys live under disjoint prefixes: a name is never
+# parsed, so ``foo:fence`` cannot collide with the counter of ``foo``.
+_HOLDER_PREFIX = "sm:lease:h:"
+_FENCE_PREFIX = "sm:lease:f:"
+_SEM_HOLDER_PREFIX = "sm:sem:h:"
+_SEM_FENCE_PREFIX = "sm:sem:f:"
 
 _ACQUIRE = """
 if redis.call('SET', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[2]) then
@@ -120,13 +123,11 @@ class RedisLeaseBackend:
 
     @staticmethod
     def _lease_keys(name: str) -> list[str]:
-        key = _KEY_PREFIX + name
-        return [key, key + _FENCE_SUFFIX]
+        return [_HOLDER_PREFIX + name, _FENCE_PREFIX + name]
 
     @staticmethod
     def _sem_keys(name: str) -> list[str]:
-        key = _SEM_PREFIX + name
-        return [key, key + _FENCE_SUFFIX]
+        return [_SEM_HOLDER_PREFIX + name, _SEM_FENCE_PREFIX + name]
 
     async def acquire(self, name: str, token: str, ttl: float) -> int | None:
         return await self._eval(_ACQUIRE, self._lease_keys(name), token, _ms(ttl)) or None

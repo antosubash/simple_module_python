@@ -29,7 +29,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from simple_module_core.correlation import correlation_id
 
-from simple_module_hosting.sentry_scrub_text import REDACTED, is_sensitive_key, scrub_text
+from simple_module_hosting.sentry_scrub import REDACTED, is_sensitive_key, scrub, scrub_text
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,10 @@ def redact_record(record: logging.LogRecord) -> None:
             record.__dict__[key] = REDACTED
         elif isinstance(value, str):
             record.__dict__[key] = redact(value)
+        elif not (value is None or isinstance(value, bool | int | float)):
+            # Mappings, sequences and arbitrary objects: the Sentry scrubber walks them
+            # (sensitive keys at any depth, repr() of opaque objects) into a copy.
+            record.__dict__[key] = scrub(value)
 
 
 class RedactionFilter(logging.Filter):

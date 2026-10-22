@@ -149,3 +149,16 @@ async def test_postgres_lease_race_across_connections(engine) -> None:
 
     sem = [semaphore(name + "s", 4, _LONG_TTL, blocking=False, backend=backend) for _ in range(12)]
     assert (await asyncio.gather(*(h.acquire() for h in sem))).count(True) == 4
+
+
+async def test_names_that_look_like_internal_keys_do_not_collide(backend: LeaseBackend) -> None:
+    base = _name()
+    first = await backend.acquire(base, "a", _LONG_TTL)
+    second = await backend.acquire(f"{base}:fence", "b", _LONG_TTL)
+    assert first == 1
+    assert second == 1  # its own holder and its own counter
+    assert await backend.release(base, "a")
+    third = await backend.acquire(base, "c", _LONG_TTL)
+    assert third == 2
+    sem = await backend.semaphore_acquire(f"{base}:sem:fence", "s", 1, _LONG_TTL)
+    assert sem == 1
