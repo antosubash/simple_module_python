@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
+from fastapi import FastAPI
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from simple_module_db.pagination import PageParams
 from sqlalchemy import func, or_, select
@@ -17,6 +18,8 @@ from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
+from users.session_revocation import bump_session_version, publish_revocation
+from users.session_version_cache import forget_session_version
 
 
 def _live_lock(locked_until: datetime | None) -> datetime | None:
@@ -35,9 +38,21 @@ class _UserServiceBase:
         self,
         db: AsyncSession,
         user_manager: UserManager,
+        app: FastAPI | None = None,
     ) -> None:
         self._db = db
         self._manager = user_manager
+        self._app = app
+
+    async def _revoke_sessions(self, user: User) -> None:
+        """Persist the counter with the write; evict only after it commits."""
+        await bump_session_version(self._db, user)
+        user_id = user.id
+        app = self._app
+        if app is None:
+            self._db.on_commit(lambda: forget_session_version(user_id))
+        else:
+            self._db.on_commit(lambda: publish_revocation(app, user_id))
 
     # ── Helpers ─────────────────────────────────────────────────
 

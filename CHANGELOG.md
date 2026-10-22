@@ -16,6 +16,18 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- Users (security): disabling or enabling an account, or replacing its roles from the admin
+  screens, now bumps `session_version` in the same transaction and evicts the cached counter on
+  every worker after commit (an atomic SQL increment, so overlapping changes cannot lose one), so
+  existing cookie sessions and bearer access tokens are refused on their next request; disabling
+  also revokes the account's refresh tokens. Before, a disabled or demoted user kept the roles
+  cached in their cookie until the session expired. **Behaviour change:** a role change signs that
+  user out of their existing sessions; a remembered sign-in re-authenticates with the new roles
+  (#581).
+- File storage: **Behaviour change.** `quota_bytes` is now enforced for plain uploads as well as
+  resumable ones (stored bytes plus active reservations, serialised per tenant on Postgres); an
+  upload that would exceed it answers 413 and its object is removed. Previously only resumable
+  sessions were checked, and the setting was described as report-only (#586).
 - File storage: `DELETE /api/file_storage/files/{id}` and the bulk delete now drop the stored
   bytes only after the request transaction commits, so a failed commit no longer leaves a live
   row with no bytes. A new hourly `file_storage.reap_objects` beat task (needs

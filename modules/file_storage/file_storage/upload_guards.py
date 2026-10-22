@@ -1,4 +1,4 @@
-"""Cleanup and quota guards for upload sessions (#454)."""
+"""Cleanup and shared quota guards for uploads."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, select, text
 from file_storage import constants
 from file_storage.contracts.service import StorageError
 from file_storage.models import StoredFile, UploadSession
-from file_storage.scope import owning_tenant
+from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
 from file_storage.upload_support import DirectUploadUnsupportedError, QuotaExceededError
 
 if TYPE_CHECKING:
@@ -28,12 +28,61 @@ _logger = logging.getLogger(__name__)
 _QUOTA_LOCK_KEY = 0x4653544F << 32
 
 
-class UploadGuards:
+class StorageQuota:
+    """Quota checks shared by plain uploads and resumable reservations."""
+
+    db: AsyncSession
+    settings: FileStorageSettings
+
+    async def _serialize_reservations(self, *, platform: bool = False) -> None:
+        """Make concurrent quota admissions take turns on Postgres.
+
+        Each upload sums stored + reserved bytes before recording a file or
+        reservation. Under READ COMMITTED, concurrent uploads can read the same
+        sum and all pass. The transaction-scoped lock lasts until the new row
+        becomes visible at commit. SQLite serialises writers already.
+        """
+        bind = self.db.get_bind()
+        if bind.dialect.name != "postgresql":
+            return
+        tenant = owning_tenant(self.db, platform=platform)
+        await self.db.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": _QUOTA_LOCK_KEY + zlib.crc32(tenant.encode())},
+        )
+
+    async def _check_quota(self, size: int, *, reserve: bool, platform: bool = False) -> None:
+        """Refuse ``size`` bytes that would push stored (+ reserved) bytes past the quota.
+
+        Read live, not from the browse screen's cached totals: a cache a minute
+        stale would let a burst of sessions each see an empty bucket. With
+        ``reserve``, sessions still open count at their declared size, so opening
+        many small-looking sessions cannot overbook the quota.
+        """
+        quota = self.settings.quota_bytes
+        if quota is None:
+            return
+        if reserve:
+            await self._serialize_reservations(platform=platform)
+        stored_query = select(func.coalesce(func.sum(StoredFile.size_bytes), 0))
+        reserved_query = select(func.coalesce(func.sum(UploadSession.total_size), 0)).where(
+            UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
+            UploadSession.expires_at > datetime.now(UTC),  # ty: ignore[invalid-argument-type]
+        )
+        if platform:
+            stored_query = stored_query.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
+            reserved_query = reserved_query.where(UploadSession.tenant_id == PLATFORM_TENANT_ID)
+        async with platform_scope(self.db, platform):
+            stored = await self.db.scalar(stored_query)
+            reserved = await self.db.scalar(reserved_query) if reserve else 0
+        if (stored or 0) + (reserved or 0) + size > quota:
+            raise QuotaExceededError(str(quota))
+
+
+class UploadGuards(StorageQuota):
     """Mixed into :class:`~file_storage.uploads.UploadSessionService`."""
 
     files: FileStorageService
-    db: AsyncSession
-    settings: FileStorageSettings
 
     @property
     def backend(self) -> DirectUploadBackend:
@@ -73,45 +122,3 @@ class UploadGuards:
             )
         )
         return result.rowcount or 0
-
-    async def _serialize_reservations(self) -> None:
-        """Make concurrent session openers take turns on Postgres.
-
-        Each opener sums stored + reserved bytes and then inserts its own
-        reservation; under READ COMMITTED, N openers all read the same sum and
-        all pass. A transaction-scoped advisory lock (held until this request
-        commits, which is when the new reservation becomes visible) closes the
-        window. SQLite serialises writers already.
-        """
-        bind = self.db.get_bind()
-        if bind.dialect.name != "postgresql":
-            return
-        await self.db.execute(
-            text("SELECT pg_advisory_xact_lock(:key)"),
-            {"key": _QUOTA_LOCK_KEY + zlib.crc32(owning_tenant(self.db).encode())},
-        )
-
-    async def _check_quota(self, size: int, *, reserve: bool) -> None:
-        """Refuse ``size`` bytes that would push stored (+ reserved) bytes past the quota.
-
-        Read live, not from the browse screen's cached totals: a cache a minute
-        stale would let a burst of sessions each see an empty bucket. With
-        ``reserve``, sessions still open count at their declared size, so opening
-        many small-looking sessions cannot overbook the quota.
-        """
-        quota = self.settings.quota_bytes
-        if quota is None:
-            return
-        if reserve:
-            await self._serialize_reservations()
-        stored = await self.db.scalar(select(func.coalesce(func.sum(StoredFile.size_bytes), 0)))
-        reserved = 0
-        if reserve:
-            reserved = await self.db.scalar(
-                select(func.coalesce(func.sum(UploadSession.total_size), 0)).where(
-                    UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
-                    UploadSession.expires_at > datetime.now(UTC),  # ty: ignore[invalid-argument-type]
-                )
-            )
-        if (stored or 0) + (reserved or 0) + size > quota:
-            raise QuotaExceededError(str(quota))

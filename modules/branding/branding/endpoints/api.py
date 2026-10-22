@@ -10,7 +10,7 @@ from simple_module_hosting.permissions import RequiresPermission
 from branding import constants
 from branding.contracts.schemas import BrandingOut, BrandingUpdate
 from branding.deps import BrandingServiceDep
-from branding.images import validate_image
+from branding.images import store_image, validate_image
 from branding.presets import find_preset
 
 router = APIRouter()
@@ -67,7 +67,7 @@ async def upload_logo(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
     await validate_image(file)
-    stored = await storage.upload(file, platform=True)
+    stored = await store_image(storage, file, platform=True)
     return await service.set_logo(str(stored.id))
 
 
@@ -91,7 +91,7 @@ async def upload_logo_dark(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
     await validate_image(file)
-    stored = await storage.upload(file, platform=True)
+    stored = await store_image(storage, file, platform=True)
     return await service.set_logo_dark(str(stored.id))
 
 
@@ -107,7 +107,7 @@ async def upload_favicon(
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
     await validate_image(file)
-    stored = await storage.upload(file, platform=True)
+    stored = await store_image(storage, file, platform=True)
     return await service.set_favicon(str(stored.id))
 
 
