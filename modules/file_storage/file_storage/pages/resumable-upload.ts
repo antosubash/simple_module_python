@@ -1,3 +1,4 @@
+import { apiFetch, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { clearSessionId, loadSessionId, saveSessionId } from './resume-store';
 import { parseFailureReason, UploadAbortedError, UploadFailedError } from './upload-errors';
 
@@ -30,20 +31,22 @@ export interface RunOptions {
   backoffMs?: number;
 }
 
-async function api<T>(method: string, url: string, body?: unknown): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method,
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new UploadFailedError(undefined);
+/**
+ * One JSON call to the uploads API. These routes are addressed dynamically
+ * (session id in the path, one helper for every verb), so they go through the
+ * untyped `apiFetch`; a failure becomes an `UploadFailedError` carrying the
+ * status (`undefined` when the request never reached the server) and the
+ * server's own reason.
+ */
+async function call<T>(method: string, url: string, json?: unknown): Promise<T> {
+  const result = await apiFetch<T>(url, { method, json });
+  if (!result.ok) {
+    throw new UploadFailedError(
+      result.status === NETWORK_FAILURE ? undefined : result.status,
+      parseFailureReason(JSON.stringify(result.error)),
+    );
   }
-  const text = await response.text();
-  if (!response.ok) throw new UploadFailedError(response.status, parseFailureReason(text));
-  return (text ? JSON.parse(text) : undefined) as T;
+  return result.data;
 }
 
 /** The stored session for this file, if the server still has it open. */
@@ -51,7 +54,7 @@ export async function findSession(file: File): Promise<RemoteSession | null> {
   const id = loadSessionId(file);
   if (!id) return null;
   try {
-    const session = await api<RemoteSession>('GET', `${BASE}/${id}`);
+    const session = await call<RemoteSession>('GET', `${BASE}/${id}`);
     if (session.status === 'active' && session.total_size === file.size) return session;
   } catch (error) {
     // A network blip says nothing about the session; keep the id for next time.
@@ -65,14 +68,14 @@ export async function findSession(file: File): Promise<RemoteSession | null> {
 export async function discardSession(file: File, id: string): Promise<void> {
   clearSessionId(file);
   try {
-    await api('DELETE', `${BASE}/${id}`);
+    await call('DELETE', `${BASE}/${id}`);
   } catch {
     // The reaper collects it at expiry.
   }
 }
 
 function createSession(file: File): Promise<RemoteSession> {
-  return api<RemoteSession>('POST', BASE, {
+  return call<RemoteSession>('POST', BASE, {
     filename: file.name,
     content_type: file.type || 'application/octet-stream',
     total_size: file.size,
@@ -182,7 +185,7 @@ export async function runResumable(
     for (let attempt = 0; ; attempt += 1) {
       if (inner.signal.aborted) throw new UploadAbortedError();
       try {
-        const { urls } = await api<{ urls: Record<string, string> }>(
+        const { urls } = await call<{ urls: Record<string, string> }>(
           'POST',
           `${BASE}/${session.id}/part-urls`,
           { parts: [n] },
@@ -210,7 +213,7 @@ export async function runResumable(
 
   try {
     await Promise.all(Array.from({ length: PART_CONCURRENCY }, worker));
-    await api('POST', `${BASE}/${session.id}/complete`, {
+    await call('POST', `${BASE}/${session.id}/complete`, {
       parts: [...etags].filter(([, etag]) => etag).map(([n, etag]) => ({ n, etag })),
     });
   } catch (error) {
