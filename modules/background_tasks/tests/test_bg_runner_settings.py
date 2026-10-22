@@ -110,19 +110,25 @@ def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypa
     """GH #490: the entry point scaffolded apps use must hydrate from the DB."""
     from background_tasks import tenant_context
     from background_tasks.runner import build_runner_celery
+    from simple_module_core import leases
+    from simple_module_db.leases import DbLeaseBackend
 
     # The runner sets process-wide state; don't leak it into later tests.
     monkeypatch.setattr(tenant_context, "_default_tenant", tenant_context._default_tenant)
+    monkeypatch.setattr(leases, "_backend", leases._backend)
     for name in ("_tenant_strict", "_default_tenant"):
         monkeypatch.setattr(sync_db, name, getattr(sync_db, name))
     _put(db_url, "background_tasks.task_default_queue", "from-db", "string")
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("SM_DATABASE_URL", db_url.replace("sqlite://", "sqlite+aiosqlite://"))
     monkeypatch.delenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", raising=False)
+    monkeypatch.delenv("SM_REDIS_URL", raising=False)
 
     celery = build_runner_celery()
 
     assert celery.conf.task_default_queue == "from-db"
+    # GH #539: task bodies share the web process's leases (no Redis here: the table).
+    assert isinstance(leases.get_leases(), DbLeaseBackend)
 
 
 def _forget_after_test(monkeypatch, *names: str) -> None:

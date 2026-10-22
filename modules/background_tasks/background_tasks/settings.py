@@ -27,18 +27,15 @@ The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a
 host-level setting, not a background_tasks-module field.
 
-The Celery-critical fields (``broker_url``, ``result_backend``,
-``task_default_queue``) are marked ``requires_restart=True`` via
-``json_schema_extra`` because workers read these once at process start, so
-DB changes can't be hot-reloaded: the admin UI should surface that bumping
-these values requires a worker restart.
+Process wiring, including ``outbox_mode`` and sweep cadence, requires a restart;
+``json_schema_extra`` exposes that requirement in the settings UI.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -68,6 +65,7 @@ from background_tasks.settings_env_checks import (
     forbid_localhost_broker_in_production,
     warn_on_legacy_redis_vars,
 )
+from background_tasks.settings_logs import LogSinkFields
 
 _CELERY_RESTART = {"requires_restart": True, "group": "Celery"}
 
@@ -84,13 +82,12 @@ def _redis_from_env(default: str) -> str:
     return os.environ.get(ENV_REDIS_URL) or default
 
 
-class BackgroundTasksSettings(WorkerDatabaseSettings):
+class BackgroundTasksSettings(LogSinkFields, WorkerDatabaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
-    # Without ``env_prefix`` pydantic-settings resolves each field from its
-    # bare, case-insensitive name — so a container setting ``broker_url`` or
-    # ``retention_days`` for any other purpose silently reconfigured Celery,
-    # and the documented ``SM_BG_TASKS_*`` names did nothing (GH #283).
+    # Without ``env_prefix`` each field resolved from its bare name, so a
+    # container setting ``broker_url`` or ``retention_days`` for another purpose
+    # reconfigured Celery and ``SM_BG_TASKS_*`` did nothing (GH #283).
     model_config = SettingsConfigDict(extra="ignore", env_prefix=ENV_PREFIX)
 
     @classmethod
@@ -219,6 +216,9 @@ class BackgroundTasksSettings(WorkerDatabaseSettings):
     )
 
     # ── Durable event outbox (GH #459) ──────────────────────
+    outbox_mode: Literal["celery", "inprocess"] = Field(
+        default="celery", json_schema_extra=_CELERY_RESTART
+    )
     outbox_max_attempts: int = Field(
         default=DEFAULT_OUTBOX_MAX_ATTEMPTS,
         ge=1,

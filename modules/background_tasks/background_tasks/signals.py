@@ -19,82 +19,38 @@ directly.
 
 from __future__ import annotations
 
-import logging
-from collections.abc import Callable
 from typing import Any
 
 from celery import signals
 
 from background_tasks._signal_bus import bind_event_bus, publish_from_signal, unbind_event_bus
 from background_tasks._signal_support import (
+    apply_signal,
     coerce_args_kwargs,
     jsonable_result,
     now_utc,
     render_traceback,
     task_id_from,
     task_name_of,
-    upsert_by_celery_id,
 )
 from background_tasks.constants import (
     DEFAULT_QUEUE,
-    INTERNAL_TASK_SWEEP_OUTBOX,
     TaskStatus,
 )
 from background_tasks.contracts.events import TaskFailed
 from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
-from background_tasks.sync_db import sync_session
 from background_tasks.task_heartbeat import forget_heartbeat
 from background_tasks.tenant_context import (
+    message_owner,
     message_tenant,
+    published_owner,
     published_tenant,
     release_tenant,
     restore_tenant,
+    stamp_owner,
     stamp_tenant,
 )
-
-logger = logging.getLogger(__name__)
-
-# Beat ticks that fire every few seconds and are a no-op almost every time;
-# recording each run buried real work (QA, GH #459). Only a run that went wrong
-# is worth a row.
-_UNRECORDED_WHEN_QUIET = frozenset({INTERNAL_TASK_SWEEP_OUTBOX})
-_QUIET_STATUSES = frozenset({None, TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCESS})
-
-
-def _apply(
-    handler: str,
-    *,
-    celery_task_id: str | None,
-    defaults: dict[str, Any],
-    after: Callable[[TaskExecution], None] | None = None,
-    tenant_id: str | None = None,
-) -> TaskExecution | None:
-    """Open a sync session, upsert by celery_task_id, log on failure.
-
-    Returns the upserted row (or ``None`` if the session raised) so callers
-    can read DB-assigned fields like ``id`` without a second round trip.
-
-    ``tenant_id`` (the message's) is written only when known, so a signal
-    whose message carries no tenant never blanks a row already stamped.
-    """
-    if (
-        defaults.get("task_name") in _UNRECORDED_WHEN_QUIET
-        and defaults.get("status") in _QUIET_STATUSES
-    ):
-        return None
-    if tenant_id:
-        defaults = {**defaults, "tenant_id": tenant_id}
-    try:
-        with sync_session() as session:
-            row = upsert_by_celery_id(session, celery_task_id=celery_task_id, defaults=defaults)
-            if after is not None:
-                after(row)
-            return row
-    except Exception:
-        logger.exception("%s failed for task_id=%s", handler, celery_task_id)
-        return None
-
 
 # ── Enqueue ─────────────────────────────────────────────────────
 
@@ -109,6 +65,7 @@ def on_task_publish(
 ) -> None:
     """Record a row the moment a task is pushed onto the broker."""
     stamp_tenant(headers)
+    stamp_owner(headers)
     task_id = (headers or {}).get("id")
     task_name = sender or (headers or {}).get("task") or "unknown"
 
@@ -127,11 +84,12 @@ def on_task_publish(
         "kwargs": kwargs,
         "queued_at": now_utc(),
     }
-    _apply(
+    apply_signal(
         "on_task_publish",
         celery_task_id=task_id,
         defaults=defaults,
         tenant_id=published_tenant(headers),
+        owner_user_id=published_owner(headers),
     )
 
 
@@ -151,7 +109,7 @@ def on_task_prerun(
     args_n, kwargs_n = coerce_args_kwargs(args, kwargs)
     now = now_utc()
     name = task_name_of(sender, task)
-    _apply(
+    apply_signal(
         "on_task_prerun",
         celery_task_id=task_id,
         defaults={
@@ -163,6 +121,7 @@ def on_task_prerun(
             "heartbeat_at": now,
         },
         tenant_id=message_tenant(task=task),
+        owner_user_id=message_owner(task=task),
     )
     signal_task_started(task_id=task_id, task_name=name)
     restore_tenant(task_id=task_id, task=task)
@@ -181,7 +140,7 @@ def on_task_postrun(
     ``task_retry`` which fire *before* postrun; postrun only refreshes the
     heartbeat so the sweep doesn't immediately flip a just-finished row.
     """
-    _apply(
+    apply_signal(
         "on_task_postrun",
         celery_task_id=task_id,
         defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
@@ -194,7 +153,7 @@ def on_task_postrun(
 
 @signals.task_success.connect
 def on_task_success(sender: Any = None, result: Any = None, **_k: Any) -> None:
-    _apply(
+    apply_signal(
         "on_task_success",
         celery_task_id=task_id_from(sender=sender),
         defaults={
@@ -220,7 +179,7 @@ def on_task_failure(
     task_name = task_name_of(sender)
     exception_type = type(exception).__name__ if exception is not None else None
 
-    row = _apply(
+    row = apply_signal(
         "on_task_failure",
         celery_task_id=task_id,
         defaults={
@@ -256,7 +215,7 @@ def on_task_retry(
         if reason is not None:
             row.traceback = f"retry: {reason!r}"
 
-    _apply(
+    apply_signal(
         "on_task_retry",
         celery_task_id=task_id_from(request=request),
         defaults={
@@ -272,7 +231,7 @@ def on_task_retry(
 
 @signals.task_revoked.connect
 def on_task_revoked(sender: Any = None, request: Any = None, **_k: Any) -> None:
-    _apply(
+    apply_signal(
         "on_task_revoked",
         celery_task_id=task_id_from(request=request),
         defaults={

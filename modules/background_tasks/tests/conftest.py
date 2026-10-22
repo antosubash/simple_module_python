@@ -83,9 +83,12 @@ def seed_execution(app):
         queue: str = "default",
         queued_at: datetime | None = None,
         tenant_id: str | None = None,
+        owner_user_id: str | None = None,
+        celery_task_id: str | None = None,
+        **fields: object,
     ) -> TaskExecution:
         row = TaskExecution(
-            celery_task_id=str(uuid.uuid4()),
+            celery_task_id=celery_task_id or str(uuid.uuid4()),
             task_name=task_name,
             status=status,
             queue=queue,
@@ -93,6 +96,8 @@ def seed_execution(app):
             kwargs={},
             queued_at=queued_at or datetime.now(UTC),
             tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            **fields,
         )
         async with app.state.sm.db.session_factory() as session:
             session.add(row)

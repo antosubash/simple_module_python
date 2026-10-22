@@ -104,6 +104,11 @@ export interface TaskDetail {
   worker: string | null;
   retries: number;
   retried_from_id: string | null;
+  owner_user_id: string | null;
+  progress_current: number | null;
+  progress_total: number | null;
+  progress_message: string | null;
+  progress_phase: string | null;
   queued_at: string | null;
   started_at: string | null;
   finished_at: string | null;

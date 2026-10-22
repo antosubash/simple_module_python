@@ -41,10 +41,14 @@ API_PREFIX = "/api/background_tasks"
 VIEW_PREFIX = "/admin/background-tasks"
 ADMIN_ROUTER_PREFIX = "/admin"
 
+STATUS_ROUTER_PREFIX = "/tasks"
+
 # ── Menu ────────────────────────────────────────────────────────
 MENU_LABEL = "Background tasks"
 MENU_ICON = "activity"
 MENU_ORDER = 120
+LOGS_MENU_LABEL = "Logs"
+LOGS_MENU_ICON = "scroll-text"
 
 # ── Page identifiers ────────────────────────────────────────────
 # Kept as literals at the call site (see endpoints/views.py) so
@@ -140,7 +144,7 @@ class OutboxScope(StrEnum):
 
 
 DEFAULT_OUTBOX_MAX_ATTEMPTS = 8
-DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 30
+DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS = 5
 # How long a claimed row stays ``running`` before another worker may reclaim it.
 # Durable handlers are cut off ``outbox_lease_margin`` before it, so no run can
 # outlive its claim and overlap the rerun a reclaim would start.
@@ -172,3 +176,26 @@ OUTBOX_KEY_MAX_LENGTH = 255
 TENANT_ID_MAX_LENGTH = 50
 # Filter value meaning "executions with no tenant" (beat / platform publishes).
 PLATFORM_TENANT_FILTER = "__platform__"
+
+OWNER_ID_MAX_LENGTH = 64
+PROGRESS_MESSAGE_MAX_LENGTH = 255
+PROGRESS_PHASE_MAX_LENGTH = 64
+
+
+class OutboxMode(StrEnum):
+    CELERY = "celery"
+    INPROCESS = "inprocess"
+
+
+# ── Retained logs (GH #537) ─────────────────────────────────────
+TABLE_LOG_RECORD = f"{TABLE_PREFIX}log_record"
+LOG_MESSAGE_MAX_LENGTH = 4096
+LOG_NAME_MAX_LENGTH = 255
+LOG_ID_MAX_LENGTH = 64
+LOG_EXTRA_MAX_KEYS = 20
+LOG_EXTRA_VALUE_MAX_LENGTH = 1000
+DEFAULT_LOG_SINK_LEVEL = "INFO"
+DEFAULT_LOG_RETENTION_DAYS = 7
+LOG_PER_PAGE = 50
+# Level names the admin filter offers, lowest first.
+LOG_LEVEL_NAMES = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")

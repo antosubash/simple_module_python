@@ -31,7 +31,6 @@ import uuid
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from celery import current_app
 from simple_module_core.durable_events import event_key, serialize_event
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.tenancy import is_all_tenants
@@ -39,8 +38,8 @@ from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from background_tasks.after_commit import after_commit
-from background_tasks.constants import INTERNAL_TASK_DISPATCH_OUTBOX, OutboxScope
+from background_tasks.after_commit import after_commit, current_app
+from background_tasks.constants import INTERNAL_TASK_DISPATCH_OUTBOX, OutboxMode, OutboxScope
 from background_tasks.models import OutboxMessage
 from background_tasks.outbox_claim import OutboxPolicy
 from background_tasks.outbox_clock import db_now
@@ -119,8 +118,14 @@ class OutboxTransport(_OutboxWriter):
     """Outbox-backed durable delivery for the web app (GH #459)."""
 
     def __init__(
-        self, *, services: BackgroundTasksServices, bus: EventBus, db_state: DatabaseState
+        self,
+        *,
+        services: BackgroundTasksServices,
+        bus: EventBus,
+        db_state: DatabaseState,
+        mode: OutboxMode = OutboxMode.CELERY,
     ) -> None:
+        self._mode = mode
         self._services = services
         self._bus = bus
         self._db_state = db_state
@@ -141,7 +146,7 @@ class OutboxTransport(_OutboxWriter):
         if not ids:
             return
         id_list = list(ids)
-        if self._services.settings.task_always_eager:
+        if self._mode == OutboxMode.INPROCESS or self._services.settings.task_always_eager:
             if isinstance(db, RequestSession) and SESSION_START_KEY in db.info:
                 db.on_commit(lambda: self._dispatch(id_list))
             else:

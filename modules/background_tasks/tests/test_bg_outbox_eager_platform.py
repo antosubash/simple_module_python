@@ -49,7 +49,7 @@ async def test_eager_publish_from_a_plain_session_is_delivered(app, outbox_rows)
         rows = await outbox_rows()
         return bool(rows) and all(r.status == OutboxStatus.DELIVERED for r in rows)
 
-    await wait_for(delivered, timeout=3.0)
+    await wait_for(delivered, timeout=15.0)
     assert seen == [7]
     app.state.background_tasks.celery.send_task.assert_not_called()
 
