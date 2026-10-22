@@ -1,5 +1,7 @@
 """Worker image generation and validation through the public CLI."""
 
+import re
+
 import pytest
 from simple_module_cli.cli import app
 from simple_module_cli.docker_assets import _read, _template_root
@@ -14,8 +16,18 @@ def project(tmp_path, monkeypatch):
     return tmp_path
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
 def invoke(*args):
-    return CliRunner().invoke(app, ["docker", "add-worker", *args])
+    # Wide and colourless: CI forces Rich colour, which splits option names
+    # with escape codes and wraps the error box.
+    runner = CliRunner(env={"COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb"})
+    return runner.invoke(app, ["docker", "add-worker", *args])
+
+
+def plain(output: str) -> str:
+    return " ".join(_ANSI.sub("", output).split())
 
 
 def test_generated_worker(project):
@@ -61,7 +73,7 @@ def test_rerun_force_and_multiple_workers(project):
     docker = project / "docker/worker-geo.Dockerfile"
     docker.write_text("custom")
     result = invoke("geo", "--queues", "geo")
-    assert result.exit_code != 0 and "--force" in result.output
+    assert result.exit_code != 0 and "--force" in plain(result.output)
     assert docker.read_text() == "custom"
     assert (project / "compose.yml").read_text() == before
     assert invoke("geo", "--queues", "geo", "--force").exit_code == 0
