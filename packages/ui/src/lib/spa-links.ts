@@ -38,6 +38,30 @@ const LOOKS_LIKE_A_FILE = /\.[a-z0-9]+$/i;
 const EDITOR_SURFACE = '[data-puck-preview],[data-puck-component]';
 
 /**
+ * Which URLs to leave to the browser, beyond the built-in rules. A prefix
+ * (`'/legacy/'`, matched against the pathname), a list of them, or a predicate.
+ * The server publishes the prefixes of mounted legacy SPAs and the
+ * `native_link_prefixes` host setting as the `nativePrefixes` shared prop.
+ */
+export type SpaLinkExclude = string | string[] | ((url: URL) => boolean);
+
+/** Whether *url* falls under an `exclude` rule. */
+export function isExcluded(url: URL, exclude: SpaLinkExclude | undefined): boolean {
+  if (!exclude) return false;
+  if (typeof exclude === 'function') return exclude(url);
+  const prefixes = typeof exclude === 'string' ? [exclude] : exclude;
+  return prefixes.some(
+    (prefix) => url.pathname === prefix.replace(/\/$/, '') || url.pathname.startsWith(prefix),
+  );
+}
+
+/** The `nativePrefixes` shared prop, tolerant of it being absent or malformed. */
+export function readNativePrefixes(props: unknown): string[] {
+  const value = (props as { nativePrefixes?: unknown } | null)?.nativePrefixes;
+  return Array.isArray(value) ? value.filter((p): p is string => typeof p === 'string') : [];
+}
+
+/**
  * Whether the SPA should take over this anchor, given the page it is on.
  *
  * `here` is a parameter rather than a read of `window.location` so the decision
@@ -49,7 +73,11 @@ const EDITOR_SURFACE = '[data-puck-preview],[data-puck-component]';
  * render turns a working download into an error modal, while missing one only
  * costs the reload this is trying to avoid.
  */
-export function shouldInterceptNavigation(anchor: HTMLAnchorElement, here: URL): boolean {
+export function shouldInterceptNavigation(
+  anchor: HTMLAnchorElement,
+  here: URL,
+  exclude?: SpaLinkExclude,
+): boolean {
   const href = anchor.getAttribute('href');
   if (!href) return false;
 
@@ -72,6 +100,7 @@ export function shouldInterceptNavigation(anchor: HTMLAnchorElement, here: URL):
   // `mailto:`, `tel:`, and anything else the browser owns outright.
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
   if (url.origin !== here.origin) return false;
+  if (isExcluded(url, exclude)) return false;
 
   // Same document: `#`, `#section`, or a link back to the current page. The
   // browser handles all three correctly, and `href="#"` is what a pagebuilder
@@ -105,7 +134,7 @@ function isPlainLeftClick(event: MouseEvent): boolean {
  * Returns a function that removes it again, which is what tests use; an app has
  * no reason to.
  */
-export function startSpaLinkInterception(): () => void {
+export function startSpaLinkInterception(options: { exclude?: SpaLinkExclude } = {}): () => void {
   // Set when a click is taken over, cleared when the visit comes back as a real
   // Inertia response. If it does not, the URL was not a page after all and the
   // browser should have had it — hand it back rather than showing Inertia's
@@ -136,7 +165,7 @@ export function startSpaLinkInterception(): () => void {
     if (!(anchor instanceof HTMLAnchorElement)) return;
 
     const here = new URL(window.location.href);
-    if (!shouldInterceptNavigation(anchor, here)) return;
+    if (!shouldInterceptNavigation(anchor, here, options.exclude)) return;
 
     const url = new URL(anchor.getAttribute('href') as string, here.href).href;
     event.preventDefault();
