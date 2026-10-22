@@ -182,6 +182,16 @@ describe('an unknown URL outside /admin (#575)', () => {
     expect(screen.getByTestId('app-layout')).toBeInTheDocument();
   });
 
+  test('also wraps a 403 for a signed-in viewer', () => {
+    setPage('/reports', {
+      auth: { isAuthenticated: true },
+      menus: { sidebar: [{ label: 'Home', url: '/' }] },
+    });
+    renderError({ status: 403, message: '' });
+
+    expect(screen.getByTestId('app-layout')).toBeInTheDocument();
+  });
+
   test('stays bare for an anonymous visitor', () => {
     setPage('/does-not-exist', {
       auth: { isAuthenticated: false },

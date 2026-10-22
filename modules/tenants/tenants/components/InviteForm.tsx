@@ -36,6 +36,7 @@ export function InviteForm({ onInvited }: Props) {
   const [role, setRole] = useState<'admin' | 'member'>('member');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailInvalid, setEmailInvalid] = useState(false);
   const [acceptUrl, setAcceptUrl] = useState<string | null>(null);
 
   const [delivery, setDelivery] = useState({ emailed: false, email: '' });
@@ -44,10 +45,12 @@ export function InviteForm({ onInvited }: Props) {
     e.preventDefault();
     if (!EMAIL_SHAPE.test(email.trim())) {
       setError(t(keys.tenants.members.invite_email_invalid));
+      setEmailInvalid(true);
       return;
     }
     setSubmitting(true);
     setError(null);
+    setEmailInvalid(false);
     // A new attempt replaces the previous result; a failure must not leave the
     // last invitation's link and "emailed" banner beside its error.
     setAcceptUrl(null);
@@ -91,10 +94,16 @@ export function InviteForm({ onInvited }: Props) {
               id="invite-email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailInvalid) {
+                  setEmailInvalid(false);
+                  setError(null);
+                }
+              }}
               placeholder={t(keys.tenants.members.invite_email_placeholder)}
               required
-              aria-invalid={error ? true : undefined}
+              aria-invalid={emailInvalid ? true : undefined}
             />
           </div>
           <div className="space-y-1.5">

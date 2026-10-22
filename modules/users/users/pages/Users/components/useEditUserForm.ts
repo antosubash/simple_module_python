@@ -117,8 +117,11 @@ export function useEditUserForm(user: EditableUser) {
           }),
         );
         if (!resp.ok) {
-          if (resp.status === NETWORK_FAILURE) throw new Error('network');
-          setError(resp.detail ?? t(keys.users.edit.error_details));
+          setError(
+            resp.status === NETWORK_FAILURE
+              ? t(keys.users.common.error_occurred)
+              : (resp.detail ?? t(keys.users.edit.error_details)),
+          );
           return;
         }
         setBaseline((prev) => ({ ...prev, email: form.email, fullName: form.fullName }));
@@ -131,9 +134,12 @@ export function useEditUserForm(user: EditableUser) {
           }),
         );
         if (!resp.ok) {
-          if (resp.status === NETWORK_FAILURE) throw new Error('network');
           setError(
-            detailsDirty ? t(keys.users.edit.error_partial) : t(keys.users.edit.error_roles),
+            resp.status === NETWORK_FAILURE
+              ? t(keys.users.common.error_occurred)
+              : detailsDirty
+                ? t(keys.users.edit.error_partial)
+                : t(keys.users.edit.error_roles),
           );
           return;
         }
@@ -141,8 +147,6 @@ export function useEditUserForm(user: EditableUser) {
       }
       toast.success(t(keys.users.edit.toast_saved));
       router.reload();
-    } catch {
-      setError(t(keys.users.common.error_occurred));
     } finally {
       setSaving(false);
       savingRef.current = false;

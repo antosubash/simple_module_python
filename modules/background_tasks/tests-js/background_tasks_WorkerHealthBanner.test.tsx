@@ -40,6 +40,20 @@ describe('WorkerHealthBanner', () => {
     });
   });
 
+  it('aborts the in-flight request on unmount', async () => {
+    let signal: AbortSignal | undefined;
+    const fetchMock = vi.fn(async (req: Request) => {
+      signal = req.signal;
+      return new Promise<Response>(() => {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { unmount } = render(<WorkerHealthBanner backlog={3} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(signal?.aborted).toBe(false);
+    unmount();
+    expect(signal?.aborted).toBe(true);
+  });
+
   it('stays silent when the API call fails', async () => {
     const fetchMock = stubFetch(403, { detail: 'nope' });
     const { container } = render(<WorkerHealthBanner backlog={3} />);

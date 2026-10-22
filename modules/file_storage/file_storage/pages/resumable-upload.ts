@@ -1,6 +1,11 @@
 import { apiFetch, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { clearSessionId, loadSessionId, saveSessionId } from './resume-store';
-import { parseFailureReason, UploadAbortedError, UploadFailedError } from './upload-errors';
+import {
+  parseFailureReason,
+  reasonFromBody,
+  UploadAbortedError,
+  UploadFailedError,
+} from './upload-errors';
 
 /** Parts in flight at once, per file. */
 export const PART_CONCURRENCY = 4;
@@ -43,7 +48,7 @@ async function call<T>(method: string, url: string, json?: unknown): Promise<T> 
   if (!result.ok) {
     throw new UploadFailedError(
       result.status === NETWORK_FAILURE ? undefined : result.status,
-      parseFailureReason(JSON.stringify(result.error)),
+      reasonFromBody(result.error),
     );
   }
   return result.data;

@@ -27,9 +27,10 @@ export function ErrorShell({ children }: { children: ReactNode }) {
     Boolean(props.auth?.isAuthenticated) &&
     Array.isArray(props.menus?.adminSidebar) &&
     props.menus.adminSidebar.length > 0;
-  // Outside /admin, a signed-in viewer's unknown-URL 404 keeps the app layout
-  // too (#575). Needs a menu: without shared props there is nothing
-  // to render, and an anonymous visitor has no app to stay in.
+  // Outside /admin, a signed-in viewer's error page (404, 403, 5xx alike) keeps
+  // the app layout too (#575), consistent with the admin shell. Needs a menu:
+  // without shared props there is nothing to render, and an anonymous visitor
+  // has no app to stay in.
   const inAppShell =
     !isAdminPath(page.url) &&
     Boolean(props.auth?.isAuthenticated) &&

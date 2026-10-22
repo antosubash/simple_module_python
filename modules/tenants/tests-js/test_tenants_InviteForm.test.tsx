@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { configureI18n } from '@simple-module-py/i18n';
+import { configureI18n, keys } from '@simple-module-py/i18n';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -58,4 +58,26 @@ test('an invalid email shows a translated inline error and sends nothing (#575)'
   await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
   expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument();
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test('a server error is not flagged on the email field; a client error clears on edit', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    new Response(JSON.stringify({ detail: 'already_member' }), { status: 409 }),
+  );
+  render(<InviteForm onInvited={vi.fn()} />);
+  const input = screen.getByLabelText('Email');
+  await userEvent.type(input, 'friend@example.com');
+  await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+  await screen.findByText(keys.tenants.errors.already_member);
+  expect(input).not.toHaveAttribute('aria-invalid');
+
+  await userEvent.clear(input);
+  await userEvent.type(input, 'notanemail');
+  await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+  expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument();
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+
+  await userEvent.type(input, 'x');
+  expect(screen.queryByText('Enter a valid email address.')).not.toBeInTheDocument();
+  expect(input).not.toHaveAttribute('aria-invalid');
 });

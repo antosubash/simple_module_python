@@ -15,7 +15,7 @@ All notable changes to this project are documented in this file. The format is b
 - Retained logs: a NUL character no longer drops the whole log batch on Postgres.
 - UX polish (#575): `/tenants/settings` shows translated labels instead of raw keys
   (`SettingDefinition.label_key` / `TenantSettingView.label_key`, set by `branding`; en + de);
-  a signed-in 404 for an unknown URL keeps the app layout (sidebar, user menu); the tenant
+  signed-in error pages outside `/admin` (e.g. a 404 for an unknown URL) keep the app layout (sidebar, user menu); the tenant
   invite form shows a translated inline error for an invalid email instead of the browser's
   silent native validation.
 

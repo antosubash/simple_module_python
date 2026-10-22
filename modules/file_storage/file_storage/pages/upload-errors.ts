@@ -14,6 +14,11 @@ export function parseFailureReason(body: string): string | undefined {
   } catch {
     return undefined;
   }
+  return reasonFromBody(parsed);
+}
+
+/** `parseFailureReason` for a body that is already parsed (the API client's `error`). */
+export function reasonFromBody(parsed: unknown): string | undefined {
   const detail = (parsed as { detail?: unknown } | null)?.detail;
   if (typeof detail === 'string') return detail || undefined;
   const message = (detail as { message?: unknown } | null)?.message;

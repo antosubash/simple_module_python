@@ -48,14 +48,17 @@ export function WorkerHealthBanner({ backlog }: Props) {
       setState(null);
       return;
     }
-    let live = true;
-    apiResult(api.GET('/api/background_tasks/admin/workers')).then((result) => {
-      // Offline, forbidden or unmounted — say nothing rather than guess.
-      if (live && result.ok) setState(diagnose(result.data as WorkerSnapshot));
-    });
-    return () => {
-      live = false;
-    };
+    const controller = new AbortController();
+    apiResult(api.GET('/api/background_tasks/admin/workers', { signal: controller.signal })).then(
+      (result) => {
+        // Offline, forbidden or unmounted — say nothing rather than guess.
+        if (!controller.signal.aborted && result.ok) {
+          setState(diagnose(result.data as WorkerSnapshot));
+        }
+      },
+    );
+    // Unmount or a changed backlog cancels the slow broker probe in flight.
+    return () => controller.abort();
   }, [backlog]);
 
   if (!state) return null;
