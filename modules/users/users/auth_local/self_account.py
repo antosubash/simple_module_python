@@ -29,7 +29,7 @@ from users.db_adapter import get_access_token_db
 from users.deps import fastapi_users, get_user_manager
 from users.manager import UserManager
 from users.models import RefreshToken, UserAccessToken
-from users.session_revocation import publish_revocation
+from users.session_revocation import bump_session_version, publish_revocation
 
 router = APIRouter()
 
@@ -93,10 +93,7 @@ async def change_my_password(
     except fu_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from exc
 
-    # ``user`` is attached to this request's session (``get_user_db`` takes the
-    # same ``get_db``), so assigning is enough to mark it written — a Core
-    # UPDATE would be rolled back as a read-only request.
-    user.session_version = int(user.session_version or 0) + 1
+    await bump_session_version(db, user)
     request.session[SESSION_VERSION_KEY] = user.session_version
     # Every worker caches the counter; without this they would keep honouring
     # the sessions this change was meant to strand. Hung on the commit rather
@@ -168,12 +165,7 @@ async def revoke_all_my_sessions(
     session that ordered the revocation as the exception to it.
     """
     now = datetime.now(UTC)
-    # Bumped through the ORM rather than as a bulk UPDATE: a Core statement
-    # does not mark the request session as written, so ``get_db`` would treat
-    # this handler as read-only and roll the whole revocation back. ``user``
-    # is already attached to this session — ``get_user_db`` takes the same
-    # ``get_db`` dependency — so the assignment is enough.
-    user.session_version = int(user.session_version or 0) + 1
+    await bump_session_version(db, user)
     # See the password change: the cached counter has to go with the bump, or
     # the workers keep letting the sessions this just revoked back in — and it
     # has to go *after* the commit, or a rollback restores the old counter

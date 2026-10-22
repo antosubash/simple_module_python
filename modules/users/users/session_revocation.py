@@ -20,18 +20,39 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
+from users.models import User
 from users.session_version_cache import clear_session_version_cache, forget_session_version
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from simple_module_core.invalidation import Invalidation, InvalidationBus
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["CHANNEL", "apply_invalidation", "publish_revocation", "subscribe"]
+__all__ = [
+    "CHANNEL",
+    "apply_invalidation",
+    "bump_session_version",
+    "publish_revocation",
+    "subscribe",
+]
 
 CHANNEL = "users.session_version"
 """Carries one account's user id, or ``None`` for "forget every account"."""
+
+
+async def bump_session_version(db: AsyncSession, user: User) -> None:
+    """Increment in SQL, then load the counter for session/token minting.
+
+    The ORM assignment marks the request as written. A Python increment would
+    lose a revocation when two requests loaded the same old counter.
+    """
+    user.session_version = User.session_version + 1
+    await db.flush()
+    # SQL expressions expire the attribute on flush; async callers must not
+    # trigger implicit IO when they read the new counter later in the request.
+    await db.refresh(user, attribute_names=["session_version"])
 
 
 def _cache_key(key: str):

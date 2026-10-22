@@ -210,7 +210,7 @@ class UserService(_UserServiceBase):
         user = await self._require_user(user_id)
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
-        self._revoke_sessions(user)
+        await self._revoke_sessions(user)
         # Refresh tokens are spent too, so re-enabling the account later does not
         # revive credentials issued before it was disabled (as the self-service
         # "sign out everywhere" does).
@@ -226,7 +226,7 @@ class UserService(_UserServiceBase):
         user = await self._require_user(user_id)
         user.disabled_at = None
         user.is_active = True
-        self._revoke_sessions(user)
+        await self._revoke_sessions(user)
         await self._db.flush()
         return user
 
@@ -269,7 +269,7 @@ class UserService(_UserServiceBase):
                 )
             )
 
-        self._revoke_sessions(user)
+        await self._revoke_sessions(user)
         await self._db.flush()
         await self._db.refresh(user, attribute_names=["roles"])
         return user

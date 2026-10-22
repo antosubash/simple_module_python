@@ -18,7 +18,7 @@ from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
-from users.session_revocation import publish_revocation
+from users.session_revocation import bump_session_version, publish_revocation
 from users.session_version_cache import forget_session_version
 
 
@@ -44,9 +44,9 @@ class _UserServiceBase:
         self._manager = user_manager
         self._app = app
 
-    def _revoke_sessions(self, user: User) -> None:
+    async def _revoke_sessions(self, user: User) -> None:
         """Persist the counter with the write; evict only after it commits."""
-        user.session_version = int(user.session_version or 0) + 1
+        await bump_session_version(self._db, user)
         user_id = user.id
         app = self._app
         if app is None:
