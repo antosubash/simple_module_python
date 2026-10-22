@@ -98,6 +98,7 @@ def register_tenant_definitions(app: FastAPI) -> None:
                 default=str(defaults[name]),
                 description=_DESCRIPTIONS[name],
                 description_key=f"{PACKAGE}.tenant_settings.{name}",
+                label_key=f"{PACKAGE}.tenant_setting_labels.{name}",
                 tenant_overridable=True,
                 check=_make_check(name),
                 upload_url=upload_url,

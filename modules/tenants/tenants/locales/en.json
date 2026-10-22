@@ -67,6 +67,7 @@
     "invite_title": "Invite someone",
     "invite_email_label": "Email",
     "invite_email_placeholder": "person@example.com",
+    "invite_email_invalid": "Enter a valid email address.",
     "invite_role_label": "Role",
     "invite_submit": "Send invitation",
     "invite_submitting": "Sending…",

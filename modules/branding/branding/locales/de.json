@@ -64,5 +64,14 @@
     "logo_dark_file_id": "Logo für dunkle Oberflächen; verwendet ersatzweise das eigene Logo dieser Organisation.",
     "favicon_file_id": "Symbol für den Browser-Tab."
   },
+  "tenant_setting_labels": {
+    "app_name": "Anwendungsname",
+    "primary_color": "Primärfarbe",
+    "design_pack": "Design-Paket",
+    "footer_text": "Fußzeilentext",
+    "logo_file_id": "Logo",
+    "logo_dark_file_id": "Logo (dunkle Flächen)",
+    "favicon_file_id": "Favicon"
+  },
   "permission_group": "Branding"
 }

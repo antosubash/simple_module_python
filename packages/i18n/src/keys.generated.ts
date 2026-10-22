@@ -471,6 +471,15 @@ export const keys = {
       branding: 'branding.nav.branding',
     },
     permission_group: 'branding.permission_group',
+    tenant_setting_labels: {
+      app_name: 'branding.tenant_setting_labels.app_name',
+      design_pack: 'branding.tenant_setting_labels.design_pack',
+      favicon_file_id: 'branding.tenant_setting_labels.favicon_file_id',
+      footer_text: 'branding.tenant_setting_labels.footer_text',
+      logo_dark_file_id: 'branding.tenant_setting_labels.logo_dark_file_id',
+      logo_file_id: 'branding.tenant_setting_labels.logo_file_id',
+      primary_color: 'branding.tenant_setting_labels.primary_color',
+    },
     tenant_settings: {
       app_name: 'branding.tenant_settings.app_name',
       design_pack: 'branding.tenant_settings.design_pack',
@@ -1207,6 +1216,7 @@ export const keys = {
     members: {
       description: 'tenants.members.description',
       head_title: 'tenants.members.head_title',
+      invite_email_invalid: 'tenants.members.invite_email_invalid',
       invite_email_label: 'tenants.members.invite_email_label',
       invite_email_placeholder: 'tenants.members.invite_email_placeholder',
       invite_emailed: 'tenants.members.invite_emailed',

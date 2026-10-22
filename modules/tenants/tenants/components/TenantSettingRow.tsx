@@ -21,6 +21,8 @@ export interface TenantSetting {
   /** i18n key for `description`, owned by the module that declared the key;
    * `description` (English) is the fallback when it is unset or missing. */
   description_key?: string;
+  /** i18n key for the row title, same rule; the raw `key` is the fallback. */
+  label_key?: string;
 }
 
 interface Props {
@@ -42,6 +44,9 @@ export function TenantSettingRow({ setting, onChanged }: Props) {
   const description = setting.description_key
     ? t(setting.description_key as never, { defaultValue: setting.description })
     : setting.description;
+  const label = setting.label_key
+    ? t(setting.label_key as never, { defaultValue: setting.key })
+    : setting.key;
   const inputId = `tenant-setting-${setting.key}`;
 
   async function send(method: 'PUT' | 'DELETE') {
@@ -65,8 +70,8 @@ export function TenantSettingRow({ setting, onChanged }: Props) {
   return (
     <div className="space-y-2 px-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Label htmlFor={inputId} className="font-mono text-sm">
-          {setting.key}
+        <Label htmlFor={inputId} className="text-sm">
+          {label}
         </Label>
         <Badge variant={overridden ? 'default' : 'secondary'}>
           {t(overridden ? keys.tenants.settings.overridden : keys.tenants.settings.inherited)}

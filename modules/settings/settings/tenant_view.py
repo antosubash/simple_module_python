@@ -32,6 +32,8 @@ class TenantSettingView(SQLModel):
     """Set for a file-id key: upload here (POST) / clear here (DELETE)."""
     description_key: str = ""
     """i18n key for ``description``; the client falls back to ``description``."""
+    label_key: str = ""
+    """i18n key for the row title; the client falls back to ``key``."""
 
 
 def _shown(key: str, value: str | None, value_type: str) -> str | None:
@@ -74,6 +76,7 @@ async def list_for_tenant(
                 or "",
                 upload_url=d.upload_url,
                 description_key=d.description_key,
+                label_key=d.label_key,
             )
         )
     return views
