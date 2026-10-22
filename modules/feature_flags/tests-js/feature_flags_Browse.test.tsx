@@ -1,5 +1,6 @@
 import { configureI18n, keys } from '@simple-module-py/i18n';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -65,7 +66,7 @@ describe('feature_flags Browse', () => {
   });
 
   it('renders every flag with its description and override badge', () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.getByText('beta_search')).toBeInTheDocument();
     expect(screen.getByText('dark_mode')).toBeInTheDocument();
     expect(screen.getByText('Dark theme')).toBeInTheDocument();
@@ -74,35 +75,35 @@ describe('feature_flags Browse', () => {
 
   it('shows the empty state when no module registers flags', () => {
     setProps({ flags: [] });
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.getByText(browse.empty_title)).toBeInTheDocument();
   });
 
   it('links to the audit history only when an audit log is installed', () => {
-    const { unmount } = render(<Browse />);
+    const { unmount } = render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.queryByText(browse.view_history)).toBeNull();
     unmount();
     setProps({ audit_log_url: '/admin/audit?x=1' });
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.getByText(browse.view_history)).toHaveAttribute('href', '/admin/audit?x=1');
   });
 
   it('makes the switches read-only without the manage permission', () => {
     setProps({}, []);
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.getByRole('switch', { name: 'beta_search' })).toBeDisabled();
     expect(screen.queryByText(table.clear_override)).toBeNull();
   });
 
   it('stages a toggle behind a confirm and writes nothing until confirmed', async () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('switch', { name: 'beta_search' }));
     expect(await screen.findByText(confirm.scope_system)).toBeInTheDocument();
     expect(post).not.toHaveBeenCalled();
   });
 
   it('cancelling the confirm leaves the flag and the server untouched', async () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('switch', { name: 'beta_search' }));
     fireEvent.click(await screen.findByRole('button', { name: confirm.cancel }));
     await waitFor(() => expect(screen.queryByText(confirm.scope_system)).toBeNull());
@@ -111,7 +112,7 @@ describe('feature_flags Browse', () => {
   });
 
   it('enables a flag on confirm, posting enabled=true to the system scope', async () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('switch', { name: 'beta_search' }));
     fireEvent.click(await screen.findByRole('button', { name: confirm.enable_action }));
 
@@ -125,7 +126,7 @@ describe('feature_flags Browse', () => {
   });
 
   it('disables a flag on confirm and toasts a failure from the server', async () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('switch', { name: 'dark_mode' }));
     fireEvent.click(await screen.findByRole('button', { name: confirm.disable_action }));
 
@@ -139,7 +140,7 @@ describe('feature_flags Browse', () => {
 
   it('scopes the toggle URL and the confirm text to the viewed tenant', async () => {
     setProps({ tenant_id: 'acme corp' });
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('switch', { name: 'beta_search' }));
     expect(await screen.findByText(confirm.scope_tenant)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: confirm.enable_action }));
@@ -149,7 +150,7 @@ describe('feature_flags Browse', () => {
   });
 
   it('clears an override without a confirm and reports the result', () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getAllByText(table.clear_override)[0]);
     const [url, data, options] = post.mock.calls[0] as [string, unknown, PostOptions];
     expect(url).toBe('/admin/feature-flags/dark_mode/clear');
@@ -161,27 +162,27 @@ describe('feature_flags Browse', () => {
   });
 
   it('explains which value a non-overridden flag follows', () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.getAllByText(table.following_default).length).toBeGreaterThan(0);
     cleanup();
     setProps({ tenant_id: 'acme' });
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     expect(screen.getAllByText(table.following_system).length).toBeGreaterThan(0);
   });
 
   it('switches scope by visiting the tenant URL, or the system URL', () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('radio', { name: 'acme' }));
     expect(visit).toHaveBeenCalledWith('/admin/feature-flags/?tenant_id=acme');
     cleanup();
     setProps({ tenant_id: 'acme' });
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('radio', { name: browse.scope_system }));
     expect(visit).toHaveBeenLastCalledWith('/admin/feature-flags/');
   });
 
   it('lets an operator name a tenant with no overrides yet', () => {
-    render(<Browse />);
+    render(<Browse {...(state.props as ComponentProps<typeof Browse>)} />);
     fireEvent.click(screen.getByRole('radio', { name: browse.scope_custom }));
     const go = screen.getByRole('button', { name: browse.go });
     expect(go).toBeDisabled();

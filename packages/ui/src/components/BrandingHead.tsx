@@ -1,8 +1,8 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
+import { usePageProps } from '../hooks/usePageProps';
 import { setTitleAppName } from '../lib/app-title';
 import { deriveBrandRamp } from '../lib/color';
-import type { SharedProps } from '../types';
 
 /**
  * Applies branding that lives in the document head / root, on every page:
@@ -23,7 +23,7 @@ import type { SharedProps } from '../types';
  * Reads the `branding` shared prop, so it stays reactive across navigation.
  */
 export function BrandingHead(): React.ReactElement | null {
-  const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { branding } = usePageProps();
   const primaryColor = branding?.primaryColor ?? null;
   const faviconUrl = branding?.faviconUrl ?? null;
   const appName = branding?.appName ?? null;

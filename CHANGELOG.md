@@ -116,6 +116,12 @@ All notable changes to this project are documented in this file. The format is b
 - tenants and api_tokens pages call their APIs through the typed client and take
   typed component props (#504). **Behaviour change:** the api_tokens pages no longer
   receive the unused `api_url` prop.
+- Typed page props (#505): `@simple-module-py/ui` registers `SharedProps` (now including `i18n`) with
+  Inertia, so `usePage().props.auth` is typed, and exports `usePageProps<T>()` for components and
+  layouts. Pages take typed component arguments. The `as unknown as` casts in module pages, `packages/ui`
+  and `host/client_app` are gone, and `make lint` / CI reject new ones (`ci-check-no-double-cast`)
+  unless marked `// cast-ok: <reason>`. `docs/frontend/shared-props.md` and the
+  `simple-module-inertia-pages` skill no longer teach the cast.
 - **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
   signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all

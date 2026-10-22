@@ -1,9 +1,8 @@
-import { usePage } from '@inertiajs/react';
 import { Check } from 'lucide-react';
 import type React from 'react';
 import { BrandingMark } from '../components/BrandingMark';
+import { usePageProps } from '../hooks/usePageProps';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, darkSurfaceLogo } from '../lib/brand';
-import type { SharedProps } from '../types';
 
 /** Stable for the lifetime of the bundle — the year only matters at page load. */
 const YEAR = new Date().getFullYear();
@@ -24,7 +23,7 @@ interface AuthSplitAsideProps {
  * the words belong to the page's own catalog.
  */
 export function AuthSplitAside({ heading, body, checks }: AuthSplitAsideProps): React.ReactElement {
-  const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { branding } = usePageProps();
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
 
   return (

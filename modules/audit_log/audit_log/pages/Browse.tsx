@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
@@ -63,20 +63,17 @@ function queryFor(
   return new URLSearchParams(p);
 }
 
-function Browse() {
-  const {
-    items,
-    total,
-    page,
-    page_size,
-    entity_types,
-    tenant_ids,
-    platform_tenant_value,
-    export_url,
-    filters,
-  } = usePage<{
-    props: Props;
-  }>().props as unknown as Props;
+function Browse({
+  items,
+  total,
+  page,
+  page_size,
+  entity_types,
+  tenant_ids,
+  platform_tenant_value,
+  export_url,
+  filters,
+}: Props) {
   const { t } = useT();
 
   const [state, setState] = useState<FilterState>({

@@ -19,6 +19,7 @@ export { StatCard } from './components/StatCard';
 export { useApiErrorToast } from './hooks/use-api-error-toast';
 export { useOnline } from './hooks/use-online';
 export { useRelativeTime } from './hooks/use-relative-time';
+export { type PageProps, usePageProps } from './hooks/usePageProps';
 export { AdminLayout } from './layouts/AdminLayout';
 export { AppLayout } from './layouts/AppLayout';
 export { AuthCardShell } from './layouts/AuthCardShell';
@@ -61,4 +62,4 @@ export {
   type ThemePreference,
 } from './lib/theme';
 export { TONE, type Tone } from './lib/tone';
-export type { MenuItem, SharedProps } from './types';
+export type { I18nSharedProps, MenuItem, SharedProps } from './types';

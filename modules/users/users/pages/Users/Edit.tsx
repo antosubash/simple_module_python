@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
@@ -40,14 +40,13 @@ function joinedMonth(value: string | null): string {
  * about what can be changed. Status changes (disable/enable, mark verified)
  * stay immediate on purpose: they are actions, not edits.
  */
-function Edit() {
-  const {
-    user,
-    roles,
-    has_permissions_module,
-    recent_activity: recentActivity,
-    auth,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+function Edit({
+  user,
+  roles,
+  has_permissions_module,
+  recent_activity: recentActivity,
+  auth,
+}: Props) {
   const { t } = useT();
   const { ago } = useRelativeTime();
   const isSelf = auth?.user?.id === user.id;

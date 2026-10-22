@@ -37,6 +37,8 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 | `menus` | `{ sidebar, adminSidebar, navbar, userDropdown }` | All modules' `register_menu_items()` output, auth/role-filtered |
 | `i18n` | `{ locale, supportedLocales, messages }` | Active locale (`request.state.locale`) + flattened message bundle for that locale (`messages` is `null` on Inertia XHR partials when the locale is unchanged) |
 
+**Typing them in TSX.** A page receives its own props as typed component arguments (`export default function Browse({ items }: Props)`). Shared props are typed globally: `usePage().props.auth` is already a `SharedProps['auth']`. Components and layouts that need page props too use `usePageProps<Props>()` from `@simple-module-py/ui` (it returns `Props & SharedProps & { errors }`). Never write `usePage<{ props: X }>().props as unknown as X`; `make lint` rejects `as unknown as` outside tests unless the line carries `// cast-ok: <reason>`.
+
 **`auth.user` is `None` when no `principal_serializer` is registered**, even if the user is authenticated. The framework can't know the shape of your user object. The `auth` module registers the callable during `register_settings(app)` (`modules/auth/auth/module.py`):
 
 ```python
@@ -94,7 +96,7 @@ The typed client (#504):
 - **One result shape.** `apiResult(...)` resolves to `{ ok, status, data, detail, fieldErrors, error }`: `detail` is the server's string `detail` (a message or a stable code), `fieldErrors` maps a 422's last `loc` element to its `msg`, and a network failure is `status: 0` — it never throws. `useApiErrorToast(fallbackKey)` toasts `detail ?? t(fallbackKey)`.
 - **CSRF is automatic.** Signed-in sessions get a `csrfToken` shared prop; the client sends it as `X-CSRF-Token` on POST/PUT/PATCH/DELETE to the same origin, so `RequiresCsrf` routes just work. Anonymous pages get no token.
 - **Off-schema calls** (another module's route, a server-supplied URL, multipart uploads, `/setup/*`) use `apiFetch<T>(url, { method, json })` — same conventions and result shape, untyped.
-- **Page props are component args**: `export default function Browse({ items }: Props)` — not `usePage().props as unknown as Props`. Reuse generated DTOs: `type Item = components["schemas"]["OrderOut"]`.
+- **Reuse generated DTOs** for prop types: `type Item = components["schemas"]["OrderOut"]` (see *Typing them in TSX* above for how props are typed).
 
 ## Other gotchas
 
