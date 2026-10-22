@@ -16,31 +16,22 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.cors import WILDCARD as CORS_WILDCARD
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
-from simple_module_core.stored_settings import RELATED_FIELDS_CTX
 
+from simple_module_hosting import _host_settings_support as v
 from simple_module_hosting._api_version import default_api_version as _default_api_version
-
-# Marks a field the running process cannot pick up without a restart, so the
-# admin UI can say so rather than letting the edit look like it took effect.
-_RESTART_DB = {"requires_restart": True, "group": "Database"}
-_RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
-_RESTART_CORS = {"requires_restart": True, "group": "CORS"}
-_RESTART_API = {"requires_restart": True, "group": "API"}
-
-# Consumed while create_app builds the tenant middleware, the strict tenant
-# filter, the i18n registry and LocaleMiddleware, the auth provider and the
-# public-route registry, the proxy middleware and logging — none of which the
-# lifespan hydration can rebuild (#499). test_build_time_settings_marked keeps
-# this in step with what create_app actually reads.
-_RESTART_TENANCY = {"requires_restart": True, "group": "Tenancy"}
-_RESTART_I18N = {"requires_restart": True, "group": "Localization"}
-_RESTART_AUTH = {"requires_restart": True, "group": "Authentication"}
-_RESTART_LOGGING = {"requires_restart": True, "group": "Logging"}
-_RESTART_SECURITY = {"requires_restart": True, "group": "Security"}
+from simple_module_hosting._host_settings_support import (
+    _RESTART_API,
+    _RESTART_AUTH,
+    _RESTART_CORS,
+    _RESTART_DB,
+    _RESTART_GUARD,
+    _RESTART_I18N,
+    _RESTART_LOGGING,
+    _RESTART_SECURITY,
+    _RESTART_TENANCY,
+)
 
 
 class HostSettings(BaseSettings):
@@ -195,39 +186,22 @@ class HostSettings(BaseSettings):
     @field_validator("public_base_url", mode="after")
     @classmethod
     def _check_public_base_url(cls, value: str) -> str:
-        from urllib.parse import urlsplit
-
-        value = value.strip().rstrip("/")
-        parts = urlsplit(value)
-        if value and not (parts.scheme in ("http", "https") and parts.netloc):
-            raise ValueError(
-                "public_base_url must be an http(s) origin such as https://example.org"
-            )
-        return value
+        return v.check_public_base_url(value)
 
     @field_validator("rate_limit_public", "rate_limit_authenticated", mode="after")
     @classmethod
     def _check_rate(cls, value: str) -> str:
-        from simple_module_core.rate_limit import parse_rate
-
-        parse_rate(value)  # raises RateLimitError (a ValueError) on a typo
-        return value.strip()
+        return v.check_rate(value)
 
     @field_validator("native_link_prefixes", mode="after")
     @classmethod
     def _check_native_prefixes(cls, value: list[str]) -> list[str]:
-        cleaned = [prefix.strip() for prefix in value]
-        for prefix in cleaned:
-            if not prefix.startswith("/"):
-                raise ValueError(f"native_link_prefixes entry {prefix!r} must start with '/'")
-        return cleaned
+        return v.check_native_prefixes(value)
 
     @field_validator("max_request_body_bytes", mode="after")
     @classmethod
     def _check_body_bytes(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError("max_request_body_bytes must be >= 0 (0 disables the guard)")
-        return value
+        return v.check_body_bytes(value)
 
     @field_validator("auth_provider", mode="after")
     @classmethod
@@ -240,7 +214,7 @@ class HostSettings(BaseSettings):
         ``resolve_auth_provider``, which already falls back on blank — without
         this they and the host would disagree about the active provider.
         """
-        return value.strip() or DEFAULT_AUTH_PROVIDER
+        return v.normalize_auth_provider(value)
 
     @field_validator("trusted_proxy", mode="after")
     @classmethod
@@ -253,45 +227,19 @@ class HostSettings(BaseSettings):
         client — re-introducing GH #223 with no error. Blank → ``None`` so the
         middleware isn't installed at all.
         """
-        if value is None:
-            return None
-        return value.strip() or None
+        return v.normalize_trusted_proxy(value)
 
     @field_validator("default_tenant", mode="after")
     @classmethod
     def _check_default_tenant(cls, value: str) -> str:
-        from simple_module_db import PLATFORM_TENANT_ID, is_valid_tenant_id
-
-        value = value.strip()
-        if value == PLATFORM_TENANT_ID:
-            raise ValueError(f"default_tenant {value!r} is reserved for platform-owned rows")
-        if value and not is_valid_tenant_id(value):
-            raise ValueError(f"default_tenant {value!r} is not a valid tenant id")
-        return value
+        return v.check_default_tenant(value)
 
     @model_validator(mode="after")
     def _check_cors_wildcard(self) -> HostSettings:
-        if self.cors_allow_credentials and CORS_WILDCARD in self.cors_allow_origins:
-            raise PydanticCustomError(
-                "cors_wildcard_credentials",
-                "cors_allow_origins '*' cannot be combined with cors_allow_credentials",
-                {RELATED_FIELDS_CTX: ["cors_allow_origins", "cors_allow_credentials"]},
-            )
+        v.check_cors_wildcard(self)
         return self
 
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> HostSettings:
-        if self.i18n_default_locale not in self.i18n_supported_locales:
-            # Model-level, so the error has no field location: the context
-            # names both halves, letting lenient boot hydration drop whichever
-            # one came from the DB instead of refusing to boot (#497).
-            raise PydanticCustomError(
-                "default_locale_unsupported",
-                "i18n_default_locale '{default}' is not in i18n_supported_locales {supported}",
-                {
-                    "default": self.i18n_default_locale,
-                    "supported": self.i18n_supported_locales,
-                    RELATED_FIELDS_CTX: ["i18n_default_locale", "i18n_supported_locales"],
-                },
-            )
+        v.check_default_locale_supported(self)
         return self
