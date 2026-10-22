@@ -112,6 +112,11 @@ export const keys = {
   },
   audit_log: {
     actions: {
+      bulk_deleted: 'audit_log.actions.bulk_deleted',
+      bulk_inserted: 'audit_log.actions.bulk_inserted',
+      bulk_restored: 'audit_log.actions.bulk_restored',
+      bulk_soft_deleted: 'audit_log.actions.bulk_soft_deleted',
+      bulk_updated: 'audit_log.actions.bulk_updated',
       created: 'audit_log.actions.created',
       deleted: 'audit_log.actions.deleted',
       soft_deleted: 'audit_log.actions.soft_deleted',
@@ -1080,6 +1085,39 @@ export const keys = {
       int: 'settings.value_types_short.int',
       json: 'settings.value_types_short.json',
       string: 'settings.value_types_short.string',
+    },
+  },
+  sharing: {
+    admin: {
+      description: 'sharing.admin.description',
+      tenant_required: 'sharing.admin.tenant_required',
+      title: 'sharing.admin.title',
+    },
+    audit: {
+      share: 'sharing.audit.share',
+    },
+    list: {
+      actions: 'sharing.list.actions',
+      empty_description: 'sharing.list.empty_description',
+      empty_title: 'sharing.list.empty_title',
+      expired: 'sharing.list.expired',
+      expires: 'sharing.list.expires',
+      granted_by: 'sharing.list.granted_by',
+      never: 'sharing.list.never',
+      resource: 'sharing.list.resource',
+      revoke: 'sharing.list.revoke',
+      role: 'sharing.list.role',
+      subject: 'sharing.list.subject',
+    },
+    nav: {
+      title: 'sharing.nav.title',
+    },
+    permission_group: 'sharing.permission_group',
+    revoke: {
+      cancel: 'sharing.revoke.cancel',
+      confirm: 'sharing.revoke.confirm',
+      description: 'sharing.revoke.description',
+      title: 'sharing.revoke.title',
     },
   },
   tenants: {

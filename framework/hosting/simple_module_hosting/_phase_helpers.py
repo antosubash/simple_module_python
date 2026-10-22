@@ -39,6 +39,7 @@ from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._module_routes import wire_module_routes
 from simple_module_hosting._rate_limit import RateLimitMiddleware
 from simple_module_hosting._route_access import API_PREFIX
+from simple_module_hosting._spa_mount import mount_spa_mounts
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -273,11 +274,7 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
 
 
 def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
-    """Mount each module's declared static directories.
-
-    Modules typically expose ``/modules/<name>/static`` for pre-bundled
-    frontend assets shipped inside the wheel.
-    """
+    """Mount each module's static directories (``/modules/<name>/static``) and SPA mounts."""
     for mod in modules:
         for url_prefix, directory in mod.static_mounts().items():
             directory_path = Path(directory)
@@ -294,6 +291,7 @@ def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
                 StaticFiles(directory=directory_path),
                 name=f"static:{mod.meta.name}",
             )
+    mount_spa_mounts(app, modules)
 
 
 __all__ = ["wire_module_routes"]

@@ -1,0 +1,166 @@
+"""Bulk audit reads only a statement's own targets, and catches every soft-delete shape (#557).
+
+Regressions from the security review: excluded columns leaked through the
+execute params, and an ``is_deleted`` write that was not literally ``True``
+(SQL, a truthy int, an executemany row, a restore) went unrecorded and so
+also escaped ``refuse_unaudited_dml``.
+"""
+
+from __future__ import annotations
+
+import pytest
+from _audit_models import AuditTestItem, PartialExcludeModel, SecretSoftItem, SoftDeleteItem
+from simple_module_db import UnauditedWriteError
+from sqlalchemy import bindparam, insert, select, true, update
+
+
+async def _seed(session, recorder, *rows) -> list[int]:
+    session.add_all(rows)
+    await session.flush()
+    recorder.records.clear()
+    return [row.id for row in rows]
+
+
+async def test_excluded_and_stray_params_never_reach_changes(audited):
+    _state, session, recorder = audited
+    await _seed(session, recorder, PartialExcludeModel(username="u"))
+    stmt = update(PartialExcludeModel).values(username=bindparam("u"))
+    await session.execute(stmt, {"u": "v", "password_hash": "leak", "extra": "leak"})
+    assert [r.changes for r in recorder.records] == [[{"field": "username", "new": "v"}]]
+
+
+async def test_excluded_only_writes_through_params_or_core_keys_are_skipped(audited):
+    _state, session, recorder = audited
+    (pid,) = await _seed(session, recorder, PartialExcludeModel(username="u"))
+    table = PartialExcludeModel.__table__
+    await session.execute(update(table).values({table.c.password_hash: "h"}))
+    await session.execute(update(PartialExcludeModel), [{"id": pid, "password_hash": "h"}])
+    assert recorder.records == []
+
+
+async def test_a_column_param_beside_an_excluded_value_is_still_audited(audited):
+    _state, session, recorder = audited
+    await _seed(session, recorder, PartialExcludeModel(username="u"))
+    stmt = update(PartialExcludeModel).values(password_hash=bindparam("p"))
+    await session.execute(stmt, {"p": "h", "username": "hidden?"})
+    rows = (await session.execute(select(PartialExcludeModel.username))).scalars().all()
+    assert rows == ["hidden?"]  # SQLAlchemy writes it, so the trail must show it
+    assert [r.changes for r in recorder.records] == [[{"field": "username", "new": "hidden?"}]]
+
+
+@pytest.mark.parametrize(
+    ("value", "params"),
+    [(true(), None), (1, None), (bindparam("d"), {"d": True})],
+    ids=["sql-true", "truthy-int", "bound-param"],
+)
+async def test_soft_delete_shapes_are_recorded(audited, value, params):
+    _state, session, recorder = audited
+    await _seed(session, recorder, SoftDeleteItem(title="t"))
+    await session.execute(update(SoftDeleteItem).values(is_deleted=value), params)
+    assert [r.action for r in recorder.records] == ["bulk_soft_deleted"]
+
+
+async def test_executemany_soft_delete_and_restore(audited):
+    _state, session, recorder = audited
+    (sid,) = await _seed(session, recorder, SoftDeleteItem(title="t"))
+    await session.execute(update(SoftDeleteItem), [{"id": sid, "is_deleted": True}])
+    await session.execute(update(SoftDeleteItem), [{"id": sid, "is_deleted": False}])
+    await session.execute(update(SoftDeleteItem).values(is_deleted=False))
+    assert [r.action for r in recorder.records] == [
+        "bulk_soft_deleted",
+        "bulk_restored",
+        "bulk_restored",
+    ]
+
+
+async def test_primary_key_change_is_recorded(audited):
+    _state, session, recorder = audited
+    (iid,) = await _seed(session, recorder, AuditTestItem(name="pk"))
+    await session.execute(update(AuditTestItem).where(AuditTestItem.id == iid).values(id=9999))
+    assert [(r.action, r.changes) for r in recorder.records] == [
+        ("bulk_updated", [{"field": "id", "new": 9999}])
+    ]
+
+
+@pytest.mark.parametrize(
+    "stmt",
+    [
+        update(SoftDeleteItem).values(is_deleted=true()),
+        update(SoftDeleteItem).values(is_deleted=False),
+        update(AuditTestItem).values(id=9999),
+    ],
+    ids=["soft-delete", "restore", "pk-change"],
+)
+async def test_strict_mode_refuses_flag_and_pk_writes(audited, stmt):
+    state, session, _recorder = audited
+    state.refuse_unaudited_dml = True
+    with pytest.raises(UnauditedWriteError):
+        await session.execute(stmt.execution_options(sm_audit=False))
+
+
+async def test_soft_delete_with_other_columns_keeps_their_changes(audited):
+    _state, session, recorder = audited
+    await _seed(session, recorder, SoftDeleteItem(title="t"))
+    await session.execute(update(SoftDeleteItem).values(is_deleted=True, title="gone"))
+    assert [(r.action, r.changes) for r in recorder.records] == [
+        ("bulk_soft_deleted", [{"field": "title", "new": "gone"}])
+    ]
+
+
+async def test_executemany_rows_that_disagree_get_their_own_actions(audited):
+    _state, session, recorder = audited
+    a, b = await _seed(session, recorder, SoftDeleteItem(title="a"), SoftDeleteItem(title="b"))
+    rows = [{"id": a, "is_deleted": True}, {"id": b, "is_deleted": False}]
+    await session.execute(update(SoftDeleteItem), rows)
+    assert [(r.entity_id, r.action) for r in recorder.records] == [
+        (str(a), "bulk_soft_deleted"),
+        (str(b), "bulk_restored"),
+    ]
+
+
+def _core_executemany(value_key: str):
+    table = PartialExcludeModel.__table__
+    stmt = update(table).where(table.c.id == bindparam("b_id"))
+    return stmt.values({value_key: bindparam("b_v")})
+
+
+async def test_executemany_unions_statement_values_and_column_params(audited):
+    _state, session, recorder = audited
+    (pid,) = await _seed(session, recorder, PartialExcludeModel(username="u"))
+    await session.execute(_core_executemany("username"), [{"b_id": pid, "b_v": "x"}])
+    hidden = [{"b_id": pid, "b_v": "h", "username": "y"}]
+    await session.execute(_core_executemany("password_hash"), hidden)
+    excluded_only = [{"b_id": pid, "b_v": "h2"}]
+    await session.execute(_core_executemany("password_hash"), excluded_only)
+    assert [(r.action, r.changes[:1]) for r in recorder.records] == [
+        ("bulk_updated", [{"field": "username"}]),
+        ("bulk_updated", [{"field": "username"}]),
+    ]
+    assert "password_hash" not in str([r.changes for r in recorder.records])
+
+
+async def test_strict_mode_sees_executemany_column_params(audited):
+    state, session, recorder = audited
+    (pid,) = await _seed(session, recorder, PartialExcludeModel(username="u"))
+    state.refuse_unaudited_dml = True
+    stmt = _core_executemany("password_hash").execution_options(sm_audit=False)
+    with pytest.raises(UnauditedWriteError):
+        await session.execute(stmt, [{"b_id": pid, "b_v": "h", "username": "y"}])
+    await session.execute(stmt, [{"b_id": pid, "b_v": "h"}])  # excluded-only: allowed
+
+
+@pytest.mark.parametrize(
+    "values",
+    [{"is_deleted": True}, {"secret": "s"}, {"secret": "s", "deleted_by": "x"}],
+    ids=["flag-only", "excluded-only", "excluded-and-mixin"],
+)
+async def test_insert_of_excluded_columns_only_is_still_recorded(audited, values):
+    state, session, recorder = audited
+    await session.execute(insert(SecretSoftItem).values(**values))
+    assert [(r.action, r.entity_id) for r in recorder.records] == [("bulk_inserted", "*")]
+    fields = {c["field"]: c.get("new") for c in recorder.records[0].changes}
+    assert fields["rowcount"] == 1 and not {"secret", "is_deleted", "deleted_by"} & set(fields)
+    state.refuse_unaudited_dml = True
+    stmt = insert(SecretSoftItem).values(**values).execution_options(sm_audit=False)
+    with pytest.raises(UnauditedWriteError):
+        await session.execute(stmt)

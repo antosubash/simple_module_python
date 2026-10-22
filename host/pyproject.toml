@@ -18,6 +18,7 @@ dependencies = [
     "simple_module_tenants",
     "simple_module_api_tokens",
     "simple_module_mail",
+    "simple_module_sharing",
     "python-multipart>=0.0.6",
 ]
 
@@ -36,3 +37,4 @@ simple_module_site_lock = { workspace = true }
 simple_module_tenants = { workspace = true }
 simple_module_api_tokens = { workspace = true }
 simple_module_mail = { workspace = true }
+simple_module_sharing = { workspace = true }

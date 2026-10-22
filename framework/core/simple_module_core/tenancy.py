@@ -13,7 +13,7 @@ permissions without depending on ``tenants``::
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from enum import StrEnum
 from typing import Any
 
@@ -78,12 +78,41 @@ async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
     return bool(await check(tenant_id))
 
 
+TenantMembers = Callable[[Any, str, Collection[str]], Awaitable[Collection[str]]]
+"""``async (db, tenant_id, user_ids) -> the subset of user_ids that are members``.
+
+``db`` is the caller's ``AsyncSession`` (typed ``Any``: core is SQLAlchemy-free),
+so the lookup joins the request's unit of work instead of opening a second one."""
+
+
+async def tenant_member_ids(
+    app: Any, db: Any, tenant_id: str, user_ids: Collection[str]
+) -> set[str] | None:
+    """Which of *user_ids* belong to *tenant_id*, or ``None`` when nobody can say.
+
+    The module that owns memberships (``tenants``) publishes
+    ``app.state.tenant_members`` (a :data:`TenantMembers`). Code that must not
+    reveal or act on accounts outside the active tenant (``sharing`` resolving
+    a grantee) asks through this without importing that module. ``None`` means
+    no membership store is installed; callers on a multi-tenant app treat it
+    as "nobody" (fail closed).
+    """
+    check: TenantMembers | None = getattr(app.state, "tenant_members", None)
+    if check is None:
+        return None
+    if not user_ids:
+        return set()
+    return set(await check(db, tenant_id, user_ids))
+
+
 __all__ = [
     "TENANT_ROLE_PREFIX",
     "TenancyMode",
     "TenantExists",
+    "TenantMembers",
     "TenantRole",
     "is_tenant_role",
     "tenant_exists",
+    "tenant_member_ids",
     "tenant_role",
 ]

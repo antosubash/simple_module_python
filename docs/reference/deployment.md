@@ -73,6 +73,28 @@ A default (SQLite) scaffold's compose file also pins `SM_DATABASE_URL=sqlite+aio
 The reason it isn't just a URL swap: a migration history is **dialect-frozen at autogenerate time** (`sa.false()` renders as `DEFAULT 0` under SQLite, which Postgres rejects), so containers must run the same dialect the migrations were generated against. Moving an existing SQLite scaffold to Postgres means regenerating migrations against Postgres, not editing one env var.
 :::
 
+### Additional worker images
+
+Put heavy Python dependencies in a module's optional extra (for example,
+`[project.optional-dependencies]` with `gdal = ["GDAL"]`). Enable that extra
+only in a dedicated worker image so the web image stays small:
+
+```bash
+smpy docker add-worker geo --queues geo --modules geo.tasks \
+  --apt libgdal-dev --extras gdal
+```
+
+Run this in the project root with an existing `worker` service. It writes
+`docker/worker-geo.Dockerfile` and `compose.worker-geo.yml`, then adds a marked
+`include:` entry to `compose.yml` (or the scaffold's `docker-compose.yml`). The
+Python-only image installs apt packages in both build and runtime stages and
+inherits the existing worker's database, broker, volumes, and dependencies.
+Repeat `--apt` and `--extras` for additional packages and extras; `--queues`
+and `--modules` take comma-separated lists. `--base` selects a compatible
+Debian-based Python image (default `python:3.12-slim-bookworm`). The healthcheck
+pings this worker through Celery. Use `--force` to regenerate an existing
+worker's files; repeated runs never duplicate its include entry.
+
 ### Why the image has one builder stage
 
 The obvious split — a Python stage and a Node stage — **cannot work here**. The Vite build imports `modules.generated.{ts,css}`, which `gen-pages` emits by inspecting the *installed Python modules*. A Node-only stage has no venv and no entry points, so it can't generate those files and the frontend build fails for any app with module pages.

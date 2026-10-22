@@ -10,13 +10,14 @@ import {
 import { type Change, ChangesList } from './ChangesList';
 import { CorrelationLink } from './Correlation';
 import { ActorCell, EntityCell, type EntityRef } from './EntryCells';
+import type { ACTIONS } from './FilterBar';
 import { formatEntryTime } from './format';
 
 export interface AuditEntryRead {
   id: string;
   entity_type: string;
   entity_id: string;
-  action: 'created' | 'updated' | 'deleted' | 'soft_deleted';
+  action: (typeof ACTIONS)[number];
   changes: Change[];
   user_id: string | null;
   /** Display name resolved from user_id, or null for deleted/system actors. */
@@ -41,6 +42,11 @@ const ACTION_PILL: Record<string, string> = {
   updated: 'bg-blue-50 text-blue-700',
   deleted: 'bg-red-50 text-red-700',
   soft_deleted: 'bg-amber-50 text-amber-700',
+  bulk_inserted: 'bg-primary-600/10 text-primary-700',
+  bulk_updated: 'bg-blue-50 text-blue-700',
+  bulk_deleted: 'bg-red-50 text-red-700',
+  bulk_soft_deleted: 'bg-amber-50 text-amber-700',
+  bulk_restored: 'bg-blue-50 text-blue-700',
 };
 const PILL = 'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium';
 const TH = 'sm:px-6 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground';

@@ -166,11 +166,11 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_rate_limits`,
 `register_csp_sources`,
 `register_design_packs`,
-`register_audit_links`, `register_exception_handlers`, `register_middleware`,
+`register_audit_links`, `register_resource_types`, `register_exception_handlers`, `register_middleware`,
 `register_routes(api_router, view_router)`, `register_admin_routes(admin_router)`
 (only with `ModuleMeta.admin_view_prefix`), then async `on_startup` /
 `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
-`db_extensions()`, `template_dirs()`, `static_mounts()`.
+`db_extensions()`, `template_dirs()`, `static_mounts()`, `spa_mounts()`.
 
 - A module gets one view router per prefix. All-admin modules point
   `view_prefix` at `/admin/<name>`; modules with both public and admin pages set
@@ -305,10 +305,11 @@ development and testing (`session_cookie_secure`).
 - **Migrations** live in `host/migrations/versions/`, never in module packages.
   `host/migrations/env.py` builds metadata from every installed module and runs
   `ensure_db_extensions` first. The history is **not** one linear chain: it has
-  three roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants,
-  `d263ea727663` the framework's `sm_lease`) and five heads (`audit_log`,
-  `tenants`, `keycloak`, `leases`, and the users trunk, which Alembic reports
-  as `api_tokens` and, since #536, `background_tasks`). Apply with `upgrade heads` (what `make migrate`
+  four roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants,
+  `f733c7938fd1` sharing, `d263ea727663` the framework's `sm_lease`) and six
+  heads (`audit_log`, `tenants`, `keycloak`, `sharing`, `leases`, and the users
+  trunk, which Alembic reports as `api_tokens` and, since #536,
+  `background_tasks`). Apply with `upgrade heads` (what `make migrate`
   does); plain `revision --autogenerate` refuses with "Multiple heads", so name
   the branch:
 

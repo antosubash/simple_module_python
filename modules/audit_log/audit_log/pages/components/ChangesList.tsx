@@ -17,6 +17,14 @@ export interface Change {
  */
 const VISIBLE_LIMIT = 2;
 
+const NO_DIFF_ACTIONS = new Set([
+  'deleted',
+  'soft_deleted',
+  'bulk_deleted',
+  'bulk_soft_deleted',
+  'bulk_restored',
+]);
+
 interface ChangesListProps {
   action: string;
   changes: Change[];
@@ -28,12 +36,12 @@ export function ChangesList({ action, changes }: ChangesListProps) {
 
   // A delete records no diff — every field went away with the row. Saying
   // "no changes recorded" is the honest reading; a dash reads as a bug.
-  if (action === 'deleted' || action === 'soft_deleted') {
+  if (NO_DIFF_ACTIONS.has(action) && changes.length === 0) {
     return <span className="text-muted-foreground">{t(keys.audit_log.changes.no_changes)}</span>;
   }
   // A create sets every field at once. Listing them all would bury the rows
   // that record an actual change, which is what this column is for.
-  if (action === 'created') {
+  if (action === 'created' || action === 'bulk_inserted') {
     return (
       <span className="text-muted-foreground">
         {t(keys.audit_log.changes.fields_set, { count: changes.length })}

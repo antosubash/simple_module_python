@@ -12,7 +12,7 @@ import importlib
 import importlib.resources
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -21,11 +21,13 @@ from simple_module_core.module_settings import register_module_settings
 from tenants import constants as c
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
+
     from fastapi import APIRouter, FastAPI
     from simple_module_core.events import EventBus
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.permissions import PermissionRegistry
-    from simple_module_core.tenancy import TenantExists
+    from simple_module_core.tenancy import TenantExists, TenantMembers
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,22 @@ def _tenant_exists(app: FastAPI) -> TenantExists:
             return await db.get(Tenant, tenant_id) is not None
 
     return exists
+
+
+def _tenant_members() -> TenantMembers:
+    """The ``app.state.tenant_members`` callable core's ``tenant_member_ids()`` reads."""
+    from sqlmodel import col, select
+
+    from tenants.models import Membership
+
+    async def members(db: Any, tenant_id: str, user_ids: Collection[str]) -> set[str]:
+        wanted = list(dict.fromkeys(user_ids))
+        stmt = select(Membership.user_id).where(
+            Membership.tenant_id == tenant_id, col(Membership.user_id).in_(wanted)
+        )
+        return set((await db.execute(stmt)).scalars())
+
+    return members
 
 
 class TenantsModule(ModuleBase):
@@ -78,6 +96,7 @@ class TenantsModule(ModuleBase):
         )
         app.state.tenant_resolver = resolve_tenant
         app.state.tenant_exists = _tenant_exists(app)
+        app.state.tenant_members = _tenant_members()
         register_inertia_shared_provider(app, tenant_shared_props)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
