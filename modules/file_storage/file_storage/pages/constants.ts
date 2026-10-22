@@ -36,3 +36,10 @@ export const RELOAD_PROPS: string[] = [
   'uploaders',
   'used_bytes',
 ];
+
+// Files in a batch have no ordering dependency on one another, so uploading
+// strictly one at a time makes a 10-file drop take the sum of every file's
+// duration. A small worker pool instead bounds the batch to roughly the
+// slowest file's duration without opening enough simultaneous connections to
+// swamp the server or the browser's per-origin connection limit.
+export const UPLOAD_CONCURRENCY = 4;
