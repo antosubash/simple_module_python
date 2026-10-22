@@ -2,7 +2,7 @@
 
 import pytest
 from background_tasks.models import OutboxMessage
-from simple_module_core.durable_events import DurableDeliveryUnavailable, event_key
+from simple_module_core.durable_events import event_key
 from simple_module_core.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db.transaction import finalize_session, rollback_session
@@ -38,11 +38,15 @@ async def test_tenants_delete_enqueues_before_commit(db_session):
 
 
 @pytest.mark.parametrize("bus", [None, EventBus()], ids=["no-bus", "no-transport"])
-async def test_tenants_delete_requires_durable_transport(db_session, bus):
+async def test_tenants_delete_without_durable_transport(db_session, bus):
     tenant = Tenant(id="durable", slug="durable", name="Durable")
     db_session.add(tenant)
     await finalize_session(db_session)
-    with pytest.raises(DurableDeliveryUnavailable):
-        await TenantService(db_session, bus=bus).delete_tenant(tenant.id)
+    await TenantService(db_session, bus=bus).delete_tenant(tenant.id)
+    assert await db_session.get(Tenant, "durable") is None
     await rollback_session(db_session)
     assert await db_session.get(Tenant, "durable") is not None
+
+    await TenantService(db_session, bus=bus).delete_tenant("durable")
+    await finalize_session(db_session)
+    assert await db_session.get(Tenant, "durable") is None

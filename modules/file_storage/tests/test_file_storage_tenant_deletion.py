@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
 from background_tasks.constants import OutboxStatus
 from background_tasks.models import OutboxMessage
 from background_tasks.outbox_claim import OutboxPolicy
@@ -108,3 +109,83 @@ async def test_tenant_cleanup_commits_manifest_and_retries(app, tmp_path, monkey
     assert not await backend.exists(variant)
     assert not backend._parts_dir(upload_id).exists()
     assert (await dispatch(factory, bus, policy)).delivered == 0
+
+
+@pytest.mark.parametrize("rollback", [False, True])
+async def test_inline_cleanup_defers_objects_until_commit(
+    db_session, tmp_path, monkeypatch, rollback
+):
+    from simple_module_db.transaction import finalize_session, rollback_session
+    from tenants.models import Tenant
+    from tenants.service import TenantService
+
+    bus = EventBus()
+    backend = FilesystemBackend(tmp_path)
+    from file_storage.settings import FileStorageSettings
+
+    settings = FileStorageSettings()
+    monkeypatch.setattr("file_storage.tenant_deletion.build_backend", lambda settings: backend)
+    register_tenant_deletion(
+        bus, SimpleNamespace(state=SimpleNamespace(file_storage=SimpleNamespace(settings=settings)))
+    )
+    tenant_id = "inline-storage"
+    key = f"{tenant_id}/original.txt"
+    variant = variant_key(key, constants.THUMBNAIL_WIDTHS[0])
+
+    async def body():
+        yield b"bytes"
+
+    for target in (key, variant):
+        await backend.put(target, body(), content_type="text/plain", size=5)
+    upload_key = f"{tenant_id}/partial"
+    upload_id = await backend.create_multipart(upload_key, "text/plain")
+    db_session.add(Tenant(id=tenant_id, slug=tenant_id, name=tenant_id))
+    with tenant_context(tenant_id):
+        db_session.add(
+            StoredFile(
+                key=key,
+                filename="original.txt",
+                content_type="text/plain",
+                size_bytes=5,
+                backend=constants.BackendId.FILESYSTEM,
+                is_deleted=True,
+            )
+        )
+        db_session.add(
+            UploadSession(
+                key=upload_key,
+                filename="partial",
+                content_type="text/plain",
+                total_size=5,
+                part_size=5,
+                backend_upload_id=upload_id,
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+        )
+        await finalize_session(db_session)
+        await TenantService(db_session, bus=bus).delete_tenant(tenant_id)
+        for model in (StoredFile, UploadSession):
+            assert (
+                not (
+                    await db_session.execute(select(model).execution_options(include_deleted=True))
+                )
+                .scalars()
+                .all()
+            )
+        assert await backend.exists(key)
+        assert await backend.exists(variant)
+        assert backend._parts_dir(upload_id).exists()
+        if rollback:
+            await rollback_session(db_session)
+        else:
+            await finalize_session(db_session)
+        assert await backend.exists(key) == rollback
+        assert await backend.exists(variant) == rollback
+        assert backend._parts_dir(upload_id).exists() == rollback
+        for model in (StoredFile, UploadSession):
+            rows = (
+                (await db_session.execute(select(model).execution_options(include_deleted=True)))
+                .scalars()
+                .all()
+            )
+            assert len(rows) == int(rollback)

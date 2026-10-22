@@ -60,17 +60,19 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
                 .all()
             )
             if files or uploads:
-                await bus.publish_durable(
-                    TenantStorageCleanupRequested(
-                        files=[(row.backend, row.key) for row in files],
-                        uploads=[
-                            (row.key, row.backend_upload_id)
-                            for row in uploads
-                            if row.status == constants.UploadStatus.ACTIVE
-                        ],
-                    ),
-                    ctx.db,
+                manifest = TenantStorageCleanupRequested(
+                    files=[(row.backend, row.key) for row in files],
+                    uploads=[
+                        (row.key, row.backend_upload_id)
+                        for row in uploads
+                        if row.status == constants.UploadStatus.ACTIVE
+                    ],
                 )
+                if bus.durable_transport is not None:
+                    await bus.publish_durable(manifest, ctx.db)
+                else:
+                    # Backend objects must survive a rollback of the row purge.
+                    ctx.db.on_commit(lambda: bus.publish_durable_or_inline(manifest, ctx.db))
             for model in (UploadSession, StoredFile):
                 await ctx.db.execute(
                     delete(model)
@@ -79,8 +81,8 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
                 )
 
     async def purge_objects(event: TenantStorageCleanupRequested, ctx: DurableContext) -> None:
-        # The manifest is delivered only after its transaction commits. Failures
-        # propagate so the outbox retains every key and retries idempotently.
+        # Run only after the row transaction commits. With a transport,
+        # failures retain the manifest in the outbox for idempotent retries.
         settings = _settings(app)
         backends: dict[str, StorageBackend] = {}
         for backend_id, key in event.files:
