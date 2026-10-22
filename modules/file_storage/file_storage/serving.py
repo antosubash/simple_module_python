@@ -7,6 +7,7 @@ from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from file_storage import constants, thumbnails
+from file_storage.backend_guard import require_backend
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.downloads import content_disposition, presigned_download_url
 from file_storage.media_types import is_active_content
@@ -60,6 +61,7 @@ async def thumbnail_response(
     request: Request | None = None,
 ) -> Response:
     """Serve ``row``'s resized variant; 404 for non-images, 422 if undecodable."""
+    require_backend(service.backend, row)
     snapped = thumbnails.snap_width(width)
     etag = etag_for(row, f"-w{snapped}")
     headers = _headers(etag, cache_control)
@@ -94,6 +96,7 @@ async def public_file_response(
     and is streamed even on presigning backends so these headers always apply;
     everything else may redirect to the backend's own URL.
     """
+    require_backend(service.backend, row)
     max_age = constants.PUBLIC_MAX_AGE_SECONDS
     etag = etag_for(row)
     active = is_active_content(row.content_type)

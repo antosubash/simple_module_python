@@ -147,6 +147,7 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
     from background_tasks.sync_db import sync_session
     from simple_module_db import tenant_context
 
+    from file_storage.backend_guard import require_backend
     from file_storage.checksum import hash_object
     from file_storage.contracts.service import StorageNotFoundError
     from file_storage.models import StoredFile
@@ -160,6 +161,7 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
             row = db.get(StoredFile, target)
             if row is None or row.checksum_sha256:
                 return None
+            require_backend(backend, row)
             key = row.key
         try:
             digest = asyncio.run(hash_object(backend, key, on_chunk=heartbeat))

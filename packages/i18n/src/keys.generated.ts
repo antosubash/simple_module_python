@@ -680,6 +680,7 @@ export const keys = {
     },
     errors: {
       backend_error: 'file_storage.errors.backend_error',
+      backend_unavailable: 'file_storage.errors.backend_unavailable',
       bad_image: 'file_storage.errors.bad_image',
       bad_part: 'file_storage.errors.bad_part',
       bad_type: 'file_storage.errors.bad_type',

@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage import constants, queries
+from file_storage.backend_guard import require_backend
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.deletes import FileStorageDeletes
 from file_storage.downloads import (
@@ -190,6 +191,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         works without touching this method.
         """
         row = await self.get(file_id, platform=platform, owner=owner)
+        require_backend(self.backend, row)
         if self.backend.supports_presigned_url:
             url = await presigned_download_url(
                 self.backend, row, self.settings.s3_presign_ttl_seconds, attachment=True

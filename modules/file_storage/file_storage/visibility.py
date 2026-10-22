@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage import thumbnails
+from file_storage.backend_guard import require_backend
 from file_storage.models import StoredFile
 
 if TYPE_CHECKING:
@@ -74,6 +75,7 @@ class FileStoragePublic:
         is handed back first so a burst of cold (possibly anonymous) requests
         cannot pin the whole pool on work that needs no database.
         """
+        require_backend(self.backend, row)
         key, content_type = row.key, row.content_type
         await self._release_connection(row)
         return await thumbnails.get_or_create(

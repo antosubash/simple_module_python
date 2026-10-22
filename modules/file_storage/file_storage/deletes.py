@@ -111,6 +111,14 @@ class FileStorageDeletes:
 
     async def drop_object(self, row: StoredFile) -> None:
         """Delete ``row``'s backend object and its thumbnails; absent ones are fine."""
+        if row.backend != self.backend.backend_id:
+            _logger.warning(
+                "file_storage.backend_mismatch key=%s stored=%s active=%s — object retained",
+                row.key,
+                row.backend,
+                self.backend.backend_id,
+            )
+            return
         try:
             # Acceptably absent — eg. a previous delete partially succeeded.
             with contextlib.suppress(StorageNotFoundError):

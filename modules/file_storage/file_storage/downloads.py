@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
+from file_storage.backend_guard import require_backend
+
 if TYPE_CHECKING:
     from file_storage.contracts.service import StorageBackend
     from file_storage.models import StoredFile
@@ -52,6 +54,7 @@ async def presigned_download_url(
     Without the overrides the backend answers with the object's stored
     metadata, and the browser saves the file under its opaque key (GH #489).
     """
+    require_backend(backend, row)
     return await backend.presigned_get_url(
         row.key,
         ttl_seconds,

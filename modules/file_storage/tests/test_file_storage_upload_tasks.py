@@ -212,3 +212,28 @@ def test_the_reaper_purges_finished_rows_past_the_retention_window(worker):
     with sync_db.sync_session() as db, all_tenants():
         left = {s.backend_upload_id: s.status for s in db.execute(select(UploadSession)).scalars()}
     assert left == {"c": "aborted", rows[3].backend_upload_id: "aborted"}
+
+
+def test_checksum_refuses_previous_provider(worker, monkeypatch):
+    from file_storage.backend_guard import BackendUnavailableError
+
+    file_id = uuid.uuid4()
+    with sync_db.sync_session() as db, tenant_context(TENANT):
+        db.add(
+            StoredFile(
+                id=file_id,
+                tenant_id=TENANT,
+                key="old",
+                filename="old",
+                content_type="text/plain",
+                size_bytes=1,
+                backend=constants.BackendId.S3,
+            )
+        )
+
+    async def wrong_store(key):
+        pytest.fail("read from active provider")
+
+    monkeypatch.setattr(worker, "get", wrong_store)
+    with pytest.raises(BackendUnavailableError):
+        tasks.compute_checksum(str(file_id), TENANT)

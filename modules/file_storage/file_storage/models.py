@@ -21,8 +21,9 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True
     """A file persisted to a configured storage backend.
 
     The ``backend`` column records which provider holds the bytes — important
-    if the active backend is changed after ingest, since old rows still need
-    to be located on their original provider until they're migrated.
+    if the active backend is changed after ingest: object access is refused
+    until the bytes and row are manually migrated. This records provider type,
+    not a historical bucket/root configuration.
 
     Tenant-scoped (#383): every read, update and delete is filtered to the
     bound tenant, so a file id from another tenant simply does not resolve.

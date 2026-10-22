@@ -99,6 +99,8 @@ class FeatureFlag:
 class ErrorCode:
     """Machine-readable codes returned in 4xx response bodies."""
 
+    BACKEND_UNAVAILABLE: Final = "file_storage.backend_unavailable"
+
     TOO_LARGE: Final = "file_storage.too_large"
     BAD_TYPE: Final = "file_storage.bad_type"
     NOT_FOUND: Final = "file_storage.not_found"
@@ -130,6 +132,8 @@ class Task:
 
 class I18nKey:
     """Translator keys (full dotted paths). Mirror locales/en.json shape."""
+
+    ERR_BACKEND_UNAVAILABLE: Final = "file_storage.errors.backend_unavailable"
 
     ERR_NOT_FOUND: Final = "file_storage.errors.not_found"
     ERR_TOO_LARGE: Final = "file_storage.errors.too_large"

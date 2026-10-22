@@ -535,6 +535,7 @@ export default {
     'file_storage.delete_dialog.title_one': '',
     'file_storage.delete_dialog.title_other': '',
     'file_storage.errors.backend_error': '',
+    'file_storage.errors.backend_unavailable': '',
     'file_storage.errors.bad_image': '',
     'file_storage.errors.bad_part': '',
     'file_storage.errors.bad_type': '',

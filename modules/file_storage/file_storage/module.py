@@ -61,6 +61,11 @@ class FileStorageModule(ModuleBase):
 
         register_tenant_deletion(bus, app)
 
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from file_storage.errors import install_exception_handlers
+
+        install_exception_handlers(app)
+
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api
         from file_storage.endpoints.public import router as public
