@@ -31,17 +31,22 @@ app.add_middleware(CorrelationIdMiddleware)
 
 if settings.trusted_proxy:
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=...)
+# ForwardedHost is added after ProxyHeaders so it runs first (still sees the proxy peer)
 # Added last → executed first (outermost wrapper)
 ```
 
 ## Execution order (per request)
 
 ```
+ForwardedHost               (only if SM_TRUSTED_PROXY and a forwarded-host allowlist are set)
+  ↓
 ProxyHeaders                (only if SM_TRUSTED_PROXY is set)
   ↓
 CorrelationId
   ↓
 RequestLogging
+  ↓
+CORS                        (preflights answered here, before auth / rate limit)
   ↓
 BodyLimit                   (413 on an oversized body)
   ↓
@@ -93,6 +98,10 @@ It used to be load-bearing for the UI too, because Inertia's page url was absolu
 It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/endpoints/api.py`) and the locale cookie's `secure` flag (`simple_module_hosting/i18n_routes.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
 
 Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
+
+### `ForwardedHostMiddleware` *(opt-in)*
+
+Installed only when **both** `SM_TRUSTED_PROXY` and the `forwarded_host_allowlist` host setting (restart-required) are set. uvicorn's `ProxyHeadersMiddleware` fixes scheme and client but not the host, so behind a proxy that rewrites `Host`, `request.url_for(...)` and the tenants subdomain resolver see the upstream name. This middleware replaces the `host` header and `scope["server"]` with the rightmost `X-Forwarded-Host` value (the one the trusted proxy added) when the TCP peer is trusted (same `*` / IP / CIDR rule as uvicorn) **and** the value matches the allowlist: an exact host or `*.example.com` (any subdomain, never the apex), each with an optional `:port` (an entry without a port accepts any port). Anything else is ignored and logged at debug, so a forged header cannot poison absolute URLs. It is added after `ProxyHeaders` so it runs first and still sees the proxy's own address. `Forwarded:` (RFC 7239) is not supported. Email links are unaffected: they are built from configured base URLs (for example `tenants.public_base_url`), never from the request.
 
 ### `CorrelationIdMiddleware`
 

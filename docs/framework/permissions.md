@@ -115,6 +115,10 @@ dependency) applies a fail-closed rule to every route:
   refuses tokens with 403, gated or not;
 - `Depends(TokenAllowed())` from `simple_module_hosting.token_guard` admits
   tokens explicitly, without a permission;
+- `Depends(Authenticated())` marks "any signed-in user may call this" (401 with
+  no principal). It satisfies diagnostic `SM031` and the OpenAPI export but is
+  **not** a token opt-in: alone, a token is still refused; add `TokenAllowed()`
+  to admit one too;
 - every other route refuses tokens with 403 — except a public route, where the
   token's principal is dropped and the request runs anonymously (no user, no
   permissions, and the tenant an anonymous request would resolve to).

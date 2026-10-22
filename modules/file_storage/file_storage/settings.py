@@ -95,6 +95,14 @@ class FileStorageSettings(DbBackedSettings):
         description="Total storage the browse screen measures usage against. None = unmeasured.",
     )
 
+    public_files_cors: bool = Field(
+        default=True,
+        description=(
+            "Let any origin read public files cross-origin (no credentials), so a "
+            "page on another site can embed or range-read them. Applies at once."
+        ),
+    )
+
     # Resumable / direct uploads (#454)
     direct_upload_threshold_bytes: int = Field(
         default=constants.DEFAULT_DIRECT_UPLOAD_THRESHOLD_BYTES,

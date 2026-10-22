@@ -19,6 +19,7 @@ from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from simple_module_db.deps import get_db
 from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
+from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.auth_local.lockout import (
@@ -226,13 +227,13 @@ async def accept_invite(
 # ── Self profile ─────────────────────────────────────────────────────────────
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead, dependencies=[Depends(Authenticated())])
 async def read_me(user=Depends(fastapi_users.current_user(active=True))):
     """Return the currently authenticated user's profile."""
     return user
 
 
-@router.patch("/me", response_model=UserRead)
+@router.patch("/me", response_model=UserRead, dependencies=[Depends(Authenticated())])
 async def update_me(
     data: SelfProfileUpdate,
     request: Request,

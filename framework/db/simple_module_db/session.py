@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import Session
 
 from simple_module_db.callbacks import OnCommitCallback, register_on_commit
+from simple_module_db.engine_options import connect_args as timeout_connect_args
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.tenancy import DEFAULT_TENANT_ID
 
@@ -57,6 +58,10 @@ def init_db(
     max_overflow: int = 20,
     pool_pre_ping: bool = True,
     pool_recycle: int = 1800,
+    pool_timeout: int = 30,
+    connect_timeout: int = 10,
+    statement_timeout_ms: int = 0,
+    idle_in_tx_timeout_ms: int = 0,
     poolclass: type | None = None,
     sqlite_wal: bool = True,
     sqlite_busy_timeout_ms: int = 5000,
@@ -88,7 +93,12 @@ def init_db(
     """
     provider = detect_provider(database_url)
 
-    connect_args: dict = {}
+    connect_args = timeout_connect_args(
+        database_url,
+        connect_timeout=connect_timeout,
+        statement_timeout_ms=statement_timeout_ms,
+        idle_in_tx_timeout_ms=idle_in_tx_timeout_ms,
+    )
     engine_kwargs: dict = {"echo": echo, "connect_args": connect_args}
     if poolclass is not None:
         engine_kwargs["poolclass"] = poolclass
@@ -96,6 +106,7 @@ def init_db(
         connect_args["check_same_thread"] = False
     elif poolclass is None:
         engine_kwargs.update(
+            pool_timeout=pool_timeout,
             pool_size=pool_size,
             max_overflow=max_overflow,
             pool_pre_ping=pool_pre_ping,

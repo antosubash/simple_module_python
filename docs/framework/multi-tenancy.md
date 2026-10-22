@@ -227,7 +227,7 @@ carries no tenant never blanks a row already stamped.
 does — and its answer is final. The `tenants` resolver takes, in order: the
 subdomain (with its `subdomain_base` setting — the one source that also works
 for anonymous visitors, on public routes), the tenant header (members only),
-then the session's choice validated against a membership (#363). Without one it falls back to the principal's
+then the session's choice validated against a membership (#363). Behind a proxy that rewrites `Host`, the subdomain is read from `X-Forwarded-Host` only if `SM_TRUSTED_PROXY` and `forwarded_host_allowlist` are set and the allowlist contains `*.<subdomain_base>` (see [middleware](middleware.md)). Without one it falls back to the principal's
 `tenant_id` claim, and for **anonymous** requests only, the configured
 `tenant_header`. An authenticated user can never pick a tenant by header.
 The `users` module's `User` is platform-global and has no `tenant_id`

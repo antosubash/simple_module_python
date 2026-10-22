@@ -45,6 +45,31 @@ All notable changes to this project are documented in this file. The format is b
 - Sentry events no longer leak secrets the SDK's exact-name scrubber misses: auth-, session- and token-like headers (`X-Auth-Token`, `Proxy-Authorization`, `X-Forwarded-For`), nested secrets in `extra`/`contexts`, tokens in log and HTTP breadcrumbs, credentials in exception messages, and Celery task args/kwargs are scrubbed for errors and transactions alike (#538).
 - In-process durable outbox delivery and lifespan-owned recovery sweeps, automatically enabled in eager mode (#565).
 - Sentry scrubbing now covers every event field (tags, `server_name`, top-level stacktraces), camelCase and short key names (`basicAuth`, `pwd`, `otp`), header/query lists of pairs, bytes, quoted and escaped-JSON values, whole `Cookie:` lines, passwords containing `@`, JWTs and bare long tokens; SQL `db.params` are dropped. Behaviour change: a scrubber failure now drops the event instead of letting the SDK decide, and strings over 64 KiB are truncated (the old patterns were quadratic: a 20 KB string stalled `before_send` for over a minute) (#538).
+- Per-route rate limits (#529): modules declare `RateLimitRule(rate, key=...)` in the new
+  `register_rate_limits(registry)` hook, and handlers use the
+  `RateLimit("10/minute", key="user")` dependency. Keys: `user`, `ip`, `user_or_ip`,
+  `tenant`; both apply to anonymous and signed-in requests and answer `429` with
+  `Retry-After`.
+- `forwarded_host_allowlist` host setting (#528): behind a trusted proxy (`SM_TRUSTED_PROXY`),
+  `X-Forwarded-Host` replaces the request host (and `scope["server"]`) when it matches an exact host or
+  `*.example.com` entry, so `url_for` and subdomain tenancy see the public host. Empty (default) ignores
+  the header; tenant subdomains need `*.<subdomain_base>` in the list.
+- Configurable CORS (#527). `cors_allow_origins` (plus `cors_allow_credentials`,
+  `cors_allow_methods`, `cors_allow_headers`, `cors_expose_headers`, `cors_max_age`;
+  restart-required) registers a policy on `/api/`; modules add policies with the new
+  `register_cors_policies` hook. The dispatcher runs before `BodyLimit`, so preflights
+  never reach auth and a 413 keeps its CORS headers. `file_storage` serves public
+  files cross-origin (Range-capable) unless the new `public_files_cors` setting is off.
+- PostgreSQL pool, connect, statement and idle-in-transaction timeout settings for web and worker engines, with worker pool and statement overrides (#531).
+- The OpenAPI export declares `bearerAuth` and `sessionCookie` security schemes and a
+  `security` entry per operation (`[]` for public routes), so generated clients know where
+  credentials go (#534). New `Authenticated()` marker dependency
+  (`simple_module_hosting.token_guard`) for routes any signed-in user may call, and diagnostic
+  `SM031` (WARNING, dev boot) for `/api` routes with no gate and no public match. Marked
+  `Authenticated()`: `GET/POST /api/tenants/`, `POST /api/tenants/{tenant_id}/switch`,
+  `DELETE /api/tenants/current/membership`, `POST /api/tenants/invitations/accept`,
+  `GET/PATCH /api/users/me`, `POST /api/users/me/password`,
+  `POST /api/users/me/sessions/revoke-all`. Tokens are still refused on these.
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps
@@ -104,10 +129,11 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
-
-- Behaviour change: `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
+- **Behaviour change:** `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
   `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
-  `OutboxMessage`, `TaskExecutionLog`-style telemetry), so retained logs cannot re-log their own writes.
+  `OutboxMessage`, `TaskExecutionLog`-style telemetry), so retained logs cannot re-log their own writes (#537).
+- **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
+  signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
   `package.json` versions are now in lockstep with the Python packages (they were
   0.1.0, keycloak 0.0.0) (#510).

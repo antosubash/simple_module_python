@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.csp import CspSourceRegistry
 from simple_module_hosting._phase_helpers import build_csp
-from simple_module_hosting._registrations import run_module_registrations
+from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
 from simple_module_hosting.settings import Settings
 
 
@@ -40,6 +40,7 @@ def _filled_registry() -> CspSourceRegistry:
         design_pack_registry=MagicMock(),
         audit_link_registry=MagicMock(),
         csp_registry=reg,
+        request_registries=RequestRegistries(),
     )
     return reg
 

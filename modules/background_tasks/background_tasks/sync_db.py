@@ -21,7 +21,9 @@ from contextlib import contextmanager
 from celery.signals import worker_process_init
 from simple_module_db import DEFAULT_TENANT_ID
 from simple_module_db.audit_sinks import discover_audit_callback
+from simple_module_db.engine_options import connect_args
 from simple_module_db.listeners import attach_session_listeners
+from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -36,6 +38,7 @@ _engine: Engine | None = None
 _engine_pid: int | None = None
 _session_factory: sessionmaker[Session] | None = None
 _url_override: str | None = None
+_database_options: dict[str, int] = {}
 _tenant_strict: bool = False
 _default_tenant: str | None = None
 
@@ -136,10 +139,34 @@ def engine_tenancy() -> EngineTenancy:
     )
 
 
+def configure_database(options: dict[str, int]) -> None:
+    """Pin resolved settings before building either worker engine."""
+    global _database_options
+    if options != _database_options:
+        _database_options = dict(options)
+        _drop_engine()
+
+
+def database_options() -> dict[str, int]:
+    """A copy for the outbox engine and its cache key."""
+    return dict(_database_options)
+
+
 def _build_engine() -> Engine:
     sync_url = _sync_url(_resolve_url())
     # Small pool — signals fire sequentially per worker process.
-    engine = create_engine(sync_url, pool_pre_ping=True, pool_size=2, max_overflow=3)
+    options = database_options()
+    args = connect_args(
+        sync_url,
+        connect_timeout=options.pop("connect_timeout", 10),
+        statement_timeout_ms=options.pop("statement_timeout_ms", 0),
+        idle_in_tx_timeout_ms=options.pop("idle_in_tx_timeout_ms", 0),
+    )
+    if detect_provider(sync_url) == DatabaseProvider.SQLITE:
+        options = {}
+    else:
+        options = {"pool_size": 2, "max_overflow": 3, "pool_recycle": 1800} | options
+    engine = create_engine(sync_url, pool_pre_ping=True, connect_args=args, **options)
     # A worker never runs create_app, so without this its sessions would have
     # no tenant filter at all: the tenant restored around a task body would
     # scope nothing (#371).
@@ -170,6 +197,7 @@ def dispose_sync_engine() -> None:
     global _url_override, _tenant_strict, _default_tenant
     _drop_engine()
     _url_override = None
+    configure_database({})
     _tenant_strict = False
     _default_tenant = None
 

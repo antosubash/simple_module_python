@@ -162,7 +162,9 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `docs/framework/lifecycle.md`): `register_settings`, `register_menu_items`,
 `register_permissions`, `register_feature_flags`, `register_event_handlers`,
 `register_invalidations`, `register_health_checks`, `register_setup_steps`,
-`register_public_routes`, `register_body_limits`, `register_csp_sources`,
+`register_public_routes`, `register_body_limits`, `register_cors_policies`,
+`register_rate_limits`,
+`register_csp_sources`,
 `register_design_packs`,
 `register_audit_links`, `register_exception_handlers`, `register_middleware`,
 `register_routes(api_router, view_router)`, `register_admin_routes(admin_router)`
@@ -209,8 +211,8 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
   `docs/framework/permissions.md`.
 
 **Middleware** (Starlette `add_middleware` is LIFO). Execution order per
-request: `(ProxyHeaders if SM_TRUSTED_PROXY) → CorrelationId → RequestLogging →
-BodyLimit → GZip → SecurityHeaders → Session → <module middleware> → Tenant
+request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
+SM_TRUSTED_PROXY) → CorrelationId → RequestLogging → CORS → BodyLimit → GZip → SecurityHeaders → Session → <module middleware> → Tenant
 (opt-in) → Locale → InertiaLayoutData → InertiaCache → RateLimit → Setup →
 Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
 
@@ -220,9 +222,18 @@ Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
   page, set `Cache-Control`/ETag on the *document* response only.
 - `RateLimit` runs after auth, so by default it throttles only anonymous
   traffic to public routes (`rate_limit_public`; `rate_limit_authenticated` is
-  off by default; Redis via `SM_REDIS_URL`, else per-worker).
+  off by default and keyed per user; Redis via `SM_REDIS_URL`, else per-worker).
+  Per-route budgets for anonymous *and* signed-in traffic: `register_rate_limits`
+  rules (`RateLimitRule(rate, key="user"|"ip"|"user_or_ip"|"tenant")`) or the
+  `RateLimit("10/minute", key="user")` dependency from
+  `simple_module_hosting.rate_limit_deps`.
 - Request bodies over `max_request_body_bytes` (10 MiB) are refused before any
   module sees them; per-path overrides via `register_body_limits`.
+- CORS is opt-in per path: `cors_allow_origins` registers a policy on `/api/`,
+  and a module adds its own via `register_cors_policies(registry)`
+  (`CorsPolicy`, most specific match wins). The dispatcher runs before
+  BodyLimit, so preflights skip auth and a 413 keeps its CORS headers.
+  `docs/framework/cors.md`.
 
 Per-middleware detail: `docs/framework/middleware.md`,
 `docs/framework/request-guards.md`.
@@ -466,7 +477,8 @@ settings not on `app.state`, `SM013`–`SM016` locale drift, `SM017` module
 pages without `package.json`/`tsconfig.json`, `SM018` Inertia call to `/api`,
 `SM019` views with no menu item or permission, `SM022`/`SM023` CSS in the wrong
 file, `SM024` unique key without `tenant_id`, `SM028` heavy import in
-`tasks.py`.
+`tasks.py`, `SM031` `/api` route with no permission/`Authenticated()` gate and not public (dev boot
+only: it needs the built app).
 
 ## Tests & fixtures
 

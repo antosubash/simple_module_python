@@ -238,3 +238,9 @@ MENU_ICON: Final = "files"
 MENU_ORDER: Final = 40
 ADMIN_ROLE: Final = "admin"
 USER_ROLE: Final = "user"
+
+# CORS for anonymous public-file reads (#527). Range-capable so a cross-origin
+# <video>/PDF viewer can seek.
+PUBLIC_CORS_METHODS: Final = ("GET", "HEAD", "OPTIONS")
+PUBLIC_CORS_ALLOW_HEADERS: Final = ("Range", "If-Range", "If-None-Match")
+PUBLIC_CORS_EXPOSE_HEADERS: Final = ("Content-Range", "Accept-Ranges", "ETag", "Content-Length")

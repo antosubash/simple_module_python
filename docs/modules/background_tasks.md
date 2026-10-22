@@ -579,3 +579,13 @@ def convert(file_id: int) -> None:
 ```
 
 It reads SYSTEM-scope overrides through the worker's sync session and caches per process for 30 seconds (`ttl=0` always re-reads; `clear_settings_cache()` drops the cache). The underlying sync helper is `simple_module_db.stored_settings.hydrate_settings_sync`.
+
+## Worker database tuning
+
+Sync task sessions and async outbox sessions inherit host pool, connect,
+statement and idle-in-transaction timeouts. Worker pools default to size 2,
+overflow 3 and recycling after 1800 seconds. Set `SM_BG_TASKS_DB_POOL_SIZE`,
+`SM_BG_TASKS_DB_MAX_OVERFLOW`, `SM_BG_TASKS_DB_RECYCLE` and optionally
+`SM_BG_TASKS_DB_STATEMENT_TIMEOUT_MS` to tune them; restart workers afterward.
+Each outbox thread owns a separate pool. PgBouncer transaction pooling rejects
+timeout startup parameters; see [database tuning](../database/tuning.md).

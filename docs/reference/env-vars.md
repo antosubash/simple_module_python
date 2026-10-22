@@ -40,6 +40,10 @@ Install `simple_module_hosting[sentry]`. All three are env only (the DSN is a se
 | `SM_DB_MAX_OVERFLOW` | `20` | SQLAlchemy `max_overflow` (per process). |
 | `SM_DB_POOL_PRE_PING` | `true` | Test connections before use. |
 | `SM_DB_POOL_RECYCLE` | `1800` | Recycle connections after N seconds (helps with LB idle drops). |
+| `SM_DB_POOL_TIMEOUT` | `30` | Seconds waiting for a pooled connection. |
+| `SM_DB_CONNECT_TIMEOUT` | `10` | Driver connection timeout in seconds. |
+| `SM_DB_STATEMENT_TIMEOUT_MS` | `0` | PostgreSQL statement timeout; zero omits the startup parameter. |
+| `SM_DB_IDLE_IN_TX_TIMEOUT_MS` | `0` | PostgreSQL idle-in-transaction timeout; zero omits the startup parameter. |
 
 Pools are **per process**. With multiple `uvicorn --workers`, total connections =
 `workers × (SM_DB_POOL_SIZE + SM_DB_MAX_OVERFLOW)`; keep it under the database's
@@ -145,3 +149,15 @@ Loads only the listed modules. Useful for:
 - **Tests** — `SM_MODULES_ENABLED=users,orders` for a minimal app.
 - **Worker processes** — if you run a Celery worker as a separate container, it only needs `background_tasks` and whatever modules define tasks it processes.
 - **Emergency disable** — hide a broken module without rebuilding the image. Remove it from the list, restart.
+
+
+Worker database settings (restart required; env → DB → default):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SM_BG_TASKS_DB_POOL_SIZE` | `2` | Pool size for each worker engine. |
+| `SM_BG_TASKS_DB_MAX_OVERFLOW` | `3` | Overflow connections per worker engine. |
+| `SM_BG_TASKS_DB_RECYCLE` | `1800` | Connection recycling interval in seconds. |
+| `SM_BG_TASKS_DB_STATEMENT_TIMEOUT_MS` | unset | Override host statement timeout; zero omits it. |
+
+See [database tuning](../database/tuning.md) for timeout and PgBouncer details.

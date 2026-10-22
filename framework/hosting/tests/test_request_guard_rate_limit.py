@@ -11,7 +11,8 @@ from simple_module_core.rate_limit import (
     RateSpec,
     parse_rate,
 )
-from simple_module_hosting._rate_limit import RateLimitMiddleware, RedisWindowStore
+from simple_module_hosting._rate_limit import RateLimitMiddleware
+from simple_module_hosting._rate_limit_store import RedisWindowStore
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -266,7 +267,7 @@ class TestRedisStore:
         assert redis.calls == 3
 
     def test_script_heals_a_counter_without_ttl(self) -> None:
-        from simple_module_hosting._rate_limit import _LUA
+        from simple_module_hosting._rate_limit_store import _LUA
 
         # A key that lost its TTL would block that IP forever; the script re-arms it.
         assert "t < 0" in _LUA and "PEXPIRE" in _LUA

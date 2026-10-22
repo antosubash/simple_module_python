@@ -23,9 +23,10 @@ async def startup(app: FastAPI, module_name: str) -> None:
     from simple_module_hosting.log_sinks import redact
 
     from background_tasks.celery_app import build_celery
+    from background_tasks.db_settings import worker_database_options
     from background_tasks.log_sink import install_log_sink
     from background_tasks.signals import bind_event_bus
-    from background_tasks.sync_db import set_database_url
+    from background_tasks.sync_db import configure_database, set_database_url
     from background_tasks.tenant_context import set_default_tenant
 
     services = app.state.background_tasks
@@ -37,6 +38,7 @@ async def startup(app: FastAPI, module_name: str) -> None:
     multi = bool(getattr(host, "multi_tenant", False))
     default_tenant = None if multi else getattr(host, "default_tenant", "") or None
     set_database_url(host.database_url, tenant_strict=multi, default_tenant=default_tenant)
+    configure_database(worker_database_options(host, services.settings))
     set_default_tenant(default_tenant)
     # build_celery imports `signals` for side effects and runs
     # `autodiscover_tasks` across every installed module.

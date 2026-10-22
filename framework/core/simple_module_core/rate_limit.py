@@ -18,11 +18,16 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
+
+from simple_module_core.path_rules import KIND_EXACT, KIND_PREFIX, KIND_REGEX, PathRuleSet
 
 __all__ = [
     "InProcessWindowStore",
+    "RateKey",
     "RateLimitError",
+    "RateLimitRegistry",
+    "RateLimitRule",
     "RateSpec",
     "WindowResult",
     "WindowStore",
@@ -167,3 +172,57 @@ class InProcessWindowStore:
             # Everything is live: shed the oldest half rather than grow unbounded.
             keep = sorted(self._windows.items(), key=lambda kv: kv[1][0], reverse=True)
             self._windows = dict(keep[: self._MAX_KEYS // 2])
+
+
+RateKey = Literal["user", "ip", "user_or_ip", "tenant"]
+
+
+@dataclass(frozen=True, slots=True)
+class RateLimitRule:
+    """A per-route limit: ``rate`` per ``key``, optionally for some methods only."""
+
+    rate: str
+    key: RateKey = "user_or_ip"
+    methods: frozenset[str] | None = None
+
+    def __post_init__(self) -> None:
+        if parse_rate(self.rate) is None:
+            raise RateLimitError("A RateLimitRule needs a real rate, not a disabled one")
+        if self.methods is not None:
+            object.__setattr__(self, "methods", frozenset(m.upper() for m in self.methods))
+
+
+class RateLimitRegistry:
+    """Per-route rules from ``register_rate_limits``; most specific match wins.
+
+    Exact beats regex beats the longest prefix; a tie keeps the first
+    registration and logs a warning. ``enabled`` is evaluated per request.
+    """
+
+    def __init__(self) -> None:
+        self._rules: PathRuleSet[RateLimitRule] = PathRuleSet("rate-limit rule")
+
+    def add_exact(
+        self, path: str, rule: RateLimitRule, *, enabled: Callable[[], bool] | None = None
+    ) -> None:
+        self._rules.add(KIND_EXACT, path, rule, methods=rule.methods, enabled=enabled)
+
+    def add_prefix(
+        self, prefix: str, rule: RateLimitRule, *, enabled: Callable[[], bool] | None = None
+    ) -> None:
+        self._rules.add(KIND_PREFIX, prefix, rule, methods=rule.methods, enabled=enabled)
+
+    def add_regex(
+        self, pattern: str, rule: RateLimitRule, *, enabled: Callable[[], bool] | None = None
+    ) -> None:
+        self._rules.add(KIND_REGEX, pattern, rule, methods=rule.methods, enabled=enabled)
+
+    def match(self, method: str, path: str) -> RateLimitRule | None:
+        return self._rules.match(method, path)
+
+    def match_entry(self, method: str, path: str) -> tuple[str, str, RateLimitRule] | None:
+        """``(kind, pattern, rule)`` of the match, so a bucket can be named after it."""
+        return self._rules.match_entry(method, path)
+
+    def __len__(self) -> int:
+        return len(self._rules)
