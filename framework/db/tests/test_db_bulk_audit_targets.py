@@ -9,9 +9,9 @@ also escaped ``refuse_unaudited_dml``.
 from __future__ import annotations
 
 import pytest
-from _audit_models import AuditTestItem, PartialExcludeModel, SoftDeleteItem
+from _audit_models import AuditTestItem, PartialExcludeModel, SecretSoftItem, SoftDeleteItem
 from simple_module_db import UnauditedWriteError
-from sqlalchemy import bindparam, select, true, update
+from sqlalchemy import bindparam, insert, select, true, update
 
 
 async def _seed(session, recorder, *rows) -> list[int]:
@@ -147,3 +147,20 @@ async def test_strict_mode_sees_executemany_column_params(audited):
     with pytest.raises(UnauditedWriteError):
         await session.execute(stmt, [{"b_id": pid, "b_v": "h", "username": "y"}])
     await session.execute(stmt, [{"b_id": pid, "b_v": "h"}])  # excluded-only: allowed
+
+
+@pytest.mark.parametrize(
+    "values",
+    [{"is_deleted": True}, {"secret": "s"}, {"secret": "s", "deleted_by": "x"}],
+    ids=["flag-only", "excluded-only", "excluded-and-mixin"],
+)
+async def test_insert_of_excluded_columns_only_is_still_recorded(audited, values):
+    state, session, recorder = audited
+    await session.execute(insert(SecretSoftItem).values(**values))
+    assert [(r.action, r.entity_id) for r in recorder.records] == [("bulk_inserted", "*")]
+    fields = {c["field"]: c.get("new") for c in recorder.records[0].changes}
+    assert fields["rowcount"] == 1 and not {"secret", "is_deleted", "deleted_by"} & set(fields)
+    state.refuse_unaudited_dml = True
+    stmt = insert(SecretSoftItem).values(**values).execution_options(sm_audit=False)
+    with pytest.raises(UnauditedWriteError):
+        await session.execute(stmt)

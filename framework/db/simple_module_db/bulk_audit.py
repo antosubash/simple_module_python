@@ -130,11 +130,14 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     # An executemany UPDATE names rows by primary key; anywhere else a written
     # key is a change and is never treated as bookkeeping.
     skip = _excluded_fields(cls) | pk if many and execute_state.is_update else _excluded_fields(cls)
-    skip = skip | {_SOFT_DELETE_FLAG}
+    if execute_state.is_update:
+        skip = skip | {_SOFT_DELETE_FLAG}  # it picked the action above
     written = list(dict.fromkeys(k for row in rows for k in row))
     kept = [k for k in written if k not in skip]
-    if written and not kept and all(a == default for a in actions):
-        return None  # only excluded columns: bookkeeping, like a flush
+    # Only excluded columns: bookkeeping, like a flush. Never for an INSERT —
+    # new rows are always recorded, at least as the summary.
+    if execute_state.is_update and written and not kept and all(a == default for a in actions):
+        return None
     if many:
         changes = [{"field": k} for k in kept]
     else:
