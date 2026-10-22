@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
@@ -20,8 +20,7 @@ interface Props {
  * used to ask it for `full_name` and `is_verified`, which it has never had —
  * so the name box always loaded blank and the badge always said "unverified".
  */
-function Profile() {
-  const { user } = usePage<{ props: Props }>().props as unknown as Props;
+function Profile({ user }: Props) {
   const { t } = useT();
 
   if (!user) return null;

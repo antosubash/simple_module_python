@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
@@ -20,14 +20,13 @@ interface Props {
   reset_link_lifetime_minutes: number;
 }
 
-function ResetPassword() {
+function ResetPassword({
+  token,
+  email,
+  expired,
+  reset_link_lifetime_minutes: lifetimeMinutes,
+}: Props) {
   const homeUrl = useHomeUrl();
-  const {
-    token,
-    email,
-    expired,
-    reset_link_lifetime_minutes: lifetimeMinutes,
-  } = usePage<{ props: Props }>().props as unknown as Props;
   const { t } = useT();
 
   const [password, setPassword] = useState('');

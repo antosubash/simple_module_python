@@ -4,11 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/c
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@simple-module-py/ui/components/ui/native-select';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Copy } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from '../pages/api';
 
 interface Props {
   onInvited: () => void;
@@ -41,33 +43,21 @@ export function InviteForm({ onInvited }: Props) {
     // A new attempt replaces the previous result; a failure must not leave the
     // last invitation's link and "emailed" banner beside its error.
     setAcceptUrl(null);
-    try {
-      const response = await fetch('/api/tenants/current/invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ email, role }),
-      });
-      if (!response.ok) {
-        setError(await describe(response));
-        return;
-      }
-      const data = (await response.json()) as {
-        accept_url: string;
-        emailed: boolean;
-        email: string;
-      };
-      // Root-relative unless public_base_url is configured.
-      setAcceptUrl(new URL(data.accept_url, window.location.origin).toString());
-      setDelivery({ emailed: data.emailed, email: data.email });
-      setEmail('');
-      toast.success(t(keys.tenants.members.toast_invited));
-      onInvited();
-    } catch {
-      setError(t(keys.tenants.errors.generic));
-    } finally {
-      setSubmitting(false);
+    const result = await apiResult(
+      api.POST('/api/tenants/current/invitations', { body: { email, role } }),
+    );
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(describe(result));
+      return;
     }
+    const data = result.data;
+    // Root-relative unless public_base_url is configured.
+    setAcceptUrl(new URL(data.accept_url, window.location.origin).toString());
+    setDelivery({ emailed: data.emailed, email: data.email });
+    setEmail('');
+    toast.success(t(keys.tenants.members.toast_invited));
+    onInvited();
   }
 
   async function copyLink() {

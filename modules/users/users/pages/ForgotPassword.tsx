@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
@@ -15,9 +15,7 @@ interface Props {
   mailer_delivers: boolean;
 }
 
-function ForgotPassword() {
-  const { reset_link_lifetime_minutes, mailer_delivers } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+function ForgotPassword({ reset_link_lifetime_minutes, mailer_delivers }: Props) {
   const { t } = useT();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);

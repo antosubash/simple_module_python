@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
@@ -29,16 +29,15 @@ interface Props {
   remember_me_days: number;
 }
 
-function Login() {
-  const {
-    allow_signup,
-    demo_signin,
-    dev_accounts,
-    keycloak_installed,
-    login_redirect_url,
-    oauth_providers,
-    remember_me_days,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+function Login({
+  allow_signup,
+  demo_signin,
+  dev_accounts,
+  keycloak_installed,
+  login_redirect_url,
+  oauth_providers,
+  remember_me_days,
+}: Props) {
   const { t } = useT();
 
   const [email, setEmail] = useState('');

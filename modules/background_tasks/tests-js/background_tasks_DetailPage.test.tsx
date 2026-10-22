@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -66,18 +67,20 @@ describe('background_tasks Detail page', () => {
   });
 
   it('renders the task and its traceback', () => {
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(screen.getAllByText('demo.task').length).toBeGreaterThan(0);
     expect(screen.getByText('Traceback (most recent call last)')).toBeInTheDocument();
   });
 
   it('shows a progress bar only when the task reported progress', () => {
-    const { unmount } = render(<Detail />);
+    const { unmount } = render(
+      <Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />,
+    );
     expect(screen.queryByTestId('task-progress')).toBeNull();
     unmount();
 
     setProps({ progress_current: 3, progress_total: 10, progress_message: 'copying rows' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(screen.getByTestId('task-progress')).toBeInTheDocument();
     expect(screen.getByText('copying rows')).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30');
@@ -85,7 +88,7 @@ describe('background_tasks Detail page', () => {
 
   it('offers no retry to a viewer without the manage permission', () => {
     setProps({}, []);
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(
       screen.queryByRole('button', { name: keys.background_tasks.detail.retry_button }),
     ).toBeNull();
@@ -93,7 +96,7 @@ describe('background_tasks Detail page', () => {
 
   it('offers no retry for a task that already succeeded', () => {
     setProps({ status: 'success' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(
       screen.queryByRole('button', { name: keys.background_tasks.detail.retry_button }),
     ).toBeNull();
@@ -101,7 +104,7 @@ describe('background_tasks Detail page', () => {
 
   it('confirms with the payload and retry count before re-enqueueing', async () => {
     const fetchMock = stubFetch(200, { id: 'e2' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     fireEvent.click(
       screen.getAllByRole('button', { name: keys.background_tasks.detail.retry_button })[0],
     );
@@ -113,7 +116,7 @@ describe('background_tasks Detail page', () => {
 
   it('does not call the API when the confirm is cancelled', async () => {
     const fetchMock = stubFetch(200, { id: 'e2' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     fireEvent.click(
       screen.getAllByRole('button', { name: keys.background_tasks.detail.retry_button })[0],
     );
@@ -126,7 +129,7 @@ describe('background_tasks Detail page', () => {
 
   it('retries on confirm, toasts and navigates to the new execution', async () => {
     const fetchMock = stubFetch(200, { id: 'e2' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     fireEvent.click(
       screen.getAllByRole('button', { name: keys.background_tasks.detail.retry_button })[0],
     );
@@ -142,7 +145,7 @@ describe('background_tasks Detail page', () => {
 
   it('shows the server message and stays put when the retry fails', async () => {
     stubFetch(409, { detail: 'Already retried' });
-    render(<Detail />);
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     fireEvent.click(
       screen.getAllByRole('button', { name: keys.background_tasks.detail.retry_button })[0],
     );

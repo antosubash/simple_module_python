@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -23,9 +23,7 @@ interface Props {
   max_retries: number;
 }
 
-function Detail() {
-  const { execution, max_retries: maxRetries } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+function Detail({ execution, max_retries: maxRetries }: Props) {
   const { t } = useT();
   const { can } = usePermissions();
   const retryable = RETRYABLE_STATUSES.has(execution.status) && can('background_tasks.manage');

@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
@@ -8,14 +8,14 @@ import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { usePageProps } from '../hooks/usePageProps';
 import { LOGIN_PATH } from '../lib/auth-routes';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/brand';
 import { useHomeUrl } from '../lib/home-url';
-import type { SharedProps } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { t } = useT();
-  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth, branding } = usePageProps();
   const homeUrl = useHomeUrl();
   const [menuOpen, setMenuOpen] = useState(false);
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;

@@ -20,8 +20,8 @@ export interface TokenFormProps {
   scopes: string[];
   max_lifetime_days: number;
   expiry_presets: number[];
+  /** Pinned per call (`csrfHeaders`); overrides the shared `csrfToken` prop. */
   csrf_token: string;
-  api_url: string;
 }
 
 export interface CreatePayload {

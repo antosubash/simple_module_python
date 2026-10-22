@@ -83,6 +83,8 @@ export function activeLocale(): string | undefined {
   return i18next.language || undefined;
 }
 
+/** Any key of the merged catalogs — the type `t()` accepts for a key held in a variable. */
+export type { ParseKeys as TranslationKey } from 'i18next';
 export { t } from 'i18next';
 export { useTranslation as useT } from 'react-i18next';
 export { keys } from './keys.generated';

@@ -2,10 +2,12 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Building2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from '../pages/api';
 
 export interface Membership {
   id: string;
@@ -33,22 +35,16 @@ export function MembershipList({ memberships, activeId, onSwitched }: Props) {
 
   async function handleSwitch(id: string) {
     setSwitching(id);
-    try {
-      const response = await fetch(`/api/tenants/${id}/switch`, {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      if (!response.ok) {
-        toast.error(await describe(response));
-        return;
-      }
-      toast.success(t(keys.tenants.index.toast_switched));
-      onSwitched();
-    } catch {
-      toast.error(t(keys.tenants.index.toast_switch_failed));
-    } finally {
-      setSwitching(null);
+    const result = await apiResult(
+      api.POST('/api/tenants/{tenant_id}/switch', { params: { path: { tenant_id: id } } }),
+    );
+    setSwitching(null);
+    if (!result.ok) {
+      toast.error(describe(result, t(keys.tenants.index.toast_switch_failed)));
+      return;
     }
+    toast.success(t(keys.tenants.index.toast_switched));
+    onSwitched();
   }
 
   return (

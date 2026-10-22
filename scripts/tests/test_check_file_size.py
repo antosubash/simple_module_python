@@ -76,6 +76,11 @@ class TestIsExempt:
         p = Path("packages/ui/src/layouts/SidebarLayout.tsx")
         assert not is_exempt(p, DEFAULT_EXEMPT_GLOBS)
 
+    def test_generated_api_types_are_exempt(self) -> None:
+        p = Path("modules/tenants/tenants/pages/api.generated.ts")
+        assert is_exempt(p, DEFAULT_EXEMPT_GLOBS)
+        assert not is_exempt(Path("modules/tenants/tenants/pages/api.ts"), DEFAULT_EXEMPT_GLOBS)
+
     def test_other_project_path_is_not_exempt(self) -> None:
         p = Path("modules/products/products/pages/Browse.tsx")
         assert not is_exempt(p, DEFAULT_EXEMPT_GLOBS)

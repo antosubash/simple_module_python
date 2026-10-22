@@ -1,8 +1,8 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import type { ReactNode } from 'react';
+import { usePageProps } from '../hooks/usePageProps';
 import { useHomeUrl } from '../lib/home-url';
-import type { SharedProps } from '../types';
 import { CopyableId } from './CopyableId';
 import { ErrorScreen } from './ErrorScreen';
 import { ErrorShell, useInAdminShell } from './ErrorShell';
@@ -121,7 +121,7 @@ function ErrorPage({
   maintenance,
 }: Props) {
   const { t } = useT();
-  const { auth } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth } = usePageProps();
   const appHome = useHomeUrl();
   const copy = useStatusCopy(status, Boolean(maintenance));
   const inline = useInAdminShell();

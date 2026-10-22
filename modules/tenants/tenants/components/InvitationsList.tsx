@@ -1,10 +1,12 @@
 import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from '../pages/api';
 
 export interface Invitation {
   id: number;
@@ -31,22 +33,18 @@ export function InvitationsList({ invitations, onChanged }: Props) {
 
   async function revoke(id: number) {
     setRevokingId(id);
-    try {
-      const response = await fetch(`/api/tenants/current/invitations/${id}`, {
-        method: 'DELETE',
-        credentials: 'same-origin',
-      });
-      if (!response.ok) {
-        toast.error(await describe(response));
-        return;
-      }
-      toast.success(t(keys.tenants.members.toast_revoked));
-      onChanged();
-    } catch {
-      toast.error(t(keys.tenants.errors.generic));
-    } finally {
-      setRevokingId(null);
+    const result = await apiResult(
+      api.DELETE('/api/tenants/current/invitations/{invitation_id}', {
+        params: { path: { invitation_id: id } },
+      }),
+    );
+    setRevokingId(null);
+    if (!result.ok) {
+      toast.error(describe(result));
+      return;
     }
+    toast.success(t(keys.tenants.members.toast_revoked));
+    onChanged();
   }
 
   return (

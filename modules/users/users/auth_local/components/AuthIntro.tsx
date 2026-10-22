@@ -1,5 +1,5 @@
-import { usePage } from '@inertiajs/react';
 import { BrandingMark } from '@simple-module-py/ui/components/BrandingMark';
+import { usePageProps } from '@simple-module-py/ui/hooks/usePageProps';
 import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME } from '@simple-module-py/ui/lib/brand';
 import { Check } from 'lucide-react';
 import type React from 'react';
@@ -30,7 +30,7 @@ interface AuthIntroProps {
  * ticked rows — in the page's own colours.
  */
 export function AuthIntro({ heading, body, checks = [], children }: AuthIntroProps) {
-  const { branding } = usePage<{ props: SharedBranding }>().props as unknown as SharedBranding;
+  const { branding } = usePageProps<SharedBranding>();
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
 
   return (

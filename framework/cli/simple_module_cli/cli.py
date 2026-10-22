@@ -184,6 +184,11 @@ def create_module(
     typer.echo("  npm install")
     typer.echo("  npm run typecheck")
     typer.echo("  uv run smpy module verify")
+    typer.echo(
+        "\nThe pages ship sample API types (pages/api.generated.ts). Once the host serves "
+        "the module, refresh them after any endpoint change:\n"
+        f"  uv run smpy openapi gen-types --module {package}"
+    )
 
 
 discover_and_mount(app)

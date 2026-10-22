@@ -1,7 +1,6 @@
-import { usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import type React from 'react';
-import type { SharedProps } from '../types';
+import { usePageProps } from '../hooks/usePageProps';
 
 /**
  * Standing "you are in a demo" bar, driven by the `demo` shared prop the users
@@ -16,7 +15,7 @@ import type { SharedProps } from '../types';
  * unconditionally next to `BrandingBanner`.
  */
 export function DemoBanner(): React.ReactElement | null {
-  const { demo } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { demo } = usePageProps();
   const { t } = useT();
   if (!demo?.active) return null;
 

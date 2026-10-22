@@ -22,7 +22,7 @@ import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import { useHomeUrl } from '../lib/home-url';
-import type { MenuItem, SharedProps } from '../types';
+import type { MenuItem } from '../types';
 import { AdminSectionLink } from './AdminSectionLink';
 import { MobileBar } from './MobileBar';
 import { SidebarUserMenu } from './SidebarUserMenu';
@@ -78,8 +78,8 @@ export function SidebarLayout(props: SidebarLayoutProps) {
 
 function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
   const { t } = useT();
-  const page = usePage<{ props: SharedProps }>();
-  const { auth, menus, branding } = page.props as unknown as SharedProps;
+  const page = usePage();
+  const { auth, menus, branding } = page.props;
   const homeUrl = useHomeUrl();
   const currentUrl = page.url;
   const appName = branding?.appName ?? theme.mobileTitleLabel;

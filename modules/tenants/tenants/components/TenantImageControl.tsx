@@ -1,9 +1,10 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
+import { useApiErrorToast } from '@simple-module-py/ui/hooks/use-api-error-toast';
+import { apiFetch } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { detail } from './apiDetail';
 
 interface Props {
   inputId: string;
@@ -19,23 +20,20 @@ interface Props {
  */
 export function TenantImageControl({ inputId, uploadUrl, overridden, onChanged }: Props) {
   const { t } = useT();
+  const showError = useApiErrorToast(keys.tenants.settings.toast_failed);
   const [busy, setBusy] = useState(false);
 
   async function send(init: RequestInit, success: string) {
     setBusy(true);
-    try {
-      const response = await fetch(uploadUrl, { credentials: 'same-origin', ...init });
-      if (!response.ok) {
-        toast.error((await detail(response)) ?? t(keys.tenants.settings.toast_failed));
-        return;
-      }
-      toast.success(success);
-      onChanged();
-    } catch {
-      toast.error(t(keys.tenants.settings.toast_failed));
-    } finally {
-      setBusy(false);
+    // A server-supplied upload URL (another module's route) and a multipart body.
+    const result = await apiFetch(uploadUrl, init);
+    setBusy(false);
+    if (!result.ok) {
+      showError(result);
+      return;
     }
+    toast.success(success);
+    onChanged();
   }
 
   function upload(file: File | undefined) {

@@ -21,7 +21,21 @@ export function token(over: Partial<ApiToken> = {}): ApiToken {
 }
 
 export function stubFetch(status: number, body: unknown) {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  const fetchMock = vi.fn(
+    async (_input: Request) => new Response(JSON.stringify(body), { status }),
+  );
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
+}
+
+/** The request the typed client sent on call `index`: path, method, headers, JSON body. */
+export async function sent(fetchMock: ReturnType<typeof stubFetch>, index = 0) {
+  const request = fetchMock.mock.calls[index][0];
+  const text = await request.clone().text();
+  return {
+    path: new URL(request.url).pathname,
+    method: request.method,
+    headers: request.headers,
+    body: text ? JSON.parse(text) : null,
+  };
 }

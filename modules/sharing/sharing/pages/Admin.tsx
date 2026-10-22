@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
@@ -22,8 +22,7 @@ interface Props {
 const BASE_URL = '/admin/sharing';
 
 /** Every share in the active tenant; admins may revoke any of them. */
-function Admin() {
-  const props = usePage<{ props: Props }>().props as unknown as Props;
+function Admin(props: Props) {
   const { t } = useT();
   const [pending, setPending] = useState<Share | null>(null);
   const [busy, setBusy] = useState(false);

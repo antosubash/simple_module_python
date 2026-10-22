@@ -46,6 +46,14 @@ export interface BrandingShared {
   footerLinks: { label: string; href: string }[] | null;
 }
 
+export interface I18nSharedProps {
+  locale: string;
+  supportedLocales: string[];
+  // ``null`` on Inertia XHR visits where the backend skipped the messages
+  // payload because the client already has them from the initial page load.
+  messages: Record<string, string> | null;
+}
+
 export interface SharedProps {
   auth: {
     user: { name: string; email: string; roles: string[] } | null;
@@ -58,6 +66,9 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
+  // The session's CSRF token, sent to signed-in sessions only (#504). The API
+  // client (`createApi`/`apiFetch`) echoes it as `X-CSRF-Token`.
+  csrfToken?: string;
   // Injected by the users module's shared-props provider. Absent when no local
   // auth provider is installed (e.g. a Keycloak-only deployment), which reads
   // the same as "closed" — the host isn't the one taking signups.
@@ -74,4 +85,16 @@ export interface SharedProps {
   // Injected by the branding module's shared-props provider (optional: the
   // module may not be installed).
   branding?: BrandingShared;
+  // Set by `InertiaLayoutDataMiddleware` on every response; optional so a
+  // hand-built props object (tests, error pages) need not carry it.
+  i18n?: I18nSharedProps;
+}
+
+// Types `usePage().props` for the whole app: `usePage().props.auth` is a
+// `SharedProps['auth']` without a cast. A mapped copy (not `SharedProps`
+// itself) because Inertia requires an index signature on page props.
+declare module '@inertiajs/core' {
+  interface InertiaConfig {
+    sharedPageProps: { [K in keyof SharedProps]: SharedProps[K] };
+  }
 }

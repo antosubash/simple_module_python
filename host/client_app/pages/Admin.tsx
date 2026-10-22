@@ -1,9 +1,10 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { NavIcon } from '@simple-module-py/ui/components/NavIcon';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { usePageProps } from '@simple-module-py/ui/hooks/usePageProps';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import type { MenuItem, SharedProps } from '@simple-module-py/ui/types';
+import type { MenuItem } from '@simple-module-py/ui/types';
 
 /**
  * Admin section landing page.
@@ -51,7 +52,7 @@ function ToolCard({ item }: { item: MenuItem }) {
 
 function AdminPage() {
   const { t } = useT();
-  const { menus } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { menus } = usePageProps();
   const items = menus?.adminSidebar ?? [];
   const grouped = groupItems(items);
 
