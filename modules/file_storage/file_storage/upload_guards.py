@@ -45,7 +45,7 @@ class StorageQuota:
         bind = self.db.get_bind()
         if bind.dialect.name != "postgresql":
             return
-        tenant = owning_tenant(self.db, platform=True) if platform else owning_tenant(self.db)
+        tenant = owning_tenant(self.db, platform=platform)
         await self.db.execute(
             text("SELECT pg_advisory_xact_lock(:key)"),
             {"key": _QUOTA_LOCK_KEY + zlib.crc32(tenant.encode())},
@@ -63,10 +63,7 @@ class StorageQuota:
         if quota is None:
             return
         if reserve:
-            if platform:
-                await self._serialize_reservations(platform=True)
-            else:
-                await self._serialize_reservations()
+            await self._serialize_reservations(platform=platform)
         stored_query = select(func.coalesce(func.sum(StoredFile.size_bytes), 0))
         reserved_query = select(func.coalesce(func.sum(UploadSession.total_size), 0)).where(
             UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]

@@ -6,7 +6,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import noload
 
 from users.admin.queries import _UserServiceBase
@@ -211,6 +211,14 @@ class UserService(_UserServiceBase):
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
         self._revoke_sessions(user)
+        # Refresh tokens are spent too, so re-enabling the account later does not
+        # revive credentials issued before it was disabled (as the self-service
+        # "sign out everywhere" does).
+        await self._db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))  # ty: ignore[invalid-argument-type]
+            .values(revoked_at=datetime.now(UTC))
+        )
         await self._db.flush()
         return user
 

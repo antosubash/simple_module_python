@@ -27,7 +27,7 @@ from simple_module_hosting.permissions import RequiresPermission
 
 from branding.constants import PACKAGE, PATH_TENANT_ASSET, TENANT_ASSETS, TENANT_IMAGE_FIELDS
 from branding.contracts.schemas import BrandingOut
-from branding.images import validate_image
+from branding.images import store_image, validate_image
 from branding.reaper import schedule_reap
 from branding.service import to_out
 from branding.tenant_branding import merge, overrides_from
@@ -83,7 +83,7 @@ async def upload_tenant_asset(
     field = _field(asset)
     tenant_id = active_tenant(request)
     await validate_image(file)
-    stored = await storage.upload(file)
+    stored = await store_image(storage, file)
     return await _swap(request, settings, storage, tenant_id, field, str(stored.id))
 
 

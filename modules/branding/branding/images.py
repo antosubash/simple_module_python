@@ -96,3 +96,20 @@ async def validate_image(file: UploadFile) -> None:
                 f"{content_type!r}. {ALLOWED_IMAGE_HINT}"
             ),
         )
+
+
+async def store_image(storage, file: UploadFile, *, platform: bool = False):
+    """Hand a validated image to ``file_storage``, answering 413 when the quota is full.
+
+    ``file_storage`` enforces ``quota_bytes`` on every upload; its own endpoint
+    maps the refusal to 413, but branding calls the service directly, so an
+    unmapped ``QuotaExceededError`` would surface as a 500.
+    """
+    from file_storage.upload_support import QuotaExceededError
+
+    try:
+        return await storage.upload(file, platform=platform)
+    except QuotaExceededError:
+        raise HTTPException(
+            status_code=413, detail="The storage quota is full; the image was not saved."
+        ) from None

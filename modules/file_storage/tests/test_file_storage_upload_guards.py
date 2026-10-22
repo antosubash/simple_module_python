@@ -233,7 +233,7 @@ class TestCheckQuota:
         order: list[str] = []
         guards = _Guards(db_session, backend, quota_bytes=100)
 
-        async def fake_lock() -> None:
+        async def fake_lock(*, platform: bool = False) -> None:
             order.append("lock")
 
         monkeypatch.setattr(guards, "_serialize_reservations", fake_lock)
@@ -261,9 +261,9 @@ class TestSerializeReservations:
 
     async def test_takes_a_per_tenant_advisory_lock_on_postgres(self, backend, monkeypatch):
         calls: list[tuple[str, Any]] = []
-        monkeypatch.setattr(guards_module, "owning_tenant", lambda db: "acme")
+        monkeypatch.setattr(guards_module, "owning_tenant", lambda db, platform=False: "acme")
         await _Guards(_db_on("postgresql", calls), backend)._serialize_reservations()
-        monkeypatch.setattr(guards_module, "owning_tenant", lambda db: "globex")
+        monkeypatch.setattr(guards_module, "owning_tenant", lambda db, platform=False: "globex")
         await _Guards(_db_on("postgresql", calls), backend)._serialize_reservations()
 
         assert all("pg_advisory_xact_lock" in sql for sql, _ in calls)
