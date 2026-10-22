@@ -28,12 +28,11 @@ function sameOrigin(url: string): boolean {
   }
 }
 
-function prepare(request: Request, token: string | null | undefined): Request {
+function prepare(request: Request, token: () => string | null | undefined): Request {
   if (!request.headers.has('Accept')) request.headers.set('Accept', 'application/json');
-  const unsafe = UNSAFE.has(request.method);
-  if (token && unsafe && !request.headers.has(CSRF_HEADER) && sameOrigin(request.url)) {
-    request.headers.set(CSRF_HEADER, token);
-  }
+  if (!UNSAFE.has(request.method) || request.headers.has(CSRF_HEADER)) return request;
+  const value = sameOrigin(request.url) ? token() : null;
+  if (value) request.headers.set(CSRF_HEADER, value);
   return request;
 }
 
@@ -53,7 +52,7 @@ export function createApi<Paths extends {}>(options: ApiOptions = {}): Client<Pa
     fetch: (input) => globalThis.fetch(input),
   });
   const middleware: Middleware = {
-    onRequest: ({ request }) => prepare(request, csrfToken ? csrfToken() : currentCsrfToken()),
+    onRequest: ({ request }) => prepare(request, csrfToken ?? currentCsrfToken),
   };
   client.use(middleware);
   return client;
@@ -80,7 +79,7 @@ export async function apiFetch<T = unknown>(
       headers,
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
-    response = await globalThis.fetch(prepare(request, currentCsrfToken()));
+    response = await globalThis.fetch(prepare(request, currentCsrfToken));
   } catch {
     return failure<T>(NETWORK_FAILURE, null);
   }

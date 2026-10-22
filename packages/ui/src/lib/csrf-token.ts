@@ -8,6 +8,8 @@ import { router } from '@inertiajs/react';
 
 // undefined = no page event seen yet (use the embedded page); null = page has no token.
 let current: string | null | undefined;
+// The document's embedded page never changes: parse it once per distinct text.
+let embedded: { text: string; token: string | null } | null = null;
 
 function tokenOf(page: unknown): string | null {
   const value = (page as { props?: { csrfToken?: unknown } } | null)?.props?.csrfToken;
@@ -23,12 +25,16 @@ export function setCsrfToken(token: string | null | undefined): void {
 export function currentCsrfToken(): string | null {
   if (current !== undefined) return current;
   if (typeof document === 'undefined') return null;
-  const el = document.querySelector('script[data-page][type="application/json"]');
-  try {
-    return el?.textContent ? tokenOf(JSON.parse(el.textContent)) : null;
-  } catch {
-    return null;
+  const text = document.querySelector('script[data-page][type="application/json"]')?.textContent;
+  if (!text) return null;
+  if (embedded?.text !== text) {
+    try {
+      embedded = { text, token: tokenOf(JSON.parse(text)) };
+    } catch {
+      embedded = { text, token: null };
+    }
   }
+  return embedded.token;
 }
 
 try {
