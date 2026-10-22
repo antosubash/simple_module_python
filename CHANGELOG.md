@@ -174,6 +174,26 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- **Behaviour change:** the `simple_module_test` plugin no longer refuses `-n`
+  on Postgres: each pytest-xdist worker creates and uses its own database
+  (`<db>_gw0`, `<db>_gw1`, ...) and points `SM_TEST_DATABASE_URL` at it, so the
+  role needs `CREATEDB`. `make test-py-pg` now runs with
+  `-n $(PYTEST_WORKERS) --dist loadgroup` like `make test-py`
+  (`PYTEST_WORKERS=0` keeps the old serial run on the named database).
+- `simple_module_test` on Postgres builds the schema once per process and, before
+  each later test, deletes every row and restarts the sequences instead of
+  dropping and re-creating `public` (~0.05 s instead of ~0.25 s per test). A
+  direct `reset_schema()` call or any change to the catalog (a test's own
+  tables, extensions, constraints) falls back to the full rebuild.
+- `create_app` no longer resolves every route's dependencies at build time
+  (~0.5 s for the full module set, ~70% of a test's setup): module routers now
+  get their prefix from `include_router(prefix=...)`, which skips FastAPI's
+  resolving empty-path check (effective paths and the OpenAPI document are
+  unchanged), and the route prefix guard and the SPA overlap check read paths
+  from FastAPI's include contexts without resolving routes. Outside
+  `environment="testing"` the lifespan still resolves all routes at startup,
+  so the first requests after boot stay warm. The SQLite and Postgres suites
+  run ~45% faster.
 - tenants and api_tokens pages call their APIs through the typed client and take
   typed component props (#504). **Behaviour change:** the api_tokens pages no longer
   receive the unused `api_url` prop.

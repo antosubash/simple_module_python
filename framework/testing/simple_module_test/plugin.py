@@ -43,15 +43,19 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "postgres: needs a PostgreSQL test database (SM_TEST_DATABASE_URL=postgresql+...)",
     )
-    from simple_module_test.database import database_is_postgres
 
-    # Every Postgres test drops and recreates ``public`` in the one database, so
-    # xdist workers would wipe each other's schema mid-test.
-    if database_is_postgres() and getattr(config.option, "numprocesses", None):
-        raise pytest.UsageError(
-            "SM_TEST_DATABASE_URL is Postgres, whose schema every test drops: run "
-            "serially with `make test-py-pg` or `-n 0` (`PYTEST_WORKERS=0 make test-py`)"
-        )
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_load_initial_conftests(early_config, parser, args) -> None:
+    """Give each xdist worker its own Postgres database.
+
+    Every Postgres test drops and recreates ``public``. This runs before any
+    conftest is imported (``pytest_configure`` runs after), so a conftest or
+    test helper that reads the URL at import time already sees the worker's.
+    """
+    from simple_module_test.database import isolate_worker_database
+
+    isolate_worker_database()
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

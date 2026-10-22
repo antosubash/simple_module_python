@@ -54,27 +54,34 @@ async def _create_all_tables(engine) -> None:
     """
     from sqlalchemy import text
 
-    from simple_module_test.database import reset_schema_once
+    from simple_module_test.database import prepare_schema_once
 
     bases = _ensure_models_imported()
     heads = _alembic_heads()
-    await reset_schema_once(engine)  # Postgres: start empty; SQLite memory already is
+
+    async def _build(engine) -> None:
+        async with engine.begin() as conn:
+
+            def _sync_create_all(sync_conn):
+                for base in bases:
+                    base.metadata.create_all(sync_conn)
+
+            await conn.run_sync(_sync_create_all)
+            # Part of the build, so a reused Postgres schema's fingerprint covers it.
+            if heads:
+                await conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS alembic_version "
+                        "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+                    )
+                )
+
+    tables = [table for base in bases for table in base.metadata.tables.values()]
+    # Postgres reuses the schema built for an earlier test, emptied of rows.
+    await prepare_schema_once(engine, tables, _build)
 
     async with engine.begin() as conn:
-
-        def _sync_create_all(sync_conn):
-            for base in bases:
-                base.metadata.create_all(sync_conn)
-
-        await conn.run_sync(_sync_create_all)
-
         if heads:
-            await conn.execute(
-                text(
-                    "CREATE TABLE IF NOT EXISTS alembic_version "
-                    "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
-                )
-            )
             await conn.execute(text("DELETE FROM alembic_version"))
             for head in heads:
                 await conn.execute(

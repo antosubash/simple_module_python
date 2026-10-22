@@ -1,9 +1,10 @@
 name: Postgres tests
 
 # The full Python suite on Postgres (`make test-py-pg`), including the
-# `@pytest.mark.postgres` tests that SQLite cannot run. Slow and serial (every
-# test resets one database), so it is not part of the PR aggregate: it runs
-# nightly, on demand, and on PRs that touch the database/tenancy layers (#508).
+# `@pytest.mark.postgres` tests that SQLite cannot run. Parallel under xdist,
+# one database per worker (every test resets its schema), but still slower than
+# SQLite, so it is not part of the PR aggregate: it runs nightly, on demand, and
+# on PRs that touch the database/tenancy layers (#508).
 
 on:
   schedule:
