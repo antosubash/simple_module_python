@@ -60,6 +60,8 @@ def _tenant_members() -> TenantMembers:
 
 
 class TenantsModule(ModuleBase):
+    # ModuleBase instances are built per app. register_settings runs before
+    # register_routes/register_menu_items, so _app is set when those hooks read it.
     _app: FastAPI | None = None
 
     def _settings_available(self) -> bool:

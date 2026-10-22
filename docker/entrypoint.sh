@@ -37,9 +37,7 @@ fi
 : "${SM_USERS_BOOTSTRAP_EMAIL:=admin@example.com}"
 if [ -z "${SM_USERS_BOOTSTRAP_PASSWORD:-}" ]; then
     SM_USERS_BOOTSTRAP_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-    echo "entrypoint: generated first-boot admin credentials (used only while no user exists):" >&2
-    echo "entrypoint:     $SM_USERS_BOOTSTRAP_EMAIL / $SM_USERS_BOOTSTRAP_PASSWORD" >&2
-    echo "entrypoint: an existing install is left alone; store these credentials securely." >&2
+    export SM_USERS_BOOTSTRAP_PASSWORD_GENERATED=1
 fi
 export SM_USERS_BOOTSTRAP_EMAIL SM_USERS_BOOTSTRAP_PASSWORD
 

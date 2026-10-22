@@ -69,19 +69,18 @@ docker run --rm -p 8000:8000 -v simple-module-python-data:/app/data simple-modul
 ```
 
 **Logging in.** With no `SM_USERS_BOOTSTRAP_PASSWORD` set, the container seeds
-`admin@example.com` with a randomly generated password and prints it once per
-start:
+`admin@example.com` with a randomly generated password. The users module logs it
+once when the first admin is created:
 
 ```
-entrypoint: generated first-boot admin credentials (used only while no user exists):
-entrypoint:     admin@example.com / <generated password>
+first-boot admin created; store this password securely: admin@example.com / <generated password>
 ```
 
 Read it with `docker logs`. Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BOOTSTRAP_PASSWORD=…`
 to seed your own instead; an explicit `changeme` is refused because the image runs
 with `SM_ENVIRONMENT=production`. The seed only applies while the users table is
-empty, so on a reused volume the existing password still stands (the password
-printed on a later start is not applied) — reset it with
+empty, so on a reused volume the existing password still stands and no credentials
+are logged — reset it with
 `smpy users create-admin --email … --password … --force`.
 
 `make docker-compose-app` (or `docker compose up --build app`) runs the same

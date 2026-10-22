@@ -24,7 +24,13 @@ def _run_entrypoint(tmp_path: Path, **overrides: str) -> subprocess.CompletedPro
     )
     env.update(overrides)
     return subprocess.run(
-        ["sh", str(ENTRYPOINT), "sh", "-c", f'printf "%s" "${PASSWORD_ENV}"'],
+        [
+            "sh",
+            str(ENTRYPOINT),
+            "sh",
+            "-c",
+            f'printf "%s\\n%s" "$SM_USERS_BOOTSTRAP_PASSWORD_GENERATED" "${PASSWORD_ENV}"',
+        ],
         env=env,
         capture_output=True,
         text=True,
@@ -34,7 +40,7 @@ def _run_entrypoint(tmp_path: Path, **overrides: str) -> subprocess.CompletedPro
 
 @pytest.mark.parametrize("password", [None, ""])
 @pytest.mark.parametrize("environment", ["development", "production"])
-def test_scripts_entrypoint_generates_and_reports_password(
+def test_scripts_entrypoint_generates_and_marks_private_password(
     tmp_path: Path, password: str | None, environment: str
 ):
     overrides = {} if password is None else {PASSWORD_ENV: password}
@@ -44,8 +50,9 @@ def test_scripts_entrypoint_generates_and_reports_password(
     credential = first.stdout.splitlines()[-1]
     assert len(credential) >= 32
     assert credential != second.stdout.splitlines()[-1]
-    assert credential in first.stderr
-    assert "admin@example.com" in first.stderr
+    assert credential not in first.stderr
+    assert "admin@example.com" not in first.stderr
+    assert first.stdout.splitlines()[-2] == "1"
 
 
 def test_scripts_entrypoint_preserves_private_explicit_password(tmp_path: Path):
@@ -53,6 +60,7 @@ def test_scripts_entrypoint_preserves_private_explicit_password(tmp_path: Path):
     result = _run_entrypoint(tmp_path, **{PASSWORD_ENV: password})
     assert result.returncode == 0
     assert result.stdout.splitlines()[-1] == password
+    assert result.stdout.splitlines()[-2] == ""
     assert password not in result.stderr
 
 

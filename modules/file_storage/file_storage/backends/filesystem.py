@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import os
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -85,12 +87,26 @@ class FilesystemBackend(FilesystemMultipartMixin):
 
     async def list_stale_objects(self, cutoff: datetime) -> AsyncIterator[str]:
         """Yield keys last modified before the reconciliation cutoff."""
-        cutoff_ts = cutoff.timestamp()
-        for path in self.root.glob("*/*/**/*"):
-            # Another delete (including this sweep) may have removed a variant.
-            with contextlib.suppress(FileNotFoundError):
-                if path.is_file() and path.stat().st_mtime < cutoff_ts:
-                    yield path.relative_to(self.root).as_posix().split("/", 1)[1]
+        keys = await asyncio.to_thread(self._collect_stale_objects, cutoff.timestamp())
+        for key in keys:
+            yield key
+
+    def _collect_stale_objects(self, cutoff_ts: float) -> list[str]:
+        keys = []
+        for directory, dirs, files in os.walk(self.root):
+            if Path(directory) == self.root:
+                dirs[:] = [name for name in dirs if name != constants.FS_MULTIPART_DIR]
+            for name in files:
+                path = Path(directory) / name
+                relative = path.relative_to(self.root)
+                # Preserve the previous shard/key-directory/file glob depth.
+                if len(relative.parts) < 3:
+                    continue
+                # Another delete (including this sweep) may have removed a variant.
+                with contextlib.suppress(FileNotFoundError):
+                    if path.is_file() and path.stat().st_mtime < cutoff_ts:
+                        keys.append(relative.as_posix().split("/", 1)[1])
+        return keys
 
     async def exists(self, key: str) -> bool:
         return self._resolve(key).exists()
