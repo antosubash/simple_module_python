@@ -9,6 +9,7 @@ file.
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 # ── Module identity ──────────────────────────────────────────────────
@@ -246,3 +247,7 @@ USER_ROLE: Final = "user"
 PUBLIC_CORS_METHODS: Final = ("GET", "HEAD", "OPTIONS")
 PUBLIC_CORS_ALLOW_HEADERS: Final = ("Range", "If-Range", "If-None-Match")
 PUBLIC_CORS_EXPOSE_HEADERS: Final = ("Content-Range", "Accept-Ranges", "ETag", "Content-Length")
+
+# Keys this module writes: ``{tenant}/YYYY/MM/DD/{uuid hex}[.ext]``. Reapers only
+# ever touch objects shaped like this, never foreign ones in a shared store.
+OWN_KEY: Final = re.compile(r"^[^/]+/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}(\.[^/]*)?$")

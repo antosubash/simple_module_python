@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -119,7 +118,7 @@ async def _abort_all(backend, targets: list[tuple[str, str]]) -> set[tuple[str, 
 
 
 # Keys this module mints: ``<tenant>/<yyyy>/<mm>/<dd>/<32 hex><ext>``.
-_OWN_KEY = re.compile(r"^[^/]+/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}(\.[^/]*)?$")
+_OWN_KEY = constants.OWN_KEY
 
 
 async def _abort_orphans(backend, older_than: timedelta, tracked: set[str]) -> int:

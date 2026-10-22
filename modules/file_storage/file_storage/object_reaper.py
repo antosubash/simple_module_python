@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -49,7 +50,10 @@ async def _drop(backend, key: str, original: str) -> bool:
 
 
 async def _reap_batch(backend, session_factory, batch: list[tuple[str, str]]) -> int:
-    referenced = _referenced(session_factory, backend.backend_id, [o for _, o in batch])
+    # Sync session: run off the event loop so a slow query does not stall the listing.
+    referenced = await asyncio.to_thread(
+        _referenced, session_factory, backend.backend_id, [o for _, o in batch]
+    )
     removed = 0
     for key, original in batch:
         if original not in referenced and await _drop(backend, key, original):
@@ -65,8 +69,6 @@ async def reap_objects(backend, session_factory, *, grace: timedelta) -> int:
     period must exceed the deployment's maximum transaction duration. Keys are
     checked against the database in batches, not one query pair per object.
     """
-    from file_storage.tasks import _OWN_KEY
-
     lister = getattr(backend, "list_stale_objects", None)
     if lister is None:
         return 0
@@ -75,7 +77,7 @@ async def reap_objects(backend, session_factory, *, grace: timedelta) -> int:
     batch: list[tuple[str, str]] = []
     async for key in lister(cutoff):
         original = _VARIANT_SUFFIX.sub("", key)
-        if not _OWN_KEY.fullmatch(original):
+        if not constants.OWN_KEY.fullmatch(original):
             continue
         batch.append((key, original))
         if len(batch) >= _BATCH:
