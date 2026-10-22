@@ -31,7 +31,7 @@ from users.auth_local.lockout import (
 )
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
-from users.backend import build_cookie_transport, build_strategy
+from users.backend import cookie_login_response
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
@@ -84,15 +84,9 @@ async def _remembered_login_response(request: Request, user, access_token_db) ->
     than mutating singletons that concurrent requests are reading.
     """
     settings = request.app.state.users.settings
-    window = settings.remember_me_max_age_seconds
-    strategy = build_strategy(access_token_db, window)
-    transport = build_cookie_transport(
-        cookie_name=settings.cookie_name,
-        cookie_max_age_seconds=window,
-        cookie_secure=settings.cookie_secure,
-        cookie_samesite=settings.cookie_samesite,
+    return await cookie_login_response(
+        access_token_db, user, settings, settings.remember_me_max_age_seconds
     )
-    return await transport.get_login_response(await strategy.write_token(user))
 
 
 @router.post("/auth/login", status_code=204)

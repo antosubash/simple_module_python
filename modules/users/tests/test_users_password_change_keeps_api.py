@@ -65,3 +65,34 @@ async def test_a_remembered_sign_in_keeps_its_window(anon_client, users_app):
     )
     window = users_app.state.users.settings.remember_me_max_age_seconds
     assert f"Max-Age={window}" in set_cookie
+
+
+def _auth_cookie(resp: httpx.Response, cookie_name: str) -> str:
+    return next(v for v in resp.headers.get_list("set-cookie") if v.startswith(f"{cookie_name}="))
+
+
+@pytest.mark.anyio
+async def test_a_plain_sign_in_gets_the_login_cookie_attributes(anon_client, users_app):
+    await _login(anon_client)
+    resp = await anon_client.post("/api/users/me/password", json=_CHANGE)
+    assert resp.status_code == 204, resp.text
+    settings = users_app.state.users.settings
+    set_cookie = _auth_cookie(resp, settings.cookie_name).lower()
+    assert f"max-age={settings.cookie_max_age_seconds}" in set_cookie
+    assert "httponly" in set_cookie
+    assert f"samesite={settings.cookie_samesite}" in set_cookie
+    assert "path=/" in set_cookie
+
+
+@pytest.mark.anyio
+async def test_a_shortened_remember_window_is_honoured(anon_client, users_app):
+    """The session records the window it was signed in for; the reissue mints
+    for today's setting, as a fresh sign-in would."""
+    settings = users_app.state.users.settings
+    resp = await anon_client.post("/api/users/auth/login", data={**_ADMIN, "remember": "true"})
+    assert resp.status_code == 204, resp.text
+    settings.remember_me_max_age_seconds = 3600
+
+    resp = await anon_client.post("/api/users/me/password", json=_CHANGE)
+    assert resp.status_code == 204, resp.text
+    assert "Max-Age=3600" in _auth_cookie(resp, settings.cookie_name)

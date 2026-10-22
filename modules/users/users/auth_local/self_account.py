@@ -22,7 +22,7 @@ from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import delete, update
 
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
-from users.backend import build_cookie_transport, build_strategy
+from users.backend import cookie_login_response
 from users.constants import SESSION_VERSION_KEY
 from users.contracts.schemas import SelfPasswordChange, UserUpdate
 from users.db_adapter import get_access_token_db
@@ -137,21 +137,19 @@ async def _reissue_browser_cookie(request: Request, user, access_token_db) -> Re
     settings = request.app.state.users.settings
     if settings.cookie_name not in request.cookies:
         return Response(status_code=204)
-    # Login records the remembered window as an int; ``True`` is the legacy shape.
+    # Login records the remembered window as an int; ``True`` is the legacy
+    # shape. Either way the reissue mints for the *current* remember-me
+    # setting, as a fresh login would, rather than the number the session
+    # recorded — an operator who shortened the window expects new credentials
+    # to honour it.
     remembered = request.session.get(SESSION_REMEMBER_KEY)
-    window = settings.cookie_max_age_seconds
-    if remembered is True:
-        window = settings.remember_me_max_age_seconds
-    elif not isinstance(remembered, bool) and isinstance(remembered, int) and remembered > 0:
-        window = remembered
-    transport = build_cookie_transport(
-        cookie_name=settings.cookie_name,
-        cookie_max_age_seconds=window,
-        cookie_secure=settings.cookie_secure,
-        cookie_samesite=settings.cookie_samesite,
+    is_remembered = remembered is True or (
+        not isinstance(remembered, bool) and isinstance(remembered, int) and remembered > 0
     )
-    token = await build_strategy(access_token_db, window).write_token(user)
-    return await transport.get_login_response(token)
+    window = (
+        settings.remember_me_max_age_seconds if is_remembered else settings.cookie_max_age_seconds
+    )
+    return await cookie_login_response(access_token_db, user, settings, window)
 
 
 @router.post("/me/sessions/revoke-all", status_code=204, dependencies=[Depends(Authenticated())])

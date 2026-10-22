@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Response
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.authentication.strategy.db import AccessTokenDatabase
 
@@ -80,6 +80,31 @@ def build_strategy(
         read_ceiling_seconds=_TOKEN_LIFETIME_SECONDS,
         mint_lifetime_seconds=mint_lifetime_seconds,
     )
+
+
+async def cookie_login_response(
+    access_token_db: AccessTokenDatabase[UserAccessToken],
+    user,
+    settings: UsersSettings,
+    window_seconds: int,
+) -> Response:
+    """Mint an access-token row for ``window_seconds`` and set it as the cookie.
+
+    The one place a sign-in for a non-default window builds its credential, so
+    the row's deadline and the cookie's attributes cannot drift between the
+    login that set it and the password change that reissues it. The shared
+    backend's transport and strategy carry one lifetime each, so this builds a
+    second pair rather than mutating singletons concurrent requests are reading.
+    Note ``write_token`` commits the session it was given.
+    """
+    transport = build_cookie_transport(
+        cookie_name=settings.cookie_name,
+        cookie_max_age_seconds=window_seconds,
+        cookie_secure=settings.cookie_secure,
+        cookie_samesite=settings.cookie_samesite,
+    )
+    token = await build_strategy(access_token_db, window_seconds).write_token(user)
+    return await transport.get_login_response(token)
 
 
 def get_database_strategy(
