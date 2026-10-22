@@ -11,6 +11,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- UX polish (#575): `/tenants/settings` shows translated labels instead of raw keys
+  (`SettingDefinition.label_key` / `TenantSettingView.label_key`, set by `branding`; en + de);
+  a signed-in 404 for an unknown URL keeps the app layout (sidebar, user menu); the tenant
+  invite form shows a translated inline error for an invalid email instead of the browser's
+  silent native validation.
+
 ### Removed
 - Committed QA scratch directories `qa-shots/`, `.qa/` and `.verify/` (159 files); they are now gitignored (`dataset/` stays) (#511).
 - Unused `Combobox` shadcn component and the `@base-ui/react` dependency (nothing imported it; Radix has no combobox, use `cmdk` `Command` + `Popover`). **Behaviour change** for anyone importing `@simple-module-py/ui/components/ui/combobox` (#521).

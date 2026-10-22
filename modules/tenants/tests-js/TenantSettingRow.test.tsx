@@ -117,3 +117,34 @@ describe('TenantSettingRow', () => {
     expect(screen.getByText('A motto')).toBeInTheDocument();
   });
 });
+
+describe('TenantSettingRow label (#575)', () => {
+  test('shows the translated label, not the raw key', () => {
+    configureI18n({
+      locale: 'en',
+      messages: { 'branding.tenant_setting_labels.app_name': 'Application name' },
+    });
+    render(
+      <TenantSettingRow
+        setting={{
+          ...base,
+          key: 'branding.app_name',
+          label_key: 'branding.tenant_setting_labels.app_name',
+        }}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText('Application name')).toBeInTheDocument();
+    expect(screen.queryByText('branding.app_name')).toBeNull();
+  });
+
+  test('falls back to the key when the label is missing', () => {
+    render(
+      <TenantSettingRow
+        setting={{ ...base, key: 'demo.motto', label_key: 'demo.nope' }}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByText('demo.motto')).toBeInTheDocument();
+  });
+});

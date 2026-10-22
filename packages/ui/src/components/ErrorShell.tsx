@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { createContext, type ReactNode, useContext } from 'react';
 import { AdminLayout } from '../layouts/AdminLayout';
+import { AuthenticatedLayout } from '../layouts/AuthenticatedLayout';
 import type { SharedProps } from '../types';
 
 /** `/admin` or anything under `/admin/` — not `/administer`. */
@@ -26,6 +27,20 @@ export function ErrorShell({ children }: { children: ReactNode }) {
     Boolean(props.auth?.isAuthenticated) &&
     Array.isArray(props.menus?.adminSidebar) &&
     props.menus.adminSidebar.length > 0;
+  // Outside /admin, a signed-in viewer's unknown-URL 404 keeps the app layout
+  // too (#575). Needs a menu: without shared props there is nothing
+  // to render, and an anonymous visitor has no app to stay in.
+  const inAppShell =
+    !isAdminPath(page.url) &&
+    Boolean(props.auth?.isAuthenticated) &&
+    (props.menus?.sidebar?.length ?? 0) + (props.menus?.adminSidebar?.length ?? 0) > 0;
+  if (inAppShell) {
+    return (
+      <InShell.Provider value>
+        <AuthenticatedLayout>{children}</AuthenticatedLayout>
+      </InShell.Provider>
+    );
+  }
   if (!inShell) return <>{children}</>;
   return (
     <InShell.Provider value>

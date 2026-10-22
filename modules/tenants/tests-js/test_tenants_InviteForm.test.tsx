@@ -10,6 +10,7 @@ configureI18n({
   messages: {
     'tenants.members.invite_email_label': 'Email',
     'tenants.members.invite_submit': 'Send invitation',
+    'tenants.members.invite_email_invalid': 'Enter a valid email address.',
     'tenants.members.invite_link_copy': 'Copy link',
     'tenants.members.invite_emailed': 'Invitation emailed to {email}',
     'tenants.members.invite_share_link': 'Not emailed — share this link',
@@ -48,4 +49,13 @@ test.each([true, false])('keeps the link and copy button when emailed=%s', async
   ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
   expect(onInvited).toHaveBeenCalledOnce();
+});
+
+test('an invalid email shows a translated inline error and sends nothing (#575)', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch');
+  render(<InviteForm onInvited={vi.fn()} />);
+  await userEvent.type(screen.getByLabelText('Email'), 'notanemail');
+  await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+  expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument();
+  expect(fetchMock).not.toHaveBeenCalled();
 });

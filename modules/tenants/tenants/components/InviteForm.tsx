@@ -16,6 +16,10 @@ interface Props {
   onInvited: () => void;
 }
 
+// Same shape the browser's own `type=email` check enforces, so `noValidate`
+// swaps the silent native bubble for our translated inline error.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const ROLE_KEY = keys.tenants.roles;
 
 /**
@@ -38,6 +42,10 @@ export function InviteForm({ onInvited }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!EMAIL_SHAPE.test(email.trim())) {
+      setError(t(keys.tenants.members.invite_email_invalid));
+      return;
+    }
     setSubmitting(true);
     setError(null);
     // A new attempt replaces the previous result; a failure must not leave the
@@ -76,7 +84,7 @@ export function InviteForm({ onInvited }: Props) {
         <CardTitle>{t(keys.tenants.members.invite_title)}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
           <div className="min-w-[220px] flex-1 space-y-1.5">
             <Label htmlFor="invite-email">{t(keys.tenants.members.invite_email_label)}</Label>
             <Input
@@ -86,6 +94,7 @@ export function InviteForm({ onInvited }: Props) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t(keys.tenants.members.invite_email_placeholder)}
               required
+              aria-invalid={error ? true : undefined}
             />
           </div>
           <div className="space-y-1.5">
