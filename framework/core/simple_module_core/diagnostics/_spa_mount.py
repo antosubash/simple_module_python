@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 from simple_module_core.spa_mount import RESERVED_PREFIXES, prefixes_overlap
 
 SPA_MOUNT_OVERLAP_CODE = "SM032"
 
 
-def check_spa_mount_overlaps(modules: list) -> list[Diagnostic]:
-    """SM032: a SPA mount prefix overlaps a router prefix or another mount."""
+def check_spa_mount_overlaps(modules: list, route_paths: Iterable[str] = ()) -> list[Diagnostic]:
+    """SM032: a SPA mount prefix overlaps a router prefix, a registered route or another mount.
+
+    ``route_paths`` are the paths actually registered on the app (the host
+    supplies them after wiring); meta prefixes alone miss host routes such as
+    ``/docs`` or ``/openapi.json``.
+    """
     owners: list[tuple[str, str]] = [(p, "framework") for p in RESERVED_PREFIXES]
+    owners.extend((path.split("{", 1)[0].rstrip("/"), "a registered route") for path in route_paths)
     for mod in modules:
         for prefix in (mod.meta.route_prefix, mod.meta.view_prefix, mod.meta.admin_view_prefix):
             if prefix:

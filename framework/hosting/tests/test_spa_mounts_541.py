@@ -58,7 +58,7 @@ async def test_deep_link_serves_index(authenticated_client):
     r = await authenticated_client.get("/legacy/a/b/c", headers=_HTML)
     assert r.status_code == 200
     assert "legacy spa" in r.text
-    assert r.headers["cache-control"] == "no-cache"
+    assert r.headers["cache-control"] == "private, no-cache"
 
 
 async def test_root_serves_index_and_head_works(authenticated_client):
@@ -180,3 +180,92 @@ async def test_traversal_segment_refused_by_the_mount_itself(dist):
         with pytest.raises(HTTPException) as exc:
             await files.get_response(path, scope)
         assert exc.value.status_code == 404
+
+
+async def _boot_fails_with(settings, monkeypatch, tmp_path, mount, module=None):
+    from simple_module_hosting._spa_mount import SpaMountError
+
+    (tmp_path / "index.html").write_text("x", encoding="utf-8")
+    real = app_builder.discover_modules
+    extra = [_module([mount], name="Bad")]
+    if module is not None:
+        extra.append(module)
+    monkeypatch.setattr(
+        app_builder,
+        "discover_modules",
+        lambda enabled=None, *, strict=False: [*real(enabled=enabled, strict=strict), *extra],
+    )
+    with pytest.raises(SpaMountError, match="SM032"):
+        app_builder.create_app(settings)
+
+
+@pytest.mark.parametrize("prefix", ["/api/docs", "/api/redoc", "/api/openapi.json"])
+async def test_public_mount_over_framework_route_fails_boot(
+    settings, monkeypatch, tmp_path, prefix
+):
+    mount = SpaMount(prefix, tmp_path, auth="public")
+    await _boot_fails_with(settings, monkeypatch, tmp_path, mount)
+
+
+async def test_public_mount_over_registered_router_path_fails_boot(settings, monkeypatch, tmp_path):
+    class Router(ModuleBase):
+        meta = ModuleMeta(name="Pingy")
+
+        def register_routes(self, api_router, view_router):
+            view_router.get("/pingy-probe/ping")(lambda: {"ok": True})
+
+    mount = SpaMount("/pingy-probe", tmp_path, auth="public")
+    await _boot_fails_with(settings, monkeypatch, tmp_path, mount, Router())
+
+
+async def test_exemption_covers_only_the_mounts_own_paths(app):
+    registry = app.state.public_routes
+    assert registry.matches("GET", "/openspa")
+    assert registry.matches("HEAD", "/openspa/a/b")
+    assert not registry.matches("POST", "/openspa/a")
+    assert not registry.matches("GET", "/openspa2/x")
+    assert not registry.matches("GET", "/openspax")
+
+
+def test_route_paths_feed_the_overlap_check(tmp_path):
+    mod = _module([SpaMount("/thing", tmp_path)])
+    assert check_spa_mount_overlaps([mod], ["/thing/{id}"])
+    assert not check_spa_mount_overlaps([mod], ["/other/{id}", "/"])
+
+
+async def test_required_mount_responses_are_private(authenticated_client):
+    asset = await authenticated_client.get("/legacy/assets/index-3f9a8c21b.js")
+    assert asset.headers["cache-control"] == "private, max-age=31536000, immutable"
+    index = await authenticated_client.get("/legacy/x/y", headers=_HTML)
+    assert index.headers["cache-control"] == "private, no-cache"
+
+
+async def test_public_mount_hashed_asset_is_shared_cacheable(client, tmp_path):
+    from simple_module_hosting._spa_mount import SpaStaticFiles
+
+    root = tmp_path / "pub"
+    root.mkdir()
+    (root / "index.html").write_text("x", encoding="utf-8")
+    (root / "main-AbC12345.js").write_text("1", encoding="utf-8")
+    files = SpaStaticFiles(directory=root, index="index.html", public=True)
+    scope = {"method": "GET", "headers": [], "path": "/main-AbC12345.js"}
+    response = await files.get_response("main-AbC12345.js", scope)
+    assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
+@pytest.mark.parametrize(
+    ("name", "hashed"),
+    [
+        ("index-3f9a8c21b.js", True),
+        ("chunk.AbCdEfGh.css", True),
+        ("main.a1b2c3d4e5f6.js", True),
+        ("jquery-ui-dialog.js", False),
+        ("some-long-name.js", False),
+        ("app.js", False),
+        ("v1.2.3.js", False),
+    ],
+)
+def test_hash_shapes(name, hashed):
+    from simple_module_hosting._spa_mount import looks_hashed
+
+    assert looks_hashed(name) is hashed
