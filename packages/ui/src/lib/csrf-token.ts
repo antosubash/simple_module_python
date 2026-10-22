@@ -6,7 +6,8 @@
  */
 import { router } from '@inertiajs/react';
 
-let current: string | null = null;
+// undefined = no page event seen yet (use the embedded page); null = page has no token.
+let current: string | null | undefined;
 
 function tokenOf(page: unknown): string | null {
   const value = (page as { props?: { csrfToken?: unknown } } | null)?.props?.csrfToken;
@@ -20,7 +21,8 @@ export function setCsrfToken(token: string | null): void {
 
 /** The current page's `csrfToken`, or null when the server sent none (anonymous). */
 export function currentCsrfToken(): string | null {
-  if (current || typeof document === 'undefined') return current;
+  if (current !== undefined) return current;
+  if (typeof document === 'undefined') return null;
   const el = document.querySelector('script[data-page][type="application/json"]');
   try {
     return el?.textContent ? tokenOf(JSON.parse(el.textContent)) : null;
