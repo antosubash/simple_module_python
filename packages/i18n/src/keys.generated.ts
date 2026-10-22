@@ -1055,6 +1055,39 @@ export const keys = {
       string: 'settings.value_types_short.string',
     },
   },
+  sharing: {
+    admin: {
+      description: 'sharing.admin.description',
+      tenant_required: 'sharing.admin.tenant_required',
+      title: 'sharing.admin.title',
+    },
+    audit: {
+      share: 'sharing.audit.share',
+    },
+    list: {
+      actions: 'sharing.list.actions',
+      empty_description: 'sharing.list.empty_description',
+      empty_title: 'sharing.list.empty_title',
+      expired: 'sharing.list.expired',
+      expires: 'sharing.list.expires',
+      granted_by: 'sharing.list.granted_by',
+      never: 'sharing.list.never',
+      resource: 'sharing.list.resource',
+      revoke: 'sharing.list.revoke',
+      role: 'sharing.list.role',
+      subject: 'sharing.list.subject',
+    },
+    nav: {
+      title: 'sharing.nav.title',
+    },
+    permission_group: 'sharing.permission_group',
+    revoke: {
+      cancel: 'sharing.revoke.cancel',
+      confirm: 'sharing.revoke.confirm',
+      description: 'sharing.revoke.description',
+      title: 'sharing.revoke.title',
+    },
+  },
   tenants: {
     accept: {
       accept_button: 'tenants.accept.accept_button',

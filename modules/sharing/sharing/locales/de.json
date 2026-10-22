@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "title": "Freigaben"
+  },
+  "permission_group": "Freigaben",
+  "audit": {
+    "share": "Freigabe"
+  },
+  "admin": {
+    "title": "Freigaben",
+    "description": "Wer in diesem Arbeitsbereich Zugriff auf welche Ressource erhalten hat.",
+    "tenant_required": "Wählen Sie einen Arbeitsbereich, um seine Freigaben zu sehen."
+  },
+  "list": {
+    "resource": "Ressource",
+    "subject": "Freigegeben für",
+    "role": "Rolle",
+    "granted_by": "Freigegeben von",
+    "expires": "Läuft ab",
+    "actions": "Aktionen",
+    "never": "Nie",
+    "expired": "Abgelaufen",
+    "revoke": "Widerrufen",
+    "empty_title": "Noch nichts freigegeben",
+    "empty_description": "Freigaben erscheinen hier, sobald jemand einer anderen Person Zugriff auf eine Ressource gibt."
+  },
+  "revoke": {
+    "title": "Diese Freigabe widerrufen?",
+    "description": "Die Person verliert sofort den Zugriff auf die Ressource.",
+    "confirm": "Widerrufen",
+    "cancel": "Abbrechen"
+  }
+}
