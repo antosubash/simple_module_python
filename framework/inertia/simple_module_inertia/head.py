@@ -21,7 +21,7 @@ from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 from jinja2.utils import htmlsafe_json_dumps
-from markupsafe import Markup, escape
+from markupsafe import escape
 from pydantic import BaseModel, Field, field_validator, model_validator
 from starlette.requests import Request
 
@@ -155,7 +155,3 @@ def head_tags(head: Head, site: SiteInfo) -> list[str]:
             f'<script {_KEY_ATTR}="sm-jsonld-{index}" type="application/ld+json">{body}</script>'
         )
     return tags
-
-
-def head_markup(tags: list[str]) -> Markup:
-    return Markup("\n".join(tags))

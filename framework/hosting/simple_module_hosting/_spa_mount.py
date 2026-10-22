@@ -125,9 +125,8 @@ def mount_spa_mounts(app: FastAPI, modules: list) -> None:
     registry = getattr(app.state, "public_routes", None)
     for mod in modules:
         for mount in mod.spa_mounts():
-            if not _mount(app, mod.meta.name, mount, registry):
-                continue
-            prefixes.append(mount.prefix)
+            if _mount(app, mod.meta.name, mount, registry):
+                prefixes.append(mount.prefix)
     app.state.spa_prefixes = tuple(prefixes)
 
 

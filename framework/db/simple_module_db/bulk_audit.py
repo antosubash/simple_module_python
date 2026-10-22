@@ -34,7 +34,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import ORMExecuteState, Session
 
 from simple_module_db import model_registry as registry
-from simple_module_db.audit import AuditRecord, _excluded_fields, _serialize
+from simple_module_db.audit import AuditRecord, _excluded_fields, _serialize, format_pk
 from simple_module_db.bulk_audit_targets import _is_set, _shown, _targets
 from simple_module_db.query_filter import engine_policy
 from simple_module_db.tenancy import ALL_TENANTS_OPTION
@@ -72,10 +72,6 @@ def _target_class(execute_state: ORMExecuteState) -> type | None:
         return mapper.class_
     table = getattr(execute_state.statement, "table", None)
     return registry.classes_by_table.get(table) if table is not None else None
-
-
-def _pk_str(values: tuple | list) -> str:
-    return str(values[0]) if len(values) == 1 else str(tuple(values))
 
 
 class _Ctx:
@@ -161,7 +157,7 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
     if execute_state.execution_options.get(ALL_TENANTS_OPTION):
         options[ALL_TENANTS_OPTION] = True
     rows = execute_state.session.execute(query.execution_options(**options)).all()
-    return [_pk_str(tuple(row)) for row in rows]
+    return [format_pk(tuple(row)) for row in rows]
 
 
 def _bulk_by_pk_ids(execute_state: ORMExecuteState, cls: type) -> list[str] | None:
@@ -172,7 +168,7 @@ def _bulk_by_pk_ids(execute_state: ORMExecuteState, cls: type) -> list[str] | No
     pk = [col.key for col in sa_inspect(cls).primary_key]
     if not all(all(k in row for k in pk) for row in params):
         return None
-    return [_pk_str([row[k] for k in pk]) for row in params]
+    return [format_pk([row[k] for k in pk]) for row in params]
 
 
 def _summary(ctx: _Ctx, stmt: Any, rowcount: Any, action: str) -> AuditRecord:

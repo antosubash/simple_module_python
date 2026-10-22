@@ -216,10 +216,11 @@ class HostSettings(BaseSettings):
     @field_validator("native_link_prefixes", mode="after")
     @classmethod
     def _check_native_prefixes(cls, value: list[str]) -> list[str]:
-        for prefix in value:
+        cleaned = [prefix.strip() for prefix in value]
+        for prefix in cleaned:
             if not prefix.startswith("/"):
                 raise ValueError(f"native_link_prefixes entry {prefix!r} must start with '/'")
-        return [prefix.strip() for prefix in value]
+        return cleaned
 
     @field_validator("max_request_body_bytes", mode="after")
     @classmethod

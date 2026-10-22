@@ -15,6 +15,7 @@ from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.cors import CorsPolicyRegistry
 from simple_module_core.deprecation import deprecate
 from simple_module_core.rate_limit import RateLimitRegistry
+from simple_module_core.resources import ResourceTypeRegistry
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -54,7 +55,7 @@ def run_module_registrations(
     audit_link_registry,
     csp_registry,
     request_registries: RequestRegistries,
-    resource_type_registry=None,
+    resource_type_registry: ResourceTypeRegistry | None = None,
 ) -> None:
     """Invoke each module's registration hooks, in dependency order.
 
@@ -64,6 +65,7 @@ def run_module_registrations(
     ``on_startup``, say — belongs to no module in this loop, and inheriting
     the last one's name would be a lie.
     """
+    resource_type_registry = resource_type_registry or ResourceTypeRegistry()
     for mod in modules:
         mod.register_menu_items(menu_registry)
         mod.register_permissions(perm_registry)
@@ -83,8 +85,7 @@ def run_module_registrations(
         mod.register_csp_sources(csp_registry)
         mod.register_design_packs(design_pack_registry)
         mod.register_audit_links(audit_link_registry)
-        if resource_type_registry is not None:
-            mod.register_resource_types(resource_type_registry)
+        mod.register_resource_types(resource_type_registry)
 
     health_registry.set_owner("")
     setup_registry.set_owner("")
