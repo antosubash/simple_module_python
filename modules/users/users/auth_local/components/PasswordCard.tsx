@@ -5,8 +5,11 @@ import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Label } from '@simple-module-py/ui/components/ui/label';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../pages/api';
+import { failureMessage } from '../../pages/failureMessage';
 
 /**
  * Change your own password.
@@ -40,17 +43,19 @@ export function PasswordCard() {
     }
     setSaving(true);
     try {
-      const resp = await fetch('/api/users/me/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: current, new_password: next }),
-      });
+      const resp = await apiResult(
+        api.POST('/api/users/me/password', {
+          body: { current_password: current, new_password: next },
+        }),
+      );
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
         setError(
-          typeof body?.detail === 'string'
-            ? body.detail
-            : t(keys.users.profile.toast_password_failed),
+          failureMessage(
+            resp,
+            t(keys.users.profile.toast_password_failed),
+            t(keys.users.common.error_occurred),
+            true,
+          ),
         );
         return;
       }

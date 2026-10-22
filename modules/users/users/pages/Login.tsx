@@ -3,10 +3,13 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { AuthSplitAside } from '@simple-module-py/ui/layouts/AuthSplitAside';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { type DemoAccount, DemoSignIn } from '../auth_local/components/DemoSignIn';
 import { LoginForm, type OAuthProvider } from '../auth_local/components/LoginForm';
 import { WaitingOnYou } from '../auth_local/components/WaitingOnYou';
+import { api } from './api';
+import { signIn } from './signIn';
 
 interface DevAccount {
   label: string;
@@ -61,32 +64,20 @@ function Login({
     setError(null);
     setNeedsVerification(false);
     setLoading(true);
-    const body = new URLSearchParams({
-      username,
-      password: pwd,
-      remember: String(remember),
-    });
-    fetch('/api/users/auth/login', {
-      method: 'POST',
-      body,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
-      .then(async (res) => {
-        if (res.status === 204) {
+    signIn(username, pwd, remember)
+      .then((res) => {
+        if (res.status === NETWORK_FAILURE) {
+          setError(t(keys.users.common.error_try_again));
+        } else if (res.status === 204) {
           router.visit(nextUrl);
         } else if (res.status === 429) {
           setError(t(keys.users.login.error_rate_limited));
+        } else if (res.detail === 'LOGIN_USER_NOT_VERIFIED') {
+          setNeedsVerification(true);
         } else {
-          const data = await res.json().catch(() => ({}));
-          const detail = typeof data?.detail === 'string' ? data.detail : '';
-          if (detail === 'LOGIN_USER_NOT_VERIFIED') {
-            setNeedsVerification(true);
-          } else {
-            setError(t(keys.users.login.error_invalid_credentials));
-          }
+          setError(t(keys.users.login.error_invalid_credentials));
         }
       })
-      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 
@@ -97,22 +88,23 @@ function Login({
     setDemoError(null);
     setError(null);
     setDemoPendingRole(role);
-    fetch(`/api/users/auth/demo/${role}`, { method: 'POST' })
-      .then((res) => {
+    apiResult(api.POST('/api/users/auth/demo/{role}', { params: { path: { role } } })).then(
+      (res) => {
         if (res.status === 204) {
           router.visit(nextUrl);
           return;
         }
-        // 404 is that account having been switched off since this page was
-        // rendered; 429 is its throughput budget. Neither is worth its own
-        // copy — both mean "not right now".
-        setDemoError(t(keys.users.login.demo_error));
+        if (res.status === NETWORK_FAILURE) {
+          setDemoError(t(keys.users.common.error_try_again));
+        } else {
+          // 404 is that account having been switched off since this page was
+          // rendered; 429 is its throughput budget. Neither is worth its own
+          // copy — both mean "not right now".
+          setDemoError(t(keys.users.login.demo_error));
+        }
         setDemoPendingRole(null);
-      })
-      .catch(() => {
-        setDemoError(t(keys.users.common.error_try_again));
-        setDemoPendingRole(null);
-      });
+      },
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -125,13 +117,9 @@ function Login({
     // the auth throughput limiter, and a 429 announced as "sent" leaves
     // someone waiting for an email that was never queued.
     setResendFailed(false);
-    fetch('/api/users/auth/request-verify-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
-      .then((res) => (res.ok ? setResent(true) : setResendFailed(true)))
-      .catch(() => setResendFailed(true));
+    apiResult(api.POST('/api/users/auth/request-verify-token', { body: { email } })).then((res) =>
+      res.ok ? setResent(true) : setResendFailed(true),
+    );
   };
 
   const aside = (

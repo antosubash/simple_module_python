@@ -1,7 +1,10 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../pages/api';
+import { failureMessage } from '../../pages/failureMessage';
 
 /**
  * The per-row actions on the users table — resend, copy a reset link, and
@@ -15,6 +18,7 @@ import { toast } from 'sonner';
  */
 export function useUserRowActions() {
   const { t } = useT();
+  const network = t(keys.users.common.error_occurred);
   const [busy, setBusy] = useState<string | null>(null);
 
   async function copyToClipboard(text: string): Promise<boolean> {
@@ -31,15 +35,19 @@ export function useUserRowActions() {
   async function resendInvite(userId: string, email: string) {
     setBusy(userId);
     try {
-      const resp = await fetch(`/api/users/admin/${userId}/resend-invite`, { method: 'POST' });
+      const resp = await apiResult(
+        api.POST('/api/users/admin/{user_id}/resend-invite', {
+          params: { path: { user_id: userId } },
+        }),
+      );
       if (!resp.ok) {
-        toast.error(t(keys.users.user_row.toast_resend_failed));
+        toast.error(failureMessage(resp, t(keys.users.user_row.toast_resend_failed), network));
         return;
       }
-      const body = await resp.json();
+      const body = resp.data;
       // A mailer that only logs hands back the link instead: putting it on the
       // clipboard is the difference between "invited" and "actually reachable".
-      if (body.status === 'link' && body.link) {
+      if (body?.status === 'link' && body.link) {
         const copied = await copyToClipboard(body.link);
         toast.success(
           copied
@@ -60,15 +68,16 @@ export function useUserRowActions() {
   async function copyResetLink(userId: string) {
     setBusy(userId);
     try {
-      const resp = await fetch(`/api/users/admin/${userId}/reset-password-link`, {
-        method: 'POST',
-      });
+      const resp = await apiResult(
+        api.POST('/api/users/admin/{user_id}/reset-password-link', {
+          params: { path: { user_id: userId } },
+        }),
+      );
       if (!resp.ok) {
-        toast.error(t(keys.users.user_row.toast_reset_failed));
+        toast.error(failureMessage(resp, t(keys.users.user_row.toast_reset_failed), network));
         return;
       }
-      const body = await resp.json();
-      const copied = await copyToClipboard(body.link ?? '');
+      const copied = await copyToClipboard(resp.data?.link ?? '');
       if (copied) toast.success(t(keys.users.user_row.toast_reset_copied));
       else toast.error(t(keys.users.user_row.toast_reset_failed));
     } catch {
@@ -81,11 +90,14 @@ export function useUserRowActions() {
   async function setActive(userId: string, active: boolean) {
     setBusy(userId);
     try {
-      const resp = await fetch(`/api/users/admin/${userId}/${active ? 'enable' : 'disable'}`, {
-        method: 'PATCH',
-      });
+      const params = { params: { path: { user_id: userId } } };
+      const resp = await apiResult(
+        active
+          ? api.PATCH('/api/users/admin/{user_id}/enable', params)
+          : api.PATCH('/api/users/admin/{user_id}/disable', params),
+      );
       if (!resp.ok) {
-        toast.error(t(keys.users.user_row.toast_status_failed));
+        toast.error(failureMessage(resp, t(keys.users.user_row.toast_status_failed), network));
         return;
       }
       toast.success(

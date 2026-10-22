@@ -2,12 +2,15 @@ import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
 import { CheckCircle2, TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
+import { api } from './api';
+import { signIn } from './signIn';
 
 const FORGOT_PATH = '/users/forgot-password';
 
@@ -40,18 +43,9 @@ function ResetPassword({
    *
    * Never rejects: by the time this runs the password has already been
    * changed, and a network error here must not be reported as a failed reset. */
-  const signIn = async () => {
+  const signedIn = async () => {
     if (!email) return false;
-    try {
-      const res = await fetch('/api/users/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ username: email, password }),
-      });
-      return res.status === 204;
-    } catch {
-      return false;
-    }
+    return (await signIn(email, password)).status === 204;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -63,22 +57,17 @@ function ResetPassword({
     }
     setMismatch(false);
     setLoading(true);
-    fetch('/api/users/auth/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password }),
-    })
+    apiResult(api.POST('/api/users/auth/reset-password', { body: { token, password } }))
       .then(async (res) => {
-        if (res.status !== 200 && res.status !== 204) {
-          const data = await res.json().catch(() => ({}));
-          setError(
-            typeof data?.detail === 'string'
-              ? data.detail
-              : t(keys.users.reset_password.error_failed),
-          );
+        if (res.status === NETWORK_FAILURE) {
+          setError(t(keys.users.common.error_try_again));
           return;
         }
-        if (await signIn()) {
+        if (res.status !== 200 && res.status !== 204) {
+          setError(res.detail ?? t(keys.users.reset_password.error_failed));
+          return;
+        }
+        if (await signedIn()) {
           router.visit(homeUrl);
           return;
         }
@@ -88,7 +77,6 @@ function ResetPassword({
         // them the sign-in page.
         setSaved(true);
       })
-      .catch(() => setError(t(keys.users.common.error_try_again)))
       .finally(() => setLoading(false));
   };
 

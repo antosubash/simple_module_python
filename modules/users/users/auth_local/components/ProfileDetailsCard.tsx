@@ -4,9 +4,12 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { initials } from '@simple-module-py/ui/lib/initials';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../pages/api';
+import { failureMessage } from '../../pages/failureMessage';
 import type { ProfileUser } from './profile-user';
 
 /**
@@ -31,22 +34,21 @@ export function ProfileDetailsCard({ user }: { user: ProfileUser }) {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
-    fetch('/api/users/me', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: fullName }),
-    })
-      .then(async (res) => {
+    apiResult(api.PATCH('/api/users/me', { body: { full_name: fullName } }))
+      .then((res) => {
         if (res.ok) {
           toast.success(t(keys.users.profile.toast_updated));
           return;
         }
-        const data = await res.json().catch(() => ({}));
         toast.error(
-          typeof data?.detail === 'string' ? data.detail : t(keys.users.profile.toast_failed),
+          failureMessage(
+            res,
+            t(keys.users.profile.toast_failed),
+            t(keys.users.common.error_occurred),
+            true,
+          ),
         );
       })
-      .catch(() => toast.error(t(keys.users.common.error_occurred)))
       .finally(() => setSaving(false));
   };
 

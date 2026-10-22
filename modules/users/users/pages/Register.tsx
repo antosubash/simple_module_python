@@ -3,6 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiFetch, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { MailCheck, UserCheck } from 'lucide-react';
 import { useState } from 'react';
@@ -91,19 +92,21 @@ function Register({ require_verification = true }: RegisterProps) {
     }
     setMismatch(false);
     setLoading(true);
-    fetch('/api/users/auth/register', {
+    // Untyped on purpose: the generated `UserCreate` demands the privileged
+    // `is_active`/`is_superuser`/`is_verified` keys, which a sign-up must not send.
+    apiFetch('/api/users/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name: fullName }),
+      json: { email, password, full_name: fullName },
     })
-      .then(async (res) => {
+      .then((res) => {
         if (res.status === 201) {
           setSuccess(true);
+        } else if (res.status === NETWORK_FAILURE) {
+          setError(FAILED);
         } else {
-          setError(mapRegisterError(await res.json().catch(() => ({}))));
+          setError(mapRegisterError(res.error ?? {}));
         }
       })
-      .catch(() => setError(FAILED))
       .finally(() => setLoading(false));
   };
 
