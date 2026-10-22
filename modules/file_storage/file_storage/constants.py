@@ -21,6 +21,7 @@ MODULE_NAME: Final = "file_storage"
 MODULE_PASCAL: Final = "FileStorage"
 MODULE_DISPLAY_NAME: Final = "Files"
 _MODULE_SETTINGS: Final = "Settings"
+_MODULE_BACKGROUND_TASKS: Final = "BackgroundTasks"
 
 # ── Configuration ────────────────────────────────────────────────────
 ENV_PREFIX: Final = "SM_FILE_STORAGE_"

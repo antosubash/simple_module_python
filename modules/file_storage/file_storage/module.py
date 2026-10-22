@@ -37,7 +37,8 @@ class FileStorageModule(ModuleBase):
         view_prefix=constants.ROUTE_PREFIX_VIEW,
         # Kept after Settings so the module order is unchanged; registering
         # settings no longer needs it (the framework owns the registry, #500).
-        optional_depends_on=[constants._MODULE_SETTINGS],
+        # Task/checksum integration also needs BackgroundTasks loaded first when present.
+        optional_depends_on=[constants._MODULE_SETTINGS, constants._MODULE_BACKGROUND_TASKS],
         i18n_audience="admin",
     )
 

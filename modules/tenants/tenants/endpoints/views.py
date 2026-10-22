@@ -29,6 +29,7 @@ from tenants.deps import InvitationServiceDep, TenantServiceDep, UserIdDep
 from tenants.resolver import memberships_for
 
 router = APIRouter()
+settings_router = APIRouter()
 
 
 def _perm(request: Request, permission: str) -> bool:
@@ -97,7 +98,7 @@ async def members(
     )
 
 
-@router.get(
+@settings_router.get(
     "/settings",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_TENANT_SETTINGS))],
