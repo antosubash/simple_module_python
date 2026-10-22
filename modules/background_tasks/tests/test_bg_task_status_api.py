@@ -102,7 +102,10 @@ async def test_the_error_is_a_type_name_never_a_traceback(
     "bad",
     [
         pytest.param("Boom: leaked message", id="message"),
-        pytest.param("x" * 300, id="too-long"),
+        # The column is varchar(255), the same cap as the pattern, so a stored
+        # value is never too long; a trailing newline is what can leak.
+        pytest.param("ValueError\nsecret=hunter2", id="multiline"),
+        pytest.param("ValueError\n", id="trailing-newline"),
     ],
 )
 async def test_a_malformed_exception_type_is_dropped(

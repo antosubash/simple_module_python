@@ -25,7 +25,7 @@ from background_tasks.models import TaskExecution
 
 router = APIRouter(prefix=STATUS_ROUTER_PREFIX, tags=[f"{MODULE_NAME}-status"])
 
-_TYPE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]{0,254}$")
+_TYPE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,254}")
 _NOT_FOUND = "Task not found"
 
 
@@ -63,7 +63,7 @@ async def get_task_status(
     ).scalar_one_or_none()
     if row is None or not await _visible(request, row, str(user.id)):
         raise HTTPException(status_code=404, detail=_NOT_FOUND)
-    error = (
-        row.exception_type if row.exception_type and _TYPE_NAME.match(row.exception_type) else None
-    )
+    error = row.exception_type
+    if error and not _TYPE_NAME.fullmatch(error):
+        error = None
     return TaskStatusDTO.model_validate(row, update={"exception_type": error})
