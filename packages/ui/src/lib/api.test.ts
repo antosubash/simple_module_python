@@ -167,6 +167,27 @@ describe('apiFetch', () => {
   });
 });
 
+describe('cross-origin URLs', () => {
+  it.each([
+    ['an absolute cross-origin URL', 'https://evil.example/steal', false],
+    ['a protocol-relative URL', '//evil.example/steal', false],
+    ['a same-origin absolute URL', `${window.location.origin}/api/x`, true],
+  ])('apiFetch to %s sends the token only when same-origin', async (_label, url, expected) => {
+    const fetchMock = stubFetch(200, {});
+    await apiFetch(url, { method: 'POST', json: {} });
+    expect(sent(fetchMock).headers.get('X-CSRF-Token')).toBe(expected ? 'tok-1' : null);
+  });
+
+  it('createApi with a foreign baseUrl never sends the token', async () => {
+    const fetchMock = stubFetch(201, { id: '1', name: 'a' });
+    await createApi<paths>({ baseUrl: 'https://evil.example' }).POST('/api/things/{id}', {
+      params: { path: { id: '1' } },
+      body: { name: 'a' },
+    });
+    expect(sent(fetchMock).headers.has('X-CSRF-Token')).toBe(false);
+  });
+});
+
 describe('currentCsrfToken', () => {
   it('tracks the shared prop across Inertia visits', () => {
     handlers.navigate({ detail: { page: { props: { csrfToken: 'from-nav' } } } });

@@ -18,9 +18,20 @@ export { currentCsrfToken, setCsrfToken } from './csrf-token';
 const CSRF_HEADER = 'X-CSRF-Token';
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+/** The token is the session's: never hand it to another origin. */
+function sameOrigin(url: string): boolean {
+  const origin = globalThis.location?.origin;
+  try {
+    return !!origin && new URL(url).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
 function prepare(request: Request, token: string | null | undefined): Request {
   if (!request.headers.has('Accept')) request.headers.set('Accept', 'application/json');
-  if (token && UNSAFE.has(request.method) && !request.headers.has(CSRF_HEADER)) {
+  const unsafe = UNSAFE.has(request.method);
+  if (token && unsafe && !request.headers.has(CSRF_HEADER) && sameOrigin(request.url)) {
     request.headers.set(CSRF_HEADER, token);
   }
   return request;
