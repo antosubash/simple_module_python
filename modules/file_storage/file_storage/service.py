@@ -31,6 +31,7 @@ from file_storage.downloads import (
 from file_storage.models import StoredFile
 from file_storage.reads import FileStorageReads
 from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
+from file_storage.upload_guards import StorageQuota
 from file_storage.visibility import FileStoragePublic
 
 if TYPE_CHECKING:
@@ -54,7 +55,7 @@ class StoredFileNotFoundError(Exception):
     """Raised when a StoredFile lookup misses; endpoints map this to HTTP 404."""
 
 
-class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes):
+class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes, StorageQuota):
     """Orchestrates validation, hashing, backend IO, and DB lifecycle."""
 
     def __init__(
@@ -121,6 +122,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         # the cleanup error after logging; the orphaned key can be reaped
         # by a janitor sweep.
         try:
+            await self._check_quota(size, reserve=True, platform=platform)
             row = StoredFile(
                 tenant_id=tenant_id,
                 key=key,

@@ -82,17 +82,17 @@ class FileStorageSettings(DbBackedSettings):
         default=None,
         description="Whitelist of MIME types. None = any type allowed.",
     )
-    # Reported, not enforced: the browse screen states "1.2 GB of 5 GB used"
-    # only for installs that have said what 5 GB means to them. Left unset,
-    # the screen reports usage without inventing a ceiling, and uploads are
-    # bounded by ``max_file_size_bytes`` alone as before.
+    # Enforced for plain uploads and resumable sessions: stored bytes plus
+    # unexpired active reservations. None leaves aggregate storage unlimited.
     # Positive, and no larger than a browser can hold exactly: the screen and
     # the settings editor read it as a JavaScript number (#548).
     quota_bytes: int | None = Field(
         default=None,
         gt=0,
         le=constants.MAX_JS_SAFE_INTEGER,
-        description="Total storage the browse screen measures usage against. None = unmeasured.",
+        description=(
+            "Storage ceiling for stored files and active upload reservations. None = unlimited."
+        ),
     )
 
     public_files_cors: bool = Field(

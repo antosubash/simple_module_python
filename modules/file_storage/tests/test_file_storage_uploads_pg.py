@@ -53,3 +53,24 @@ async def test_concurrent_completes_record_one_file(authenticated_client, storag
     assert len({r.json()["file"]["id"] for r in responses}) == 1
     assert (await authenticated_client.get(f"{API}/files")).json()["total"] == 1
     assert len(checksum_calls) == 1
+
+
+async def test_concurrent_plain_uploads_cannot_overbook_quota(authenticated_client, storage):
+    storage.settings.quota_bytes = 10
+    responses = await asyncio.gather(
+        *(
+            authenticated_client.post(
+                f"{API}/upload",
+                files={"file": ("small.bin", b"x" * 5, "application/octet-stream")},
+            )
+            for _ in range(6)
+        )
+    )
+    assert sorted(r.status_code for r in responses) == [201, 201, 413, 413, 413, 413]
+    assert all(
+        r.json()["detail"]["code"] == constants.ErrorCode.QUOTA_EXCEEDED
+        for r in responses
+        if r.status_code == 413
+    )
+    assert (await authenticated_client.get(f"{API}/files")).json()["total"] == 2
+    assert len([p for p in storage.backend.root.rglob("*") if p.is_file()]) == 2

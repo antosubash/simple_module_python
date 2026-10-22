@@ -286,6 +286,7 @@ DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live e
 | `s3_signature_version` | `"s3v4"` | presign signature version; pinned so custom endpoints get SigV4 |
 | `s3_presign_ttl_seconds` | `300` | TTL for presigned `GET` URLs |
 | `max_file_size_bytes` | `100 * 1024 * 1024` | upload limit (100 MB) |
+| `quota_bytes` | `None` | Enforced on plain and resumable uploads: stored bytes plus unexpired active session reservations; `None` means unlimited aggregate storage. Usage follows file-listing tenant scope; platform uploads count platform-owned files separately. PostgreSQL serializes quota admissions until the recording transaction commits. Rejected plain uploads delete the uploaded object. |
 | `allowed_content_types` | `None` | optional MIME-type whitelist; `None` ⇒ any |
 
 ## Backends
