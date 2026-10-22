@@ -6,7 +6,7 @@ synchronous, so each dispatch runs on the calling thread's long-lived outbox
 event loop (:mod:`.outbox_loop`), and the engine — built once per loop from the
 URL :mod:`.sync_db` was pinned to — keeps a small connection pool on that loop.
 Under the ``threads`` pool every Celery thread therefore has its own loop and
-engine, and the database sees up to three connections per worker thread.
+engine (a pool of one, plus two overflow).
 Its session class gets the framework's entity listeners and the host's tenancy
 policy, like the sync engine's.
 
@@ -56,16 +56,26 @@ def worker_session_factory() -> async_sessionmaker[Any]:
     """
     url = sync_db.async_database_url()
     policy = sync_db.engine_tenancy()
-    key = (url, policy.tenant_strict, policy.default_tenant_id)
+    options = sync_db.database_options()
+    key = (url, policy.tenant_strict, policy.default_tenant_id, tuple(sorted(options.items())))
     cache = worker_loop_cache()
     cached: tuple[Any, async_sessionmaker[Any], AsyncEngine] | None = cache.get(_ENGINE_KEY)
     if cached is not None and cached[0] == key:
         return cached[1]
     if cached is not None:
         _dispose_soon(cached[2])
-    # Pooled, and small: one thread delivers one row at a time — the claim,
-    # the handler's session, and a handler's occasional second session.
-    state = init_db(url, pool_size=1, max_overflow=2)
+    # Small pool of its own: one thread delivers one row at a time. Timeouts and
+    # recycle are shared with the sync workers.
+    state = init_db(
+        url,
+        pool_size=1,
+        max_overflow=2,
+        pool_recycle=options.get("pool_recycle", 1800),
+        pool_timeout=options.get("pool_timeout", 30),
+        connect_timeout=options.get("connect_timeout", 10),
+        statement_timeout_ms=options.get("statement_timeout_ms", 0),
+        idle_in_tx_timeout_ms=options.get("idle_in_tx_timeout_ms", 0),
+    )
     attach_session_listeners(state.sync_session_class)
     bind_engine_policy(state.engine.sync_engine, policy)
     cache[_ENGINE_KEY] = (key, state.session_factory, state.engine)

@@ -146,8 +146,9 @@ class BackgroundTasksModule(ModuleBase):
         import asyncio
 
         from background_tasks.celery_app import build_celery
+        from background_tasks.db_settings import worker_database_options
         from background_tasks.signals import bind_event_bus
-        from background_tasks.sync_db import set_database_url
+        from background_tasks.sync_db import configure_database, set_database_url
         from background_tasks.tenant_context import set_default_tenant
 
         services = app.state.background_tasks
@@ -159,6 +160,7 @@ class BackgroundTasksModule(ModuleBase):
         multi = bool(getattr(host, "multi_tenant", False))
         default_tenant = None if multi else getattr(host, "default_tenant", "") or None
         set_database_url(host.database_url, tenant_strict=multi, default_tenant=default_tenant)
+        configure_database(worker_database_options(host, services.settings))
         set_default_tenant(default_tenant)
         # build_celery imports `signals` for side effects and runs
         # `autodiscover_tasks` across every installed module.

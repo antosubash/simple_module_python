@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import Depends, FastAPI
-from simple_module_core import BodyLimitRegistry, CspSourceRegistry
+from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
 from simple_module_core.diagnostics import print_diagnostics
@@ -22,7 +22,7 @@ from simple_module_core.setup_steps import SetupRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db
 
-from simple_module_hosting._boot_checks import report_tenant_resolution
+from simple_module_hosting._boot_checks import report_tenant_resolution, report_unguarded_routes
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
@@ -42,13 +42,14 @@ from simple_module_hosting._phase_helpers import (
 )
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
-from simple_module_hosting._rate_limit import build_store
-from simple_module_hosting._registrations import run_module_registrations
+from simple_module_hosting._rate_limit_store import build_store
+from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
 from simple_module_hosting._secret_key import assert_not_placeholder
 from simple_module_hosting._settings_registration import (
     check_settings_registration,
     register_host_settings,
 )
+from simple_module_hosting.db_options import database_options
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
@@ -167,8 +168,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(token_route_guard)],
     )
 
-    install_openapi_filter(app)
-    # Read by AuthMiddleware: the schema is anonymous exactly when it is served.
+    install_openapi_filter(app)  # AuthMiddleware reads openapi_url: anonymous iff served
     app.state.openapi_url = API_OPENAPI_URL if serve_openapi else None
 
     # ── Phase 4: Module settings ───────────────────────────
@@ -184,7 +184,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 5: Module registrations ──────────────────────
     csp_registry = CspSourceRegistry()
-    body_limit_registry = BodyLimitRegistry()
+    request_registries = RequestRegistries()
     run_module_registrations(
         modules,
         app=app,
@@ -199,9 +199,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         design_pack_registry=design_pack_registry,
         audit_link_registry=audit_link_registry,
         csp_registry=csp_registry,
-        body_limit_registry=body_limit_registry,
+        request_registries=request_registries,
     )
-    app.state.body_limits = body_limit_registry
+    request_registries.attach(app)
 
     attach_public_routes(app, settings, public_route_registry)
     report_tenant_resolution(app, settings, diagnostics_state)  # SM025
@@ -225,10 +225,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     db_state = init_db(
         settings.database_url,
         echo=settings.debug,
-        pool_size=settings.db_pool_size,
-        max_overflow=settings.db_max_overflow,
-        pool_pre_ping=settings.db_pool_pre_ping,
-        pool_recycle=settings.db_pool_recycle,
+        **database_options(settings),
     )
     # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
     # context raises instead of reading every tenant's rows.
@@ -293,5 +290,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         view_prefixes=view_prefixes,
         rate_limit_store=rate_limit_store,
     )
-
+    if settings.is_development:
+        report_unguarded_routes(app, diagnostics_state)  # SM031
     return app

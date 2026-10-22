@@ -17,6 +17,10 @@ So the rule is fail-closed and decided per route, from its dependency tree:
   credentials, and a page's props are a second, unscoped read API.
 * :class:`TokenAllowed` on a (non-page) route admits tokens explicitly, for a route that
   is safe for any token without naming a permission.
+* :class:`Authenticated` ("any signed-in user") is a gate for SM031 and the
+  OpenAPI security export, **not** a token opt-in: on its own a token is still
+  refused (the route has no permission a scope could name). Pair it with
+  :class:`TokenAllowed` when a token may call it too.
 * Everything else refuses a token with ``403``. On a route the public-route
   registry exempts, the token is not refused but **ignored**: the request runs
   as the anonymous visitor it could have been anyway.
@@ -49,6 +53,9 @@ GATE_PERMISSION = "permission"
 GATE_ALLOW = "allow"
 """An explicit opt-in: tokens may reach this route without a permission."""
 
+GATE_AUTHENTICATED = "authenticated"
+"""Any signed-in user may call (:class:`Authenticated`). Does *not* admit tokens."""
+
 GATE_PAGE = "page"
 """A page (Inertia) route: tokens are refused even behind a permission."""
 
@@ -79,6 +86,27 @@ class TokenAllowed:
         return None
 
 
+class Authenticated:
+    """Dependency marker: any signed-in user may call this route (no permission).
+
+    Answers ``401`` when there is no principal. It documents the route as
+    deliberately open to every signed-in user, which silences diagnostic
+    ``SM031`` (an ``/api`` route with no permission, allow or authenticated
+    gate). Tokens stay refused unless the route also carries
+    :class:`TokenAllowed`.
+
+    Usage::
+
+        @router.get("/me", dependencies=[Depends(Authenticated())])
+    """
+
+    __sm_token_gate__ = GATE_AUTHENTICATED
+
+    async def __call__(self, request: HTTPConnection) -> None:
+        if getattr(request.state, "user", None) is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+
 async def page_route(request: HTTPConnection) -> None:
     """Dependency for a page route (added to every module view router).
 
@@ -104,6 +132,13 @@ def _gate_kinds(dependant: Any, out: set[str], seen: set[int]) -> None:
         out.add(kind)
     for sub in getattr(dependant, "dependencies", None) or ():
         _gate_kinds(sub, out, seen)
+
+
+def dependant_gate_kinds(dependant: Any) -> set[str]:
+    """Every gate kind marked anywhere in *dependant*'s tree."""
+    kinds: set[str] = set()
+    _gate_kinds(dependant, kinds, set())
+    return kinds
 
 
 def route_admits_tokens(route: Any) -> bool:
@@ -204,10 +239,13 @@ async def _refuse_token(request: HTTPConnection) -> None:
 
 __all__ = [
     "GATE_ALLOW",
+    "GATE_AUTHENTICATED",
     "GATE_PAGE",
     "GATE_PERMISSION",
     "TOKEN_GATE_ATTR",
+    "Authenticated",
     "TokenAllowed",
+    "dependant_gate_kinds",
     "effective_route",
     "is_token_principal",
     "mark_token_gate",

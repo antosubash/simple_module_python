@@ -26,15 +26,18 @@ from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting._body_limit import BodyLimitMiddleware
+from simple_module_hosting._cors import CorsMiddleware, host_policy
 from simple_module_hosting._error_handlers import (
     http_exception_handler,
     not_found_error_handler,
     request_validation_error_handler,
     unhandled_exception_handler,
 )
+from simple_module_hosting._forwarded_host import ForwardedHostMiddleware
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._module_routes import wire_module_routes
 from simple_module_hosting._rate_limit import RateLimitMiddleware
+from simple_module_hosting._route_access import API_PREFIX
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -122,7 +125,8 @@ def install_middleware(
     """Install the full middleware pipeline.
 
     Order matters: last added = first executed. Execution order:
-    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging
+    (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
+    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging → CORS
     → BodyLimit → GZip → Security → Session → [module] → (Tenant, if
     multi_tenant) → Locale → Inertia → InertiaCache → RateLimit → Setup
     → Maintenance → CommitBeforeResponse.
@@ -211,6 +215,14 @@ def install_middleware(
         max_bytes=settings.max_request_body_bytes,
         registry=getattr(app.state, "body_limits", None),
     )
+    # CORS executes between RequestLogging and BodyLimit: preflights are answered
+    # before auth, rate limit, setup and maintenance can reject them, and a 413
+    # still carries the headers. The host's ``/api/`` policy joins the modules'.
+    cors_registry = app.state.cors_policies
+    api_policy = host_policy(settings)
+    if api_policy is not None:
+        cors_registry.add_prefix(API_PREFIX, api_policy)
+    app.add_middleware(CorsMiddleware, registry=cors_registry)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     # Outermost: rewrite scheme/client from X-Forwarded-* before anything else
@@ -221,6 +233,14 @@ def install_middleware(
     # explicit trust setting — never trust forwarded headers by default.
     if settings.trusted_proxy:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxy)
+    # Added after ProxyHeaders so it executes before it, while the TCP peer is
+    # still the proxy (#528). Needs both a trusted proxy and an allowlist.
+    if settings.forwarded_host_allowlist and settings.trusted_proxy:
+        app.add_middleware(
+            ForwardedHostMiddleware,
+            trusted_hosts=settings.trusted_proxy,
+            allowlist=settings.forwarded_host_allowlist,
+        )
 
 
 def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
