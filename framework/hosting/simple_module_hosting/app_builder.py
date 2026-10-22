@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
@@ -20,20 +20,17 @@ from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
-from simple_module_db.listeners import register_listeners
-from simple_module_db.session import init_db
 
+from simple_module_hosting._app_boot import (
+    build_fastapi_app,
+    init_database,
+    log_registration_summary,
+    mount_host_static,
+)
 from simple_module_hosting._boot_checks import report_tenant_resolution, report_unguarded_routes
-from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
-from simple_module_hosting._openapi import (
-    API_OPENAPI_URL,
-    install_openapi_filter,
-    make_unique_id_function,
-    openapi_served,
-)
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
     install_middleware,
@@ -42,7 +39,6 @@ from simple_module_hosting._phase_helpers import (
     wire_module_routes,
 )
 from simple_module_hosting._preapp_config import merge_host_settings
-from simple_module_hosting._process_services import configure_process_services
 from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
 from simple_module_hosting._rate_limit_store import build_store
 from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
@@ -51,23 +47,16 @@ from simple_module_hosting._settings_registration import (
     check_settings_registration,
     register_host_settings,
 )
-from simple_module_hosting.db_options import database_options
 from simple_module_hosting.health import router as health_router
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import register_migration_step
 from simple_module_hosting.setup_wizard import mount_setup_wizard
-from simple_module_hosting.static_files import PrecompressedStaticFiles
 from simple_module_hosting.tenancy import mode_for
-from simple_module_hosting.token_guard import token_route_guard
 
 logger = logging.getLogger(__name__)
 
-_DOCS_URL = "/api/docs"
-_REDOC_URL = "/api/redoc"
-_STATIC_MOUNT_PATH = "/static"
-_STATIC_DIR_NAME = "static"
 _PROJECT_ROOT = _resolve_project_root()
 
 
@@ -150,25 +139,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     lifespan = build_lifespan(modules)
 
-    serve_openapi = openapi_served(
-        is_development=settings.is_development, openapi_public=settings.openapi_public
-    )
-    app = FastAPI(
-        title=settings.api_title,
-        version=settings.api_version,
-        description=settings.api_description,
-        openapi_url=API_OPENAPI_URL if serve_openapi else None,
-        generate_unique_id_function=make_unique_id_function(),
-        docs_url=_DOCS_URL if settings.is_development else None,
-        redoc_url=_REDOC_URL if settings.is_development else None,
-        lifespan=lifespan,
-        # API tokens reach only permission-gated, non-page routes (or ones
-        # marked ``TokenAllowed``); see ``token_guard``.
-        dependencies=[Depends(token_route_guard)],
-    )
-
-    install_openapi_filter(app)  # AuthMiddleware reads openapi_url: anonymous iff served
-    app.state.openapi_url = API_OPENAPI_URL if serve_openapi else None
+    app = build_fastapi_app(settings, lifespan)
 
     # ── Phase 4: Module settings ───────────────────────────
     for mod in modules:
@@ -210,35 +181,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # submitted slug before persisting it, and its view builds the dropdown.
     app.state.design_packs = design_pack_registry
 
-    logger.info(
-        "Registered %d menu items, %d permissions, %d feature flags, "
-        "%d health checks, %d public routes, %d design packs",
-        len(menu_registry.all_items),
-        len(perm_registry.all_permissions),
-        len(ff_registry.all_flags),
-        len(health_registry.all_checks),
-        len(public_route_registry.routes),
-        len(design_pack_registry.all()),
+    log_registration_summary(
+        menu_registry,
+        perm_registry,
+        ff_registry,
+        health_registry,
+        public_route_registry,
+        design_pack_registry,
     )
 
     # ── Phase 6: Initialize database ───────────────────────
-    db_state = init_db(
-        settings.database_url,
-        echo=settings.debug,
-        **database_options(settings),
-    )
-    # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
-    # context raises instead of reading every tenant's rows.
-    db_state.tenant_strict = settings.multi_tenant
-    # Where unbound / all_tenants() writes land on a single-tenant install:
-    # its ``default_tenant`` when set, so they stay visible to its requests.
-    if not settings.multi_tenant and settings.default_tenant:
-        db_state.default_tenant_id = settings.default_tenant
-    register_listeners(db_state)
-    configure_process_services(settings.redis_url, engine=db_state.engine)
-    # The host's own readiness signal, and the only probe-safe check in a
-    # default install — module checks reach third parties and are on-demand.
-    register_database_check(health_registry, db_state)
+    db_state = init_database(settings, health_registry)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)
@@ -263,10 +216,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(i18n_router)  # /i18n/set-locale — LocaleSwitcher posts here
     mount_setup_wizard(app, setup_registry)  # /setup — what SetupMiddleware redirects to
 
-    static_dir = _PROJECT_ROOT / "host" / _STATIC_DIR_NAME
-    if static_dir.is_dir():
-        static = PrecompressedStaticFiles(directory=static_dir)
-        app.mount(_STATIC_MOUNT_PATH, static, name=_STATIC_DIR_NAME)
+    mount_host_static(app, _PROJECT_ROOT)
 
     mount_module_static_dirs(app, modules)
 

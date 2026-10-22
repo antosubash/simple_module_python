@@ -186,4 +186,4 @@ the shared store instead (see [Sharing the store](#sharing-the-store)).
 - `simple_module_core.body_limits.BodyLimitRegistry`, `simple_module_core.rate_limit`
   (rate parsing, in-process store), `PublicRoute.rate`
 - `simple_module_hosting._body_limit`, `_rate_limit`, `_request_guard_responses`
-- Wiring: `_phase_helpers.install_middleware`; registry on `app.state.body_limits`
+- Wiring: `_middleware_pipeline.install_middleware`; registry on `app.state.body_limits`

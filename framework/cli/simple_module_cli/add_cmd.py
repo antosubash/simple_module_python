@@ -11,15 +11,19 @@ sync-js-deps`` → entry-point verification, unless ``--no-sync``.
 
 from __future__ import annotations
 
-import os
-import subprocess
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from simple_module_cli._add_install import (
+    ExecRunner,
+    _default_exec_runner,
+    _fail,
+    post_install,
+)
+from simple_module_cli._add_sources import _add_path, _add_pypi
 from simple_module_cli.git_source import (
     FoundModule,
     SpecError,
@@ -35,40 +39,14 @@ from simple_module_cli.pyproject_edit import (
     save_pyproject,
     write_dependency,
     write_git_source,
-    write_path_source,
-    write_workspace_source,
 )
-from simple_module_cli.uv_workspace import is_workspace_member
 
 __all__ = ["ExecRunner", "add_module", "post_install", "run_add"]
-
-ExecRunner = Callable[[list[str], Path], int]
 
 _SECURITY_NOTICE = (
     "note: this installs and runs code from a URL you chose — review the "
     "repository before booting the host."
 )
-
-_ENTRYPOINT_CHECK = (
-    "import sys\n"
-    "from importlib.metadata import distributions\n"
-    "target = sys.argv[1].replace('-', '_').lower()\n"
-    "for dist in distributions():\n"
-    "    if any(ep.group == 'simple_module' for ep in dist.entry_points):\n"
-    "        name = (dist.metadata['Name'] or '').replace('-', '_').lower()\n"
-    "        if name == target:\n"
-    "            sys.exit(0)\n"
-    "sys.exit(1)\n"
-)
-
-
-def _default_exec_runner(cmd: list[str], cwd: Path) -> int:
-    return subprocess.run(cmd, cwd=cwd, check=False).returncode
-
-
-def _fail(message: str) -> typer.Exit:
-    typer.echo(f"ERROR: {message}", err=True)
-    return typer.Exit(code=1)
 
 
 def _choose(
@@ -97,97 +75,6 @@ def _choose(
         for m in found
         if typer.confirm(f"Include {m.dist_name} ({m.subdirectory or 'repo root'})?")
     ]
-
-
-def post_install(
-    project_dir: Path,
-    dists: list[str],
-    models_dists: list[str],
-    exec_runner: ExecRunner,
-) -> None:
-    """uv sync → gen-pages → sync-js-deps → entry-point check → reminders."""
-    if exec_runner(["uv", "sync"], project_dir) != 0:
-        raise _fail("`uv sync` failed — pyproject was written; fix and re-run `uv sync`.")
-    if (project_dir / "client_app").is_dir():
-        exec_runner(["uv", "run", "smpy", "host", "gen-pages"], project_dir)
-        exec_runner(["uv", "run", "smpy", "host", "sync-js-deps"], project_dir)
-    for dist in dists:
-        code = exec_runner(["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir)
-        if code != 0:
-            raise _fail(
-                f"{dist} installed but exposes no [project.entry-points.simple_module] "
-                "entry point — it is not a SimpleModule module."
-            )
-    for dist in models_dists:
-        typer.echo(
-            f"{dist} ships database models — generate and apply the migration:\n"
-            f'  make migration msg="add {dist}"\n  make migrate'
-        )
-
-
-def _add_pypi(doc, pyproject: Path, raw: str, no_sync: bool, exec_runner: ExecRunner) -> list[str]:
-    name = raw
-    for i, ch in enumerate(raw):
-        if ch in "<>=!~[; ":
-            name = raw[:i]
-            break
-    constraint = raw[len(name) :]
-    write_dependency(doc, name, constraint)
-    save_pyproject(pyproject, doc)
-    typer.echo(f"Added {name} (PyPI).")
-    if not no_sync:
-        post_install(pyproject.parent, [name], [], exec_runner)
-    return [name]
-
-
-def _resolve_local_path(project_dir: Path, spec_path: Path) -> tuple[Path, str]:
-    """Resolve a local-path spec to ``(directory, text written to pyproject)``.
-
-    A relative path is resolved against the ``--path`` project (the pyproject
-    being edited, which is what ``[tool.uv.sources]`` paths are relative to).
-    If nothing exists there but the path exists relative to the cwd, the cwd
-    one is used and the written path is re-expressed relative to the project.
-    """
-    if spec_path.is_absolute():
-        return spec_path, str(spec_path)
-    root = project_dir / spec_path
-    if not root.exists() and (Path.cwd() / spec_path).exists():
-        root = Path.cwd() / spec_path
-        return root, os.path.relpath(root.resolve(), project_dir.resolve())
-    return root, str(spec_path)
-
-
-def _add_path(
-    doc, pyproject: Path, spec_path: Path, no_sync: bool, exec_runner: ExecRunner
-) -> list[str]:
-    root, written = _resolve_local_path(pyproject.parent, spec_path)
-    found = [m for m in scan_modules(root) if m.subdirectory is None]
-    if not found:
-        raise _fail(
-            f"{root} has no [project.entry-points.simple_module] entry point at its root "
-            f"(relative paths resolve against the --path project, {pyproject.parent}, "
-            "falling back to the current directory)"
-        )
-    mod = found[0]
-    if is_workspace_member(pyproject.parent, root):
-        # uv refuses a path source for a workspace member; the scaffold's own
-        # sample module is wired the same way (unpinned + workspace = true).
-        write_dependency(doc, mod.dist_name, "")
-        write_workspace_source(doc, mod.dist_name)
-        typer.echo(f"Added {mod.dist_name} (uv workspace member {written}).")
-    else:
-        write_dependency(doc, mod.dist_name, derive_range(mod.version))
-        write_path_source(doc, mod.dist_name, path=written)
-        typer.echo(f"Added {mod.dist_name} (editable path {written}).")
-    save_pyproject(pyproject, doc)
-    if not no_sync:
-        post_install(
-            pyproject.parent,
-            [mod.dist_name],
-            [mod.dist_name] if mod.ships_models else [],
-            exec_runner,
-        )
-    return [mod.dist_name]
 
 
 def run_add(

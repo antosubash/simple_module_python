@@ -7,11 +7,10 @@ that talks to a storage backend and mutates rows.
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import logging
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -20,9 +19,9 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from file_storage import constants, queries, thumbnails
+from file_storage import constants, queries
 from file_storage.contracts.schemas import StoredFileOut
-from file_storage.contracts.service import StorageNotFoundError
+from file_storage.deletes import FileStorageDeletes
 from file_storage.downloads import (
     Download,
     RedirectDownload,
@@ -55,7 +54,7 @@ class StoredFileNotFoundError(Exception):
     """Raised when a StoredFile lookup misses; endpoints map this to HTTP 404."""
 
 
-class FileStorageService(FileStoragePublic, FileStorageReads):
+class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes):
     """Orchestrates validation, hashing, backend IO, and DB lifecycle."""
 
     def __init__(
@@ -196,94 +195,6 @@ class FileStorageService(FileStoragePublic, FileStorageReads):
             return RedirectDownload(file=row, url=url)
         body = await self.backend.get(row.key) if open_body else None
         return StreamDownload(file=row, body=body)
-
-    # ── Delete ───────────────────────────────────────────────────────
-
-    async def delete_many(
-        self, file_ids: Sequence[uuid.UUID], *, owner: str | None = None
-    ) -> list[StoredFile]:
-        """Soft-delete every id that still resolves, returning the rows removed.
-
-        Ids that no longer resolve are skipped rather than raising: two admins
-        clearing the same selection is an ordinary race, and failing the batch
-        would leave the second one with half the rows gone and an error to
-        interpret. The caller reports how many rows it actually removed.
-        """
-        if not file_ids:
-            return []
-        stmt = queries.owned_by(select(StoredFile).where(StoredFile.id.in_(list(file_ids))), owner)
-        rows = list((await self.db.execute(stmt)).scalars().all())
-        if not rows:
-            return []
-
-        now = datetime.now(UTC)
-        for row in rows:
-            row.is_deleted = True
-            row.deleted_at = now
-        # One flush for the batch: the DB rows are what the next page load
-        # reads, so they must all be marked before any object is dropped.
-        await self.db.flush()
-        for row in rows:
-            # Every object is dropped independently. The rows are already
-            # marked deleted, so letting one unreachable object abort the loop
-            # would 500 the request *and* leave the caller believing nothing
-            # happened, while the remaining objects stay behind as orphans with
-            # no row left pointing at them. A failure here is a janitor's
-            # problem, not the caller's.
-            try:
-                try:
-                    await self.backend.delete(row.key)
-                finally:
-                    # Variants go even when the original's delete fails.
-                    await thumbnails.delete_variants(self.backend, row.key)
-            except StorageNotFoundError:
-                # Acceptably absent — eg. a previous delete partially succeeded.
-                pass
-            except Exception:
-                _logger.exception(
-                    "file_storage.bulk_delete_object_failed key=%s — row is deleted, "
-                    "object orphaned",
-                    row.key,
-                )
-        return rows
-
-    async def delete(
-        self,
-        file_id: uuid.UUID,
-        *,
-        platform: bool = False,
-        drop_object: bool = True,
-        owner: str | None = None,
-    ) -> StoredFile:
-        """Soft-delete the row and (by default) drop the backend object.
-
-        ``drop_object=False`` only flushes the soft-delete: a caller that must
-        commit first (so a failed commit never leaves a live row with no bytes)
-        then calls :meth:`drop_object` with the returned row.
-        """
-        # One scope around read + write: its opening flush runs before the
-        # platform row is touched, so the guard never sees that change.
-        async with platform_scope(self.db, platform):
-            row = await self.get(file_id, platform=platform, owner=owner)
-            # Soft-delete in DB first; if the backend delete fails afterwards we
-            # still have a row marked deleted that can be reaped by a janitor.
-            row.is_deleted = True
-            row.deleted_at = datetime.now(UTC)
-            await self.db.flush()
-        if drop_object:
-            await self.drop_object(row)
-        return row
-
-    async def drop_object(self, row: StoredFile) -> None:
-        """Delete ``row``'s backend object and its thumbnails; absent ones are fine."""
-        try:
-            # Acceptably absent — eg. a previous delete partially succeeded.
-            with contextlib.suppress(StorageNotFoundError):
-                await self.backend.delete(row.key)
-        finally:
-            # A failed original delete still raises, but must not orphan the
-            # variants (``delete_variants`` itself never raises).
-            await thumbnails.delete_variants(self.backend, row.key)
 
 
 def generate_key(tenant_id: str, filename: str) -> str:
