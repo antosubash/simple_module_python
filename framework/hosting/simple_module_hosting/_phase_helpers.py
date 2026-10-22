@@ -35,6 +35,7 @@ from simple_module_hosting._error_handlers import (
 from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._module_routes import wire_module_routes
 from simple_module_hosting._rate_limit import RateLimitMiddleware
+from simple_module_hosting._spa_mount import mount_spa_mounts
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -271,6 +272,7 @@ def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
                 StaticFiles(directory=directory_path),
                 name=f"static:{mod.meta.name}",
             )
+    mount_spa_mounts(app, modules)
 
 
 __all__ = ["wire_module_routes"]

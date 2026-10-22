@@ -166,6 +166,11 @@ class HostSettings(BaseSettings):
     ``register_public_routes`` hook, which is method-aware.
     """
 
+    native_link_prefixes: list[str] = Field(default=[], json_schema_extra={"group": "Routing"})
+    """URL prefixes whose links the Inertia client must leave to the browser
+    (a full navigation), e.g. ``["/docs/"]``. Added to the prefixes of mounted
+    legacy SPAs and sent as the ``nativePrefixes`` shared prop. Read per request."""
+
     max_request_body_bytes: int = Field(default=10 * 1024 * 1024, json_schema_extra=_RESTART_GUARD)
     """Global request-body ceiling in bytes; larger bodies get a 413 before any
     route runs. ``0`` disables the guard. Modules override it per path with
@@ -214,6 +219,14 @@ class HostSettings(BaseSettings):
 
         parse_rate(value)  # raises RateLimitError (a ValueError) on a typo
         return value.strip()
+
+    @field_validator("native_link_prefixes", mode="after")
+    @classmethod
+    def _check_native_prefixes(cls, value: list[str]) -> list[str]:
+        for prefix in value:
+            if not prefix.startswith("/"):
+                raise ValueError(f"native_link_prefixes entry {prefix!r} must start with '/'")
+        return [prefix.strip() for prefix in value]
 
     @field_validator("max_request_body_bytes", mode="after")
     @classmethod

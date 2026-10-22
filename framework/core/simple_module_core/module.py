@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
     from simple_module_core.public_routes import PublicRouteRegistry
     from simple_module_core.setup_steps import SetupRegistry
+    from simple_module_core.spa_mount import SpaMount
 
 
 class ModuleBase(ABC):
@@ -71,13 +72,10 @@ class ModuleBase(ABC):
 
     meta: ModuleMeta
 
-    # ── Settings ─────────────────────────────────────────────
-
     def register_settings(self, app: FastAPI) -> None:
         """Load module-specific settings and store on ``app.state``.
 
-        Called before all other registration hooks. Convention:
-        store as ``app.state.<module_name_lower>_settings``.
+        Called before all other registration hooks.
         """
 
     # ── Service Registration ──────────────────────────────────
@@ -92,14 +90,10 @@ class ModuleBase(ABC):
     def register_admin_routes(self, admin_router: APIRouter) -> None:
         """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
 
-        Only needed by modules that serve both public and administrative
-        pages — see ``ModuleMeta.admin_view_prefix``. A module whose views are
-        all administrative should point ``view_prefix`` at ``/admin/...`` and
-        keep using ``register_routes``.
-
-        Nothing here is gated automatically: the prefix is a URL convention,
-        not a permission. Guard these routes with the same dependencies you
-        would use anywhere else.
+        Only for modules serving both public and admin pages (see
+        ``ModuleMeta.admin_view_prefix``); all-admin modules point
+        ``view_prefix`` at ``/admin/...``. Nothing is gated automatically:
+        the prefix is a URL convention, not a permission.
         """
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
@@ -122,9 +116,8 @@ class ModuleBase(ABC):
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         """Subscribe this module's per-process caches to their channels.
 
-        Handlers may only *forget* — drop a cache entry, clear a dict. The bus
-        carries no delivery guarantee, so a handler that wrote to the database
-        would do it an unknowable number of times::
+        Handlers may only *forget* (drop a cache entry); the bus has no
+        delivery guarantee, so a database write would repeat unpredictably::
 
             def register_invalidations(self, bus, app):
                 bus.subscribe("orders.totals", lambda inv: _TOTALS.pop(inv.key, None))
@@ -233,8 +226,7 @@ class ModuleBase(ABC):
     def register_middleware(self, app: FastAPI) -> None:
         """Add middleware to the application.
 
-        Called after core middleware (session, security headers) positioning
-        is established but before the app starts.
+        Called after core middleware is positioned, before the app starts.
         """
 
     def register_exception_handlers(self, app: FastAPI) -> None:
@@ -260,6 +252,14 @@ class ModuleBase(ABC):
         Convention: prefix with ``/modules/<name>/static``. Default: none.
         """
         return {}
+
+    def spa_mounts(self) -> list[SpaMount]:
+        """Return legacy client-routed SPAs to serve under a URL prefix.
+
+        Served from ``dist_dir`` with an ``index.html`` deep-link fallback and
+        excluded from Inertia link interception. See ``docs/framework/spa-mounts.md``.
+        """
+        return []
 
     def locale_dirs(self) -> dict[str, Path]:
         """Return ``{namespace: directory}`` mapping for locale JSON files.

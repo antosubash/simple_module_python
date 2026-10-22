@@ -28,6 +28,7 @@ from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
+from simple_module_hosting._spa_mount import native_prefixes
 from simple_module_hosting._tenant import (
     TENANT_HEADER,
     TenantMiddleware,
@@ -266,6 +267,7 @@ class InertiaLayoutDataMiddleware:
                 translate=build_menu_translator(request),
             ),
             "i18n": i18n_block,
+            "nativePrefixes": native_prefixes(scope["app"]),
         }
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off

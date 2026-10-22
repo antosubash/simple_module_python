@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file. The format is b
   `record_bulk_audit(session, Model, action, ids, changes)` records `text()`
   writes; the new `audit_log` setting `refuse_unaudited_dml` (default off) makes
   the opt-out raise `UnauditedWriteError`. No migration.
+- Legacy SPA mounts (#541): `ModuleBase.spa_mounts()` returns `SpaMount(prefix, dist_dir, index="index.html", auth="required"|"public")` entries served with an `index.html` deep-link fallback (extension-less paths accepting HTML only; a missing asset stays a 404; hashed assets `immutable`; GET/HEAD only). `auth="public"` exempts GET/HEAD from `AuthMiddleware`. A prefix overlapping a router, static mount or another SPA fails boot (`SM032`). The Inertia client leaves these prefixes to the browser: `startSpaLinkInterception({ exclude })` plus the framework shared prop `nativePrefixes`, which also carries the new DB-backed host setting `native_link_prefixes` (no migration).
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps

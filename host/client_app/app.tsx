@@ -3,7 +3,11 @@ import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { OfflineBanner } from '@simple-module-py/ui/components/OfflineBanner';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
 import { resolveServerHead } from '@simple-module-py/ui/lib/server-head';
-import { startSpaLinkInterception } from '@simple-module-py/ui/lib/spa-links';
+import {
+  isExcluded,
+  readNativePrefixes,
+  startSpaLinkInterception,
+} from '@simple-module-py/ui/lib/spa-links';
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -42,11 +46,19 @@ createInertiaApp({
         // Authored content renders author-entered URLs as plain <a href>, which
         // the browser follows with a full document load — a blank page until
         // this client-rendered app boots again. Route them through Inertia.
-        const stopLinks = startSpaLinkInterception();
+        // Legacy SPA mounts and `native_link_prefixes` stay full navigations.
+        let nativePrefixes = readNativePrefixes(props.initialPage.props);
+        const stopPrefixes = router.on('navigate', (event) => {
+          nativePrefixes = readNativePrefixes(event.detail.page.props);
+        });
+        const stopLinks = startSpaLinkInterception({
+          exclude: (url) => isExcluded(url, nativePrefixes),
+        });
         return () => {
           stopReset();
           stopI18n();
           stopLinks();
+          stopPrefixes();
         };
       }, []);
 
