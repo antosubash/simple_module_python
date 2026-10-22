@@ -170,6 +170,9 @@ jobs:
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make install-js
+      # Committed pages/api.generated.ts must match the routes (#504); needs
+      # both the Python app (schema) and node_modules (openapi-typescript).
+      - run: make ci-api-types-fresh
       - run: make ci-js-typecheck
 
   js-build:

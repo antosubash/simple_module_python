@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -29,6 +29,11 @@ dev-ui:
 # Export the OpenAPI document (/api/** only) to openapi.json, no server needed.
 openapi:
 	uv run --project host smpy openapi export --out openapi.json
+
+# Regenerate <pkg>/pages/api.generated.ts for modules that have one (#504);
+# start a new module's with ARGS="--module <name>".
+gen-api-types:
+	uv run --project host smpy openapi gen-types $(ARGS)
 
 # Regenerate host/client_app/modules.{manifest.json,generated.ts,generated.css} from installed modules.
 gen-pages:
@@ -124,7 +129,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-check-locales ci-doc-paths ci-i18n-fresh ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-check-locales ci-doc-paths ci-i18n-fresh ci-api-types-fresh ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -181,6 +186,17 @@ ci-i18n-fresh:
 	after=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
 	if [ "$$before" != "$$after" ]; then \
 		echo "packages/i18n/src was stale and has been regenerated: run 'make gen-i18n' and commit the result"; \
+		exit 1; \
+	fi
+
+# Same idea for the typed API client (#504): every module that opted in with a
+# committed <pkg>/pages/api.generated.ts must match what its routes emit now.
+ci-api-types-fresh:
+	@before=$$(find modules -path '*/pages/api.generated.ts' -type f | sort | xargs -r cat | sha256sum); \
+	uv run --project host smpy openapi gen-types || exit 1; \
+	after=$$(find modules -path '*/pages/api.generated.ts' -type f | sort | xargs -r cat | sha256sum); \
+	if [ "$$before" != "$$after" ]; then \
+		echo "pages/api.generated.ts was stale and has been regenerated: run 'make gen-api-types' and commit the result"; \
 		exit 1; \
 	fi
 
@@ -268,6 +284,8 @@ new-module:                 ## Scaffold a new module (usage: make new-module nam
 	uv sync --all-packages
 	npm install
 	$(MAKE) gen-i18n
+	@# Replace the scaffold's sample types with what the module's routes emit.
+	-uv run --project host smpy openapi gen-types --module $(name)
 
 # Kill dev servers
 kill:
