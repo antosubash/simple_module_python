@@ -1,32 +1,24 @@
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
-import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@simple-module-py/ui/components/ui/tooltip';
-import { X } from 'lucide-react';
+import { TooltipProvider } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
-import { BrandingMark } from '../components/BrandingMark';
 import { DemoBanner } from '../components/DemoBanner';
 import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitcher';
-import { NavIcon } from '../components/NavIcon';
 import { PageHeadingProvider, usePageSection } from '../components/page-heading';
 import { darkSurfaceLogo } from '../lib/brand';
 import { useHomeUrl } from '../lib/home-url';
 import type { MenuItem } from '../types';
-import { AdminSectionLink } from './AdminSectionLink';
 import { MobileBar } from './MobileBar';
+import { SidebarBrandRow } from './SidebarBrandRow';
+import { SidebarNav } from './SidebarNav';
 import { SidebarUserMenu } from './SidebarUserMenu';
-import { DEFAULT_SIDEBAR_THEME, SIDEBAR_ICON_FOCUS, type SidebarTheme } from './sidebar-theme';
+import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
 import { useDrawerA11y } from './useDrawerA11y';
 
 // A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
@@ -34,26 +26,6 @@ import { useDrawerA11y } from './useDrawerA11y';
 // CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
 // render where a menu is absent instead of only when its contents change.
 const NO_ITEMS: MenuItem[] = [];
-
-// Phones get 44px rows; the desktop sidebar keeps the deck's tighter 40px.
-const NAV_ROW =
-  'flex items-center gap-3 min-h-11 lg:min-h-0 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150';
-
-function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
-  const groups: { group: string; items: MenuItem[] }[] = [];
-  const indexByGroup = new Map<string, number>();
-  for (const item of items) {
-    const key = item.group ?? '';
-    let idx = indexByGroup.get(key);
-    if (idx === undefined) {
-      idx = groups.length;
-      indexByGroup.set(key, idx);
-      groups.push({ group: key, items: [] });
-    }
-    groups[idx].items.push(item);
-  }
-  return groups;
-}
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -172,78 +144,26 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
             : {})}
           className={`fixed inset-y-0 left-0 z-50 w-full sm:w-72 lg:w-64 ${theme.sidebarBg} flex flex-col border-r border-white/[0.06] transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
-          {/* Drawer header — ✕ then the app name, per the deck's phone frame.
-              On lg the close button is gone and this is the 64px brand row. */}
-          <div className="h-14 lg:h-16 flex items-center gap-3 px-4 lg:px-5 border-b border-white/[0.06]">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={closeSidebar}
-              aria-label={t(keys.ui.sidebar.close)}
-              className={`lg:hidden min-h-11 min-w-11 -ml-2 text-sidebar-icon-muted hover:text-white hover:bg-white/10 ${SIDEBAR_ICON_FOCUS}`}
-            >
-              <X aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
-            </Button>
-            <Link href={homeUrl} className="flex items-center gap-2.5 group">
-              <BrandingMark
-                appName={appName}
-                logoUrl={darkLogoUrl}
-                accentColor={theme.accentColor}
-                size="md"
-              />
-            </Link>
-          </div>
+          <SidebarBrandRow
+            theme={theme}
+            appName={appName}
+            logoUrl={darkLogoUrl}
+            homeUrl={homeUrl}
+            onClose={closeSidebar}
+          />
 
           {headerSlot}
 
-          {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 overflow-y-auto">
-            {groupMenuItems(menuItems).map((group, groupIndex) => (
-              <div
-                key={group.group || `__ungrouped_${groupIndex}`}
-                className={groupIndex === 0 ? 'space-y-0.5' : 'mt-4 space-y-0.5'}
-              >
-                {group.group && (
-                  <div
-                    className={`px-3 pb-1.5 text-[11px] font-bold uppercase tracking-[0.09em] ${theme.mutedTextClass}`}
-                  >
-                    {group.group}
-                  </div>
-                )}
-                {group.items.map((item, index) => {
-                  const isActive = active?.url === item.url;
-                  return (
-                    <Tooltip key={item.url}>
-                      <TooltipTrigger asChild>
-                        <Link
-                          href={item.url}
-                          onClick={closeSidebar}
-                          className={`${NAV_ROW} ${isActive ? theme.activeClass : theme.inactiveClass}`}
-                          style={{ animationDelay: `${index * 50}ms` }}
-                        >
-                          {/* No icons on phones: the deck's drawer is a list of
-                              names, and the glyphs only crowd a 390px row. */}
-                          <NavIcon name={item.icon} className="hidden lg:block w-5 h-5" />
-                          {item.label}
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="lg:hidden">
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            ))}
-            {menuKey === 'sidebar' && (
-              <AdminSectionLink
-                adminItems={menus?.adminSidebar ?? NO_ITEMS}
-                className={`min-h-11 lg:min-h-0 ${theme.inactiveClass}`}
-                onNavigate={closeSidebar}
-              />
-            )}
+          <SidebarNav
+            menuItems={menuItems}
+            adminItems={menus?.adminSidebar ?? NO_ITEMS}
+            active={active}
+            theme={theme}
+            showAdminLink={menuKey === 'sidebar'}
+            onNavigate={closeSidebar}
+          >
             {footerNavSlot}
-          </nav>
+          </SidebarNav>
 
           {/* The topbar carries the locale on desktop; on a phone it belongs
               here rather than in the bar, where the deck puts the page title
