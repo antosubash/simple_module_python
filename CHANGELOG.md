@@ -31,6 +31,35 @@ All notable changes to this project are documented in this file. The format is b
   writes; the new `audit_log` setting `refuse_unaudited_dml` (default off) makes
   the opt-out raise `UnauditedWriteError`. No migration.
 - Legacy SPA mounts (#541): `ModuleBase.spa_mounts()` returns `SpaMount(prefix, dist_dir, index="index.html", auth="required"|"public")` entries served with an `index.html` deep-link fallback (extension-less paths accepting HTML only; a missing asset stays a 404; hashed assets `immutable`; GET/HEAD only). `auth="public"` exempts GET/HEAD from `AuthMiddleware`. A prefix overlapping a router, static mount or another SPA fails boot (`SM032`). The Inertia client leaves these prefixes to the browser: `startSpaLinkInterception({ exclude })` plus the framework shared prop `nativePrefixes`, which also carries the new DB-backed host setting `native_link_prefixes` (no migration).
+- `background_tasks`: opt-in retained logs. With `log_sink_enabled` (default off;
+  `log_sink_level` default `INFO`, `log_retention_days` default 7) web and worker
+  log lines are kept in the new `background_tasks_log_record` table, batched off
+  the logging path by the new `simple_module_hosting.log_sinks` (`LogSink`
+  protocol, `QueueSinkHandler`: bounded queue that drops and counts instead of
+  blocking, secrets masked before queueing). The task detail page gains a Logs
+  tab, `/admin/background-tasks/logs` searches all retained lines, and
+  `purge_old_executions` enforces retention. Migration `1f5985daa10b` (#537).
+- `background_tasks`: tasks report progress with `heartbeat(progress=(i, n), message=, phase=)`
+  (buffered under the existing 30 s throttle, `i == n` writes at once, never
+  audited), and `GET /api/background_tasks/tasks/{celery_task_id}/status` lets the user who
+  enqueued a task read its status and progress without `background_tasks.view`
+  (marked `Authenticated()`; tokens are refused)
+  (owner in the active tenant, or `view` holders; anyone else gets 404; never
+  returns args, result or traceback). `TaskExecution` gains `progress_*` and an
+  indexed `owner_user_id` stamped from the new `sm_owner_id` message header;
+  retries keep the original owner. The detail page shows a progress bar.
+  Migration `bb906e1a1089` (first revision labelled `background_tasks`) (#536).
+- Distributed TTL leases in `simple_module_core.leases`: `lease(name, ttl)` (an
+  owner-checked lock with `token`, a strictly increasing `fence`, `refresh()`,
+  `release()` and `async with` waiting) and `semaphore(name, slots, ttl)` (at
+  most N holders across processes). Backed by Redis when `SM_REDIS_URL` is set,
+  else the new framework table `sm_lease` (migration `d263ea727663`, a new root
+  labelled `leases`), else in-process; `create_app` and the Celery worker
+  bootstrap install it. An expired owner can neither refresh nor release (#539).
+- Optional Sentry error reporting: `pip install simple_module_hosting[sentry]` and set `SM_SENTRY_DSN` (plus `SM_SENTRY_ENVIRONMENT`, `SM_SENTRY_TRACES_SAMPLE_RATE`). Web and Celery worker processes tag events with request id, tenant, user id, module and task, and scrub auth headers, cookies, `token`/`code` query values and request bodies. Without a DSN the SDK is never imported (#538).
+- Sentry events no longer leak secrets the SDK's exact-name scrubber misses: auth-, session- and token-like headers (`X-Auth-Token`, `Proxy-Authorization`, `X-Forwarded-For`), nested secrets in `extra`/`contexts`, tokens in log and HTTP breadcrumbs, credentials in exception messages, and Celery task args/kwargs are scrubbed for errors and transactions alike (#538).
+- In-process durable outbox delivery and lifespan-owned recovery sweeps, automatically enabled in eager mode (#565).
+- Sentry scrubbing now covers every event field (tags, `server_name`, top-level stacktraces), camelCase and short key names (`basicAuth`, `pwd`, `otp`), header/query lists of pairs, bytes, quoted and escaped-JSON values, whole `Cookie:` lines, passwords containing `@`, JWTs and bare long tokens; SQL `db.params` are dropped. Behaviour change: a scrubber failure now drops the event instead of letting the SDK decide, and strings over 64 KiB are truncated (the old patterns were quadratic: a 20 KB string stalled `before_send` for over a minute) (#538).
 - Per-route rate limits (#529): modules declare `RateLimitRule(rate, key=...)` in the new
   `register_rate_limits(registry)` hook, and handlers use the
   `RateLimit("10/minute", key="user")` dependency. Keys: `user`, `ip`, `user_or_ip`,
@@ -120,6 +149,9 @@ All notable changes to this project are documented in this file. The format is b
   that set only excluded columns (the outbox, `TaskExecution.heartbeat_at`) are
   still not recorded. Opt a statement out with
   `execution_options(sm_audit=False)` (#557).
+- **Behaviour change:** `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
+  `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
+  `OutboxMessage`, `RetainedLog`), so retained logs cannot re-log their own writes (#537).
 - **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
   signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
@@ -355,6 +387,7 @@ All notable changes to this project are documented in this file. The format is b
   previously served, and anonymous, in production.
 
 ### Fixed
+- Background task stuck sweeps and retention purges now use DB-backed settings so admin edits apply instead of reading only environment variables (#565).
 - User directory follow-ups (#501): `audit_log` installs its activity feed in
   `on_startup` (cleared on shutdown) instead of `register_settings`, which
   tripped `SM012`; `resolve_user_labels` omits users whose label is empty so

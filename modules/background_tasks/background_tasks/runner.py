@@ -51,9 +51,11 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Imported after ``.env`` is in the environment, so nothing below can
     # resolve a setting before it is.
     from simple_module_hosting import merge_host_settings
+    from simple_module_hosting.leases import configure_process_leases
 
     from background_tasks.celery_app import build_celery
     from background_tasks.db_settings import worker_database_options
+    from background_tasks.log_sink import install_log_sink
     from background_tasks.settings import BackgroundTasksSettings
     from background_tasks.sync_db import configure_database, set_database_url
     from background_tasks.tenant_context import set_default_tenant
@@ -69,8 +71,15 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     )
     configure_database(worker_database_options(host, BackgroundTasksSettings()))
     set_default_tenant(default_tenant)
+    # Task bodies share the web process's leases (GH #539): same Redis or table.
+    configure_process_leases(host.redis_url, database_url=host.database_url)
     # Hydrated from the DB like the web process, so an admin-edited setting
     # reaches the worker at boot, not only the web app.
     settings = load_runner_settings()
+    # Re-apply the engine options now the worker's DB-stored overrides are known.
     configure_database(worker_database_options(host, settings))
-    return build_celery(settings)
+    celery = build_celery(settings)
+    # Task logs: the worker never runs the web lifespan that installs the sink.
+    # Prefork children rebuild it on ``worker_process_init``.
+    install_log_sink(settings)
+    return celery

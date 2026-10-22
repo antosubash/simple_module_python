@@ -68,8 +68,8 @@ def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaDa
     """
     if modules is None:
         modules = discover_modules()
-    # The framework owns ``settings_setting`` (#500): collect it even when the
-    # ``settings`` plugin is not installed, since the host reads it at boot.
+    # Framework-owned tables, plugin or not: settings_setting (#500), sm_lease (#539).
+    import simple_module_db.leases
     import simple_module_db.stored_settings  # noqa: F401
 
     for mod in modules:

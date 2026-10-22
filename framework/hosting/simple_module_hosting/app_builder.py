@@ -42,6 +42,7 @@ from simple_module_hosting._phase_helpers import (
     wire_module_routes,
 )
 from simple_module_hosting._preapp_config import merge_host_settings
+from simple_module_hosting._process_services import configure_process_services
 from simple_module_hosting._project_root import resolve_project_root as _resolve_project_root
 from simple_module_hosting._rate_limit_store import build_store
 from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
@@ -234,6 +235,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if not settings.multi_tenant and settings.default_tenant:
         db_state.default_tenant_id = settings.default_tenant
     register_listeners(db_state)
+    configure_process_services(settings.redis_url, engine=db_state.engine)
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.
     register_database_check(health_registry, db_state)

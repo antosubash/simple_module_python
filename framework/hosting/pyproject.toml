@@ -40,6 +40,8 @@ dependencies = [
 [project.optional-dependencies]
 # Shared rate-limiter store (SM_REDIS_URL). Without it the limiter counts per worker.
 redis = ["redis>=5"]
+# Error reporting (SM_SENTRY_DSN). Never imported unless the DSN is set.
+sentry = ["sentry-sdk[fastapi,celery]>=2.20,<3"]
 
 [project.scripts]
 sm-host = "simple_module_hosting.host_cli:app"

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from sqlmodel import SQLModel
 
 from background_tasks.constants import TaskStatus
@@ -39,6 +39,16 @@ class TaskExecutionListItem(SQLModel):
     exception_type: str | None = None
     retried_from_id: uuid.UUID | None = None
 
+    @field_validator("args", mode="before")
+    @classmethod
+    def _args_none(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def _kwargs_none(cls, v: Any) -> Any:
+        return {} if v is None else v
+
 
 class TaskExecutionDetail(SQLModel):
     """Full row for the detail page (adds args/kwargs/result/traceback)."""
@@ -59,6 +69,45 @@ class TaskExecutionDetail(SQLModel):
     worker: str | None = None
     retries: int = 0
     retried_from_id: uuid.UUID | None = None
+    owner_user_id: str | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
+    progress_phase: str | None = None
+    queued_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+
+    @field_validator("args", mode="before")
+    @classmethod
+    def _args_none(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def _kwargs_none(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
+class TaskStatusDTO(SQLModel):
+    """What the owner of a task may see of it (#536).
+
+    Deliberately narrower than :class:`TaskExecutionDetail`: no args, kwargs,
+    result or traceback, and the error is the exception's *type name* only —
+    a message or traceback can carry other users' data or server internals.
+    """
+
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
+
+    celery_task_id: str
+    task_name: str
+    status: TaskStatus
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
+    progress_phase: str | None = None
+    exception_type: str | None = None
     queued_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None

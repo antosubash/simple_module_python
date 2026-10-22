@@ -35,6 +35,8 @@ dev = [
     # needs this. Declared explicitly because it was otherwise only present as a
     # transitive dep of locust's geventhttpclient.
     "brotli>=1.1",
+    # Test-only: the optional ``simple_module_hosting[sentry]`` extra, exercised with a fake transport.
+    "sentry-sdk[fastapi,celery]>=2.20,<3",
 ]
 
 [tool.ruff]

@@ -22,6 +22,16 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 | `SM_TRUSTED_PROXY` | unset | Comma-separated proxy IPs / CIDRs whose `X-Forwarded-*` headers are trusted, or `*` to trust any peer (correct when the container is only reachable through one proxy). Setting it installs uvicorn's `ProxyHeadersMiddleware` outermost, so request logs record the real client IP and `request.url.scheme` reflects `X-Forwarded-Proto`. **Recommended behind a TLS-terminating proxy**, where otherwise every request in the logs is attributed to the proxy's own address rather than the visitor's. It is no longer needed for Inertia: the page url is root-relative, so `pushState` can't see a cross-scheme url whatever the proxy sends (it used to throw a `SecurityError` on every page — GH #223). It is still needed for anything that builds an absolute url from `request.url.scheme`/`request.url_for(...)` — notably OAuth/OIDC's callback url and the locale cookie's `secure` flag — left unset behind such a proxy, an OAuth `redirect_uri` ships as `http://…` and most providers reject it. Forwarded headers are never trusted by default. |
 | `SM_SESSION_COOKIE_SECURE` | unset | Mark the session cookie `Secure`. Unset means on everywhere except `SM_ENVIRONMENT=development`/`testing`. Set `false` only for an install that serves browsers plain HTTP on purpose; behind a TLS terminator leave it unset and set `SM_TRUSTED_PROXY`. Restart to apply. |
 
+## Sentry (optional)
+
+Install `simple_module_hosting[sentry]`. All three are env only (the DSN is a secret and the SDK starts before the DB opens). See [Sentry](/framework/sentry).
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SM_SENTRY_DSN` | unset | Enables error reporting in the web and Celery worker processes. Unset: `sentry_sdk` is never imported. Never logged. |
+| `SM_SENTRY_ENVIRONMENT` | `SM_ENVIRONMENT` | Sentry `environment` tag. |
+| `SM_SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Performance trace sampling, `0.0`-`1.0`. |
+
 ## DB connection pool
 
 | Variable | Default | Notes |
