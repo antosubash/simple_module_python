@@ -274,11 +274,7 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
 
 
 def mount_module_static_dirs(app: FastAPI, modules: list) -> None:
-    """Mount each module's declared static directories.
-
-    Modules typically expose ``/modules/<name>/static`` for pre-bundled
-    frontend assets shipped inside the wheel.
-    """
+    """Mount each module's static directories (``/modules/<name>/static``) and SPA mounts."""
     for mod in modules:
         for url_prefix, directory in mod.static_mounts().items():
             directory_path = Path(directory)
