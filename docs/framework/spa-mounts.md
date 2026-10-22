@@ -45,7 +45,7 @@ CSP applies as for any response; whitelist external origins the SPA needs with
 
 A prefix that overlaps a module's route/view prefix, a `static_mounts()` prefix,
 a framework path or another SPA mount fails boot with
-[`SM031`](/reference/diagnostic-codes), in every environment.
+[`SM032`](/reference/diagnostic-codes), in every environment.
 
 ## Inertia link interception
 

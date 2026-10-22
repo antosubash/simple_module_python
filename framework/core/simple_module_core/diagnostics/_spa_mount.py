@@ -1,15 +1,15 @@
-"""SM031: a legacy SPA mount whose prefix overlaps a router, static mount or other SPA."""
+"""SM032: a legacy SPA mount whose prefix overlaps a router, static mount or other SPA."""
 
 from __future__ import annotations
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 from simple_module_core.spa_mount import RESERVED_PREFIXES, prefixes_overlap
 
-SPA_MOUNT_OVERLAP_CODE = "SM031"
+SPA_MOUNT_OVERLAP_CODE = "SM032"
 
 
 def check_spa_mount_overlaps(modules: list) -> list[Diagnostic]:
-    """SM031: a SPA mount prefix overlaps a router prefix or another mount."""
+    """SM032: a SPA mount prefix overlaps a router prefix or another mount."""
     owners: list[tuple[str, str]] = [(p, "framework") for p in RESERVED_PREFIXES]
     for mod in modules:
         for prefix in (mod.meta.route_prefix, mod.meta.view_prefix, mod.meta.admin_view_prefix):

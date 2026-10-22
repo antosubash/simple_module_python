@@ -134,13 +134,13 @@ async def test_native_prefixes_shared_prop(client):
 def test_overlap_with_router_prefix_is_an_error(tmp_path):
     clash = _module([SpaMount("/api/legacy", tmp_path)], name="Clash")
     codes = [d.code for d in check_spa_mount_overlaps([clash])]
-    assert codes == ["SM031"]
+    assert codes == ["SM032"]
 
 
 def test_overlap_between_two_mounts_is_an_error(tmp_path):
     a = _module([SpaMount("/legacy", tmp_path)], name="A")
     b = _module([SpaMount("/legacy/inner", tmp_path)], name="B")
-    assert any(d.code == "SM031" for d in check_spa_mount_overlaps([a, b]))
+    assert any(d.code == "SM032" for d in check_spa_mount_overlaps([a, b]))
 
 
 def test_sibling_prefix_is_not_an_overlap(tmp_path):
@@ -159,7 +159,7 @@ async def test_overlap_fails_boot(settings, monkeypatch, tmp_path):
         "discover_modules",
         lambda enabled=None, *, strict=False: [*real(enabled=enabled, strict=strict), bad],
     )
-    with pytest.raises(SpaMountError, match="SM031"):
+    with pytest.raises(SpaMountError, match="SM032"):
         app_builder.create_app(settings)
 
 
