@@ -109,6 +109,40 @@ def register_public_routes(self, registry) -> None:
     registry.add_prefix("/api/gis/stac", rate="off")  # exempt this rule
 ```
 
+### Per-route limits: `register_rate_limits`
+
+Public-route `rate=` only covers anonymous traffic. To bound a signed-in
+action (a POST that sends mail, an export), register a rule; it applies to
+anonymous and signed-in requests, before the tiers above:
+
+```python
+from simple_module_core.rate_limit import RateLimitRule
+
+
+def register_rate_limits(self, registry) -> None:
+    registry.add_exact("/api/invites", RateLimitRule("10/minute", key="user", methods={"POST"}))
+    registry.add_prefix("/api/reports/", RateLimitRule("30/hour", key="tenant"))
+```
+
+`key` picks whose budget it is: `user` (the principal id; an API token counts as
+its owner), `ip` (the client address, after `ProxyHeaders`), `user_or_ip` (the
+default) or `tenant` (the resolved tenant). Anonymous requests, and a tenant
+that did not resolve, fall back to the IP. Two users behind one NAT each get the
+full rate. The most specific rule wins (exact, regex, longest prefix); `enabled=`
+is evaluated per request. Buckets are named
+`rule:<kind>:<methods>:<pattern>:<keykind>=<id>`.
+
+For a single handler, use the dependency (same store and key resolution; `429`
+with `Retry-After`):
+
+```python
+from simple_module_hosting.rate_limit_deps import RateLimit
+
+@router.post("/send", dependencies=[Depends(RateLimit("10/minute", key="user"))])
+```
+
+`rate_limit_authenticated` is now counted per user, not per IP.
+
 ### Storage
 
 - **Redis** when `SM_REDIS_URL` is set (needs the `redis` package, which

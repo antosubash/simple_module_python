@@ -2,6 +2,7 @@
 
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry, LabelResolver
 from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
 from simple_module_core.csp import CspSourceError, CspSourceRegistry
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
@@ -73,6 +74,8 @@ __all__ = [
     "AuditLinkRegistry",
     "BodyLimitRegistry",
     "CircularDependencyError",
+    "CorsPolicy",
+    "CorsPolicyRegistry",
     "CspSourceError",
     "CspSourceRegistry",
     "DesignPack",

@@ -18,16 +18,17 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from simple_module_core.cors import WILDCARD as CORS_WILDCARD
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.stored_settings import RELATED_FIELDS_CTX
+
+from simple_module_hosting._api_version import default_api_version as _default_api_version
 
 # Marks a field the running process cannot pick up without a restart, so the
 # admin UI can say so rather than letting the edit look like it took effect.
 _RESTART_DB = {"requires_restart": True, "group": "Database"}
-
-
 _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
-
+_RESTART_CORS = {"requires_restart": True, "group": "CORS"}
 _RESTART_API = {"requires_restart": True, "group": "API"}
 
 # Consumed while create_app builds the tenant middleware, the strict tenant
@@ -40,40 +41,6 @@ _RESTART_I18N = {"requires_restart": True, "group": "Localization"}
 _RESTART_AUTH = {"requires_restart": True, "group": "Authentication"}
 _RESTART_LOGGING = {"requires_restart": True, "group": "Logging"}
 _RESTART_SECURITY = {"requires_restart": True, "group": "Security"}
-
-
-def _default_api_version() -> str:
-    """The host project's version, else ``0.0.0``.
-
-    This repo's host is the installed ``simple-module-host`` distribution. A
-    scaffolded host is ``package = false`` (never installed), so there is no
-    distribution to ask: read ``[project].version`` from its ``pyproject.toml``
-    under ``SM_PROJECT_ROOT`` (or the cwd) instead.
-    """
-    import tomllib
-    from importlib.metadata import PackageNotFoundError, version
-
-    from simple_module_core.dotenv import find_env_file
-
-    try:
-        return version("simple-module-host")
-    except PackageNotFoundError:
-        pass
-    # Same project-root convention as .env (SM_PROJECT_ROOT, else a bounded walk
-    # up from the cwd), so a CLI run from host/ finds the same project as the app.
-    root = find_env_file().parent
-    for candidate in (root / "host" / "pyproject.toml", root / "pyproject.toml"):
-        try:
-            project = tomllib.loads(candidate.read_text(encoding="utf-8")).get("project")
-        except (OSError, ValueError):  # missing/unreadable, bad UTF-8, bad TOML
-            continue
-        if not isinstance(project, dict):
-            continue
-        # The first file declaring a [project] is the host's: a dynamic version
-        # must not fall through to an unrelated (workspace-root) project's.
-        found = project.get("version")
-        return found if isinstance(found, str) and found else "0.0.0"
-    return "0.0.0"
 
 
 class HostSettings(BaseSettings):
@@ -185,6 +152,24 @@ class HostSettings(BaseSettings):
     """Opt-in per-IP limit for signed-in traffic, same syntax. Blank (default)
     leaves authenticated requests unlimited."""
 
+    forwarded_host_allowlist: list[str] = Field(default=[], json_schema_extra=_RESTART_GUARD)
+    """Hosts a trusted proxy may substitute through ``X-Forwarded-Host``: an exact
+    host or ``*.example.com``, each with an optional port. Empty (default) ignores
+    the header. Only honoured together with ``trusted_proxy``."""
+
+    cors_allow_origins: list[str] = Field(default=[], json_schema_extra=_RESTART_CORS)
+    """Origins allowed to call ``/api/`` cross-origin. Empty (default) installs no
+    host API policy. ``*`` is refused while ``cors_allow_credentials`` is on."""
+    cors_allow_credentials: bool = Field(default=True, json_schema_extra=_RESTART_CORS)
+    cors_allow_methods: list[str] = Field(
+        default=["GET", "POST", "PUT", "PATCH", "DELETE"], json_schema_extra=_RESTART_CORS
+    )
+    cors_allow_headers: list[str] = Field(
+        default=["Authorization", "Content-Type", "X-CSRF-Token"], json_schema_extra=_RESTART_CORS
+    )
+    cors_expose_headers: list[str] = Field(default=[], json_schema_extra=_RESTART_CORS)
+    cors_max_age: int = Field(default=600, ge=0, json_schema_extra=_RESTART_CORS)
+
     api_title: str = Field(default="SimpleModule", json_schema_extra=_RESTART_API)
     """``info.title`` of the OpenAPI document (built once at boot)."""
     api_version: str = Field(default_factory=_default_api_version, json_schema_extra=_RESTART_API)
@@ -198,6 +183,14 @@ class HostSettings(BaseSettings):
     db_max_overflow: int = Field(default=20, json_schema_extra=_RESTART_DB)
     db_pool_pre_ping: bool = Field(default=True, json_schema_extra=_RESTART_DB)
     db_pool_recycle: int = Field(default=1800, json_schema_extra=_RESTART_DB)
+    db_pool_timeout: int = Field(default=30, ge=1, json_schema_extra=_RESTART_DB)
+    """Seconds a request waits for a pooled connection before failing."""
+    db_connect_timeout: int = Field(default=10, ge=1, json_schema_extra=_RESTART_DB)
+    """Seconds to wait for a new connection to open (Postgres drivers only)."""
+    db_statement_timeout_ms: int = Field(default=0, ge=0, json_schema_extra=_RESTART_DB)
+    """Postgres ``statement_timeout`` in milliseconds; ``0`` disables."""
+    db_idle_in_tx_timeout_ms: int = Field(default=0, ge=0, json_schema_extra=_RESTART_DB)
+    """Postgres ``idle_in_transaction_session_timeout`` in ms; ``0`` disables."""
 
     @field_validator("public_base_url", mode="after")
     @classmethod
@@ -274,6 +267,16 @@ class HostSettings(BaseSettings):
         if value and not is_valid_tenant_id(value):
             raise ValueError(f"default_tenant {value!r} is not a valid tenant id")
         return value
+
+    @model_validator(mode="after")
+    def _check_cors_wildcard(self) -> HostSettings:
+        if self.cors_allow_credentials and CORS_WILDCARD in self.cors_allow_origins:
+            raise PydanticCustomError(
+                "cors_wildcard_credentials",
+                "cors_allow_origins '*' cannot be combined with cors_allow_credentials",
+                {RELATED_FIELDS_CTX: ["cors_allow_origins", "cors_allow_credentials"]},
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> HostSettings:

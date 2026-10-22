@@ -27,6 +27,24 @@ The bare `/openapi.json` is gone. It used to be served in production too; use
 `/api/openapi.json`.
 :::
 
+## Security schemes
+
+The schema declares two `components.securitySchemes`: `bearerAuth` (`http`,
+`bearer` — personal access tokens, service keys and Keycloak access tokens) and
+`sessionCookie` (`apiKey` in a cookie named `session`). Every operation carries
+`security`: `[]` when anonymous callers are let through (a `register_public_routes`
+rule matched on the templated path with each `{param}` replaced by a placeholder
+segment, the auth provider's legacy public paths, or the schema URL itself), and
+`[{bearerAuth: []}, {sessionCookie: []}]` otherwise, so a generated client sends
+credentials only where needed. `bearerAuth` covers provider access tokens
+(e.g. Keycloak) on every protected route, while personal API tokens are accepted
+only on routes marked `TokenAllowed()`. Rules that need a specific path segment (a regex
+on a slug) can over- or under-report here; `AuthMiddleware` stays the authority.
+
+Diagnostic `SM031` warns at a dev boot about an `/api` route with no permission,
+`TokenAllowed` or `Authenticated` gate that is not public (see
+[diagnostic codes](/reference/diagnostic-codes)).
+
 ## Exporting without a server
 
 ```bash

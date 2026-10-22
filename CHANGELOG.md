@@ -20,7 +20,6 @@ All notable changes to this project are documented in this file. The format is b
 - Resource-scoped access (#526): `simple_module_core.resources` (`ResourcePolicy` with `filter`/`can`, `ResourcePrincipal`, `ResourceType`, `ResourceTypeRegistry`) and a new `register_resource_types` hook (read at `app.state.sm.resource_types`); `simple_module_db.resource_policy.OwnedResourcePolicy` (owner OR public-for-view OR an injected `share_exists`, with a keyword-required bypass permission) so lists and `paginate()` counts are filtered in SQL; `simple_module_hosting.resource_deps.RequiresResource(policy, action, loader, permission=None)` loads rows only through the policy: invisible → 404, visible but not allowed → 403, and admits API tokens only when `permission=` is set. See `docs/framework/resource-access.md`.
 - New optional `sharing` module (`simple_module_sharing`, #526): tenant-scoped `sharing_resource_share` table (migration `f733c7938fd1`, a new root and head labelled `sharing`), `share_exists_for(...)` for `OwnedResourcePolicy`, grant/revoke/list API under `/api/sharing/shares` (validates the resource type, the granter's `share` right on the row and the grantee via the user directory, which on a multi-tenant app must be a member of the active tenant: same error as an unknown id, and labels only for members; new core seam `simple_module_core.tenancy.tenant_member_ids` / `app.state.tenant_members`, published by `tenants`; expiry checked in SQL; revoke hard-deletes) and an admin page at `/admin/sharing/` (en + de). **Release note:** register a PyPI pending publisher for `simple_module_sharing` before the next release.
 - Server-rendered `<head>` for Inertia pages (#535 step 1): `inertia.render(..., head=Head(title, description, canonical, robots, og, twitter, json_ld))` puts the tags in the first response so crawlers and link unfurlers see them without JS; they are also sent as the `_head` prop and re-emitted on client visits via Inertia's `serverHead` (`@simple-module-py/ui/lib/server-head`). URL fields are http(s)-only, JSON-LD cannot close its `<script>`. New `public_base_url` host setting (DB-backed, read per request, no restart) builds canonical / `og:url`; the request `Host` is never used. Both `index.html` templates updated. Body SSR remains open in #535.
-
 - `smpy docker add-worker` generates dedicated Python worker images with validated apt packages, optional extras, queue/module routing, and idempotent Compose includes (#540).
 - Statement DML is audited (#557): `simple_module_db.bulk_audit` audits ORM bulk
   `update()` / `delete()` / `insert()` and Core DML on `Model.__table__` through
@@ -32,6 +31,31 @@ All notable changes to this project are documented in this file. The format is b
   writes; the new `audit_log` setting `refuse_unaudited_dml` (default off) makes
   the opt-out raise `UnauditedWriteError`. No migration.
 - Legacy SPA mounts (#541): `ModuleBase.spa_mounts()` returns `SpaMount(prefix, dist_dir, index="index.html", auth="required"|"public")` entries served with an `index.html` deep-link fallback (extension-less paths accepting HTML only; a missing asset stays a 404; hashed assets `immutable`; GET/HEAD only). `auth="public"` exempts GET/HEAD from `AuthMiddleware`. A prefix overlapping a router, static mount or another SPA fails boot (`SM032`). The Inertia client leaves these prefixes to the browser: `startSpaLinkInterception({ exclude })` plus the framework shared prop `nativePrefixes`, which also carries the new DB-backed host setting `native_link_prefixes` (no migration).
+- Per-route rate limits (#529): modules declare `RateLimitRule(rate, key=...)` in the new
+  `register_rate_limits(registry)` hook, and handlers use the
+  `RateLimit("10/minute", key="user")` dependency. Keys: `user`, `ip`, `user_or_ip`,
+  `tenant`; both apply to anonymous and signed-in requests and answer `429` with
+  `Retry-After`.
+- `forwarded_host_allowlist` host setting (#528): behind a trusted proxy (`SM_TRUSTED_PROXY`),
+  `X-Forwarded-Host` replaces the request host (and `scope["server"]`) when it matches an exact host or
+  `*.example.com` entry, so `url_for` and subdomain tenancy see the public host. Empty (default) ignores
+  the header; tenant subdomains need `*.<subdomain_base>` in the list.
+- Configurable CORS (#527). `cors_allow_origins` (plus `cors_allow_credentials`,
+  `cors_allow_methods`, `cors_allow_headers`, `cors_expose_headers`, `cors_max_age`;
+  restart-required) registers a policy on `/api/`; modules add policies with the new
+  `register_cors_policies` hook. The dispatcher runs before `BodyLimit`, so preflights
+  never reach auth and a 413 keeps its CORS headers. `file_storage` serves public
+  files cross-origin (Range-capable) unless the new `public_files_cors` setting is off.
+- PostgreSQL pool, connect, statement and idle-in-transaction timeout settings for web and worker engines, with worker pool and statement overrides (#531).
+- The OpenAPI export declares `bearerAuth` and `sessionCookie` security schemes and a
+  `security` entry per operation (`[]` for public routes), so generated clients know where
+  credentials go (#534). New `Authenticated()` marker dependency
+  (`simple_module_hosting.token_guard`) for routes any signed-in user may call, and diagnostic
+  `SM031` (WARNING, dev boot) for `/api` routes with no gate and no public match. Marked
+  `Authenticated()`: `GET/POST /api/tenants/`, `POST /api/tenants/{tenant_id}/switch`,
+  `DELETE /api/tenants/current/membership`, `POST /api/tenants/invitations/accept`,
+  `GET/PATCH /api/users/me`, `POST /api/users/me/password`,
+  `POST /api/users/me/sessions/revoke-all`. Tokens are still refused on these.
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps
@@ -96,6 +120,8 @@ All notable changes to this project are documented in this file. The format is b
   that set only excluded columns (the outbox, `TaskExecution.heartbeat_at`) are
   still not recorded. Opt a statement out with
   `execution_options(sm_audit=False)` (#557).
+- **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
+  signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
   `package.json` versions are now in lockstep with the Python packages (they were
   0.1.0, keycloak 0.0.0) (#510).

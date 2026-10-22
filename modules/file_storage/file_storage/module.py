@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.cors import CorsPolicyRegistry
 from simple_module_core.csp import CspSourceRegistry
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -74,6 +75,8 @@ class FileStorageModule(ModuleBase):
         from file_storage.services import FileStorageServices
         from file_storage.settings import FileStorageSettings
 
+        # The CORS toggle is evaluated per request and the hook gets no ``app``.
+        self._app = app
         register_module_settings(
             app,
             "file_storage",
@@ -105,6 +108,12 @@ class FileStorageModule(ModuleBase):
         # Its own, wider bucket: one public page can embed dozens of images and
         # thumbnails, which would exhaust the shared anonymous default.
         registry.add_regex(PUBLIC_PATH_PATTERN, methods={"GET"}, rate=PUBLIC_FILES_RATE)
+
+    def register_cors_policies(self, registry: CorsPolicyRegistry) -> None:
+        """Let any origin read public files, without credentials (#527)."""
+        from file_storage.cors import register_public_files_cors
+
+        register_public_files_cors(registry, lambda: getattr(self, "_app", None))
 
     def register_middleware(self, app: FastAPI) -> None:
         """Serve public files without a session cookie or ``Vary: Cookie``."""

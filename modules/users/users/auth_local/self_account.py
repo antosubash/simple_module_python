@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
+from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import delete, update
 
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
@@ -37,7 +38,7 @@ router = APIRouter()
     # and wrong guesses cost nothing here: the login lockout only fronts
     # ``/auth/login`` and ``/auth/token``. Same budget as the other credential-adjacent
     # endpoints, keyed on path + client IP.
-    dependencies=[Depends(enforce_auth_throughput_limit)],
+    dependencies=[Depends(Authenticated()), Depends(enforce_auth_throughput_limit)],
 )
 async def change_my_password(
     body: SelfPasswordChange,
@@ -117,7 +118,7 @@ async def change_my_password(
     return Response(status_code=204)
 
 
-@router.post("/me/sessions/revoke-all", status_code=204)
+@router.post("/me/sessions/revoke-all", status_code=204, dependencies=[Depends(Authenticated())])
 async def revoke_all_my_sessions(
     request: Request,
     user=Depends(fastapi_users.current_user(active=True)),

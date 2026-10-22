@@ -1,6 +1,6 @@
 """OpenAPI export plumbing (#456).
 
-Three small pieces, kept apart from ``create_app``:
+Four small pieces, kept apart from ``create_app``:
 
 * ``make_unique_id_function`` — stable ``<module>_<function>`` operationIds, so
   generated clients get method names like ``users_list_users`` instead of
@@ -8,6 +8,8 @@ Three small pieces, kept apart from ``create_app``:
 * ``install_openapi_filter`` — the published schema is the JSON API only. View
   routes are already ``include_in_schema=False``; this also drops any other
   non-``/api/`` path (host routes, health) so a client generator never sees them.
+* ``add_security`` — ``components.securitySchemes`` (``bearerAuth``,
+  ``sessionCookie``) and per-operation ``security`` (``[]`` when public, #534).
 * ``API_OPENAPI_URL`` / ``openapi_served`` — where and when it is served.
 """
 
@@ -21,8 +23,18 @@ from collections.abc import Callable
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
+from simple_module_hosting._route_access import (
+    API_PREFIX,
+    is_public_operation,
+    iter_api_operations,
+)
+from simple_module_hosting.session import SESSION_COOKIE_NAME
+
 __all__ = [
     "API_OPENAPI_URL",
+    "BEARER_SCHEME",
+    "SESSION_SCHEME",
+    "add_security",
     "dedupe_operation_ids",
     "install_openapi_filter",
     "make_unique_id_function",
@@ -32,7 +44,8 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 API_OPENAPI_URL = "/api/openapi.json"
-_API_PREFIX = "/api/"
+BEARER_SCHEME = "bearerAuth"
+SESSION_SCHEME = "sessionCookie"
 
 
 def openapi_served(*, is_development: bool, openapi_public: bool) -> bool:
@@ -77,6 +90,39 @@ def dedupe_operation_ids(schema: dict) -> None:
             seen.add(op["operationId"])
 
 
+def _security_schemes() -> dict:
+    return {
+        # Personal access tokens, service keys, IdP (Keycloak) access tokens.
+        BEARER_SCHEME: {"type": "http", "scheme": "bearer"},
+        SESSION_SCHEME: {"type": "apiKey", "in": "cookie", "name": SESSION_COOKIE_NAME},
+    }
+
+
+def add_security(app: FastAPI, schema: dict) -> None:
+    """Declare the two schemes and set ``security`` on every operation.
+
+    ``[]`` marks an operation anonymous callers reach (OpenAPI's way of
+    overriding a global requirement); every other one accepts either scheme.
+    """
+    schema.setdefault("components", {}).setdefault("securitySchemes", {}).update(
+        _security_schemes()
+    )
+    paths = schema.get("paths", {})
+    for op in iter_api_operations(app):
+        item = paths.get(op.path)
+        if item is None:
+            continue
+        for method in op.methods:
+            operation = item.get(method.lower())
+            if not isinstance(operation, dict):
+                continue
+            operation["security"] = (
+                []
+                if is_public_operation(app, method, op.path)
+                else [{BEARER_SCHEME: []}, {SESSION_SCHEME: []}]
+            )
+
+
 def install_openapi_filter(app: FastAPI) -> None:
     """Make ``app.openapi()`` list only ``/api/`` paths."""
     original = app.openapi
@@ -89,9 +135,10 @@ def install_openapi_filter(app: FastAPI) -> None:
                 warnings.filterwarnings("ignore", message="Duplicate Operation ID")
                 schema = original()
             schema["paths"] = {
-                p: v for p, v in schema.get("paths", {}).items() if p.startswith(_API_PREFIX)
+                p: v for p, v in schema.get("paths", {}).items() if p.startswith(API_PREFIX)
             }
             dedupe_operation_ids(schema)
+            add_security(app, schema)
         assert app.openapi_schema is not None
         return app.openapi_schema
 

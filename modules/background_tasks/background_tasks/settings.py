@@ -42,7 +42,7 @@ from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX
 
 from background_tasks.config_guards import parse_task_routes
@@ -63,6 +63,7 @@ from background_tasks.constants import (
     ENV_REDIS_URL,
     max_outbox_handler_timeout,
 )
+from background_tasks.db_settings import WorkerDatabaseSettings
 from background_tasks.settings_env_checks import (
     forbid_localhost_broker_in_production,
     warn_on_legacy_redis_vars,
@@ -79,12 +80,11 @@ def _redis_from_env(default: str) -> str:
     ``env_prefix`` means pydantic's env source has already answered
     ``SM_BG_TASKS_BROKER_URL`` / ``SM_BG_TASKS_RESULT_BACKEND`` by the time a
     default is needed, so this factory is only the ``SM_REDIS_URL`` half — the
-    legacy names keep working, and keep winning, through that source instead.
-    """
+    legacy names keep working, and keep winning, through that source instead."""
     return os.environ.get(ENV_REDIS_URL) or default
 
 
-class BackgroundTasksSettings(BaseSettings):
+class BackgroundTasksSettings(WorkerDatabaseSettings):
     """Configuration for the Celery + Redis task runner."""
 
     # Without ``env_prefix`` pydantic-settings resolves each field from its
