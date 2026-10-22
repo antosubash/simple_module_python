@@ -44,6 +44,7 @@ from background_tasks.constants import (
     DEFAULT_OUTBOX_LEASE_SECONDS,
     DEFAULT_OUTBOX_MAX_ATTEMPTS,
     DEFAULT_OUTBOX_SWEEP_INTERVAL_SECONDS,
+    DEFAULT_RETENTION_DAYS,
     ENV_PREFIX,
     max_outbox_handler_timeout,
 )
@@ -53,7 +54,7 @@ from background_tasks.settings_env_checks import (
     warn_on_legacy_redis_vars,
 )
 
-__all__ = ["ENV_PREFIX", "BackgroundTasksSettings"]
+__all__ = ["DEFAULT_RETENTION_DAYS", "ENV_PREFIX", "BackgroundTasksSettings"]
 
 logger = logging.getLogger(__name__)
 
