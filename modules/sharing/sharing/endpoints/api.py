@@ -35,7 +35,9 @@ async def list_shares(
         shares = await service.for_resource(who, resource_type, resource_id)
     except SharingError as exc:
         raise http_error(exc) from None
-    return await present_shares(get_user_directory(request.app), service.db, shares)
+    return await present_shares(
+        get_user_directory(request.app), service.db, shares, service.audience
+    )
 
 
 @router.post("", response_model=ShareOut, status_code=201)
@@ -49,7 +51,9 @@ async def grant_share(
         share = await service.grant(who, data)
     except SharingError as exc:
         raise http_error(exc) from None
-    (out,) = await present_shares(get_user_directory(request.app), service.db, [share])
+    (out,) = await present_shares(
+        get_user_directory(request.app), service.db, [share], service.audience
+    )
     return out
 
 

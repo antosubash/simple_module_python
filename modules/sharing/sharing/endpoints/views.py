@@ -38,7 +38,9 @@ async def admin_index(
     )
     try:
         page = await paginate(service.db, stmt, params)
-        shares = await present_shares(get_user_directory(request.app), service.db, page.items)
+        shares = await present_shares(
+            get_user_directory(request.app), service.db, page.items, service.audience
+        )
         total, served, tenant_required = page.total, page.page, False
     except TenantIsolationError:
         # Strict tenancy with no active tenant: nothing to list.

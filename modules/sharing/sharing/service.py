@@ -23,6 +23,7 @@ from simple_module_db.resource_policy import load_authorized
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from sharing.audience import Audience, OpenAudience
 from sharing.constants import (
     ERR_BAD_ROLE,
     ERR_EXPIRED,
@@ -53,11 +54,16 @@ def _aware(value: datetime) -> datetime:
 
 class SharingService:
     def __init__(
-        self, db: AsyncSession, registry: ResourceTypeRegistry, directory: UserDirectory
+        self,
+        db: AsyncSession,
+        registry: ResourceTypeRegistry,
+        directory: UserDirectory,
+        audience: Audience | OpenAudience | None = None,
     ) -> None:
         self.db = db
         self.registry = registry
         self.directory = directory
+        self.audience = audience or OpenAudience()
 
     def _type(self, name: str) -> ResourceType:
         resource_type = self.registry.get(name)
@@ -89,9 +95,9 @@ class SharingService:
         if data.expires_at is not None and _aware(data.expires_at) <= datetime.now(UTC):
             raise SharingError(422, ERR_EXPIRED)
         row = await self._authorize(principal, resource_type, data.resource_id)
-        found = await self.directory.get_many(self.db, [data.subject_id])
-        grantee = found.get(data.subject_id)
-        if grantee is None:
+        grantee = (await self.directory.get_many(self.db, [data.subject_id])).get(data.subject_id)
+        # One error for "no such user" and "not in your tenant": no enumeration.
+        if grantee is None or grantee.id not in await self.audience.visible([grantee.id]):
             raise SharingError(422, ERR_UNKNOWN_GRANTEE)
         if grantee.id == principal.user_id:
             raise SharingError(422, ERR_SELF)

@@ -58,6 +58,17 @@ permission, passes `can("share")` and may grant.
 policy still decides each request. API tokens need `sharing.share` in their
 scopes.
 
+## Tenancy
+
+On a multi-tenant app a grantee must be a member of the active tenant. A
+non-member gets the same `422 Unknown user` as an id that names nobody, so the
+API cannot be used to probe other tenants' accounts. User labels (subject and
+granter) are only filled in for members of the active tenant; anyone else is
+shown by raw id. Membership is read through
+`simple_module_core.tenancy.tenant_member_ids`, which the `tenants` module
+publishes as `app.state.tenant_members`. With no active tenant or no
+membership store, nobody qualifies. Single-tenant apps have no such check.
+
 ## Model
 
 `sharing_resource_share` (`ResourceShare`, `MultiTenantMixin` + `AuditMixin`):

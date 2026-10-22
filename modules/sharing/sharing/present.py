@@ -8,6 +8,7 @@ from typing import Any
 
 from simple_module_core.user_directory import UserDirectory, resolve_user_labels
 
+from sharing.audience import Audience, OpenAudience
 from sharing.contracts.schemas import ShareOut
 from sharing.models import ResourceShare
 
@@ -22,11 +23,18 @@ def _expired(share: ResourceShare, now: datetime) -> bool:
 
 
 async def present_shares(
-    directory: UserDirectory, db: Any, shares: Sequence[ResourceShare]
+    directory: UserDirectory,
+    db: Any,
+    shares: Sequence[ResourceShare],
+    audience: Audience | OpenAudience,
 ) -> list[ShareOut]:
-    """One batched directory lookup for every subject and granter on the page."""
+    """One batched directory lookup for every subject and granter on the page.
+
+    Only users in the request's *audience* (the active tenant's members) are
+    named; anyone else shows as their raw id, so no label crosses tenants.
+    """
     ids = [s.subject_id for s in shares] + [s.granted_by for s in shares]
-    labels = await resolve_user_labels(directory, db, ids)
+    labels = await resolve_user_labels(directory, db, await audience.visible(ids))
     now = datetime.now(UTC)
     return [
         ShareOut.model_validate(
