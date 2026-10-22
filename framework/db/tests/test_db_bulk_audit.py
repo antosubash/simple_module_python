@@ -1,0 +1,199 @@
+"""Statement DML is audited like a flush (#557): ORM bulk, Core DML, ``text()`` via helper."""
+
+from __future__ import annotations
+
+from collections.abc import AsyncGenerator
+
+import pytest
+from _audit_models import (
+    AuditBase,
+    AuditTestItem,
+    ExcludedModel,
+    PartialExcludeModel,
+    SoftDeleteItem,
+)
+from _models import _TenantBase, _TenantItem
+from simple_module_db import bulk_audit, record_bulk_audit, tenant_context
+from simple_module_db.audit import AuditRecord
+from simple_module_db.listeners import register_listeners
+from simple_module_db.session import DatabaseState, init_db
+from simple_module_test.database import database_url_for_tests, init_db_kwargs, reset_schema
+from sqlalchemy import delete, func, insert, select, text, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+
+_URL = database_url_for_tests()
+
+
+class _Recorder:
+    def __init__(self) -> None:
+        self.records: list[AuditRecord] = []
+
+    def __call__(self, session: Session, records: list[AuditRecord]) -> None:
+        self.records.extend(records)
+
+    def summary(self) -> list[tuple[str, str, str]]:
+        return [(r.entity_type, r.action, r.entity_id) for r in self.records]
+
+
+@pytest.fixture
+async def audited() -> AsyncGenerator[tuple[DatabaseState, AsyncSession, _Recorder]]:
+    recorder = _Recorder()
+    state = init_db(_URL, **init_db_kwargs(_URL))
+    state.audit_callback = recorder
+    register_listeners(state)
+    await reset_schema(state.engine)
+    async with state.engine.begin() as conn:
+        await conn.run_sync(AuditBase.metadata.create_all)
+        await conn.run_sync(_TenantBase.metadata.create_all)
+    async with state.session_factory() as session:
+        session.add_all([AuditTestItem(name=f"n{i}", value=i) for i in range(3)])
+        await session.flush()
+        recorder.records.clear()
+        yield state, session, recorder
+    await state.engine.dispose()
+
+
+async def _ids(session: AsyncSession, where=None) -> list[str]:
+    query = select(AuditTestItem.id).order_by(AuditTestItem.id)
+    if where is not None:
+        query = query.where(where)
+    return [str(i) for i in (await session.execute(query)).scalars()]
+
+
+async def test_orm_bulk_update_records_each_row_with_set_values(audited):
+    _state, session, recorder = audited
+    expected = await _ids(session, AuditTestItem.value >= 1)
+    await session.execute(update(AuditTestItem).where(AuditTestItem.value >= 1).values(name="x"))
+    assert sorted(r.entity_id for r in recorder.records) == expected
+    assert {r.action for r in recorder.records} == {"bulk_updated"}
+    assert recorder.records[0].changes == [{"field": "name", "new": "x"}]
+
+
+async def test_orm_bulk_delete_records_each_row(audited):
+    _state, session, recorder = audited
+    expected = await _ids(session)
+    await session.execute(delete(AuditTestItem))
+    assert sorted(r.entity_id for r in recorder.records) == expected
+    assert {(r.action, tuple(r.changes)) for r in recorder.records} == {("bulk_deleted", ())}
+
+
+async def test_core_dml_on_table_is_audited(audited):
+    _state, session, recorder = audited
+    table = AuditTestItem.__table__
+    target = (await _ids(session, AuditTestItem.value == 2))[0]
+    await session.execute(update(table).where(table.c.value == 2).values(value=table.c.value + 1))
+    await session.execute(delete(table).where(table.c.value == 0))
+    actions = [(r.action, r.entity_id) for r in recorder.records]
+    assert actions[0] == ("bulk_updated", target)
+    assert recorder.records[0].changes[0]["field"] == "value"
+    assert actions[1][0] == "bulk_deleted"
+
+
+async def test_insert_statement_records_one_summary_row(audited):
+    _state, session, recorder = audited
+    rows = [{"name": "a", "value": 1}, {"name": "b", "value": 2}]
+    await session.execute(insert(AuditTestItem), rows)
+    await session.execute(insert(AuditTestItem.__table__).values(name="c", value=3))
+    assert [(r.action, r.entity_id) for r in recorder.records] == [("bulk_inserted", "*")] * 2
+    assert {"field": "rowcount", "new": 2} in recorder.records[0].changes
+    assert {"field": "name", "new": "c"} in recorder.records[1].changes
+
+
+async def test_over_the_cap_records_one_summary_without_literals(audited, monkeypatch):
+    _state, session, recorder = audited
+    monkeypatch.setattr(bulk_audit, "BULK_AUDIT_ID_CAP", 2)
+    await session.execute(update(AuditTestItem).where(AuditTestItem.value < 99).values(name="s"))
+    assert [(r.action, r.entity_id) for r in recorder.records] == [("bulk_updated", "*")]
+    changes = {c["field"]: c["new"] for c in recorder.records[0].changes}
+    assert changes["rowcount"] == 3 and changes["truncated"] is True and changes["name"] == "s"
+    assert "99" not in changes["where_sql"] and "value" in changes["where_sql"]
+
+
+async def test_excluded_columns_and_models(audited):
+    _state, session, recorder = audited
+    session.add_all([PartialExcludeModel(username="u"), ExcludedModel(name="e")])
+    await session.flush()
+    recorder.records.clear()
+    await session.execute(update(PartialExcludeModel).values(password_hash="h"))
+    await session.execute(update(ExcludedModel).values(name="z"))
+    await session.execute(update(AuditTestItem).values(updated_by="bot"))
+    assert recorder.records == []
+    await session.execute(update(PartialExcludeModel).values(username="v", password_hash="h2"))
+    assert recorder.records[0].changes == [{"field": "username", "new": "v"}]
+
+
+async def test_bulk_soft_delete_is_recorded(audited):
+    _state, session, recorder = audited
+    session.add(SoftDeleteItem(title="t"))
+    await session.flush()
+    recorder.records.clear()
+    await session.execute(update(SoftDeleteItem).values(is_deleted=True))
+    assert [r.action for r in recorder.records] == ["bulk_soft_deleted"]
+
+
+async def test_bulk_update_by_primary_key_uses_the_rows(audited):
+    _state, session, recorder = audited
+    ids = [int(i) for i in await _ids(session)]
+    await session.execute(update(AuditTestItem), [{"id": i, "name": "pk"} for i in ids[:2]])
+    assert [r.entity_id for r in recorder.records] == [str(i) for i in ids[:2]]
+    assert recorder.records[0].changes == [{"field": "name"}]
+
+
+async def test_prefetch_keeps_the_tenant_scope(audited):
+    _state, session, recorder = audited
+    for tenant in ("a", "b"):
+        with tenant_context(tenant):
+            session.add(_TenantItem(name=tenant))
+            await session.flush()
+    recorder.records.clear()
+    with tenant_context("a"):
+        await session.execute(update(_TenantItem).values(name="renamed"))
+        own = (await session.execute(select(_TenantItem.id))).scalars().all()
+    assert [r.entity_id for r in recorder.records] == [str(i) for i in own]
+
+
+async def test_opt_out_and_strict_mode(audited):
+    state, session, recorder = audited
+    opted_out = update(AuditTestItem).values(name="quiet").execution_options(sm_audit=False)
+    await session.execute(opted_out)
+    assert recorder.records == []
+    state.refuse_unaudited_dml = lambda: True
+    with pytest.raises(bulk_audit.UnauditedWriteError):
+        await session.execute(opted_out)
+    # Excluded-only writes and excluded models would not be audited anyway.
+    await session.execute(update(ExcludedModel).values(name="z").execution_options(sm_audit=False))
+
+
+async def test_sink_failure_never_breaks_the_write(audited):
+    state, session, _recorder = audited
+
+    def _boom(session: Session, records: list[AuditRecord]) -> None:
+        raise RuntimeError("sink down")
+
+    state.audit_callback = _boom
+    await session.execute(update(AuditTestItem).values(name="kept"))
+    names = (await session.execute(select(func.count()).where(AuditTestItem.name == "kept"))).one()
+    assert names[0] == 3
+
+
+async def test_record_bulk_audit_for_text_writes(audited):
+    _state, session, recorder = audited
+    await session.execute(text("UPDATE test_audit_item SET value = 7"))
+    assert recorder.records == []
+    record_bulk_audit(session, AuditTestItem, "bulk_updated", [1, 2], {"value": 7})
+    record_bulk_audit(session, "Raw", "bulk_deleted", None)
+    assert recorder.summary() == [
+        ("AuditTestItem", "bulk_updated", "1"),
+        ("AuditTestItem", "bulk_updated", "2"),
+        ("Raw", "bulk_deleted", "*"),
+    ]
+    assert recorder.records[0].changes == [{"field": "value", "new": 7}]
+
+
+async def test_unaudited_engine_records_nothing(audited):
+    state, session, recorder = audited
+    state.audit_callback = None
+    await session.execute(update(AuditTestItem).values(name="n"))
+    record_bulk_audit(session, AuditTestItem, "bulk_updated", [1])
+    assert recorder.records == []

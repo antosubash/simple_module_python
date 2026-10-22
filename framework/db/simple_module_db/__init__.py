@@ -2,6 +2,7 @@
 
 from simple_module_db.audit import AuditRecord
 from simple_module_db.base import create_module_base
+from simple_module_db.bulk_audit import UnauditedWriteError, record_bulk_audit
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.deps import get_db
 from simple_module_db.extensions import UnsupportedDatabaseError, ensure_db_extensions
@@ -64,6 +65,7 @@ __all__ = [
     "SoftDeleteMixin",
     "TSVector",
     "TenantIsolationError",
+    "UnauditedWriteError",
     "UnsupportedDatabaseError",
     "VersionedMixin",
     "all_tenants",
@@ -88,6 +90,7 @@ __all__ = [
     "mark_written",
     "no_tenant",
     "paginate",
+    "record_bulk_audit",
     "render_item",
     "tenant_context",
     "total_pages",

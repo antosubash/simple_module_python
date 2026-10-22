@@ -37,7 +37,11 @@
     "created": "erstellt",
     "updated": "aktualisiert",
     "deleted": "gelöscht",
-    "soft_deleted": "archiviert"
+    "soft_deleted": "archiviert",
+    "bulk_inserted": "massenweise erstellt",
+    "bulk_updated": "massenweise geändert",
+    "bulk_deleted": "massenweise gelöscht",
+    "bulk_soft_deleted": "massenweise archiviert"
   },
   "correlation": {
     "view_related": "Zugehörige Einträge",

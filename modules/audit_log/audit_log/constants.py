@@ -28,7 +28,21 @@ ACTION_CREATED: Final = "created"
 ACTION_UPDATED: Final = "updated"
 ACTION_DELETED: Final = "deleted"
 ACTION_SOFT_DELETED: Final = "soft_deleted"
-ALL_ACTIONS: Final = (ACTION_CREATED, ACTION_UPDATED, ACTION_DELETED, ACTION_SOFT_DELETED)
+# Statement DML (#557); the names match ``simple_module_db.bulk_audit``.
+ACTION_BULK_INSERTED: Final = "bulk_inserted"
+ACTION_BULK_UPDATED: Final = "bulk_updated"
+ACTION_BULK_DELETED: Final = "bulk_deleted"
+ACTION_BULK_SOFT_DELETED: Final = "bulk_soft_deleted"
+ALL_ACTIONS: Final = (
+    ACTION_CREATED,
+    ACTION_UPDATED,
+    ACTION_DELETED,
+    ACTION_SOFT_DELETED,
+    ACTION_BULK_INSERTED,
+    ACTION_BULK_UPDATED,
+    ACTION_BULK_DELETED,
+    ACTION_BULK_SOFT_DELETED,
+)
 
 ENTITY_TYPE_MAX_LENGTH: Final = 255
 ENTITY_ID_MAX_LENGTH: Final = 255

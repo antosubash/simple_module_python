@@ -20,6 +20,15 @@ All notable changes to this project are documented in this file. The format is b
 - Server-rendered `<head>` for Inertia pages (#535 step 1): `inertia.render(..., head=Head(title, description, canonical, robots, og, twitter, json_ld))` puts the tags in the first response so crawlers and link unfurlers see them without JS; they are also sent as the `_head` prop and re-emitted on client visits via Inertia's `serverHead` (`@simple-module-py/ui/lib/server-head`). URL fields are http(s)-only, JSON-LD cannot close its `<script>`. New `public_base_url` host setting (DB-backed, read per request, no restart) builds canonical / `og:url`; the request `Host` is never used. Both `index.html` templates updated. Body SSR remains open in #535.
 
 - `smpy docker add-worker` generates dedicated Python worker images with validated apt packages, optional extras, queue/module routing, and idempotent Compose includes (#540).
+- Statement DML is audited (#557): `simple_module_db.bulk_audit` audits ORM bulk
+  `update()` / `delete()` / `insert()` and Core DML on `Model.__table__` through
+  the engine's audit sink, one `bulk_updated` / `bulk_deleted` /
+  `bulk_soft_deleted` entry per row (ids prefetched with the statement's `WHERE`
+  and tenant scope) up to 500 rows, else one `"*"` summary; `bulk_inserted` is one
+  summary per statement. `execution_options(sm_audit=False)` opts out;
+  `record_bulk_audit(session, Model, action, ids, changes)` records `text()`
+  writes; the new `audit_log` setting `refuse_unaudited_dml` (default off) makes
+  the opt-out raise `UnauditedWriteError`. No migration.
 - Release process (#510): `release.yml` runs the whole PR suite (`pr.yml` via
   `workflow_call`) against the dispatched commit and `build` needs it, so nothing
   is built or published from a red commit. The duplicated bump + lockfile steps
@@ -79,6 +88,11 @@ All notable changes to this project are documented in this file. The format is b
   it, which removes the `users` ↔ `audit_log` import cycle.
 
 ### Changed
+- **Behaviour change:** bulk and Core DML writes on audited models now produce
+  audit entries (actions `bulk_*`), in requests and Celery workers. Statements
+  that set only excluded columns (the outbox, `TaskExecution.heartbeat_at`) are
+  still not recorded. Opt a statement out with
+  `execution_options(sm_audit=False)` (#557).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all
   `package.json` versions are now in lockstep with the Python packages (they were
   0.1.0, keycloak 0.0.0) (#510).
