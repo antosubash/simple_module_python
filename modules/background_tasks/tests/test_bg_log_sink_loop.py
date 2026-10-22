@@ -22,12 +22,14 @@ APP_LOGGER = logging.getLogger("bg_log_sink_loop_test")
 @pytest.fixture(autouse=True)
 def _root_at_debug() -> Iterator[None]:
     root = logging.getLogger()
-    before = root.level
+    db_logger = logging.getLogger("simple_module.db")
+    before, db_before = root.level, db_logger.level
     root.setLevel(logging.DEBUG)
-    logging.getLogger("simple_module.db").setLevel(logging.INFO)
+    db_logger.setLevel(logging.INFO)
     yield
     log_sink.uninstall_log_sink()
     root.setLevel(before)
+    db_logger.setLevel(db_before)
 
 
 def _count() -> int:

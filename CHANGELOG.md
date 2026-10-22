@@ -131,7 +131,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 - **Behaviour change:** `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
   `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
-  `OutboxMessage`, `TaskExecutionLog`-style telemetry), so retained logs cannot re-log their own writes (#537).
+  `OutboxMessage`, `RetainedLog`), so retained logs cannot re-log their own writes (#537).
 - **Behaviour change:** `rate_limit_authenticated` (off by default) now keeps one budget per
   signed-in user instead of one per client IP, so users behind one NAT no longer share it (#529).
 - `scripts/bump_version.py` also bumps every `modules/*/package.json`; all

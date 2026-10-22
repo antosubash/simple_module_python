@@ -134,7 +134,7 @@ def attach_session_listeners(session_class: type[Session]) -> None:
 def _log_entity_change(obj: object, event_name: str, *, extra: dict[str, object]) -> None:
     # Models flagged ``__audit_exclude__`` (telemetry such as retained logs) are
     # not logged either: the log record would be retained and written again.
-    if getattr(obj, "__audit_exclude__", False):
+    if getattr(obj, "__audit_exclude__", False) is True:
         return
     _db_logger.info(event_name, extra=extra)
 
