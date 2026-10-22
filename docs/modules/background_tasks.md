@@ -54,6 +54,20 @@ async def place(self, data: OrderCreate) -> OrderOut:
 - In a request (`get_db`), the publish runs from the session's `on_commit` hook — after the commit, before the response leaves.
 - Any other session — a task body's sync session, a CLI script's own `async with session.begin()` — hangs it off SQLAlchemy's `after_commit` event instead, and drops it when the outermost transaction ends without committing. Publishing then blocks the committing thread for the length of one kombu publish.
 - The task runs as the tenant bound when you called `enqueue_after_commit`, not whatever is bound at commit time.
+
+**Delivery is at-most-once.** The publish intent lives only in memory. A broker
+failure after commit is logged as `background_tasks.after_commit.publish_failed`
+without retry; a process exit between commit and publish also loses the job.
+For must-run work, use the event bus's `publish_durable(event, db)` with a durable
+handler (see durable events below), which persists outbox intent in the same
+transaction. This helper itself provides no execution or redelivery guarantee.
+
+File storage recovers missing checksum jobs with the hourly
+`file_storage.reconcile_checksums` beat task: it re-enqueues up to 500 completed,
+non-deleted files whose checksum is null and whose creation was more than 30
+minutes ago, across tenants. Failed publishes remain eligible on subsequent
+runs. Run beat and a worker for this recovery; duplicate checksum jobs are safe.
+
 - A publish that fails after the commit is logged, not raised: the transaction is already durable.
 
 The admin retry buttons follow the same rule — the new `pending` row commits first, then the task is sent (GH #452). If the send itself then fails, the new row is flipped to `failed` so the retry buttons can pick it up again; a task with no row is neither.

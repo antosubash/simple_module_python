@@ -127,6 +127,7 @@ class Task:
 
     REAP_OBJECTS: Final = "file_storage.reap_objects"
     REAP_STALE_UPLOADS: Final = "file_storage.reap_stale_uploads"
+    RECONCILE_CHECKSUMS: Final = "file_storage.reconcile_checksums"
     COMPUTE_CHECKSUM: Final = "file_storage.compute_checksum"
 
 
@@ -255,3 +256,8 @@ PUBLIC_CORS_EXPOSE_HEADERS: Final = ("Content-Range", "Accept-Ranges", "ETag", "
 # Keys this module writes: ``{tenant}/YYYY/MM/DD/{uuid hex}[.ext]``. Reapers only
 # ever touch objects shaped like this, never foreign ones in a shared store.
 OWN_KEY: Final = re.compile(r"^[^/]+/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}(\.[^/]*)?$")
+
+CHECKSUM_RECONCILE_MIN_AGE_MINUTES: Final = 30
+CHECKSUM_RECONCILE_BATCH_SIZE: Final = 500
+CHECKSUM_RECONCILE_INTERVAL_SECONDS: Final = 3600.0
+BEAT_RECONCILE_CHECKSUMS: Final = "file-storage-reconcile-checksums"

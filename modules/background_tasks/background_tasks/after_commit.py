@@ -59,6 +59,11 @@ _HOOKED_KEY = "background_tasks_after_commit_hooked"
 def enqueue_after_commit(db: AsyncSession | Session, task: Any, *args: Any, **kwargs: Any) -> str:
     """Send *task* once *db*'s transaction commits; never if it rolls back.
 
+    Delivery is at-most-once: publish intent exists only in memory. Broker
+    failure after commit is logged without retry; a process exit between commit
+    and publish also loses the job. For must-run work use the event bus's
+    ``publish_durable(event, db)`` transactional outbox with a durable handler.
+
     *task* is a Celery task (``send_receipt``), a signature
     (``send_receipt.s().set(queue="mail")``, for routing options), or a
     registered task name. ``*args`` / ``**kwargs`` are the task's own
@@ -89,7 +94,7 @@ def after_commit(
     request. Left off for a single publish so Celery's eager mode — which runs
     the task body inside the publish — stays on the loop's thread. One failed
     publish is logged and does not stop the rest: the rows are already
-    committed, and an unsent ``pending`` row is visible and retryable.
+    committed. Only callers with persisted pending work can reconcile failures.
     """
     batch = list(publishes)
     if isinstance(db, RequestSession) and SESSION_START_KEY in db.info:

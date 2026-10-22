@@ -25,6 +25,10 @@ from file_storage import constants
 logger = logging.getLogger(__name__)
 
 BEAT_SCHEDULE = {
+    constants.BEAT_RECONCILE_CHECKSUMS: {
+        "task": constants.Task.RECONCILE_CHECKSUMS,
+        "schedule": constants.CHECKSUM_RECONCILE_INTERVAL_SECONDS,
+    },
     "file-storage-reap-objects": {
         "task": constants.Task.REAP_OBJECTS,
         "schedule": 3600.0,
@@ -191,3 +195,36 @@ def reap_objects() -> int:
             grace=timedelta(seconds=2 * settings.upload_session_ttl_seconds),
         )
     )
+
+
+@shared_task(name=constants.Task.RECONCILE_CHECKSUMS)
+def reconcile_checksums() -> int:
+    """Retry missing checksums after the grace period; return bounded enqueue attempts.
+
+    StoredFile rows represent completed uploads. Missing digests remain eligible
+    after publish failures or worker exits; duplicate checksum jobs are safe.
+    """
+    from background_tasks import enqueue_after_commit
+    from background_tasks.sync_db import sync_session
+    from simple_module_db import all_tenants, tenant_context
+    from sqlmodel import col, select
+
+    from file_storage.models import StoredFile
+
+    cutoff = datetime.now(UTC) - timedelta(minutes=constants.CHECKSUM_RECONCILE_MIN_AGE_MINUTES)
+    with sync_session() as db, all_tenants():
+        targets = list(
+            db.execute(
+                select(StoredFile.id, StoredFile.tenant_id)
+                .where(
+                    col(StoredFile.checksum_sha256).is_(None),
+                    col(StoredFile.created_at) < cutoff,
+                )
+                .order_by(col(StoredFile.created_at), col(StoredFile.id))
+                .limit(constants.CHECKSUM_RECONCILE_BATCH_SIZE)
+            ).all()
+        )
+    for file_id, tenant_id in targets:
+        with tenant_context(tenant_id), sync_session() as db:
+            enqueue_after_commit(db, compute_checksum, str(file_id), tenant_id)
+    return len(targets)
