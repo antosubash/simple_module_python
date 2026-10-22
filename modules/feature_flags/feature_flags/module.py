@@ -29,6 +29,7 @@ from feature_flags.constants import (
 )
 
 if TYPE_CHECKING:
+    from simple_module_core.events import EventBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 _logger = logging.getLogger(__name__)
@@ -66,6 +67,13 @@ class FeatureFlagsModule(ModuleBase):
         view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from simple_module_core.tenant_events import TenantDeleted
+
+        from feature_flags.tenant_cleanup import purge_tenant_data
+
+        bus.subscribe_durable(TenantDeleted, purge_tenant_data)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from feature_flags.endpoints.api import router as api

@@ -12,6 +12,7 @@ from tenants.contracts.events import MembershipRemoved, TenantDeleted
 from tenants.contracts.schemas import TenantCreate
 from tenants.models import Membership, Tenant
 from tenants.service import TenantService
+from tenants_deletion_helpers import deletion_bus
 
 
 async def _tenant_with_owner(db_session, bus: EventBus) -> tuple[TenantService, Tenant]:
@@ -22,7 +23,7 @@ async def _tenant_with_owner(db_session, bus: EventBus) -> tuple[TenantService, 
 
 
 async def test_delete_publishes_after_commit(db_session):
-    bus = EventBus()
+    bus = deletion_bus()
     seen: list[TenantDeleted] = []
 
     async def handler(event: TenantDeleted) -> None:
@@ -43,7 +44,7 @@ async def test_delete_publishes_after_commit(db_session):
 
 
 async def test_rolled_back_delete_publishes_nothing(db_session):
-    bus = EventBus()
+    bus = deletion_bus()
     seen: list[TenantDeleted] = []
 
     async def handler(event: TenantDeleted) -> None:
@@ -82,7 +83,7 @@ async def _tenant_with_members(db_session, bus: EventBus, invalidated: list[str 
 
 
 async def test_delete_removes_every_member_after_commit(db_session):
-    bus = EventBus()
+    bus = deletion_bus()
     removed: list[MembershipRemoved] = []
 
     async def handler(event: MembershipRemoved) -> None:
@@ -107,7 +108,7 @@ async def test_delete_removes_every_member_after_commit(db_session):
 
 
 async def test_rolled_back_delete_removes_no_member(db_session):
-    bus = EventBus()
+    bus = deletion_bus()
     removed: list[MembershipRemoved] = []
 
     async def handler(event: MembershipRemoved) -> None:

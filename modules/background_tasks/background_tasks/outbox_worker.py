@@ -30,6 +30,7 @@ from simple_module_core.events import EventBus
 from simple_module_db import init_db
 from simple_module_db.listeners import attach_session_listeners
 from simple_module_db.query_filter import bind_engine_policy
+from simple_module_db.tenant_cleanup import register_tenant_cleanup
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from background_tasks import sync_db
@@ -118,6 +119,7 @@ def build_worker_bus() -> EventBus:
     from simple_module_core.discovery import discover_modules, topological_sort
 
     bus = EventBus()
+    register_tenant_cleanup(bus)
     bus.durable_transport = WorkerOutboxTransport()
     # Lenient on purpose: the worker delivers whatever is installed, and a
     # module set the web process refuses is reported there, not here.

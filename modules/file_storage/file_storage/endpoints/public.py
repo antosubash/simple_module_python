@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from simple_module_core.tenancy import tenant_exists
 from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage import constants
@@ -20,9 +21,14 @@ from file_storage.serving import not_found, public_file_response, thumbnail_resp
 router = APIRouter()
 
 
-async def _public_row(service: FileStorageService, file_id: uuid.UUID, t: TranslatorDep):
+async def _public_row(
+    service: FileStorageService, file_id: uuid.UUID, request: Request, t: TranslatorDep
+):
     try:
-        return await service.get_public(file_id)
+        row = await service.get_public(file_id)
+        if await tenant_exists(request.app, row.tenant_id) is False:
+            raise StoredFileNotFoundError(str(file_id))
+        return row
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
 
@@ -36,7 +42,7 @@ async def public_thumbnail(
     w: int | None = Query(default=None, description="Width in px; clamped and snapped."),
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> Response:
-    row = await _public_row(service, file_id, t)
+    row = await _public_row(service, file_id, request, t)
     return await thumbnail_response(
         service,
         row,
@@ -50,7 +56,7 @@ async def public_thumbnail(
 async def _serve_public(
     service: FileStorageService, file_id: uuid.UUID, request: Request, t: TranslatorDep
 ) -> Response:
-    row = await _public_row(service, file_id, t)
+    row = await _public_row(service, file_id, request, t)
     return await public_file_response(service, row, request, t)
 
 

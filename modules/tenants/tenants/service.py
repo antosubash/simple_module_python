@@ -15,6 +15,7 @@ import secrets
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
+from simple_module_core.durable_events import DurableDeliveryUnavailable
 from simple_module_core.events import Event, EventBus
 from simple_module_db import PLATFORM_TENANT_ID
 from sqlalchemy import func, select
@@ -31,6 +32,7 @@ from tenants.contracts.entitlements import (
 from tenants.contracts.events import (
     MembershipAdded,
     TenantCreated,
+    TenantDeleted,
     TenantStatusChanged,
 )
 from tenants.contracts.schemas import TenantCreate
@@ -142,8 +144,13 @@ class TenantService(MembershipOpsMixin):
         return tenant
 
     async def delete_tenant(self, tenant_id: str) -> None:
+        if self.bus is None:
+            raise DurableDeliveryUnavailable("Tenant deletion requires a durable event bus")
         tenant = await self.lock(tenant_id)
-        self._after_commit(*await delete_tenant_rows(self.db, tenant), invalidate=[None])
+        events = await delete_tenant_rows(self.db, tenant)
+        deleted = next(event for event in events if isinstance(event, TenantDeleted))
+        await self.bus.publish_durable(deleted, self.db)
+        self._after_commit(*events, invalidate=[None])
 
     async def list_all(self, *, search: str = "", limit: int = 50, offset: int = 0) -> list[Tenant]:
         stmt = select(Tenant).order_by(Tenant.created_at.desc()).limit(limit).offset(offset)

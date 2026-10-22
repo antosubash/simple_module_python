@@ -107,9 +107,12 @@ async def test_cross_tenant_public_file_served_but_private_not(app, client):
     by id (it is public by its owner's choice); a private one never does."""
     from file_storage.models import StoredFile
     from simple_module_db import tenant_context
+    from tenants.models import Tenant
 
     ids = {}
     async with app.state.sm.db.session_factory() as session:
+        session.add(Tenant(id="acme", slug="acme", name="Acme"))
+        await session.flush()
         with tenant_context("acme"):
             for name, public in (("pub", True), ("priv", False)):
                 row = StoredFile(
