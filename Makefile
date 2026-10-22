@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-hardcoded-strings ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-css-build ci-doctor ci-build-packages worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -124,7 +124,7 @@ loadtest:                   ## Run locust against a server already on $(LOCUST_H
 loadtest-memray:            ## Start uvicorn under memray, load-test, emit flamegraph
 	scripts/loadtest_memray.sh $(LOCUST_ARGS)
 
-lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-check-locales ci-doc-paths ci-i18n-fresh ci-check-file-size ci-check-test-sleeps ci-check-hardcoded-strings ci-check-untranslated
+lint: ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-metadata ci-check-locales ci-doc-paths ci-i18n-fresh ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-hardcoded-strings ci-check-untranslated
 
 # Kept granular so pr.yml can run them in parallel.
 ci-python-lint:
@@ -199,6 +199,11 @@ ci-check-file-size:
 # poll with simple_module_test.wait_for instead.
 ci-check-test-sleeps:
 	uv run python scripts/check_test_sleeps.py
+
+# Fail on `as unknown as` in shipped TS (pages, components, packages/ui, host client)
+# without `// cast-ok: <reason>`; use typed page args or usePageProps instead.
+ci-check-no-double-cast:
+	uv run python scripts/check_no_double_cast.py
 
 # Enforce that permissions, role names, Inertia page ids, and module dependency
 # names are declared as named constants rather than hardcoded string literals.

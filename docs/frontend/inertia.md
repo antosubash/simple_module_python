@@ -129,7 +129,7 @@ Every Inertia response includes:
 }
 ```
 
-Accessed from any page via `usePage().props.auth` etc. (the exported `SharedProps` type from `@simple-module-py/ui` covers `auth` + `menus`); translations come from `useT()` in `@simple-module-py/i18n`. See [Shared props & layout](/frontend/shared-props).
+Accessed from any page via `usePage().props.auth` etc. (typed globally from `SharedProps` in `@simple-module-py/ui`, which covers `auth`, `menus` and `i18n`); translations come from `useT()` in `@simple-module-py/i18n`. See [Shared props & layout](/frontend/shared-props).
 
 ## Frontend runtime setup
 
