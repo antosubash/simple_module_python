@@ -1,8 +1,9 @@
 // Types and API calls for the durable-event outbox page (GH #459).
 
 import { keys, t } from '@simple-module-py/i18n';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { toast } from 'sonner';
-import { API_BASE } from './constants';
+import { api } from './api';
 
 export const OUTBOX_STATUS = {
   PENDING: 'pending',
@@ -49,51 +50,41 @@ export interface OutboxMessage {
   delivered_at: string | null;
 }
 
-const OUTBOX_API = `${API_BASE}/outbox`;
-
-/** Raised for a non-2xx answer; carries the status so callers can pick a translated message. */
-class OutboxHttpError extends Error {
-  constructor(readonly status: number) {
-    super(`HTTP ${status}`);
-  }
-}
-
-async function send(url: string, method: string): Promise<void> {
-  const res = await fetch(url, { method, headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new OutboxHttpError(res.status);
-}
-
 /** The server's English `detail` is never shown: 409/404 get their own translated line. */
-function failureMessage(err: unknown, fallback: string): string {
-  if (err instanceof OutboxHttpError) {
-    if (err.status === 409) return t(keys.background_tasks.outbox.conflict);
-    if (err.status === 404) return t(keys.background_tasks.outbox.gone);
-  }
+function failureMessage(status: number, fallback: string): string {
+  if (status === 409) return t(keys.background_tasks.outbox.conflict);
+  if (status === 404) return t(keys.background_tasks.outbox.gone);
   return fallback;
 }
 
 /** Send a dead message round again from attempt 1. Resolves true on success. */
 export async function retryOutboxMessage(id: string): Promise<boolean> {
-  try {
-    await send(`${OUTBOX_API}/${id}/retry`, 'POST');
-    toast.success(t(keys.background_tasks.outbox.retried));
-    return true;
-  } catch (err) {
-    toast.error(failureMessage(err, t(keys.background_tasks.outbox.retry_failed)));
+  const result = await apiResult(
+    api.POST('/api/background_tasks/admin/outbox/{message_id}/retry', {
+      params: { path: { message_id: id } },
+    }),
+  );
+  if (!result.ok) {
+    toast.error(failureMessage(result.status, t(keys.background_tasks.outbox.retry_failed)));
     return false;
   }
+  toast.success(t(keys.background_tasks.outbox.retried));
+  return true;
 }
 
 /** Drop a pending or dead message without delivering it. */
 export async function discardOutboxMessage(id: string): Promise<boolean> {
-  try {
-    await send(`${OUTBOX_API}/${id}`, 'DELETE');
-    toast.success(t(keys.background_tasks.outbox.discarded));
-    return true;
-  } catch (err) {
-    toast.error(failureMessage(err, t(keys.background_tasks.outbox.discard_failed)));
+  const result = await apiResult(
+    api.DELETE('/api/background_tasks/admin/outbox/{message_id}', {
+      params: { path: { message_id: id } },
+    }),
+  );
+  if (!result.ok) {
+    toast.error(failureMessage(result.status, t(keys.background_tasks.outbox.discard_failed)));
     return false;
   }
+  toast.success(t(keys.background_tasks.outbox.discarded));
+  return true;
 }
 
 /** `orders.contracts.events.OrderPlaced` → `OrderPlaced`, the part people recognise. */

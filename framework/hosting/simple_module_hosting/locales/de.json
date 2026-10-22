@@ -18,6 +18,7 @@
         "description": "Datenbankschema auf die von diesem Code erwartete Version aktualisieren."
       }
     },
+    "request_failed": "Die Anfrage ist fehlgeschlagen. Bitte erneut versuchen.",
     "working": "In Bearbeitung…",
     "done": "Fertig. Wird neu geladen…"
   },

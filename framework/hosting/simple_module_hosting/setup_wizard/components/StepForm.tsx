@@ -2,6 +2,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
+import { apiFetch } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 
 /** One input of a step's form — `SetupField` on the server. */
@@ -75,31 +76,23 @@ export function StepForm({
       data[field.name] = typeof value === 'string' && value !== '' ? value : null;
     }
 
-    try {
-      const resp = await fetch(`/setup/steps/${encodeURIComponent(stepId)}`, {
-        method: 'POST',
-        // Accept: application/json matters. The host renders an Inertia error
-        // *page* for a 4xx unless the caller prefers JSON, and a bare fetch()
-        // sends Accept: */* — so without it the body is HTML, json() throws,
-        // and the operator never sees why the request was refused.
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        body: JSON.stringify(data),
-      });
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(errorMessage(body, resp.statusText || String(resp.status)));
-      }
+    // `/setup/*` is outside the OpenAPI document and its token is the page
+    // prop, not the session one, so it is passed explicitly (`apiFetch` leaves
+    // a header the caller set alone). `apiFetch` sends Accept: application/json,
+    // which matters: the host renders an Inertia error *page* for a 4xx unless
+    // the caller prefers JSON, and the operator would never see why.
+    const result = await apiFetch(`/setup/steps/${encodeURIComponent(stepId)}`, {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken },
+      json: data,
+    });
+    if (!result.ok) {
+      setError(errorMessage(result.error, t(keys.hosting.setup.request_failed)));
+    } else {
       setDone(true);
       window.location.href = '/';
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   }
 
   return (

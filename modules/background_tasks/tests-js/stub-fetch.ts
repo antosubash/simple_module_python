@@ -8,3 +8,11 @@ export function stubFetch(status: number, body: unknown = {}) {
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
+
+/** The `(path+query, method)` of every call: the typed client passes `Request` objects. */
+export function requestsOf(fetchMock: ReturnType<typeof stubFetch>) {
+  return (fetchMock.mock.calls as unknown as [Request][]).map(([req]) => {
+    const url = new URL(req.url);
+    return { url: `${url.pathname}${url.search}`, method: req.method };
+  });
+}

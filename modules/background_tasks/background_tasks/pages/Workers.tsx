@@ -3,14 +3,16 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { ageOf, isStale } from '@simple-module-py/ui/lib/relative-time';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { api } from './api';
 import { RoutesTable } from './components/RoutesTable';
 import { WorkerCard } from './components/WorkerCard';
 import { BrokerUnreachable, NoWorkers } from './components/WorkerEmptyStates';
-import { API_BASE, formatClock, type TaskRoute, VIEW_BASE, type WorkerSnapshot } from './constants';
+import { formatClock, type TaskRoute, VIEW_BASE, type WorkerSnapshot } from './constants';
 
 interface Props {
   snapshot: WorkerSnapshot;
@@ -42,23 +44,20 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
 
   async function refresh() {
     setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/workers`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (res.ok) {
-        setSnapshot((await res.json()) as WorkerSnapshot);
-        // Don't wait up to a tick for the staleness to catch up with the new
-        // reading.
-        setNow(Date.now());
-      } else {
-        toast.error(t(keys.background_tasks.workers.refresh_failed_status, { status: res.status }));
-      }
-    } catch {
+    const result = await apiResult(api.GET('/api/background_tasks/admin/workers'));
+    if (result.ok) {
+      setSnapshot(result.data as WorkerSnapshot);
+      // Don't wait up to a tick for the staleness to catch up with the new
+      // reading.
+      setNow(Date.now());
+    } else if (result.status === NETWORK_FAILURE) {
       toast.error(t(keys.background_tasks.workers.refresh_failed));
-    } finally {
-      setLoading(false);
+    } else {
+      toast.error(
+        t(keys.background_tasks.workers.refresh_failed_status, { status: result.status }),
+      );
     }
+    setLoading(false);
   }
 
   return (

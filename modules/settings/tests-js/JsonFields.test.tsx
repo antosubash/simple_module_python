@@ -53,7 +53,7 @@ function renderForm(fields: FieldMeta[]) {
 async function savedBody(fetchMock: ReturnType<typeof vi.fn>) {
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-  return JSON.parse(fetchMock.mock.calls[0][1].body);
+  return (fetchMock.mock.calls[0][0] as Request).json();
 }
 
 afterEach(() => {
@@ -62,7 +62,7 @@ afterEach(() => {
 
 describe('JSON-typed fields (GH #487)', () => {
   test('a dict field is sent as the parsed object, not its text', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     renderForm([field({ name: 'task_routes_override', value: {}, input_type: 'json' })]);
 
@@ -82,7 +82,7 @@ describe('JSON-typed fields (GH #487)', () => {
   });
 
   test('an unset int | None is an empty number box, not the text "null"', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     renderForm([field({ name: 'worker_concurrency', input_type: 'int', nullable: true })]);
 
@@ -95,7 +95,7 @@ describe('JSON-typed fields (GH #487)', () => {
   });
 
   test('clearing an int | None sends null', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     renderForm([
       field({ name: 'worker_concurrency', value: 4, input_type: 'int', nullable: true }),

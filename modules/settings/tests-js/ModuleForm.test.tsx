@@ -69,7 +69,7 @@ afterEach(() => {
 
 describe('ModuleForm', () => {
   test('shows success feedback after settings are saved', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     render(<ModuleForm module={moduleView([retentionDays])} />);
 
@@ -77,10 +77,10 @@ describe('ModuleForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.getByRole('status')).toBeVisible());
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/settings/modules/users',
-      expect.objectContaining({ body: JSON.stringify({ retention_days: 30 }) }),
-    );
+    const [req] = fetchMock.mock.calls[0] as unknown as [Request];
+    expect(req.method).toBe('PUT');
+    expect(new URL(req.url).pathname).toBe('/api/settings/modules/users');
+    expect(await req.json()).toEqual({ retention_days: 30 });
     expect(mocks.reload).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('Settings saved');
   });
@@ -91,11 +91,10 @@ describe('ModuleForm', () => {
   ])('shows %s error on its field', async (_n, loc, msg) => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 422,
-        json: async () => ({ detail: [{ loc, msg, type: 'x' }] }),
-      }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ detail: [{ loc, msg, type: 'x' }] }), { status: 422 }),
+      ),
     );
     render(<ModuleForm module={moduleView([retentionDays])} />);
     fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
@@ -112,11 +111,13 @@ describe('ModuleForm', () => {
   test('shows an error whose loc names no field at form level', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 422,
-        json: async () => ({ detail: [{ loc: ['value'], msg: 'String too long', type: 'x' }] }),
-      }),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ detail: [{ loc: ['value'], msg: 'String too long', type: 'x' }] }),
+            { status: 422 },
+          ),
+      ),
     );
     render(<ModuleForm module={moduleView([retentionDays])} />);
     fireEvent.change(screen.getByLabelText('retention_days'), { target: { value: '30' } });
@@ -203,7 +204,7 @@ describe('Revert', () => {
   });
 
   test('clears the override and reloads the props', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     render(
       <ModuleForm
@@ -214,9 +215,9 @@ describe('Revert', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Revert' }));
 
     await waitFor(() => expect(mocks.reload).toHaveBeenCalled());
-    expect(fetchMock).toHaveBeenCalledWith('/api/settings/modules/users/smtp_host', {
-      method: 'DELETE',
-    });
+    const [req] = fetchMock.mock.calls[0] as unknown as [Request];
+    expect(req.method).toBe('DELETE');
+    expect(new URL(req.url).pathname).toBe('/api/settings/modules/users/smtp_host');
   });
 });
 

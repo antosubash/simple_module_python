@@ -6,6 +6,7 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { type ApiResult, apiFetch, apiResult } from '@simple-module-py/ui/lib/api';
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -18,6 +19,7 @@ import { isValidColor, normalizeHex } from '../components/hex';
 import { ImageDropzones, type ImageKind } from '../components/ImageDropzones';
 import { PresetField, type PresetOption } from '../components/PresetField';
 import { PreviewTabs } from '../components/PreviewTabs';
+import { api } from './api';
 
 /** Matches `BUILTIN_PRESETS[0]` in `branding/presets.py`. */
 const DEFAULT_SWATCH = '#0f766e';
@@ -25,15 +27,6 @@ const DEFAULT_SWATCH = '#0f766e';
 const DEFAULT_APP_NAME = 'SimpleModule';
 /** Mirrors `MAX_APP_NAME_LEN` in `branding/constants.py`. */
 const MAX_APP_NAME = 60;
-
-async function readError(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    return typeof body?.detail === 'string' ? body.detail : res.statusText;
-  } catch {
-    return res.statusText;
-  }
-}
 
 // ``designPacks`` and ``presets`` are page props, not shared ones: the
 // choices depend on which modules the host has installed, so only the view
@@ -73,51 +66,51 @@ function Manage(page: ManageProps) {
 
   const set = (patch: Partial<BrandingForm>) => setForm((current) => ({ ...current, ...patch }));
 
-  async function run(work: () => Promise<Response>, errorMsg: string) {
+  async function run(work: () => Promise<ApiResult<unknown>>, errorMsg: string) {
     setBusy(true);
-    try {
-      const res = await work();
-      if (!res.ok) throw new Error(await readError(res));
-      toast.success(t(keys.branding.manage.saved_toast));
-      router.reload();
-    } catch (err) {
-      toast.error(`${errorMsg}: ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
+    const result = await work();
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.detail ? `${errorMsg}: ${result.detail}` : errorMsg);
+      return;
     }
+    toast.success(t(keys.branding.manage.saved_toast));
+    router.reload();
   }
 
   const publish = () =>
     run(
       () =>
-        fetch('/api/branding/', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            app_name: form.appName,
-            primary_color: normalizeHex(form.color) ?? '',
-            design_pack: form.designPack,
-            banner_message: form.bannerMessage,
-            banner_severity: form.bannerSeverity,
-            footer_text: form.footerText,
-            footer_links: form.footerLinks,
+        apiResult(
+          api.PUT('/api/branding/', {
+            body: {
+              app_name: form.appName,
+              primary_color: normalizeHex(form.color) ?? '',
+              design_pack: form.designPack,
+              banner_message: form.bannerMessage,
+              banner_severity: form.bannerSeverity,
+              footer_text: form.footerText,
+              footer_links: form.footerLinks,
+            },
           }),
-        }),
+        ),
       t(keys.branding.manage.error_toast),
     );
 
+  // The image routes take the kind as a path segment and the upload is
+  // multipart, so they go through the untyped twin.
   const uploadImage = (kind: ImageKind, file: File) => {
     const body = new FormData();
     body.append('file', file);
     return run(
-      () => fetch(`/api/branding/${kind}`, { method: 'POST', body }),
+      () => apiFetch(`/api/branding/${kind}`, { method: 'POST', body }),
       t(keys.branding.manage.upload_error_toast),
     );
   };
 
   const removeImage = (kind: ImageKind) =>
     run(
-      () => fetch(`/api/branding/${kind}`, { method: 'DELETE' }),
+      () => apiFetch(`/api/branding/${kind}`, { method: 'DELETE' }),
       t(keys.branding.manage.error_toast),
     );
 

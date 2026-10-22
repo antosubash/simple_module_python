@@ -3,8 +3,10 @@
 // the list vs. navigate to the new row), so the fetch + toast live here.
 
 import { keys, t } from '@simple-module-py/i18n';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { toast } from 'sonner';
-import { API_BASE, QUEUE_ALL, STATUS_ALL, type TaskStatus, TENANT_ALL } from './constants';
+import { api } from './api';
+import { QUEUE_ALL, STATUS_ALL, type TaskStatus, TENANT_ALL } from './constants';
 
 export interface Execution {
   id: string;
@@ -46,22 +48,18 @@ export function retryExecution(execution: {
 }
 
 async function postRetry(execution: { id: string; task_name: string }): Promise<Execution | null> {
-  try {
-    const res = await fetch(`${API_BASE}/executions/${execution.id}/retry`, {
-      method: 'POST',
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `HTTP ${res.status}`);
-    }
-    const created = (await res.json()) as Execution;
-    // Called, not captured at module scope, so it reads the live locale.
-    toast.success(t(keys.background_tasks.toasts.retried, { name: execution.task_name }));
-    return created;
-  } catch (err) {
-    toast.error(err instanceof Error ? err.message : t(keys.background_tasks.toasts.retry_failed));
+  const result = await apiResult(
+    api.POST('/api/background_tasks/admin/executions/{execution_id}/retry', {
+      params: { path: { execution_id: execution.id } },
+    }),
+  );
+  if (!result.ok) {
+    toast.error(result.detail ?? t(keys.background_tasks.toasts.retry_failed));
     return null;
   }
+  // Called, not captured at module scope, so it reads the live locale.
+  toast.success(t(keys.background_tasks.toasts.retried, { name: execution.task_name }));
+  return result.data as Execution;
 }
 
 /**
@@ -83,32 +81,31 @@ export async function retryAllFailed(filters: {
   queue: string;
   tenant: string;
 }): Promise<number | null> {
-  const params = new URLSearchParams();
-  if (filters.status && filters.status !== STATUS_ALL) params.set('status', filters.status);
-  if (filters.taskName) params.set('q', filters.taskName);
-  if (filters.queue && filters.queue !== QUEUE_ALL) params.set('queue', filters.queue);
-  if (filters.tenant && filters.tenant !== TENANT_ALL) params.set('tenant_id', filters.tenant);
-  const query = params.toString();
-  try {
-    const res = await fetch(`${API_BASE}/executions/retry-failed${query ? `?${query}` : ''}`, {
-      method: 'POST',
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `HTTP ${res.status}`);
-    }
-    const { queued, remaining } = (await res.json()) as { queued: number; remaining: number };
-    toast.success(t(keys.background_tasks.toasts.bulk_retried, { count: queued }), {
-      description:
-        remaining > 0
-          ? t(keys.background_tasks.toasts.bulk_remaining, { count: remaining })
-          : undefined,
-    });
-    return queued;
-  } catch (err) {
-    toast.error(
-      err instanceof Error ? err.message : t(keys.background_tasks.toasts.bulk_retry_failed),
-    );
+  const result = await apiResult(
+    api.POST('/api/background_tasks/admin/executions/retry-failed', {
+      params: {
+        query: {
+          status:
+            filters.status && filters.status !== STATUS_ALL
+              ? (filters.status as TaskStatus)
+              : undefined,
+          q: filters.taskName || undefined,
+          queue: filters.queue && filters.queue !== QUEUE_ALL ? filters.queue : undefined,
+          tenant_id: filters.tenant && filters.tenant !== TENANT_ALL ? filters.tenant : undefined,
+        },
+      },
+    }),
+  );
+  if (!result.ok) {
+    toast.error(result.detail ?? t(keys.background_tasks.toasts.bulk_retry_failed));
     return null;
   }
+  const { queued, remaining } = result.data;
+  toast.success(t(keys.background_tasks.toasts.bulk_retried, { count: queued }), {
+    description:
+      remaining > 0
+        ? t(keys.background_tasks.toasts.bulk_remaining, { count: remaining })
+        : undefined,
+  });
+  return queued;
 }

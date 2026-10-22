@@ -18,6 +18,7 @@
         "description": "Bring the database schema up to the version this code expects."
       }
     },
+    "request_failed": "The request failed. Try again.",
     "working": "Working…",
     "done": "Done. Reloading…"
   },

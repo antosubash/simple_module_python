@@ -22,7 +22,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { toast } from 'sonner';
 import type { TaskDetail } from '../background_tasks/pages/constants';
 import Detail from '../background_tasks/pages/Detail';
-import { stubFetch } from './stub-fetch';
+import { requestsOf, stubFetch } from './stub-fetch';
 
 const rd = keys.background_tasks.retry_dialog;
 
@@ -136,10 +136,10 @@ describe('background_tasks Detail page', () => {
     fireEvent.click(await screen.findByRole('button', { name: rd.confirm }));
 
     await waitFor(() => expect(visit).toHaveBeenCalledWith('/admin/background-tasks/e2'));
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/background_tasks/admin/executions/e1/retry',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/executions/e1/retry',
+      method: 'POST',
+    });
     expect(toast.success).toHaveBeenCalledTimes(1);
   });
 

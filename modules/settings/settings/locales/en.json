@@ -114,6 +114,7 @@
     "test_connection": "Test {name} connection",
     "test_connection_generic": "Test connection",
     "testing": "Testing…",
+    "test_failed": "The connection test could not be run.",
     "last_test_success": "Last test succeeded {ago}",
     "last_test_failure": "Last test failed {ago}",
     "env_var_hint": "Environment variable name for this field, used by \"smpy settings import-from-env\"",
