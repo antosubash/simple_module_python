@@ -36,7 +36,7 @@ export function ChangesList({ action, changes }: ChangesListProps) {
 
   // A delete records no diff — every field went away with the row. Saying
   // "no changes recorded" is the honest reading; a dash reads as a bug.
-  if (NO_DIFF_ACTIONS.has(action)) {
+  if (NO_DIFF_ACTIONS.has(action) && changes.length === 0) {
     return <span className="text-muted-foreground">{t(keys.audit_log.changes.no_changes)}</span>;
   }
   // A create sets every field at once. Listing them all would bury the rows

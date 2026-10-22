@@ -47,16 +47,17 @@ def _shown(value: Any) -> Any:
     return str(value) if isinstance(value, ClauseElement) else _serialize(value)
 
 
-def _targets(execute_state: ORMExecuteState, cls: type) -> tuple[dict[str, list[Any]], bool]:
-    """Attribute → every value the statement writes to it, and whether it is many rows.
+def _targets(execute_state: ORMExecuteState, cls: type) -> tuple[list[dict[str, Any]], bool]:
+    """Per written row, attribute → value; and whether the statement writes many rows.
 
     Every key is resolved to the mapped attribute it writes, and only mapped
     columns count, so a stray param key never reaches ``changes`` and an
-    excluded column is excluded under its Core key too. A param whose key names
-    a column and is not one of the statement's own bind parameters is a
-    ``SET`` target exactly as SQLAlchemy reads it (it does get written), so it
-    is a target here as well; ignoring it would let a write hide behind an
-    excluded ``.values()`` entry.
+    excluded column is excluded under its Core key too. Each row is the
+    statement's own ``.values()`` (bind parameters resolved through that row's
+    params) plus every param that names a column and is not one of the
+    statement's bind parameters: SQLAlchemy writes those as ``SET`` targets, so
+    ignoring them would let a write hide behind an excluded ``.values()`` entry.
+    The same rule holds for a single dict of params and for executemany rows.
     """
     names = _attr_names(cls)
     stmt, params = execute_state.statement, execute_state.parameters
@@ -64,24 +65,28 @@ def _targets(execute_state: ORMExecuteState, cls: type) -> tuple[dict[str, list[
     pairs = getattr(stmt, "_ordered_values", None) or list(
         (getattr(stmt, "_values", None) or {}).items()
     )
-    if isinstance(params, list):
-        rows, many = params, True
-    elif multi:
-        rows, many = [r for r in multi[0] if isinstance(r, dict)], True
+    if multi:
+        raw, many = [r for r in multi[0] if isinstance(r, dict)], True
     else:
-        row = {k: _resolve(v, params) for k, v in pairs}
-        if isinstance(params, dict):
-            tree = stmt if isinstance(stmt, ClauseElement) else None
-            bound = {e.key for e in iterate(tree) if isinstance(e, BindParameter)}
-            row.update({k: v for k, v in params.items() if k not in bound})
-        rows, many = [row], False
-    targets: dict[str, list[Any]] = {}
-    for row in rows:
+        tree = stmt if isinstance(stmt, ClauseElement) else None
+        bound = {e.key for e in iterate(tree) if isinstance(e, BindParameter)}
+        many = isinstance(params, list)
+        param_rows = params if isinstance(params, list) else [params]
+        raw = []
+        for row_params in param_rows:
+            row = {k: _resolve(v, row_params) for k, v in pairs}
+            if isinstance(row_params, dict):
+                row.update({k: v for k, v in row_params.items() if k not in bound})
+            raw.append(row)
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        mapped: dict[str, Any] = {}
         for key, value in row.items():
             attr = _attr(key, names)
             if attr is not None:
-                targets.setdefault(attr, []).append(value)
-    return targets, many
+                mapped[attr] = value
+        rows.append(mapped)
+    return rows, many
 
 
 def _is_set(value: Any) -> bool:

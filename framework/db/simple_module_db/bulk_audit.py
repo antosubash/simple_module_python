@@ -84,15 +84,21 @@ class _Ctx:
     def __init__(self, entity_type: str, action: str, changes: list[dict[str, Any]]) -> None:
         self.entity_type = entity_type
         self.action = action
+        self.row_actions = [action]
         self.changes = changes
         self.user_id = _current_user()
         self.correlation_id = correlation_id.get("") or None
 
-    def record(self, entity_id: str, changes: list[dict[str, Any]] | None = None) -> AuditRecord:
+    def record(
+        self,
+        entity_id: str,
+        changes: list[dict[str, Any]] | None = None,
+        action: str | None = None,
+    ) -> AuditRecord:
         return AuditRecord(
             entity_type=self.entity_type,
             entity_id=entity_id,
-            action=self.action,
+            action=action or self.action,
             changes=self.changes if changes is None else changes,
             user_id=self.user_id,
             correlation_id=self.correlation_id,
@@ -110,24 +116,32 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     name = cls.__name__
     if execute_state.is_delete:
         return _Ctx(name, ACTION_BULK_DELETED, [])
-    targets, many = _targets(execute_state, cls)
-    flag = targets.pop(_SOFT_DELETE_FLAG, None)
-    if execute_state.is_update and flag is not None:
-        trashed = any(_is_set(v) for v in flag)
-        return _Ctx(name, ACTION_BULK_SOFT_DELETED if trashed else ACTION_BULK_RESTORED, [])
+    rows, many = _targets(execute_state, cls)
+    default = ACTION_BULK_INSERTED if execute_state.is_insert else ACTION_BULK_UPDATED
+    # The soft-delete flag picks a row's action; it is never a change, and
+    # never bookkeeping that lets the statement go unrecorded.
+    actions = [
+        (ACTION_BULK_SOFT_DELETED if _is_set(row[_SOFT_DELETE_FLAG]) else ACTION_BULK_RESTORED)
+        if execute_state.is_update and _SOFT_DELETE_FLAG in row
+        else default
+        for row in rows
+    ]
     pk = {col.key for col in sa_inspect(cls).primary_key}
     # An executemany UPDATE names rows by primary key; anywhere else a written
     # key is a change and is never treated as bookkeeping.
     skip = _excluded_fields(cls) | pk if many and execute_state.is_update else _excluded_fields(cls)
-    kept = {k: v for k, v in targets.items() if k not in skip}
-    if targets and not kept:
+    skip = skip | {_SOFT_DELETE_FLAG}
+    written = list(dict.fromkeys(k for row in rows for k in row))
+    kept = [k for k in written if k not in skip]
+    if written and not kept and all(a == default for a in actions):
         return None  # only excluded columns: bookkeeping, like a flush
     if many:
         changes = [{"field": k} for k in kept]
     else:
-        changes = [{"field": k, "new": _shown(v[0])} for k, v in kept.items()]
-    action = ACTION_BULK_INSERTED if execute_state.is_insert else ACTION_BULK_UPDATED
-    return _Ctx(name, action, changes)
+        changes = [{"field": k, "new": _shown(rows[0][k])} for k in kept]
+    ctx = _Ctx(name, actions[0] if actions else default, changes)
+    ctx.row_actions = actions or [default]
+    return ctx
 
 
 def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[str]:
@@ -158,14 +172,14 @@ def _bulk_by_pk_ids(execute_state: ORMExecuteState, cls: type) -> list[str] | No
     return [_pk_str([row[k] for k in pk]) for row in params]
 
 
-def _summary(ctx: _Ctx, stmt: Any, rowcount: Any) -> AuditRecord:
+def _summary(ctx: _Ctx, stmt: Any, rowcount: Any, action: str) -> AuditRecord:
     where = getattr(stmt, "whereclause", None)
     summary = [
         {"field": "where_sql", "new": str(where) if where is not None else None},
         {"field": "rowcount", "new": rowcount},
         {"field": "truncated", "new": True},
     ]
-    return ctx.record(SUMMARY_ENTITY_ID, [*ctx.changes, *summary])
+    return ctx.record(SUMMARY_ENTITY_ID, [*ctx.changes, *summary], action)
 
 
 def audit_statement(execute_state: ORMExecuteState) -> Any:
@@ -195,17 +209,20 @@ def audit_statement(execute_state: ORMExecuteState) -> Any:
         return None
     if ctx is None:
         return None
+    params = execute_state.parameters
     ids = _bulk_by_pk_ids(execute_state, cls)
-    if ids is None and not execute_state.is_insert:
+    by_row = ids is not None and len(ids) == len(ctx.row_actions)
+    if ids is None and not (execute_state.is_insert or isinstance(params, list)):
         ids = _prefetch_ids(execute_state, cls, BULK_AUDIT_ID_CAP)
     stmt = execute_state.statement
     result = execute_state.invoke_statement()
-    params = execute_state.parameters
     if ids is not None and len(ids) <= BULK_AUDIT_ID_CAP:
-        records = [ctx.record(i) for i in ids]
+        acts = ctx.row_actions if by_row else [ctx.action] * len(ids)
+        records = [ctx.record(i, action=a) for i, a in zip(ids, acts, strict=True)]
     else:
         rowcount = len(params) if isinstance(params, list) else getattr(result, "rowcount", None)
-        records = [_summary(ctx, stmt, rowcount)]
+        distinct = dict.fromkeys(ctx.row_actions)
+        records = [_summary(ctx, stmt, rowcount, a) for a in distinct]
     _deliver(session, callback, records)
     return result
 
