@@ -41,7 +41,8 @@
     "bulk_inserted": "massenweise erstellt",
     "bulk_updated": "massenweise geändert",
     "bulk_deleted": "massenweise gelöscht",
-    "bulk_soft_deleted": "massenweise archiviert"
+    "bulk_soft_deleted": "massenweise archiviert",
+    "bulk_restored": "massenweise wiederhergestellt"
   },
   "correlation": {
     "view_related": "Zugehörige Einträge",

@@ -24,6 +24,7 @@ export const ACTIONS = [
   'bulk_updated',
   'bulk_deleted',
   'bulk_soft_deleted',
+  'bulk_restored',
 ] as const;
 
 /** A filterable entity type: the class name the column stores, shown as the

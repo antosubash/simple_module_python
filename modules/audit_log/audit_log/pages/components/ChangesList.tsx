@@ -17,7 +17,13 @@ export interface Change {
  */
 const VISIBLE_LIMIT = 2;
 
-const DELETE_ACTIONS = new Set(['deleted', 'soft_deleted', 'bulk_deleted', 'bulk_soft_deleted']);
+const NO_DIFF_ACTIONS = new Set([
+  'deleted',
+  'soft_deleted',
+  'bulk_deleted',
+  'bulk_soft_deleted',
+  'bulk_restored',
+]);
 
 interface ChangesListProps {
   action: string;
@@ -30,7 +36,7 @@ export function ChangesList({ action, changes }: ChangesListProps) {
 
   // A delete records no diff — every field went away with the row. Saying
   // "no changes recorded" is the honest reading; a dash reads as a bug.
-  if (DELETE_ACTIONS.has(action)) {
+  if (NO_DIFF_ACTIONS.has(action)) {
     return <span className="text-muted-foreground">{t(keys.audit_log.changes.no_changes)}</span>;
   }
   // A create sets every field at once. Listing them all would bury the rows

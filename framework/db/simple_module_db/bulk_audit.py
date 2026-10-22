@@ -32,10 +32,10 @@ from simple_module_core.correlation import correlation_id
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import ORMExecuteState, Session
-from sqlalchemy.sql.elements import BindParameter, ClauseElement
 
 from simple_module_db import model_registry as registry
 from simple_module_db.audit import AuditRecord, _excluded_fields, _serialize
+from simple_module_db.bulk_audit_targets import _is_set, _shown, _targets
 from simple_module_db.query_filter import engine_policy
 from simple_module_db.tenancy import ALL_TENANTS_OPTION
 
@@ -51,6 +51,7 @@ ACTION_BULK_INSERTED: Final = "bulk_inserted"
 ACTION_BULK_UPDATED: Final = "bulk_updated"
 ACTION_BULK_DELETED: Final = "bulk_deleted"
 ACTION_BULK_SOFT_DELETED: Final = "bulk_soft_deleted"
+ACTION_BULK_RESTORED: Final = "bulk_restored"
 SUMMARY_ENTITY_ID: Final = "*"
 
 _SOFT_DELETE_FLAG: Final = "is_deleted"
@@ -71,37 +72,6 @@ def _target_class(execute_state: ORMExecuteState) -> type | None:
         return mapper.class_
     table = getattr(execute_state.statement, "table", None)
     return registry.classes_by_table.get(table) if table is not None else None
-
-
-def _column_name(key: Any) -> str:
-    if isinstance(key, str):
-        return key
-    return str(getattr(key, "key", None) or getattr(key, "name", None) or key)
-
-
-def _value(value: Any) -> Any:
-    if isinstance(value, BindParameter):
-        return _serialize(value.effective_value)
-    if isinstance(value, ClauseElement):
-        return str(value)  # an expression: SQL with bind placeholders
-    return _serialize(value)
-
-
-def _set_values(execute_state: ORMExecuteState) -> dict[str, Any]:
-    """The ``SET`` / ``VALUES`` of a single-row statement, by column name."""
-    stmt = execute_state.statement
-    pairs = getattr(stmt, "_ordered_values", None) or list(
-        (getattr(stmt, "_values", None) or {}).items()
-    )
-    values = {_column_name(k): _value(v) for k, v in pairs}
-    params = execute_state.parameters
-    if isinstance(params, dict):
-        values.update({_column_name(k): _serialize(v) for k, v in params.items()})
-    return values
-
-
-def _changes(values: dict[str, Any], excluded: frozenset[str]) -> list[dict[str, Any]]:
-    return [{"field": k, "new": v} for k, v in values.items() if k not in excluded]
 
 
 def _pk_str(values: tuple | list) -> str:
@@ -140,24 +110,22 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     name = cls.__name__
     if execute_state.is_delete:
         return _Ctx(name, ACTION_BULK_DELETED, [])
-    rows = execute_state.parameters
-    multi = getattr(execute_state.statement, "_multi_values", None)
-    many = isinstance(rows, list) or bool(multi)
-    if isinstance(rows, list):
-        values = dict.fromkeys(sorted({k for row in rows for k in row}))
-    elif multi:
-        first = multi[0][0]
-        values = dict.fromkeys(_column_name(k) for k in first) if isinstance(first, dict) else {}
-    else:
-        values = _set_values(execute_state)
-    if execute_state.is_update and values.get(_SOFT_DELETE_FLAG) is True:
-        return _Ctx(name, ACTION_BULK_SOFT_DELETED, [])
+    targets, many = _targets(execute_state, cls)
+    flag = targets.pop(_SOFT_DELETE_FLAG, None)
+    if execute_state.is_update and flag is not None:
+        trashed = any(_is_set(v) for v in flag)
+        return _Ctx(name, ACTION_BULK_SOFT_DELETED if trashed else ACTION_BULK_RESTORED, [])
     pk = {col.key for col in sa_inspect(cls).primary_key}
-    changes = _changes(values, _excluded_fields(cls) | pk)
-    if values and not changes:
+    # An executemany UPDATE names rows by primary key; anywhere else a written
+    # key is a change and is never treated as bookkeeping.
+    skip = _excluded_fields(cls) | pk if many and execute_state.is_update else _excluded_fields(cls)
+    kept = {k: v for k, v in targets.items() if k not in skip}
+    if targets and not kept:
         return None  # only excluded columns: bookkeeping, like a flush
     if many:
-        changes = [{"field": c["field"]} for c in changes]
+        changes = [{"field": k} for k in kept]
+    else:
+        changes = [{"field": k, "new": _shown(v[0])} for k, v in kept.items()]
     action = ACTION_BULK_INSERTED if execute_state.is_insert else ACTION_BULK_UPDATED
     return _Ctx(name, action, changes)
 
