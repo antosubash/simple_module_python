@@ -17,6 +17,32 @@ All notable changes to this project are documented in this file. The format is b
 - `host/client_app` no longer re-declares `@simple-module-py/ui`'s runtime dependencies, nor `@base-ui/react`, `@radix-ui/react-slot`, `autoprefixer` or `postcss` (nothing loaded them) (#521).
 
 ### Added
+- Typed API client (#504). `@simple-module-py/ui` ships `createApi<paths>()` (an
+  `openapi-fetch` client with same-origin credentials, `Accept: application/json` and
+  the CSRF header), `apiResult()` / `apiFetch()` normalising every call to
+  `{ ok, status, data, detail, fieldErrors, error }` (network failure: `status: 0`),
+  and `useApiErrorToast(fallbackKey)`. `smpy openapi gen-types [--module X]` writes
+  each module's `pages/api.generated.ts` from its routes; `make gen-api-types`
+  regenerates them and `make ci-api-types-fresh` (in `make lint` and CI) fails on a
+  stale one. `*.generated.ts` is exempt from Biome and the 300-line cap. New modules
+  ship `pages/api.ts`, the generated types and a Browse page that deletes through
+  the client. `TranslationKey` is exported from `@simple-module-py/i18n`.
+- `csrfToken` Inertia shared prop for signed-in sessions (#504), which the API client
+  sends as `X-CSRF-Token` to the page's own origin. Anonymous pages never carry it.
+- Resource-scoped access (#526): `simple_module_core.resources` (`ResourcePolicy` with `filter`/`can`, `ResourcePrincipal`, `ResourceType`, `ResourceTypeRegistry`) and a new `register_resource_types` hook (read at `app.state.sm.resource_types`); `simple_module_db.resource_policy.OwnedResourcePolicy` (owner OR public-for-view OR an injected `share_exists`, with a keyword-required bypass permission) so lists and `paginate()` counts are filtered in SQL; `simple_module_hosting.resource_deps.RequiresResource(policy, action, loader, permission=None)` loads rows only through the policy: invisible → 404, visible but not allowed → 403, and admits API tokens only when `permission=` is set. See `docs/framework/resource-access.md`.
+- New optional `sharing` module (`simple_module_sharing`, #526): tenant-scoped `sharing_resource_share` table (migration `f733c7938fd1`, a new root and head labelled `sharing`), `share_exists_for(...)` for `OwnedResourcePolicy`, grant/revoke/list API under `/api/sharing/shares` (validates the resource type, the granter's `share` right on the row and the grantee via the user directory, which on a multi-tenant app must be a member of the active tenant: same error as an unknown id, and labels only for members; new core seam `simple_module_core.tenancy.tenant_member_ids` / `app.state.tenant_members`, published by `tenants`; expiry checked in SQL; revoke hard-deletes) and an admin page at `/admin/sharing/` (en + de). **Release note:** register a PyPI pending publisher for `simple_module_sharing` before the next release.
+- Server-rendered `<head>` for Inertia pages (#535 step 1): `inertia.render(..., head=Head(title, description, canonical, robots, og, twitter, json_ld))` puts the tags in the first response so crawlers and link unfurlers see them without JS; they are also sent as the `_head` prop and re-emitted on client visits via Inertia's `serverHead` (`@simple-module-py/ui/lib/server-head`). URL fields are http(s)-only, JSON-LD cannot close its `<script>`. New `public_base_url` host setting (DB-backed, read per request, no restart) builds canonical / `og:url`; the request `Host` is never used. Both `index.html` templates updated. Body SSR remains open in #535.
+- `smpy docker add-worker` generates dedicated Python worker images with validated apt packages, optional extras, queue/module routing, and idempotent Compose includes (#540).
+- Statement DML is audited (#557): `simple_module_db.bulk_audit` audits ORM bulk
+  `update()` / `delete()` / `insert()` and Core DML on `Model.__table__` through
+  the engine's audit sink, one `bulk_updated` / `bulk_deleted` /
+  `bulk_soft_deleted` / `bulk_restored` entry per row (ids prefetched with the statement's `WHERE`
+  and tenant scope) up to 500 rows, else one `"*"` summary; `bulk_inserted` is one
+  summary per statement. `execution_options(sm_audit=False)` opts out;
+  `record_bulk_audit(session, Model, action, ids, changes)` records `text()`
+  writes; the new `audit_log` setting `refuse_unaudited_dml` (default off) makes
+  the opt-out raise `UnauditedWriteError`. No migration.
+- Legacy SPA mounts (#541): `ModuleBase.spa_mounts()` returns `SpaMount(prefix, dist_dir, index="index.html", auth="required"|"public")` entries served with an `index.html` deep-link fallback (extension-less paths accepting HTML only; a missing asset stays a 404; hashed assets `immutable`; GET/HEAD only). `auth="public"` exempts GET/HEAD from `AuthMiddleware`. A prefix overlapping a router, static mount or another SPA fails boot (`SM032`). The Inertia client leaves these prefixes to the browser: `startSpaLinkInterception({ exclude })` plus the framework shared prop `nativePrefixes`, which also carries the new DB-backed host setting `native_link_prefixes` (no migration).
 - `background_tasks`: opt-in retained logs. With `log_sink_enabled` (default off;
   `log_sink_level` default `INFO`, `log_retention_days` default 7) web and worker
   log lines are kept in the new `background_tasks_log_record` table, batched off
@@ -141,6 +167,20 @@ All notable changes to this project are documented in this file. The format is b
   dropping and re-creating `public` (~0.05 s instead of ~0.25 s per test). A
   direct `reset_schema()` call or any change to the catalog (a test's own
   tables, extensions, constraints) falls back to the full rebuild.
+- tenants and api_tokens pages call their APIs through the typed client and take
+  typed component props (#504). **Behaviour change:** the api_tokens pages no longer
+  receive the unused `api_url` prop.
+- Typed page props (#505): `@simple-module-py/ui` registers `SharedProps` (now including `i18n`) with
+  Inertia, so `usePage().props.auth` is typed, and exports `usePageProps<T>()` for components and
+  layouts. Pages take typed component arguments. The `as unknown as` casts in module pages, `packages/ui`
+  and `host/client_app` are gone, and `make lint` / CI reject new ones (`ci-check-no-double-cast`)
+  unless marked `// cast-ok: <reason>`. `docs/frontend/shared-props.md` and the
+  `simple-module-inertia-pages` skill no longer teach the cast.
+- **Behaviour change:** bulk and Core DML writes on audited models now produce
+  audit entries (actions `bulk_*`), in requests and Celery workers. Statements
+  that set only excluded columns (the outbox, `TaskExecution.heartbeat_at`) are
+  still not recorded. Opt a statement out with
+  `execution_options(sm_audit=False)` (#557).
 - **Behaviour change:** `simple_module_db` no longer emits the `entity.created` / `entity.updated` /
   `entity.soft_deleted` log lines for models flagged `__audit_exclude__ = True` (`AuditEntry`,
   `OutboxMessage`, `RetainedLog`), so retained logs cannot re-log their own writes (#537).

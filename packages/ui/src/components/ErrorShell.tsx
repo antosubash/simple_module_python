@@ -20,7 +20,7 @@ export const useInAdminShell = () => useContext(InShell);
  */
 export function ErrorShell({ children }: { children: ReactNode }) {
   const page = usePage();
-  const props = page.props as unknown as Partial<SharedProps>;
+  const props = page.props as Partial<SharedProps>;
   const inShell =
     isAdminPath(page.url) &&
     Boolean(props.auth?.isAuthenticated) &&

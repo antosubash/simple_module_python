@@ -15,6 +15,7 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const REALM = 'https://sso.example.com/realms/acme';
@@ -53,14 +54,14 @@ beforeEach(() => {
 
 describe('the redirect it fires', () => {
   test('it leaves for the realm on mount, which is why it is never read', () => {
-    render(<Login />);
+    render(<Login {...(props as ComponentProps<typeof Login>)} />);
     expect(assign).toHaveBeenCalledWith(START_LOGIN_URL);
   });
 });
 
 describe('what is left on screen when the redirect does not happen', () => {
   test('it names the realm it is sending you to', () => {
-    render(<Login />);
+    render(<Login {...(props as ComponentProps<typeof Login>)} />);
 
     expect(
       screen.getByRole('heading', { name: 'Redirecting to your identity provider' }),
@@ -70,7 +71,7 @@ describe('what is left on screen when the redirect does not happen', () => {
 
   test('it says nothing it cannot vouch for when the realm is unset', () => {
     props = { realm_url: '' };
-    render(<Login />);
+    render(<Login {...(props as ComponentProps<typeof Login>)} />);
 
     expect(screen.queryByText(REALM)).not.toBeInTheDocument();
     expect(
@@ -79,7 +80,7 @@ describe('what is left on screen when the redirect does not happen', () => {
   });
 
   test('the manual link is the way forward when the realm is unreachable', () => {
-    render(<Login />);
+    render(<Login {...(props as ComponentProps<typeof Login>)} />);
 
     expect(screen.getByRole('link', { name: 'Not redirected? Continue manually' })).toHaveAttribute(
       'href',
@@ -88,7 +89,7 @@ describe('what is left on screen when the redirect does not happen', () => {
   });
 
   test('the progress bar claims no progress it cannot observe', () => {
-    render(<Login />);
+    render(<Login {...(props as ComponentProps<typeof Login>)} />);
 
     // Indeterminate: the wait is a navigation to another origin, whose progress
     // this page cannot see. ARIA reads a progressbar with no aria-valuenow as

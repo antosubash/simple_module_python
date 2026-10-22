@@ -10,10 +10,12 @@ import {
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { UserMinus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from '../pages/api';
 
 export type MembershipRole = 'owner' | 'admin' | 'member';
 
@@ -52,52 +54,45 @@ export function MembersTable({
 
   async function changeRole(userId: string, role: MembershipRole) {
     setSavingId(userId);
-    try {
-      const response = await fetch(`/api/tenants/current/members/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ role }),
-      });
-      if (!response.ok) {
-        toast.error(await describe(response));
-        return;
-      }
-      toast.success(t(keys.tenants.members.toast_role_updated));
-      onChanged();
-    } catch {
-      toast.error(t(keys.tenants.errors.generic));
-    } finally {
-      setSavingId(null);
+    const result = await apiResult(
+      api.PATCH('/api/tenants/current/members/{user_id}', {
+        params: { path: { user_id: userId } },
+        body: { role },
+      }),
+    );
+    setSavingId(null);
+    if (!result.ok) {
+      toast.error(describe(result));
+      return;
     }
+    toast.success(t(keys.tenants.members.toast_role_updated));
+    onChanged();
   }
 
   async function confirmRemove() {
     if (!removing) return;
     const target = removing;
     setRemoving(null);
-    try {
-      const isSelf = target.user_id === myUserId;
-      const url = isSelf
-        ? '/api/tenants/current/membership'
-        : `/api/tenants/current/members/${target.user_id}`;
-      const response = await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
-      if (!response.ok) {
-        toast.error(await describe(response));
-        return;
-      }
-      if (isSelf) {
-        toast.success(t(keys.tenants.members.toast_left));
-        window.location.href = '/tenants/';
-        return;
-      }
-      toast.success(t(keys.tenants.members.toast_removed));
-      onChanged();
-    } catch {
-      toast.error(t(keys.tenants.errors.generic));
-    } finally {
-      setLeavingSelf(false);
+    const isSelf = target.user_id === myUserId;
+    const result = await apiResult(
+      isSelf
+        ? api.DELETE('/api/tenants/current/membership')
+        : api.DELETE('/api/tenants/current/members/{user_id}', {
+            params: { path: { user_id: target.user_id } },
+          }),
+    );
+    setLeavingSelf(false);
+    if (!result.ok) {
+      toast.error(describe(result));
+      return;
     }
+    if (isSelf) {
+      toast.success(t(keys.tenants.members.toast_left));
+      window.location.href = '/tenants/';
+      return;
+    }
+    toast.success(t(keys.tenants.members.toast_removed));
+    onChanged();
   }
 
   return (

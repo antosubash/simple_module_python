@@ -37,7 +37,12 @@
     "created": "created",
     "updated": "updated",
     "deleted": "deleted",
-    "soft_deleted": "archived"
+    "soft_deleted": "archived",
+    "bulk_inserted": "bulk created",
+    "bulk_updated": "bulk updated",
+    "bulk_deleted": "bulk deleted",
+    "bulk_soft_deleted": "bulk archived",
+    "bulk_restored": "bulk restored"
   },
   "correlation": {
     "view_related": "Related",

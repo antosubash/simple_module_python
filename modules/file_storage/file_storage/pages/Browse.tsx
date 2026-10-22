@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
@@ -22,8 +22,7 @@ import { describeTypes, formatBytes } from './format';
 import type { BrowseProps, FileFilters, StoredFile } from './types';
 import { useUploadQueue } from './upload-queue';
 
-function Browse() {
-  const props = usePage<{ props: BrowseProps }>().props as unknown as BrowseProps;
+function Browse(props: BrowseProps) {
   const { files, pagination, content_types: contentTypes, uploaders } = props;
   const { t } = useT();
   const { can } = usePermissions();

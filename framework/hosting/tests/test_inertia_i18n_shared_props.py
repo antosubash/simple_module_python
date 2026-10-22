@@ -14,6 +14,11 @@ from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 
 
+def _resolved(shared: dict) -> dict:
+    """Shared props as a render would serialise them (lazy ones called)."""
+    return {k: (v() if callable(v) else v) for k, v in shared.items()}
+
+
 def _build_app() -> FastAPI:
     reg = I18nRegistry(default_locale="en", supported_locales=["en", "es"])
     reg._messages = {
@@ -28,7 +33,7 @@ def _build_app() -> FastAPI:
 
     @app.get("/shared")
     def shared(request: Request) -> JSONResponse:
-        return JSONResponse(request.state.inertia_shared)
+        return JSONResponse(_resolved(request.state.inertia_shared))
 
     # Stack order (last added = outermost = runs first):
     #   LocaleMiddleware (outer) -> InertiaLayoutDataMiddleware (inner)
@@ -90,7 +95,7 @@ def _build_audience_app(tmp_path) -> FastAPI:
 
     @app.get("/shared")
     def shared(request: Request) -> JSONResponse:
-        return JSONResponse(request.state.inertia_shared)
+        return JSONResponse(_resolved(request.state.inertia_shared))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -160,7 +165,7 @@ def test_inertia_shared_props_fallback_when_registry_missing(
 
     @app.get("/shared")
     def shared(request: Request) -> JSONResponse:
-        return JSONResponse(request.state.inertia_shared)
+        return JSONResponse(_resolved(request.state.inertia_shared))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,

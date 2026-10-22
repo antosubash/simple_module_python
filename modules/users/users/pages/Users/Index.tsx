@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SegmentedControl } from '@simple-module-py/ui/components/SegmentedControl';
@@ -45,15 +45,14 @@ const DEFAULT_FILTERS: Filters = {
 
 const ADD_PEOPLE_URL = '/admin/users/add';
 
-function Index() {
-  const {
-    users,
-    pagination,
-    aggregates,
-    query: initialQuery,
-    roles,
-    filters: serverFilters,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+function Index({
+  users,
+  pagination,
+  aggregates,
+  query: initialQuery,
+  roles,
+  filters: serverFilters,
+}: Props) {
   const { t } = useT();
 
   const filters: Filters = useMemo(

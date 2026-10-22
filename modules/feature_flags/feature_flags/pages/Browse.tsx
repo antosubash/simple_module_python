@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
@@ -32,9 +32,7 @@ function actionUrl(name: string, action: 'toggle' | 'clear', tenantId: string | 
   return tenantId ? `${base}?tenant_id=${encodeURIComponent(tenantId)}` : base;
 }
 
-function Browse() {
-  const { flags, tenant_id, tenants, audit_log_url } = usePage<{ props: Props }>()
-    .props as unknown as Props;
+function Browse({ flags, tenant_id, tenants, audit_log_url }: Props) {
   const { t } = useT();
   const { can } = usePermissions();
   const canManage = can('feature_flags.manage');

@@ -57,3 +57,12 @@ class IntPKItem(AuditBase, AuditMixin, table=True):  # ty: ignore[unsupported-ba
     __tablename__ = "test_audit_int_pk_item"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100)
+
+
+class SecretSoftItem(AuditBase, SoftDeleteMixin, table=True):  # ty: ignore[unsupported-base]
+    """Every non-PK column is excluded, so an INSERT can set excluded columns only."""
+
+    __tablename__ = "test_audit_secret_soft_item"
+    __audit_exclude_fields__: ClassVar[set[str]] = {"secret"}
+    id: int | None = Field(default=None, primary_key=True)
+    secret: str = Field(default="", max_length=100)

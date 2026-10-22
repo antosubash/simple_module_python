@@ -54,8 +54,15 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
+from simple_module_core.resources import (
+    ResourcePolicy,
+    ResourcePrincipal,
+    ResourceType,
+    ResourceTypeRegistry,
+)
 from simple_module_core.services import Services
 from simple_module_core.setup_steps import SetupAction, SetupField, SetupRegistry, SetupStep
+from simple_module_core.spa_mount import SpaMount
 from simple_module_core.tenancy import TENANT_ROLE_PREFIX, TenantRole, is_tenant_role, tenant_role
 from simple_module_core.versioning import FRAMEWORK_API_VERSION, check_framework_compatibility
 
@@ -104,11 +111,16 @@ __all__ = [
     "PermissionRegistry",
     "PublicRoute",
     "PublicRouteRegistry",
+    "ResourcePolicy",
+    "ResourcePrincipal",
+    "ResourceType",
+    "ResourceTypeRegistry",
     "Services",
     "SetupAction",
     "SetupField",
     "SetupRegistry",
     "SetupStep",
+    "SpaMount",
     "TenantRole",
     "Translator",
     "ValidationError",

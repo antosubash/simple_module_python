@@ -3,9 +3,10 @@ import { Badge } from '@simple-module-py/ui/components/ui/badge';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
+import { useApiErrorToast } from '@simple-module-py/ui/hooks/use-api-error-toast';
+import { apiFetch } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { detail } from './apiDetail';
 import { TenantImageControl } from './TenantImageControl';
 
 export interface TenantSetting {
@@ -32,6 +33,7 @@ const API = '/api/settings/tenant/current';
 /** One overridable key: its inherited value, the organisation's override, save/reset. */
 export function TenantSettingRow({ setting, onChanged }: Props) {
   const { t } = useT();
+  const showError = useApiErrorToast(keys.tenants.settings.toast_failed);
   const [draft, setDraft] = useState(setting.value ?? '');
   const [busy, setBusy] = useState(false);
   const overridden = setting.value !== null;
@@ -44,26 +46,20 @@ export function TenantSettingRow({ setting, onChanged }: Props) {
 
   async function send(method: 'PUT' | 'DELETE') {
     setBusy(true);
-    try {
-      const response = await fetch(`${API}/${encodeURIComponent(setting.key)}`, {
-        method,
-        credentials: 'same-origin',
-        headers: method === 'PUT' ? { 'Content-Type': 'application/json' } : undefined,
-        body: method === 'PUT' ? JSON.stringify({ value: draft }) : undefined,
-      });
-      if (!response.ok) {
-        toast.error((await detail(response)) ?? t(keys.tenants.settings.toast_failed));
-        return;
-      }
-      toast.success(
-        t(method === 'PUT' ? keys.tenants.settings.toast_saved : keys.tenants.settings.toast_reset),
-      );
-      onChanged();
-    } catch {
-      toast.error(t(keys.tenants.settings.toast_failed));
-    } finally {
-      setBusy(false);
+    // The settings module's route, outside this module's generated types.
+    const result = await apiFetch(`${API}/${encodeURIComponent(setting.key)}`, {
+      method,
+      json: method === 'PUT' ? { value: draft } : undefined,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      showError(result);
+      return;
     }
+    toast.success(
+      t(method === 'PUT' ? keys.tenants.settings.toast_saved : keys.tenants.settings.toast_reset),
+    );
+    onChanged();
   }
 
   return (

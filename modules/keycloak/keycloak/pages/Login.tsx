@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { LogIn } from 'lucide-react';
@@ -11,8 +11,7 @@ interface Props {
   realm_url: string;
 }
 
-export default function Login() {
-  const { realm_url } = usePage<{ props: Props }>().props as unknown as Props;
+export default function Login({ realm_url }: Props) {
   const { t } = useT();
 
   useEffect(() => {

@@ -16,7 +16,6 @@ from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
 from api_tokens.constants import (
-    API_PREFIX,
     EXPIRY_PRESETS_DAYS,
     PAGE_ADMIN,
     PAGE_INDEX,
@@ -46,7 +45,6 @@ def _form_props(request: Request, max_days: int) -> dict:
         "max_lifetime_days": max_days,
         "expiry_presets": [d for d in EXPIRY_PRESETS_DAYS if d <= max_days] or [max_days],
         "csrf_token": get_csrf_token(request),
-        "api_url": API_PREFIX,
     }
 
 

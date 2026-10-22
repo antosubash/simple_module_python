@@ -5,7 +5,8 @@ Every Inertia response carries a set of shared props attached by `InertiaLayoutD
 ## The contract
 
 ```ts
-// The exported SharedProps type (packages/ui/src/types.ts) covers auth + menus:
+// The exported SharedProps type (packages/ui/src/types.ts) covers auth + menus + i18n, plus
+// the optional signup, homeUrl, demo and branding props:
 interface SharedProps {
   auth: {
     user: { name: string; email: string; roles: string[] } | null;
@@ -21,7 +22,7 @@ interface SharedProps {
 }
 
 // Every Inertia response also carries an `i18n` block (read via usePage().props.i18n):
-interface I18nSharedProps {
+interface I18nSharedProps {   // SharedProps['i18n']
   locale: string;
   supportedLocales: string[];
   messages: Record<string, string> | null;   // null on Inertia XHR partials when the locale is unchanged
@@ -40,19 +41,31 @@ Then it stores the result on `request.state.inertia_shared`, which `get_inertia`
 
 ## Accessing from a page
 
-Read `auth` / `menus` via Inertia's `usePage` and the exported `SharedProps` type; use `useT` from `@simple-module-py/i18n` for translations:
+`@simple-module-py/ui` registers `SharedProps` with Inertia (`InertiaConfig.sharedPageProps`), so `usePage().props` is already typed: no generic, no cast. A page gets its own props as typed component arguments; a component or layout that needs the page's own props as well uses `usePageProps<T>()`, which returns `T & SharedProps & { errors }`. Use `useT` from `@simple-module-py/i18n` for translations:
 
 ```tsx
-import { usePage } from "@inertiajs/react";
 import { useT } from "@simple-module-py/i18n";
-import type { SharedProps } from "@simple-module-py/ui";
+import { usePageProps } from "@simple-module-py/ui";
 
-export default function Browse() {
-  const { auth, menus } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+interface Props {
+  orders: Order[];
+}
+
+// A page: own props as arguments, shared ones from usePageProps.
+export default function Browse({ orders }: Props) {
+  const { auth, menus } = usePageProps();
   const { t } = useT();
   // auth.user, auth.permissions, menus.sidebar, ...
 }
+
+// A component that cannot receive props as arguments:
+function OrderCount() {
+  const { orders } = usePageProps<Props>();
+  return <span>{orders.length}</span>;
+}
 ```
+
+Do not write `usePage<{ props: X }>().props as unknown as X`. The `usePage` generic is the props type itself, not `{ props: X }`, so that form was already wrong, and the cast hid it. `make lint` (`scripts/check_no_double_cast.py`) rejects `as unknown as` in pages, components, `packages/ui` and `host/client_app` unless the line (or the one above) carries `// cast-ok: <reason>`.
 
 The layouts in `@simple-module-py/ui` (`SidebarLayout`, `PublicLayout`, …) read these props for you, so most pages don't touch `usePage` directly.
 
@@ -99,14 +112,14 @@ registry.add(
 
 `menu_registry.get_for_user(is_authenticated=..., roles=...)` filters by `requires_auth` and `roles` before sending — users without a matching role never see the item.
 
-Render in a layout via `usePage` and the `SharedProps` type:
+Render in a layout via `usePageProps`:
 
 ```tsx
-import { usePage } from "@inertiajs/react";
-import type { MenuItem, SharedProps } from "@simple-module-py/ui";
+import type { MenuItem } from "@simple-module-py/ui";
+import { usePageProps } from "@simple-module-py/ui";
 
 export function Sidebar() {
-  const { menus } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { menus } = usePageProps();
   return (
     <nav>
       {menus.sidebar.map((item: MenuItem) => (
@@ -168,4 +181,4 @@ class FeatureFlagsSharedPropsMiddleware(BaseHTTPMiddleware):
 
 Register in `register_middleware`. Because it runs *before* `InertiaLayoutDataMiddleware` (framework middleware runs first on the way in), the flag dict is already attached when the framework middleware merges its own props.
 
-On the client, extend the `SharedProps` type in your module's `contracts/` and re-export.
+On the client, a module-specific shared prop is read with `usePageProps<{ flags: Flags }>()`; props every app needs belong in `SharedProps` (`packages/ui/src/types.ts`).

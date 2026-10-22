@@ -22,15 +22,13 @@ from simple_module_core.cors import WILDCARD as CORS_WILDCARD
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.stored_settings import RELATED_FIELDS_CTX
 
+from simple_module_hosting._api_version import default_api_version as _default_api_version
+
 # Marks a field the running process cannot pick up without a restart, so the
 # admin UI can say so rather than letting the edit look like it took effect.
 _RESTART_DB = {"requires_restart": True, "group": "Database"}
-
-
 _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
-
 _RESTART_CORS = {"requires_restart": True, "group": "CORS"}
-
 _RESTART_API = {"requires_restart": True, "group": "API"}
 
 # Consumed while create_app builds the tenant middleware, the strict tenant
@@ -43,40 +41,6 @@ _RESTART_I18N = {"requires_restart": True, "group": "Localization"}
 _RESTART_AUTH = {"requires_restart": True, "group": "Authentication"}
 _RESTART_LOGGING = {"requires_restart": True, "group": "Logging"}
 _RESTART_SECURITY = {"requires_restart": True, "group": "Security"}
-
-
-def _default_api_version() -> str:
-    """The host project's version, else ``0.0.0``.
-
-    This repo's host is the installed ``simple-module-host`` distribution. A
-    scaffolded host is ``package = false`` (never installed), so there is no
-    distribution to ask: read ``[project].version`` from its ``pyproject.toml``
-    under ``SM_PROJECT_ROOT`` (or the cwd) instead.
-    """
-    import tomllib
-    from importlib.metadata import PackageNotFoundError, version
-
-    from simple_module_core.dotenv import find_env_file
-
-    try:
-        return version("simple-module-host")
-    except PackageNotFoundError:
-        pass
-    # Same project-root convention as .env (SM_PROJECT_ROOT, else a bounded walk
-    # up from the cwd), so a CLI run from host/ finds the same project as the app.
-    root = find_env_file().parent
-    for candidate in (root / "host" / "pyproject.toml", root / "pyproject.toml"):
-        try:
-            project = tomllib.loads(candidate.read_text(encoding="utf-8")).get("project")
-        except (OSError, ValueError):  # missing/unreadable, bad UTF-8, bad TOML
-            continue
-        if not isinstance(project, dict):
-            continue
-        # The first file declaring a [project] is the host's: a dynamic version
-        # must not fall through to an unrelated (workspace-root) project's.
-        found = project.get("version")
-        return found if isinstance(found, str) and found else "0.0.0"
-    return "0.0.0"
 
 
 class HostSettings(BaseSettings):
@@ -110,6 +74,13 @@ class HostSettings(BaseSettings):
     i18n_default_locale: str = Field(default="en", json_schema_extra=_RESTART_I18N)
     i18n_supported_locales: list[str] = Field(default=["en"], json_schema_extra=_RESTART_I18N)
     i18n_cookie_name: str = Field(default="locale", json_schema_extra=_RESTART_I18N)
+
+    public_base_url: str = ""
+    """The site's public origin, e.g. ``https://example.org``, used to build the
+    canonical and ``og:url`` in the server-rendered ``<head>``. Never derived
+    from the request ``Host`` (spoofable): while blank, relative canonical /
+    image URLs are omitted rather than guessed. Read per request, so an edit
+    applies without a restart."""
 
     log_level: str = Field(default="INFO", json_schema_extra=_RESTART_LOGGING)
     log_format: Literal["json", "text"] = Field(default="json", json_schema_extra=_RESTART_LOGGING)
@@ -161,6 +132,11 @@ class HostSettings(BaseSettings):
     ``PublicRouteRegistry`` at boot. Modules should prefer the
     ``register_public_routes`` hook, which is method-aware.
     """
+
+    native_link_prefixes: list[str] = Field(default=[], json_schema_extra={"group": "Routing"})
+    """URL prefixes whose links the Inertia client must leave to the browser
+    (a full navigation), e.g. ``["/docs/"]``. Added to the prefixes of mounted
+    legacy SPAs and sent as the ``nativePrefixes`` shared prop. Read per request."""
 
     max_request_body_bytes: int = Field(default=10 * 1024 * 1024, json_schema_extra=_RESTART_GUARD)
     """Global request-body ceiling in bytes; larger bodies get a 413 before any
@@ -216,6 +192,19 @@ class HostSettings(BaseSettings):
     db_idle_in_tx_timeout_ms: int = Field(default=0, ge=0, json_schema_extra=_RESTART_DB)
     """Postgres ``idle_in_transaction_session_timeout`` in ms; ``0`` disables."""
 
+    @field_validator("public_base_url", mode="after")
+    @classmethod
+    def _check_public_base_url(cls, value: str) -> str:
+        from urllib.parse import urlsplit
+
+        value = value.strip().rstrip("/")
+        parts = urlsplit(value)
+        if value and not (parts.scheme in ("http", "https") and parts.netloc):
+            raise ValueError(
+                "public_base_url must be an http(s) origin such as https://example.org"
+            )
+        return value
+
     @field_validator("rate_limit_public", "rate_limit_authenticated", mode="after")
     @classmethod
     def _check_rate(cls, value: str) -> str:
@@ -223,6 +212,15 @@ class HostSettings(BaseSettings):
 
         parse_rate(value)  # raises RateLimitError (a ValueError) on a typo
         return value.strip()
+
+    @field_validator("native_link_prefixes", mode="after")
+    @classmethod
+    def _check_native_prefixes(cls, value: list[str]) -> list[str]:
+        cleaned = [prefix.strip() for prefix in value]
+        for prefix in cleaned:
+            if not prefix.startswith("/"):
+                raise ValueError(f"native_link_prefixes entry {prefix!r} must start with '/'")
+        return cleaned
 
     @field_validator("max_request_body_bytes", mode="after")
     @classmethod

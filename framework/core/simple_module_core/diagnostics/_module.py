@@ -13,6 +13,7 @@ from simple_module_core.diagnostics._heavy_task_imports import check_heavy_task_
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._pages import check_pages, find_render_calls
+from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
 from simple_module_core.diagnostics._tenancy import check_tenant_unique_keys, module_tables
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
@@ -33,6 +34,7 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_auth_provider_conflict(modules))
         diagnostics.extend(check_missing_dependencies(modules))
         diagnostics.extend(check_framework_module_coupling(modules))
+        diagnostics.extend(check_spa_mount_overlaps(modules))
         for mod in modules:
             diagnostics.extend(check_tenant_unique_keys(module_tables(mod), mod.meta.name))
 
@@ -114,6 +116,7 @@ class ModuleDiagnostics:
                     "register_settings",
                     "template_dirs",
                     "static_mounts",
+                    "spa_mounts",
                     "locale_dirs",
                     "db_extensions",
                     "on_startup",

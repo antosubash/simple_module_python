@@ -1,6 +1,5 @@
-import { usePage } from '@inertiajs/react';
 import type React from 'react';
-import type { SharedProps } from '../types';
+import { usePageProps } from '../hooks/usePageProps';
 
 /**
  * Severity → colour. Deliberately semantic rather than brand-tinted: a warning
@@ -22,7 +21,7 @@ const SEVERITY_CLASS: Record<string, string> = {
  * storage the branding module does not own.
  */
 export function BrandingBanner(): React.ReactElement | null {
-  const { branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { branding } = usePageProps();
   const banner = branding?.banner ?? null;
   if (!banner?.message) return null;
 

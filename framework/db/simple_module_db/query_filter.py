@@ -47,7 +47,8 @@ class EngineTenancy:
     """Engine policy for an engine that has no ``DatabaseState``.
 
     ``audit_callback`` is the same sink a ``DatabaseState`` carries: writes made
-    through this engine are audited only when it is set (#498).
+    through this engine are audited only when it is set (#498);
+    ``refuse_unaudited_dml`` is the strict bulk-audit switch (#557).
     """
 
     def __init__(
@@ -56,10 +57,12 @@ class EngineTenancy:
         tenant_strict: bool,
         default_tenant_id: str = DEFAULT_TENANT_ID,
         audit_callback: Callable[..., None] | None = None,
+        refuse_unaudited_dml: bool | Callable[[], bool] = False,
     ) -> None:
         self.tenant_strict = tenant_strict
         self.default_tenant_id = default_tenant_id
         self.audit_callback = audit_callback
+        self.refuse_unaudited_dml = refuse_unaudited_dml
 
 
 def bind_engine_policy(engine: Engine, policy: Any) -> None:

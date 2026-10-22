@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
@@ -13,8 +13,7 @@ interface Props {
 }
 
 /** The active organisation's overrides of the keys the platform lets it change. */
-function Settings() {
-  const { tenant, settings } = usePage<{ props: Props }>().props as unknown as Props;
+function Settings({ tenant, settings }: Props) {
   const { t } = useT();
 
   return (

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -64,7 +65,7 @@ describe('background_tasks Outbox page', () => {
   });
 
   it('lists messages with the short event name and first error line', () => {
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     expect(screen.getByText('OrderPlaced')).toBeInTheDocument();
     expect(screen.getByText('billing.handlers.charge')).toBeInTheDocument();
     expect(screen.getByText('Boom')).toBeInTheDocument();
@@ -72,13 +73,13 @@ describe('background_tasks Outbox page', () => {
 
   it('shows the empty state', () => {
     setProps({ messages: [], pagination: { page: 1, per_page: 20, total: 0 } });
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     expect(screen.getByText(ob.empty_title)).toBeInTheDocument();
   });
 
   it('hides row actions without the manage permission', () => {
     setProps({}, []);
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     expect(screen.queryByRole('button', { name: ob.retry })).toBeNull();
     expect(screen.queryByRole('button', { name: ob.discard })).toBeNull();
   });
@@ -87,14 +88,14 @@ describe('background_tasks Outbox page', () => {
     setProps({
       messages: [message({ id: 'a', status: 'running' }), message({ id: 'b', status: 'pending' })],
     });
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     expect(screen.queryByRole('button', { name: ob.retry })).toBeNull();
     expect(screen.getAllByRole('button', { name: ob.discard })).toHaveLength(1);
   });
 
   it('replays a dead message with a POST, toasts and reloads the list', async () => {
     const fetchMock = stubFetch(200, { id: 'm1', status: 'pending' });
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.retry }));
 
     await waitFor(() => expect(reload).toHaveBeenCalled());
@@ -108,7 +109,7 @@ describe('background_tasks Outbox page', () => {
 
   it('shows the translated conflict and still reloads when replay is refused', async () => {
     stubFetch(409, { detail: 'English server text' });
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.retry }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ob.conflict));
@@ -118,13 +119,15 @@ describe('background_tasks Outbox page', () => {
 
   it('reports a vanished row on 404 and a generic failure otherwise', async () => {
     stubFetch(404);
-    const { unmount } = render(<Outbox />);
+    const { unmount } = render(
+      <Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: ob.retry }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ob.gone));
     unmount();
 
     stubFetch(500);
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.retry }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ob.retry_failed));
   });
@@ -132,7 +135,7 @@ describe('background_tasks Outbox page', () => {
   it('asks before discarding and calls nothing when the operator declines', () => {
     const fetchMock = stubFetch(204);
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
@@ -143,7 +146,7 @@ describe('background_tasks Outbox page', () => {
   it('discards with a DELETE once confirmed', async () => {
     const fetchMock = stubFetch(204);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith(ob.discarded));
@@ -157,13 +160,13 @@ describe('background_tasks Outbox page', () => {
   it('toasts a discard failure', async () => {
     stubFetch(500);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ob.discard_failed));
   });
 
   it('filters by status through a page-1 visit', () => {
-    render(<Outbox />);
+    render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: new RegExp(ob.status_dead) }));
     expect(get).toHaveBeenCalledWith(
       '/admin/background-tasks/outbox',

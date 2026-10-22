@@ -11,6 +11,7 @@ from starlette.responses import RedirectResponse, Response
 
 from simple_module_inertia.config import InertiaConfig, resolved_version
 from simple_module_inertia.errors import InertiaVersionConflictException
+from simple_module_inertia.head import HEAD_PROP, Head, SiteInfo, head_tags
 from simple_module_inertia.manifest import entry_assets
 from simple_module_inertia.page import build_page, encode_page
 from simple_module_inertia.request import InertiaRequest
@@ -95,7 +96,10 @@ class Inertia:
         return session.pop(key) if key in session else default
 
     async def render(
-        self, component: str, props: dict[str, Any] | BaseModel | None = None
+        self,
+        component: str,
+        props: dict[str, Any] | BaseModel | None = None,
+        head: Head | None = None,
     ) -> InertiaResponse:
         page_props: dict[str, Any] = (
             props.model_dump() if isinstance(props, BaseModel) else dict(props or {})
@@ -107,6 +111,12 @@ class Inertia:
         # pointing at the same dict so a custom flash_error_key still works.
         if self._config.flash_error_key != "errors":
             page_props[self._config.flash_error_key] = errors
+
+        tags: list[str] = []
+        if head is not None:
+            site = self._config.site(self._request) if self._config.site else SiteInfo()
+            tags = head_tags(head, site)
+            page_props[HEAD_PROP] = tags
 
         resolved = await resolve_props(page_props, self._shared, component, self._req)
         page = build_page(
@@ -121,9 +131,11 @@ class Inertia:
         )
         if self._req.is_inertia:
             return json_response(page)
-        return self._render_html(page)
+        return self._render_html(page, tags, head is not None and bool(head.title))
 
-    def _render_html(self, page: dict[str, Any]) -> InertiaResponse:
+    def _render_html(
+        self, page: dict[str, Any], tags: list[str], has_title: bool
+    ) -> InertiaResponse:
         files = entry_assets(self._config)
         # encode_page yields a JSON-safe dict; htmlsafe_json_dumps serialises it
         # exactly once with HTML-safe escaping. Passing a pre-dumped string here
@@ -137,6 +149,8 @@ class Inertia:
                 data=cast(str, page_json),
                 js=files.js,
                 css=files.css,
+                head_tags=tags,
+                has_head_title=has_title,
             ),
             **self._config.extra_template_context,
         }

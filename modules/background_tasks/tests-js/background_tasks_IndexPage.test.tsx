@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -72,7 +73,7 @@ describe('background_tasks Index page', () => {
   });
 
   it('lists executions and offers retry controls to managers only', () => {
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     expect(screen.getByText('demo.task')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: keys.background_tasks.table.retry }),
@@ -80,7 +81,7 @@ describe('background_tasks Index page', () => {
     cleanup();
 
     setProps({}, []);
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     expect(screen.queryByRole('button', { name: keys.background_tasks.table.retry })).toBeNull();
     expect(
       screen.queryByRole('button', { name: keys.background_tasks.index.retry_all_button }),
@@ -89,7 +90,7 @@ describe('background_tasks Index page', () => {
 
   it('retries one row only after the confirm, then reloads the list and strip', async () => {
     const fetchMock = stubFetch(200, { id: 'e2' });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(screen.getByRole('button', { name: keys.background_tasks.table.retry }));
     expect(await screen.findByText(rd.no_args)).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -105,7 +106,7 @@ describe('background_tasks Index page', () => {
 
   it('does nothing when the single retry is cancelled', async () => {
     const fetchMock = stubFetch(200, { id: 'e2' });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(screen.getByRole('button', { name: keys.background_tasks.table.retry }));
     fireEvent.click(await screen.findByRole('button', { name: rd.cancel }));
     await waitFor(() => expect(screen.queryByText(rd.no_args)).toBeNull());
@@ -115,7 +116,7 @@ describe('background_tasks Index page', () => {
 
   it('toasts the failure and skips the reload when a single retry errors', async () => {
     stubFetch(500, { detail: 'Broker down' });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(screen.getByRole('button', { name: keys.background_tasks.table.retry }));
     fireEvent.click(await screen.findByRole('button', { name: rd.confirm }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Broker down'));
@@ -125,7 +126,7 @@ describe('background_tasks Index page', () => {
   it('retry-all states its scope, then posts with the active filters', async () => {
     setProps({ filters: { status: 'failed', task_name: 'demo', queue: 'default', tenant: '' } });
     const fetchMock = stubFetch(200, { queued: 4, remaining: 0 });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(
       screen.getByRole('button', { name: keys.background_tasks.index.retry_all_button }),
     );
@@ -143,7 +144,7 @@ describe('background_tasks Index page', () => {
 
   it('retry-all mentions the backlog when the server capped the pass', async () => {
     stubFetch(200, { queued: 2, remaining: 7 });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(
       screen.getByRole('button', { name: keys.background_tasks.index.retry_all_button }),
     );
@@ -157,7 +158,7 @@ describe('background_tasks Index page', () => {
 
   it('retry-all does not call the API when cancelled', async () => {
     const fetchMock = stubFetch(200, { queued: 1, remaining: 0 });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(
       screen.getByRole('button', { name: keys.background_tasks.index.retry_all_button }),
     );
@@ -168,7 +169,7 @@ describe('background_tasks Index page', () => {
 
   it('retry-all toasts an error and does not reload on failure', async () => {
     stubFetch(403, { detail: 'Forbidden' });
-    render(<Index />);
+    render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     fireEvent.click(
       screen.getByRole('button', { name: keys.background_tasks.index.retry_all_button }),
     );

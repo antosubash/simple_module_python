@@ -12,6 +12,7 @@ from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db.bulk_audit import audit_statement
 from simple_module_db.flush_guard import guard_flush
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.query_filter import bind_engine_policy, engine_policy, filter_statements
@@ -126,6 +127,9 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         ("after_flush_postexec", _after_flush_audit),
         ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
+        # Last: it reads the statement after tenant scoping and guards, and
+        # runs it itself (``invoke_statement``) between prefetch and record.
+        ("do_orm_execute", audit_statement),
     ):
         event.listen(session_class, name, fn)
     setattr(session_class, _LISTENERS_ATTACHED, True)

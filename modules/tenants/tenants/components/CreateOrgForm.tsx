@@ -3,9 +3,11 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import type React from 'react';
 import { useState } from 'react';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from '../pages/api';
 
 interface Props {
   /** Called after the API confirms creation, so the page can reload its props. */
@@ -25,25 +27,17 @@ export function CreateOrgForm({ onCreated }: Props) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    try {
-      const response = await fetch('/api/tenants/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ name, slug: slug || undefined }),
-      });
-      if (!response.ok) {
-        setError(await describe(response));
-        return;
-      }
-      setName('');
-      setSlug('');
-      onCreated();
-    } catch {
-      setError(t(keys.tenants.errors.generic));
-    } finally {
-      setSubmitting(false);
+    const result = await apiResult(
+      api.POST('/api/tenants/', { body: { name, slug: slug || undefined } }),
+    );
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(describe(result));
+      return;
     }
+    setName('');
+    setSlug('');
+    onCreated();
   }
 
   return (

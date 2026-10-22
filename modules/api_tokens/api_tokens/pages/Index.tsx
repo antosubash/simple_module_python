@@ -1,11 +1,13 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Ban, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { api, csrfHeaders } from './api';
 import { CreatedTokenDialog } from './components/CreatedTokenDialog';
 import { CreateTokenDialog } from './components/CreateTokenDialog';
 import { RevokeTokenDialog } from './components/RevokeTokenDialog';
@@ -14,15 +16,20 @@ import { useTokenActions } from './components/useTokenActions';
 import { type CreatePayload, type TokenFormProps, tokenStatus } from './types';
 
 /** Your own personal access tokens: list, create (secret shown once), revoke. */
-function Index() {
-  const props = usePage<{ props: TokenFormProps }>().props as unknown as TokenFormProps;
+function Index(props: TokenFormProps) {
   const { t } = useT();
   const [creating, setCreating] = useState(false);
+  const headers = csrfHeaders(props.csrf_token);
   const actions = useTokenActions({
-    csrfToken: props.csrf_token,
-    createUrl: `${props.api_url}/tokens/`,
-    revokeUrl: (id) => `${props.api_url}/tokens/${id}/revoke`,
-    revokeAllUrl: `${props.api_url}/tokens/revoke-all`,
+    create: (body) => apiResult(api.POST('/api/api_tokens/tokens/', { body, headers })),
+    revoke: (id) =>
+      apiResult(
+        api.POST('/api/api_tokens/tokens/{token_id}/revoke', {
+          params: { path: { token_id: id } },
+          headers,
+        }),
+      ),
+    revokeAll: () => apiResult(api.POST('/api/api_tokens/tokens/revoke-all', { headers })),
   });
   const hasLive = props.tokens.some((tok) => tokenStatus(tok) === 'active');
 

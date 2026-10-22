@@ -90,8 +90,8 @@ export default function Browse({ orders }: BrowseProps) {
 ```
 
 - `export default` is **required** — Inertia's resolver expects a default export.
-- Props are passed from the server; type them explicitly.
-- Use `useT()` from `@simple-module-py/i18n` for translations and `usePage()` (with the `SharedProps` type from `@simple-module-py/ui`) for `auth` / `menus`.
+- Props are passed from the server; type them as the component's argument (`function Browse({ items }: Props)`).
+- Use `useT()` from `@simple-module-py/i18n` for translations. `usePage().props.auth` / `.menus` are already typed (shared props); a component that also needs the page's own props calls `usePageProps<Props>()` from `@simple-module-py/ui`.
 
 ## Subdirectories
 

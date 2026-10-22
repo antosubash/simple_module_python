@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
@@ -49,13 +49,12 @@ function initialMode(): Mode {
  * was throwing away the confirmation at exactly the moment it was earned, and
  * with a console mailer it also threw away the only copy of the links.
  */
-function AddPeople() {
-  const {
-    roles,
-    mailer_delivers: mailerDelivers,
-    mailer_name: mailerName,
-    invite_expiry_days: expiryDays,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+function AddPeople({
+  roles,
+  mailer_delivers: mailerDelivers,
+  mailer_name: mailerName,
+  invite_expiry_days: expiryDays,
+}: Props) {
   const { t } = useT();
 
   const [mode, setMode] = useState<Mode>(initialMode);

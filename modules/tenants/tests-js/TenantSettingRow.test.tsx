@@ -39,6 +39,16 @@ const base: TenantSetting = {
 
 afterEach(() => vi.restoreAllMocks());
 
+/** The one request `apiFetch` sent: its path, method and body. */
+async function sentRequest(fetchMock: { mock: { calls: unknown[][] } }) {
+  const request = fetchMock.mock.calls[0][0] as Request;
+  return {
+    path: new URL(request.url).pathname,
+    method: request.method,
+    body: await request.text(),
+  };
+}
+
 describe('TenantSettingRow', () => {
   test('saving PUTs the draft to the current-tenant endpoint', async () => {
     const fetchMock = vi
@@ -50,10 +60,11 @@ describe('TenantSettingRow', () => {
     await userEvent.type(screen.getByLabelText('demo.motto'), 'ours');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/settings/tenant/current/demo.motto',
-      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ value: 'ours' }) }),
-    );
+    expect(await sentRequest(fetchMock)).toEqual({
+      path: '/api/settings/tenant/current/demo.motto',
+      method: 'PUT',
+      body: JSON.stringify({ value: 'ours' }),
+    });
     expect(onChanged).toHaveBeenCalled();
   });
 
@@ -82,10 +93,10 @@ describe('TenantSettingRow', () => {
     const file = new File(['png'], 'logo.png', { type: 'image/png' });
     await userEvent.upload(screen.getByLabelText('branding.logo_file_id'), file);
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/branding/tenant/logo',
-      expect.objectContaining({ method: 'POST' }),
-    );
+    expect(await sentRequest(fetchMock)).toMatchObject({
+      path: '/api/branding/tenant/logo',
+      method: 'POST',
+    });
   });
 
   test('the description is translated by its key, with the English as fallback', () => {

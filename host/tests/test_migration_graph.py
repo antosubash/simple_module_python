@@ -46,10 +46,11 @@ _OWNER: dict[str, str] = {
     "f1a9c3d7b2e4": "tenants",
     "70786227af4c": "audit_log",
     "a7c2e91d4b58": "audit_log",
+    "f733c7938fd1": "sharing",
     "d263ea727663": "leases",  # framework-owned sm_lease (#539)
 }
 
-_ROOTS = {"77162e7b184b", "e36ab09c4a92", "d263ea727663"}
+_ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1", "d263ea727663"}
 
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
@@ -57,6 +58,7 @@ _HEADS = {
     "1f5985daa10b": "background_tasks",  # also carries the inherited ``api_tokens``
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
+    "f733c7938fd1": "sharing",
     "d263ea727663": "leases",
 }
 
@@ -66,6 +68,7 @@ _DECLARED_LABELS = {
     "51b2058d8afd": "api_tokens",
     "168a2882f443": "keycloak",
     "e36ab09c4a92": "tenants",
+    "f733c7938fd1": "sharing",
     "bb906e1a1089": "background_tasks",
     "d263ea727663": "leases",
 }

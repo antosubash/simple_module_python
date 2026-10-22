@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
@@ -22,13 +22,7 @@ interface Props {
   routes: TaskRoute[];
 }
 
-function Workers() {
-  const {
-    snapshot: initial,
-    broker_url_redacted: brokerUrl,
-    queues,
-    routes,
-  } = usePage<{ props: Props }>().props as unknown as Props;
+function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, routes }: Props) {
   const { t } = useT();
   const [snapshot, setSnapshot] = useState<WorkerSnapshot>(initial);
   const [loading, setLoading] = useState(false);

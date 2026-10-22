@@ -1,12 +1,8 @@
 import { Head, useForm } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import type { components } from './api.generated';
 
-type Item = {
-  id: number;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-};
+type Item = components['schemas']['{{SINGULAR_CLASS}}Out'];
 
 export default function Edit({ item }: { item: Item }) {
   const form = useForm({ name: item.name, description: item.description ?? '' });

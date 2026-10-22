@@ -22,12 +22,14 @@ from simple_module_hosting._inertia_shared import (
     build_i18n_block,
     build_menu_translator,
     default_home_url,
+    lazy_csrf_shared_prop,
     merge_shared_prop_providers,
 )
 from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
+from simple_module_hosting._spa_mount import native_prefixes
 from simple_module_hosting._tenant import (
     TENANT_HEADER,
     TenantMiddleware,
@@ -266,6 +268,8 @@ class InertiaLayoutDataMiddleware:
                 translate=build_menu_translator(request),
             ),
             "i18n": i18n_block,
+            **lazy_csrf_shared_prop(request, is_authenticated=is_authenticated),
+            "nativePrefixes": native_prefixes(scope["app"]),
         }
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off
