@@ -35,11 +35,12 @@ make docker-compose-app     # same image via the `app` service in docker-compose
 production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
 `SM_USERS_VERIFICATION_TOKEN_SECRET`) with an ephemeral random value so a bare
 `docker run` boots — set them yourself for anything that must survive a
-restart. It also seeds `admin@example.com` / `changeme` (warning printed on
-every boot that uses it) unless `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` say
-otherwise; that seed only lands while the users table is empty, so it never
-overwrites an existing account. A deployment that anyone else can reach should
-set both vars before first boot — the default password is public. The checklist above still applies: that image is a demo/local
+restart. It also seeds `admin@example.com` with a randomly generated password
+printed in the container logs unless `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD`
+say otherwise. Store generated credentials securely and restrict access to logs.
+The seed only lands while the users table is empty, so it never overwrites an
+existing account; credentials generated on later starts do not reset passwords.
+An explicit `changeme` password is refused in production. The checklist above still applies: that image is a demo/local
 target, not a production deployment (SQLite, ephemeral secrets).
 
 That image carries no Celery: the build passes
