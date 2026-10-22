@@ -134,7 +134,7 @@ Expected wall time: 5–8 minutes.
 
 ### Step 4. CHANGELOG and GitHub Release notes
 
-`finalize` runs `scripts/cut_changelog.py X.Y.Z` before the bump commit: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD`, a fresh empty `## [Unreleased]` is inserted above it and the compare links are updated. Re-running is a no-op once the section exists. Keep `[Unreleased]` current in every user-visible PR; whatever is there at release time is the release's notes.
+`finalize` enables `cut-changelog` on the shared `.github/actions/bump-version` action, which runs `scripts/cut_changelog.py X.Y.Z` before the bump commit: `## [Unreleased]` becomes `## [X.Y.Z] — YYYY-MM-DD`, a fresh empty `## [Unreleased]` is inserted above it and the compare links are updated. Re-running is a no-op once the section exists. Keep `[Unreleased]` current in every user-visible PR; whatever is there at release time is the release's notes.
 
 The GitHub Release is created with `--notes-file` from that dated section (`scripts/cut_changelog.py X.Y.Z --notes`), falling back to `--generate-notes` only when the section is empty.
 
