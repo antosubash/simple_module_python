@@ -58,6 +58,7 @@ ROLE_IMPLIES: Final[dict[str, tuple[str, ...]]] = {
 
 ERR_UNKNOWN_TYPE: Final = "Unknown resource type"
 ERR_NOT_FOUND: Final = "Not found"
+ERR_FORBIDDEN: Final = "You may not share this resource"
 ERR_UNKNOWN_GRANTEE: Final = "Unknown user"
 ERR_BAD_ROLE: Final = "This role cannot be granted on this resource type"
 ERR_EXPIRED: Final = "expires_at must be in the future"

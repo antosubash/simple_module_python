@@ -27,6 +27,7 @@ from sharing.audience import Audience, OpenAudience
 from sharing.constants import (
     ERR_BAD_ROLE,
     ERR_EXPIRED,
+    ERR_FORBIDDEN,
     ERR_NOT_FOUND,
     ERR_SELF,
     ERR_UNKNOWN_GRANTEE,
@@ -85,7 +86,7 @@ class SharingService:
         if row is None:
             raise SharingError(404, ERR_NOT_FOUND)
         if not allowed:
-            raise SharingError(403, ERR_NOT_FOUND)
+            raise SharingError(403, ERR_FORBIDDEN)
         return row
 
     async def grant(self, principal: ResourcePrincipal, data: ShareGrant) -> ResourceShare:

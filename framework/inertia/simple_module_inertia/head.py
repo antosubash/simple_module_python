@@ -73,6 +73,11 @@ class Head(BaseModel):
     twitter: dict[str, str] = Field(default_factory=dict)
     json_ld: list[dict[str, Any]] = Field(default_factory=list)
 
+    @field_validator("title", "description")
+    @classmethod
+    def _stripped(cls, value: str) -> str:
+        return value.strip()
+
     @field_validator("canonical")
     @classmethod
     def _canonical(cls, value: str) -> str:

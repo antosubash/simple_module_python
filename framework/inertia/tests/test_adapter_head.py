@@ -147,3 +147,7 @@ def test_head_tags_use_only_data_inertia_keyed_elements() -> None:
     tags = head_tags(Head(title="T", description="d"), SiteInfo(app_name=""))
     assert tags[0] == '<title data-inertia="">T</title>'
     assert all("data-inertia" in t for t in tags)
+
+
+def test_blank_title_is_dropped():
+    assert head_tags(Head(title="   "), SiteInfo()) == []
