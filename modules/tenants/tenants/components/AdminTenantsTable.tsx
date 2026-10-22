@@ -9,9 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from '@simple-module-py/ui/components/ui/table';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from '../pages/api';
 
 export interface AdminTenant {
   id: string;
@@ -37,26 +39,23 @@ export function AdminTenantsTable({ tenants, onChanged }: Props) {
 
   async function setStatus(tenant: AdminTenant, action: 'suspend' | 'reactivate') {
     setBusyId(tenant.id);
-    try {
-      const response = await fetch(`/api/tenants/admin/${tenant.id}/${action}`, {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      if (!response.ok) {
-        toast.error(await describe(response));
-        return;
-      }
-      toast.success(
-        action === 'suspend'
-          ? t(keys.tenants.admin.toast_suspended)
-          : t(keys.tenants.admin.toast_reactivated),
-      );
-      onChanged();
-    } catch {
-      toast.error(t(keys.tenants.admin.toast_action_failed));
-    } finally {
-      setBusyId(null);
+    const params = { path: { tenant_id: tenant.id } };
+    const result = await apiResult(
+      action === 'suspend'
+        ? api.POST('/api/tenants/admin/{tenant_id}/suspend', { params })
+        : api.POST('/api/tenants/admin/{tenant_id}/reactivate', { params }),
+    );
+    setBusyId(null);
+    if (!result.ok) {
+      toast.error(describe(result, t(keys.tenants.admin.toast_action_failed)));
+      return;
     }
+    toast.success(
+      action === 'suspend'
+        ? t(keys.tenants.admin.toast_suspended)
+        : t(keys.tenants.admin.toast_reactivated),
+    );
+    onChanged();
   }
 
   return (

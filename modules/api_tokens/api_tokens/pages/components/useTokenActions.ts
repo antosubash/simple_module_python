@@ -1,25 +1,20 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import type { ApiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { postJson } from '../api';
 import type { ApiToken, CreatePayload } from '../types';
 
-interface Options {
-  csrfToken: string;
-  createUrl: string;
-  revokeUrl: (id: string) => string;
+/** The calls a page wires to its own endpoints (personal tokens or service keys). */
+export interface TokenCalls {
+  create: (payload: CreatePayload) => Promise<ApiResult<{ token: string }>>;
+  revoke: (id: string) => Promise<ApiResult<unknown>>;
   /** Bulk revoke of every token the caller holds; omitted on the admin page. */
-  revokeAllUrl?: string;
-}
-
-interface Created {
-  token: string;
-  item: ApiToken;
+  revokeAll?: () => Promise<ApiResult<{ revoked: number }>>;
 }
 
 /** Create / revoke through the JSON API, then reload the page's `tokens` prop. */
-export function useTokenActions({ csrfToken, createUrl, revokeUrl, revokeAllUrl }: Options) {
+export function useTokenActions({ create: createCall, revoke, revokeAll }: TokenCalls) {
   const { t } = useT();
   const [created, setCreated] = useState<string | null>(null);
   const [pendingRevoke, setPendingRevoke] = useState<ApiToken | null>(null);
@@ -28,9 +23,9 @@ export function useTokenActions({ csrfToken, createUrl, revokeUrl, revokeAllUrl 
 
   async function create(payload: CreatePayload): Promise<boolean> {
     setBusy(true);
-    const result = await postJson<Created>(createUrl, csrfToken, payload);
+    const result = await createCall(payload);
     setBusy(false);
-    if (!result.ok || !result.data) {
+    if (!result.ok) {
       toast.error(result.detail ?? t(keys.api_tokens.toasts.failed));
       return false;
     }
@@ -42,7 +37,7 @@ export function useTokenActions({ csrfToken, createUrl, revokeUrl, revokeAllUrl 
   async function confirmRevoke() {
     if (!pendingRevoke) return;
     setBusy(true);
-    const result = await postJson<ApiToken>(revokeUrl(pendingRevoke.id), csrfToken);
+    const result = await revoke(pendingRevoke.id);
     setBusy(false);
     setPendingRevoke(null);
     if (!result.ok) {
@@ -54,12 +49,12 @@ export function useTokenActions({ csrfToken, createUrl, revokeUrl, revokeAllUrl 
   }
 
   async function confirmRevokeAll() {
-    if (!revokeAllUrl) return;
+    if (!revokeAll) return;
     setBusy(true);
-    const result = await postJson<{ revoked: number }>(revokeAllUrl, csrfToken);
+    const result = await revokeAll();
     setBusy(false);
     setPendingRevokeAll(false);
-    if (!result.ok || !result.data) {
+    if (!result.ok) {
       toast.error(result.detail ?? t(keys.api_tokens.toasts.failed));
       return;
     }

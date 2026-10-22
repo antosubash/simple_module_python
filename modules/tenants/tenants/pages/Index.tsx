@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
@@ -16,10 +16,7 @@ interface Props {
   reason: string | null;
 }
 
-function Index() {
-  const { memberships, active_id, suspended, suspended_name, can_create, reason } = usePage<{
-    props: Props;
-  }>().props as unknown as Props;
+function Index({ memberships, active_id, suspended, suspended_name, can_create, reason }: Props) {
   const { t } = useT();
 
   function reload() {

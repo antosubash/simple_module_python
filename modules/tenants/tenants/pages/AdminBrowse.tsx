@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
@@ -19,8 +19,7 @@ interface Props {
 
 const VIEW_URL = '/admin/tenants/';
 
-function AdminBrowse() {
-  const { tenants, q, page, has_more } = usePage<{ props: Props }>().props as unknown as Props;
+function AdminBrowse({ tenants, q, page, has_more }: Props) {
   const { t } = useT();
   const [search, setSearch] = useState(q);
 

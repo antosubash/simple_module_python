@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { type ApiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 
 /**
  * Maps the API's stable `{detail: code}` error codes to translated copy.
@@ -28,16 +29,19 @@ export function useTenantErrors() {
     invitation_email_mismatch: t(keys.tenants.errors.invitation_email_mismatch),
   };
 
-  /** Reads a fetch Response body's `{detail}` (and `limit` for plan_limit) and
-   * returns translated copy, falling back to a generic message. */
-  async function describe(response: Response): Promise<string> {
-    if (response.status === 422) return t(keys.tenants.errors.validation_failed);
-    const data = await response.json().catch(() => ({}) as Record<string, unknown>);
-    const code = typeof data.detail === 'string' ? data.detail : '';
+  /** Translated copy for a failed call: its `{detail}` code (and `limit` for
+   * plan_limit), `offline` when the request never reached the server, else a
+   * generic message. */
+  function describe(result: ApiResult<unknown>, offline?: string): string {
+    const generic = t(keys.tenants.errors.generic);
+    if (result.status === NETWORK_FAILURE) return offline ?? generic;
+    if (result.status === 422) return t(keys.tenants.errors.validation_failed);
+    const code = result.detail ?? '';
     if (code === 'plan_limit') {
-      return t(keys.tenants.errors.plan_limit, { limit: data.limit ?? '?' });
+      const limit = (result.error as { limit?: unknown } | null)?.limit;
+      return t(keys.tenants.errors.plan_limit, { limit: limit ?? '?' });
     }
-    return messages[code] ?? t(keys.tenants.errors.generic);
+    return messages[code] ?? generic;
   }
 
   return { describe };

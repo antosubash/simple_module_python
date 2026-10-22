@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Card } from '@simple-module-py/ui/components/ui/card';
@@ -28,10 +28,7 @@ interface Props {
   seats: Seats;
 }
 
-function Members() {
-  const { tenant, my_role, my_user_id, can_manage, members, invitations, seats } = usePage<{
-    props: Props;
-  }>().props as unknown as Props;
+function Members({ tenant, my_role, my_user_id, can_manage, members, invitations, seats }: Props) {
   const { t } = useT();
 
   function reload() {

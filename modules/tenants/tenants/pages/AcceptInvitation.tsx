@@ -1,10 +1,12 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiResult } from '@simple-module-py/ui/lib/api';
 import { TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { useTenantErrors } from '../hooks/useTenantErrors';
+import { api } from './api';
 
 interface InvitationPreview {
   tenant_name: string;
@@ -22,8 +24,7 @@ interface Props {
 
 const ROLE_KEY = keys.tenants.roles;
 
-function AcceptInvitation() {
-  const { token, invitation, signed_in_as } = usePage<{ props: Props }>().props as unknown as Props;
+function AcceptInvitation({ token, invitation, signed_in_as }: Props) {
   const { t } = useT();
   const { describe } = useTenantErrors();
   const [accepting, setAccepting] = useState(false);
@@ -32,23 +33,15 @@ function AcceptInvitation() {
   async function accept() {
     setAccepting(true);
     setError(null);
-    try {
-      const response = await fetch('/api/tenants/invitations/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ token }),
-      });
-      if (!response.ok) {
-        setError(await describe(response));
-        return;
-      }
-      router.visit('/tenants/');
-    } catch {
-      setError(t(keys.tenants.errors.generic));
-    } finally {
-      setAccepting(false);
+    const result = await apiResult(
+      api.POST('/api/tenants/invitations/accept', { body: { token } }),
+    );
+    setAccepting(false);
+    if (!result.ok) {
+      setError(describe(result));
+      return;
     }
+    router.visit('/tenants/');
   }
 
   if (invitation === null || invitation.expired || invitation.accepted) {
