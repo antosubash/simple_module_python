@@ -48,7 +48,7 @@ const sent = (mock: ReturnType<typeof stubFetch>) => mock.mock.calls[0][0];
 beforeEach(() => setCsrfToken('tok-1'));
 afterEach(() => {
   vi.unstubAllGlobals();
-  setCsrfToken(null);
+  setCsrfToken(undefined);
   document.body.innerHTML = '';
 });
 
@@ -197,7 +197,7 @@ describe('currentCsrfToken', () => {
   });
 
   it('falls back to the page embedded in the document', () => {
-    setCsrfToken(null);
+    setCsrfToken(undefined);
     document.body.innerHTML = `<script data-page="app" type="application/json">${JSON.stringify({
       props: { csrfToken: 'from-dom' },
     })}</script>`;

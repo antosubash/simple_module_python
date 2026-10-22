@@ -14,8 +14,8 @@ function tokenOf(page: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
 }
 
-/** Override the tracked token (tests; a page that receives its own token prop). */
-export function setCsrfToken(token: string | null): void {
+/** Override the tracked token (tests; a page that receives its own token prop). `undefined` re-enables the embedded-page fallback. */
+export function setCsrfToken(token: string | null | undefined): void {
   current = token;
 }
 
