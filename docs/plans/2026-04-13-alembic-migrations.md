@@ -1,5 +1,7 @@
 # Alembic Database Migrations — Implementation Plan
 
+Status: superseded (see [Migrations — the real graph](../database/migrations.md#the-real-graph)).
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace auto-`create_all` in module startup with Alembic-managed schema versioning, add migration diagnostics, and extend the health endpoint with migration status.

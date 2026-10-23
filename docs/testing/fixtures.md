@@ -17,6 +17,20 @@ The `simple_module_test` plugin provides app-level fixtures that every test dire
 
 All fixtures are **function-scoped** — each test gets its own. The SQLite database is in-memory; tearing down and re-creating is cheap.
 
+## Postgres
+
+Set `SM_TEST_DATABASE_URL` to an async Postgres URL to use Postgres instead of
+in-memory SQLite. `make test-py-pg` sets this from `SM_TEST_PG_URL` and runs
+4 workers by default. Under xdist each worker uses its own
+`<database>_gw<N>` database, creating it if needed (the role needs `CREATEDB`).
+`PYTEST_WORKERS=0 make test-py-pg` runs serially against the named database.
+
+Each test starts with empty tables. The schema is built once per process and
+rebuilt only when changed; Postgres fixtures do not create a separate database
+per test. Connections use `NullPool` because pytest-asyncio gives each test
+its own event loop. Use `-p no:anyio` when invoking pytest directly on Postgres;
+the Make target already includes it.
+
 ## `settings`
 
 A pre-built `Settings` object using the in-memory SQLite URL and `multi_tenant=True`. Most tests don't use it directly — the `app` fixture consumes it.

@@ -28,7 +28,7 @@ Everything goes through `make`. Full list: `docs/reference/make-commands.md`.
 | `make install` | `uv sync --all-packages` + `npm install` |
 | `make dev` | Shared Docker stack up + `gen-pages` + API (:8000) and Vite (:5050) |
 | `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n $(PYTEST_WORKERS) --dist loadgroup`, default 4 workers, `PYTEST_WORKERS=0` for serial) then Vitest |
-| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
+| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); parallel like `test-py` (default 4 workers), each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
 | `make lint` | Ruff format + Ruff + `ty` + Biome + per-workspace `tsc` + file-size cap + hardcoded-string check + untranslated-string check + package metadata/README checks |
 | `make doctor` | Module diagnostics (`SM0xx`); a dev boot runs the same plus `SM012`/`SM025` |
@@ -165,9 +165,9 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 **Lifecycle hooks** on `ModuleBase` (all no-op by default; order and examples in
 `docs/framework/lifecycle.md`): `register_settings`, `register_menu_items`,
 `register_permissions`, `register_feature_flags`, `register_event_handlers`,
-`register_invalidations`, `register_health_checks`, `register_setup_steps`,
+`register_invalidations`, `register_health_checks`,
 `register_public_routes`, `register_body_limits`, `register_cors_policies`,
-`register_rate_limits`,
+`register_rate_limits`, `register_setup_steps`,
 `register_csp_sources`,
 `register_design_packs`,
 `register_audit_links`, `register_resource_types`, `register_exception_handlers`, `register_middleware`,
@@ -493,8 +493,9 @@ app-level fixtures to every test directory; the root `conftest.py` is thin.
 
 - `settings`: in-memory SQLite, `multi_tenant=True`, `auth_provider="users"`.
   `SM_TEST_DATABASE_URL=postgresql+asyncpg://…` switches the whole suite to
-  Postgres with a per-test schema reset (`make test-py-pg` does this, with
-  `-p no:anyio` because an asyncpg connection cannot cross event loops).
+  Postgres with empty tables per test (schema rebuilt only when changed).
+  `make test-py-pg` runs 4 workers by default, each with its own database, and
+  uses `-p no:anyio` because an asyncpg connection cannot cross event loops.
 - `db_state`, `engine`, `db_session`: fresh `DatabaseState` per test;
   `db_session` creates all module tables and stamps `alembic_version` at heads.
 - `app`: `create_app(settings)` with lifespan, seeds `admin@test`; `client` /
@@ -570,5 +571,6 @@ When conventions are unclear, read these instead of reverse-engineering code:
 (entry points, migrations, API stability), `docs/framework/*.md` (lifecycle,
 middleware, settings, events, i18n, tenancy), `docs/database/*.md`,
 `docs/testing/*.md`, `docs/reference/*.md` (make commands, env vars,
-diagnostic codes), `docs/plans/` (dated design docs; the newest is the intended
-state).
+diagnostic codes), `docs/superpowers/specs/` (canonical design docs) and
+`docs/superpowers/plans/` (implementation plans). `docs/plans/` is historical;
+follow status banners and current reference docs rather than dates alone.
