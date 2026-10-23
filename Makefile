@@ -63,7 +63,10 @@ test: test-py test-js
 # for worker start-up. PYTEST_WORKERS=0 runs serially (e.g. under a debugger).
 # loadgroup keeps tests marked `xdist_group(...)` on one worker (shared repo
 # tree, module-scoped subprocess stacks); everything else is load-balanced.
-PYTEST_WORKERS ?= auto
+# Capped at 4 rather than `auto` (one worker per core): several agents running
+# the suite at once on a many-core box ran it out of memory. Override with
+# PYTEST_WORKERS=auto (or any number) when running alone.
+PYTEST_WORKERS ?= 4
 test-py:
 	uv run pytest -n $(PYTEST_WORKERS) --dist loadgroup
 

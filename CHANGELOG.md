@@ -18,6 +18,11 @@ All notable changes to this project are documented in this file. The format is b
 - `EventBus.publish_durable_or_inline(event, db)`: enqueue durably when a transport is
   installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
 
+### Changed
+- `make test-py` / `make test-py-pg` now default to 4 pytest-xdist workers instead of
+  `-n auto`, so concurrent runs on many-core machines don't exhaust memory;
+  `PYTEST_WORKERS=auto` restores the old behaviour.
+
 ### Fixed
 - Tenants: deleting a tenant now tears down its data. `TenantDeleted` (now defined in
   `simple_module_core.tenant_events`, still importable from `tenants.contracts.events`) is
