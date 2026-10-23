@@ -21,8 +21,6 @@ from simple_module_hosting._error_negotiation import _wants_json
 from simple_module_hosting._error_page import render_error_page
 from simple_module_hosting.public_access import is_public
 
-logger = logging.getLogger(__name__)
-
 # Kept reachable while the gate is closed: liveness probes (so orchestrators
 # do not kill the pod mid-maintenance), static assets and i18n bundles (or the
 # 503 page renders unstyled and untranslated).
