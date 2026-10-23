@@ -158,5 +158,6 @@ class EventBus:
         key = self._event_key(type(event))
         for name in self.durable.handler_names(type(event)):
             subscription = self.durable.lookup(key, name)
-            assert subscription is not None
+            if subscription is None:
+                continue
             await subscription.handler(event, ctx)

@@ -32,11 +32,9 @@ async def _public_row(
         # (branding logo/favicon) and a single-tenant install's fallback tenant
         # (``default`` or ``default_tenant``) have none by design.
         if row.tenant_id != PLATFORM_TENANT_ID and strict_configured(service.db.sync_session):
-            # get_public loads every column. Detach before rollback, which expires
-            # attached rows even with expire_on_commit=False; serving uses this
-            # read-only snapshot without further database access.
-            service.db.expunge(row)
-            await service.db.rollback()
+            # Return the read connection before tenant_exists opens its own session;
+            # the helper keeps the row readable and leaves sessions with writes alone.
+            await service._release_connection(row)
             if await cached_tenant_exists(request.app, row.tenant_id) is False:
                 raise StoredFileNotFoundError(str(file_id))
         return row
