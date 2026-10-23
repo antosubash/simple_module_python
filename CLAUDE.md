@@ -111,7 +111,8 @@ calls the same `make ci-*` targets as `make lint`, with `UV_SYNC_FLAGS=--locked`
 so a stale `uv.lock` fails (commit `uv.lock` whenever a `pyproject.toml` changes;
 `make install` stays unlocked). `.github/workflows/postgres-tests.yml` runs
 `make test-py-pg` nightly, on demand and on PRs touching `framework/db`,
-`framework/testing`, `modules/tenants` or `host/migrations`; it is not in
+`framework/testing`, `modules/{tenants,users,background_tasks,file_storage}` or
+`host/migrations`; it is not in
 `pr-checks`. `make ci-css-build` is in CI but not in
 `make lint` (slow, rewrites generated files). e2e-smoke and perf-guards enable a
 hardcoded `SM_MODULES_ENABLED` JSON list; a new module is not exercised there

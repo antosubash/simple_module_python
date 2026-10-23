@@ -20,7 +20,10 @@ signature so the seam stays where that change put it. The mailer health check
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
+
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -32,6 +35,8 @@ __all__ = [
     "apply_login_redirect_fallback",
     "run_startup",
 ]
+
+logger = logging.getLogger(__name__)
 
 _FALLBACK_REDIRECT = "/"
 _DASHBOARD_MODULE = "Dashboard"
@@ -65,9 +70,14 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
 
     # Scaffolded hosts create a schema baseline without the framework host's
     # data migrations. Seed before warming the cache or provisioning accounts.
-    async with app.state.sm.db.session_factory.begin() as db:
-        await ensure_admin_role(db)
-        await ensure_user_role(db)
+    # One transaction per role, and a lost insert race is fine: with several
+    # workers booting against a fresh schema, another worker seeded the row.
+    for ensure_role in (ensure_admin_role, ensure_user_role):
+        try:
+            async with app.state.sm.db.session_factory.begin() as db:
+                await ensure_role(db)
+        except IntegrityError:
+            logger.debug("users.startup.role_seed_raced", extra={"role_seed": ensure_role.__name__})
 
     await bootstrap_admin_from_env(app)
     # After the env bootstrap, not beside it: that one only runs while the
