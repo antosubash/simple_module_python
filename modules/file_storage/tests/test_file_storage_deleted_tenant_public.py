@@ -28,8 +28,28 @@ async def test_file_storage_public_checks_deleted_tenant(
         f"{constants.ROUTE_PREFIX_API}/public/{file['id']}",
         f"{constants.ROUTE_PREFIX_API}/public/{file['id']}/thumbnail?w=64",
     ]
+    from file_storage.service import FileStorageService
+
+    original_get_public = FileStorageService.get_public
+    original_lookup = app.state.tenant_exists
+    request_sessions = []
+
+    async def get_public(service, file_id):
+        row = await original_get_public(service, file_id)
+        assert service.db.in_transaction()
+        request_sessions.append(service.db)
+        return row
+
+    async def lookup(tenant_id):
+        assert not request_sessions[-1].in_transaction()
+        return await original_lookup(tenant_id)
+
+    monkeypatch.setattr(FileStorageService, "get_public", get_public)
+    monkeypatch.setattr(app.state, "tenant_exists", lookup)
+    monkeypatch.setattr("file_storage.tenant_cache.TENANT_EXISTS_TTL_SECONDS", 0)
     for url in urls:
         assert (await client.get(url)).status_code == 200
+        assert not request_sessions[-1].in_transaction()
 
     # Bypass the deletion publisher to leave the rows/bytes in place: the
     # immediate guard must work even while the outbox worker is unavailable.

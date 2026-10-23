@@ -224,3 +224,34 @@ async def test_cleanup_skips_upload_without_backend_id(db_session, monkeypatch):
     )
     backend.abort_multipart.assert_awaited_once_with("active", "id")
     backend.delete.assert_awaited_once_with("active")
+
+
+async def test_cleanup_retries_transient_abort_after_all_attempts(monkeypatch):
+    from file_storage.tenant_deletion import TenantStorageCleanupRequested
+
+    bus = EventBus()
+    backend = AsyncMock()
+    backend.abort_multipart.side_effect = [RuntimeError("offline"), None, None, None]
+    monkeypatch.setattr("file_storage.tenant_deletion.build_backend", lambda settings: backend)
+    monkeypatch.setattr(
+        "file_storage.tenant_deletion._settings",
+        lambda app: SimpleNamespace(backend="filesystem", model_copy=lambda **kw: None),
+    )
+    register_tenant_deletion(bus, None)
+    db_session = SimpleNamespace()
+    manifest = TenantStorageCleanupRequested(
+        files=[("filesystem", "original")], uploads=[("partial", "id"), ("other", "id2")]
+    )
+    with pytest.raises(ExceptionGroup, match="Tenant storage cleanup failed"):
+        await bus.publish_durable_or_inline(manifest, db_session)
+    expected = [
+        "original",
+        *(variant_key("original", w) for w in constants.THUMBNAIL_WIDTHS),
+        "partial",
+        "other",
+    ]
+    assert [call.args[0] for call in backend.delete.await_args_list] == expected
+    assert backend.abort_multipart.await_count == 2
+    await bus.publish_durable_or_inline(manifest, db_session)
+    assert backend.abort_multipart.await_count == 4
+    assert backend.delete.await_count == 2 * len(expected)

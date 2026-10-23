@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -99,6 +98,16 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
         # failures retain the manifest in the outbox for idempotent retries.
         settings = _settings(app)
         backends: dict[str, StorageBackend] = {}
+        failures: list[Exception] = []
+
+        async def attempt(operation) -> None:
+            try:
+                await operation
+            except StorageNotFoundError:
+                pass
+            except Exception as exc:
+                failures.append(exc)
+
         for backend_id, key in event.files:
             if backend_id != settings.backend:
                 # Only the active provider is configured; building another from
@@ -115,25 +124,18 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
                 backend = build_backend(settings.model_copy(update={"backend": backend_id}))
                 backends[backend_id] = backend
             for target in [key, *(variant_key(key, w) for w in constants.THUMBNAIL_WIDTHS)]:
-                with contextlib.suppress(StorageNotFoundError):
-                    await backend.delete(target)
+                await attempt(backend.delete(target))
         if event.uploads:
             backend = build_backend(settings)
             for key, upload_id in event.uploads:
                 if upload_id is None:
                     continue
-                # Sessions do not record their provider: after a backend switch the
-                # abort can fail for good, and must not wedge the file deletes above.
-                try:
-                    await backend.abort_multipart(key, upload_id)
-                except StorageNotFoundError:
-                    pass
-                except Exception:
-                    _logger.warning(
-                        "file_storage.tenant_upload_abort_failed key=%s", key, exc_info=True
-                    )
-                with contextlib.suppress(StorageNotFoundError):
-                    await backend.delete(key)
+                # Attempt the delete even if abort fails; retry the entire
+                # idempotent manifest on failure, bounded by outbox max attempts.
+                await attempt(backend.abort_multipart(key, upload_id))
+                await attempt(backend.delete(key))
+        if failures:
+            raise ExceptionGroup("Tenant storage cleanup failed", failures)
 
     bus.subscribe_durable(TenantDeleted, purge_rows, name=_PURGE_HANDLER)
     bus.subscribe_durable(TenantStorageCleanupRequested, purge_objects, name=_OBJECT_HANDLER)

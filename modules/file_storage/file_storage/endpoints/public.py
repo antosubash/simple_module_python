@@ -31,12 +31,14 @@ async def _public_row(
         # Only a multi-tenant install keys files to registry rows: platform files
         # (branding logo/favicon) and a single-tenant install's fallback tenant
         # (``default`` or ``default_tenant``) have none by design.
-        if (
-            row.tenant_id != PLATFORM_TENANT_ID
-            and strict_configured(service.db.sync_session)
-            and await cached_tenant_exists(request.app, row.tenant_id) is False
-        ):
-            raise StoredFileNotFoundError(str(file_id))
+        if row.tenant_id != PLATFORM_TENANT_ID and strict_configured(service.db.sync_session):
+            # get_public loads every column. Detach before rollback, which expires
+            # attached rows even with expire_on_commit=False; serving uses this
+            # read-only snapshot without further database access.
+            service.db.expunge(row)
+            await service.db.rollback()
+            if await cached_tenant_exists(request.app, row.tenant_id) is False:
+                raise StoredFileNotFoundError(str(file_id))
         return row
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
