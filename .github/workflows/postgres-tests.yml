@@ -27,6 +27,7 @@ permissions:
   contents: read
 
 env:
+  NODE_VERSION: "24"
   UV_SYNC_FLAGS: --locked
   UV_CACHE_GLOB: |
     uv.lock
@@ -39,7 +40,7 @@ jobs:
   python-tests-pg:
     name: Python tests (Postgres)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -72,4 +73,9 @@ jobs:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
       - run: make test-py-pg

@@ -185,8 +185,8 @@ def test_pinned_version_matches_the_ui_dev_dependency() -> None:
     assert ui["devDependencies"]["openapi-typescript"] == ot.OPENAPI_TYPESCRIPT_VERSION
 
 
-@pytest.mark.skipif(not LOCAL_TOOL.is_file(), reason="needs `npm install` (openapi-typescript)")
-def test_real_tool_emits_paths(importable: Path) -> None:
+def test_real_tool_emits_paths(importable: Path, require_cli_asset) -> None:
+    require_cli_asset(LOCAL_TOOL.is_file(), "needs `npm ci` (openapi-typescript)")
     targets = ot.module_targets(
         [_fake_module(importable, "gt_real", "Widgets", opted_in=True)], importable, []
     )

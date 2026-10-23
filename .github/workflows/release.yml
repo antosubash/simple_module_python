@@ -27,6 +27,7 @@ jobs:
   # framework/core/pyproject.toml by the chosen level.
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.compute.outputs.version }}
     steps:
@@ -64,6 +65,7 @@ jobs:
 
   # The full PR suite (the `pr-checks` aggregate) runs against the dispatched
   # commit; `build` needs it, so nothing is built or published from a red commit.
+  # Reusable workflow calls cannot set timeout-minutes; pr.yml bounds each job.
   checks:
     uses: ./.github/workflows/pr.yml
 
@@ -73,6 +75,7 @@ jobs:
   build:
     needs: [resolve, checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -114,6 +117,7 @@ jobs:
   publish-pypi:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write  # mint OIDC token for PyPI Trusted Publishing
     strategy:
@@ -170,6 +174,7 @@ jobs:
   publish-npm:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read    # explicit so future cache:/checkout: steps don't 403
       id-token: write   # mint OIDC token for npm Trusted Publishing
@@ -216,6 +221,7 @@ jobs:
   finalize:
     needs: [resolve, publish-pypi, publish-npm]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:

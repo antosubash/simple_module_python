@@ -7,6 +7,7 @@ how the factory below gets shared.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -154,3 +155,17 @@ def make_git_module_repo(tmp_path: Path):
         return repo
 
     return factory
+
+
+@pytest.fixture
+def require_cli_asset():
+    """Keep optional local tooling from silently reducing CI coverage."""
+
+    def require(available: bool, message: str) -> None:
+        if available:
+            return
+        if os.environ.get("CI"):
+            pytest.fail(f"{message}. On CI this must fail rather than skip.")
+        pytest.skip(message)
+
+    return require

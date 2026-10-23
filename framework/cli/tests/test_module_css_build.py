@@ -6,9 +6,8 @@ resolves the path and keeps the rule. This is the one assertion that exercises
 that whole chain, so it drives a genuine build rather than inspecting the
 generated text.
 
-Skipped where a build is impossible: CI's `python-tests` job installs Python
-deps only (`make install-py`), so `node_modules` is absent there. The JS jobs
-and local runs do have it.
+Missing build prerequisites skip locally and fail on CI, where the Python
+and JS build jobs install the required Node dependencies.
 """
 
 from __future__ import annotations
@@ -22,15 +21,19 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 pytestmark = [
-    pytest.mark.skipif(
-        not (REPO_ROOT / "node_modules").is_dir(),
-        reason="node_modules absent — run `npm install` to exercise the real build",
-    ),
-    pytest.mark.skipif(shutil.which("npm") is None, reason="npm not on PATH"),
     # Both tests rewrite the shared tree (generated manifests, host/static/dist, a
     # probe page under audit_log), so under xdist they must share one worker.
     pytest.mark.xdist_group("repo-build"),
 ]
+
+
+@pytest.fixture(autouse=True)
+def require_build_tools(require_cli_asset):
+    require_cli_asset(shutil.which("npm") is not None, "npm not on PATH")
+    require_cli_asset(
+        (REPO_ROOT / "node_modules").is_dir(),
+        "node_modules absent — run `npm ci` to exercise the real build",
+    )
 
 
 class TestModuleCssReachesBundle:

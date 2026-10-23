@@ -33,7 +33,7 @@ Everything goes through `make`. Full list: `docs/reference/make-commands.md`.
 | `make lint` | Ruff format + Ruff + `ty` + Biome + per-workspace `tsc` + file-size cap + hardcoded-string check + untranslated-string check + package metadata/README checks |
 | `make doctor` | Module diagnostics (`SM0xx`); a dev boot runs the same plus `SM012`/`SM025` |
 | `make migrate` / `make downgrade` / `make migration-history` | Alembic `upgrade heads` / `-1` / history |
-| `make migration msg="..."` | Autogenerate; **currently fails** ("Multiple heads") — use the recipe in § Database |
+| `make migration LABEL=<branch_label> msg="..."` | Autogenerate on the selected branch (`--head <branch_label>@head`); `LABEL` is required |
 | `make migrations-roundtrip-pg` | Postgres portability gate (upgrade → downgrade base → upgrade → `alembic check`); CI runs it |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` (gitignored; needed before `tsc`/Vite) |
 | `make gen-i18n` | Regenerate `packages/i18n/src/{keys.generated,generated-resources}.ts` (committed; CI diffs them) |
@@ -101,7 +101,8 @@ Run what CI runs, in this order; a red push costs a review cycle.
    changes). Every feature/fix PR in recent history does this.
 
 CI (`.github/workflows/pr.yml`, aggregate job `pr-checks`): python-lint (includes
-`make ci-check-metadata` and the `make ci-i18n-fresh` diff and `make ci-check-no-double-cast`), python-typecheck,
+`make ci-check-metadata`, `make ci-check-hardcoded-strings`, `make ci-check-ci-parity`,
+the `make ci-i18n-fresh` diff and `make ci-check-no-double-cast`), python-typecheck,
 python-tests (Redis service), js-tests, js-lint (`biome ci --error-on-warnings`,
 plus the untranslated check), js-typecheck (plus `make ci-api-types-fresh`), js-build (`make ci-css-build`),
 migrations-roundtrip-pg, doctor (`make ci-doctor`: migrate a throwaway SQLite DB,
@@ -111,8 +112,7 @@ so a stale `uv.lock` fails (commit `uv.lock` whenever a `pyproject.toml` changes
 `make install` stays unlocked). `.github/workflows/postgres-tests.yml` runs
 `make test-py-pg` nightly, on demand and on PRs touching `framework/db`,
 `framework/testing`, `modules/tenants` or `host/migrations`; it is not in
-`pr-checks`. **Local-only checks** (in `make lint`, not in CI, reviewers still
-reject on them): hardcoded strings. `make ci-css-build` is in CI but not in
+`pr-checks`. `make ci-css-build` is in CI but not in
 `make lint` (slow, rewrites generated files). e2e-smoke and perf-guards enable a
 hardcoded `SM_MODULES_ENABLED` JSON list; a new module is not exercised there
 until added.

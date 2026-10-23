@@ -39,6 +39,7 @@ jobs:
   python-lint:
     name: Python lint & format
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v9.0.0
@@ -50,6 +51,8 @@ jobs:
       # Package metadata, READMEs, release matrix, and the hand-maintained ty
       # extra-paths / pytest testpaths lists (#520) must match what is on disk.
       - run: make ci-check-metadata
+      - run: make ci-check-hardcoded-strings
+      - run: make ci-check-ci-parity
       - run: make ci-check-locales
       # Backticked repo paths in docs/, CLAUDE.md, README.md and skills must exist (#519).
       - run: make ci-doc-paths
@@ -67,6 +70,7 @@ jobs:
   docs-build:
     name: Docs site build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -79,6 +83,7 @@ jobs:
   python-typecheck:
     name: Python typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v9.0.0
@@ -91,6 +96,7 @@ jobs:
   python-tests:
     name: Python tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # The invalidation suite covers what a fake Redis client cannot — a real
     # subscription, and two worker processes talking through one broker. The
     # runner image does not ship redis-server, so the broker comes from a service
@@ -115,6 +121,11 @@ jobs:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
       # Tee'd so the next step can put the totals line (count + wall time) on
       # the run's summary page: a suite creeping back toward the serial ~24 min
       # of #524 should be visible without opening the log.
@@ -133,6 +144,7 @@ jobs:
   js-tests:
     name: JS tests (Vitest)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -145,6 +157,7 @@ jobs:
   js-lint:
     name: JS lint & format
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -160,6 +173,7 @@ jobs:
   js-typecheck:
     name: JS typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -182,6 +196,7 @@ jobs:
   js-build:
     name: JS build (Vite)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -199,9 +214,8 @@ jobs:
       - run: make gen-pages
       - run: make build
       # These drive a real gen-pages + vite build to prove module-shipped CSS
-      # and cross-module npm-name imports actually resolve. They self-skip
-      # without node_modules, so the `Python tests` job (make install-py only)
-      # silently skips them — this is the one job that can really run them.
+      # and cross-module npm-name imports actually resolve. Missing build
+      # prerequisites fail on CI rather than silently skipping the guards.
       - name: Module asset build guards
         run: make ci-css-build
 
@@ -212,6 +226,7 @@ jobs:
   migrations-roundtrip-pg:
     name: Migrations round trip (Postgres)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -241,6 +256,7 @@ jobs:
   doctor:
     name: Module diagnostics (make doctor)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v9.0.0
@@ -253,6 +269,7 @@ jobs:
   e2e-smoke:
     name: E2E smoke (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       redis:
         image: redis:7-alpine
@@ -358,6 +375,7 @@ jobs:
   perf-guards:
     name: Perf guards (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       # SQLite keeps the job self-contained — these guards measure asset
       # delivery, which does not depend on row volumes.
@@ -437,6 +455,7 @@ jobs:
   file-size-check:
     name: File size (300-line cap)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v9.0.0
@@ -455,6 +474,7 @@ jobs:
   package-build:
     name: Package build (release dry-run)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v9.0.0
@@ -468,6 +488,7 @@ jobs:
   pr-checks:
     name: PR checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - python-lint
       - python-typecheck
