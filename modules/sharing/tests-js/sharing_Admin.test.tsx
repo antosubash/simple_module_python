@@ -98,7 +98,6 @@ describe('sharing Admin', () => {
   });
 
   it('clears pending state on visit completion so an unchanged share can be retried', async () => {
-    // This page delegates errors to Inertia; it has no local error-toast callback.
     render(<Admin {...props} />);
     fireEvent.click(screen.getByRole('button', { name: keys.sharing.list.revoke }));
     fireEvent.click(await screen.findByRole('button', { name: keys.sharing.revoke.confirm }));
