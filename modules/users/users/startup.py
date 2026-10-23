@@ -20,7 +20,6 @@ signature so the seam stays where that change put it. The mailer health check
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -41,7 +40,7 @@ _DASHBOARD_MODULE = "Dashboard"
 async def run_startup(module: UsersModule, app: FastAPI) -> None:
     """Populate ``app.state.users`` and apply settings-derived configuration."""
     from users.backend import reconfigure_cookie_transport
-    from users.bootstrap import bootstrap_admin_from_env, ensure_user_role
+    from users.bootstrap import bootstrap_admin_from_env, ensure_admin_role, ensure_user_role
     from users.demo import ensure_demo_users
     from users.deps import auth_backend
     from users.roles_cache import refresh_roles_cache
@@ -67,16 +66,16 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     # Scaffolded hosts create a schema baseline without the framework host's
     # data migrations. Seed before warming the cache or provisioning accounts.
     async with app.state.sm.db.session_factory.begin() as db:
+        await ensure_admin_role(db)
         await ensure_user_role(db)
 
-    await asyncio.gather(
-        bootstrap_admin_from_env(app),
-        refresh_roles_cache(app),
-    )
+    await bootstrap_admin_from_env(app)
     # After the env bootstrap, not beside it: that one only runs while the
     # users table is empty, and the demo accounts have to be reconciled on
     # every boot so a change to either email or password takes effect.
     await ensure_demo_users(app)
+    # Cache only after every startup path that can provision roles has finished.
+    await refresh_roles_cache(app)
 
 
 def _build_mailer(app: FastAPI, state, s) -> None:

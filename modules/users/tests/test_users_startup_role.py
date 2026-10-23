@@ -37,6 +37,8 @@ async def test_startup_ensures_signup_role_without_overwriting_existing_role(exi
             await db.commit()
 
     async with app.router.lifespan_context(app):
+        # Both roles must be cached before setup creates the first admin.
+        assert [role.name for role in app.state.users.roles_cache] == ["admin", "user"]
         assert any(role.id == str(role_id) for role in app.state.users.roles_cache)
         # A scaffolded app completes admin setup before public signup is usable.
         await _make_admin_user(app)

@@ -72,26 +72,7 @@ async def create_admin(
         await db.execute(select(User).where(func.lower(User.email) == email.lower()))
     ).scalar_one_or_none()
 
-    # Look up by name first (works on both Postgres and SQLite regardless of UUID
-    # storage format), then fall back to id-based lookup in case name was changed.
-    admin_role = (
-        await db.execute(select(Role).where(col(Role.name) == ADMIN_ROLE_NAME))
-    ).scalar_one_or_none()
-    if admin_role is None:
-        admin_role = (
-            await db.execute(select(Role).where(col(Role.id) == ADMIN_ROLE_ID))
-        ).scalar_one_or_none()
-    if admin_role is None:
-        # The seed migration (e3ce9754e6dc) inserts this row, so in a real
-        # deployment we should never hit this branch. Kept as a safety net for
-        # tests (where `create_all` runs without data migrations) and for
-        # scenarios where someone ran `alembic downgrade` past the seed
-        # revision but not past the schema revision.
-        admin_role = Role(
-            id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION
-        )
-        db.add(admin_role)
-        await db.flush()
+    admin_role = await ensure_admin_role(db)
 
     hasher = PasswordHelper()
     if existing is None:
@@ -134,6 +115,28 @@ async def create_admin(
 
     logger.info(_EVT_NOOP, extra={"email": email, "id": str(existing.id)})
     return CreateAdminResult(user=existing, created=False)
+
+
+async def ensure_admin_role(db: AsyncSession) -> Role:
+    """Return the administrator role, preserving an existing name or seed ID."""
+    # Look up by name first (works on both Postgres and SQLite regardless of UUID
+    # storage format), then fall back to id-based lookup in case name was changed.
+    admin_role = (
+        await db.execute(select(Role).where(col(Role.name) == ADMIN_ROLE_NAME))
+    ).scalar_one_or_none()
+    if admin_role is None:
+        admin_role = (
+            await db.execute(select(Role).where(col(Role.id) == ADMIN_ROLE_ID))
+        ).scalar_one_or_none()
+    if admin_role is None:
+        # Schema-only installs do not run the host role seed migration.
+        admin_role = Role(
+            id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION
+        )
+        db.add(admin_role)
+        await db.flush()
+
+    return admin_role
 
 
 async def ensure_user_role(db: AsyncSession) -> Role:
