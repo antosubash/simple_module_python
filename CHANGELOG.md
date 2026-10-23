@@ -10,10 +10,31 @@ All notable changes to this project are documented in this file. The format is b
 > Versions not listed below still have no entry; consult the commit log.
 >
 > 0.0.28 through 0.0.37 were released before the release workflow cut this
-> file (#572), so their changes are still listed under `[Unreleased]` and will
-> land in the next dated section (#584).
+> file (#572), so their changes are listed under `[0.0.38]` (#584).
 
 ## [Unreleased]
+
+### Added
+- `EventBus.publish_durable_or_inline(event, db)`: enqueue durably when a transport is
+  installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
+
+### Fixed
+- Tenants: deleting a tenant now tears down its data. `TenantDeleted` (now defined in
+  `simple_module_core.tenant_events`, still importable from `tenants.contracts.events`) is
+  published durably, and file_storage (files, upload sessions, then backend objects after
+  commit), api_tokens, sharing, feature_flags and the framework's tenant-scoped settings
+  overrides (including branding) purge that tenant's rows; audit history is kept. On multi-tenant
+  installs, public files of a deleted tenant answer 404 at once (the existence check is cached
+  60 s per worker and evicted on every worker by `TENANT_DELETED_CHANNEL`). Without `background_tasks` the handlers run inline in
+  the deleting transaction. Rows orphaned by earlier deletions are not purged retroactively (#583).
+- File storage: a file whose `backend` is not the active backend is no longer read or deleted
+  through the wrong store: downloads, public reads and thumbnails answer 409 with a translated
+  message, and a delete soft-deletes the row but leaves the object alone (logged). Switching
+  backends still needs a manual migration; see `docs/modules/file_storage.md` (#589).
+- Background tasks: `enqueue_after_commit` is documented as at-most-once (a broker outage after
+  commit loses the task; use `publish_durable` for must-run work). file_storage gains an hourly
+  `file_storage.reconcile_checksums` beat task that re-enqueues checksums for files left without
+  one for 30 minutes, up to 500 per run (#590).
 
 ## [0.0.38] — 2026-10-23
 

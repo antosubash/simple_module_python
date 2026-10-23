@@ -345,6 +345,48 @@ filter. A platform admin's actions are attributed to their **active**
 organisation when one is active — the write itself is scoped to it — and to the
 platform only when nothing is bound. See [audit_log](/modules/audit_log#multi-tenancy).
 
+## Deleting tenants
+
+Tenant deletion publishes `TenantDeleted` through
+`bus.publish_durable_or_inline` in the same transaction that removes the
+tenant, memberships and invitations. With the `background_tasks` outbox
+transport installed, delivery is durable and eventual (retried until it
+succeeds). Without it, the durable handlers run inline in the deleting
+transaction, so their row purges commit or roll back with the tenant row;
+backend objects are then deleted after commit by an `on_commit` callback,
+which is best-effort: a failure there is logged with the object keys, and
+the hourly `file_storage.reap_objects` task removes the orphaned objects once
+`background_tasks` is enabled. Either way, public file downloads check the
+tenant directory (cached for 60 s per worker, forgotten on `TenantDeleted`)
+and return 404 when the tenant no longer exists.
+
+Every owner of tenant data must register
+`bus.subscribe_durable(TenantDeleted, handler)` in `register_event_handlers`,
+including when `app=None` in the worker. Import the event from
+`simple_module_core.tenant_events`; no dependency on the `tenants` plugin is
+needed. Delete only `event.tenant_id`'s rows, using `tenant_context` for
+`MultiTenantMixin` tables, and hard-delete soft-deleted rows too. Explicit
+scope tables need matching scope and tenant predicates. Handlers must tolerate
+repeated deliveries and must never commit `ctx.db`; the outbox owns that
+transaction. Backend object deletion belongs after commit and must also be
+idempotent. File storage writes a second durable cleanup event containing the
+backend keys in the same transaction that hard-deletes its rows. Only after
+that transaction commits does the second handler remove originals, thumbnail
+variants and unfinished multipart uploads; backend failures retry from the
+persisted manifest rather than losing the keys.
+
+The framework registers cleanup of tenant-scoped `Setting` rows in both host
+and worker, even if the settings UI plugin is disabled. This includes branding
+overrides; branding's uploaded files belong to file storage cleanup. System
+and user settings and other tenants' rows are preserved. Feature flags also
+purges its tenant-scoped persisted overrides; system overrides survive.
+
+Audit entries are deliberately retained for historical accountability. Their
+original `tenant_id` remains the historical tenant marker even after the live
+tenant row disappears; readers must not require a live tenant join to display
+these entries. Deletion does not reassign audit entries to another tenant or
+to the platform, and audit retention policy still applies independently.
+
 ## Testing
 
 The `simple_module_test` plugin ships `tenant_client` (needs the `users` and

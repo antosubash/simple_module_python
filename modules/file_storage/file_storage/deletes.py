@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage import queries, thumbnails
+from file_storage.backend_guard import backend_mismatch
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.models import StoredFile
 from file_storage.scope import platform_scope
@@ -111,6 +112,14 @@ class FileStorageDeletes:
 
     async def drop_object(self, row: StoredFile) -> None:
         """Delete ``row``'s backend object and its thumbnails; absent ones are fine."""
+        if backend_mismatch(self.backend, row):
+            _logger.warning(
+                "file_storage.backend_mismatch key=%s stored=%s active=%s — object retained",
+                row.key,
+                row.backend,
+                getattr(self.backend, "backend_id", None),
+            )
+            return
         try:
             # Acceptably absent — eg. a previous delete partially succeeded.
             with contextlib.suppress(StorageNotFoundError):

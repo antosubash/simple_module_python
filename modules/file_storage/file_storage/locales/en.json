@@ -72,7 +72,8 @@
     "bad_part": "That upload part is not valid for this file",
     "parts_mismatch": "The uploaded parts do not match what was sent; resume the upload to send the rest",
     "size_mismatch": "The assembled file is {actual}, but {expected} was expected; upload it again",
-    "upload_session_closed": "This upload is no longer active; start it again"
+    "upload_session_closed": "This upload is no longer active; start it again",
+    "backend_unavailable": "This file is stored on a backend that is no longer configured."
   },
   "filters": {
     "search_placeholder": "Search filenames…",

@@ -22,6 +22,7 @@ async def get_tenant_service(request: Request, db: AsyncSession = Depends(get_db
         db,
         bus=app.state.sm.event_bus,
         invalidate=make_invalidator(app),
+        invalidation_bus=app.state.sm.invalidation,
         entitlements=app.state.tenants.entitlements,
     )
 

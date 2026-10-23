@@ -11,6 +11,7 @@ from typing import Any
 from pyee.asyncio import AsyncIOEventEmitter
 
 from simple_module_core.durable_events import (
+    DurableContext,
     DurableDeliveryUnavailable,
     DurableHandler,
     DurableRegistry,
@@ -141,3 +142,22 @@ class EventBus:
         if not names:
             return
         await transport.enqueue(event, names, db)
+
+    async def publish_durable_or_inline(self, event: Event, db: Any) -> None:
+        """Enqueue with a transport, otherwise run durable handlers in *db*.
+
+        Inline handlers run sequentially in subscription order on the caller's
+        transaction with attempt=1. They must flush rather than commit; errors
+        propagate so the caller can roll back. Ordinary subscribers are not run.
+        External effects must be deferred to the caller's post-commit hooks.
+        """
+        if self.durable_transport is not None:
+            await self.publish_durable(event, db)
+            return
+        ctx = DurableContext(db=db, attempt=1)
+        key = self._event_key(type(event))
+        for name in self.durable.handler_names(type(event)):
+            subscription = self.durable.lookup(key, name)
+            if subscription is None:
+                continue
+            await subscription.handler(event, ctx)

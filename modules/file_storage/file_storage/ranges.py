@@ -17,6 +17,7 @@ from typing import Final, Literal
 from fastapi import Request, Response, status
 from fastapi.responses import StreamingResponse
 
+from file_storage.backend_guard import require_backend
 from file_storage.contracts.service import StorageBackend
 from file_storage.models import StoredFile
 
@@ -95,6 +96,7 @@ async def file_body_response(
     response actually served, so a ranged request never opens the full object.
     Raises :class:`StorageNotFoundError` if the object is gone.
     """
+    require_backend(backend, row)
     size = row.size_bytes
     get_range = getattr(backend, "get_range", None)
     parsed = parse_range(_range_header(request, etag), size) if get_range else None

@@ -12,7 +12,9 @@ from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.cors import CorsPolicyRegistry
 from simple_module_core.csp import CspSourceRegistry
+from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
@@ -54,6 +56,21 @@ class FileStorageModule(ModuleBase):
             FileStorageSettings,
             lambda s: FileStorageServices(settings=s),
         )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from file_storage.tenant_deletion import register_tenant_deletion
+
+        register_tenant_deletion(bus, app)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from file_storage.tenant_cache import register_tenant_cache
+
+        register_tenant_cache(bus, app)
+
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from file_storage.errors import install_exception_handlers
+
+        install_exception_handlers(app)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api

@@ -169,7 +169,8 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
 
     # Swap in a presigning backend; download should now redirect.
     class _PresigningBackend:
-        backend_id = "presign-test"
+        # Keep ownership the same while changing the download capability.
+        backend_id = backend.backend_id
         supports_presigned_url = True
 
         async def put(self, key, stream, **kwargs): ...

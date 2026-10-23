@@ -10,19 +10,34 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from simple_module_db.query_filter import strict_configured
 from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage import constants
 from file_storage.deps import get_file_storage_service
+from file_storage.scope import PLATFORM_TENANT_ID
 from file_storage.service import FileStorageService, StoredFileNotFoundError
 from file_storage.serving import not_found, public_file_response, thumbnail_response
+from file_storage.tenant_cache import cached_tenant_exists
 
 router = APIRouter()
 
 
-async def _public_row(service: FileStorageService, file_id: uuid.UUID, t: TranslatorDep):
+async def _public_row(
+    service: FileStorageService, file_id: uuid.UUID, request: Request, t: TranslatorDep
+):
     try:
-        return await service.get_public(file_id)
+        row = await service.get_public(file_id)
+        # Only a multi-tenant install keys files to registry rows: platform files
+        # (branding logo/favicon) and a single-tenant install's fallback tenant
+        # (``default`` or ``default_tenant``) have none by design.
+        if row.tenant_id != PLATFORM_TENANT_ID and strict_configured(service.db.sync_session):
+            # Return the read connection before tenant_exists opens its own session;
+            # the helper keeps the row readable and leaves sessions with writes alone.
+            await service._release_connection(row)
+            if await cached_tenant_exists(request.app, row.tenant_id) is False:
+                raise StoredFileNotFoundError(str(file_id))
+        return row
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
 
@@ -36,7 +51,7 @@ async def public_thumbnail(
     w: int | None = Query(default=None, description="Width in px; clamped and snapped."),
     service: FileStorageService = Depends(get_file_storage_service),
 ) -> Response:
-    row = await _public_row(service, file_id, t)
+    row = await _public_row(service, file_id, request, t)
     return await thumbnail_response(
         service,
         row,
@@ -50,7 +65,7 @@ async def public_thumbnail(
 async def _serve_public(
     service: FileStorageService, file_id: uuid.UUID, request: Request, t: TranslatorDep
 ) -> Response:
-    row = await _public_row(service, file_id, t)
+    row = await _public_row(service, file_id, request, t)
     return await public_file_response(service, row, request, t)
 
 

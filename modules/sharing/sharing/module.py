@@ -17,6 +17,7 @@ from sharing import constants as c
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
     from simple_module_core.audit_links import AuditLinkRegistry
+    from simple_module_core.events import EventBus
     from simple_module_core.permissions import PermissionRegistry
 
 
@@ -26,6 +27,13 @@ class SharingModule(ModuleBase):
         route_prefix=c.API_PREFIX,
         view_prefix=c.VIEW_PREFIX,
     )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from simple_module_core.tenant_events import TenantDeleted
+
+        from sharing.tenant_cleanup import purge_tenant_data
+
+        bus.subscribe_durable(TenantDeleted, purge_tenant_data)
 
     def register_settings(self, app: FastAPI) -> None:
         from sharing.services import SharingServices

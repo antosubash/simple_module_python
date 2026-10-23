@@ -20,6 +20,7 @@ from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
+from simple_module_db.tenant_cleanup import register_tenant_cleanup
 
 from simple_module_hosting._app_boot import (
     build_fastapi_app,
@@ -128,6 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     perm_registry = PermissionRegistry()
     ff_registry = FeatureFlagRegistry()
     event_bus = EventBus()
+    register_tenant_cleanup(event_bus)
     invalidation_bus = InvalidationBus()
     health_registry = HealthRegistry()
     public_route_registry = PublicRouteRegistry()

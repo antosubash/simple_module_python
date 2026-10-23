@@ -72,7 +72,8 @@
     "bad_part": "Dieser Upload-Teil ist für diese Datei ungültig",
     "parts_mismatch": "Die hochgeladenen Teile stimmen nicht mit den gesendeten Daten überein. Setzen Sie den Upload fort, um den Rest zu senden",
     "size_mismatch": "Die zusammengesetzte Datei hat die Größe {actual}, erwartet wurde {expected}. Laden Sie sie erneut hoch",
-    "upload_session_closed": "Dieser Upload ist nicht mehr aktiv. Starten Sie ihn erneut"
+    "upload_session_closed": "Dieser Upload ist nicht mehr aktiv. Starten Sie ihn erneut",
+    "backend_unavailable": "Diese Datei ist auf einem Backend gespeichert, das nicht mehr konfiguriert ist."
   },
   "filters": {
     "search_placeholder": "Dateinamen suchen…",

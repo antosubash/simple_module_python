@@ -25,6 +25,7 @@ _MODULE_SETTINGS: Final = "Settings"
 _MODULE_BACKGROUND_TASKS: Final = "BackgroundTasks"
 
 # ── Configuration ────────────────────────────────────────────────────
+
 ENV_PREFIX: Final = "SM_FILE_STORAGE_"
 
 # ── Routing ──────────────────────────────────────────────────────────
@@ -99,6 +100,8 @@ class FeatureFlag:
 class ErrorCode:
     """Machine-readable codes returned in 4xx response bodies."""
 
+    BACKEND_UNAVAILABLE: Final = "file_storage.backend_unavailable"
+
     TOO_LARGE: Final = "file_storage.too_large"
     BAD_TYPE: Final = "file_storage.bad_type"
     NOT_FOUND: Final = "file_storage.not_found"
@@ -125,11 +128,14 @@ class Task:
 
     REAP_OBJECTS: Final = "file_storage.reap_objects"
     REAP_STALE_UPLOADS: Final = "file_storage.reap_stale_uploads"
+    RECONCILE_CHECKSUMS: Final = "file_storage.reconcile_checksums"
     COMPUTE_CHECKSUM: Final = "file_storage.compute_checksum"
 
 
 class I18nKey:
     """Translator keys (full dotted paths). Mirror locales/en.json shape."""
+
+    ERR_BACKEND_UNAVAILABLE: Final = "file_storage.errors.backend_unavailable"
 
     ERR_NOT_FOUND: Final = "file_storage.errors.not_found"
     ERR_TOO_LARGE: Final = "file_storage.errors.too_large"
@@ -251,3 +257,8 @@ PUBLIC_CORS_EXPOSE_HEADERS: Final = ("Content-Range", "Accept-Ranges", "ETag", "
 # Keys this module writes: ``{tenant}/YYYY/MM/DD/{uuid hex}[.ext]``. Reapers only
 # ever touch objects shaped like this, never foreign ones in a shared store.
 OWN_KEY: Final = re.compile(r"^[^/]+/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}(\.[^/]*)?$")
+
+CHECKSUM_RECONCILE_MIN_AGE_MINUTES: Final = 30
+CHECKSUM_RECONCILE_BATCH_SIZE: Final = 500
+CHECKSUM_RECONCILE_INTERVAL_SECONDS: Final = 3600.0
+BEAT_RECONCILE_CHECKSUMS: Final = "file-storage-reconcile-checksums"

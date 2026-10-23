@@ -386,3 +386,33 @@ class MyModule(ModuleBase):
 ## Locales
 
 Top-level keys in `file_storage/locales/en.json`: `browse`, `table`, `actions`, `delete_dialog`, `toasts`, `errors`. The `errors` namespace is keyed by error *code* (`not_found`, `too_large`, `bad_type`, `backend_error`, `bad_image`) so the UI can render a deterministic message per `StorageError` subclass.
+
+### Changing storage providers or locations
+
+Storage uses one active backend configuration; it does not retain or resolve
+historical configurations. A stored file records the provider ID (`filesystem`
+or `s3`), not the filesystem root, bucket, endpoint, or credentials. When its
+provider ID differs from the active provider, downloads, public reads and
+thumbnails fail with HTTP 409 and a translated message that the file is stored
+on a backend that is no longer configured. Checksum jobs also refuse the read.
+Deleting such a file still soft-deletes its row, but skips the original object
+and thumbnail deletion and logs a warning. Retain the old store for manual
+cleanup; the object reaper only handles the active provider.
+
+Changes within the same provider (for example a different filesystem root or
+S3 bucket) cannot be detected by this check. Do not switch locations while
+existing rows still depend on the old location. Upload sessions do not record
+a backend ID: finish or abort all active multipart sessions before any backend
+or location change, including sessions belonging to other users and tenants.
+
+For a manual migration, pause uploads and background storage jobs, drain active
+multipart sessions, and back up the database and both stores. Copy originals
+and any thumbnail variants to the destination under exactly the same object
+keys, including tenant prefixes; verify sizes and checksums before switching.
+When changing provider type, update the affected `StoredFile.backend` values to
+the destination provider ID in a controlled database maintenance transaction
+only after verifying the copies. Configure the destination, restart application
+and worker processes, and verify authenticated/public downloads, ranged reads,
+thumbnails and deletion before resuming writes. Keep the source and backups
+until verification is complete, then remove source objects explicitly. There
+is no automatic migration command or historical-backend registry.

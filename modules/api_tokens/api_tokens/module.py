@@ -17,6 +17,7 @@ from api_tokens import constants as c
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
     from simple_module_core.audit_links import AuditLinkRegistry
+    from simple_module_core.events import EventBus
     from simple_module_core.permissions import PermissionRegistry
 
 
@@ -34,6 +35,13 @@ class ApiTokensModule(ModuleBase):
         depends_on=[c.MODULE_AUTH],
         optional_depends_on=[c.MODULE_USERS, c.MODULE_SETTINGS],
     )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from simple_module_core.tenant_events import TenantDeleted
+
+        from api_tokens.tenant_cleanup import purge_tenant_data
+
+        bus.subscribe_durable(TenantDeleted, purge_tenant_data)
 
     def register_settings(self, app: FastAPI) -> None:
         from api_tokens.services import ApiTokensServices
