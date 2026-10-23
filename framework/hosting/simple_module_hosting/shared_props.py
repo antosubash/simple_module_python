@@ -18,6 +18,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
+from simple_module_core.app_state import get_inertia_shared_providers
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from starlette.requests import Request
@@ -35,7 +37,7 @@ def register_inertia_shared_provider(app: FastAPI, provider: SharedPropsProvider
     appends ``provider``. Safe to call from a module lifecycle hook before the
     framework has set up the list.
     """
-    providers = getattr(app.state, _STATE_ATTR, None)
+    providers = get_inertia_shared_providers(app)
     if providers is None:
         providers = []
         setattr(app.state, _STATE_ATTR, providers)

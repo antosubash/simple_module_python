@@ -17,6 +17,7 @@ import logging
 import secrets
 from urllib.parse import quote
 
+from simple_module_core.app_state import get_auth_provider
 from starlette.requests import Request
 from starlette.responses import (
     HTMLResponse,
@@ -162,8 +163,7 @@ class SiteLockMiddleware:
         This is the documented lockout escape hatch: an admin who enables the
         gate and mistypes the password keeps access to the settings screen.
         """
-        auth_state = getattr(scope["app"].state, "auth", None)
-        provider = getattr(auth_state, "auth_provider", None)
+        provider = get_auth_provider(scope["app"])
         if provider is None:
             return False
         try:

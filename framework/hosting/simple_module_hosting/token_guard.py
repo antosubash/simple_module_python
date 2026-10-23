@@ -40,6 +40,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import HTTPException
+from simple_module_core.app_state import get_services
 from starlette.requests import HTTPConnection
 
 from simple_module_hosting._anonymous import demote_to_anonymous
@@ -172,7 +173,7 @@ def is_token_principal(user: Any) -> bool:
 
 
 def _translate(request: HTTPConnection, key: str, fallback: str) -> str:
-    sm = getattr(request.app.state, "sm", None)
+    sm = get_services(request.app)
     registry = getattr(sm, "i18n_registry", None)
     if registry is None:
         return fallback

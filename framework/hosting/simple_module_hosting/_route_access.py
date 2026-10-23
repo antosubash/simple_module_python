@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 from fastapi import FastAPI
 from fastapi.routing import iter_route_contexts
+from simple_module_core.app_state import get_openapi_url
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 
 from simple_module_hosting.public_access import is_public
@@ -66,7 +67,7 @@ def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
 
 def is_public_operation(app: FastAPI, method: str, path: str) -> bool:
     """Whether an anonymous *method* on the templated *path* is let through."""
-    if path == getattr(app.state, "openapi_url", None):
+    if path == get_openapi_url(app):
         return True
     for placeholder in _PLACEHOLDERS:
         concrete = _PARAM.sub(placeholder, path)

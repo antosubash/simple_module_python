@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from cachetools import TTLCache
 from pydantic import ValidationError
+from simple_module_core.app_state import get_services
 
 from branding.constants import PACKAGE, TENANT_CACHE_TTL_SECONDS, TENANT_FIELDS
 from branding.settings import BrandingSettings
@@ -107,7 +108,7 @@ def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
 
 
 def tenancy_active(app: FastAPI) -> bool:
-    settings = getattr(getattr(app.state, "sm", None), "settings", None)
+    settings = getattr(get_services(app), "settings", None)
     return bool(getattr(settings, "multi_tenant", False))
 
 

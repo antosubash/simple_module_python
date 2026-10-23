@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core.app_state import get_tenant_resolver
 from simple_module_core.diagnostics import Diagnostic, check_tenant_resolver, print_diagnostics
 
 from simple_module_hosting._route_access import check_unguarded_api_routes
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 def _tenant_checks(app: FastAPI, settings: Any) -> list[Diagnostic]:
     return check_tenant_resolver(
         multi_tenant=bool(getattr(settings, "multi_tenant", False)),
-        resolver=getattr(app.state, "tenant_resolver", None),
+        resolver=get_tenant_resolver(app),
     )
 
 

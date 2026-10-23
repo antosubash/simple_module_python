@@ -18,6 +18,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
+from simple_module_core.app_state import get_migration_status
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, collect_tsx_pages
 from simple_module_core.discovery import get_module_package_name
 from simple_module_hosting.migrations import list_migrations
@@ -216,7 +217,7 @@ def _module_chip(message: str, packages: set[str]) -> str:
 
 def migration_rows(app: FastAPI) -> list[dict[str, Any]]:
     """Recent Alembic revisions with the applied flag this database earns."""
-    state = getattr(app.state, "migration", None) or {}
+    state = get_migration_status(app) or {}
     rows = list_migrations(current_revision=state.get("current_revision"))
     packages = {get_module_package_name(m) for m in app.state.sm.modules}
     for row in rows:
@@ -253,7 +254,7 @@ def doctor_props(request: Request, *, module_count: int) -> dict[str, Any]:
     """Everything the Doctor screen renders, all of it live."""
     app = request.app
     checks = collect_checks(app)
-    migration = getattr(app.state, "migration", None) or {}
+    migration = get_migration_status(app) or {}
     return {
         "checks": checks,
         "checks_available": app.state.sm.diagnostics.supported,

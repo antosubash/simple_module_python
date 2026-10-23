@@ -13,6 +13,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core.app_state import get_principal_serializer
 from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -245,9 +246,7 @@ class InertiaLayoutDataMiddleware:
 
         i18n_block = build_i18n_block(scope, request, is_authenticated=is_authenticated)
 
-        principal_serializer: PrincipalSerializer | None = getattr(
-            scope["app"].state, "principal_serializer", None
-        )
+        principal_serializer: PrincipalSerializer | None = get_principal_serializer(scope["app"])
         user_payload: dict[str, Any] | None = (
             principal_serializer(user) if user is not None and principal_serializer else None
         )

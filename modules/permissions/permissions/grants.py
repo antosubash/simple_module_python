@@ -21,6 +21,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from cachetools import TTLCache
+from simple_module_core.app_state import get_services
 from sqlalchemy import select
 
 from permissions.models import UserPermission
@@ -114,7 +115,7 @@ async def publish_grants_changed(app: FastAPI, user_id: uuid.UUID) -> None:
     change must not be broadcast. Falls back to a local eviction when the app
     has no bus (a single-module test harness), so a change never looks inert.
     """
-    bus = getattr(getattr(app.state, "sm", None), "invalidation", None)
+    bus = getattr(get_services(app), "invalidation", None)
     if bus is None:
         logger.debug("No invalidation bus on this app; dropping %s locally", user_id)
         _GRANTS.pop(user_id, None)

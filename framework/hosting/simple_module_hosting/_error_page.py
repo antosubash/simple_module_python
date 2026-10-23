@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from http import HTTPStatus
 
 from fastapi.responses import JSONResponse
+from simple_module_core.app_state import get_auth_provider, get_inertia_dependency
 from simple_module_inertia import (
     Inertia,
     InertiaConfig,
@@ -52,8 +53,7 @@ def _login_url(request: Request) -> str | None:
     concern and ``SM009`` forbids framework code importing ``modules/*``. An
     app with no auth provider installed simply gets no sign-in button.
     """
-    auth_state = getattr(request.app.state, "auth", None)
-    provider = getattr(auth_state, "auth_provider", None)
+    provider = get_auth_provider(request.app)
     if provider is None:
         return None
     try:
@@ -94,7 +94,7 @@ async def render_error_page(
         # root-relative page url: the adapter does that by construction now,
         # so the fallback no longer needs a separate patch to avoid the
         # cross-scheme `pushState` SecurityError behind a TLS proxy.
-        inertia_dep = getattr(request.app.state, "inertia_dependency", None)
+        inertia_dep = get_inertia_dependency(request.app)
         if inertia_dep is not None:
             inertia = inertia_dep(request, None)
         else:

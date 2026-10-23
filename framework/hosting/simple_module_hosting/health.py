@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Request
+from simple_module_core.app_state import get_migration_status
 from simple_module_core.health import HealthCheckResult, HealthRegistry, HealthStatus
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ _STATUS_SEVERITY = {
 
 @router.get("/health")
 async def health(request: Request) -> dict:
-    migration = getattr(request.app.state, "migration", None)
+    migration = get_migration_status(request.app)
     return {
         _KEY_STATUS: _STATUS_HEALTHY,
         _KEY_MIGRATION: migration,

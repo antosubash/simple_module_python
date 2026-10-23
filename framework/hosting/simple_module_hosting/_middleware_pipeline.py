@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
+from simple_module_core.app_state import get_body_limits
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_db import CommitBeforeResponseMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -173,7 +174,7 @@ def install_middleware(
     app.add_middleware(
         BodyLimitMiddleware,
         max_bytes=settings.max_request_body_bytes,
-        registry=getattr(app.state, "body_limits", None),
+        registry=get_body_limits(app),
     )
     # CORS executes between RequestLogging and BodyLimit: preflights are answered
     # before auth, rate limit, setup and maintenance can reject them, and a 413

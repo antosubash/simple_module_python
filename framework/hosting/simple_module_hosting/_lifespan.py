@@ -18,6 +18,7 @@ from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from simple_module_core.app_state import get_migration_status
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._route_guard import guard_included_routers
@@ -76,7 +77,7 @@ async def _is_first_run(app: FastAPI) -> bool:
         try:
             done = await step.is_complete(app)
         except Exception:
-            migration = getattr(app.state, "migration", None) or {}
+            migration = get_migration_status(app) or {}
             never_migrated = migration.get("current_revision") is None
             if not never_migrated:
                 logger.warning(

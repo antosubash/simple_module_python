@@ -12,6 +12,7 @@ is flipped must still be able to sign in.
 
 from __future__ import annotations
 
+from simple_module_core.app_state import get_host_services
 from simple_module_core.permissions import is_admin_principal
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -75,7 +76,7 @@ class MaintenanceMiddleware:
 
     @staticmethod
     def _host_settings(scope: Scope):
-        host_state = getattr(scope["app"].state, "host", None)
+        host_state = get_host_services(scope["app"])
         return getattr(host_state, "settings", None)
 
     @staticmethod

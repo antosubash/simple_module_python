@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 
+from simple_module_core.app_state import get_public_routes, get_rate_limit_rules
 from simple_module_core.rate_limit import (
     InProcessWindowStore,
     RateLimitRule,
@@ -68,7 +69,7 @@ class RateLimitMiddleware:
             if self.authenticated_rate is None:
                 return None
             return "auth", self.authenticated_rate, KEY_USER_OR_IP
-        registry = getattr(scope["app"].state, "public_routes", None)
+        registry = get_public_routes(scope["app"])
         rule = registry.match(scope["method"], scope["path"]) if registry is not None else None
         flag = scope.get("state", {}).get("auth_public")
         if flag is None:  # no auth middleware recorded a decision
@@ -88,7 +89,7 @@ class RateLimitMiddleware:
         return "public", self.public_rate, KEY_IP
 
     def _rule(self, scope: Scope) -> tuple[str, RateLimitRule] | None:
-        registry = getattr(scope["app"].state, "rate_limit_rules", None)
+        registry = get_rate_limit_rules(scope["app"])
         found = registry.match_entry(scope["method"], scope["path"]) if registry else None
         if found is None:
             return None

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from simple_module_core.app_state import get_tenant_resolver
 from simple_module_db import current_tenant_id, is_valid_tenant_id
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
@@ -188,9 +189,7 @@ class TenantMiddleware:
         if self.fixed is not None:
             return TenantResolution(self.fixed, "fixed")
         app = scope.get("app")
-        resolver: TenantResolver | None = getattr(
-            getattr(app, "state", None), "tenant_resolver", None
-        )
+        resolver: TenantResolver | None = get_tenant_resolver(app)
         if resolver is not None:
             return _normalise(await resolver(request))
 

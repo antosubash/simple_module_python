@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from simple_module_core.app_state import get_design_packs
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
@@ -27,7 +28,7 @@ async def manage(request: Request, inertia: InertiaDep) -> InertiaResponse:
     # ``getattr`` rather than direct access so this published module still
     # renders on a host older than the design-pack registry — it just offers
     # no packs to choose from.
-    registry = getattr(request.app.state, "design_packs", None)
+    registry = get_design_packs(request.app)
     packs = registry.all() if registry is not None else []
     # The page name is inlined as a literal (rather than constants._PAGE_MANAGE)
     # so the SM003/SM004 diagnostics — which do static AST analysis and can't

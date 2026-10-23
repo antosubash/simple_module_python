@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from fastapi import FastAPI
+from simple_module_core.app_state import get_deferred_startup, get_deferred_startup_lock
 from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
@@ -46,10 +47,10 @@ async def run_deferred_startup(app: FastAPI) -> None:
     rather than raised, because this runs after the migrations have already
     committed and a 500 there would help nobody.
     """
-    deferred = getattr(app.state, "deferred_startup", None)
+    deferred = get_deferred_startup(app)
     if not deferred:
         return
-    lock = getattr(app.state, "deferred_startup_lock", None)
+    lock = get_deferred_startup_lock(app)
     if lock is None:  # no await between check and set, so this cannot race
         lock = app.state.deferred_startup_lock = asyncio.Lock()
     async with lock:

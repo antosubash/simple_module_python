@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI
+from simple_module_core.app_state import get_branding, get_host_services
 from simple_module_inertia import InertiaConfig, SiteInfo, inertia_dependency_factory
 from starlette.requests import Request
 
@@ -50,8 +51,8 @@ def branding_head(request: Request) -> dict:
     """
     # A per-request object (same duck shape) wins: branding resolves a tenant's
     # own theme into ``request.state.branding`` from its shared-props provider.
-    services = getattr(getattr(request, "state", None), "branding", None) or getattr(
-        request.app.state, "branding", None
+    services = getattr(getattr(request, "state", None), "branding", None) or get_branding(
+        request.app
     )
     settings = getattr(services, "settings", None)
     app_name = getattr(settings, "app_name", "") or _DEFAULT_APP_NAME
@@ -68,7 +69,7 @@ def branding_head(request: Request) -> dict:
 
 def site_info(request: Request) -> SiteInfo:
     """The public base URL (operator setting, never the request ``Host``) and app name."""
-    host = getattr(request.app.state, "host", None)
+    host = get_host_services(request.app)
     base_url = getattr(getattr(host, "settings", None), "public_base_url", "") or ""
     return SiteInfo(base_url=base_url, app_name=branding_head(request)["app_name"])
 
