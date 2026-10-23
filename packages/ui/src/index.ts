@@ -19,6 +19,7 @@ export { StatCard } from './components/StatCard';
 export { useApiErrorToast } from './hooks/use-api-error-toast';
 export { useOnline } from './hooks/use-online';
 export { useRelativeTime } from './hooks/use-relative-time';
+export { useLeaveGuard } from './hooks/useLeaveGuard';
 export { type PageProps, usePageProps } from './hooks/usePageProps';
 export { AdminLayout } from './layouts/AdminLayout';
 export { AppLayout } from './layouts/AppLayout';
@@ -39,6 +40,7 @@ export {
   NETWORK_FAILURE,
   setCsrfToken,
 } from './lib/api';
+export { reportClientError } from './lib/client-errors';
 export { useHomeUrl } from './lib/home-url';
 export { initials } from './lib/initials';
 export {

@@ -28,6 +28,7 @@
     "title": "Diese Freigabe widerrufen?",
     "description": "Die Person verliert sofort den Zugriff auf die Ressource.",
     "confirm": "Widerrufen",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "failed": "Die Freigabe konnte nicht widerrufen werden"
   }
 }

@@ -1,6 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { ErrorScreen } from '@simple-module-py/ui/components/ErrorScreen';
 import { Button } from '@simple-module-py/ui/components/ui/button';
+import { reportClientError } from '@simple-module-py/ui/lib/client-errors';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
@@ -23,9 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     this.props.onError?.(error, info);
-    if (import.meta.env.DEV) {
-      console.error('ErrorBoundary caught:', error, info);
-    }
+    reportClientError(error, info);
   }
 
   reset = (): void => {

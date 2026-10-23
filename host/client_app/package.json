@@ -8,15 +8,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.9.1",
     "@inertiajs/react": "^3.7.0",
     "@simple-module-py/i18n": "*",
     "@simple-module-py/ui": "*",
-    "date-fns": "^4.4.0",
     "lucide-react": "^1.43.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "zod": "^4.5.4"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@simple-module-py/tsconfig": "*",

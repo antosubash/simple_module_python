@@ -7,6 +7,7 @@ import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Building2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { ShareTable } from './components/ShareTable';
 import type { Share } from './types';
 
@@ -37,11 +38,18 @@ function Admin(props: Props) {
   function confirmRevoke() {
     if (!pending) return;
     setBusy(true);
+    const onFailure = () => {
+      toast.error(t(keys.sharing.revoke.failed));
+      return false;
+    };
     router.post(
       `${BASE_URL}/${pending.id}/revoke`,
       {},
       {
         preserveScroll: true,
+        onError: onFailure,
+        onHttpException: onFailure,
+        onNetworkError: onFailure,
         onFinish: () => {
           setBusy(false);
           setPending(null);

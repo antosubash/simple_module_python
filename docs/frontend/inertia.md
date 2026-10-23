@@ -39,25 +39,30 @@ Breakdown:
 
 ## Responding with JSON vs. Inertia
 
-- **`endpoints/api.py`** — returns JSON. Called by background/non-Inertia code, or by Inertia's `router.get/post` on the client (which sends `X-Inertia: true` and receives a full Inertia response, **not** raw JSON).
-- **`endpoints/views.py`** — returns Inertia pages. Routed at `view_prefix`, rendered as full HTML on the first request and as JSON page updates on client-side navigation.
-
-The split is convention: keep GET-for-page-data calls in `views.py`, keep POST/PATCH/DELETE data mutations in `api.py` even if triggered from Inertia forms. This way JSON APIs are usable from scripts and Inertia pages route cleanly.
+- **`endpoints/api.py`** returns JSON. Use the typed `createApi` client wrapped in
+  `apiResult` for JSON actions, and toast failed results (including network failures).
+- **`endpoints/views.py`** returns Inertia pages or redirects. View-route forms use
+  Inertia `useForm` for data, validation errors and processing state. Small actions
+  without form fields may use `router.post/delete` with an `onError` toast.
+  Handle `onHttpException` and `onNetworkError` too when an action should toast
+  HTTP or connection failures; returning `false` suppresses Inertia's default handler.
 
 ## Inertia form submission
 
-From a page, use Inertia's `router.post`:
+Submit to the module's view route:
 
 ```tsx
-import { router } from "@inertiajs/react";
+import { useForm } from "@inertiajs/react";
 
 function CreateOrder() {
-  const [data, setData] = useState({ customer_email: "", total: "" });
+  const form = useForm({ customer_email: "", total: "" });
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        router.post("/api/orders", data);
+        form.post("/orders", {
+          onError: () => toast.error(t(keys.orders.create.failed)),
+        });
       }}
     >
       ...
@@ -97,8 +102,9 @@ There is no `flash` shared prop. For "created successfully" toasts, fire `sonner
 ```tsx
 import { toast } from "sonner";
 
-router.post("/api/orders", data, {
-  onSuccess: () => toast.success("Order created"),
+router.post("/orders", data, {
+  onSuccess: () => toast.success(t(keys.orders.create.saved)),
+  onError: () => toast.error(t(keys.orders.create.failed)),
 });
 ```
 

@@ -79,7 +79,8 @@
     "report_checks": "Comprobaciones",
     "report_checks_unavailable": "no disponible (las comprobaciones solo se ejecutan en desarrollo)",
     "report_migrations": "Migraciones",
-    "report_dev_server": "Servidor de desarrollo"
+    "report_dev_server": "Servidor de desarrollo",
+    "rerun_failed": "No se pudo volver a ejecutar el diagnóstico"
   },
   "nav": {
     "dashboard": "Panel",

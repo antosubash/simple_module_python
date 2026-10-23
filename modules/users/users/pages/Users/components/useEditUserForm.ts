@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -72,22 +73,7 @@ export function useEditUserForm(user: EditableUser) {
   // React has not re-rendered with the advanced baseline at that point.
   const savingRef = useRef(false);
 
-  // One dirty state is only honest if leaving with unsaved changes is hard to
-  // do by accident. `beforeunload` alone is not enough: it never fires for an
-  // Inertia visit, and "Cancel" and every sidebar link are Inertia visits —
-  // i.e. every ordinary way of leaving this page.
-  useEffect(() => {
-    if (dirtyCount === 0) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    const stopListening = router.on('before', () =>
-      savingRef.current ? true : window.confirm(t(keys.users.edit.leave_warning)),
-    );
-    return () => {
-      window.removeEventListener('beforeunload', warn);
-      stopListening();
-    };
-  }, [dirtyCount, t]);
+  useLeaveGuard(dirtyCount > 0, t(keys.users.edit.leave_warning), savingRef);
 
   const toggleRole = (roleName: string) =>
     setForm((prev) => ({

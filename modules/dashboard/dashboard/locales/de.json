@@ -79,7 +79,8 @@
     "report_checks": "Prüfungen",
     "report_checks_unavailable": "nicht verfügbar (Diagnose läuft nur in der Entwicklungsumgebung)",
     "report_migrations": "Migrationen",
-    "report_dev_server": "Entwicklungsserver"
+    "report_dev_server": "Entwicklungsserver",
+    "rerun_failed": "Die Diagnose konnte nicht erneut ausgeführt werden"
   },
   "nav": {
     "dashboard": "Dashboard",

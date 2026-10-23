@@ -79,7 +79,8 @@
     "report_checks": "Checks",
     "report_checks_unavailable": "not available (diagnostics run in development only)",
     "report_migrations": "Migrations",
-    "report_dev_server": "Dev server"
+    "report_dev_server": "Dev server",
+    "rerun_failed": "Failed to rerun diagnostics"
   },
   "nav": {
     "dashboard": "Dashboard",
