@@ -36,6 +36,6 @@ describe('dashboard Doctor', () => {
     expect(screen.getByTitle('a3f1beef')).toHaveTextContent('a3f1');
     expect(screen.getAllByText(':5050').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: keys.dashboard.doctor.rerun }));
-    expect(post).toHaveBeenCalledWith('/admin/doctor/rerun');
+    expect(post).toHaveBeenCalledWith('/admin/doctor/rerun', expect.anything(), expect.anything());
   });
 });

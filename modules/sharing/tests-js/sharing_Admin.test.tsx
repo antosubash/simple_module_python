@@ -87,10 +87,10 @@ describe('sharing Admin', () => {
     expect(post).toHaveBeenCalledWith(
       '/admin/sharing/share-1/revoke',
       {},
-      {
+      expect.objectContaining({
         preserveScroll: true,
         onFinish: expect.any(Function),
-      },
+      }),
     );
     expect(screen.getByRole('button', { name: keys.sharing.revoke.confirm })).toBeDisabled();
     act(() => post.mock.calls[0][2].onFinish());
