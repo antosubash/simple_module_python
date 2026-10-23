@@ -211,12 +211,14 @@ def reconcile_checksums() -> int:
 
     from file_storage.models import StoredFile
 
+    backend, _ = _backend_and_settings()
     cutoff = datetime.now(UTC) - timedelta(minutes=constants.CHECKSUM_RECONCILE_MIN_AGE_MINUTES)
     with sync_session() as db, all_tenants():
         targets = list(
             db.execute(
                 select(StoredFile.id, StoredFile.tenant_id)
                 .where(
+                    col(StoredFile.backend) == backend.backend_id,
                     col(StoredFile.checksum_sha256).is_(None),
                     col(StoredFile.created_at) < cutoff,
                 )

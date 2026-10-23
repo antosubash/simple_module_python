@@ -60,6 +60,10 @@ class FileStorageModule(ModuleBase):
         from file_storage.tenant_deletion import register_tenant_deletion
 
         register_tenant_deletion(bus, app)
+        if app is not None:
+            from file_storage.tenant_cache import register_tenant_cache
+
+            register_tenant_cache(bus, app)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
         from file_storage.errors import install_exception_handlers

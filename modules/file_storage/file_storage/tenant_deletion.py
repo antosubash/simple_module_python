@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+CLEANUP_BATCH_SIZE = 500
+
 _PURGE_HANDLER = "file_storage.tenant_deletion.purge_rows"
 _OBJECT_HANDLER = "file_storage.tenant_deletion.purge_objects"
 
@@ -42,49 +44,47 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
 
     async def purge_rows(event: TenantDeleted, ctx: DurableContext) -> None:
         with tenant_context(event.tenant_id):
-            files = (
+            for model, columns in (
+                (StoredFile, (StoredFile.backend, StoredFile.key)),
                 (
-                    await ctx.db.execute(
-                        select(StoredFile)
-                        .where(col(StoredFile.tenant_id) == event.tenant_id)
-                        .execution_options(include_deleted=True)
-                    )
+                    UploadSession,
+                    (UploadSession.key, UploadSession.backend_upload_id, UploadSession.status),
+                ),
+            ):
+                result = await ctx.db.stream(
+                    select(*columns)
+                    .where(col(model.tenant_id) == event.tenant_id)
+                    .execution_options(include_deleted=True, yield_per=CLEANUP_BATCH_SIZE)
                 )
-                .scalars()
-                .all()
-            )
-            uploads = (
-                (
-                    await ctx.db.execute(
-                        select(UploadSession).where(col(UploadSession.tenant_id) == event.tenant_id)
+                async for rows in result.partitions(CLEANUP_BATCH_SIZE):
+                    manifest = TenantStorageCleanupRequested(
+                        files=[(row[0], row[1]) for row in rows] if model is StoredFile else [],
+                        uploads=[
+                            (row[0], row[1])
+                            for row in rows
+                            if row[2] == constants.UploadStatus.ACTIVE
+                        ]
+                        if model is UploadSession
+                        else [],
                     )
-                )
-                .scalars()
-                .all()
-            )
-            if files or uploads:
-                manifest = TenantStorageCleanupRequested(
-                    files=[(row.backend, row.key) for row in files],
-                    uploads=[
-                        (row.key, row.backend_upload_id)
-                        for row in uploads
-                        if row.status == constants.UploadStatus.ACTIVE
-                    ],
-                )
-                on_commit = getattr(ctx.db, "on_commit", None)
-                if bus.durable_transport is not None:
-                    await bus.publish_durable(manifest, ctx.db)
-                elif on_commit is not None:
-                    # Backend objects must survive a rollback of the row purge.
-                    on_commit(lambda: bus.publish_durable_or_inline(manifest, ctx.db))
-                else:
-                    # A plain session has no post-commit hook; the object reaper
-                    # reclaims unreferenced objects after its grace period.
-                    _logger.warning(
-                        "file_storage.tenant_cleanup_deferred tenant=%s objects=%d",
-                        event.tenant_id,
-                        len(manifest.files),
-                    )
+                    if not manifest.files and not manifest.uploads:
+                        continue
+                    on_commit = getattr(ctx.db, "on_commit", None)
+                    if bus.durable_transport is not None:
+                        await bus.publish_durable(manifest, ctx.db)
+                    elif on_commit is not None:
+                        # Bind each chunk so callbacks cannot reuse the last manifest.
+                        on_commit(
+                            lambda manifest=manifest: bus.publish_durable_or_inline(
+                                manifest, ctx.db
+                            )
+                        )
+                    else:
+                        _logger.warning(
+                            "file_storage.tenant_cleanup_deferred tenant=%s objects=%d",
+                            event.tenant_id,
+                            len(manifest.files),
+                        )
             for model in (UploadSession, StoredFile):
                 await ctx.db.execute(
                     delete(model)

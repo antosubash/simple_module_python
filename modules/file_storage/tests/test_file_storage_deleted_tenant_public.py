@@ -38,9 +38,36 @@ async def test_file_storage_public_checks_deleted_tenant(
         await db.execute(delete(Tenant).where(Tenant.id == admin_tenant_id))
         await db.commit()
 
+    # A missed event is bounded by the TTL; expire the previously cached answer.
+    monkeypatch.setattr("file_storage.tenant_cache.TENANT_EXISTS_TTL_SECONDS", 0)
     if not directory:
         # Hosts without a tenant registry retain the single-tenant contract.
         monkeypatch.delattr(app.state, "tenant_exists")
     for url in urls:
         response = await client.get(url, headers={"If-None-Match": '"cached"'})
         assert response.status_code == (404 if directory else 200), response.text
+
+
+async def test_tenant_existence_cache_hit_invalidation_and_ttl(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from fastapi import FastAPI
+    from file_storage.tenant_cache import cached_tenant_exists, register_tenant_cache
+    from simple_module_core.events import EventBus
+    from simple_module_core.tenant_events import TenantDeleted
+
+    app = FastAPI()
+    bus = EventBus()
+    register_tenant_cache(bus, app)
+    lookup = AsyncMock(return_value=True)
+    app.state.tenant_exists = lookup
+    assert await cached_tenant_exists(app, "tenant") is True
+    assert await cached_tenant_exists(app, "tenant") is True
+    assert lookup.await_count == 1
+    lookup.return_value = False
+    await bus.publish(TenantDeleted("tenant", "tenant", "Tenant"))
+    assert await cached_tenant_exists(app, "tenant") is False
+    assert lookup.await_count == 2
+    monkeypatch.setattr("file_storage.tenant_cache.TENANT_EXISTS_TTL_SECONDS", 0)
+    assert await cached_tenant_exists(app, "tenant") is False
+    assert lookup.await_count == 3

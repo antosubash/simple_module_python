@@ -10,7 +10,6 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from simple_module_core.tenancy import tenant_exists
 from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage import constants
@@ -18,6 +17,7 @@ from file_storage.deps import get_file_storage_service
 from file_storage.scope import PLATFORM_TENANT_ID
 from file_storage.service import FileStorageService, StoredFileNotFoundError
 from file_storage.serving import not_found, public_file_response, thumbnail_response
+from file_storage.tenant_cache import cached_tenant_exists
 
 router = APIRouter()
 
@@ -30,7 +30,7 @@ async def _public_row(
         # Platform-owned files (branding logo/favicon) have no tenant row by design.
         if (
             row.tenant_id != PLATFORM_TENANT_ID
-            and await tenant_exists(request.app, row.tenant_id) is False
+            and await cached_tenant_exists(request.app, row.tenant_id) is False
         ):
             raise StoredFileNotFoundError(str(file_id))
         return row

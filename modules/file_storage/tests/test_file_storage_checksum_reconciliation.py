@@ -20,6 +20,9 @@ def checksum_worker(tmp_path, monkeypatch):
     engine.dispose()
     monkeypatch.setattr(sync_db, "discover_audit_callback", lambda: None)
     sync_db.set_database_url(url, tenant_strict=True)
+    monkeypatch.setattr(
+        tasks, "_backend_and_settings", lambda: (Mock(backend_id="filesystem"), None)
+    )
     yield
     sync_db.dispose_sync_engine()
 
@@ -85,3 +88,18 @@ def test_batch_is_bounded_and_failed_publishes_are_retried(checksum_worker, monk
     publish.reset_mock(side_effect=True)
     assert tasks.reconcile_checksums() == 1
     assert publish.call_args.kwargs["args"] == lost_args
+
+
+def test_other_backend_rows_do_not_starve_active_backend(checksum_worker, monkeypatch):
+    monkeypatch.setattr(constants, "CHECKSUM_RECONCILE_BATCH_SIZE", 2)
+    with sync_db.sync_session() as db, tenant_context("tenant-a"):
+        for age in range(100, 103):
+            row = _file("tenant-a", age=age)
+            row.backend = constants.BackendId.S3
+            db.add(row)
+        active = _file("tenant-a")
+        db.add(active)
+    publish = Mock()
+    monkeypatch.setattr(tasks.compute_checksum, "apply_async", publish)
+    assert tasks.reconcile_checksums() == 1
+    assert publish.call_args.kwargs["args"] == (str(active.id), active.tenant_id)

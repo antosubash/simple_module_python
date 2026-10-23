@@ -97,14 +97,14 @@ async def test_tenant_cleanup_commits_manifest_and_retries(app, tmp_path, monkey
             assert not (await db.execute(select(UploadSession))).scalars().all()
     original_delete = backend.delete
     monkeypatch.setattr(backend, "delete", AsyncMock(side_effect=RuntimeError("offline")))
-    assert (await dispatch(factory, bus, policy)).retrying == 1
+    assert (await dispatch(factory, bus, policy)).retrying == 2
     async with factory() as db:
         rows = (await db.execute(select(OutboxMessage))).scalars().all()
-        assert sum(row.status == OutboxStatus.PENDING for row in rows) == 1
+        assert sum(row.status == OutboxStatus.PENDING for row in rows) == 2
     monkeypatch.setattr(backend, "delete", original_delete)
     assert (
         await dispatch(factory, bus, policy, now=datetime.now(UTC) + timedelta(minutes=1))
-    ).delivered == 1
+    ).delivered == 2
     assert not await backend.exists(key)
     assert not await backend.exists(variant)
     assert not backend._parts_dir(upload_id).exists()
