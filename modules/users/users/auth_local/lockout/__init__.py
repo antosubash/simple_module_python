@@ -32,7 +32,7 @@ import math
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 from simple_module_core.rate_limit import RateSpec
 from simple_module_db import independent_session
 from sqlalchemy import case, func, select, update
@@ -40,6 +40,7 @@ from sqlmodel import col
 
 from users.auth_local.lockout.attempt import Admission, LoginAttempt
 from users.auth_local.rate_limit import client_ip
+from users.exceptions import LoginLockedError
 from users.models import User
 
 if TYPE_CHECKING:
@@ -64,13 +65,9 @@ def login_attempt(request: Request, username: str) -> LoginAttempt:
     )
 
 
-def too_many_attempts(retry_after: int) -> HTTPException:
-    """The 429 for a locked account or a throttled source — deliberately identical."""
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail=LOCKED_DETAIL,
-        headers={"Retry-After": str(max(1, retry_after))},
-    )
+def too_many_attempts(retry_after: int) -> LoginLockedError:
+    """The same domain failure for a locked account or a throttled source."""
+    return LoginLockedError(retry_after)
 
 
 def _by_username(username: str) -> Any:
@@ -157,7 +154,7 @@ async def _admit_unknown(attempt: LoginAttempt) -> Admission:
 
 async def record_failure(
     session: AsyncSession, attempt: LoginAttempt, admission: Admission
-) -> HTTPException | None:
+) -> LoginLockedError | None:
     """Settle a wrong password: the 429 to raise if it was the last slot, else ``None``.
 
     The failure itself was counted by :func:`admit`. Locking uses an independent checkpoint:

@@ -128,6 +128,11 @@ class UsersModule(ModuleBase):
 
         subscribe(bus)
 
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from users.errors import install_exception_handlers
+
+        install_exception_handlers(app)
+
     def register_middleware(self, app: FastAPI) -> None:
         """Refuse writes from either shared demo session.
 

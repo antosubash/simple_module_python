@@ -1,4 +1,10 @@
-"""{{SINGULAR_CLASS}} service implementation."""
+"""{{SINGULAR_CLASS}} service implementation.
+
+Business failures raise domain exceptions derived from a per-module base in
+exceptions.py or errors.py, never HTTPException. Map them in endpoints or via
+ModuleBase.register_exception_handlers; keep HTTP status, payload, headers and
+translation at that boundary so this service also works in CLI/tasks.
+"""
 
 from __future__ import annotations
 

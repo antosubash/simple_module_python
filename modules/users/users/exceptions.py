@@ -10,7 +10,11 @@ from __future__ import annotations
 import uuid
 
 
-class UserNotFoundError(Exception):
+class UsersError(Exception):
+    """Base for users business failures, independent of HTTP."""
+
+
+class UserNotFoundError(UsersError):
     """Raised when a user lookup by id/email returns nothing."""
 
     def __init__(self, user_id: uuid.UUID) -> None:
@@ -18,7 +22,7 @@ class UserNotFoundError(Exception):
         self.user_id = user_id
 
 
-class EmailAlreadyExistsError(Exception):
+class EmailAlreadyExistsError(UsersError):
     """Raised when updating a user to an email already owned by another user."""
 
     def __init__(self, email: str) -> None:
@@ -26,7 +30,7 @@ class EmailAlreadyExistsError(Exception):
         self.email = email
 
 
-class ExternalUserNoPasswordError(Exception):
+class ExternalUserNoPasswordError(UsersError):
     """Raised when a password-credential action targets an external (SSO) user.
 
     External users have no local password, so password reset / set has no
@@ -38,7 +42,7 @@ class ExternalUserNoPasswordError(Exception):
         self.user_id = user_id
 
 
-class NotPendingInviteError(Exception):
+class NotPendingInviteError(UsersError):
     """Raised when resending an invite to a row that is not awaiting one.
 
     Resend is only offered on rows in the ``invited`` state, so reaching this
@@ -55,3 +59,11 @@ class NotPendingInviteError(Exception):
         super().__init__(f"User {user_id} has no pending invite: {reason}")
         self.user_id = user_id
         self.reason = reason
+
+
+class LoginLockedError(UsersError):
+    """A login attempt is locked until the retry delay elapses."""
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__("Too many attempts — try again later")
+        self.retry_after = max(1, retry_after)

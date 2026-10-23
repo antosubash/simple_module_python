@@ -12,8 +12,10 @@ from simple_module_db.stored_settings import Setting
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from settings.exceptions import SettingsError
 
-class DuplicateSettingError(Exception):
+
+class DuplicateSettingError(SettingsError):
     """A row with this (scope, scope_id, key) already exists."""
 
 
