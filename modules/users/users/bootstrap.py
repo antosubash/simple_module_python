@@ -139,9 +139,9 @@ async def create_admin(
 async def ensure_user_role(db: AsyncSession) -> Role:
     """The standard ``user`` Role row, created (and flushed) if it is missing.
 
-    Migration ``b5018b617142`` normally seeds it; tests build the schema with
-    ``create_all`` and get no seed rows, so callers that attach the role must
-    not assume it exists.
+    Startup ensures it even in scaffolded hosts whose schema baseline omits
+    the host's data migration ``b5018b617142``. Bootstrap callers can also use
+    this before startup has run.
     """
     user_role = (
         await db.execute(select(Role).where(col(Role.name) == USER_ROLE_NAME))

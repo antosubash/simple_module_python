@@ -25,12 +25,12 @@ dependencies = [
     "simple_module_db==0.0.38",
     "simple_module_hosting==0.0.38",
     "simple_module_settings==0.0.38",
-    "aiofiles>=23",
-    "pillow>=10",
+    "aiofiles>=23,<26",
+    "pillow>=10,<14",
 ]
 
 [project.optional-dependencies]
-s3 = ["aioboto3>=13"]
+s3 = ["aioboto3>=13,<16"]
 tasks = ["simple_module_background_tasks==0.0.38"]
 
 [project.entry-points.simple_module]

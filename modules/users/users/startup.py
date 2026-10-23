@@ -41,7 +41,7 @@ _DASHBOARD_MODULE = "Dashboard"
 async def run_startup(module: UsersModule, app: FastAPI) -> None:
     """Populate ``app.state.users`` and apply settings-derived configuration."""
     from users.backend import reconfigure_cookie_transport
-    from users.bootstrap import bootstrap_admin_from_env
+    from users.bootstrap import bootstrap_admin_from_env, ensure_user_role
     from users.demo import ensure_demo_users
     from users.deps import auth_backend
     from users.roles_cache import refresh_roles_cache
@@ -63,6 +63,11 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     # closes that window wherever an invalidation transport is installed, so
     # this is the bound on a dropped message rather than on every revocation.
     configure_session_version_cache(s.session_version_cache_ttl_seconds)
+
+    # Scaffolded hosts create a schema baseline without the framework host's
+    # data migrations. Seed before warming the cache or provisioning accounts.
+    async with app.state.sm.db.session_factory.begin() as db:
+        await ensure_user_role(db)
 
     await asyncio.gather(
         bootstrap_admin_from_env(app),

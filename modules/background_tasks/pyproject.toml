@@ -25,8 +25,8 @@ dependencies = [
     "simple_module_db==0.0.38",
     "simple_module_hosting==0.0.38",
     "simple_module_settings==0.0.38",
-    "celery[redis]>=5.4",
-    "redis>=5",
+    "celery[redis]>=5.4,<6",
+    "redis>=5,<7",
 ]
 
 [project.entry-points.simple_module]
