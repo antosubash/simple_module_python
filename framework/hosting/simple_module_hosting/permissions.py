@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request
+from simple_module_core.app_state import get_services
 from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
 
@@ -163,7 +164,7 @@ async def resolve_request_permissions(
 
 
 def _registry_for(request: Request) -> PermissionRegistry | None:
-    sm = getattr(getattr(request.app, "state", None), "sm", None)
+    sm = get_services(request.app)
     return getattr(sm, "permissions", None) if sm is not None else None
 
 

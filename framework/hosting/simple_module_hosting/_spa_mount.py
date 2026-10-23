@@ -18,6 +18,7 @@ import re
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from simple_module_core.app_state import get_host_services, get_public_routes, get_spa_prefixes
 from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
 from simple_module_core.spa_mount import SPA_AUTH_PUBLIC, SpaMount
 from starlette.datastructures import Headers
@@ -108,7 +109,7 @@ def mount_spa_mounts(app: FastAPI, modules: list) -> None:
         raise SpaMountError("\n".join(str(p) for p in problems))
 
     prefixes: list[str] = []
-    registry = getattr(app.state, "public_routes", None)
+    registry = get_public_routes(app)
     for mod in modules:
         for mount in mod.spa_mounts():
             if _mount(app, mod.meta.name, mount, registry):
@@ -142,7 +143,7 @@ def _mount(app: FastAPI, module_name: str, mount: SpaMount, registry) -> bool:
 
 def native_prefixes(app: FastAPI) -> list[str]:
     """Prefixes the client must not intercept: mounted SPAs + the host setting."""
-    host = getattr(app.state, "host", None)
+    host = get_host_services(app)
     configured = getattr(getattr(host, "settings", None), "native_link_prefixes", None) or []
-    spa = [f"{prefix}/" for prefix in getattr(app.state, "spa_prefixes", ())]
+    spa = [f"{prefix}/" for prefix in get_spa_prefixes(app)]
     return sorted({*spa, *configured})

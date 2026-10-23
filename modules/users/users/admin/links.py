@@ -18,6 +18,7 @@ Precedence, most deliberate first:
 
 from __future__ import annotations
 
+from simple_module_core.app_state import get_host_services
 from starlette.requests import Request
 
 from users.settings import UsersSettings
@@ -31,7 +32,7 @@ def admin_link_base(request: Request) -> str:
     configured = str(getattr(users, "base_url", "") or "")
     if configured and configured != _DEFAULT_BASE_URL:
         return configured.rstrip("/")
-    host = getattr(getattr(request.app.state, "host", None), "settings", None)
+    host = getattr(get_host_services(request.app), "settings", None)
     public = str(getattr(host, "public_base_url", "") or "")
     if public:
         return public.rstrip("/")

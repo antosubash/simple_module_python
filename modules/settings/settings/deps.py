@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
+from simple_module_core.app_state import get_services
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +26,7 @@ async def get_setting_service(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> SettingService:
-    bus = getattr(getattr(request.app.state, "sm", None), "invalidation", None)
+    bus = getattr(get_services(request.app), "invalidation", None)
 
     async def tenant_is_live(tenant_id: str) -> bool:
         return await is_known_tenant(request, tenant_id)

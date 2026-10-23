@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 
+from simple_module_core.app_state import get_openapi_url
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
 from simple_module_hosting.public_access import is_public as route_is_public
@@ -87,7 +88,7 @@ class AuthMiddleware:
             any(path.startswith(p) for p in _FRAMEWORK_PUBLIC_PREFIXES)
             or path in _FRAMEWORK_PUBLIC_EXACT
             # Anonymous exactly when the host serves it (dev, or openapi_public).
-            or path == getattr(app_state, "openapi_url", None)
+            or path == get_openapi_url(scope["app"])
         )
         if not is_public:
             is_public = route_is_public(scope["app"], method, path)
@@ -150,6 +151,11 @@ class AuthMiddleware:
 
         if user_ctx is not None:
             request.state.user = user_ctx
+            for guard in auth_state.principal_guards:
+                refusal = guard(request)
+                if refusal is not None:
+                    await refusal(scope, receive, send)
+                    return
             token = current_user_id.set(user_ctx.id)
             try:
                 await self.app(scope, receive, send)

@@ -17,6 +17,8 @@ from collections.abc import Awaitable, Callable, Collection
 from enum import StrEnum
 from typing import Any
 
+from simple_module_core.app_state import get_tenant_exists, get_tenant_members
+
 TENANT_ROLE_PREFIX = "tenant:"
 
 
@@ -72,7 +74,7 @@ async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
     URL ask through this, so they can refuse a typo without importing that
     module; with none installed the answer is ``None`` and they accept the id.
     """
-    check: TenantExists | None = getattr(app.state, "tenant_exists", None)
+    check: TenantExists | None = get_tenant_exists(app)
     if check is None:
         return None
     return bool(await check(tenant_id))
@@ -97,7 +99,7 @@ async def tenant_member_ids(
     no membership store is installed; callers on a multi-tenant app treat it
     as "nobody" (fail closed).
     """
-    check: TenantMembers | None = getattr(app.state, "tenant_members", None)
+    check: TenantMembers | None = get_tenant_members(app)
     if check is None:
         return None
     if not user_ids:

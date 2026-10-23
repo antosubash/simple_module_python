@@ -20,6 +20,8 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_core.app_state import get_services
+
 from users.models import User
 from users.session_version_cache import clear_session_version_cache, forget_session_version
 
@@ -102,7 +104,7 @@ async def publish_revocation(app: FastAPI, user_id) -> None:
     single-module test harness (``build_test_app``) rather than in any real app.
     Silently doing nothing there would make a revocation look like it worked.
     """
-    bus = getattr(getattr(app.state, "sm", None), "invalidation", None)
+    bus = getattr(get_services(app), "invalidation", None)
     if bus is None:
         logger.debug("No invalidation bus on this app; dropping %s locally", user_id)
         forget_session_version(user_id)

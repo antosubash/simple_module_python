@@ -16,6 +16,7 @@ import asyncio
 import logging
 import time
 
+from simple_module_core.app_state import get_migration_status, get_services
 from starlette.datastructures import Headers
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -69,7 +70,7 @@ async def _database_migrated(app) -> bool:
     restarts it. Only the behind-head branch pays for the query, so a healthy
     install still answers from the snapshot.
     """
-    status = getattr(app.state, "migration", None)
+    status = get_migration_status(app)
     if not status:
         return True
     if status.get("is_current", True):
@@ -201,7 +202,7 @@ class SetupMiddleware:
             return
 
         starlette_app = scope.get("app")
-        registry = getattr(getattr(starlette_app, "state", None), "sm", None)
+        registry = get_services(starlette_app)
         registry = getattr(registry, "setup_registry", None)
         # No registry, or nothing registered a step: nothing can gate the app.
         # ``create_app`` always seeds ``host.migrations``, so in a real host

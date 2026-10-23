@@ -9,12 +9,16 @@ principal-resolver registry. Apps register additional resolvers from their
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from auth.contracts.resolver import PrincipalResolver
 
 if TYPE_CHECKING:
+    from starlette.requests import Request
+    from starlette.responses import Response
+
     from auth.contracts.provider import AuthProvider
 
 
@@ -24,6 +28,11 @@ class AuthState:
 
     auth_provider: AuthProvider | None = None
     principal_resolvers: list[PrincipalResolver] = field(default_factory=list)
+    # Run once a principal has resolved (any credential source), before downstream
+    # middleware; anonymous requests never reach them.
+    # A guard is a sync callable returning a refusal response or None to continue.
+    # An exception propagates (a 500), so a broken guard fails closed, never open.
+    principal_guards: list[Callable[[Request], Response | None]] = field(default_factory=list)
 
 
 __all__ = ["AuthState"]

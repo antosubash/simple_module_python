@@ -12,16 +12,19 @@ Why a middleware and not a dependency: the point is to cover every route in
 every installed module, including ones written before demo mode existed. A
 dependency covers only the routes that remember to declare it.
 
-Why it reads the session rather than ``request.state.user``: module middleware
-sorts by ``depends_on``, and ``users`` depends on ``Auth``, so this executes
-*before* ``AuthMiddleware`` has resolved anyone. The session cookie is already
-decoded by then (``Session`` sits outside every module's middleware), and it
-carries both the stamp the demo endpoints write and the user id — which is
-what catches a visitor who signed in with a published demo password through
-the ordinary form instead of a button.
+Two layers cover different lifetimes. The middleware runs before Auth and
+checks the decoded session's demo stamp or user id, including an expired
+identity whose demo stamp remains. The registered principal guard runs after
+Auth has resolved any credential source, covering session cookies, bearer
+access tokens and personal API tokens by the resolved identity. Both layers
+use the same allowed routes and refusal response. Token login and refresh
+also check the account before minting non-session credentials.
 """
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+from uuid import UUID
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -29,6 +32,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from users.constants import SESSION_USER_ID_KEY
 from users.demo import SESSION_DEMO_KEY
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 #: The error body the frontend matches on to show "this is a read-only demo".
 DEMO_READ_ONLY_DETAIL = "DEMO_READ_ONLY"
@@ -50,6 +56,31 @@ _ALLOWED_PATHS = frozenset({"/users/logout", "/api/users/auth/logout", "/api/use
 
 #: Prefix form of the same, for the per-role demo sign-in routes.
 _ALLOWED_PREFIXES = ("/api/users/auth/demo/",)
+
+
+def _write_is_allowed(scope: Scope) -> bool:
+    return (
+        scope.get("method", "GET") in _SAFE_METHODS
+        or scope["path"] in _ALLOWED_PATHS
+        or scope["path"].startswith(_ALLOWED_PREFIXES)
+    )
+
+
+def is_read_only_demo(app: FastAPI, user_id: str | UUID) -> bool:
+    """Check a resolved account against live demo settings, independent of cookies."""
+    state = app.state.users
+    return state.settings.demo_read_only and any(
+        str(user_id) == str(known) for known in state.demo_user_ids
+    )
+
+
+def demo_principal_refusal(request: Request) -> Response | None:
+    """Auth's post-resolution guard, including fallback principal resolvers."""
+    if not _write_is_allowed(request.scope) and is_read_only_demo(
+        request.app, request.state.user.id
+    ):
+        return _refusal(request.scope)
+    return None
 
 
 def is_demo_session(scope: Scope, demo_user_ids) -> bool:
@@ -90,7 +121,7 @@ class DemoReadOnlyMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope.get("method", "GET") in _SAFE_METHODS:
+        if scope["type"] != "http" or _write_is_allowed(scope):
             await self.app(scope, receive, send)
             return
 
@@ -107,11 +138,6 @@ class DemoReadOnlyMiddleware:
         # recognised by the stamp they carry, so an install that never hosted a
         # demo still pays nothing beyond one dict lookup on unsafe methods.
         if settings is None or not getattr(settings, "demo_read_only", True):
-            await self.app(scope, receive, send)
-            return
-
-        path = scope["path"]
-        if path in _ALLOWED_PATHS or path.startswith(_ALLOWED_PREFIXES):
             await self.app(scope, receive, send)
             return
 

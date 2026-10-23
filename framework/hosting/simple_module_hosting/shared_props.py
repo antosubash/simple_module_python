@@ -18,14 +18,17 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
+from simple_module_core.app_state import (
+    INERTIA_SHARED_PROVIDERS_STATE_ATTR,
+    get_inertia_shared_providers,
+)
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from starlette.requests import Request
 
 SharedPropsProvider = Callable[["Request"], dict | Awaitable[dict]]
 """A function mapping a request to a dict merged into Inertia shared props."""
-
-_STATE_ATTR = "inertia_shared_providers"
 
 
 def register_inertia_shared_provider(app: FastAPI, provider: SharedPropsProvider) -> None:
@@ -35,8 +38,8 @@ def register_inertia_shared_provider(app: FastAPI, provider: SharedPropsProvider
     appends ``provider``. Safe to call from a module lifecycle hook before the
     framework has set up the list.
     """
-    providers = getattr(app.state, _STATE_ATTR, None)
+    providers = get_inertia_shared_providers(app)
     if providers is None:
         providers = []
-        setattr(app.state, _STATE_ATTR, providers)
+        setattr(app.state, INERTIA_SHARED_PROVIDERS_STATE_ATTR, providers)
     providers.append(provider)

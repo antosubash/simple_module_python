@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
+from simple_module_core.app_state import get_design_packs
 
 from branding.constants import (
     IMAGE_KEY_GENERIC_WRITE_ERROR,
@@ -66,7 +67,7 @@ def _make_check(name: str):
         except ValidationError as exc:
             raise ValueError(exc.errors()[0]["msg"]) from exc
         if name == "design_pack" and value:
-            registry = getattr(request.app.state, "design_packs", None)
+            registry = get_design_packs(request.app)
             if registry is None or not registry.has(value):
                 raise ValueError(f"Unknown design pack {value!r}.")
 

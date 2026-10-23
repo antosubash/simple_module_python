@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from file_storage.deps import get_file_storage_service
 from file_storage.service import FileStorageService
+from simple_module_core.app_state import get_design_packs
 from simple_module_hosting.permissions import RequiresPermission
 
 from branding import constants
@@ -36,7 +37,7 @@ def _validate_design_pack(request: Request, changes: dict) -> None:
     pack = changes.get("design_pack")
     if not pack:
         return
-    registry = getattr(request.app.state, "design_packs", None)
+    registry = get_design_packs(request.app)
     if registry is None or not registry.has(pack):
         raise HTTPException(
             status_code=422,

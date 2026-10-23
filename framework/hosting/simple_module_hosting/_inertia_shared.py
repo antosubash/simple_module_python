@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from simple_module_core.app_state import get_inertia_shared_providers, get_services
 from simple_module_core.i18n import Translator
 from starlette.datastructures import Headers
 from starlette.requests import Request
@@ -45,7 +46,7 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
     """
     # Test fixtures sometimes build a bare FastAPI with a partial app.state.sm
     # stub (e.g. permissions-only, no i18n); guard both lookups to keep them usable.
-    sm = getattr(request.app.state, "sm", None)
+    sm = get_services(request.app)
     registry = getattr(sm, "i18n_registry", None) if sm is not None else None
     locale = getattr(request.state, "locale", None)
     if registry is None or locale is None:
@@ -138,7 +139,7 @@ def build_menu_translator(request: Request) -> Callable[[str], str] | None:
     with a partial ``app.state.sm``, and a missing registry must degrade to the
     literal labels rather than raise on every request.
     """
-    sm = getattr(request.app.state, "sm", None)
+    sm = get_services(request.app)
     registry = getattr(sm, "i18n_registry", None) if sm is not None else None
     locale = getattr(request.state, "locale", None)
     if registry is None or locale is None:
@@ -158,7 +159,7 @@ async def merge_shared_prop_providers(app: Any, request: Request, shared: dict) 
     provider's key. A provider may be ``async`` (its result is awaited) — a
     per-tenant lookup cannot be answered from a process-wide object.
     """
-    providers = getattr(app.state, "inertia_shared_providers", None) or ()
+    providers = get_inertia_shared_providers(app) or ()
     for provider in providers:
         name = getattr(provider, "__name__", provider)
         try:
@@ -187,6 +188,6 @@ def default_home_url(app: Any) -> str:
     named by string from ``sm.view_prefixes`` so nothing is imported (SM009);
     ``/`` is a host route in every app, so the link can never 404.
     """
-    sm = getattr(app.state, "sm", None)
+    sm = get_services(app)
     prefix = getattr(sm, "view_prefixes", {}).get("Dashboard")
     return f"{prefix}/" if prefix else "/"

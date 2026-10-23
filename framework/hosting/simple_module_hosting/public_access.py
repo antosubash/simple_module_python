@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
+from simple_module_core.app_state import get_auth_provider, get_public_routes
 from simple_module_core.public_routes import legacy_provider_public_paths
 
 logger = logging.getLogger(__name__)
@@ -13,10 +14,10 @@ _provider_failure_warned = False
 
 def is_public(app: FastAPI, method: str, path: str) -> bool:
     """Whether the registry or legacy provider opens this concrete path."""
-    registry = getattr(app.state, "public_routes", None)
+    registry = get_public_routes(app)
     if registry is not None and registry.matches(method, path):
         return True
-    provider = getattr(getattr(app.state, "auth", None), "auth_provider", None)
+    provider = get_auth_provider(app)
     if provider is None:
         return False
     try:

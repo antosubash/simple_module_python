@@ -21,6 +21,7 @@ from typing import Any
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, AUTH_KIND_SESSION
 from cachetools import TTLCache
 from fastapi import FastAPI
+from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation, InvalidationBus
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
@@ -81,7 +82,7 @@ def subscribe(bus: InvalidationBus) -> None:
 def make_invalidator(app: FastAPI):
     async def invalidate(key: str | None) -> None:
         forget(key)  # this worker, now — the bus reaches the others
-        bus = getattr(getattr(app.state, "sm", None), "invalidation", None)
+        bus = getattr(get_services(app), "invalidation", None)
         if bus is not None:
             await bus.publish(INVALIDATION_CHANNEL, key=key)
 
@@ -225,7 +226,7 @@ async def _resolve_subdomain(request: Request, user: Any, slug: str) -> str | No
 
 
 def _header_name(request: Request) -> str:
-    settings = getattr(getattr(request.app.state, "sm", None), "settings", None)
+    settings = getattr(get_services(request.app), "settings", None)
     return getattr(settings, "tenant_header", "") or ""
 
 

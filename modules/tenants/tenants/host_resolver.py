@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from cachetools import TTLCache
 from fastapi import FastAPI
+from simple_module_core.app_state import get_public_routes
 from sqlalchemy import select
 from starlette.requests import Request
 
@@ -67,7 +68,7 @@ async def tenant_for_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
 
 
 def is_public_route(request: Request) -> bool:
-    registry = getattr(request.app.state, "public_routes", None)
+    registry = get_public_routes(request.app)
     return registry is not None and registry.matches(request.method, request.url.path)
 
 

@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from fastapi import HTTPException, Request
+from simple_module_core.app_state import get_services
 from simple_module_core.tenancy import TenancyMode
 from simple_module_db import DEFAULT_TENANT_ID, is_valid_tenant_id, tenant_context
 
@@ -38,7 +39,7 @@ def tenancy_mode(app: Any) -> TenancyMode:
 
     ``SINGLE`` for an app built outside ``create_app``.
     """
-    sm = getattr(app.state, "sm", None)
+    sm = get_services(app)
     return getattr(sm, "tenancy", TenancyMode.SINGLE)
 
 
@@ -47,7 +48,7 @@ def single_tenant_id(app: Any) -> str:
 
     ``default_tenant`` when set, else ``DEFAULT_TENANT_ID`` (``"default"``).
     """
-    sm = getattr(app.state, "sm", None)
+    sm = get_services(app)
     db = getattr(sm, "db", None)
     return getattr(db, "default_tenant_id", None) or DEFAULT_TENANT_ID
 
