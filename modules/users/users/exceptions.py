@@ -61,9 +61,12 @@ class NotPendingInviteError(UsersError):
         self.reason = reason
 
 
+LOGIN_LOCKED_DETAIL = "Too many attempts — try again later"
+
+
 class LoginLockedError(UsersError):
     """A login attempt is locked until the retry delay elapses."""
 
     def __init__(self, retry_after: int) -> None:
-        super().__init__("Too many attempts — try again later")
+        super().__init__(LOGIN_LOCKED_DETAIL)
         self.retry_after = max(1, retry_after)

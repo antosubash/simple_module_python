@@ -29,7 +29,13 @@ async def independent_session(source: Any) -> AsyncGenerator[RequestSession]:
     if isinstance(source, async_sessionmaker):
         factory = source
     elif isinstance(source, AsyncSession):
-        factory = source.info[SESSION_FACTORY_KEY]
+        try:
+            factory = source.info[SESSION_FACTORY_KEY]
+        except KeyError:
+            raise TypeError(
+                "independent_session(session) needs a session opened by the framework's "
+                "session factory; pass the app or the async_sessionmaker instead"
+            ) from None
     else:
         factory = source.state.sm.db.session_factory
     async with factory() as session:

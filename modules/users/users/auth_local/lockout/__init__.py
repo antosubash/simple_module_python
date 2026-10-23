@@ -40,14 +40,14 @@ from sqlmodel import col
 
 from users.auth_local.lockout.attempt import Admission, LoginAttempt
 from users.auth_local.rate_limit import client_ip
-from users.exceptions import LoginLockedError
+from users.exceptions import LOGIN_LOCKED_DETAIL, LoginLockedError
 from users.models import User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-LOCKED_DETAIL = "Too many attempts — try again later"
+LOCKED_DETAIL = LOGIN_LOCKED_DETAIL
 
 
 def _utcnow() -> datetime:
