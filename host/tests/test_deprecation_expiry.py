@@ -27,6 +27,7 @@ _SHIM_MODULES = (
     "settings.hydrate",
     "simple_module_hosting._registrations",
     "simple_module_core.public_routes",
+    "simple_module_core.versioning",
 )
 _EXPECTED = {
     "host.routes_legacy (pre-/admin view URL redirects)",
@@ -36,6 +37,8 @@ _EXPECTED = {
     "AuthProvider.get_public_paths",
     "register_event_handlers(self, bus) without the app parameter",
     "simple_module_inertia.props.lazy",
+    "ModuleBase.register_event_handlers app=None default",
+    "ModuleMeta.requires_framework=None compatibility bypass",
 }
 
 
@@ -44,6 +47,14 @@ def _register_all() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         for name in _SHIM_MODULES:
             importlib.import_module(name)
+    # Overrides own event-hook calls, so omission cannot warn reliably at the base.
+    from simple_module_core.module import EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN
+
+    deprecate(
+        "ModuleBase.register_event_handlers app=None default",
+        remove_in=EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN,
+        use="register_event_handlers(self, bus, app) with an explicit app argument",
+    )
     # simple_module_inertia is standalone (no core dependency), so it exposes a
     # constant instead of registering itself.
     from simple_module_inertia import props

@@ -33,7 +33,8 @@ from simple_module_test.fixtures import (  # noqa: F401
     settings,
     setup_pending_app,
 )
-from simple_module_test.mail import _reset_process_mail_sender, captured_mail  # noqa: F401
+from simple_module_test.mail import captured_mail  # noqa: F401
+from simple_module_test.process_state import _reset_process_state  # noqa: F401
 from simple_module_test.redis_server import redis_server  # noqa: F401
 from simple_module_test.tenant_client import tenant_client  # noqa: F401
 

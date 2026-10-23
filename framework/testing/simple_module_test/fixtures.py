@@ -161,6 +161,9 @@ async def _seed_setup_admin(application) -> None:
 async def _build_app(settings: Settings, *, seed_admin: bool):
     from simple_module_hosting.app_builder import create_app
 
+    from simple_module_test.process_state import reset_process_state
+
+    reset_process_state()
     application = create_app(settings)
 
     await _create_all_tables(application.state.sm.db.engine)

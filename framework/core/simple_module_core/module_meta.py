@@ -50,7 +50,8 @@ class ModuleMeta:
 
     Example: ``">=1.0,<2.0"``. When set, the module is rejected at boot if the
     installed ``simple_module_core.FRAMEWORK_API_VERSION`` does not satisfy it.
-    When ``None``, no compatibility check is performed (legacy modules).
+    When ``None``, no compatibility check is performed (legacy modules);
+    this deprecated bypass has ``remove_in="0.1.0"`` and warns at discovery.
     """
     i18n_audience: str = "public"
     """Who this module's locale catalog is shipped to: ``"public"`` or ``"admin"``.

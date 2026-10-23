@@ -15,7 +15,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import Receive, Scope, Send
 
-from simple_module_hosting._error_handlers import _wants_json, render_error_page
+from simple_module_hosting._error_negotiation import _wants_json
+from simple_module_hosting._error_page import render_error_page
 
 
 async def guard_response(

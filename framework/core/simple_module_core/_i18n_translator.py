@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 # Logged under the historical ``simple_module_core.i18n`` name so existing log
 # filters keep matching after the split.
 logger = logging.getLogger("simple_module_core.i18n")
+_plural_failure_warned = False
 
 
 @lru_cache(maxsize=64)
@@ -30,6 +31,10 @@ def _plural_form(locale: str, count: float) -> str:
     try:
         rule = _plural_rule(locale)
     except Exception:
+        global _plural_failure_warned
+        if not _plural_failure_warned:
+            _plural_failure_warned = True
+            logger.warning("Plural locale parsing failed; using other", exc_info=True)
         return "other"
     return rule(count)
 

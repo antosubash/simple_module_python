@@ -16,9 +16,8 @@ from pathlib import Path
 import pytest
 from simple_module_hosting._error_handlers import (
     _INERTIA_ERROR_STATUSES,
-    _SIGN_IN_STATUSES,
-    _login_url,
 )
+from simple_module_hosting._error_page import _SIGN_IN_STATUSES, _login_url
 
 _ROOT = Path(__file__).resolve().parents[3]
 # The page body ships in @simple-module-py/ui (host/pages/Error.tsx just re-exports it).

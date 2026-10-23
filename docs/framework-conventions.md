@@ -739,3 +739,15 @@ The active locale lands on `request.state.locale`. The `<LocaleSwitcher />` comp
 App boot runs `I18nDiagnostics` against every module's declared locale dirs. See codes `SM013`–`SM016` in the table above. Warnings are printed in dev; errors fail the boot in production.
 
 `make doctor` runs the same checks, and it runs them whether or not `SM_I18N_SUPPORTED_LOCALES` is set. With the variable unset each namespace is checked against the locale files it actually ships: SM014/SM015 still hold every translation to the default catalog's key set, while SM013 stays quiet, since a locale nothing promised cannot be missing. Declaring the set turns SM013 back on — that is the check that reports a module which never shipped one of the locales the install claims to support.
+
+## Error handling policy
+
+Unexpected exceptions retained as fallbacks must log at WARNING or higher with
+a traceback (`exc_info=True`). Recurring request/transport failures warn on the
+first occurrence per process; menu providers warn once per provider per registry.
+Deliberate fail-open sites are audit identity inspection (`db/listeners.py`,
+omit the unavailable primary key), menu providers (`core/menu.py`, omit that
+provider's items), plural locale parsing (`core/_i18n_translator.py`, use `other`),
+and invalidation decoding (`core/invalidation.py`, drop the malformed message
+and keep listening). The migration re-check (`hosting/setup_gate.py`) fails
+closed: retain the incomplete boot snapshot and keep the setup gate active.

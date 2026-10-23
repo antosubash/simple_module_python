@@ -8,7 +8,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
-from simple_module_hosting._lifespan import build_lifespan, run_deferred_startup
+from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting._lifespan import build_lifespan
 
 
 def _module(name: str, *, fail_first: bool) -> SimpleNamespace:
@@ -52,7 +53,7 @@ async def test_failing_hook_is_deferred_then_replayed_on_unmigrated_first_run():
     async def capture(app_):
         seen["deferred"] = [m.meta.name for m in app_.state.deferred_startup]
 
-    with patch("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock()):
+    with patch("simple_module_hosting._deferred_startup.hydrate_settings_from_db", AsyncMock()):
         status = {"is_current": False, "pending_count": 1}
         with (
             patch(
@@ -86,7 +87,7 @@ async def test_replay_survives_a_failing_hook_and_runs_once():
     bad.on_startup = boom
     ok = _module("ok", fail_first=False)
     app.state.deferred_startup = [bad, ok]
-    with patch("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock()):
+    with patch("simple_module_hosting._deferred_startup.hydrate_settings_from_db", AsyncMock()):
         await asyncio.gather(run_deferred_startup(app), run_deferred_startup(app))
 
     assert bad.calls["n"] == 1

@@ -17,7 +17,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from simple_module_hosting._error_negotiation import _wants_json
+from simple_module_hosting._error_page import render_error_page
 from simple_module_hosting.public_access import is_public
+
+logger = logging.getLogger(__name__)
 
 # Kept reachable while the gate is closed: liveness probes (so orchestrators
 # do not kill the pod mid-maintenance), static assets and i18n bundles (or the
@@ -90,11 +94,6 @@ class MaintenanceMiddleware:
 
     @staticmethod
     async def _render(request: Request, message: str):
-        # Imported here rather than at module scope: _error_handlers imports
-        # from inertia, and a circular import at boot is a worse failure than
-        # a per-request attribute lookup.
-        from simple_module_hosting._error_handlers import _wants_json, render_error_page
-
         if _wants_json(request):
             return JSONResponse(
                 status_code=503,

@@ -85,6 +85,7 @@ class MenuRegistry:
         self._items: list[MenuItem] = []
         self._sorted: list[MenuItem] | None = None
         self._providers: list[MenuProvider] = []
+        self._failed_providers: set[int] = set()
 
     def _invalidate(self) -> None:
         self._sorted = None
@@ -125,7 +126,11 @@ class MenuRegistry:
                 # Materialise first: a generator failing midway must add nothing.
                 items.extend(list(result))
             except Exception:
-                logger.exception("Menu provider %r failed; contributing nothing", provider)
+                if id(provider) not in self._failed_providers:
+                    self._failed_providers.add(id(provider))
+                    logger.warning(
+                        "Menu provider %r failed; contributing nothing", provider, exc_info=True
+                    )
         return items
 
     @property
