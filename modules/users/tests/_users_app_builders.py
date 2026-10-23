@@ -84,6 +84,11 @@ async def _seed_roles(application) -> None:
         if "user" not in existing:
             session.add(Role(id=USER_ROLE_ID, name="user", description="Standard user"))
         await session.commit()
+    # Direct inserts bypass the role service that would refresh the cache; startup
+    # already warmed it (with the role it seeds), so refresh like a real write would.
+    from users.roles_cache import refresh_roles_cache
+
+    await refresh_roles_cache(application)
 
 
 async def _seed_users_settings(

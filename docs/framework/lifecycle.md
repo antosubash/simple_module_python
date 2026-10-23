@@ -2,7 +2,9 @@
 
 `ModuleBase` defines a set of lifecycle hooks. All are no-ops by default — override the ones you need.
 
-At boot, for each module (in topological order), the framework calls them in this sequence:
+At boot, the framework calls hooks in this sequence. Each phase visits modules
+in topological order: settings first for all modules, then registrations per
+module, then exception handlers, middleware and routes.
 
 ```
 register_settings
@@ -16,6 +18,7 @@ register_public_routes
 register_body_limits
 register_cors_policies
 register_rate_limits
+register_setup_steps
 register_csp_sources
 register_design_packs
 register_audit_links
@@ -169,6 +172,38 @@ See [request-guards.md](request-guards.md).
 Per-route rate limits for anonymous and signed-in requests, keyed by user, IP
 or tenant: `registry.add_prefix("/api/x/", RateLimitRule("10/minute", key="user"))`.
 See [request-guards.md](request-guards.md).
+
+## `register_setup_steps(registry)`
+
+Called after `register_rate_limits` and before `register_csp_sources`. Declare
+what an install still needs before it is usable:
+
+```python
+from simple_module_core import SetupRegistry, SetupStep
+
+
+def register_setup_steps(self, registry: SetupRegistry) -> None:
+    registry.add(
+        SetupStep(
+            id="orders.catalog",
+            title="Prepare the order catalog",
+            title_key="orders.setup.catalog.title",
+            is_complete=self._has_catalog,
+            order=30,
+        )
+    )
+
+
+async def _has_catalog(self, app: FastAPI) -> bool:
+    return await app.state.orders.catalog_is_ready()
+```
+
+While any required step is incomplete, `SetupMiddleware` redirects to the
+wizard at `/setup`. A step can provide a `SetupAction` to complete it in the
+browser; its action runs only while that step is pending. Without an action,
+the step must be completed out of band. Registering nothing opts out of the
+gate. See [First-run setup steps](../module-authoring.md#first-run-setup-steps)
+for action fields, translations and concurrency rules.
 
 ## `register_csp_sources(registry)`
 
@@ -355,13 +390,21 @@ class OrdersModule(ModuleBase):
     def register_permissions(self, registry): ...
     def register_feature_flags(self, registry): ...
     def register_event_handlers(self, bus, app=None): ...
+    def register_invalidations(self, bus, app): ...
     def register_health_checks(self, registry): ...
     def register_public_routes(self, registry): ...
     def register_body_limits(self, registry): ...
+    def register_cors_policies(self, registry): ...
+    def register_rate_limits(self, registry): ...
+    def register_setup_steps(self, registry): ...
     def register_csp_sources(self, registry): ...
+    def register_design_packs(self, registry): ...
+    def register_audit_links(self, registry): ...
+    def register_resource_types(self, registry): ...
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
     def register_routes(self, api_router, view_router): ...
+    def register_admin_routes(self, admin_router): ...
 
     async def on_startup(self, app): ...
     async def on_shutdown(self, app): ...

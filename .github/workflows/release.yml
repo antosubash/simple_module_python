@@ -12,6 +12,11 @@ on:
         description: "Explicit version override (e.g., 1.2.3)"
         required: false
         type: string
+      pending_publishers:
+        description: "Comma-separated simple_module_* names you confirm have PyPI pending publishers"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -27,6 +32,7 @@ jobs:
   # framework/core/pyproject.toml by the chosen level.
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.compute.outputs.version }}
     steps:
@@ -64,8 +70,27 @@ jobs:
 
   # The full PR suite (the `pr-checks` aggregate) runs against the dispatched
   # commit; `build` needs it, so nothing is built or published from a red commit.
+  # Reusable workflow calls cannot set timeout-minutes; pr.yml bounds each job.
   checks:
     uses: ./.github/workflows/pr.yml
+
+  # Public PyPI metadata cannot verify publisher configuration. Block absent
+  # projects unless the operator confirms their pending publishers.
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Check PyPI projects
+        env:
+          PENDING_PUBLISHERS: ${{ inputs.pending_publishers }}
+        run: >-
+          uv run --no-project --with tomlkit python -m scripts.release_preflight
+          --pending-publishers "$PENDING_PUBLISHERS"
 
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
   # The commit + tag only hit origin in `finalize`, after publishes succeed,
@@ -73,6 +98,7 @@ jobs:
   build:
     needs: [resolve, checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -112,8 +138,9 @@ jobs:
           retention-days: 14
 
   publish-pypi:
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write  # mint OIDC token for PyPI Trusted Publishing
     strategy:
@@ -166,10 +193,12 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: to-publish
+          skip-existing: true
 
   publish-npm:
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read    # explicit so future cache:/checkout: steps don't 403
       id-token: write   # mint OIDC token for npm Trusted Publishing
@@ -207,6 +236,15 @@ jobs:
             echo "::error::refusing to publish ${files[0]}: package name is '$name', expected '$expected'"
             exit 1
           fi
+          version=$(tar -xzOf "${files[0]}" package/package.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          status=$(curl --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' \
+            "https://registry.npmjs.org/@simple-module-py%2F${{ matrix.package }}/${version}")
+          case "$status" in
+            200) echo "${name}@${version} already exists; skipping"; exit 0 ;;
+            404) ;;  # Only a missing exact version is safe to publish.
+            *) echo "::error::npm registry returned HTTP ${status} for ${name}@${version}"; exit 1 ;;
+          esac
           # Prefix with ./ so npm treats the arg as a file path, not a
           # GitHub `user/repo` shorthand (which it does for any bare
           # single-slash arg, even when the tarball exists on disk).
@@ -216,6 +254,7 @@ jobs:
   finalize:
     needs: [resolve, publish-pypi, publish-npm]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:

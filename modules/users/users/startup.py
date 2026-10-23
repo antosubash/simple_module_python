@@ -20,8 +20,10 @@ signature so the seam stays where that change put it. The mailer health check
 
 from __future__ import annotations
 
-import asyncio
+import logging
 from typing import TYPE_CHECKING
+
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -34,6 +36,8 @@ __all__ = [
     "run_startup",
 ]
 
+logger = logging.getLogger(__name__)
+
 _FALLBACK_REDIRECT = "/"
 _DASHBOARD_MODULE = "Dashboard"
 
@@ -41,7 +45,7 @@ _DASHBOARD_MODULE = "Dashboard"
 async def run_startup(module: UsersModule, app: FastAPI) -> None:
     """Populate ``app.state.users`` and apply settings-derived configuration."""
     from users.backend import reconfigure_cookie_transport
-    from users.bootstrap import bootstrap_admin_from_env
+    from users.bootstrap import bootstrap_admin_from_env, ensure_user_role
     from users.demo import ensure_demo_users
     from users.deps import auth_backend
     from users.roles_cache import refresh_roles_cache
@@ -64,14 +68,22 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     # this is the bound on a dropped message rather than on every revocation.
     configure_session_version_cache(s.session_version_cache_ttl_seconds)
 
-    await asyncio.gather(
-        bootstrap_admin_from_env(app),
-        refresh_roles_cache(app),
-    )
+    # Schema-only hosts need the signup role. Admin roles come from migrations
+    # or explicit provisioning; ordinary startup must preserve operator changes.
+    try:
+        async with app.state.sm.db.session_factory.begin() as db:
+            await ensure_user_role(db)
+    except IntegrityError:
+        # Another worker may have inserted the role during startup.
+        logger.debug("users.startup.role_seed_raced", extra={"role_seed": "ensure_user_role"})
+
+    await bootstrap_admin_from_env(app)
     # After the env bootstrap, not beside it: that one only runs while the
     # users table is empty, and the demo accounts have to be reconciled on
     # every boot so a change to either email or password takes effect.
     await ensure_demo_users(app)
+    # Cache only after every startup path that can provision roles has finished.
+    await refresh_roles_cache(app)
 
 
 def _build_mailer(app: FastAPI, state, s) -> None:

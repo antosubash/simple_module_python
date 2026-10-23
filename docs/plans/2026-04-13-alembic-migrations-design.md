@@ -1,5 +1,7 @@
 # Alembic Database Migrations — Design Document
 
+Status: superseded (see [Migrations — the real graph](../database/migrations.md#the-real-graph)).
+
 > **Note (2026-04-15):** Keycloak integration was removed; see plan
 > `cryptic-juggling-lightning`. References to "Keycloak" below are
 > historical context from the original design — the patterns still apply.

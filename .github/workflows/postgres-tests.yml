@@ -4,7 +4,7 @@ name: Postgres tests
 # `@pytest.mark.postgres` tests that SQLite cannot run. Parallel under xdist,
 # one database per worker (every test resets its schema), but still slower than
 # SQLite, so it is not part of the PR aggregate: it runs nightly, on demand, and
-# on PRs that touch the database/tenancy layers (#508).
+# on PRs that touch database/tenancy or concurrency-sensitive modules (#508, #599).
 
 on:
   schedule:
@@ -16,6 +16,9 @@ on:
       - "framework/db/**"
       - "framework/testing/**"
       - "modules/tenants/**"
+      - "modules/users/**"
+      - "modules/background_tasks/**"
+      - "modules/file_storage/**"
       - "host/migrations/**"
       - ".github/workflows/postgres-tests.yml"
 
@@ -27,6 +30,7 @@ permissions:
   contents: read
 
 env:
+  NODE_VERSION: "24"
   UV_SYNC_FLAGS: --locked
   UV_CACHE_GLOB: |
     uv.lock
@@ -39,7 +43,7 @@ jobs:
   python-tests-pg:
     name: Python tests (Postgres)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -72,4 +76,9 @@ jobs:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
       - run: make test-py-pg

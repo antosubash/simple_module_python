@@ -19,6 +19,14 @@ All notable changes to this project are documented in this file. The format is b
   installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
 
 ### Changed
+- Packaging: **Behaviour change.** Published packages now cap their third-party runtime
+  dependencies (next major for 1.x+ libraries, next minor for 0.x ones such as `sqlmodel`), so
+  an install can no longer resolve an untested major release (#600).
+- `make migration` now requires `LABEL=<branch label>` and autogenerates against
+  `<label>@head`, instead of failing with "Multiple heads" (#598).
+- Release: a pre-flight job lists any package that is not yet on PyPI (needs a pending
+  publisher) before anything is published, and publish legs skip versions that already exist,
+  so a half-failed release can be re-run (#599).
 - `make test-py` / `make test-py-pg` now default to 4 pytest-xdist workers instead of
   `-n auto`, so concurrent runs on many-core machines don't exhaust memory;
   `PYTEST_WORKERS=auto` restores the old behaviour.
@@ -35,6 +43,8 @@ All notable changes to this project are documented in this file. The format is b
   tracked for removal in 0.1.0 (#594).
 
 ### Fixed
+- Users: the default user role is created at startup when missing, so an app scaffolded with
+  `smpy new` (schema baseline, no data migrations) can register users (#600).
 - Tenants: deleting a tenant now tears down its data. `TenantDeleted` (now defined in
   `simple_module_core.tenant_events`, still importable from `tenants.contracts.events`) is
   published durably, and file_storage (files, upload sessions, then backend objects after

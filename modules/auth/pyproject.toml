@@ -21,7 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "itsdangerous>=2.2",
+    "itsdangerous>=2.2,<3",
     "simple_module_core==0.0.38",
     "simple_module_db==0.0.38",
     "simple_module_hosting==0.0.38",
