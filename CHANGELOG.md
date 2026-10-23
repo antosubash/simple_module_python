@@ -19,6 +19,9 @@ All notable changes to this project are documented in this file. The format is b
   installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
 
 ### Changed
+- `make test-py` / `make test-py-pg` now default to 4 pytest-xdist workers instead of
+  `-n auto`, so concurrent runs on many-core machines don't exhaust memory;
+  `PYTEST_WORKERS=auto` restores the old behaviour.
 - Hosting: one `simple_module_hosting.public_access.is_public(app, method, path)` answers
   "is this route public?" for `AuthMiddleware`, maintenance mode, rate limiting and the
   `SM031` check, so they can no longer disagree. A legacy auth provider whose deprecated
@@ -27,7 +30,7 @@ All notable changes to this project are documented in this file. The format is b
 - Framework: fail-open error handlers in the setup gate, DB listeners, menu providers, plural
   rules and the invalidation decoder now log a WARNING (once) with the traceback instead of
   failing silently; outcomes are unchanged. The policy is in `docs/framework-conventions.md`.
-  The test plugin resets the process-wide mail sender and lease backend between apps. The
+  The test plugin resets the process-wide mail sender, lease backend and Sentry state per test. The
   `register_event_handlers(app=None)` default and the `requires_framework=None` bypass are
   tracked for removal in 0.1.0 (#594).
 
