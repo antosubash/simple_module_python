@@ -65,18 +65,16 @@ def test_reset_sentry_closes_and_unbinds_client(monkeypatch) -> None:
     scope.client.close.assert_called_once_with()
 
 
-async def test_plugin_app_builder_resets_services_between_apps(settings, monkeypatch) -> None:
+async def test_plugin_second_app_keeps_first_apps_services(settings, monkeypatch) -> None:
+    """Resets are per test (autouse fixture), so a second app in one test must not
+    wipe the first app's installed mail sender."""
     from fastapi import FastAPI
     from simple_module_hosting import app_builder
     from simple_module_test import fixtures
 
-    seen = []
-
     def create_app(settings):
-        seen.append((mail_transport_installed(), get_leases(), sentry.is_enabled()))
         app = FastAPI()
         app.state.sm = Mock()
-        install_mail_sender(CapturedMail())
         return app
 
     async def create_tables(engine):
@@ -84,10 +82,13 @@ async def test_plugin_app_builder_resets_services_between_apps(settings, monkeyp
 
     monkeypatch.setattr(app_builder, "create_app", create_app)
     monkeypatch.setattr(fixtures, "_create_all_tables", create_tables)
-    for _ in range(2):
-        async for _app in fixtures._build_app(settings, seed_admin=False):
-            pass
-    assert len(seen) == 2
-    assert all(not mail and not enabled for mail, _, enabled in seen)
-    assert seen[0][1] is not seen[1][1]
+    install_mail_sender(CapturedMail())
+    async for _app in fixtures._build_app(settings, seed_admin=False):
+        assert mail_transport_installed()
     reset_process_state()
+
+
+def test_autouse_reset_clears_state_left_by_a_previous_test() -> None:
+    # The autouse ``_reset_process_state`` fixture ran before this test.
+    assert not mail_transport_installed()
+    assert not sentry.is_enabled()
