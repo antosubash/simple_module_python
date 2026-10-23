@@ -24,6 +24,7 @@ import time
 
 from celery import current_task
 from sqlalchemy import update
+from sqlmodel import col
 
 from background_tasks._signal_support import now_utc
 from background_tasks.constants import (
@@ -122,11 +123,11 @@ def heartbeat(
             session.execute(
                 update(TaskExecution)
                 .where(
-                    TaskExecution.celery_task_id == task_id,  # ty: ignore[invalid-argument-type]
+                    col(TaskExecution.celery_task_id) == task_id,
                     # Only a row still ``running``: a heartbeat must not revive
                     # a row the sweep already declared stuck (it may have been
                     # retried since) or rewrite a terminal one.
-                    TaskExecution.status == TaskStatus.RUNNING,  # ty: ignore[invalid-argument-type]
+                    col(TaskExecution.status) == TaskStatus.RUNNING,
                 )
                 .values(heartbeat_at=now_utc(), **pending)
             )

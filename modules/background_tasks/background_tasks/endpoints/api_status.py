@@ -18,6 +18,7 @@ from simple_module_db.deps import get_db
 from simple_module_hosting.permissions import ensure_resolved_permissions
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import select
+from sqlmodel import col
 
 from background_tasks.constants import MODULE_NAME, PERM_VIEW, STATUS_ROUTER_PREFIX
 from background_tasks.contracts.schemas import TaskStatusDTO
@@ -56,7 +57,7 @@ async def get_task_status(
     row = (
         await db.execute(
             select(TaskExecution)
-            .where(TaskExecution.celery_task_id == celery_task_id)  # ty: ignore[invalid-argument-type]
+            .where(col(TaskExecution.celery_task_id) == celery_task_id)
             .order_by(TaskExecution.queued_at.desc())
             .limit(1)
         )

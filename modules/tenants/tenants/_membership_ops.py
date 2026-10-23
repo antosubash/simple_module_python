@@ -13,6 +13,7 @@ from simple_module_core.events import Event
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from tenants._owner_guard import demote_owner, remove_owner
 from tenants.constants import ENTITLEMENT_SEATS, MembershipRole
@@ -53,15 +54,15 @@ class MembershipOpsMixin:
 
     async def get_membership(self, tenant_id: str, user_id: str) -> Membership | None:
         stmt = select(Membership).where(
-            Membership.tenant_id == tenant_id,  # ty: ignore[invalid-argument-type]
-            Membership.user_id == user_id,  # ty: ignore[invalid-argument-type]
+            col(Membership.tenant_id) == tenant_id,
+            col(Membership.user_id) == user_id,
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def list_members(self, tenant_id: str) -> list[Membership]:
         stmt = (
             select(Membership)
-            .where(Membership.tenant_id == tenant_id)  # ty: ignore[invalid-argument-type]
+            .where(col(Membership.tenant_id) == tenant_id)
             .order_by(Membership.created_at)
         )
         return list((await self.db.execute(stmt)).scalars().all())
@@ -71,7 +72,9 @@ class MembershipOpsMixin:
         from tenants.invitations import pending_invitation_count
 
         members = await self.db.scalar(
-            select(func.count()).select_from(Membership).where(Membership.tenant_id == tenant_id)  # ty: ignore[invalid-argument-type]
+            select(func.count())
+            .select_from(Membership)
+            .where(col(Membership.tenant_id) == tenant_id)
         )
         return int(members or 0) + await pending_invitation_count(self.db, tenant_id)
 
@@ -109,7 +112,9 @@ class MembershipOpsMixin:
         stmt = (
             select(func.count())
             .select_from(Membership)
-            .where(Membership.tenant_id == tenant_id, Membership.role == MembershipRole.OWNER)  # ty: ignore[invalid-argument-type]
+            .where(
+                col(Membership.tenant_id) == tenant_id, col(Membership.role) == MembershipRole.OWNER
+            )
         )
         return int(await self.db.scalar(stmt) or 0)
 

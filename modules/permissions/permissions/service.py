@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from permissions._registry_sync import RegistrySyncMixin, _role_names
 from permissions.contracts.schemas import (
@@ -115,7 +116,7 @@ class PermissionService(RegistrySyncMixin):
         if to_remove:
             await self.db.execute(
                 delete(RolePermission).where(
-                    RolePermission.role_name == role.name,  # ty: ignore[invalid-argument-type]
+                    col(RolePermission.role_name) == role.name,
                     RolePermission.permission_key.in_(to_remove),
                 )
             )
@@ -193,7 +194,7 @@ class PermissionService(RegistrySyncMixin):
         if to_remove:
             await self.db.execute(
                 delete(UserPermission).where(
-                    UserPermission.user_id == user_id,  # ty: ignore[invalid-argument-type]
+                    col(UserPermission.user_id) == user_id,
                     UserPermission.permission_key.in_(to_remove),
                 )
             )

@@ -22,6 +22,7 @@ from simple_module_hosting.session import (
     ensure_session_expiry,
     session_has_expired,
 )
+from sqlmodel import col
 from starlette.requests import Request
 
 from users.constants import SESSION_DEMO_KEY, SESSION_USER_ID_KEY, SESSION_VERSION_KEY
@@ -254,7 +255,7 @@ class UsersAuthProvider:
                 # otherwise fire an extra query the UserContext never reads.
                 stmt = (
                     select(User)
-                    .where(User.id == user_id)  # ty: ignore[invalid-argument-type]
+                    .where(col(User.id) == user_id)
                     .options(selectinload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
                 )
                 user = (await db_session.execute(stmt)).scalar_one_or_none()

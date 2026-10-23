@@ -21,6 +21,7 @@ from typing import Any
 
 from celery import Task, shared_task
 from sqlalchemy import ColumnElement, and_, delete, or_, update
+from sqlmodel import col
 
 from background_tasks.constants import (
     DEMO_ECHO_TASK,
@@ -119,7 +120,7 @@ def sweep_stuck_tasks(self: Task) -> int:
         stmt = (
             update(TaskExecution)
             .where(
-                TaskExecution.status == TaskStatus.RUNNING,  # ty: ignore[invalid-argument-type]
+                col(TaskExecution.status) == TaskStatus.RUNNING,
                 _stale(now, stuck_after, overrides),
             )
             .values(status=TaskStatus.STUCK, finished_at=now)
@@ -149,7 +150,7 @@ def purge_old_executions() -> int:
         count = result.rowcount or 0
         delivered = session.execute(
             delete(OutboxMessage)
-            .where(OutboxMessage.status == OutboxStatus.DELIVERED)  # ty: ignore[invalid-argument-type]
+            .where(col(OutboxMessage.status) == OutboxStatus.DELIVERED)
             .where(OutboxMessage.delivered_at < cutoff)
         )
         count += delivered.rowcount or 0

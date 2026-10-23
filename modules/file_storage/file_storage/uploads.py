@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_db.listeners import current_user_id
 from sqlalchemy import select
+from sqlmodel import col
 
 from file_storage import constants, queries
 from file_storage.contracts.schemas import StoredFileOut
@@ -109,7 +110,7 @@ class UploadSessionService(UploadGuards):
         """The caller's own session. Others' ids miss exactly like unknown ones."""
         owner = current_user_id.get()
         stmt = select(UploadSession).where(
-            UploadSession.id == upload_id,  # ty: ignore[invalid-argument-type]
+            col(UploadSession.id) == upload_id,
             UploadSession.created_by == owner,
         )
         session = (await self.db.execute(stmt)).scalar_one_or_none() if owner else None
@@ -160,8 +161,8 @@ class UploadSessionService(UploadGuards):
             return 0
         stmt = select(UploadSession).where(
             UploadSession.created_by == owner,
-            UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
-            UploadSession.expires_at <= datetime.now(UTC),  # ty: ignore[invalid-argument-type]
+            col(UploadSession.status) == constants.UploadStatus.ACTIVE,
+            col(UploadSession.expires_at) <= datetime.now(UTC),
         )
         expired = list((await self.db.execute(stmt)).scalars())
         for session in expired:

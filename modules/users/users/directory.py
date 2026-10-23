@@ -20,8 +20,8 @@ from simple_module_core.user_directory import (
     chunked,
     parse_user_ids,
 )
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from sqlalchemy import String, cast, func, or_, select
+from simple_module_db.user_directory_sql import name_or_email_contains, to_directory_user
+from sqlalchemy import String, cast, func, select
 
 from users.models import Role, User, UserRole
 
@@ -30,24 +30,10 @@ from users.models import Role, User, UserRole
 _COLUMNS = (User.id, User.email, User.full_name, User.is_active, User.disabled_at)
 
 
-def _to_directory_user(row: Any, roles: tuple[str, ...] | None, key: str) -> DirectoryUser:
-    return DirectoryUser(
-        id=key,
-        email=row.email,
-        full_name=row.full_name,
-        # A disabled account is still ``is_active`` in fastapi-users' sense;
-        # to every other module it is simply not usable.
-        is_active=bool(row.is_active) and row.disabled_at is None,
-        roles=roles,
-    )
-
-
-def _name_or_email_contains(term: str) -> Any:
-    pattern = like_contains_pattern(term)
-    return or_(
-        User.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-        User.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-    )
+def _is_usable(row: Any) -> bool:
+    # A disabled account is still ``is_active`` in fastapi-users' sense;
+    # to every other module it is simply not usable.
+    return bool(row.is_active) and row.disabled_at is None
 
 
 class UsersDirectory:
@@ -68,7 +54,9 @@ class UsersDirectory:
             for row in rows:
                 user_roles = tuple(sorted(roles.get(row.id, ()))) if with_roles else None
                 for key in parsed[row.id]:
-                    found[key] = _to_directory_user(row, user_roles, key)
+                    found[key] = to_directory_user(
+                        row, key, roles=user_roles, is_active=_is_usable(row)
+                    )
         return found
 
     async def _roles_for(
@@ -87,15 +75,17 @@ class UsersDirectory:
     async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
         stmt = select(*_COLUMNS).order_by(User.email).limit(limit)
         if term and term.strip():
-            stmt = stmt.where(_name_or_email_contains(term.strip()))
+            stmt = stmt.where(name_or_email_contains(User.full_name, User.email, term.strip()))
         rows = (await db.execute(stmt)).all()
-        return [_to_directory_user(row, None, str(row.id)) for row in rows]
+        return [to_directory_user(row, str(row.id), is_active=_is_usable(row)) for row in rows]
 
     def match_ids(self, term: str) -> Any | None:
         # ``CAST`` renders the canonical lowercase hyphenated form on both
         # dialects (Postgres from ``uuid``, SQLite from GUID's ``CHAR(36)``),
         # which is the form the audit trail and every other text id stores.
-        return select(cast(User.id, String)).where(_name_or_email_contains(term))
+        return select(cast(User.id, String)).where(
+            name_or_email_contains(User.full_name, User.email, term)
+        )
 
     async def stats(self, db: Any, *, active_window: timedelta) -> DirectoryStats:
         now = datetime.now(UTC)

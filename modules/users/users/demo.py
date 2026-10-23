@@ -31,6 +31,7 @@ from fastapi import FastAPI
 from fastapi_users.password import PasswordHelper
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from users.constants import (
     ADMIN_ROLE_DESCRIPTION,
@@ -127,11 +128,11 @@ async def _role_row(db: AsyncSession, name: str) -> Role:
     both, so this only fires for tests built with ``create_all`` and for
     databases downgraded past the seed revision.
     """
-    role = (await db.execute(select(Role).where(Role.name == name))).scalar_one_or_none()  # ty: ignore[invalid-argument-type]
+    role = (await db.execute(select(Role).where(col(Role.name) == name))).scalar_one_or_none()
     if role is not None:
         return role
     role_id, description = _ROLE_SEEDS[name]
-    role = (await db.execute(select(Role).where(Role.id == role_id))).scalar_one_or_none()  # ty: ignore[invalid-argument-type]
+    role = (await db.execute(select(Role).where(col(Role.id) == role_id))).scalar_one_or_none()
     if role is None:
         role = Role(id=role_id, name=name, description=description)
         db.add(role)
@@ -147,7 +148,9 @@ async def _sync_role(db: AsyncSession, user: User, role_name: str) -> None:
     sync that only ever added rows would leave the admin grant in place.
     """
     wanted = await _role_row(db, role_name)
-    links = (await db.execute(select(UserRole).where(UserRole.user_id == user.id))).scalars().all()  # ty: ignore[invalid-argument-type]
+    links = (
+        (await db.execute(select(UserRole).where(col(UserRole.user_id) == user.id))).scalars().all()
+    )
     managed = {rid for rid, _ in _ROLE_SEEDS.values()}
     if not any(link.role_id == wanted.id for link in links):
         db.add(UserRole(user_id=user.id, role_id=wanted.id))

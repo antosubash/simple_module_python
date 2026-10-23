@@ -12,6 +12,7 @@ from simple_module_db.pagination import PageParams
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlmodel import col
 
 from users.admin.user_state import STATUS_CONDITIONS, user_state
 from users.contracts.schemas import RoleListItem, UserListItem
@@ -98,7 +99,7 @@ class _UserServiceBase:
     async def list_roles(self) -> list[RoleListItem]:
         stmt = (
             select(Role, func.count(UserRole.user_id))  # ty: ignore[invalid-argument-type]
-            .outerjoin(UserRole, UserRole.role_id == Role.id)  # ty: ignore[invalid-argument-type]
+            .outerjoin(UserRole, col(UserRole.role_id) == Role.id)
             .group_by(Role.id)  # ty: ignore[invalid-argument-type]
             .order_by(Role.name)
         )
@@ -115,7 +116,7 @@ class _UserServiceBase:
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         result = await self._db.execute(
-            select(User).where(User.id == user_id).options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
+            select(User).where(col(User.id) == user_id).options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
         )
         return result.scalar_one_or_none()
 

@@ -12,6 +12,7 @@ from simple_module_db import finalize_session
 from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from file_storage import thumbnails
 from file_storage.backend_guard import require_backend
@@ -47,7 +48,7 @@ class FileStoragePublic:
         """
         stmt = (
             select(StoredFile)
-            .where(StoredFile.id == file_id, StoredFile.public.is_(True))  # ty: ignore[invalid-argument-type]
+            .where(col(StoredFile.id) == file_id, col(StoredFile.public).is_(True))
             .execution_options(all_tenants=True)
         )
         row = (await self.db.execute(stmt)).scalar_one_or_none()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from simple_module_core.events import Event
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from tenants.contracts.events import MembershipRemoved, TenantDeleted
 from tenants.models import Invitation, Membership, Tenant
@@ -28,7 +29,7 @@ async def delete_tenant_rows(db: AsyncSession, tenant: Tenant) -> list[Event]:
         )
     ).all()
     for model in (Membership, Invitation):
-        await db.execute(delete(model).where(model.tenant_id == tenant.id))  # ty: ignore[invalid-argument-type]
+        await db.execute(delete(model).where(col(model.tenant_id) == tenant.id))
     events: list[Event] = [MembershipRemoved(tenant.id, user_id) for user_id in user_ids]
     events.append(TenantDeleted(tenant.id, tenant.slug, tenant.name))
     await db.delete(tenant)

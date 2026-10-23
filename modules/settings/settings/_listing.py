@@ -6,6 +6,7 @@ from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from simple_module_db.stored_settings import SYSTEM_SCOPE_ID, Setting
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from settings._row_masking import out
 from settings.constants import ALL_SCOPES, DEFAULT_PER_PAGE, SCOPE_ALL
@@ -111,6 +112,6 @@ class SettingListing:
     def _scope_stmt(scope: SettingScope, scope_id: str):
         return (
             select(Setting)
-            .where(Setting.scope == scope.value, Setting.scope_id == scope_id)  # ty: ignore[invalid-argument-type]
+            .where(col(Setting.scope) == scope.value, col(Setting.scope_id) == scope_id)
             .order_by(Setting.key)
         )

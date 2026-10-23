@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import delete, func, select, text
+from sqlmodel import col
 
 from file_storage import constants
 from file_storage.contracts.service import StorageError
@@ -66,8 +67,8 @@ class StorageQuota:
             await self._serialize_reservations(platform=platform)
         stored_query = select(func.coalesce(func.sum(StoredFile.size_bytes), 0))
         reserved_query = select(func.coalesce(func.sum(UploadSession.total_size), 0)).where(
-            UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
-            UploadSession.expires_at > datetime.now(UTC),  # ty: ignore[invalid-argument-type]
+            col(UploadSession.status) == constants.UploadStatus.ACTIVE,
+            col(UploadSession.expires_at) > datetime.now(UTC),
         )
         if platform:
             stored_query = stored_query.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
@@ -117,8 +118,8 @@ class UploadGuards(StorageQuota):
         result = await self.db.execute(
             delete(UploadSession).where(
                 UploadSession.created_by == owner,
-                UploadSession.status != constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
-                UploadSession.expires_at < cutoff,  # ty: ignore[invalid-argument-type]
+                col(UploadSession.status) != constants.UploadStatus.ACTIVE,
+                col(UploadSession.expires_at) < cutoff,
             )
         )
         return result.rowcount or 0

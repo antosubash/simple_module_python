@@ -19,6 +19,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from celery import shared_task
+from sqlmodel import col
 
 from file_storage import constants
 
@@ -71,8 +72,8 @@ def reap_stale_uploads() -> dict[str, int]:
         # they only linger for support questions, so drop them after a window.
         purged = db.execute(
             delete(UploadSession).where(
-                UploadSession.status != constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
-                UploadSession.expires_at  # ty: ignore[invalid-argument-type]
+                col(UploadSession.status) != constants.UploadStatus.ACTIVE,
+                col(UploadSession.expires_at)
                 < now - timedelta(days=settings.upload_session_retention_days),
             )
         ).rowcount
@@ -80,8 +81,8 @@ def reap_stale_uploads() -> dict[str, int]:
             db.execute(
                 select(UploadSession)
                 .where(
-                    UploadSession.status == constants.UploadStatus.ACTIVE,  # ty: ignore[invalid-argument-type]
-                    UploadSession.expires_at <= now,  # ty: ignore[invalid-argument-type]
+                    col(UploadSession.status) == constants.UploadStatus.ACTIVE,
+                    col(UploadSession.expires_at) <= now,
                 )
                 .limit(_REAP_BATCH)
             ).scalars()

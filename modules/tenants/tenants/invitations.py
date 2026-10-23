@@ -14,6 +14,7 @@ from functools import partial
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from tenants.constants import MembershipRole, TenantStatus
 from tenants.contracts.events import InvitationCreated
@@ -69,10 +70,10 @@ class InvitationService:
         # still occupy the unique index; drop it so the address can be re-invited.
         await self.db.execute(
             delete(Invitation).where(
-                Invitation.tenant_id == tenant_id,  # ty: ignore[invalid-argument-type]
-                Invitation.email == data.email,  # ty: ignore[invalid-argument-type]
+                col(Invitation.tenant_id) == tenant_id,
+                col(Invitation.email) == data.email,
                 Invitation.accepted_at.is_(None),
-                Invitation.expires_at <= _now(),  # ty: ignore[invalid-argument-type]
+                col(Invitation.expires_at) <= _now(),
             )
         )
         duplicate = await self.db.scalar(
@@ -129,8 +130,8 @@ class InvitationService:
             return None
         stmt = (
             select(Invitation, Tenant)
-            .join(Tenant, Tenant.id == Invitation.tenant_id)  # ty: ignore[invalid-argument-type]
-            .where(Invitation.token_hash == hash_token(token))  # ty: ignore[invalid-argument-type]
+            .join(Tenant, col(Tenant.id) == Invitation.tenant_id)
+            .where(col(Invitation.token_hash) == hash_token(token))
         )
         if for_update:  # two concurrent accepts of one link must not both pass
             stmt = stmt.with_for_update(of=Invitation)

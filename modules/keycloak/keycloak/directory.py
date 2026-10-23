@@ -19,8 +19,8 @@ from simple_module_core.user_directory import (
     chunked,
     parse_user_ids,
 )
-from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from sqlalchemy import String, func, or_, select
+from simple_module_db.user_directory_sql import name_or_email_contains, to_directory_user
+from sqlalchemy import String, func, select
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.expression import FunctionElement
 
@@ -54,19 +54,6 @@ def _uuid_text_sqlite(element: Any, compiler: Any, **kw: Any) -> str:
 _COLUMNS = (KeycloakUserCache.id, KeycloakUserCache.email, KeycloakUserCache.full_name)
 
 
-def _to_directory_user(row: Any, key: str) -> DirectoryUser:
-    # ``roles`` stays ``None``: unknown, which callers must not read as "none".
-    return DirectoryUser(id=key, email=row.email, full_name=row.full_name)
-
-
-def _name_or_email_contains(term: str) -> Any:
-    pattern = like_contains_pattern(term)
-    return or_(
-        KeycloakUserCache.full_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-        KeycloakUserCache.email.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-    )
-
-
 class KeycloakDirectory:
     """Directory over ``keycloak_user_cache``."""
 
@@ -83,17 +70,23 @@ class KeycloakDirectory:
             stmt = select(*_COLUMNS).where(KeycloakUserCache.id.in_(chunk))
             for row in (await db.execute(stmt)).all():
                 for key in parsed[row.id]:
-                    found[key] = _to_directory_user(row, key)
+                    found[key] = to_directory_user(row, key)
         return found
 
     async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
         stmt = select(*_COLUMNS).order_by(KeycloakUserCache.email).limit(limit)
         if term and term.strip():
-            stmt = stmt.where(_name_or_email_contains(term.strip()))
-        return [_to_directory_user(row, str(row.id)) for row in (await db.execute(stmt)).all()]
+            stmt = stmt.where(
+                name_or_email_contains(
+                    KeycloakUserCache.full_name, KeycloakUserCache.email, term.strip()
+                )
+            )
+        return [to_directory_user(row, str(row.id)) for row in (await db.execute(stmt)).all()]
 
     def match_ids(self, term: str) -> Any | None:
-        return select(_UuidText(KeycloakUserCache.id)).where(_name_or_email_contains(term))
+        return select(_UuidText(KeycloakUserCache.id)).where(
+            name_or_email_contains(KeycloakUserCache.full_name, KeycloakUserCache.email, term)
+        )
 
     async def stats(self, db: Any, *, active_window: timedelta) -> DirectoryStats:
         cutoff = datetime.now(UTC) - active_window
