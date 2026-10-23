@@ -85,6 +85,20 @@ canonical example is `file_storage.StorageBackend`: it has a registry, two
 shipped implementations (`FilesystemBackend`, `S3Backend`), and tests that
 mock against the Protocol. If none of those apply to your module, skip it.
 
+### Service errors: domain exceptions
+
+Services raise domain exceptions derived from a per-module base error in
+`<module>/exceptions.py` or `errors.py`; they must not raise `HTTPException`.
+Keep the failure and its context independent of HTTP so CLI commands, tasks
+and durable handlers can reuse the same business logic.
+
+Follow `file_storage`: implement the HTTP mapping in the endpoint layer or
+install handlers from `register_exception_handlers(app)`. Preserve each
+endpoint's status, JSON body, headers and translation keys when migrating an
+existing service. Translate messages at the request boundary. Endpoint-level
+`HTTPException` remains appropriate for pure request validation. Inertia forms
+may catch domain errors to report field errors or redirect instead.
+
 ### Minimal `pyproject.toml`
 
 ```toml

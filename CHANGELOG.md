@@ -19,6 +19,15 @@ All notable changes to this project are documented in this file. The format is b
   installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
 
 ### Changed
+- Users: lockout, registration and bulk-invite writes that must land before the request ends
+  now commit through `simple_module_db.independent_session` (its own short-lived session)
+  instead of committing the request session. Failed or unverified password logins now roll
+  back the request session before the lockout bookkeeping is checkpointed. Lockout,
+  invite and demo code moved into internal subpackages (#592).
+- Users login lockout raises `LoginLockedError`, mapped to the same 429 body and `Retry-After`
+  by a registered exception handler; settings errors now share a `SettingsError` base (their
+  HTTP mapping is unchanged). The convention is in
+  `docs/module-authoring.md` and the module scaffold (#595).
 - Packaging: **Behaviour change.** Published packages now cap their third-party runtime
   dependencies (next major for 1.x+ libraries, next minor for 0.x ones such as `sqlmodel`), so
   an install can no longer resolve an untested major release (#600).

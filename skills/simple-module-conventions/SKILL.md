@@ -121,6 +121,17 @@ Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()
 
 Which module holds the accounts depends on the auth provider (`users` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
 
+### 13. Raise domain exceptions from services
+
+Define a per-module base error in `<module>/exceptions.py` or `errors.py` and
+subclass it for business failures. Services must not raise `HTTPException`:
+CLI commands, tasks and durable handlers need transport-independent failures.
+Follow `file_storage`: map errors in endpoints or install HTTP handlers through
+`register_exception_handlers(app)`. Preserve status codes, exact JSON bodies,
+headers and translation keys when migrating; translate at the request boundary.
+Endpoint-level `HTTPException` for pure request validation is fine. Inertia
+forms may catch domain errors to report field errors or redirect.
+
 ## Related skills
 
 - **simple-module-database** — per-module Base, mixins, session lifecycle

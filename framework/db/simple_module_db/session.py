@@ -19,6 +19,8 @@ from simple_module_db.engine_options import connect_args as timeout_connect_args
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.tenancy import DEFAULT_TENANT_ID
 
+SESSION_FACTORY_KEY = "sm_session_factory"
+
 
 class RequestSession(AsyncSession):
     """Async session with hooks for the request-owned transaction."""
@@ -134,6 +136,8 @@ def init_db(
         expire_on_commit=False,
         sync_session_class=scoped_session_class,
     )
+
+    session_factory.configure(info={SESSION_FACTORY_KEY: session_factory})
 
     return DatabaseState(
         engine=engine,

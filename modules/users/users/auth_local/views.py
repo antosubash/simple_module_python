@@ -12,11 +12,11 @@ from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
-from users.auth_local.invite_preview import preview_invite
 from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
 from users.contracts.schemas import UserRead
 from users.demo import resolve_demo_accounts
+from users.invites.preview import preview_invite
 from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
 from users.models import User

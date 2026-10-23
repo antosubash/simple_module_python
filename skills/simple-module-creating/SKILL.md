@@ -129,4 +129,10 @@ The new module should appear in the registered-modules log line. If it has a vie
 - **`name=` collides.** Two modules with the same `ModuleMeta.name` raise `SM008` at dev boot / `make doctor` (their lowercased names would also collide as table prefixes in the shared schema).
 - **Registered the module by hand in host code.** Don't — discovery is entry-point-only; host code never imports module code.
 
+Services raise domain exceptions derived from a per-module base in
+`exceptions.py` or `errors.py`, never `HTTPException`. Map them in endpoints or
+`register_exception_handlers(app)` (as in `file_storage`); translate at the
+request boundary. Preserve existing status codes, JSON bodies and headers.
+Endpoint-level `HTTPException` for pure request validation remains fine.
+
 For framework-wide rules that apply once the module exists (SQLModel-everywhere, file-size cap, settings layout, no `session.commit()` in services), see the **simple-module-conventions** skill. For migration mechanics see **simple-module-migrations**.

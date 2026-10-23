@@ -25,11 +25,12 @@ from collections.abc import Awaitable, Callable
 from settings.constants import ERR_MANAGED_KEY_DELETE
 from settings.contracts.registry import SettingsRegistry, clear_route
 from settings.contracts.schemas import SettingScope
+from settings.exceptions import SettingsError
 
 TenantIsLive = Callable[[str], Awaitable[bool]]
 
 
-class ManagedKeyError(Exception):
+class ManagedKeyError(SettingsError):
     """The key is cleared through ``clear_via``, not by deleting its row."""
 
     def __init__(self, key: str, clear_via: str) -> None:

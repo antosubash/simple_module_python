@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from simple_module_db import independent_session
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -28,15 +29,19 @@ async def attach_default_role(session: AsyncSession, user: User) -> None:
     public signup must not undo that. It also keeps concurrent signups
     from racing to insert it.
     """
-    role = (
-        await session.execute(select(Role).where(col(Role.name) == USER_ROLE_NAME))
-    ).scalar_one_or_none()
-    if role is None:
-        logger.warning("No '%s' role exists; %s registered with no role", USER_ROLE_NAME, user.id)
-        return
-    session.add(UserRole(user_id=user.id, role_id=role.id))
-    # Committed, not just flushed: fastapi-users already committed the
-    # user row in ``create()``, so a failure after this point (event
-    # publish, the verification email) would otherwise roll the role back
-    # and leave a committed account with no role that cannot re-register.
+    user_id = user.id
+    # End fastapi-users' post-commit refresh transaction before borrowing again.
+    # Framework sessions keep objects loaded on commit for the remaining hooks.
     await session.commit()
+    async with independent_session(session) as checkpoint:
+        role = (
+            await checkpoint.execute(select(Role).where(col(Role.name) == USER_ROLE_NAME))
+        ).scalar_one_or_none()
+        if role is None:
+            logger.warning(
+                "No '%s' role exists; %s registered with no role", USER_ROLE_NAME, user_id
+            )
+            return
+        # fastapi-users already committed the account. Keep its default role
+        # even if a later registration hook or verification email fails.
+        checkpoint.add(UserRole(user_id=user_id, role_id=role.id))

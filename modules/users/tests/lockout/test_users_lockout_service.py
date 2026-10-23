@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from _users_app_builders import ALICE
-from fastapi import HTTPException
 from simple_module_core.rate_limit import InProcessWindowStore
 from sqlalchemy import select
 from users.auth_local import lockout
@@ -16,6 +15,7 @@ from users.auth_local.lockout import (
     record_failure,
     record_success,
 )
+from users.exceptions import LoginLockedError
 from users.models import User
 from users.settings import UsersSettings
 
@@ -38,17 +38,17 @@ async def _fail(session, attempt: LoginAttempt) -> int:
     """One wrong password: admit, then settle. Returns the status it would answer."""
     try:
         admission = await admit(session, attempt)
-    except HTTPException as exc:
-        return exc.status_code
+    except LoginLockedError:
+        return 429
     locked = await record_failure(session, attempt, admission)
-    return locked.status_code if locked else 400
+    return 429 if locked else 400
 
 
 async def _admit_or_status(session, attempt: LoginAttempt) -> Admission | int:
     try:
         return await admit(session, attempt)
-    except HTTPException as exc:
-        return exc.status_code
+    except LoginLockedError:
+        return 429
 
 
 async def _row(users_db, user) -> User:
@@ -160,7 +160,7 @@ async def test_success_mid_burst_does_not_lift_a_lock(users_db, alice) -> None:
     owner_slot = await admit(users_db, owner)  # admitted before the lock
     attacker = _attempt(ip="10.0.0.3", store=store, account=3)
     locked = await record_failure(users_db, attacker, await admit(users_db, attacker))
-    assert locked is not None and locked.status_code == 429
+    assert isinstance(locked, LoginLockedError)
 
     await record_success(users_db, owner, owner_slot)  # the owner's password lands last
     await users_db.commit()
@@ -188,8 +188,8 @@ async def test_lock_landing_after_the_read_reports_the_time_left(users_db, alice
     mid = _attempt(now=T0 + timedelta(seconds=300), ip="9.9.9.9", account=3)
     try:
         await lockout._admit_account(users_db, mid, [None])  # read before the lock landed
-    except HTTPException as exc:
-        assert (exc.status_code, exc.headers) == (429, {"Retry-After": "600"})
+    except LoginLockedError as exc:
+        assert exc.retry_after == 600
     else:
         raise AssertionError("a locked row was admitted")
 

@@ -17,7 +17,7 @@ framework is for. Each is independently switchable by blanking its email.
 Deliberately *not* the dev quick-login buttons (``users.auth_local.views``):
 those are development-only and paste real credentials into the form, which is
 exactly what a published demo must not do. Here the passwords never leave the
-server — :mod:`users.auth_local.demo_api` mints the session directly.
+server — :mod:`users.demo.api` mints the session directly.
 """
 
 from __future__ import annotations

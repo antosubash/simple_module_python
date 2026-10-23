@@ -202,7 +202,7 @@ class TestMailerFailureIsNotEchoed:
     async def test_the_admin_gets_the_link_and_a_generic_reason(
         self, admin_client, users_app, caplog
     ):
-        from users.admin.bulk_invite import MAILER_FAILURE_DETAIL
+        from users.invites.bulk import MAILER_FAILURE_DETAIL
 
         class _BrokenMailer(_SpyMailer):
             async def send_invite(self, email, token, invited_by_name, message=None):
@@ -212,7 +212,7 @@ class TestMailerFailureIsNotEchoed:
         original = users_app.state.users.mailer
         users_app.state.users.mailer = _BrokenMailer()
         try:
-            with caplog.at_level(logging.ERROR, logger="users.admin.resend_invite"):
+            with caplog.at_level(logging.ERROR, logger="users.invites.resend"):
                 resp = await admin_client.post(f"/api/users/admin/{user_id}/resend-invite")
         finally:
             users_app.state.users.mailer = original

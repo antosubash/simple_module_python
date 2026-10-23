@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from users.demo_guard import is_demo_session
+from users.demo.guard import is_demo_session
 
 if TYPE_CHECKING:
     from starlette.requests import Request

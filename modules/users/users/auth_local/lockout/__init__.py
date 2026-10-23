@@ -28,104 +28,30 @@ exactly one can take the last slot.
 
 from __future__ import annotations
 
-import hashlib
 import math
-import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from fastapi import HTTPException, Request, status
-from simple_module_core.rate_limit import RateSpec, WindowStore
+from fastapi import Request
+from simple_module_core.rate_limit import RateSpec
+from simple_module_db import independent_session
 from sqlalchemy import case, func, select, update
 from sqlmodel import col
 
+from users.auth_local.lockout.attempt import Admission, LoginAttempt
 from users.auth_local.rate_limit import client_ip
+from users.exceptions import LOGIN_LOCKED_DETAIL, LoginLockedError
 from users.models import User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from users.settings import UsersSettings
 
-LOCKED_DETAIL = "Too many attempts — try again later"
+LOCKED_DETAIL = LOGIN_LOCKED_DETAIL
 
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-@dataclass(frozen=True, slots=True)
-class LoginAttempt:
-    """One password login: who, from where, against which store, and when."""
-
-    username: str
-    ip: str
-    store: WindowStore
-    settings: UsersSettings
-    now: datetime
-
-    @classmethod
-    def build(
-        cls,
-        username: str,
-        ip: str,
-        store: WindowStore,
-        settings: UsersSettings,
-        now: datetime,
-    ) -> LoginAttempt:
-        # Normalised once, here: ``Alice@x `` and ``alice@x`` are one account
-        # to the user lookup, so they must be one counter too.
-        return cls(username.strip().lower(), ip, store, settings, now)
-
-    @property
-    def threshold(self) -> int:
-        return self.settings.login_lockout_account_failures
-
-    @property
-    def cooldown(self) -> int:
-        return self.settings.login_rate_limit_cooldown_seconds
-
-    @property
-    def key_name(self) -> str:
-        """The username as it appears in store keys.
-
-        The body limit is 10 MiB, so an unauthenticated caller could otherwise
-        park a megabyte-long key in Redis per request. Anything longer than an
-        address can be (254) is hashed; it matches no account either way.
-        """
-        if len(self.username) <= 254:
-            return self.username
-        return hashlib.sha256(self.username.encode()).hexdigest()
-
-    @property
-    def ip_key(self) -> str:
-        return f"login:ip:{self.ip}:{self.key_name}"
-
-    @property
-    def ip_spec(self) -> RateSpec:
-        s = self.settings
-        return RateSpec(s.login_rate_limit_failures, s.login_rate_limit_window_seconds)
-
-    @property
-    def account_key(self) -> str:
-        return f"login:acct:{self.key_name}"
-
-    @property
-    def lock_key(self) -> str:
-        return f"login:acct-lock:{self.key_name}"
-
-    @property
-    def lock_spec(self) -> RateSpec:
-        return RateSpec(1, self.cooldown)
-
-
-@dataclass(frozen=True, slots=True)
-class Admission:
-    """A slot taken by :func:`admit`: the account rows it counted against and the count."""
-
-    user_ids: tuple[uuid.UUID, ...]
-    count: int
 
 
 def login_attempt(request: Request, username: str) -> LoginAttempt:
@@ -139,13 +65,9 @@ def login_attempt(request: Request, username: str) -> LoginAttempt:
     )
 
 
-def too_many_attempts(retry_after: int) -> HTTPException:
-    """The 429 for a locked account or a throttled source — deliberately identical."""
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail=LOCKED_DETAIL,
-        headers={"Retry-After": str(max(1, retry_after))},
-    )
+def too_many_attempts(retry_after: int) -> LoginLockedError:
+    """The same domain failure for a locked account or a throttled source."""
+    return LoginLockedError(retry_after)
 
 
 def _by_username(username: str) -> Any:
@@ -156,15 +78,15 @@ def _by_username(username: str) -> Any:
 async def admit(session: AsyncSession, attempt: LoginAttempt) -> Admission:
     """Take a slot for this attempt in both tiers, or raise the 429.
 
-    Commits *session* when it counts against an account row, so other workers
-    see the slot taken before this one checks the password. The request has
-    only read by this point, so nothing else is committed with it.
+    Counts account rows in an independent checkpoint, so other workers see
+    the slot taken before this one checks the password.
     """
     source = await attempt.store.hit(attempt.ip_key, attempt.ip_spec)
     if not source.allowed:
         raise too_many_attempts(source.retry_after)
     stmt = select(User.locked_until).where(_by_username(attempt.username))
-    rows = list((await session.execute(stmt)).scalars().all())
+    async with independent_session(session) as checkpoint:
+        rows = list((await checkpoint.execute(stmt)).scalars().all())
     if rows:
         return await _admit_account(session, attempt, rows)
     return await _admit_unknown(attempt)
@@ -201,15 +123,16 @@ async def _admit_account(
         .returning(User.id, User.failed_login_count)
         .execution_options(synchronize_session=False)
     )
-    counted = (await session.execute(stmt)).all()
-    await session.commit()
+    async with independent_session(session) as checkpoint:
+        counted = (await checkpoint.execute(stmt)).all()
     if not counted:
         # Locked by another worker since the read above: report the time left,
         # as the unknown-username lock does, or ``Retry-After`` would tell the
         # two apart. Otherwise the last slot is taken and its lock is being
         # written — the full cooldown, as on the unknown path.
         stmt = select(User.locked_until).where(_by_username(attempt.username))
-        locks = list((await session.execute(stmt)).scalars().all())
+        async with independent_session(session) as checkpoint:
+            locks = list((await checkpoint.execute(stmt)).scalars().all())
         raise too_many_attempts(_lock_remaining(locks, attempt.now) or attempt.cooldown)
     return Admission(tuple(row[0] for row in counted), max(row[1] for row in counted))
 
@@ -231,26 +154,22 @@ async def _admit_unknown(attempt: LoginAttempt) -> Admission:
 
 async def record_failure(
     session: AsyncSession, attempt: LoginAttempt, admission: Admission
-) -> HTTPException | None:
+) -> LoginLockedError | None:
     """Settle a wrong password: the 429 to raise if it was the last slot, else ``None``.
 
-    The failure itself was counted by :func:`admit`. Locking commits *session*:
-    the caller answers by raising, and the request's unit of work rolls back on
-    that path.
+    The failure itself was counted by :func:`admit`. Locking uses an independent checkpoint:
+    the caller raises next, rolling back the request unit of work.
     """
     if admission.count < attempt.threshold:
         return None
     if admission.user_ids:
-        for user_id in admission.user_ids:
-            # Through the ORM, not an UPDATE, so the audit log records the lock.
-            # Only ``locked_until`` and the count are written, so a concurrent
-            # counting UPDATE cannot undo it — and none can run: this row has
-            # no free slot until the lock lifts.
-            user = await session.get(User, user_id, populate_existing=True)
-            if user is not None:
-                user.locked_until = attempt.now + timedelta(seconds=attempt.cooldown)
-                user.failed_login_count = 0
-        await session.commit()
+        async with independent_session(session) as checkpoint:
+            for user_id in admission.user_ids:
+                # ORM writes preserve the audit record for the lock.
+                user = await checkpoint.get(User, user_id)
+                if user is not None:
+                    user.locked_until = attempt.now + timedelta(seconds=attempt.cooldown)
+                    user.failed_login_count = 0
     else:
         await attempt.store.hit(attempt.lock_key, attempt.lock_spec)
         await attempt.store.reset(attempt.account_key)
@@ -277,14 +196,14 @@ async def release(session: AsyncSession, attempt: LoginAttempt, admission: Admis
     """Give back the account slot of an attempt that must not count.
 
     For a correct password refused for another reason (an unverified email):
-    that answer is not a failure. Commits, since the caller raises next.
+    that answer is not a failure. Checkpoints, since the caller raises next.
     """
     await attempt.store.reset(attempt.ip_key)
     if admission.user_ids:
-        await session.execute(
-            update(User)
-            .where(col(User.id).in_(admission.user_ids), col(User.failed_login_count) > 0)
-            .values(failed_login_count=User.failed_login_count - 1, updated_at=User.updated_at)
-            .execution_options(synchronize_session=False)
-        )
-        await session.commit()
+        async with independent_session(session) as checkpoint:
+            await checkpoint.execute(
+                update(User)
+                .where(col(User.id).in_(admission.user_ids), col(User.failed_login_count) > 0)
+                .values(failed_login_count=User.failed_login_count - 1, updated_at=User.updated_at)
+                .execution_options(synchronize_session=False)
+            )

@@ -19,16 +19,16 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi import status as http_status
 
-from users.admin.bulk_invite import (
+from users.admin.service import UserService
+from users.contracts.schemas import BulkInviteResult
+from users.deps import get_mailer, get_user_service
+from users.exceptions import NotPendingInviteError, UserNotFoundError
+from users.invites.bulk import (
     MAILER_FAILURE_DETAIL,
     STATUS_LINK,
     STATUS_SENT,
     invite_link,
 )
-from users.admin.service import UserService
-from users.contracts.schemas import BulkInviteResult
-from users.deps import get_mailer, get_user_service
-from users.exceptions import NotPendingInviteError, UserNotFoundError
 from users.mailer import mailer_delivers
 
 logger = logging.getLogger(__name__)

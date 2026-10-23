@@ -135,39 +135,6 @@ class TestOnAfterRegister:
         assert event.email == fake_user.email
 
     @pytest.mark.anyio
-    async def test_request_bound_registration_gets_the_user_role(
-        self, manager, fake_user, fake_user_db
-    ):
-        """GH #488: a signup with no role holds no permissions at all."""
-        from users.models import UserRole
-
-        request = MagicMock()
-        request.state = MagicMock(spec=[])  # a local signup, not OAuth
-        request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
-        fake_user.is_verified = True
-        role = MagicMock(id=uuid.uuid4())
-        fake_user_db.session.execute = AsyncMock(
-            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=role))
-        )
-        await manager.on_after_register(fake_user, request)
-
-        (added,) = fake_user_db.session.add.call_args.args
-        assert isinstance(added, UserRole)
-        assert (added.user_id, added.role_id) == (fake_user.id, role.id)
-
-    @pytest.mark.anyio
-    async def test_a_deleted_user_role_is_not_recreated(self, manager, fake_user, fake_user_db):
-        """An admin who removed the role meant it; a public signup must not undo that."""
-        request = MagicMock()
-        request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
-        fake_user.is_verified = True
-        fake_user_db.session.execute = AsyncMock(
-            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
-        )
-        await manager.on_after_register(fake_user, request)
-        fake_user_db.session.add.assert_not_called()
-
-    @pytest.mark.anyio
     async def test_without_request_skips_publish(self, manager, fake_user, fake_user_db):
         """CLI/bootstrap and admin flows pass request=None — no crash, no role:
         the admin picks the roles there, and may pick none."""

@@ -6,7 +6,7 @@ a new password and pressed submit, and the verify screen had no way to offer
 carry both answers, so the view decodes them read-only and hands the page a
 decided state instead of a form that is guaranteed to fail.
 
-Sibling of :mod:`users.auth_local.invite_preview`, which does the same for the
+Sibling of :mod:`users.invites.preview`, which does the same for the
 invite card; kept apart because that one also reads the account's roles.
 """
 
