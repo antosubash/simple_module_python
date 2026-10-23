@@ -45,7 +45,7 @@ _DASHBOARD_MODULE = "Dashboard"
 async def run_startup(module: UsersModule, app: FastAPI) -> None:
     """Populate ``app.state.users`` and apply settings-derived configuration."""
     from users.backend import reconfigure_cookie_transport
-    from users.bootstrap import bootstrap_admin_from_env, ensure_admin_role, ensure_user_role
+    from users.bootstrap import bootstrap_admin_from_env, ensure_user_role
     from users.demo import ensure_demo_users
     from users.deps import auth_backend
     from users.roles_cache import refresh_roles_cache
@@ -68,16 +68,14 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     # this is the bound on a dropped message rather than on every revocation.
     configure_session_version_cache(s.session_version_cache_ttl_seconds)
 
-    # Scaffolded hosts create a schema baseline without the framework host's
-    # data migrations. Seed before warming the cache or provisioning accounts.
-    # One transaction per role, and a lost insert race is fine: with several
-    # workers booting against a fresh schema, another worker seeded the row.
-    for ensure_role in (ensure_admin_role, ensure_user_role):
-        try:
-            async with app.state.sm.db.session_factory.begin() as db:
-                await ensure_role(db)
-        except IntegrityError:
-            logger.debug("users.startup.role_seed_raced", extra={"role_seed": ensure_role.__name__})
+    # Schema-only hosts need the signup role. Admin roles come from migrations
+    # or explicit provisioning; ordinary startup must preserve operator changes.
+    try:
+        async with app.state.sm.db.session_factory.begin() as db:
+            await ensure_user_role(db)
+    except IntegrityError:
+        # Another worker may have inserted the role during startup.
+        logger.debug("users.startup.role_seed_raced", extra={"role_seed": "ensure_user_role"})
 
     await bootstrap_admin_from_env(app)
     # After the env bootstrap, not beside it: that one only runs while the

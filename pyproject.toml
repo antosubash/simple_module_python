@@ -29,6 +29,7 @@ dev = [
     "aioboto3>=13",
     "moto[s3]>=5",
     "tomlkit>=0.13",
+    "pyyaml>=6.0",
     "pytest-httpx>=0.36.2",
     # Test-only: builds real brotli payloads for the pre-compressed static-file
     # tests. The build itself compresses with Node's zlib, so nothing at runtime

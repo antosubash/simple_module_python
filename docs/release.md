@@ -103,12 +103,13 @@ The workflow derives the next version from the current `framework/core/pyproject
 1. Go to [Actions → release → Run workflow](https://github.com/antosubash/simple_module_python/actions/workflows/release.yml).
 2. **bump**: `patch` (default), `minor`, or `major`. Leave **version** blank to use it.
 3. **version**: optional — set to an explicit number (e.g. `0.2.0rc1`) to override the bump.
-4. **Run workflow**.
+4. **pending_publishers**: for first uploads only, enter comma-separated `simple_module_*` names whose pending publishers you have registered and verified (e.g. `simple_module_core,simple_module_users`). Leave blank otherwise.
+5. **Run workflow**.
 
 What happens:
 - `resolve` computes the final version and shares it with every downstream job.
 - `checks` calls `pr.yml` (`workflow_call`) on the dispatched commit, so the `pr-checks` aggregate must be green. `build` needs it: nothing is built or published from a red commit.
-- `preflight` checks every PyPI matrix project via `https://pypi.org/pypi/<name>/json`. Both publish jobs require it. A 404 blocks publishing and lists every absent project with a pointer to this guide; other registry errors also block publishing. This public check cannot verify Trusted Publisher configuration or see pending publishers. New projects must have a pending publisher configured and be bootstrapped with their first release before this existence check will pass.
+- `preflight` checks every PyPI matrix project via `https://pypi.org/pypi/<name>/json`. Both publish jobs require it. A 404 blocks publishing unless that exact package name is listed in **pending_publishers**. Unconfirmed absent projects are listed with a pointer to this guide; other registry errors always block publishing. The public API cannot verify Trusted Publisher configuration or see pending publishers, so this input is your confirmation that each listed project has a correctly configured pending publisher. Its first upload through this workflow creates the project.
 - `build` rewrites every version, runs `uv build --all-packages` (a wheel + sdist for every buildable workspace package) plus the 3 npm tarballs, and uploads them as artifacts.
 - `publish-pypi` fans out 22 parallel jobs (the matrix package list), each filtering the artifact set down to one package and publishing its wheel+sdist pair via OIDC Trusted Publishing. Existing distributions are skipped using the publish action’s `skip-existing` option, so a retry can fill in a missing wheel or sdist.
 - `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs via OIDC Trusted Publishing. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`. It queries the exact version from the tarball: HTTP 200 skips it, 404 publishes it, and any other HTTP or network error fails the job.
@@ -225,10 +226,11 @@ replace immutable releases. Do not yank, unpublish, or bump just to resume.
 ### Preflight lists new PyPI projects
 
 The preflight lists every missing matrix project before any publish job runs.
-Configure each project's pending publisher as described above, then bootstrap
-its first release through that trusted workflow. Pending publishers alone do
-not make the project JSON endpoint return 200, so this conservative existence
-check will continue to block until the project exists. An existing project can
+Configure each project's pending publisher as described above, then dispatch
+the release with those comma-separated names in **pending_publishers**. A pending
+publisher still returns 404 until the first upload; the input explicitly confirms
+you verified its configuration and allows that first release to proceed. Unlisted
+404s and other registry errors still block publishing. An existing project can
 still have a missing or mismatched publisher; correct that in PyPI settings if
 a publish leg returns 403.
 
@@ -236,7 +238,7 @@ a publish leg returns 403.
 
 1. Version-bumping is automatic — `scripts/bump_version.py` discovers any `modules/*/pyproject.toml`, so a new module is picked up with no edit.
 2. Add it to `.github/workflows/release.yml` under `publish-pypi` → `strategy.matrix.package` (only matrix packages are published).
-3. Create the PyPI pending Trusted Publisher entry and bootstrap its first release; the preflight requires the project to exist on PyPI.
+3. Create and verify the PyPI pending Trusted Publisher entry, then include its `simple_module_*` name in **pending_publishers** when dispatching its first release.
 4. Add a substantive README (`check_readmes.py` will fail otherwise).
 
 `scripts/check_metadata.py` and `scripts/check_readmes.py` run in `make lint` and will tell you what's missing.

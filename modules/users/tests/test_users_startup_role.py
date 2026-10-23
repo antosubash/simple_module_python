@@ -10,13 +10,16 @@ from _users_app_builders import _make_admin_user, _seed_users_settings, _setup_a
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 from sqlalchemy import select
-from users.constants import USER_ROLE_ID
+from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 from users.models import Role, User, UserRole
 from users.module import UsersModule
 
 
+@pytest.mark.parametrize("renamed_admin", [False, True], ids=["deleted-admin", "renamed-admin"])
 @pytest.mark.parametrize("existing_role", [False, True], ids=["schema-only", "custom-role"])
-async def test_startup_ensures_signup_role_without_overwriting_existing_role(existing_role):
+async def test_startup_ensures_signup_role_without_overwriting_existing_role(
+    existing_role, renamed_admin
+):
     app = create_app(
         Settings(
             database_url="sqlite+aiosqlite:///:memory:",
@@ -34,16 +37,24 @@ async def test_startup_ensures_signup_role_without_overwriting_existing_role(exi
         assert (await db.execute(select(Role))).scalars().all() == []
         if existing_role:
             db.add(Role(id=role_id, name="user", description=description))
-            await db.commit()
+        if renamed_admin:
+            db.add(Role(id=ADMIN_ROLE_ID, name="operators", description="Renamed admin"))
+        await db.commit()
 
     async with app.router.lifespan_context(app):
-        # Both roles must be cached before setup creates the first admin.
-        assert [role.name for role in app.state.users.roles_cache] == ["admin", "user"]
+        # Ordinary startup preserves an operator-deleted or renamed admin role.
+        assert {role.name for role in app.state.users.roles_cache} == (
+            {"operators", "user"} if renamed_admin else {"user"}
+        )
+        if renamed_admin:
+            async with app.state.sm.db.session_factory.begin() as db:
+                await db.delete(await db.get(Role, ADMIN_ROLE_ID))
         assert any(role.id == str(role_id) for role in app.state.users.roles_cache)
         # A scaffolded app completes admin setup before public signup is usable.
         await _make_admin_user(app)
         # Re-running startup must preserve the role and avoid duplicate inserts.
         await UsersModule().on_startup(app)
+        assert {role.name for role in app.state.users.roles_cache} == {"admin", "user"}
         assert any(role.id == str(role_id) for role in app.state.users.roles_cache)
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://testserver"

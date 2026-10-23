@@ -12,6 +12,11 @@ on:
         description: "Explicit version override (e.g., 1.2.3)"
         required: false
         type: string
+      pending_publishers:
+        description: "Comma-separated simple_module_* names you confirm have PyPI pending publishers"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -70,7 +75,7 @@ jobs:
     uses: ./.github/workflows/pr.yml
 
   # Public PyPI metadata cannot verify publisher configuration. Block absent
-  # projects and list all of them before either registry receives uploads.
+  # projects unless the operator confirms their pending publishers.
   preflight:
     runs-on: ubuntu-latest
     permissions:
@@ -81,7 +86,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Check PyPI projects
-        run: uv run --no-project --with tomlkit python -m scripts.release_preflight
+        env:
+          PENDING_PUBLISHERS: ${{ inputs.pending_publishers }}
+        run: >-
+          uv run --no-project --with tomlkit python -m scripts.release_preflight
+          --pending-publishers "$PENDING_PUBLISHERS"
 
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
   # The commit + tag only hit origin in `finalize`, after publishes succeed,

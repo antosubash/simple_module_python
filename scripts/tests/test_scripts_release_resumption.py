@@ -112,7 +112,7 @@ def test_preflight_reports_every_new_matrix_package(capsys: pytest.CaptureFixtur
         return io.BytesIO(b"{}")
 
     with patch("scripts.release_preflight.urlopen", side_effect=registry):
-        assert main() == 1
+        assert main([]) == 1
     output = capsys.readouterr().out
     assert all(name in output for name in missing)
     assert "docs/release.md" in output
@@ -123,14 +123,62 @@ def test_preflight_accepts_existing_projects() -> None:
     from scripts.release_preflight import main
 
     with patch("scripts.release_preflight.urlopen", side_effect=lambda *a, **kw: io.BytesIO(b"{}")):
-        assert main() == 0
+        assert main([]) == 0
 
 
 @pytest.mark.parametrize(
     "error", [HTTPError("url", 503, "Unavailable", None, None), URLError("offline")]
 )
-def test_preflight_fails_closed_on_registry_errors(error: URLError) -> None:
+@pytest.mark.parametrize("confirmed", ["", "simple_module_core"])
+def test_preflight_fails_closed_on_registry_errors(error: URLError, confirmed: str) -> None:
     from scripts.release_preflight import main
 
     with patch("scripts.release_preflight.urlopen", side_effect=error):
-        assert main() == 1
+        assert main(["--pending-publishers", confirmed]) == 1
+
+
+@pytest.mark.parametrize(
+    "confirmed", ["simple_module_core", " simple_module_core, simple_module_users, "]
+)
+def test_preflight_accepts_confirmed_pending_publishers(confirmed: str) -> None:
+    from scripts.release_preflight import main
+
+    with (
+        patch(
+            "scripts.release_preflight.parse_publish_matrix", return_value={"simple_module_core"}
+        ),
+        patch(
+            "scripts.release_preflight.urlopen",
+            side_effect=HTTPError("url", 404, "Not Found", None, None),
+        ),
+    ):
+        assert main(["--pending-publishers", confirmed]) == 0
+
+
+def test_preflight_still_rejects_unconfirmed_missing_projects(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from scripts.release_preflight import main
+
+    with (
+        patch(
+            "scripts.release_preflight.parse_publish_matrix",
+            return_value={"simple_module_core", "simple_module_users"},
+        ),
+        patch(
+            "scripts.release_preflight.urlopen",
+            side_effect=HTTPError("url", 404, "Not Found", None, None),
+        ),
+    ):
+        assert main(["--pending-publishers", "simple_module_core"]) == 1
+    output = capsys.readouterr().out
+    assert "simple_module_users" in output
+    assert "docs/release.md" in output
+
+
+def test_workflow_passes_pending_publisher_confirmation_safely() -> None:
+    workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+    assert workflow["on"]["workflow_dispatch"]["inputs"]["pending_publishers"]["type"] == "string"
+    step = next(step for step in workflow["jobs"]["preflight"]["steps"] if "run" in step)
+    assert step["env"]["PENDING_PUBLISHERS"] == "${{ inputs.pending_publishers }}"
+    assert '--pending-publishers "$PENDING_PUBLISHERS"' in step["run"]
