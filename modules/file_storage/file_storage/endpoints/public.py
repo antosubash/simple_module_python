@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from simple_module_db.query_filter import strict_configured
 from simple_module_hosting.i18n_deps import TranslatorDep
 
 from file_storage import constants
@@ -27,9 +28,12 @@ async def _public_row(
 ):
     try:
         row = await service.get_public(file_id)
-        # Platform-owned files (branding logo/favicon) have no tenant row by design.
+        # Only a multi-tenant install keys files to registry rows: platform files
+        # (branding logo/favicon) and a single-tenant install's fallback tenant
+        # (``default`` or ``default_tenant``) have none by design.
         if (
             row.tenant_id != PLATFORM_TENANT_ID
+            and strict_configured(service.db.sync_session)
             and await cached_tenant_exists(request.app, row.tenant_id) is False
         ):
             raise StoredFileNotFoundError(str(file_id))

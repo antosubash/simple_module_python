@@ -122,8 +122,16 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
             for key, upload_id in event.uploads:
                 if upload_id is None:
                     continue
-                with contextlib.suppress(StorageNotFoundError):
+                # Sessions do not record their provider: after a backend switch the
+                # abort can fail for good, and must not wedge the file deletes above.
+                try:
                     await backend.abort_multipart(key, upload_id)
+                except StorageNotFoundError:
+                    pass
+                except Exception:
+                    _logger.warning(
+                        "file_storage.tenant_upload_abort_failed key=%s", key, exc_info=True
+                    )
                 with contextlib.suppress(StorageNotFoundError):
                     await backend.delete(key)
 
