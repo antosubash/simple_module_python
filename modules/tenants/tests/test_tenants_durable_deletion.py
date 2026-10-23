@@ -38,7 +38,7 @@ async def test_tenants_delete_enqueues_before_commit(db_session):
 
 
 @pytest.mark.parametrize("bus", [None, EventBus()], ids=["no-bus", "no-transport"])
-async def test_tenants_delete_without_durable_transport(db_session, bus):
+async def test_tenants_delete_without_durable_transport(db_session, bus, caplog):
     tenant = Tenant(id="durable", slug="durable", name="Durable")
     db_session.add(tenant)
     await finalize_session(db_session)

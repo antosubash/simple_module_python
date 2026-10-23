@@ -36,7 +36,7 @@ class TenantStorageCleanupRequested(Event):
     """A persisted cleanup manifest, surviving deletion of the source rows."""
 
     files: list[tuple[str, str]]
-    uploads: list[tuple[str, str]]
+    uploads: list[tuple[str, str | None]]
 
 
 def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
@@ -51,12 +51,14 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
                     (UploadSession.key, UploadSession.backend_upload_id, UploadSession.status),
                 ),
             ):
-                result = await ctx.db.stream(
+                result = await ctx.db.execute(
                     select(*columns)
                     .where(col(model.tenant_id) == event.tenant_id)
-                    .execution_options(include_deleted=True, yield_per=CLEANUP_BATCH_SIZE)
+                    .execution_options(include_deleted=True)
                 )
-                async for rows in result.partitions(CLEANUP_BATCH_SIZE):
+                projected = result.all()
+                for start in range(0, len(projected), CLEANUP_BATCH_SIZE):
+                    rows = projected[start : start + CLEANUP_BATCH_SIZE]
                     manifest = TenantStorageCleanupRequested(
                         files=[(row[0], row[1]) for row in rows] if model is StoredFile else [],
                         uploads=[
@@ -118,6 +120,8 @@ def register_tenant_deletion(bus: EventBus, app: FastAPI | None) -> None:
         if event.uploads:
             backend = build_backend(settings)
             for key, upload_id in event.uploads:
+                if upload_id is None:
+                    continue
                 with contextlib.suppress(StorageNotFoundError):
                     await backend.abort_multipart(key, upload_id)
                 with contextlib.suppress(StorageNotFoundError):

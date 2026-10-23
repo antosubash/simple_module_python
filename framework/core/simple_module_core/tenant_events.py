@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from simple_module_core.events import Event
 
+TENANT_DELETED_CHANNEL = "tenants.deleted"
+
 
 @dataclass
 class TenantDeleted(Event):

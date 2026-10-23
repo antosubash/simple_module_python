@@ -25,6 +25,7 @@ _MODULE_SETTINGS: Final = "Settings"
 _MODULE_BACKGROUND_TASKS: Final = "BackgroundTasks"
 
 # ── Configuration ────────────────────────────────────────────────────
+
 ENV_PREFIX: Final = "SM_FILE_STORAGE_"
 
 # ── Routing ──────────────────────────────────────────────────────────

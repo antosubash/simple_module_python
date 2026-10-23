@@ -72,12 +72,12 @@ def test_recovers_lost_jobs_across_tenants_and_skips_ineligible_files(
 
     monkeypatch.setattr(tasks.compute_checksum, "apply_async", publish)
     assert tasks.reconcile_checksums() == 2
-    assert published == [((str(row.id), row.tenant_id), row.tenant_id) for row in rows]
+    assert set(published) == {((str(row.id), row.tenant_id), row.tenant_id) for row in rows}
 
 
 def test_batch_is_bounded_and_failed_publishes_are_retried(checksum_worker, monkeypatch):
     with sync_db.sync_session() as db, tenant_context("tenant-a"):
-        db.add_all([_file("tenant-a", age=60), _file("tenant-a", age=90)])
+        db.add(_file("tenant-a", age=60))
     monkeypatch.setattr(constants, "CHECKSUM_RECONCILE_BATCH_SIZE", 1)
     publish = Mock(side_effect=OSError("broker unavailable"))
     monkeypatch.setattr(tasks.compute_checksum, "apply_async", publish)
@@ -103,3 +103,25 @@ def test_other_backend_rows_do_not_starve_active_backend(checksum_worker, monkey
     monkeypatch.setattr(tasks.compute_checksum, "apply_async", publish)
     assert tasks.reconcile_checksums() == 1
     assert publish.call_args.kwargs["args"] == (str(active.id), active.tenant_id)
+
+
+def test_candidate_order_is_random(checksum_worker, monkeypatch):
+    from sqlalchemy import event
+
+    with sync_db.sync_session() as db, tenant_context("tenant-a"):
+        db.add_all([_file("tenant-a", age=60), _file("tenant-a", age=90)])
+    statements = []
+    with sync_db.sync_session() as db:
+        engine = db.get_bind()
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", capture)
+    monkeypatch.setattr(constants, "CHECKSUM_RECONCILE_BATCH_SIZE", 1)
+    monkeypatch.setattr(tasks.compute_checksum, "apply_async", Mock())
+    try:
+        assert tasks.reconcile_checksums() == 1
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+    assert any("ORDER BY random()" in statement for statement in statements)

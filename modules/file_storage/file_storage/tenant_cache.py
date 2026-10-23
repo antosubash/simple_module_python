@@ -4,9 +4,9 @@ from collections import OrderedDict
 from time import monotonic
 
 from fastapi import FastAPI
-from simple_module_core.events import EventBus
+from simple_module_core.invalidation import Invalidation, InvalidationBus
 from simple_module_core.tenancy import tenant_exists
-from simple_module_core.tenant_events import TenantDeleted
+from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 
 TENANT_EXISTS_TTL_SECONDS = 60
 TENANT_EXISTS_CACHE_SIZE = 1024
@@ -17,9 +17,12 @@ class TenantExistenceCache:
         self.entries: OrderedDict[str, tuple[float, bool | None]] = OrderedDict()
         self.generation = 0
 
-    def forget(self, tenant_id: str) -> None:
+    def forget(self, tenant_id: str | None) -> None:
         self.generation += 1
-        self.entries.pop(tenant_id, None)
+        if tenant_id is None:
+            self.entries.clear()
+        else:
+            self.entries.pop(tenant_id, None)
 
 
 async def cached_tenant_exists(app: FastAPI, tenant_id: str) -> bool | None:
@@ -41,10 +44,10 @@ async def cached_tenant_exists(app: FastAPI, tenant_id: str) -> bool | None:
     return answer
 
 
-def register_tenant_cache(bus: EventBus, app: FastAPI) -> None:
+def register_tenant_cache(bus: InvalidationBus, app: FastAPI) -> None:
     app.state.file_storage_tenant_cache = TenantExistenceCache()
 
-    async def forget(event: TenantDeleted) -> None:
-        app.state.file_storage_tenant_cache.forget(event.tenant_id)
+    async def forget(event: Invalidation) -> None:
+        app.state.file_storage_tenant_cache.forget(event.key)
 
-    bus.subscribe(TenantDeleted, forget)
+    bus.subscribe(TENANT_DELETED_CHANNEL, forget)

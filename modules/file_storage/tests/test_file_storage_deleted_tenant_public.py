@@ -5,6 +5,7 @@ import io
 import pytest
 from file_storage import constants
 from PIL import Image
+from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 from sqlalchemy import delete
 from tenants.models import Invitation, Membership, Tenant
 
@@ -52,20 +53,21 @@ async def test_tenant_existence_cache_hit_invalidation_and_ttl(monkeypatch):
     from unittest.mock import AsyncMock
 
     from fastapi import FastAPI
-    from file_storage.tenant_cache import cached_tenant_exists, register_tenant_cache
-    from simple_module_core.events import EventBus
-    from simple_module_core.tenant_events import TenantDeleted
+    from file_storage.tenant_cache import cached_tenant_exists
+    from simple_module_core.invalidation import InvalidationBus
 
     app = FastAPI()
-    bus = EventBus()
-    register_tenant_cache(bus, app)
+    bus = InvalidationBus()
+    from file_storage.module import FileStorageModule
+
+    FileStorageModule().register_invalidations(bus, app)
     lookup = AsyncMock(return_value=True)
     app.state.tenant_exists = lookup
     assert await cached_tenant_exists(app, "tenant") is True
     assert await cached_tenant_exists(app, "tenant") is True
     assert lookup.await_count == 1
     lookup.return_value = False
-    await bus.publish(TenantDeleted("tenant", "tenant", "Tenant"))
+    await bus.publish(TENANT_DELETED_CHANNEL, key="tenant")
     assert await cached_tenant_exists(app, "tenant") is False
     assert lookup.await_count == 2
     monkeypatch.setattr("file_storage.tenant_cache.TENANT_EXISTS_TTL_SECONDS", 0)

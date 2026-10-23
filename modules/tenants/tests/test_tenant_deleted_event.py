@@ -125,3 +125,28 @@ async def test_rolled_back_delete_removes_no_member(db_session):
     assert resolver.cached_memberships("u2") is not None
     members = await db_session.scalar(select(func.count()).select_from(Membership))
     assert members == 2
+
+
+@pytest.mark.parametrize("rollback", [False, True])
+async def test_delete_invalidates_tenant_channel_after_commit(db_session, app, rollback):
+    from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
+    from starlette.requests import Request
+    from tenants.deps import get_tenant_service
+
+    bus = app.state.sm.invalidation
+    seen = []
+    bus.subscribe(TENANT_DELETED_CHANNEL, seen.append)
+    tenant = Tenant(id="invalidate-delete", slug="invalidate-delete", name="Delete")
+    db_session.add(tenant)
+    await finalize_session(db_session)
+    service = await get_tenant_service(Request({"type": "http", "app": app}), db_session)
+    await service.delete_tenant(tenant.id)
+    assert seen == []
+    if rollback:
+        await rollback_session(db_session)
+        assert seen == []
+    else:
+        await finalize_session(db_session)
+        assert len(seen) == 1
+        assert seen[0].key == tenant.id
+        assert await db_session.get(Tenant, tenant.id) is None

@@ -16,8 +16,10 @@ from file_storage.models import StoredFile, UploadSession
 from file_storage.tenant_deletion import register_tenant_deletion
 from file_storage.thumbnails import variant_key
 from simple_module_core.events import EventBus
+from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db import all_tenants, tenant_context
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlmodel import select
 
 
@@ -30,7 +32,13 @@ async def test_tenant_cleanup_commits_manifest_and_retries(app, tmp_path, monkey
     backend = FilesystemBackend(tmp_path)
     monkeypatch.setattr("file_storage.tenant_deletion.build_backend", lambda settings: backend)
     register_tenant_deletion(
-        bus, SimpleNamespace(state=SimpleNamespace(file_storage=SimpleNamespace(settings=settings)))
+        bus,
+        SimpleNamespace(
+            state=SimpleNamespace(
+                file_storage=SimpleNamespace(settings=settings),
+                sm=SimpleNamespace(invalidation=InvalidationBus()),
+            )
+        ),
     )
     tenant_id = "deleted-storage-tenant"
     key = f"{tenant_id}/original.txt"
@@ -42,7 +50,11 @@ async def test_tenant_cleanup_commits_manifest_and_retries(app, tmp_path, monkey
     for target in (key, variant):
         await backend.put(target, body(), content_type="text/plain", size=5)
     upload_id = await backend.create_multipart(f"{tenant_id}/partial", "text/plain")
-    factory = app.state.sm.db.session_factory
+    factory = async_sessionmaker(
+        app.state.sm.db.engine, class_=AsyncSession, expire_on_commit=False
+    )
+    async with factory() as db:
+        assert not hasattr(db, "on_commit")
     with tenant_context(tenant_id):
         async with factory() as db:
             db.add(
@@ -75,6 +87,7 @@ async def test_tenant_cleanup_commits_manifest_and_retries(app, tmp_path, monkey
         async with factory() as db:
             db.add(
                 StoredFile(
+                    tenant_id="retained-storage-tenant",
                     key="retained-storage-tenant/keep.txt",
                     filename="keep.txt",
                     content_type="text/plain",
@@ -126,7 +139,13 @@ async def test_inline_cleanup_defers_objects_until_commit(
     settings = FileStorageSettings()
     monkeypatch.setattr("file_storage.tenant_deletion.build_backend", lambda settings: backend)
     register_tenant_deletion(
-        bus, SimpleNamespace(state=SimpleNamespace(file_storage=SimpleNamespace(settings=settings)))
+        bus,
+        SimpleNamespace(
+            state=SimpleNamespace(
+                file_storage=SimpleNamespace(settings=settings),
+                sm=SimpleNamespace(invalidation=InvalidationBus()),
+            )
+        ),
     )
     tenant_id = "inline-storage"
     key = f"{tenant_id}/original.txt"
@@ -189,3 +208,19 @@ async def test_inline_cleanup_defers_objects_until_commit(
                 .all()
             )
             assert len(rows) == int(rollback)
+
+
+async def test_cleanup_skips_upload_without_backend_id(db_session, monkeypatch):
+    from file_storage.tenant_deletion import TenantStorageCleanupRequested
+
+    bus = EventBus()
+    backend = AsyncMock()
+    monkeypatch.setattr("file_storage.tenant_deletion.build_backend", lambda settings: backend)
+    register_tenant_deletion(bus, None)
+    monkeypatch.setattr("file_storage.tenant_deletion._settings", lambda app: SimpleNamespace())
+    await bus.publish_durable_or_inline(
+        TenantStorageCleanupRequested(files=[], uploads=[("pending", None), ("active", "id")]),
+        db_session,
+    )
+    backend.abort_multipart.assert_awaited_once_with("active", "id")
+    backend.delete.assert_awaited_once_with("active")

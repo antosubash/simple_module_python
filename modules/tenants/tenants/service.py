@@ -10,12 +10,15 @@ whose transaction rolled back.
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from simple_module_core.events import Event, EventBus
+from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 from simple_module_db import PLATFORM_TENANT_ID
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -38,6 +41,8 @@ from tenants.contracts.schemas import TenantCreate
 from tenants.errors import TenantError
 from tenants.models import Membership, Tenant
 
+logger = logging.getLogger(__name__)
+
 Invalidate = Callable[[str | None], Awaitable[None]]
 
 
@@ -58,10 +63,12 @@ class TenantService(MembershipOpsMixin):
         bus: EventBus | None = None,
         invalidate: Invalidate = _no_invalidate,
         entitlements: EntitlementProvider | None = None,
+        invalidation_bus: InvalidationBus | None = None,
     ) -> None:
         self.db = db
         self.bus = bus
         self.invalidate = invalidate
+        self.invalidation_bus = invalidation_bus
         self.entitlements = entitlements or UnlimitedEntitlements()
         self.pending: list[Callable[[], Awaitable[Any]]] = []
 
@@ -148,7 +155,16 @@ class TenantService(MembershipOpsMixin):
         deleted = next(event for event in events if isinstance(event, TenantDeleted))
         if self.bus is not None:
             await self.bus.publish_durable_or_inline(deleted, self.db)
-        self._after_commit(*events, invalidate=[None])
+        else:
+            logger.warning(
+                "Tenant-owned data cleanup was skipped tenant=%s: no event bus", tenant_id
+            )
+
+        async def invalidate_deleted() -> None:
+            if self.invalidation_bus is not None:
+                await self.invalidation_bus.publish(TENANT_DELETED_CHANNEL, key=tenant_id)
+
+        self._after_commit(*events, invalidate=[None], callback=invalidate_deleted)
 
     async def list_all(self, *, search: str = "", limit: int = 50, offset: int = 0) -> list[Tenant]:
         stmt = select(Tenant).order_by(Tenant.created_at.desc()).limit(limit).offset(offset)

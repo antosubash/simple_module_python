@@ -207,6 +207,7 @@ def reconcile_checksums() -> int:
     from background_tasks import enqueue_after_commit
     from background_tasks.sync_db import sync_session
     from simple_module_db import all_tenants, tenant_context
+    from sqlalchemy import func
     from sqlmodel import col, select
 
     from file_storage.models import StoredFile
@@ -222,7 +223,7 @@ def reconcile_checksums() -> int:
                     col(StoredFile.checksum_sha256).is_(None),
                     col(StoredFile.created_at) < cutoff,
                 )
-                .order_by(col(StoredFile.created_at), col(StoredFile.id))
+                .order_by(func.random())
                 .limit(constants.CHECKSUM_RECONCILE_BATCH_SIZE)
             ).all()
         )
