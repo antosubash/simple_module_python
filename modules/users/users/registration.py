@@ -6,6 +6,7 @@ import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from users.constants import USER_ROLE_NAME
 from users.models import Role, User, UserRole
@@ -28,7 +29,7 @@ async def attach_default_role(session: AsyncSession, user: User) -> None:
     from racing to insert it.
     """
     role = (
-        await session.execute(select(Role).where(Role.name == USER_ROLE_NAME))  # ty: ignore[invalid-argument-type]
+        await session.execute(select(Role).where(col(Role.name) == USER_ROLE_NAME))
     ).scalar_one_or_none()
     if role is None:
         logger.warning("No '%s' role exists; %s registered with no role", USER_ROLE_NAME, user.id)

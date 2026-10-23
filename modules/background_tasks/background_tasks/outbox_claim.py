@@ -20,6 +20,7 @@ from typing import Any
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlmodel import col
 
 from background_tasks.constants import (
     OUTBOX_BACKOFF_BASE_SECONDS,
@@ -103,12 +104,12 @@ async def reclaim_expired(
     async with factory() as session:
         now = now or await db_now(session)
         expired = (
-            OutboxMessage.status == OutboxStatus.RUNNING,
-            or_(OutboxMessage.locked_until < now, OutboxMessage.locked_until.is_(None)),
+            col(OutboxMessage.status) == OutboxStatus.RUNNING,
+            or_(col(OutboxMessage.locked_until) < now, col(OutboxMessage.locked_until).is_(None)),
         )
         dead = await session.execute(
             update(OutboxMessage)
-            .where(*expired, OutboxMessage.attempts >= max_attempts)  # ty: ignore[invalid-argument-type]
+            .where(*expired, col(OutboxMessage.attempts) >= max_attempts)
             .values(
                 status=OutboxStatus.DEAD,
                 locked_until=None,
@@ -118,7 +119,7 @@ async def reclaim_expired(
         )
         back = await session.execute(
             update(OutboxMessage)
-            .where(*expired)  # ty: ignore[invalid-argument-type]
+            .where(*expired)
             .values(status=OutboxStatus.PENDING, locked_until=None, next_attempt_at=now)
             .execution_options(synchronize_session=False)
         )
@@ -174,7 +175,7 @@ async def claim(
             update(OutboxMessage)
             .where(
                 OutboxMessage.id.in_(select(claimable.c.id)),
-                OutboxMessage.status == OutboxStatus.PENDING,  # ty: ignore[invalid-argument-type]
+                col(OutboxMessage.status) == OutboxStatus.PENDING,
             )
             .values(
                 status=OutboxStatus.RUNNING,

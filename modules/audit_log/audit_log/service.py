@@ -8,6 +8,7 @@ from datetime import datetime
 from simple_module_db.provider import DatabaseProvider
 from sqlalchemy import Select, and_, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from audit_log.constants import DEFAULT_PAGE_SIZE, MAX_PAGE, MAX_PAGE_SIZE
 from audit_log.contracts.schemas import AuditEntryList, AuditEntryRead
@@ -158,8 +159,10 @@ class AuditLogService:
                 # is what stops a batch boundary swallowing the rest of them.
                 stmt = stmt.where(
                     or_(
-                        AuditEntry.created_at < last_created,  # ty: ignore[invalid-argument-type]
-                        and_(AuditEntry.created_at == last_created, AuditEntry.id > last_id),  # ty: ignore[invalid-argument-type]
+                        col(AuditEntry.created_at) < last_created,
+                        and_(
+                            col(AuditEntry.created_at) == last_created, col(AuditEntry.id) > last_id
+                        ),
                     )
                 )
             stmt = stmt.order_by(AuditEntry.created_at.desc(), AuditEntry.id).limit(batch_size)

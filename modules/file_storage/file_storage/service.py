@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from file_storage import constants, queries
 from file_storage.backend_guard import require_backend
@@ -167,7 +168,7 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         ``owner`` (``deps.get_owner_scope``) narrows it to one uploader's rows
         the same way: someone else's file misses like an unknown id (#544).
         """
-        stmt = queries.owned_by(select(StoredFile).where(StoredFile.id == file_id), owner)  # ty: ignore[invalid-argument-type]
+        stmt = queries.owned_by(select(StoredFile).where(col(StoredFile.id) == file_id), owner)
         if platform:
             stmt = stmt.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
         async with platform_scope(self.db, platform):

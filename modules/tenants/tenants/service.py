@@ -23,6 +23,7 @@ from simple_module_db import PLATFORM_TENANT_ID
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from tenants._deletion import delete_tenant_rows
 from tenants._membership_ops import MembershipOpsMixin
@@ -192,7 +193,7 @@ class TenantService(MembershipOpsMixin):
         compiles away; there the database's own writer lock serialises the
         two transactions (see ``tests/test_owner_race.py``).
         """
-        stmt = select(Tenant).where(Tenant.id == tenant_id).with_for_update()  # ty: ignore[invalid-argument-type]
+        stmt = select(Tenant).where(col(Tenant.id) == tenant_id).with_for_update()
         tenant = (await self.db.execute(stmt)).scalar_one_or_none()
         if tenant is None:
             raise TenantError("not_found", status_code=404)

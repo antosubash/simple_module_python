@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, Request, status
 from simple_module_core.rate_limit import RateSpec, WindowStore
 from sqlalchemy import case, func, select, update
+from sqlmodel import col
 
 from users.auth_local.rate_limit import client_ip
 from users.models import User
@@ -282,7 +283,7 @@ async def release(session: AsyncSession, attempt: LoginAttempt, admission: Admis
     if admission.user_ids:
         await session.execute(
             update(User)
-            .where(User.id.in_(admission.user_ids), User.failed_login_count > 0)  # ty: ignore[invalid-argument-type]
+            .where(col(User.id).in_(admission.user_ids), col(User.failed_login_count) > 0)
             .values(failed_login_count=User.failed_login_count - 1, updated_at=User.updated_at)
             .execution_options(synchronize_session=False)
         )

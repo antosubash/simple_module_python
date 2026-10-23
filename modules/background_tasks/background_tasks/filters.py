@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from sqlalchemy import ColumnElement, select
+from sqlmodel import col
 
 from background_tasks.constants import PLATFORM_TENANT_FILTER, RETRYABLE_STATUSES, TaskStatus
 from background_tasks.models import TaskExecution
@@ -34,15 +35,15 @@ def execution_filters(
     if tenant_id == PLATFORM_TENANT_FILTER:
         conditions.append(TaskExecution.tenant_id.is_(None))
     elif tenant_id:
-        conditions.append(TaskExecution.tenant_id == tenant_id)  # ty: ignore[invalid-argument-type]
+        conditions.append(col(TaskExecution.tenant_id) == tenant_id)
     if status is not None:
-        conditions.append(TaskExecution.status == status)  # ty: ignore[invalid-argument-type]
+        conditions.append(col(TaskExecution.status) == status)
     if task_name:
         conditions.append(
             TaskExecution.task_name.ilike(like_contains_pattern(task_name), escape=LIKE_ESCAPE_CHAR)
         )
     if queue:
-        conditions.append(TaskExecution.queue == queue)  # ty: ignore[invalid-argument-type]
+        conditions.append(col(TaskExecution.queue) == queue)
     return conditions
 
 

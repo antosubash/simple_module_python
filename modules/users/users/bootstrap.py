@@ -11,6 +11,7 @@ from fastapi_users.password import PasswordHelper
 from simple_module_core.dotenv import parse_dotenv
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from users.constants import (
     ADMIN_ROLE_DESCRIPTION,
@@ -74,11 +75,11 @@ async def create_admin(
     # Look up by name first (works on both Postgres and SQLite regardless of UUID
     # storage format), then fall back to id-based lookup in case name was changed.
     admin_role = (
-        await db.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))  # ty: ignore[invalid-argument-type]
+        await db.execute(select(Role).where(col(Role.name) == ADMIN_ROLE_NAME))
     ).scalar_one_or_none()
     if admin_role is None:
         admin_role = (
-            await db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))  # ty: ignore[invalid-argument-type]
+            await db.execute(select(Role).where(col(Role.id) == ADMIN_ROLE_ID))
         ).scalar_one_or_none()
     if admin_role is None:
         # The seed migration (e3ce9754e6dc) inserts this row, so in a real
@@ -120,8 +121,8 @@ async def create_admin(
         existing_link = (
             await db.execute(
                 select(UserRole).where(
-                    UserRole.user_id == existing.id,  # ty: ignore[invalid-argument-type]
-                    UserRole.role_id == admin_role.id,  # ty: ignore[invalid-argument-type]
+                    col(UserRole.user_id) == existing.id,
+                    col(UserRole.role_id) == admin_role.id,
                 )
             )
         ).scalar_one_or_none()
@@ -143,11 +144,11 @@ async def ensure_user_role(db: AsyncSession) -> Role:
     not assume it exists.
     """
     user_role = (
-        await db.execute(select(Role).where(Role.name == USER_ROLE_NAME))  # ty: ignore[invalid-argument-type]
+        await db.execute(select(Role).where(col(Role.name) == USER_ROLE_NAME))
     ).scalar_one_or_none()
     if user_role is None:
         user_role = (
-            await db.execute(select(Role).where(Role.id == USER_ROLE_ID))  # ty: ignore[invalid-argument-type]
+            await db.execute(select(Role).where(col(Role.id) == USER_ROLE_ID))
         ).scalar_one_or_none()
     if user_role is None:
         user_role = Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description=USER_ROLE_DESCRIPTION)

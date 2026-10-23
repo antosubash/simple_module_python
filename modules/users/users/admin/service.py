@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import noload
+from sqlmodel import col
 
 from users.admin.queries import _UserServiceBase
 from users.contracts.schemas import UserCreate
@@ -122,14 +123,14 @@ class UserService(_UserServiceBase):
         would be rolled back as a read-only request."""
         result = await self._db.execute(
             select(User)
-            .where(User.id == user_id)  # ty: ignore[invalid-argument-type]
+            .where(col(User.id) == user_id)
             .options(noload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
         )
         user = result.scalar_one_or_none()
         if user is None:
             raise UserNotFoundError(user_id)
         for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
-            await self._db.execute(delete(model).where(model.user_id == user_id))  # ty: ignore[invalid-argument-type]
+            await self._db.execute(delete(model).where(col(model.user_id) == user_id))
         await self._db.delete(user)
         await self._db.flush()
 
@@ -216,7 +217,7 @@ class UserService(_UserServiceBase):
         # "sign out everywhere" does).
         await self._db.execute(
             update(RefreshToken)
-            .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))  # ty: ignore[invalid-argument-type]
+            .where(col(RefreshToken.user_id) == user.id, col(RefreshToken.revoked_at).is_(None))
             .values(revoked_at=datetime.now(UTC))
         )
         await self._db.flush()
@@ -256,7 +257,7 @@ class UserService(_UserServiceBase):
         user = await self._require_user(user_id)
 
         # Delete all existing role assignments for this user
-        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))  # ty: ignore[invalid-argument-type]
+        await self._db.execute(delete(UserRole).where(col(UserRole.user_id) == user_id))
 
         # Insert new role assignments
         roles = await self._resolve_roles(role_names)

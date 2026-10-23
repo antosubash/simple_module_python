@@ -12,6 +12,7 @@ from collections.abc import Callable
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from feature_flags.constants import SCOPE_SYSTEM, SCOPE_TENANT, SYSTEM_SCOPE_ID
 from feature_flags.contracts.schemas import FeatureFlagOverrideOut, FeatureFlagView
@@ -151,9 +152,9 @@ class FeatureFlagService:
     async def _find(self, scope: str, scope_id: str, name: str) -> FeatureFlagOverride | None:
         result = await self.db.execute(
             select(FeatureFlagOverride).where(
-                FeatureFlagOverride.scope == scope,  # ty: ignore[invalid-argument-type]
-                FeatureFlagOverride.scope_id == scope_id,  # ty: ignore[invalid-argument-type]
-                FeatureFlagOverride.name == name,  # ty: ignore[invalid-argument-type]
+                col(FeatureFlagOverride.scope) == scope,
+                col(FeatureFlagOverride.scope_id) == scope_id,
+                col(FeatureFlagOverride.name) == name,
             )
         )
         return result.scalar_one_or_none()

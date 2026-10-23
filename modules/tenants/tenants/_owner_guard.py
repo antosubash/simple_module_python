@@ -19,6 +19,7 @@ from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
 from sqlalchemy import delete, exists, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
+from sqlmodel import col
 
 from tenants.constants import MembershipRole
 from tenants.models import Membership
@@ -27,9 +28,9 @@ from tenants.models import Membership
 def _another_owner(membership: Membership):
     other = aliased(Membership)
     return exists().where(
-        other.tenant_id == membership.tenant_id,  # ty: ignore[invalid-argument-type]
-        other.role == MembershipRole.OWNER,  # ty: ignore[invalid-argument-type]
-        other.id != membership.id,  # ty: ignore[invalid-argument-type]
+        col(other.tenant_id) == membership.tenant_id,
+        col(other.role) == MembershipRole.OWNER,
+        col(other.id) != membership.id,
     )
 
 
@@ -37,7 +38,7 @@ async def demote_owner(db: AsyncSession, membership: Membership, role: str) -> b
     """Set ``role`` on an owner's membership unless they are the last owner."""
     stmt = (
         update(Membership)
-        .where(Membership.id == membership.id, _another_owner(membership))  # ty: ignore[invalid-argument-type]
+        .where(col(Membership.id) == membership.id, _another_owner(membership))
         .values(role=role)
         .execution_options(synchronize_session=False)
     )
@@ -52,7 +53,7 @@ async def remove_owner(db: AsyncSession, membership: Membership) -> bool:
     """Delete an owner's membership unless they are the last owner."""
     stmt = (
         delete(Membership)
-        .where(Membership.id == membership.id, _another_owner(membership))  # ty: ignore[invalid-argument-type]
+        .where(col(Membership.id) == membership.id, _another_owner(membership))
         .execution_options(synchronize_session=False)
     )
     applied = (await db.execute(stmt)).rowcount == 1

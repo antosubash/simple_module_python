@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession, all_tenants, tenant_context
 from sqlalchemy import Select, func, select, update
+from sqlmodel import col
 
 from background_tasks._signal_support import now_utc
 from background_tasks.after_commit import after_commit
@@ -271,8 +272,8 @@ def _fail_unsent(task_id: str, exc: Exception) -> None:
             session.execute(
                 update(TaskExecution)
                 .where(
-                    TaskExecution.celery_task_id == task_id,  # ty: ignore[invalid-argument-type]
-                    TaskExecution.status == TaskStatus.PENDING,  # ty: ignore[invalid-argument-type]
+                    col(TaskExecution.celery_task_id) == task_id,
+                    col(TaskExecution.status) == TaskStatus.PENDING,
                 )
                 .values(
                     status=TaskStatus.FAILED,

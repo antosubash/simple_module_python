@@ -17,6 +17,7 @@ from simple_module_core.user_directory import NullUserDirectory, UserDirectory
 from simple_module_db import ALL_TENANTS_OPTION, all_tenants
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from api_tokens.constants import FORBIDDEN_SERVICE_ROLES, TokenKind
 from api_tokens.contracts.schemas import TokenView
@@ -115,7 +116,10 @@ class ApiTokenService:
         """
         stmt = (
             select(ApiToken)
-            .where(ApiToken.owner_user_id == owner_user_id, ApiToken.kind == TokenKind.PERSONAL)  # ty: ignore[invalid-argument-type]
+            .where(
+                col(ApiToken.owner_user_id) == owner_user_id,
+                col(ApiToken.kind) == TokenKind.PERSONAL,
+            )
             .order_by(ApiToken.created_at.desc())
             .execution_options(**{ALL_TENANTS_OPTION: True})
         )
@@ -130,16 +134,16 @@ class ApiTokenService:
         stmt = (
             select(ApiToken)
             .where(
-                ApiToken.id == token_id,  # ty: ignore[invalid-argument-type]
-                ApiToken.owner_user_id == owner_user_id,  # ty: ignore[invalid-argument-type]
-                ApiToken.kind == TokenKind.PERSONAL,  # ty: ignore[invalid-argument-type]
+                col(ApiToken.id) == token_id,
+                col(ApiToken.owner_user_id) == owner_user_id,
+                col(ApiToken.kind) == TokenKind.PERSONAL,
             )
             .execution_options(**{ALL_TENANTS_OPTION: True})
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def get_in_tenant(self, token_id: uuid.UUID) -> ApiToken | None:
-        stmt = select(ApiToken).where(ApiToken.id == token_id)  # ty: ignore[invalid-argument-type]
+        stmt = select(ApiToken).where(col(ApiToken.id) == token_id)
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def revoke(self, token: ApiToken, *, cross_tenant: bool = False) -> ApiToken:

@@ -20,6 +20,7 @@ from simple_module_db.deps import get_db
 from simple_module_hosting.session import SESSION_REMEMBER_KEY
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import delete, update
+from sqlmodel import col
 
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.backend import cookie_login_response
@@ -113,10 +114,10 @@ async def change_my_password(
     # what "this password is no longer the one that works" has to mean.
     await db.execute(
         update(RefreshToken)
-        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))  # ty: ignore[invalid-argument-type]
+        .where(col(RefreshToken.user_id) == user.id, col(RefreshToken.revoked_at).is_(None))
         .values(revoked_at=datetime.now(UTC))
     )
-    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))  # ty: ignore[invalid-argument-type]
+    await db.execute(delete(UserAccessToken).where(col(UserAccessToken.user_id) == user.id))
     await db.flush()
     return await _reissue_browser_cookie(request, user, access_token_db)
 
@@ -173,10 +174,10 @@ async def revoke_all_my_sessions(
     db.on_commit(lambda: publish_revocation(request.app, user.id))
     await db.execute(
         update(RefreshToken)
-        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))  # ty: ignore[invalid-argument-type]
+        .where(col(RefreshToken.user_id) == user.id, col(RefreshToken.revoked_at).is_(None))
         .values(revoked_at=now)
     )
-    await db.execute(delete(UserAccessToken).where(UserAccessToken.user_id == user.id))  # ty: ignore[invalid-argument-type]
+    await db.execute(delete(UserAccessToken).where(col(UserAccessToken.user_id) == user.id))
     await db.flush()
 
     request.session.clear()

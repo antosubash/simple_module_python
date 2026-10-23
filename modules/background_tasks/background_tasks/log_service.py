@@ -9,6 +9,7 @@ from typing import Any
 from simple_module_db import RequestSession
 from simple_module_db.pagination import PageParams, paginate
 from sqlalchemy import false, select
+from sqlmodel import col
 
 from background_tasks.constants import LOG_LEVEL_NAMES
 from background_tasks.contracts.logs import LogItem, LogListResponse
@@ -60,16 +61,18 @@ class LogService:
     ) -> LogListResponse:
         where = [*self.scope.conditions()]
         if task_id is not None:
-            where.append(RetainedLog.task_id == task_id)
+            where.append(col(RetainedLog.task_id) == task_id)
         if (level := level_number(min_level)) is not None:
-            where.append(RetainedLog.level >= level)
+            where.append(col(RetainedLog.level) >= level)
         if q:
-            where.append(RetainedLog.message.ilike(_like(q), escape="\\"))
+            where.append(col(RetainedLog.message).ilike(_like(q), escape="\\"))
         if logger_name:
-            where.append(RetainedLog.logger.startswith(logger_name))
+            where.append(col(RetainedLog.logger).startswith(logger_name))
         found = await paginate(
             self.db,
-            select(RetainedLog).where(*where).order_by(RetainedLog.ts.desc(), RetainedLog.id),  # ty: ignore[invalid-argument-type]
+            select(RetainedLog)
+            .where(*where)
+            .order_by(col(RetainedLog.ts).desc(), col(RetainedLog.id)),
             PageParams(page=page, per_page=per_page),
         )
         return LogListResponse(

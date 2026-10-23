@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.deps import get_db
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, col
 
 from users.auth_local.lockout import (
     admit,
@@ -128,9 +128,9 @@ async def token_refresh(
 
     now = datetime.now(UTC)
     stmt = select(RefreshToken).where(
-        RefreshToken.token == token_uuid,  # ty: ignore[invalid-argument-type]
+        col(RefreshToken.token) == token_uuid,
         RefreshToken.revoked_at.is_(None),
-        RefreshToken.expires_at > now,  # ty: ignore[invalid-argument-type]
+        col(RefreshToken.expires_at) > now,
     )
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt is None:
@@ -144,7 +144,7 @@ async def token_refresh(
     # have been deactivated, or signed everything out. Minting from a stale
     # ``user_id`` alone would hand back a live credential to an account that no
     # longer has one.
-    user = (await db.execute(select(User).where(User.id == rt.user_id))).scalar_one_or_none()  # ty: ignore[invalid-argument-type]
+    user = (await db.execute(select(User).where(col(User.id) == rt.user_id))).scalar_one_or_none()
     if user is None or not user.is_active or user.disabled_at is not None:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
@@ -163,7 +163,7 @@ async def token_revoke(
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid token format") from None
 
-    stmt = select(RefreshToken).where(RefreshToken.token == token_uuid)  # ty: ignore[invalid-argument-type]
+    stmt = select(RefreshToken).where(col(RefreshToken.token) == token_uuid)
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt and rt.revoked_at is None:
         rt.revoked_at = datetime.now(UTC)

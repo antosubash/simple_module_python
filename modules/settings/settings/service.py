@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from simple_module_db.stored_settings import SYSTEM_SCOPE_ID, VALUE_TYPE_STRING, Setting
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from settings._announce import announce
 from settings._listing import SettingListing
@@ -204,9 +205,9 @@ class SettingService(SettingListing):
 
     async def _find(self, scope: SettingScope, scope_id: str, key: str) -> Setting | None:
         stmt = select(Setting).where(
-            Setting.scope == scope.value,  # ty: ignore[invalid-argument-type]
-            Setting.scope_id == scope_id,  # ty: ignore[invalid-argument-type]
-            Setting.key == key,  # ty: ignore[invalid-argument-type]
+            col(Setting.scope) == scope.value,
+            col(Setting.scope_id) == scope_id,
+            col(Setting.key) == key,
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()

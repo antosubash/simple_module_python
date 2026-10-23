@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, status
 from simple_module_db.pagination import PageParams, paginate
 from sqlalchemy import delete, false, func, select, update
+from sqlmodel import col
 
 from background_tasks.constants import OutboxStatus
 from background_tasks.contracts.outbox import OutboxItem, OutboxListResponse
@@ -66,7 +67,7 @@ class OutboxService:
             self.db,
             select(OutboxMessage)
             .where(*where)
-            .order_by(OutboxMessage.created_at.desc(), OutboxMessage.id),  # ty: ignore[invalid-argument-type]
+            .order_by(col(OutboxMessage.created_at).desc(), col(OutboxMessage.id)),
             PageParams(page=page, per_page=per_page),
         )
         return OutboxListResponse(
@@ -93,7 +94,7 @@ class OutboxService:
         row = (
             await self.db.execute(
                 select(OutboxMessage)
-                .where(OutboxMessage.id == message_id, *self.scope.conditions())  # ty: ignore[invalid-argument-type]
+                .where(col(OutboxMessage.id) == message_id, *self.scope.conditions())
                 .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
@@ -114,8 +115,8 @@ class OutboxService:
         result = await self.db.execute(
             update(OutboxMessage)
             .where(
-                OutboxMessage.id == message_id,  # ty: ignore[invalid-argument-type]
-                OutboxMessage.status == OutboxStatus.DEAD,  # ty: ignore[invalid-argument-type]
+                col(OutboxMessage.id) == message_id,
+                col(OutboxMessage.status) == OutboxStatus.DEAD,
                 *self.scope.conditions(),
             )
             .values(
@@ -141,7 +142,7 @@ class OutboxService:
         result = await self.db.execute(
             delete(OutboxMessage)
             .where(
-                OutboxMessage.id == message_id,  # ty: ignore[invalid-argument-type]
+                col(OutboxMessage.id) == message_id,
                 OutboxMessage.status.in_(DISCARDABLE),
                 *self.scope.conditions(),
             )

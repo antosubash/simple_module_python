@@ -10,6 +10,7 @@ from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
+from sqlmodel import col
 from starlette.requests import Request
 
 if TYPE_CHECKING:
@@ -153,7 +154,7 @@ class KeycloakAuthProvider:
             session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
             async with session_factory() as db:
-                stmt = select(KeycloakUserCache).where(KeycloakUserCache.keycloak_sub == sub)  # ty: ignore[invalid-argument-type]
+                stmt = select(KeycloakUserCache).where(col(KeycloakUserCache.keycloak_sub) == sub)
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     import uuid as uuid_mod

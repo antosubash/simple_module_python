@@ -27,6 +27,7 @@ from auth.contracts.tokens import AUTH_KIND_BEARER
 from fastapi_users import exceptions, models
 from fastapi_users.authentication.strategy.db import AccessTokenDatabase, DatabaseStrategy
 from fastapi_users.manager import BaseUserManager
+from sqlmodel import col
 
 from users.models import UserAccessToken
 
@@ -135,9 +136,9 @@ async def resolve_bearer(scope, token: str) -> UserContext | None:
             now = datetime.now(UTC)
             cutoff = now - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
             stmt = select(UserAccessToken).where(
-                UserAccessToken.token == token,  # ty: ignore[invalid-argument-type]
-                UserAccessToken.created_at > cutoff,  # ty: ignore[invalid-argument-type]
-                UserAccessToken.expires_at > now,  # ty: ignore[invalid-argument-type]
+                col(UserAccessToken.token) == token,
+                col(UserAccessToken.created_at) > cutoff,
+                col(UserAccessToken.expires_at) > now,
             )
             access = (await db_session.execute(stmt)).scalar_one_or_none()
             if access is None:
@@ -146,7 +147,7 @@ async def resolve_bearer(scope, token: str) -> UserContext | None:
             # otherwise fire an extra query the UserContext never reads.
             stmt = (
                 select(User)
-                .where(User.id == access.user_id)  # ty: ignore[invalid-argument-type]
+                .where(col(User.id) == access.user_id)
                 .options(selectinload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
             )
             user = (await db_session.execute(stmt)).scalar_one_or_none()
