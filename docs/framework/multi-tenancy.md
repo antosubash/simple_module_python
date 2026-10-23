@@ -347,11 +347,18 @@ platform only when nothing is bound. See [audit_log](/modules/audit_log#multi-te
 
 ## Deleting tenants
 
-Tenant deletion publishes `TenantDeleted` through `publish_durable` in the
-same transaction that removes the tenant, memberships and invitations. Durable
-delivery requires the `background_tasks` outbox transport. Cleanup is eventual:
-public file downloads check the tenant directory immediately and return 404
-when their tenant no longer exists, before outbox delivery finishes.
+Tenant deletion publishes `TenantDeleted` through
+`bus.publish_durable_or_inline` in the same transaction that removes the
+tenant, memberships and invitations. With the `background_tasks` outbox
+transport installed, delivery is durable and eventual (retried until it
+succeeds). Without it, the durable handlers run inline in the deleting
+transaction, so their row purges commit or roll back with the tenant row;
+backend objects are then deleted after commit by an `on_commit` callback,
+which is best-effort: a failure there is logged with the object keys, and
+the hourly `file_storage.reap_objects` task removes the orphaned objects once
+`background_tasks` is enabled. Either way, public file downloads check the
+tenant directory (cached for 60 s per worker, forgotten on `TenantDeleted`)
+and return 404 when the tenant no longer exists.
 
 Every owner of tenant data must register
 `bus.subscribe_durable(TenantDeleted, handler)` in `register_event_handlers`,
