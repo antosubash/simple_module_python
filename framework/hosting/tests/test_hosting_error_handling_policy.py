@@ -59,7 +59,7 @@ async def test_menu_failure_warns_once_per_provider_and_keeps_other_items(caplog
 async def test_migration_failure_warns_once_and_keeps_gate_closed(monkeypatch, caplog):
     monkeypatch.setattr(setup_gate, "_migration_failure_warned", False)
     check = AsyncMock(side_effect=RuntimeError("database unavailable"))
-    monkeypatch.setattr(setup_gate, "migration_status", check)
+    monkeypatch.setattr(setup_gate.migrations, "migration_status", check)
     snapshot = {"is_current": False}
     app = SimpleNamespace(
         state=SimpleNamespace(
