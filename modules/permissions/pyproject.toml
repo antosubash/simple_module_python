@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_permissions"
-version = "0.0.37"
+version = "0.0.38"
 description = "RBAC primitives — roles, permissions, @require_permission decorator, admin UI for simple_module"
 readme = "README.md"
 license = "MIT"
@@ -22,10 +22,10 @@ classifiers = [
 ]
 dependencies = [
     "cachetools>=5.3",
-    "simple_module_core==0.0.37",
-    "simple_module_db==0.0.37",
-    "simple_module_hosting==0.0.37",
-    "simple_module_users==0.0.37",
+    "simple_module_core==0.0.38",
+    "simple_module_db==0.0.38",
+    "simple_module_hosting==0.0.38",
+    "simple_module_users==0.0.38",
 ]
 
 [project.entry-points.simple_module]

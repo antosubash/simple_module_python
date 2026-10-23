@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_file_storage"
-version = "0.0.37"
+version = "0.0.38"
 description = "Pluggable file upload + storage (local or S3 via extras) module for simple_module apps"
 readme = "README.md"
 license = "MIT"
@@ -21,17 +21,17 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.37",
-    "simple_module_db==0.0.37",
-    "simple_module_hosting==0.0.37",
-    "simple_module_settings==0.0.37",
+    "simple_module_core==0.0.38",
+    "simple_module_db==0.0.38",
+    "simple_module_hosting==0.0.38",
+    "simple_module_settings==0.0.38",
     "aiofiles>=23",
     "pillow>=10",
 ]
 
 [project.optional-dependencies]
 s3 = ["aioboto3>=13"]
-tasks = ["simple_module_background_tasks==0.0.37"]
+tasks = ["simple_module_background_tasks==0.0.38"]
 
 [project.entry-points.simple_module]
 file_storage = "file_storage.module:FileStorageModule"
