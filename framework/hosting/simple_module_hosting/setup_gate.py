@@ -20,7 +20,11 @@ from starlette.datastructures import Headers
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from simple_module_hosting import migrations
+from simple_module_hosting._deferred_startup import run_deferred_startup
+
 logger = logging.getLogger(__name__)
+_migration_failure_warned = False
 
 SETUP_PATH = "/setup"
 
@@ -71,20 +75,21 @@ async def _database_migrated(app) -> bool:
     if status.get("is_current", True):
         return True
 
-    from simple_module_hosting.migrations import migration_status
-
     try:
-        status = await migration_status(app.state.sm.db.engine)
-    except Exception as exc:
-        logger.debug("Migration re-check failed, using the boot snapshot: %s", exc)
+        status = await migrations.migration_status(app.state.sm.db.engine)
+    except Exception:
+        global _migration_failure_warned
+        if not _migration_failure_warned:
+            _migration_failure_warned = True
+            logger.warning(
+                "Migration re-check failed; retaining the incomplete boot snapshot", exc_info=True
+            )
         return False
     app.state.migration = status
     if status["is_current"]:
         # Finish starting the modules whose on_startup needed these tables —
         # this worker may not be the one that ran the migrations. Never lets
         # a failure there change the verdict, which only reports the schema.
-        from simple_module_hosting._lifespan import run_deferred_startup
-
         try:
             await run_deferred_startup(app)
         except Exception:

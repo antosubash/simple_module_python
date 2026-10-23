@@ -10,8 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from simple_module_core import mail as core_mail
-from simple_module_core.mail import MailMessage
+from simple_module_core.mail import MailMessage, install_mail_sender
 
 
 class CapturedMail:
@@ -28,14 +27,6 @@ class CapturedMail:
         return [m for m in self.messages if m.to == address]
 
 
-@pytest.fixture(autouse=True)
-def _reset_process_mail_sender() -> Iterator[None]:
-    sender, resolver = core_mail._sender, core_mail._resolver
-    yield
-    core_mail.install_mail_sender(sender)
-    core_mail.install_mail_resolver(resolver)
-
-
 @pytest.fixture
 def captured_mail() -> Iterator[CapturedMail]:
     """Install a recording sender that claims to deliver; yields it.
@@ -45,5 +36,5 @@ def captured_mail() -> Iterator[CapturedMail]:
     reinstalls the real one; reinstall with ``install_mail_sender(captured)``.
     """
     captured = CapturedMail()
-    core_mail.install_mail_sender(captured)
+    install_mail_sender(captured)
     yield captured

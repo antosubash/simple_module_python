@@ -48,6 +48,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
+_decode_failure_warned = False
 
 __all__ = [
     "WIRE_VERSION",
@@ -108,8 +109,8 @@ class Invalidation:
         routinely shared — with another app, with a stray ``redis-cli publish``,
         with the previous version of this code — and a listener loop that dies
         on one malformed payload takes cross-process invalidation down for the
-        life of the process. Logged at debug: on a shared database this is
-        normal traffic, not a fault.
+        life of the process. Decode exceptions warn once per process with a
+        traceback; unsupported shapes remain ordinary shared-database traffic.
         """
         try:
             data = json.loads(message)
@@ -123,7 +124,10 @@ class Invalidation:
                 return None
             return cls(channel=channel, key=key, origin=str(data.get("origin") or ""))
         except Exception:
-            logger.debug("Ignoring undecodable invalidation message: %r", message)
+            global _decode_failure_warned
+            if not _decode_failure_warned:
+                _decode_failure_warned = True
+                logger.warning("Ignoring undecodable invalidation message", exc_info=True)
             return None
 
 

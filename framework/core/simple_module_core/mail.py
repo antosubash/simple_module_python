@@ -93,6 +93,12 @@ def install_mail_resolver(resolver: MailSenderResolver | None) -> None:
     _resolver = resolver
 
 
+def reset_mail_sender() -> None:
+    """Clear the process sender and resolver between isolated app/test runs."""
+    install_mail_sender(None)
+    install_mail_resolver(None)
+
+
 def mail_transport_installed() -> bool:
     """Whether a transport (sender or resolver) is installed in this process.
 

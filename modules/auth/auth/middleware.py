@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import logging
 
-from simple_module_core.public_routes import legacy_provider_public_paths
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
+from simple_module_hosting.public_access import is_public as route_is_public
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -89,17 +89,8 @@ class AuthMiddleware:
             # Anonymous exactly when the host serves it (dev, or openapi_public).
             or path == getattr(app_state, "openapi_url", None)
         )
-        # Module-contributed public routes (register_public_routes hook). Method
-        # -aware, so a GET read route can be exempted without opening sibling
-        # POST/PATCH mutations under the same prefix.
         if not is_public:
-            public_routes = getattr(app_state, "public_routes", None)
-            is_public = public_routes is not None and public_routes.matches(method, path)
-        # Deprecated provider-declared paths (prefix-only, method-agnostic); honoured
-        # until 0.1.0 for third-party providers. users/keycloak use the registry.
-        if not is_public:
-            prefix_paths, exact_paths = legacy_provider_public_paths(provider)
-            is_public = any(path.startswith(p) for p in prefix_paths) or path in exact_paths
+            is_public = route_is_public(scope["app"], method, path)
 
         # Contract with the host's RateLimitMiddleware (plain scope key, no import
         # between them): whether *this* middleware treats the request as anonymous-

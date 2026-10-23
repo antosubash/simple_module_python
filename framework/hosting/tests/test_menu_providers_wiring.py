@@ -96,7 +96,7 @@ def test_failing_provider_is_isolated(caplog) -> None:
 
     menu.add_provider(boom)
     menu.add_provider(lambda _r: [MenuItem(label="Ok", url="/ok", order=-1)])
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         resp = _build(menu).get("/shared", headers={"x-role": "user"})
     assert resp.status_code == 200
     assert _labels(resp.json()) == ["Ok", "Static"]

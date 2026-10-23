@@ -12,15 +12,14 @@ is flipped must still be able to sign in.
 
 from __future__ import annotations
 
-import logging
-
 from simple_module_core.permissions import is_admin_principal
-from simple_module_core.public_routes import legacy_provider_public_paths
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-logger = logging.getLogger(__name__)
+from simple_module_hosting._error_negotiation import _wants_json
+from simple_module_hosting._error_page import render_error_page
+from simple_module_hosting.public_access import is_public
 
 # Kept reachable while the gate is closed: liveness probes (so orchestrators
 # do not kill the pod mid-maintenance), static assets and i18n bundles (or the
@@ -89,34 +88,10 @@ class MaintenanceMiddleware:
 
         path: str = scope["path"]
 
-        # Module-contributed public routes (register_public_routes hook) — the
-        # same registry AuthMiddleware consults. Without this, a route a module
-        # deliberately exempted from auth (branding's logo/favicon, a webhook,
-        # a STAC/OGC read endpoint) still 503s during maintenance.
-        public_routes = getattr(scope["app"].state, "public_routes", None)
-        if public_routes is not None and public_routes.matches(request.method, path):
-            return True
-
-        # An admin locked out by the switch still needs the login flow. Ask the
-        # provider which paths those are rather than hardcoding a module's URLs.
-        auth_state = getattr(scope["app"].state, "auth", None)
-        provider = getattr(auth_state, "auth_provider", None)
-        if provider is None:
-            return False
-        try:
-            prefix_paths, exact_paths = legacy_provider_public_paths(provider)
-        except Exception:
-            logger.exception("Auth provider failed to report public paths")
-            return False
-        return any(path.startswith(p) for p in prefix_paths) or path in exact_paths
+        return is_public(scope["app"], request.method, path)
 
     @staticmethod
     async def _render(request: Request, message: str):
-        # Imported here rather than at module scope: _error_handlers imports
-        # from inertia, and a circular import at boot is a worse failure than
-        # a per-request attribute lookup.
-        from simple_module_hosting._error_handlers import _wants_json, render_error_page
-
         if _wants_json(request):
             return JSONResponse(
                 status_code=503,

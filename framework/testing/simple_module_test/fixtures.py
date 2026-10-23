@@ -161,6 +161,9 @@ async def _seed_setup_admin(application) -> None:
 async def _build_app(settings: Settings, *, seed_admin: bool):
     from simple_module_hosting.app_builder import create_app
 
+    # Process-wide state is reset per test by the autouse fixture in
+    # ``process_state``, not here: a second app built inside one test must not
+    # reset the live first app's mail sender or lease backend.
     application = create_app(settings)
 
     await _create_all_tables(application.state.sm.db.engine)

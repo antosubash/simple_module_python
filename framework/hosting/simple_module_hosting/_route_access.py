@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from fastapi.routing import iter_route_contexts
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 
+from simple_module_hosting.public_access import is_public
 from simple_module_hosting.token_guard import (
     GATE_ALLOW,
     GATE_AUTHENTICATED,
@@ -63,27 +64,13 @@ def iter_api_operations(app: FastAPI) -> Iterator[ApiOperation]:
         yield ApiOperation(path, methods, frozenset(dependant_gate_kinds(dependant)))
 
 
-def _legacy_public(app: FastAPI, path: str) -> bool:
-    provider = getattr(getattr(app.state, "auth", None), "auth_provider", None)
-    if provider is None:
-        return False
-    try:
-        prefixes, exact = provider.get_public_paths()
-    except Exception:
-        return False
-    return any(path.startswith(p) for p in prefixes) or path in exact
-
-
 def is_public_operation(app: FastAPI, method: str, path: str) -> bool:
     """Whether an anonymous *method* on the templated *path* is let through."""
     if path == getattr(app.state, "openapi_url", None):
         return True
-    registry = getattr(app.state, "public_routes", None)
     for placeholder in _PLACEHOLDERS:
         concrete = _PARAM.sub(placeholder, path)
-        if registry is not None and registry.matches(method, concrete):
-            return True
-        if _legacy_public(app, concrete):
+        if is_public(app, method, concrete):
             return True
     return False
 

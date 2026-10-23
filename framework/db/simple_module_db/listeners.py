@@ -42,6 +42,7 @@ __all__ = [
 from simple_module_db.tenancy import TenantIsolationError, current_tenant_id
 
 logger = logging.getLogger(__name__)
+_entity_pk_failure_warned = False
 _db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
@@ -82,6 +83,10 @@ def _entity_pk(obj: object) -> object:
             return identity[0]
         return identity
     except Exception:
+        global _entity_pk_failure_warned
+        if not _entity_pk_failure_warned:
+            _entity_pk_failure_warned = True
+            logger.warning("Audit identity inspection failed; omitting primary key", exc_info=True)
         return None
 
 

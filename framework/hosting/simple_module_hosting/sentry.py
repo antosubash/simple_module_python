@@ -46,6 +46,19 @@ _request_scope: ContextVar[Scope | None] = ContextVar("sentry_request_scope", de
 _enabled = False
 
 
+def reset_sentry() -> None:
+    """Disable reporting and discard request context between isolated app runs."""
+    global _enabled
+    if _enabled:
+        import sentry_sdk
+
+        client = sentry_sdk.get_global_scope().client
+        client.close()
+        sentry_sdk.get_global_scope().set_client(None)
+    _enabled = False
+    _request_scope.set(None)
+
+
 def is_enabled() -> bool:
     return _enabled
 

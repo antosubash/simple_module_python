@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -3104,6 +3104,7 @@ dependencies = [
     { name = "itsdangerous" },
     { name = "simple-module-core" },
     { name = "simple-module-db" },
+    { name = "simple-module-hosting" },
 ]
 
 [package.metadata]
@@ -3111,6 +3112,7 @@ requires-dist = [
     { name = "itsdangerous", specifier = ">=2.2" },
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
+    { name = "simple-module-hosting", editable = "framework/hosting" },
 ]
 
 [[package]]

@@ -126,3 +126,34 @@ def test_private_include_context_contract():
     included_type(original_router=leaf, include_context=child)  # constructible by keyword
     build = getattr(included, "_build_effective_context", None)
     _accepts(build, "_IncludedRouter._build_effective_context(route)", route)
+
+
+def test_starlette_route_matches_contract():
+    from starlette.routing import Route
+
+    async def endpoint(request):
+        return None
+
+    route = Route("/api/items/{item_id:int}", endpoint, methods=["GET"])
+    scope = {"type": "http", "path": "/api/items/42", "root_path": "", "method": "GET"}
+    parameters = tuple(inspect.signature(Route.matches).parameters.values())
+    assert tuple(p.name for p in parameters) == ("self", "scope"), (
+        f"Route.matches must retain its (self, scope) signature; update {GUARD}"
+    )
+    matches = _accepts(route.matches, "Route.matches(scope)", scope)
+    match, child_scope = matches(scope)
+    assert match is Match.FULL
+    assert child_scope["endpoint"] is endpoint
+    assert child_scope["path_params"] == {"item_id": 42}
+    partial, partial_scope = matches({**scope, "method": "POST"})
+    assert partial is Match.PARTIAL
+    assert partial_scope == child_scope
+    assert matches({**scope, "path": "/elsewhere"}) == (Match.NONE, {})
+    assert matches({**scope, "type": "websocket"}) == (Match.NONE, {})
+
+    def replacement(scope):
+        return Match.NONE, {}
+
+    route.matches = replacement
+    assert route.matches is replacement
+    assert route.matches(scope) == (Match.NONE, {})

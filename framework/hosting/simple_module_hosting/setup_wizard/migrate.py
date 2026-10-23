@@ -15,6 +15,8 @@ from collections.abc import Generator
 
 from fastapi import HTTPException, Request
 
+from simple_module_hosting._deferred_startup import run_deferred_startup
+
 logger = logging.getLogger(__name__)
 
 # The endpoint is anonymous, so nothing stops two requests (a double click, a
@@ -85,8 +87,6 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
 
     request.app.state.migration = await migration_status(request.app.state.sm.db.engine)
     # Modules whose on_startup could not run before the tables existed.
-    from simple_module_hosting._lifespan import run_deferred_startup
-
     await run_deferred_startup(request.app)
     logger.info("Setup: migrations applied")
     return {"migration": request.app.state.migration}

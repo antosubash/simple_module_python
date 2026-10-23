@@ -43,6 +43,7 @@ __all__ = [
     "configure_leases",
     "get_leases",
     "lease",
+    "reset_lease_backend",
     "semaphore",
 ]
 
@@ -151,6 +152,11 @@ def configure_leases(backend: LeaseBackend | None) -> None:
     """Install the process-wide backend; ``None`` restores a fresh in-process one."""
     global _backend
     _backend = backend if backend is not None else InProcessLeaseBackend()
+
+
+def reset_lease_backend() -> None:
+    """Discard process lease configuration and held in-process leases."""
+    configure_leases(None)
 
 
 def get_leases() -> LeaseBackend:
