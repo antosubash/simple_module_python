@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -134,21 +134,27 @@ describe('background_tasks Outbox page', () => {
 
   it('asks before discarding and calls nothing when the operator declines', () => {
     const fetchMock = stubFetch(204);
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    const dialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: keys.background_tasks.retry_dialog.cancel }),
+    );
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(reload).not.toHaveBeenCalled();
   });
 
   it('discards with a DELETE once confirmed', async () => {
     const fetchMock = stubFetch(204);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
 
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: ob.discard }),
+    );
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith(ob.discarded));
     expect(requestsOf(fetchMock)).toContainEqual({
       url: '/api/background_tasks/admin/outbox/m1',
@@ -159,9 +165,11 @@ describe('background_tasks Outbox page', () => {
 
   it('toasts a discard failure', async () => {
     stubFetch(500);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<Outbox {...(state.props as unknown as ComponentProps<typeof Outbox>)} />);
     fireEvent.click(screen.getByRole('button', { name: ob.discard }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: ob.discard }),
+    );
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ob.discard_failed));
   });
 

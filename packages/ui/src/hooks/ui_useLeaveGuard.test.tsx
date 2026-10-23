@@ -23,7 +23,7 @@ vi.mock('@inertiajs/react', () => ({
   },
 }));
 
-const { useLeaveGuard } = await import('../permissions/pages/components/useLeaveGuard');
+const { useLeaveGuard } = await import('./useLeaveGuard');
 
 const MESSAGE = 'You have unsaved changes.';
 

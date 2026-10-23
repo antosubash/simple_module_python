@@ -5,6 +5,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
+import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Search } from 'lucide-react';
@@ -13,7 +14,6 @@ import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { filterGroups, type PermissionGroup } from './components/permission-groups';
 import { RoleGroupCard } from './components/RoleGroupCard';
-import { useLeaveGuard } from './components/useLeaveGuard';
 
 type Role = { id: string; name: string; description: string | null };
 

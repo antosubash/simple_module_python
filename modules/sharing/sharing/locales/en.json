@@ -28,6 +28,7 @@
     "title": "Revoke this share?",
     "description": "The user loses access to the resource immediately.",
     "confirm": "Revoke",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "failed": "Failed to revoke the share"
   }
 }

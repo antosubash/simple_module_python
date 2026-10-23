@@ -20,6 +20,10 @@ const RERUN_URL = '/admin/doctor/rerun';
 function Doctor(props: DoctorProps) {
   const { t } = useT();
   const checkLabels = useCheckLabels();
+  const rerunFailed = () => {
+    toast.error(t(keys.dashboard.doctor.rerun_failed));
+    return false;
+  };
 
   async function copy(text: string, successMessage: string) {
     if (await copyToClipboard(text)) {
@@ -69,7 +73,17 @@ function Doctor(props: DoctorProps) {
             <Button
               size="sm"
               className="gap-1.5 max-lg:min-h-11"
-              onClick={() => router.post(RERUN_URL)}
+              onClick={() =>
+                router.post(
+                  RERUN_URL,
+                  {},
+                  {
+                    onError: rerunFailed,
+                    onHttpException: rerunFailed,
+                    onNetworkError: rerunFailed,
+                  },
+                )
+              }
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               {t(keys.dashboard.doctor.rerun)}

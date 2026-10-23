@@ -12,7 +12,7 @@ Peer-depends on React 19, React DOM 19, and `@inertiajs/react` 2. Assumes Tailwi
 
 ## What it provides
 
-- shadcn primitives under `@simple-module-py/ui/components/ui/*`: `Button`, `Input`, `Label`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Card`, `Dialog`, `Sheet`, `Popover`, `Tooltip`, `Form` (react-hook-form bindings), and many more.
+- shadcn primitives under `@simple-module-py/ui/components/ui/*`: `Button`, `Input`, `Label`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Card`, `Dialog`, `Sheet`, `Popover`, `Tooltip`, and many more.
 - Framework components under `@simple-module-py/ui/components/*` (also re-exported from the package root): `PageShell`, `SectionTitle`, `StatCard`, `FilterPills`, `NavIcon`, `ErrorBoundary`, `ErrorScreen`.
 - Layouts under `@simple-module-py/ui/layouts/*` (also re-exported from the root): `AppLayout`, `SidebarLayout`, `AuthenticatedLayout`, `AdminLayout`, `PublicLayout`, `AuthCardShell` (centred form).
 

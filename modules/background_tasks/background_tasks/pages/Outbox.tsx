@@ -1,11 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { cn } from '@simple-module-py/ui/lib/utils';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { OutboxTable } from './components/OutboxTable';
 import { VIEW_BASE } from './constants';
@@ -31,6 +32,7 @@ function Outbox({ messages, counts, pagination, filters }: Props) {
   const { t } = useT();
   const { can } = usePermissions();
   const canManage = can('background_tasks.manage');
+  const [pendingDiscard, setPendingDiscard] = useState<OutboxMessage | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   function visit(status: string, page: number) {
@@ -49,13 +51,6 @@ function Outbox({ messages, counts, pagination, filters }: Props) {
       router.reload({ only: RELOAD_ONLY });
       setBusyId(null);
     }
-  }
-
-  function discard(message: OutboxMessage) {
-    const prompt = t(keys.background_tasks.outbox.discard_confirm, {
-      handler: message.handler_name,
-    });
-    if (window.confirm(prompt)) void act(message, discardOutboxMessage);
   }
 
   const segments = [
@@ -105,13 +100,30 @@ function Outbox({ messages, counts, pagination, filters }: Props) {
           canManage={canManage}
           busyId={busyId}
           onRetry={(m) => void act(m, retryOutboxMessage)}
-          onDiscard={discard}
+          onDiscard={setPendingDiscard}
           page={pagination.page}
           perPage={pagination.per_page}
           total={pagination.total}
           onPageChange={(page) => visit(filters.status, page)}
         />
       </PageShell>
+      <ConfirmActionDialog
+        open={pendingDiscard !== null}
+        onOpenChange={(open) => !open && setPendingDiscard(null)}
+        icon={Trash2}
+        title={t(keys.background_tasks.outbox.discard)}
+        description={t(keys.background_tasks.outbox.discard_confirm, {
+          handler: pendingDiscard?.handler_name ?? '',
+        })}
+        confirmLabel={t(keys.background_tasks.outbox.discard)}
+        cancelLabel={t(keys.background_tasks.retry_dialog.cancel)}
+        busy={busyId !== null}
+        onConfirm={() => {
+          if (pendingDiscard) {
+            void act(pendingDiscard, discardOutboxMessage).finally(() => setPendingDiscard(null));
+          }
+        }}
+      />
     </>
   );
 }
