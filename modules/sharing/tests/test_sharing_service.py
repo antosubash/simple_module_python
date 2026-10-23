@@ -14,6 +14,7 @@ from _sharing_support import (
     create_note_table,
     register_note_type,
 )
+from sharing.constants import PERM_MANAGE
 from sharing.contracts.schemas import ShareGrant
 from sharing.models import ResourceShare
 from sharing.service import SharingError, SharingService
@@ -143,3 +144,63 @@ async def test_grantee_may_leave_and_owner_lists(env):
         await _refused(service.for_resource(_who(FRIEND), NOTE_TYPE, note_id), 403)
         await service.revoke(_who(FRIEND), share.id)
         assert await _visible(service.db, FRIEND) == []
+
+
+@pytest.mark.parametrize("role", [ACTION_VIEW, ACTION_EDIT])
+async def test_grantee_cannot_manage_shares_even_with_edit_role(env, role):
+    service, note_id = env
+    with tenant_context("t1"):
+        await service.grant(_who(OWNER), _grant(note_id, role=role))
+        reshare = _grant(note_id).model_copy(update={"subject_id": STRANGER})
+        await _refused(service.grant(_who(FRIEND), reshare), 403)
+        await _refused(service.for_resource(_who(FRIEND), NOTE_TYPE, note_id), 403)
+        assert len(await service.for_resource(_who(OWNER), NOTE_TYPE, note_id)) == 1
+
+
+@pytest.mark.parametrize("actor", [OWNER, FRIEND, "admin"])
+async def test_real_share_id_cannot_be_revoked_across_tenants(env, actor):
+    service, note_id = env
+    who = (
+        ResourcePrincipal(user_id=actor, permissions=frozenset({PERM_MANAGE}))
+        if actor == "admin"
+        else _who(actor)
+    )
+    with tenant_context("t1"):
+        share = await service.grant(_who(OWNER), _grant(note_id))
+    with tenant_context("t2"):
+        await _refused(service.revoke(who, share.id), 404)
+    with tenant_context("t1"):
+        assert [s.id for s in await service.for_resource(_who(OWNER), NOTE_TYPE, note_id)] == [
+            share.id
+        ]
+        assert await _visible(service.db, FRIEND) == ["n"]
+
+
+async def test_admin_may_revoke_without_resource_ownership(env):
+    service, note_id = env
+    admin = ResourcePrincipal(user_id=STRANGER, permissions=frozenset({PERM_MANAGE}))
+    with tenant_context("t1"):
+        share = await service.grant(_who(OWNER), _grant(note_id))
+        await service.revoke(admin, share.id)
+        assert await service.for_resource(_who(OWNER), NOTE_TYPE, note_id) == []
+        assert await _visible(service.db, FRIEND) == []
+        await _refused(service.revoke(admin, share.id), 404)
+
+
+async def test_expired_share_can_be_renewed_without_duplicate_grants(env):
+    service, note_id = env
+    with tenant_context("t1"):
+        share = await service.grant(_who(OWNER), _grant(note_id))
+        share.expires_at = datetime.now(UTC) - timedelta(days=1)
+        await service.db.flush()
+        assert await _visible(service.db, FRIEND) == []
+        assert [s.id for s in await service.for_resource(_who(OWNER), NOTE_TYPE, note_id)] == [
+            share.id
+        ]
+        future = datetime.now(UTC) + timedelta(days=1)
+        renewed = await service.grant(
+            _who(OWNER), _grant(note_id, expires_at=future, role=ACTION_EDIT)
+        )
+        assert renewed.id == share.id
+        assert await _visible(service.db, FRIEND, ACTION_EDIT) == ["n"]
+        assert len(await service.for_resource(_who(OWNER), NOTE_TYPE, note_id)) == 1
