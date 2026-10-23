@@ -166,7 +166,7 @@ which counts, a store has `peek(key, spec)`, which reports the current window
 without counting (`allowed` answers "would one more hit be within budget"),
 `reset(key)`, which forgets a window, and `hit(..., sliding=True)`, which
 restarts the window on every hit. The users login lockout
-(`users/auth_local/lockout.py`) uses all three. Keys are
+(`users/auth_local/lockout/`) uses all three. Keys are
 namespaced by the caller (`login:…`); Redis keys get the `sm:rl:` prefix.
 
 ### Response shape

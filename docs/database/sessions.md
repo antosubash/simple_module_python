@@ -112,8 +112,9 @@ At callback time the original transaction is already durable, so callback errors
 cannot roll it back. The framework logs a `db.session.on_commit_failed` error,
 continues with remaining callbacks, and preserves the successful response.
 
-`on_commit()` belongs to the framework-managed request lifecycle. For a manually
-managed session, perform post-commit work explicitly after the transaction block.
+`on_commit()` is supported by framework-managed requests and independent
+checkpoints. For other manually managed sessions, perform post-commit work
+explicitly after the transaction block.
 
 ## Manual transactions
 
@@ -133,20 +134,39 @@ async def worker(db: DatabaseState):
 
 The `async with session.begin()` pattern opens a transaction you control. Use it in code that runs **outside** a request scope.
 
-### `independent_session(app)`
+### `independent_session(source)`
 
-For the common case, a short unit of work outside the request that should commit when it succeeds and roll back when it fails, use `independent_session`:
+Use an independent checkpoint when a write must be durable before continuing,
+including before a request can fail. Examples are reserving a login attempt
+before checking its password and saving invitation roles before sending mail.
+Ordinary request writes still belong to `CommitBeforeResponseMiddleware`.
 
 ```python
 from simple_module_db import independent_session
 
 
-async def on_startup(self, app):
+async def reserve_attempt(app):
     async with independent_session(app) as db:
-        await replay_rows(db)  # committed on clean exit, rolled back on error
+        await reserve_slot(db)
+    # The slot is durable here, even if subsequent authentication fails.
 ```
 
-It opens a session from `app.state.sm.db.session_factory`, commits when the block exits cleanly, and rolls back and re-raises otherwise. Do not call `commit()` inside the block. Keep using `session_factory()` directly when the block is read-only, must commit mid-way (for example to do follow-up work after the commit, as the branding image reaper does), or runs against another engine.
+The source can be an app, its `app.state.sm.db.session_factory`, or a
+framework-created session (which supplies that same factory). The helper opens
+and closes its own short-lived session, commits on clean exit, and rolls back
+and re-raises on error. It never commits or transfers the source session's
+pending work. Do not call `commit()` inside the block.
+
+`on_commit` callbacks run in registration order after the checkpoint commits;
+rollback or commit failure discards them. Callback failures are logged without
+undoing the durable checkpoint, as for request sessions.
+
+A checkpoint cannot see uncommitted request rows. Pass identifiers and reload
+objects in the independent session rather than sharing attached ORM objects.
+Keep checkpoints short and open them before the request holds a write
+transaction: SQLite permits only one writer, and overlapping writes can block.
+Use `session_factory()` directly for read-only work or transactions needing
+several explicit commit boundaries.
 
 ## Sessions and `MultiTenantMixin`
 

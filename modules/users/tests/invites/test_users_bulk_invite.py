@@ -139,7 +139,7 @@ class TestBulkInvite:
 
     async def test_address_count_is_capped(self, authenticated_client: httpx.AsyncClient):
         """One submit must not be able to mint unbounded live invite tokens."""
-        from users.admin.bulk_invite import MAX_ADDRESSES
+        from users.invites.bulk import MAX_ADDRESSES
 
         emails = [f"bulk{i}@example.com" for i in range(MAX_ADDRESSES + 5)]
         resp = await authenticated_client.post(_URL, json={"emails": emails, "role_names": []})
@@ -151,7 +151,7 @@ class TestBulkInvite:
     ):
         """Silent truncation reports "100 invites sent" while 5 people are
         never contacted, with nothing on screen saying so."""
-        from users.admin.bulk_invite import MAX_ADDRESSES
+        from users.invites.bulk import MAX_ADDRESSES
 
         emails = [f"over{i}@example.com" for i in range(MAX_ADDRESSES + 5)]
         resp = await authenticated_client.post(_URL, json={"emails": emails, "role_names": []})

@@ -18,6 +18,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from simple_module_db.deps import get_db
+from simple_module_db.transaction import rollback_session
 from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,6 +115,7 @@ async def login(
         user = None
 
     if user is None or not user.is_active:
+        await rollback_session(db)
         locked = await record_failure(db, attempt, admission)
         raise locked or HTTPException(status_code=400, detail="LOGIN_BAD_CREDENTIALS")
 
@@ -121,6 +123,7 @@ async def login(
         # Match fastapi-users' own behavior when requires_verification=True.
         # With the setting off nobody is asked to verify (#547) — including
         # accounts that signed up while it was on.
+        await rollback_session(db)
         await release(db, attempt, admission)
         raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
 

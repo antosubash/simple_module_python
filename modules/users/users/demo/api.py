@@ -10,7 +10,7 @@ throughput budget (the limiter keys on path + client IP) and so switching
 between the two is a plain link's worth of work. No password reaches the
 browser either way: a visitor clicks a button, the server looks the account up
 itself, and the session it mints is stamped :data:`users.demo.SESSION_DEMO_KEY`
-so :class:`users.demo_guard.DemoReadOnlyMiddleware` can recognise it.
+so :class:`users.demo.guard.DemoReadOnlyMiddleware` can recognise it.
 """
 
 from __future__ import annotations

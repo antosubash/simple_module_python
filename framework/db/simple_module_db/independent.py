@@ -1,4 +1,4 @@
-"""A session opened outside the request, with the commit convention in one place."""
+"""Short-lived durable transactions, independent of the request unit of work."""
 
 from __future__ import annotations
 
@@ -6,29 +6,41 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from simple_module_db.callbacks import discard_on_commit_callbacks, run_on_commit_callbacks
+from simple_module_db.session import SESSION_FACTORY_KEY, RequestSession
 
 
 @asynccontextmanager
-async def independent_session(app: Any) -> AsyncGenerator[AsyncSession]:
-    """Open a session from ``app``'s factory, outside any request.
+async def independent_session(source: Any) -> AsyncGenerator[RequestSession]:
+    """Commit an independent session on success; roll back and re-raise on error.
 
-    Commits when the block exits cleanly and rolls back (then re-raises) when it
-    raises, so startup hooks, background cleanups and out-of-band writes do not
-    each hand-roll the pair. The session is closed either way.
+    Accept an app or session factory. An existing session can also supply its
+    framework session factory; its pending work is never transferred.
+    Request code may use this for a deliberate durable checkpoint, whose writes
+    must survive a later request failure. The new session cannot see pending
+    request writes. Keep checkpoints short and avoid holding a write transaction
+    on the same database while opening one (especially on SQLite).
 
-    Request code must not use this: the request session (``get_db``) commits in
-    ``CommitBeforeResponseMiddleware``, and a second session cannot see its
-    uncommitted rows. Code that must commit mid-block, never commit, or run on a
-    different engine keeps using ``session_factory()`` directly.
+    Post-commit callbacks run in registration order after the commit succeeds.
+    The session closes on every exit, including cancellation.
     """
-    async with app.state.sm.db.session_factory() as session:
+    if isinstance(source, async_sessionmaker):
+        factory = source
+    elif isinstance(source, AsyncSession):
+        factory = source.info[SESSION_FACTORY_KEY]
+    else:
+        factory = source.state.sm.db.session_factory
+    async with factory() as session:
         try:
             yield session
             await session.commit()
-        except Exception:
-            await session.rollback()
+        except BaseException as exc:
+            discard_on_commit_callbacks(session)
+            # Closing the session handles cancellation without masking it with
+            # another cancellable await; ordinary failures roll back explicitly.
+            if isinstance(exc, Exception):
+                await session.rollback()
             raise
-        # Cancellation and other BaseExceptions skip the explicit rollback: awaiting
-        # it there could be cancelled too and mask the original error, and closing
-        # the session discards the open transaction anyway.
+        await run_on_commit_callbacks(session)

@@ -12,9 +12,7 @@ from simple_module_db.pagination import PageParams
 from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
 
-from users.admin.bulk_invite import bulk_router
 from users.admin.links import admin_link_base
-from users.admin.resend_invite import resend_router
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import (
@@ -38,6 +36,8 @@ from users.exceptions import (
     ExternalUserNoPasswordError,
     UserNotFoundError,
 )
+from users.invites.bulk import bulk_router
+from users.invites.resend import resend_router
 
 admin_router = APIRouter(
     prefix="/admin",

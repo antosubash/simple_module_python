@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 from users.constants import ADMIN_ROLE_NAME, SESSION_USER_ID_KEY, USER_ROLE_NAME
 from users.demo import SESSION_DEMO_KEY
-from users.demo_guard import DEMO_READ_ONLY_DETAIL
+from users.demo.guard import DEMO_READ_ONLY_DETAIL
 
 
 def _demo_route(role: str) -> str:

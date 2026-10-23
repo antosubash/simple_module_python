@@ -8,22 +8,23 @@ not discard the other nineteen.
 
 from __future__ import annotations
 
-import contextlib
 import logging
 
 from fastapi import APIRouter, Depends, Request
 from fastapi_users.exceptions import UserAlreadyExists
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from simple_module_core.events import EventBus
-from simple_module_db.deps import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
+from simple_module_db import independent_session
 
 from users.admin.links import admin_link_base
 from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
-from users.deps import get_event_bus, get_mailer, get_user_service
+from users.db_adapter import UserDatabaseWithRoles
+from users.deps import get_event_bus, get_mailer
 from users.mailer import mailer_delivers
+from users.manager import UserManager
+from users.models import OAuthAccount, User
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +83,6 @@ async def admin_bulk_invite(
     data: UserBulkInvite,
     request: Request,
     bus: EventBus = Depends(get_event_bus),
-    service: UserService = Depends(get_user_service),
-    # The same request-scoped session the service was built from, taken through
-    # the dependency rather than off the service's private attribute.
-    db: AsyncSession = Depends(get_db),
     mailer=Depends(get_mailer),
 ) -> BulkInviteResponse:
     """Invite every address in *data*, all sharing the same roles."""
@@ -122,12 +119,17 @@ async def admin_bulk_invite(
     results: list[BulkInviteResult] = []
     for email in accepted:
         try:
-            user, token = await service.invite(email, None, data.role_names, invited_by=invited_by)
-            # Make this invite durable before touching the session again. The
-            # failure path below rolls back, and the role rows the service
-            # flushed but did not commit would go with it — leaving the person
-            # invited with none of the roles the admin picked.
-            await db.commit()
+            async with independent_session(request.app) as checkpoint:
+                manager = UserManager(
+                    UserDatabaseWithRoles(checkpoint, User, OAuthAccount),
+                    mailer,
+                    request.app.state.users.settings,
+                )
+                service = UserService(checkpoint, manager, request.app)
+                user, token = await service.invite(
+                    email, None, data.role_names, invited_by=invited_by
+                )
+            # The invite and roles are durable before delivery or event handlers.
         except Exception as exc:
             # Already-registered is the common case and reads fine as-is;
             # anything else is logged so the admin's summary stays short.
@@ -135,15 +137,6 @@ async def admin_bulk_invite(
             results.append(
                 BulkInviteResult(email=email, status=STATUS_FAILED, detail=_failure_detail(exc))
             )
-            # Clear any failed transaction state before touching the session
-            # again. A real DB error (an IntegrityError from a concurrent
-            # signup, say) otherwise leaves every remaining address dying with
-            # PendingRollbackError — one bad row turning into total failure,
-            # the opposite of the partial success this endpoint promises.
-            # Safe to discard: every successful invite above is committed
-            # before the next one starts, so nothing durable is pending here.
-            with contextlib.suppress(Exception):
-                await db.rollback()
             continue
 
         if delivers:
@@ -180,22 +173,9 @@ async def admin_bulk_invite(
                 invited_by=(str(invited_by.id) if invited_by else None),
             )
         )
-        # Handlers are awaited inline and may write through this same
-        # request-scoped session. Commit again so a *later* address failing —
-        # and rolling back to clear the transaction — cannot take their work
-        # with it, which is what makes the "nothing durable is pending"
-        # assumption in the failure branch above actually hold.
-        #
-        # Guarded: the invite itself is already committed, so a handler writing
-        # something the DB rejects must not 500 the request and discard every
-        # per-address result collected so far — that is exactly the total
-        # failure this endpoint exists to avoid.
-        try:
-            await db.commit()
-        except Exception as exc:
-            logger.warning("post-invite handler commit failed for %s: %s", email, exc)
-            with contextlib.suppress(Exception):
-                await db.rollback()
+        # Handlers keep the request unit of work. Later invite failures roll
+        # back only their independent session, so handler writes remain pending
+        # for CommitBeforeResponseMiddleware and keep their on_commit ordering.
 
     results.extend(
         BulkInviteResult(

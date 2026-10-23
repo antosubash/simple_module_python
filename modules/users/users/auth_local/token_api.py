@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.deps import get_db
+from simple_module_db.transaction import rollback_session
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, col
@@ -90,13 +91,22 @@ async def token_login(
         # email enumeration (existing user + wrong password takes ~50ms for
         # bcrypt; missing user would be instant without this).
         helper.verify_and_update(body.password, _DUMMY_HASH)
+        await rollback_session(db)
         locked = await record_failure(db, attempt, admission)
         raise locked or HTTPException(status_code=401, detail="Invalid credentials")
 
     verified, updated_hash = helper.verify_and_update(body.password, user.hashed_password)
     if not verified:
+        await rollback_session(db)
         locked = await record_failure(db, attempt, admission)
         raise locked or HTTPException(status_code=401, detail="Invalid credentials")
+    settings = request.app.state.users.settings
+    if not user.is_verified and settings.require_verification:
+        # Same rule as the session login: a self-registered account that never
+        # proved its address must not mint bearer tokens either (#547).
+        await rollback_session(db)
+        await release(db, attempt, admission)
+        raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
     if updated_hash is not None:
         # A legacy-scheme hash (e.g. bcrypt) was accepted and re-hashed with the
         # current scheme; persist it, as ``UserManager.authenticate`` does for
@@ -104,12 +114,6 @@ async def token_login(
         user.hashed_password = updated_hash
         await db.flush()
 
-    settings = request.app.state.users.settings
-    if not user.is_verified and settings.require_verification:
-        # Same rule as the session login: a self-registered account that never
-        # proved its address must not mint bearer tokens either (#547).
-        await release(db, attempt, admission)
-        raise HTTPException(status_code=400, detail="LOGIN_USER_NOT_VERIFIED")
     await record_success(db, attempt, admission)
     return await _create_token_pair(db, user.id, settings, user.session_version)
 

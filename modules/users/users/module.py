@@ -135,7 +135,7 @@ class UsersModule(ModuleBase):
         re-reads them per request — so an install that never hosts a demo pays
         one frozenset lookup on unsafe methods and nothing on reads.
         """
-        from users.demo_guard import DemoReadOnlyMiddleware
+        from users.demo.guard import DemoReadOnlyMiddleware
 
         app.add_middleware(DemoReadOnlyMiddleware)
 
@@ -210,10 +210,10 @@ class UsersModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router
         from users.auth_local import api as auth_local_api
-        from users.auth_local.demo_api import router as demo_router
         from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
+        from users.demo.api import router as demo_router
         from users.deps import fastapi_users
         from users.oauth.api import register_oauth_routes
 
