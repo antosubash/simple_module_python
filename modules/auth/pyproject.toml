@@ -24,6 +24,7 @@ dependencies = [
     "itsdangerous>=2.2",
     "simple_module_core==0.0.38",
     "simple_module_db==0.0.38",
+    "simple_module_hosting==0.0.38",
 ]
 
 [project.entry-points.simple_module]
@@ -50,3 +51,4 @@ packages = ["auth"]
 [tool.uv.sources]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
+simple_module_hosting = { workspace = true }
