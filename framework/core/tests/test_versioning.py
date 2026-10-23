@@ -61,8 +61,7 @@ class TestFrameworkVersion:
         class ModLegacy(ModuleBase):
             meta = ModuleMeta(name="Legacy")
 
-        with pytest.warns(DeprecationWarning, match=r"requires_framework=None.*0\.1\.0"):
-            check_framework_compatibility([ModLegacy()])
+        check_framework_compatibility([ModLegacy()])
 
     async def test_check_compat_rejects_malformed_spec(self):
         """A malformed version specifier raises FrameworkVersionError (not something cryptic)."""

@@ -56,7 +56,9 @@ def check_framework_compatibility(
     for mod in modules:
         spec_str = mod.meta.requires_framework
         if spec_str is None:
-            _UNVERSIONED_MODULE.warn()
+            # Tracked for removal (``_UNVERSIONED_MODULE``) but not warned per
+            # module: every unversioned module, in-repo ones included, would
+            # warn on each boot.
             continue
         try:
             spec = SpecifierSet(spec_str)
