@@ -24,6 +24,7 @@ from users.auth_local.lockout import (
     record_success,
     release,
 )
+from users.demo.guard import DEMO_READ_ONLY_DETAIL, is_read_only_demo
 from users.models import User
 from users.models.refresh_token import RefreshToken
 
@@ -101,6 +102,10 @@ async def token_login(
         locked = await record_failure(db, attempt, admission)
         raise locked or HTTPException(status_code=401, detail="Invalid credentials")
     settings = request.app.state.users.settings
+    if is_read_only_demo(request.app, user.id):
+        await rollback_session(db)
+        await release(db, attempt, admission)
+        raise HTTPException(status_code=403, detail=DEMO_READ_ONLY_DETAIL)
     if not user.is_verified and settings.require_verification:
         # Same rule as the session login: a self-registered account that never
         # proved its address must not mint bearer tokens either (#547).
@@ -140,9 +145,6 @@ async def token_refresh(
     if rt is None:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
-    rt.revoked_at = now
-    await db.flush()
-
     # The account is re-read rather than trusted from the row: a refresh token
     # outlives the access tokens it mints, so between two refreshes the user may
     # have been deactivated, or signed everything out. Minting from a stale
@@ -151,7 +153,11 @@ async def token_refresh(
     user = (await db.execute(select(User).where(col(User.id) == rt.user_id))).scalar_one_or_none()
     if user is None or not user.is_active or user.disabled_at is not None:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    if is_read_only_demo(request.app, user.id):
+        raise HTTPException(status_code=403, detail=DEMO_READ_ONLY_DETAIL)
 
+    rt.revoked_at = now
+    await db.flush()
     settings = request.app.state.users.settings
     return await _create_token_pair(db, user.id, settings, user.session_version)
 

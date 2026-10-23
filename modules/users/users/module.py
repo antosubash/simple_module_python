@@ -134,14 +134,10 @@ class UsersModule(ModuleBase):
         install_exception_handlers(app)
 
     def register_middleware(self, app: FastAPI) -> None:
-        """Refuse writes from either shared demo session.
+        """Guard demo sessions early and resolved demo identities after auth."""
+        from users.demo.guard import DemoReadOnlyMiddleware, demo_principal_refusal
 
-        A no-op until ``demo_mode`` and ``demo_read_only`` are both on — it
-        re-reads them per request — so an install that never hosts a demo pays
-        one frozenset lookup on unsafe methods and nothing on reads.
-        """
-        from users.demo.guard import DemoReadOnlyMiddleware
-
+        app.state.auth.principal_guards.append(demo_principal_refusal)
         app.add_middleware(DemoReadOnlyMiddleware)
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:

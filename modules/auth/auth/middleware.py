@@ -151,6 +151,11 @@ class AuthMiddleware:
 
         if user_ctx is not None:
             request.state.user = user_ctx
+            for guard in auth_state.principal_guards:
+                refusal = guard(request)
+                if refusal is not None:
+                    await refusal(scope, receive, send)
+                    return
             token = current_user_id.set(user_ctx.id)
             try:
                 await self.app(scope, receive, send)
