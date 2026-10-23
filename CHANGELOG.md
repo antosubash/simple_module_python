@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file. The format is b
   installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
 
 ### Changed
+- Frontend: every page that posts through the Inertia router now shows a toast on failure (sharing revoke, dashboard Doctor rerun included); `useLeaveGuard` lives in `@simple-module-py/ui`, the background-tasks outbox confirms through the shared dialog instead of `window.confirm`, and `reportClientError()` is the single hook the error boundary reports through (#601).
 - Users: lockout, registration and bulk-invite writes that must land before the request ends
   now commit through `simple_module_db.independent_session` (its own short-lived session)
   instead of committing the request session. Failed or unverified password logins now roll
@@ -70,6 +71,9 @@ All notable changes to this project are documented in this file. The format is b
   commit loses the task; use `publish_durable` for must-run work). file_storage gains an hourly
   `file_storage.reconcile_checksums` beat task that re-enqueues checksums for files left without
   one for 30 minutes, up to 500 per run (#590).
+
+### Removed
+- Frontend: `@simple-module-py/ui` no longer depends on `react-hook-form`/`@hookform/resolvers`, and the unused shadcn `form` component is removed; `host/client_app` drops the unused `zod` and `date-fns` (#601). **Behaviour change** for anyone importing `@simple-module-py/ui/components/ui/form`.
 
 ## [0.0.38] — 2026-10-23
 
