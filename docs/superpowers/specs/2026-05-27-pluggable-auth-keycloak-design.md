@@ -1,5 +1,9 @@
 # Pluggable Auth: AuthProvider Contract + Keycloak Module
 
+> **Superseded:** Guidance below to implement `get_public_paths()` is obsolete. Use
+> `ModuleBase.register_public_routes` and the method-aware `PublicRouteRegistry`;
+> see [Public routes](../../framework/public-routes.md). The legacy shim is removed in 0.1.0.
+
 **Date:** 2026-05-27
 **Status:** Design — approved for implementation planning
 **Builds on:** [2026-05-21 Auth principal-resolver chain](2026-05-21-auth-principal-resolver-design.md) (must land first)

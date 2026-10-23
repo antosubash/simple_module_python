@@ -11,8 +11,8 @@ Policy:
   (``_rate_limit_keys``); the tiers below still apply afterwards;
 * a request is limited by ``rate_limit_public`` only when the auth middleware judged
   it anonymous-allowed (``scope["state"]["auth_public"]``: framework defaults, the
-  registry and the provider legacy paths; the registry alone if no auth provider
-  is installed) **and** nobody is signed in. Health/static are never limited;
+  registry and the provider legacy paths; the shared public-access check if no auth middleware
+  records a decision) **and** nobody is signed in. Health/static are never limited;
 * a matching rule's own ``rate=`` replaces that default for the rule;
 * ``rate_limit_authenticated`` (off by default) limits signed-in traffic, one budget per
   user (anonymous-or-id-less principals fall back to their IP);
@@ -38,6 +38,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting._rate_limit_keys import KEY_IP, KEY_USER_OR_IP, rule_bucket, rule_key
 from simple_module_hosting._request_guard_responses import send_guard_response
+from simple_module_hosting.public_access import is_public
 
 __all__ = ["RateLimitMiddleware"]
 
@@ -70,8 +71,8 @@ class RateLimitMiddleware:
         registry = getattr(scope["app"].state, "public_routes", None)
         rule = registry.match(scope["method"], scope["path"]) if registry is not None else None
         flag = scope.get("state", {}).get("auth_public")
-        if flag is None:  # no auth provider recorded a decision: registry is the truth
-            flag = rule is not None
+        if flag is None:  # no auth middleware recorded a decision
+            flag = is_public(scope["app"], scope["method"], scope["path"])
         if not flag:
             return None
         if rule is None and scope["path"].startswith(_OPERATIONAL_PREFIXES):
