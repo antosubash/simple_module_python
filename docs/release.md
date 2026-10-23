@@ -1,6 +1,6 @@
 # Publishing simple_module_python
 
-This repo publishes **13 Python packages** to PyPI and **3 JS packages** to npm in one lockstep version bump. Releases are driven entirely from GitHub Actions — no tokens live on your laptop.
+This repo publishes **22 Python packages** to PyPI and **3 JS packages** to npm in one lockstep version bump. Releases are driven entirely from GitHub Actions — no tokens live on your laptop.
 
 - **Python packages** (`simple_module_*`) → [pypi.org](https://pypi.org)
 - **JS packages** (`@simple-module-py/*`) → [npmjs.com](https://www.npmjs.com)
@@ -23,7 +23,7 @@ You need to set up Trusted Publisher entries on PyPI and npm *before* running th
 
 ### 1. PyPI
 
-For *each* of the 13 published Python project names, on [pypi.org](https://pypi.org/manage/account/publishing/):
+For *each* of the 22 published Python project names, on [pypi.org](https://pypi.org/manage/account/publishing/):
 
 1. Log in as the owner account (`antosubash`).
 2. Go to **Your account → Publishing** (or click "Add a new pending publisher" if the project doesn't exist yet).
@@ -35,27 +35,10 @@ For *each* of the 13 published Python project names, on [pypi.org](https://pypi.
    - **Environment name**: `pypi`
 4. Save.
 
-Repeat for every project in this list:
-
-```
-simple_module_cli
-simple_module_core
-simple_module_db
-simple_module_hosting
-simple_module_test
-simple_module_auth
-simple_module_background_tasks
-simple_module_dashboard
-simple_module_feature_flags
-simple_module_file_storage
-simple_module_permissions
-simple_module_settings
-simple_module_users
-```
-
-(`simple_module_audit_log` and `simple_module_keycloak` live in the workspace and
-get version-bumped, but are **not** in the `publish-pypi` matrix — they are not
-published to PyPI.)
+Use the complete `publish-pypi.strategy.matrix.package` list in
+[release.yml](../.github/workflows/release.yml) as the source of truth. Every
+matrix package is published, including `simple_module_audit_log` and
+`simple_module_keycloak`.
 
 > **Pending publishers**: if a project doesn't exist on PyPI yet, "pending publisher" is the right flow — you're reserving the project name *and* wiring up auth in one step. The first successful publish creates the project and promotes the pending publisher to a real one.
 
@@ -104,7 +87,7 @@ Both should pass locally. CI should be green on every PR into `main`.
 
 ### Step 2. Pick a version
 
-Every workspace package bumps in lockstep to the same version — `scripts/bump_version.py` walks every `framework/*`, `modules/*`, and `packages/*` manifest (so the two unpublished modules, `audit_log` and `keycloak`, stay in sync too). Only the 13 PyPI + 3 npm packages are then published. We follow a relaxed SemVer during the 0.x phase:
+Every workspace package bumps in lockstep to the same version — `scripts/bump_version.py` walks every `framework/*`, `modules/*`, and `packages/*` manifest. The 22 PyPI + 3 npm packages are then published. We follow a relaxed SemVer during the 0.x phase:
 
 | Situation | Input |
 |---|---|
@@ -125,9 +108,10 @@ The workflow derives the next version from the current `framework/core/pyproject
 What happens:
 - `resolve` computes the final version and shares it with every downstream job.
 - `checks` calls `pr.yml` (`workflow_call`) on the dispatched commit, so the `pr-checks` aggregate must be green. `build` needs it: nothing is built or published from a red commit.
+- `preflight` checks every PyPI matrix project via `https://pypi.org/pypi/<name>/json`. Both publish jobs require it. A 404 blocks publishing and lists every absent project with a pointer to this guide; other registry errors also block publishing. This public check cannot verify Trusted Publisher configuration or see pending publishers. New projects must have a pending publisher configured and be bootstrapped with their first release before this existence check will pass.
 - `build` rewrites every version, runs `uv build --all-packages` (a wheel + sdist for every buildable workspace package) plus the 3 npm tarballs, and uploads them as artifacts.
-- `publish-pypi` fans out 13 parallel jobs (the matrix package list), each filtering the artifact set down to one package and publishing its wheel+sdist pair via OIDC Trusted Publishing.
-- `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs via OIDC Trusted Publishing. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`.
+- `publish-pypi` fans out 22 parallel jobs (the matrix package list), each filtering the artifact set down to one package and publishing its wheel+sdist pair via OIDC Trusted Publishing. Existing distributions are skipped using the publish action’s `skip-existing` option, so a retry can fill in a missing wheel or sdist.
+- `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs via OIDC Trusted Publishing. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`. It queries the exact version from the tarball: HTTP 200 skips it, 404 publishes it, and any other HTTP or network error fails the job.
 - `finalize` re-applies the bump (the shared `.github/actions/bump-version` action, also used by `build`), cuts the CHANGELOG, commits `release: vX.Y.Z`, tags it, and pushes both.
 
 Expected wall time: 5–8 minutes.
@@ -191,7 +175,7 @@ uv build --all-packages --out-dir dist-py
 mkdir -p dist-npm && for p in packages/*/; do npm pack "$p" --pack-destination dist-npm; done
 
 # 6. Sanity-check contents
-ls dist-py/ | wc -l        # expect 30 (a wheel + sdist for each of the 15 buildable packages; only 13 are later published)
+ls dist-py/ | wc -l        # expect 44 (a wheel + sdist for each of the 22 published packages)
 ls dist-npm/ | wc -l       # expect 3
 
 # 7. Discard only the rehearsal worktree, including its version edits
@@ -225,20 +209,34 @@ Fix the entry on the registry, re-run the failed job.
 
 Branch protection is blocking `github-actions[bot]`. Add the `RELEASE_PUSH_TOKEN` secret (see First-time setup → Branch protection) and re-dispatch the workflow. The token is consumed automatically when present.
 
-### PyPI publishes succeeded, npm publishes failed (partial release)
+### Re-running after a partial publish
 
-PyPI is immutable — you cannot re-upload `0.0.2` under any circumstance. Options:
+Fix the failed leg's cause (for example, a mismatched Trusted Publisher), then
+use **Re-run failed jobs** on the original Actions run. This keeps the resolved
+version and original build artifacts. Already uploaded PyPI distributions and
+exact npm versions are skipped, and only missing artifacts are published.
+`finalize` still commits and tags only after every publish leg succeeds.
 
-1. **Yank** the bad PyPI versions via the PyPI project UI (doesn't delete, but hides them from `pip install`).
-2. **Unpublish** the good npm versions within 72 hours: `npm unpublish @simple-module-py/<pkg>@0.0.2` for each.
-3. Fix the root cause.
-4. Bump to `0.0.3` and re-run.
+If a new workflow dispatch is necessary, select the same source commit and set
+**version** explicitly to the partially published version. Keep the source and
+artifacts unchanged: these skip checks do not compare artifact hashes and cannot
+replace immutable releases. Do not yank, unpublish, or bump just to resume.
+
+### Preflight lists new PyPI projects
+
+The preflight lists every missing matrix project before any publish job runs.
+Configure each project's pending publisher as described above, then bootstrap
+its first release through that trusted workflow. Pending publishers alone do
+not make the project JSON endpoint return 200, so this conservative existence
+check will continue to block until the project exists. An existing project can
+still have a missing or mismatched publisher; correct that in PyPI settings if
+a publish leg returns 403.
 
 ### A new module was added — how do I include it in releases?
 
 1. Version-bumping is automatic — `scripts/bump_version.py` discovers any `modules/*/pyproject.toml`, so a new module is picked up with no edit.
-2. Add it to `.github/workflows/release.yml` under `publish-pypi` → `strategy.matrix.package` (only matrix packages are published; that's how `audit_log`/`keycloak` stay unpublished).
-3. Create the PyPI Trusted Publisher entry for its project name.
+2. Add it to `.github/workflows/release.yml` under `publish-pypi` → `strategy.matrix.package` (only matrix packages are published).
+3. Create the PyPI pending Trusted Publisher entry and bootstrap its first release; the preflight requires the project to exist on PyPI.
 4. Add a substantive README (`check_readmes.py` will fail otherwise).
 
 `scripts/check_metadata.py` and `scripts/check_readmes.py` run in `make lint` and will tell you what's missing.
@@ -257,14 +255,23 @@ Trusted Publishing is tied to the GitHub repo, not any personal account — so b
 | PyPI | `simple_module_core` | [framework/core/](../framework/core/) |
 | PyPI | `simple_module_db` | [framework/db/](../framework/db/) |
 | PyPI | `simple_module_hosting` | [framework/hosting/](../framework/hosting/) — ships the `sm-host` CLI |
+| PyPI | `simple_module_inertia` | [framework/inertia/](../framework/inertia/) |
 | PyPI | `simple_module_test` | [framework/testing/](../framework/testing/) — pytest plugin |
+| PyPI | `simple_module_api_tokens` | [modules/api_tokens/](../modules/api_tokens/) |
+| PyPI | `simple_module_audit_log` | [modules/audit_log/](../modules/audit_log/) |
 | PyPI | `simple_module_auth` | [modules/auth/](../modules/auth/) |
 | PyPI | `simple_module_background_tasks` | [modules/background_tasks/](../modules/background_tasks/) |
+| PyPI | `simple_module_branding` | [modules/branding/](../modules/branding/) |
 | PyPI | `simple_module_dashboard` | [modules/dashboard/](../modules/dashboard/) |
 | PyPI | `simple_module_feature_flags` | [modules/feature_flags/](../modules/feature_flags/) |
 | PyPI | `simple_module_file_storage` | [modules/file_storage/](../modules/file_storage/) |
+| PyPI | `simple_module_keycloak` | [modules/keycloak/](../modules/keycloak/) |
+| PyPI | `simple_module_mail` | [modules/mail/](../modules/mail/) |
 | PyPI | `simple_module_permissions` | [modules/permissions/](../modules/permissions/) |
 | PyPI | `simple_module_settings` | [modules/settings/](../modules/settings/) |
+| PyPI | `simple_module_sharing` | [modules/sharing/](../modules/sharing/) |
+| PyPI | `simple_module_site_lock` | [modules/site_lock/](../modules/site_lock/) |
+| PyPI | `simple_module_tenants` | [modules/tenants/](../modules/tenants/) |
 | PyPI | `simple_module_users` | [modules/users/](../modules/users/) |
 | npm | `@simple-module-py/ui` | [packages/ui/](../packages/ui/) |
 | npm | `@simple-module-py/i18n` | [packages/i18n/](../packages/i18n/) |

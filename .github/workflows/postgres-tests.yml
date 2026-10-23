@@ -4,7 +4,7 @@ name: Postgres tests
 # `@pytest.mark.postgres` tests that SQLite cannot run. Parallel under xdist,
 # one database per worker (every test resets its schema), but still slower than
 # SQLite, so it is not part of the PR aggregate: it runs nightly, on demand, and
-# on PRs that touch the database/tenancy layers (#508).
+# on PRs that touch database/tenancy or concurrency-sensitive modules (#508, #599).
 
 on:
   schedule:
@@ -16,6 +16,9 @@ on:
       - "framework/db/**"
       - "framework/testing/**"
       - "modules/tenants/**"
+      - "modules/users/**"
+      - "modules/background_tasks/**"
+      - "modules/file_storage/**"
       - "host/migrations/**"
       - ".github/workflows/postgres-tests.yml"
 

@@ -69,6 +69,20 @@ jobs:
   checks:
     uses: ./.github/workflows/pr.yml
 
+  # Public PyPI metadata cannot verify publisher configuration. Block absent
+  # projects and list all of them before either registry receives uploads.
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Check PyPI projects
+        run: uv run --no-project --with tomlkit python -m scripts.release_preflight
+
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
   # The commit + tag only hit origin in `finalize`, after publishes succeed,
   # so a failed build never leaves an orphan tag to clean up.
@@ -115,7 +129,7 @@ jobs:
           retention-days: 14
 
   publish-pypi:
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -170,9 +184,10 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: to-publish
+          skip-existing: true
 
   publish-npm:
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -212,6 +227,15 @@ jobs:
             echo "::error::refusing to publish ${files[0]}: package name is '$name', expected '$expected'"
             exit 1
           fi
+          version=$(tar -xzOf "${files[0]}" package/package.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          status=$(curl --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' \
+            "https://registry.npmjs.org/@simple-module-py%2F${{ matrix.package }}/${version}")
+          case "$status" in
+            200) echo "${name}@${version} already exists; skipping"; exit 0 ;;
+            404) ;;  # Only a missing exact version is safe to publish.
+            *) echo "::error::npm registry returned HTTP ${status} for ${name}@${version}"; exit 1 ;;
+          esac
           # Prefix with ./ so npm treats the arg as a file path, not a
           # GitHub `user/repo` shorthand (which it does for any bare
           # single-slash arg, even when the tarball exists on disk).
