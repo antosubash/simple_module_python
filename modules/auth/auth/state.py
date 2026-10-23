@@ -29,7 +29,8 @@ class AuthState:
     auth_provider: AuthProvider | None = None
     principal_resolvers: list[PrincipalResolver] = field(default_factory=list)
     # Run after every credential source resolves, before downstream middleware.
-    # A guard returns a refusal response or None to continue; errors fail closed.
+    # A guard is a sync callable returning a refusal response or None to continue.
+    # An exception propagates (a 500), so a broken guard fails closed, never open.
     principal_guards: list[Callable[[Request], Response | None]] = field(default_factory=list)
 
 

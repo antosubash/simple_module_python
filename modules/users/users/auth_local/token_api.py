@@ -145,6 +145,11 @@ async def token_refresh(
     if rt is None:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
+    # Burn the presented token first: it is committed even when the account
+    # check below answers 401, so a deactivated account's token stays dead.
+    rt.revoked_at = now
+    await db.flush()
+
     # The account is re-read rather than trusted from the row: a refresh token
     # outlives the access tokens it mints, so between two refreshes the user may
     # have been deactivated, or signed everything out. Minting from a stale
@@ -154,10 +159,10 @@ async def token_refresh(
     if user is None or not user.is_active or user.disabled_at is not None:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     if is_read_only_demo(request.app, user.id):
+        # A refusal must not consume the token: undo the revocation above.
+        await rollback_session(db)
         raise HTTPException(status_code=403, detail=DEMO_READ_ONLY_DETAIL)
 
-    rt.revoked_at = now
-    await db.flush()
     settings = request.app.state.users.settings
     return await _create_token_pair(db, user.id, settings, user.session_version)
 

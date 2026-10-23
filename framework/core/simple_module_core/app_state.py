@@ -28,6 +28,10 @@ if TYPE_CHECKING:
     from simple_module_core.tenancy import TenantExists, TenantMembers
 
 
+#: Attribute ``register_inertia_shared_provider`` writes and the renderer reads.
+INERTIA_SHARED_PROVIDERS_STATE_ATTR = "inertia_shared_providers"
+
+
 class AuthProvider(Protocol):
     """Framework-facing auth extension; installed by users or keycloak."""
 
@@ -184,7 +188,7 @@ def get_inertia_shared_providers(app: Any) -> list[SharedPropsProvider] | None:
 
     Returns None when absent.
     """
-    return getattr(app.state, "inertia_shared_providers", None)
+    return getattr(app.state, INERTIA_SHARED_PROVIDERS_STATE_ATTR, None)
 
 
 def get_branding(app: Any) -> BrandingState | None:
