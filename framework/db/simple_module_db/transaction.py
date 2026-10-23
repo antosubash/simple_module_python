@@ -130,11 +130,13 @@ async def finalize_session(session: AsyncSession) -> None:
 async def rollback_session(session: AsyncSession) -> None:
     """Roll ``session`` back and drop its pending work. Idempotent."""
     discard_on_commit_callbacks(session)
-    if session.info.get(_FINALIZED_KEY) and not _has_pending(session):
+    has_pending = _has_pending(session)
+    if session.info.get(_FINALIZED_KEY) and not has_pending:
         return
     _settle(session)
     await session.rollback()
-    logger.warning(
+    logger.log(
+        logging.WARNING if has_pending else logging.DEBUG,
         "db.session.rollback",
         extra={"operation": "rollback", "db_duration_ms": _elapsed_ms(session)},
     )

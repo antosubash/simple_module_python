@@ -157,6 +157,8 @@ and closes its own short-lived session, commits on clean exit, and rolls back
 and re-raises on error. It never commits or transfers the source session's
 pending work. Do not call `commit()` inside the block.
 
+On SQLite, an independent session cannot write while the request session holds uncommitted writes (there is only one writer), so call it before the request writes, as users lockout and bulk invite do.
+
 `on_commit` callbacks run in registration order after the checkpoint commits;
 rollback or commit failure discards them. Callback failures are logged without
 undoing the durable checkpoint, as for request sessions.
