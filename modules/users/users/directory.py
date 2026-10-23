@@ -30,6 +30,12 @@ from users.models import Role, User, UserRole
 _COLUMNS = (User.id, User.email, User.full_name, User.is_active, User.disabled_at)
 
 
+def _is_usable(row: Any) -> bool:
+    # A disabled account is still ``is_active`` in fastapi-users' sense;
+    # to every other module it is simply not usable.
+    return bool(row.is_active) and row.disabled_at is None
+
+
 class UsersDirectory:
     """Directory over the local ``users_user`` table."""
 
@@ -49,10 +55,7 @@ class UsersDirectory:
                 user_roles = tuple(sorted(roles.get(row.id, ()))) if with_roles else None
                 for key in parsed[row.id]:
                     found[key] = to_directory_user(
-                        row,
-                        key,
-                        roles=user_roles,
-                        is_active=bool(row.is_active) and row.disabled_at is None,
+                        row, key, roles=user_roles, is_active=_is_usable(row)
                     )
         return found
 
@@ -74,12 +77,7 @@ class UsersDirectory:
         if term and term.strip():
             stmt = stmt.where(name_or_email_contains(User.full_name, User.email, term.strip()))
         rows = (await db.execute(stmt)).all()
-        return [
-            to_directory_user(
-                row, str(row.id), is_active=bool(row.is_active) and row.disabled_at is None
-            )
-            for row in rows
-        ]
+        return [to_directory_user(row, str(row.id), is_active=_is_usable(row)) for row in rows]
 
     def match_ids(self, term: str) -> Any | None:
         # ``CAST`` renders the canonical lowercase hyphenated form on both
