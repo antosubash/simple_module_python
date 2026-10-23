@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_hosting import public_access
 from simple_module_hosting._route_access import is_public_operation
 from simple_module_hosting.public_access import is_public
 
@@ -40,7 +41,9 @@ def test_legacy_prefix_and_exact_paths_warn_once() -> None:
 
 
 @pytest.mark.parametrize("operation", [False, True])
-def test_raising_legacy_provider_is_logged(caplog, operation: bool) -> None:
+def test_raising_legacy_provider_is_logged(caplog, monkeypatch, operation: bool) -> None:
+    monkeypatch.setattr(public_access, "_provider_failure_warned", False)
+
     class RaisingProvider:
         def get_public_paths(self):
             raise RuntimeError("provider failed")
