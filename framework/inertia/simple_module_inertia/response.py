@@ -60,7 +60,9 @@ def back_url(request: Request) -> str:
     parts = urlsplit(raw)
     if parts.scheme not in ("", "http", "https"):
         return "/"
-    if (parts.scheme or parts.netloc) and parts.netloc != request.url.netloc:
+    # Hostname only: a TLS proxy or an explicit default port changes the
+    # scheme/port without making the Referer another site.
+    if (parts.scheme or parts.netloc) and parts.hostname != request.url.hostname:
         return "/"
     path = parts.path
     if not path.startswith("/") or path.startswith(("//", "/\\")):

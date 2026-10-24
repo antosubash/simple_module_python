@@ -60,6 +60,7 @@ async def test_offsite_referers_fall_back_to_root(referer: str) -> None:
     [
         ("https://app.test/users/add?step=2", "/users/add?step=2"),
         ("http://app.test/users/add", "/users/add"),
+        ("https://APP.test:443/users/add", "/users/add"),
         ("/users/add", "/users/add"),
         (None, "/"),
     ],
