@@ -21,6 +21,10 @@ All notable changes to this project are documented in this file. The format is b
   an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
   `UserDeleted` now lives in `simple_module_core.user_events` (still re-exported from
   `users.contracts.events`) so modules can subscribe without depending on `users`.
+- Frontend: verification failures show a generic error unless the server reports a bad
+  token or an already-verified account; file downloads bypass Inertia so signed-URL
+  redirects work; closed mobile sidebars are inert and hidden from assistive technology,
+  while desktop sidebars remain accessible (#638).
 - Settings: reverting a field preserves other unsaved edits; connection-test results
   stay with their module, and unreadable or empty check responses report failure (#637).
   `@simple-module-py/ui`: `readBody` now rethrows a body-read failure instead of returning

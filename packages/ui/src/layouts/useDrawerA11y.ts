@@ -30,18 +30,27 @@ export function useDrawerA11y(
   drawerRef: RefObject<HTMLElement | null>,
 ) {
   useEffect(() => {
-    if (!open) return;
     const desktop =
       typeof window.matchMedia === 'function' ? window.matchMedia(DESKTOP_SIDEBAR_QUERY) : null;
-    if (desktop?.matches) {
-      onClose();
-      return;
-    }
+    const drawer = drawerRef.current;
+    const updateVisibility = () => {
+      const hidden = !open && !desktop?.matches;
+      drawer?.toggleAttribute('inert', hidden);
+      if (hidden) drawer?.setAttribute('aria-hidden', 'true');
+      else drawer?.removeAttribute('aria-hidden');
+    };
+    updateVisibility();
     const onBreakpoint = (e: MediaQueryListEvent) => {
-      if (e.matches) onClose();
+      updateVisibility();
+      if (e.matches && open) onClose();
     };
     desktop?.addEventListener('change', onBreakpoint);
-    const drawer = drawerRef.current;
+    const unsubscribe = () => desktop?.removeEventListener('change', onBreakpoint);
+    if (!open) return unsubscribe;
+    if (desktop?.matches) {
+      onClose();
+      return unsubscribe;
+    }
     const opener = document.activeElement as HTMLElement | null;
     const items = () =>
       drawer ? Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isFocusable) : [];
@@ -77,7 +86,7 @@ export function useDrawerA11y(
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
-      desktop?.removeEventListener('change', onBreakpoint);
+      unsubscribe();
       document.removeEventListener('keydown', onKeyDown);
       if (opener?.isConnected) opener.focus();
     };
