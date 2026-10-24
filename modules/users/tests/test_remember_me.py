@@ -77,6 +77,30 @@ async def _age_access_tokens(app, *, days: int) -> None:
         await session.commit()
 
 
+async def _cookie_strategy_user(app, client):
+    """Resolve the ``sm_auth`` cookie through the cookie strategy itself.
+
+    ``/api/users/me`` now resolves the request principal (session or bearer,
+    #658), so it no longer exercises ``ExpiringDatabaseStrategy``; read the row
+    the way ``fastapi_users.current_user`` does instead.
+    """
+    from users.backend import build_strategy
+    from users.db_adapter import PruningAccessTokenDatabase
+    from users.models import UserAccessToken
+
+    async with app.state.sm.db.session_factory() as session:
+
+        class _Manager:
+            def parse_id(self, value):
+                return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
+            async def get(self, user_id):
+                return await session.get(User, user_id)
+
+        strategy = build_strategy(PruningAccessTokenDatabase(session, UserAccessToken), 900)
+        return await strategy.read_token(client.cookies.get("sm_auth"), _Manager())
+
+
 class TestRemembered:
     @pytest.mark.anyio
     async def test_the_auth_cookie_lasts_thirty_days(self, anon_client, users_db):
@@ -104,14 +128,13 @@ class TestRemembered:
         know which sign-ins asked to be remembered — a row minted to last
         thirty days therefore has to be accepted for thirty, or the cookie
         outlives the credential it carries and the checkbox starts lying on
-        day fourteen. ``/api/users/me`` is the probe because it depends on
-        ``current_user``, which is the code path that reads the row.
+        day fourteen.
         """
         await _make_user(users_db, "remember-token@example.com")
         await _login(anon_client, "remember-token@example.com", remember=True)
 
         await _age_access_tokens(users_app, days=29)
-        assert (await anon_client.get("/api/users/me")).status_code == 200
+        assert await _cookie_strategy_user(users_app, anon_client) is not None
 
     @pytest.mark.anyio
     async def test_a_token_past_the_window_stops_being_read(self, anon_client, users_db, users_app):
@@ -121,7 +144,7 @@ class TestRemembered:
         await _login(anon_client, "stale-token@example.com", remember=True)
 
         await _age_access_tokens(users_app, days=31)
-        assert (await anon_client.get("/api/users/me")).status_code == 401
+        assert await _cookie_strategy_user(users_app, anon_client) is None
 
 
 class TestTheWindowSurvivesLaterRequests:

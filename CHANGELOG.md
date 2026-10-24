@@ -31,6 +31,8 @@ All notable changes to this project are documented in this file. The format is b
   and revoking/pruning aged families while preserving reuse evidence for live families (#656).
 - Users admin actions show translated server refusal details instead of generic errors;
   unknown details retain the existing fallback (#653).
+- Users: GET and PATCH `/api/users/me` now accept bearer access tokens from
+  `/api/users/auth/token` alongside browser sessions (#658).
 - Users: publish deletion, disabling and new role assignments transactionally through
   the durable outbox (inline cleanup without background tasks). Deletion purges tenant
   memberships, shares to the user and direct permission grants; tenants left without
