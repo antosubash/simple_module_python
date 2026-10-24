@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_mail"
-version = "0.0.38"
+version = "0.0.39"
 description = "Outgoing mail (SMTP or console) for simple_module apps, configured from the DB-backed settings"
 readme = "README.md"
 license = "MIT"
@@ -9,8 +9,8 @@ requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "mail", "smtp", "email"]
 dependencies = [
-    "simple_module_core==0.0.38",
-    "simple_module_settings==0.0.38",
+    "simple_module_core==0.0.39",
+    "simple_module_settings==0.0.39",
     "aiosmtplib>=3.0,<6",
 ]
 

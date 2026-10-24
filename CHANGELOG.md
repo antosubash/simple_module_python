@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.39] — 2026-10-24
+
 ### Added
 - `EventBus.publish_durable_or_inline(event, db)`: enqueue durably when a transport is
   installed, otherwise run the durable handlers inline in `db`'s transaction (#583).
@@ -1172,7 +1174,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.38...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...HEAD
+[0.0.39]: https://github.com/antosubash/simple_module_python/compare/v0.0.38...v0.0.39
 [0.0.38]: https://github.com/antosubash/simple_module_python/compare/v0.0.37...v0.0.38
 [0.0.27]: https://github.com/antosubash/simple_module_python/compare/v0.0.26...v0.0.27
 [0.0.16]: https://github.com/antosubash/simple_module_python/compare/v0.0.15...v0.0.16

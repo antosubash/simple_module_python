@@ -1,7 +1,7 @@
 {
   "name": "@simple-module/keycloak",
   "private": true,
-  "version": "0.0.38",
+  "version": "0.0.39",
   "type": "module",
   "dependencies": {}
 }
