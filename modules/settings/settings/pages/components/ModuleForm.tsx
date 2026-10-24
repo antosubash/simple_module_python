@@ -42,18 +42,23 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     return o;
   }, [m.fields]);
 
-  const [values, setValues] = useState<Record<string, unknown>>(initial);
-  const [baseline, setBaseline] = useState<Record<string, unknown>>(initial);
+  const [{ values, baseline }, setBuffer] = useState({ values: initial, baseline: initial });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  // Reset the edit buffer whenever the underlying module changes (package
-  // switch, or server-reloaded props after a save/reset).
+  // Refresh saved values without discarding drafts in other fields (#637).
   useEffect(() => {
-    setValues(initial);
-    setBaseline(initial);
+    setBuffer((prev) => ({
+      values: Object.fromEntries(
+        Object.entries(initial).map(([name, value]) => [
+          name,
+          notEqual(prev.values[name], prev.baseline[name]) ? prev.values[name] : value,
+        ]),
+      ),
+      baseline: initial,
+    }));
     setErrors({});
     setSaved(false);
   }, [initial]);
@@ -107,7 +112,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     } else {
       // Keeping the form mounted lets the confirmation remain visible instead
       // of being discarded by an immediate Inertia reload.
-      setBaseline({ ...values });
+      setBuffer((prev) => ({ ...prev, baseline: { ...values } }));
       setSaved(true);
     }
     setBusy(false);
@@ -121,6 +126,10 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         params: { path: { package: m.package, field: name } },
       }),
     );
+    setBuffer((prev) => ({
+      ...prev,
+      values: { ...prev.values, [name]: prev.baseline[name] },
+    }));
     router.reload({ only: ['modules'] });
   }
 
@@ -187,7 +196,10 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
                   onReset={() => onReset(f.name)}
                   onChange={(name, v) => {
                     setSaved(false);
-                    setValues((prev) => ({ ...prev, [name]: v }));
+                    setBuffer((prev) => ({
+                      ...prev,
+                      values: { ...prev.values, [name]: v },
+                    }));
                   }}
                 />
               ))}

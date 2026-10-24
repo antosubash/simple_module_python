@@ -71,7 +71,6 @@ export async function apiFetch<T = unknown>(
   const { json, ...rest } = init;
   const headers = new Headers(rest.headers);
   if (json !== undefined) headers.set('Content-Type', 'application/json');
-  let response: Response;
   try {
     const request = new Request(new URL(url, globalThis.location?.href), {
       credentials: 'same-origin',
@@ -79,10 +78,10 @@ export async function apiFetch<T = unknown>(
       headers,
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
-    response = await globalThis.fetch(prepare(request, currentCsrfToken));
+    const response = await globalThis.fetch(prepare(request, currentCsrfToken));
+    const body = await readBody(response);
+    return response.ok ? success(response.status, body as T) : failure<T>(response.status, body);
   } catch {
     return failure<T>(NETWORK_FAILURE, null);
   }
-  const body = await readBody(response);
-  return response.ok ? success(response.status, body as T) : failure<T>(response.status, body);
 }

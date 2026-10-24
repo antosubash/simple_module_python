@@ -134,6 +134,13 @@ describe('apiResult', () => {
 });
 
 describe('apiFetch', () => {
+  it('reports a failed response body read as a network failure', async () => {
+    const response = new Response('{}', { status: 200 });
+    vi.spyOn(response, 'text').mockRejectedValue(new TypeError('stream interrupted'));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    expect(await apiFetch('/x')).toMatchObject({ ok: false, status: 0, data: null });
+  });
+
   it('serialises json and normalises the result', async () => {
     const fetchMock = stubFetch(200, { saved: true });
     const result = await apiFetch<{ saved: boolean }>('/setup/save', {

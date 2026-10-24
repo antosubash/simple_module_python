@@ -21,6 +21,10 @@ All notable changes to this project are documented in this file. The format is b
   an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
   `UserDeleted` now lives in `simple_module_core.user_events` (still re-exported from
   `users.contracts.events`) so modules can subscribe without depending on `users`.
+- Settings: reverting a field preserves other unsaved edits; connection-test results
+  stay with their module, and unreadable or empty check responses report failure (#637).
+  `@simple-module-py/ui`: `readBody` now rethrows a body-read failure instead of returning
+  `null`; `apiFetch` reports it as a network failure (status 0).
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
 - Role-permission edits, module settings updates/clears and system/tenant feature-flag
