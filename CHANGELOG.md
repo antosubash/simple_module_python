@@ -36,6 +36,13 @@ All notable changes to this project are documented in this file. The format is b
   between attempts, including failures, preventing random-`kid` bearer tokens from
   triggering an outbound request each. Newly rotated keys may take up to 30 seconds
   to be accepted (#620).
+- Keycloak sign-in clears prior identity state while preserving registered browser gates and
+  the safe post-login redirect; validates the ID token, nonce and matching subject (#619).
+  **Behaviour change:** browser sessions renew server-side via refresh token at access-token
+  expiry, using validated claims for fresh roles. Demoted or disabled users lose access
+  at the next access-token expiry; failed refreshes or expired sessions without a refresh
+  token require sign-in. The ID token is no longer stored in the signed cookie to keep
+  it below browser size limits; logout uses `client_id` instead of `id_token_hint`.
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
   clears it and keeps only the pending post-login redirect, so a CSRF token (or any other
   session state) issued before sign-in no longer survives it. Keycloak sign-in rotates the CSRF

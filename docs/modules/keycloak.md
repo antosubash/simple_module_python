@@ -36,9 +36,11 @@ The provider-agnostic `AuthMiddleware` (in `auth`) runs on every request and:
 
 1. Calls `provider.resolve_user(request)`. The Keycloak provider:
    - If there's an `Authorization: Bearer <token>` header, validates the JWT against the cached JWKS and maps claims → `UserContext`.
-   - Otherwise rehydrates `UserContext.from_session_dict(...)` from the browser session cookie (populated by the OIDC callback).
+   - Otherwise rehydrates `UserContext.from_session_dict(...)` from the browser session cookie (populated by the OIDC callback). At access-token expiry, a stored refresh token renews the session server-side with a five-second token-endpoint timeout. The new access token is validated through the JWKS cache, and its claims replace the cached roles and deadline before the request continues. Demoted users lose their old privileges and disabled users lose access at the next access-token expiry. A failed refresh (including `invalid_grant` or a network error), or an expired session without a refresh token, clears authentication and requires sign-in. Refresh runs at most once per request and never for bearer credentials. Ordinary requests do not slide the deadline.
 2. If the provider returns `None`, it falls through to the registered **principal resolvers** (`app.state.auth.principal_resolvers`), trying each until one matches.
 3. If still unresolved and the path isn't public: `/api/*` and bearer requests get a `401` JSON; browser requests are redirected to `provider.get_login_url(...)` (`/keycloak/login`), with the original URL stashed in the session as `next`.
+
+The browser session uses a signed, **unencrypted** cookie. To stay below the roughly 4 KB browser limit with a refresh token and role claims, the ID token is validated at sign-in but never stored. Logout identifies the client with `client_id` instead of `id_token_hint`.
 
 `KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
 
@@ -55,9 +57,9 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 | Method + path | What |
 |---|---|
 | `GET /keycloak/login` | Inertia `Keycloak/Login` page (auto-redirects to the IdP). |
-| `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout (`post_logout_redirect_uri` back to `/keycloak/login`, with `id_token_hint`). |
+| `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout with `client_id` and `post_logout_redirect_uri` back to `/keycloak/logged-out`. |
 | `GET /api/keycloak/auth/login` | Builds the authorization URL (random `state` + `nonce` stored in session) and 302s to Keycloak. |
-| `GET /api/keycloak/auth/callback` | Verifies `state`, exchanges the `code` for tokens, validates the access token, upserts the user cache, writes `UserContext` + the id token to the session, then redirects to `next` (or `login_redirect_url`). |
+| `GET /api/keycloak/auth/callback` | Verifies `state`, exchanges the `code` for tokens, validates both tokens and checks the ID token nonce and matching subject. Upserts the user cache, replaces the session (preserving registered browser gate keys), writes `UserContext`, the refresh token (if returned) and access-token expiry, then redirects to the safe `next` (or `login_redirect_url`). |
 
 ## Settings
 
