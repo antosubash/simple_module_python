@@ -18,6 +18,10 @@ on:
         type: string
         default: ""
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
   id-token: write  # OIDC for PyPI and npm Trusted Publishing
@@ -39,6 +43,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Verify release source
+        run: bash scripts/check_release_ref.sh
       - id: compute
         shell: bash
         run: |
@@ -72,11 +78,13 @@ jobs:
   # commit; `build` needs it, so nothing is built or published from a red commit.
   # Reusable workflow calls cannot set timeout-minutes; pr.yml bounds each job.
   checks:
+    needs: [resolve]
     uses: ./.github/workflows/pr.yml
 
   # Public PyPI metadata cannot verify publisher configuration. Block absent
   # projects unless the operator confirms their pending publishers.
   preflight:
+    needs: [resolve]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -137,8 +145,20 @@ jobs:
           path: dist-npm/
           retention-days: 14
 
-  publish-pypi:
+  # Re-check after the build/checks, immediately before allowing either registry.
+  release-guard:
     needs: [build, preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify release source
+        run: bash scripts/check_release_ref.sh
+
+  publish-pypi:
+    needs: [build, preflight, release-guard]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -196,7 +216,7 @@ jobs:
           skip-existing: true
 
   publish-npm:
-    needs: [build, preflight]
+    needs: [build, preflight, release-guard]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -279,12 +299,16 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "release: v${VERSION}"
-            git push origin HEAD:main
           else
             echo "working tree clean — packages already published at this version, tagging HEAD"
           fi
+          # Tag the commit the packages were built from, before folding in any
+          # PR merged mid-release: a rebase would tag code that was never published.
           git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge --no-edit origin/main
+          # A concurrent merge or rejected tag must not leave only one ref updated.
+          git push --atomic origin HEAD:main "refs/tags/v${VERSION}"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -21,6 +21,9 @@ All notable changes to this project are documented in this file. The format is b
   an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
   `UserDeleted` now lives in `simple_module_core.user_events` (still re-exported from
   `users.contracts.events`) so modules can subscribe without depending on `users`.
+- Release workflow serializes runs, rejects non-main or stale dispatches before
+  publishing, tags the published release commit and merges concurrent main changes
+  into it before atomically pushing main and the tag, failing safely on conflicts (#628).
 - CLI: `smpy update` selects a tag accepted by every sibling's constraint;
   git sources preserve refs containing `/`, and Python prerelease tags sort before
   their final release (#636).
