@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "babel>=2.14,<3",
-    "fastapi>=0.140,<0.157",
+    "fastapi>=0.140,<0.159",
     "packaging>=23.0,<27",
     "pydantic>=2.0,<3",
     "pydantic-settings>=2.0,<3",
