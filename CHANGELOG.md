@@ -14,6 +14,21 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- `tenants.contracts.UsageMeter`: an implementation-free usage-metering protocol next to
+  `EntitlementProvider` (`check`, `consume`, `record`, `refund`, `reserve`/`commit`/`release`,
+  `summary`) with `UsageOutcome`/`UsageReservation`/`UsageSummaryRow`, `UsageExceededError`,
+  an `UnlimitedUsageMeter` default on `app.state.tenants.usage` and `get_usage_meter(app)` (#616).
+- `simple_module_hosting.csrf.rotate_csrf_token(request)` for principal changes that keep the
+  session (#615).
+
+### Security
+- Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
+  clears it and keeps only the pending post-login redirect, so a CSRF token (or any other
+  session state) issued before sign-in no longer survives it. Keycloak sign-in and the tenant
+  switch rotate the CSRF token (#615). **Behaviour change:** session keys a module stored
+  before sign-in are dropped at sign-in.
+
 ## [0.0.39] — 2026-10-24
 
 ### Added
