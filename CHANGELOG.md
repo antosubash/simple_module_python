@@ -39,6 +39,9 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- Inertia: `Inertia.back()` and the exported validation handler now redirect only to a
+  same-site path taken from `Referer`, falling back to `/`; an off-site or malformed
+  `Referer` previously produced an open redirect (#635).
 - Users: account administration never exceeds the actor's own authority. Outside a full
   admin session, a role can be granted and an account managed (edit, disable, reset link,
   invite) only when its effective permissions (roles plus direct grants) are within the
