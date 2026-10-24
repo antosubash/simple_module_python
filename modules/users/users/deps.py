@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi_users import FastAPIUsers
 from simple_module_core.events import EventBus
 from simple_module_db.deps import get_db
@@ -65,7 +65,10 @@ async def get_user_service(
 ) -> UserService:
     from users.admin.service import UserService
 
-    return UserService(db, user_manager, request.app)
+    actor = getattr(request.state, "user", None)
+    if actor is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return UserService(db, user_manager, request.app, actor=actor)
 
 
 __all__ = [

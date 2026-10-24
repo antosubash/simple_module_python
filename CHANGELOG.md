@@ -27,6 +27,9 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- Users: prevent delegated `users.manage` callers from assigning roles they do not hold
+  or controlling more privileged accounts, including via reset links and invitations.
+  Block self-disable, self-demotion and removal of the last active administrator (#624).
 - Users: require an OIDC UserInfo `email_verified: true` claim before linking by
   email or marking a new account verified. Other OAuth providers no longer link
   by email or automatically verify new accounts; existing subject links still

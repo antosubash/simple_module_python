@@ -116,7 +116,10 @@ class _UserServiceBase:
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         result = await self._db.execute(
-            select(User).where(col(User.id) == user_id).options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
+            select(User)
+            .where(col(User.id) == user_id)
+            .options(selectinload(User.roles))  # ty: ignore[invalid-argument-type]
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
 
