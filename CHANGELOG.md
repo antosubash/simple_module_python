@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- Users: show password policy reasons on the reset screen instead of suggesting
+  that a valid link expired; allow retry with the same token (#667).
+
 ## [0.0.40] — 2026-10-24
 
 ### Fixed
