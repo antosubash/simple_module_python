@@ -73,8 +73,10 @@ class BrandingService:
         invalidation = getattr(self.app.state.sm, "invalidation", None)
         store = SettingsStore(SettingService(self.db, invalidation=invalidation))
         bus = self.app.state.sm.event_bus
-        await apply_changes_and_reload(self.app, bus, store, package=PACKAGE, changes=changes)
-        return self.current()
+        validated = await apply_changes_and_reload(
+            self.app, bus, store, package=PACKAGE, changes=changes
+        )
+        return to_out(validated)
 
     async def _swap_asset(self, field: str, file_id: str) -> BrandingOut:
         """Point *field* at *file_id* ("" to clear) and reap what it replaced.
@@ -86,9 +88,22 @@ class BrandingService:
         file that is gone. A file another system image field still references
         (logo and dark logo sharing one upload) is kept.
         """
-        previous = getattr(self.app.state.branding.settings, field, "")
+        # The pre-save value comes from the DB-backed settings, not app.state:
+        # the in-process object only changes after commit.
+        from settings.service import SettingService
+        from settings.store import SettingsStore
+        from simple_module_core.settings_hydrate import hydrate_settings
+
+        from branding.settings import BrandingSettings
+
+        before = await hydrate_settings(
+            BrandingSettings, SettingsStore(SettingService(self.db)), PACKAGE, lenient=True
+        )
+        previous = getattr(before, field, "")
         out = await self.apply({field: file_id})
-        live = self.app.state.branding.settings
+        live = await hydrate_settings(
+            BrandingSettings, SettingsStore(SettingService(self.db)), PACKAGE, lenient=True
+        )
         still_used = {getattr(live, name, "") for name in TENANT_IMAGE_FIELDS}
         # No storage handed in (a hand-built service): nothing is reaped.
         replaced = previous and previous != file_id and previous not in still_used

@@ -11,9 +11,13 @@ from pydantic_core import to_jsonable_python
 from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
 from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.settings_hydrate import env_supplied_fields, value_type_for_field
+from simple_module_core.settings_hydrate import (
+    env_supplied_fields,
+    hydrate_settings,
+    value_type_for_field,
+)
 
-from settings.contracts.events import SettingsReloaded
+from settings.invalidation import reload_on_commit
 from settings.store import SettingsStore
 
 
@@ -87,7 +91,7 @@ async def apply_changes_and_reload(
     package: str,
     changes: dict[str, Any],
 ) -> BaseSettings:
-    """Validate, persist, hot-swap, and publish ``SettingsReloaded``."""
+    """Validate and persist; reload and publish ``SettingsReloaded`` after commit."""
     registry = module_settings_registry(app)
     cls = registry.get(package)
     if cls is None:
@@ -97,8 +101,8 @@ async def apply_changes_and_reload(
     if unknown:
         raise KeyError(f"Unknown field(s) for {package!r}: {sorted(unknown)}")
 
-    services = getattr(app.state, package)
-    current = services.settings
+    # Include prior writes in this transaction without exposing them to other requests.
+    current = await hydrate_settings(cls, store, package, lenient=True)
     # Compare against the *dumped* current value, not the attribute: a field
     # typed as a list of models (branding's ``footer_links``) holds model
     # instances, while ``changes`` carries the plain dicts a DTO dumps to. The
@@ -118,6 +122,7 @@ async def apply_changes_and_reload(
                 await store.clear_override(package, name)
 
     if not diff:
+        reload_on_commit(app, bus, store, package)
         return current
 
     # Only a field that would actually change is refused: a client that echoes
@@ -153,6 +158,5 @@ async def apply_changes_and_reload(
         except ValidationError as exc:
             raise _relocate(exc, field_name) from exc
 
-    services.settings = validated
-    await bus.publish(SettingsReloaded(package=package, changed=tuple(sorted(diff))))
+    reload_on_commit(app, bus, store, package)
     return validated

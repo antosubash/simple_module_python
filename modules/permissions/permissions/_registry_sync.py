@@ -88,8 +88,7 @@ class RegistrySyncMixin:
         by_role: dict[str, list[str]] = {}
         for name, key in result.all():
             by_role.setdefault(name, []).append(key)
-        for name, keys in by_role.items():
-            self.registry.set_role_overlay(name, keys)
+        self.registry.replace_role_overlays(by_role)
 
     async def sync_admin_all_permissions(self, assigned_by: str | None = None) -> None:
         """Ensure the admin role holds every registered permission key.

@@ -14,6 +14,7 @@ from settings.settings import SettingsSettings
 from settings.store import SettingsStore
 from simple_module_core.events import EventBus
 from simple_module_core.module_settings import register_module_settings
+from simple_module_db.transaction import finalize_session
 
 
 class _UsersCfg(BaseSettings):
@@ -56,7 +57,10 @@ async def test_apply_changes_updates_app_state_and_fires_event(app_and_bus, db_s
 
     assert new_settings.allow_signup is True
     assert new_settings.smtp_port == 587
-    assert app.state.users.settings is new_settings
+    assert app.state.users.settings.allow_signup is False
+    assert received == []
+    await finalize_session(db_session)
+    assert app.state.users.settings == new_settings
     assert received == [SettingsReloaded(package="users", changed=("allow_signup", "smtp_port"))]
 
     persisted = await store.get_overrides("users")
@@ -96,3 +100,15 @@ async def test_apply_changes_unknown_package_raises(app_and_bus, db_session):
             package="unknown",
             changes={"x": 1},
         )
+
+
+async def test_multiple_settings_edits_in_one_transaction_keep_both(app_and_bus, db_session):
+    app, bus = app_and_bus
+    store = SettingsStore(SettingService(db_session))
+    await apply_changes_and_reload(app, bus, store, package="users", changes={"allow_signup": True})
+    await apply_changes_and_reload(app, bus, store, package="users", changes={"smtp_port": 587})
+    assert app.state.users.settings.allow_signup is False
+    assert app.state.users.settings.smtp_port == 25
+    await finalize_session(db_session)
+    assert app.state.users.settings.allow_signup is True
+    assert app.state.users.settings.smtp_port == 587

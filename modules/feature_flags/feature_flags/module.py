@@ -30,6 +30,7 @@ from feature_flags.constants import (
 
 if TYPE_CHECKING:
     from simple_module_core.events import EventBus
+    from simple_module_core.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 _logger = logging.getLogger(__name__)
@@ -74,6 +75,11 @@ class FeatureFlagsModule(ModuleBase):
         from feature_flags.tenant_cleanup import purge_tenant_data
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from feature_flags.invalidation import subscribe
+
+        self._refresh = subscribe(bus, app)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from feature_flags.endpoints.api import router as api
@@ -157,3 +163,10 @@ class FeatureFlagsModule(ModuleBase):
                 await service.hydrate_registry(sm.feature_flags)
         except Exception:
             _logger.exception("feature_flags.hydrate_failed — continuing with registry defaults")
+
+        if hasattr(self, "_refresh"):
+            self._refresh.start()
+
+    async def on_shutdown(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            await self._refresh.stop()

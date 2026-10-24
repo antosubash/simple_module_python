@@ -17,6 +17,9 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
+- Role-permission edits, module settings updates/clears and system/tenant feature-flag
+  overrides now apply only after commit and reload across workers through the
+  invalidation bus. Periodic reloads bound staleness when messages are missed (#621).
 
 ### Added
 - `tenants.contracts.UsageMeter`: an implementation-free usage-metering protocol next to

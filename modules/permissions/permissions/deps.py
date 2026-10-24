@@ -30,7 +30,7 @@ async def get_permission_service(
     db: AsyncSession = Depends(get_db),
     registry: PermissionRegistry = Depends(get_permission_registry),
 ) -> PermissionService:
-    return PermissionService(db, registry, get_user_directory(request.app))
+    return PermissionService(db, registry, get_user_directory(request.app), app=request.app)
 
 
 def assigned_by(request: Request) -> str | None:
