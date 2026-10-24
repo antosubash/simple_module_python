@@ -210,7 +210,10 @@ class PermissionRegistry:
 
     def replace_role_overlays(self, overlays: dict[str, list[str]]) -> None:
         """Replace the complete persisted snapshot, including removed grants."""
-        self._role_overlay = {role: set(keys) for role, keys in overlays.items()}
+        snapshot = {role: set(keys) for role, keys in overlays.items()}
+        if snapshot == self._role_overlay:  # periodic reloads: keep derived caches warm
+            return
+        self._role_overlay = snapshot
         self._invalidate()
 
     @property

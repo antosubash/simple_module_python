@@ -86,10 +86,12 @@ class SettingsModule(ModuleBase):
         self._refresh = subscribe(bus, app)
 
     async def on_startup(self, app: FastAPI) -> None:
-        self._refresh.start()
+        if hasattr(self, "_refresh"):
+            self._refresh.start()
 
     async def on_shutdown(self, app: FastAPI) -> None:
-        await self._refresh.stop()
+        if hasattr(self, "_refresh"):
+            await self._refresh.stop()
 
     def register_exception_handlers(self, app: FastAPI) -> None:
         from settings.errors import install_exception_handlers
