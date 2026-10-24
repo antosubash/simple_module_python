@@ -26,6 +26,7 @@ dependencies = [
     "simple_module_settings==0.0.39",
     "simple_module_auth==0.0.39",
     "PyJWT[crypto]>=2.8,<3",
+    "cryptography>=42",
     "httpx>=0.27,<0.29",
 ]
 

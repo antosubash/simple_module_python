@@ -1,5 +1,6 @@
 """A successful OIDC callback must discard the previous principal's CSRF token."""
 
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -18,7 +19,11 @@ async def test_oidc_callback_rotates_csrf(monkeypatch):
         state=SimpleNamespace(
             keycloak=SimpleNamespace(
                 settings=SimpleNamespace(login_redirect_url="/dashboard/"),
-                jwks_cache=SimpleNamespace(validate_jwt=AsyncMock(return_value={"sub": "new"})),
+                jwks_cache=SimpleNamespace(
+                    validate_jwt=AsyncMock(
+                        return_value={"sub": "new", "nonce": "nonce", "exp": int(time.time()) + 300}
+                    )
+                ),
             ),
             auth=SimpleNamespace(auth_provider=provider),
         )
@@ -28,7 +33,11 @@ async def test_oidc_callback_rotates_csrf(monkeypatch):
             "type": "http",
             "app": app,
             "query_string": b"code=code&state=valid",
-            "session": {"keycloak_oidc_state": "valid", "next": "/deep-link/"},
+            "session": {
+                "keycloak_oidc_state": "valid",
+                "keycloak_oidc_nonce": "nonce",
+                "next": "/deep-link/",
+            },
         }
     )
     request.url_for = lambda name: "https://test/callback"
