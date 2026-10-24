@@ -12,7 +12,7 @@ from starlette.requests import Request
 _LOGOUT = "https://idp.test/realms/test/protocol/openid-connect/logout"
 
 
-def _request():
+def _request(headers=None):
     settings = KeycloakSettings(
         server_url="https://idp.test", realm="test", client_id="app", client_secret="secret"
     )
@@ -26,7 +26,7 @@ def _request():
     return Request(
         {
             "type": "http",
-            "headers": [],
+            "headers": headers or [],
             "session": session,
             "app": app,
             "scheme": "https",
@@ -67,3 +67,11 @@ async def test_logout_without_refresh_token_makes_no_back_channel_call(httpx_moc
     del request.session["keycloak_refresh_token"]
     assert (await views.logout(request)).status_code == 303
     assert not httpx_mock.get_requests()
+
+
+async def test_inertia_logout_uses_a_full_page_location_visit(httpx_mock):
+    httpx_mock.add_response(url=_LOGOUT, method="POST", status_code=204)
+    response = await views.logout(_request(headers=[(b"x-inertia", b"true")]))
+
+    assert response.status_code == 409
+    assert response.headers["X-Inertia-Location"].startswith(_LOGOUT)

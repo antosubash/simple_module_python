@@ -6,7 +6,8 @@ import logging
 
 from fastapi import APIRouter, Request
 from simple_module_hosting.inertia_deps import InertiaDep
-from starlette.responses import RedirectResponse
+from simple_module_inertia.response import location
+from starlette.responses import RedirectResponse, Response
 
 from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
 
@@ -48,7 +49,7 @@ async def logged_out_page(inertia: InertiaDep):
 
 
 @router.post("/logout")
-async def logout(request: Request):
+async def logout(request: Request) -> Response:
     from keycloak.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
@@ -73,4 +74,8 @@ async def logout(request: Request):
     logout_url = client.build_logout_url(
         post_logout_redirect_uri=f"{base_url}{_LOGGED_OUT_PATH}",
     )
+    if request.headers.get("X-Inertia"):
+        # An Inertia XHR cannot follow a redirect to the IdP (CSP connect-src);
+        # 409 + X-Inertia-Location makes the client do a full-page visit.
+        return location(logout_url)
     return RedirectResponse(logout_url, status_code=303)
