@@ -116,6 +116,23 @@ def _serialize(value: Any) -> Any:
     return str(value)
 
 
+def _column_diffs(
+    obj: object, inspector: Any, excl: frozenset[str], pk_cols: set[str]
+) -> list[dict[str, Any]]:
+    """Old/new diffs for the changed, non-excluded, non-PK columns of *obj*."""
+    changes: list[dict[str, Any]] = []
+    for col_name in _column_names(obj):
+        if col_name in excl or col_name in pk_cols:
+            continue
+        hist = inspector.attrs[col_name].history
+        if not hist.has_changes():
+            continue
+        old_val = hist.deleted[0] if hist.deleted else None
+        new_val = hist.added[0] if hist.added else None
+        changes.append({"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)})
+    return changes
+
+
 # ---------------------------------------------------------------------------
 # Two-phase capture
 # ---------------------------------------------------------------------------
@@ -155,21 +172,6 @@ def snapshot_changes(
         if _is_excluded(obj):
             continue
 
-        # Soft-delete listener moves objects from session.deleted → session.new
-        # with is_deleted=True.  Classify them as "soft_deleted", not "created".
-        if isinstance(obj, SoftDeleteMixin) and getattr(obj, "is_deleted", False):
-            pending.append(
-                _PendingChange(
-                    obj_ref=obj,
-                    entity_type=type(obj).__name__,
-                    action="soft_deleted",
-                    changes=[],
-                    user_id=user_id,
-                    correlation_id=correlation_id,
-                )
-            )
-            continue
-
         excl = _get_excluded(obj)
         pk_cols = _get_pk_cols(obj)
         changes: list[dict[str, Any]] = []
@@ -194,21 +196,26 @@ def snapshot_changes(
             continue
         if _is_excluded(obj):
             continue
-        excl = _get_excluded(obj)
-        pk_cols = _get_pk_cols(obj)
         inspector = sa_inspect(obj)
-        changes = []
-        for col_name in _column_names(obj):
-            if col_name in excl or col_name in pk_cols:
-                continue
-            hist = inspector.attrs[col_name].history
-            if not hist.has_changes():
-                continue
-            old_val = hist.deleted[0] if hist.deleted else None
-            new_val = hist.added[0] if hist.added else None
-            changes.append(
-                {"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)}
+        changes = _column_diffs(obj, inspector, _get_excluded(obj), _get_pk_cols(obj))
+        # The soft-delete listener re-adds persistent objects as dirty. Edits made in
+        # the same flush stay on the soft_deleted record.
+        if (
+            isinstance(obj, SoftDeleteMixin)
+            and obj.is_deleted
+            and inspector.attrs.is_deleted.history.has_changes()
+        ):
+            pending.append(
+                _PendingChange(
+                    obj_ref=obj,
+                    entity_type=type(obj).__name__,
+                    action="soft_deleted",
+                    changes=changes,
+                    user_id=user_id,
+                    correlation_id=correlation_id,
+                )
             )
+            continue
         if changes:
             pending.append(
                 _PendingChange(
