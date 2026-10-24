@@ -15,6 +15,10 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- Users: publish deletion, disabling and new role assignments transactionally through
+  the durable outbox (inline cleanup without background tasks). Deletion purges tenant
+  memberships, shares to the user and direct permission grants; tenants left without
+  an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
 - Role-permission edits, module settings updates/clears and system/tenant feature-flag

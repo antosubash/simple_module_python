@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.resources
+import importlib.util
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,14 @@ class SharingModule(ModuleBase):
         from sharing.tenant_cleanup import purge_tenant_data
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
+
+        # Users is optional: Keycloak-only installations have no local users package.
+        if importlib.util.find_spec("users") is not None:
+            from users.contracts.events import UserDeleted
+
+            from sharing.user_cleanup import purge_user_shares
+
+            bus.subscribe_durable(UserDeleted, purge_user_shares)
 
     def register_settings(self, app: FastAPI) -> None:
         from sharing.services import SharingServices
