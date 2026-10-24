@@ -42,13 +42,6 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
     setOpen(nextOpen);
   }, []);
 
-  useEffect(
-    () => () => {
-      returnFocus.current = null;
-    },
-    [],
-  );
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
