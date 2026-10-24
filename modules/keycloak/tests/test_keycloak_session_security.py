@@ -10,6 +10,7 @@ import pytest
 from auth.contracts.schemas import UserContext
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
+from jwt.algorithms import RSAAlgorithm
 from keycloak.endpoints import api
 from keycloak.jwks import JWKSCache
 from keycloak.provider import KeycloakAuthProvider
@@ -163,7 +164,7 @@ async def test_keycloak_callback_validates_signed_id_token(
 ):
     request, claims, id_claims = callback
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+    jwk = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     jwk.update(kid="key", alg="RS256")
     httpx_mock.add_response(url="https://idp.test/certs", json={"keys": [jwk]})
     request.app.state.keycloak.jwks_cache = JWKSCache(
