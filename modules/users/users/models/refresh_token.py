@@ -16,13 +16,14 @@ class RefreshToken(Base, table=True):  # ty: ignore[unsupported-base]
 
     __tablename__ = "users_refresh_token"
 
-    token: uuid_mod.UUID = Field(default_factory=uuid_mod.uuid4, primary_key=True)
+    token: str = Field(primary_key=True, max_length=64)
     # ``sa_type=GUID`` to match ``User.id``, not SQLModel's default ``Uuid``.
     # The two render identically on Postgres (UUID) but not on SQLite, where
     # ``Uuid`` stores the bare hex and ``GUID`` the dashed form — so the FK
     # never matched a parent row and any SQL join across it returned nothing.
     # Invisible until ``PRAGMA foreign_keys=ON`` (GH #339).
     user_id: uuid_mod.UUID = Field(sa_type=GUID, foreign_key="users_user.id", index=True)
+    family_id: uuid_mod.UUID = Field(default_factory=uuid_mod.uuid4, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime
     revoked_at: datetime | None = None

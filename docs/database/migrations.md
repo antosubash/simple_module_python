@@ -21,7 +21,7 @@ The history is **not** a single linear chain. It has several roots and several h
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
-| `c8e4f1a2b6d9` | users (login lockout) | `api_tokens` |
+| `a626b1c8d023` | users (hashed bearer tokens) | `api_tokens`, `background_tasks`, `users` |
 | `a7c2e91d4b58` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
 | `d263ea727663` | framework (`sm_lease`) | `leases` |
@@ -34,7 +34,7 @@ A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **
 
 ### Known mislabels
 
-Only six of the revisions set `branch_labels` (`audit_log`, `api_tokens`, `keycloak`, `tenants`, `sharing`, `leases`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
+The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases` and `users` (added by `a625f0b7c912`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
 
 - `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.
@@ -43,6 +43,17 @@ Only six of the revisions set `branch_labels` (`audit_log`, `api_tokens`, `keycl
 Guidance: give an unlabelled module a `branch_labels` on its **next** revision. Adding a label to an existing revision file is technically possible, because `alembic_version` stores revision ids and never labels, but it also relabels every descendant and changes what `<label>@head` resolves to, so treat it as a deliberate, reviewed change rather than a cleanup.
 
 `host/tests/test_migration_graph.py` pins the roots, heads, each revision's owning module and the mislabels above. Adding a root, head or revision fails it until the table is updated.
+
+## Users token storage upgrade (#626)
+
+Migration `a626b1c8d023` follows `a625f0b7c912` on `users@head` and changes
+refresh and access token keys to SHA-256 digests. **Behaviour change:** upgrade
+deletes existing refresh/access token rows, requiring one re-login for clients
+using them (including `sm_auth` cookies). Other session cookies are unaffected.
+Downgrade also deletes token rows: hashes cannot be restored to bearer secrets.
+Cookie login, token login and refresh prune up to 100 spent rows per table for
+that user. Refresh reuse evidence is retained while the family has a live token, including when
+an ancestor has expired; inactive users' rows wait until their next login.
 
 ## Day-to-day workflow
 

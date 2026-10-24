@@ -8,10 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
+from simple_module_db.deps import get_db
 from simple_module_db.pagination import PageParams
 from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.admin.events import publish_admin_event
 from users.admin.links import admin_link_base
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
@@ -164,6 +167,7 @@ async def admin_delete_user(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Hard-delete a user. An admin cannot delete their own account."""
     actor = getattr(request.state, "user", None)
@@ -176,7 +180,7 @@ async def admin_delete_user(
         await service.delete_user(user_id)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    await bus.publish(UserDeleted(user_id=user_id))
+    await publish_admin_event(bus, UserDeleted(user_id=user_id), db)
     return Response(status_code=http_status.HTTP_204_NO_CONTENT)
 
 
@@ -185,13 +189,14 @@ async def admin_disable_user(
     user_id: uuid.UUID,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Disable a user account (sets is_active=False and disabled_at)."""
     try:
         user = await service.disable(user_id)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    await bus.publish(UserDisabled(user_id=user.id))
+    await publish_admin_event(bus, UserDisabled(user_id=user.id), db)
     return service.to_list_item(user)
 
 
@@ -228,10 +233,13 @@ async def admin_set_roles(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Replace a user's role assignments."""
     assigned_by = getattr(request.state, "user", None)
     try:
+        previous = await service.get_with_roles(user_id)
+        previous_roles = {r.name for r in previous.roles} if previous else set()
         user = await service.set_roles(
             user_id,
             data.role_names,
@@ -239,8 +247,9 @@ async def admin_set_roles(
         )
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    for role in data.role_names:
-        await bus.publish(RoleAssigned(user_id=user.id, role_name=role))
+    for role in user.roles:
+        if role.name not in previous_roles:
+            await publish_admin_event(bus, RoleAssigned(user_id=user.id, role_name=role.name), db)
     return service.to_list_item(user)
 
 

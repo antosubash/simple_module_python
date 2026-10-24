@@ -87,6 +87,12 @@ class TenantsModule(ModuleBase):
             InvitationCreated, send_invitation_email, name=c.INVITATION_MAIL_HANDLER
         )
 
+        from simple_module_core.user_events import UserDeleted
+
+        from tenants.user_cleanup import purge_user_memberships
+
+        bus.subscribe_durable(UserDeleted, purge_user_memberships)
+
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_hosting.shared_props import register_inertia_shared_provider
 

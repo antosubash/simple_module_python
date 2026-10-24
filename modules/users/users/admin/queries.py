@@ -115,6 +115,8 @@ class _UserServiceBase:
         ]
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
+        # populate_existing: ``roles`` is ``noload``, so an instance already in
+        # the identity map would otherwise keep its stale (or empty) collection.
         result = await self._db.execute(
             select(User)
             .where(col(User.id) == user_id)

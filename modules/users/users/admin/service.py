@@ -108,9 +108,9 @@ class UserService(_UserAdminSafety):
         """Hard-delete a user and all of its dependent rows.
 
         Every child table is cleared with an explicit bulk ``DELETE`` so the
-        result is deterministic and identical on Postgres and SQLite (SQLite
-        only honours FK cascade with a per-connection pragma we don't set, and
-        ``RefreshToken`` has no DB cascade at all).
+        result is deterministic and identical on Postgres and SQLite, including
+        tables such as ``RefreshToken`` without DB cascade. SQLite foreign keys
+        are enabled by the framework. Other modules clean up via ``UserDeleted``.
 
         The user is loaded with ``roles`` and ``oauth_accounts`` forced to
         ``noload``. ``noload`` returns an empty collection *without* emitting a
@@ -282,8 +282,7 @@ class UserService(_UserAdminSafety):
 
         await self._revoke_sessions(user)
         await self._db.flush()
-        await self._db.refresh(user, attribute_names=["roles"])
-        return user
+        return await self._require_user(user_id)
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
         """Build an admin-copyable password-reset URL. No email side-effect.

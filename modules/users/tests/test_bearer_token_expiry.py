@@ -17,6 +17,7 @@ under, and both bearer read paths enforce them: ``ExpiringDatabaseStrategy``
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -78,7 +79,7 @@ async def _expire(app, token: str) -> None:
     out.
     """
     async with app.state.sm.db.session_factory() as session:
-        row = await session.get(UserAccessToken, token)
+        row = await session.get(UserAccessToken, hashlib.sha256(token.encode()).hexdigest())
         row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         await session.commit()
 
@@ -234,7 +235,8 @@ class TestTheMintedCounterIsCurrent:
             row = (
                 await session.execute(
                     select(UserAccessToken).where(
-                        UserAccessToken.token == rotated.json()["access_token"]
+                        UserAccessToken.token
+                        == hashlib.sha256(rotated.json()["access_token"].encode()).hexdigest()
                     )
                 )
             ).scalar_one()

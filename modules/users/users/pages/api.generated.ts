@@ -38,7 +38,7 @@ export interface paths {
         put?: never;
         /**
          * Api Logout
-         * @description API logout — clears both the access-token cookie and the session.
+         * @description API logout — revokes the access token, clears its cookie and the session.
          */
         post: operations["users_api_logout"];
         delete?: never;

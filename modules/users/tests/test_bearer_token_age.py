@@ -9,6 +9,7 @@ clause or the two disagree about what "expired" means.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -27,17 +28,18 @@ async def _mint(users_app) -> str:
         user_id = (
             await session.execute(select(User.id).where(User.email == "admin@example.com"))
         ).scalar_one()
-        token = UserAccessToken(token=uuid.uuid4().hex, user_id=user_id)
+        secret = uuid.uuid4().hex
+        token = UserAccessToken(token=hashlib.sha256(secret.encode()).hexdigest(), user_id=user_id)
         session.add(token)
         await session.commit()
-        return token.token
+        return secret
 
 
 async def _backdate(users_app, token: str, *, seconds: int) -> None:
     async with users_app.state.sm.db.session_factory() as session:
         await session.execute(
             update(UserAccessToken)
-            .where(UserAccessToken.token == token)
+            .where(UserAccessToken.token == hashlib.sha256(token.encode()).hexdigest())
             .values(created_at=datetime.now(UTC) - timedelta(seconds=seconds))
         )
         await session.commit()

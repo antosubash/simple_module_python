@@ -17,6 +17,7 @@ from permissions.constants import _MODULE_AUTH, _MODULE_USERS
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from simple_module_core.events import EventBus
     from simple_module_core.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,6 +50,13 @@ class PermissionsModule(ModuleBase):
         depends_on=[_MODULE_AUTH, _MODULE_USERS],
         i18n_audience="admin",
     )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from simple_module_core.user_events import UserDeleted
+
+        from permissions.user_cleanup import purge_user_grants
+
+        bus.subscribe_durable(UserDeleted, purge_user_grants)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from permissions.endpoints.api import router as api

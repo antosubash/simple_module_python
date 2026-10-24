@@ -329,7 +329,8 @@ development and testing (`session_cookie_secure`).
   included. Known mislabels (existing files are left alone, applied databases
   stay valid): `51b2058d8afd` puts `api_tokens` on the trunk, so users,
   file_storage and background_tasks revisions report it, and keycloak's
-  `168a2882f443` branches off the users revision `873ca2015033`. Give an
+  `168a2882f443` branches off the users revision `873ca2015033`. The users
+  trunk also carries a `users` label since `a625f0b7c912`. Give an
   unlabelled module a label on its next revision. `host/tests/test_migration_graph.py`
   pins the roots, heads and owners; update it with any new root or head.
   `docs/database/migrations.md`.

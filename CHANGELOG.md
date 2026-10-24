@@ -15,6 +15,12 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- Users: publish deletion, disabling and new role assignments transactionally through
+  the durable outbox (inline cleanup without background tasks). Deletion purges tenant
+  memberships, shares to the user and direct permission grants; tenants left without
+  an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
+  `UserDeleted` now lives in `simple_module_core.user_events` (still re-exported from
+  `users.contracts.events`) so modules can subscribe without depending on `users`.
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
 - Role-permission edits, module settings updates/clears and system/tenant feature-flag
@@ -55,6 +61,14 @@ All notable changes to this project are documented in this file. The format is b
   so an account verified after signing in can accept without signing in again.
   **Behaviour change:** with `users.require_verification` off, self-registered accounts must
   verify their email (or be marked verified by an admin) before accepting an invitation.
+- Users: store access and refresh bearer tokens as SHA-256 digests and prune spent
+  credentials in bounded batches on login/refresh, retaining active-family
+  reuse evidence (#626). **Behaviour change:** migration `a626b1c8d023` deletes
+  existing access/refresh tokens; affected clients must log in once again. Logging out
+  (`POST /users/logout`, `POST /api/users/auth/logout`) now deletes the presented access
+  token server-side instead of only clearing the cookie.
+- Users: atomically consume refresh tokens and revoke their refresh-token family on reuse
+  (#625). Migration `a625f0b7c912` adds family tracking; existing tokens start separate families.
 - DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
   policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
 - Keycloak JWKS fetches now use a per-cache lock and a 30-second minimum interval
