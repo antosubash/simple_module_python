@@ -5,6 +5,8 @@ Rules:
     publish-pypi matrix of `.github/workflows/release.yml` (and vice versa) —
     a workspace package missing from the matrix builds a wheel on every
     release and then silently never reaches PyPI.
+  * Every package under packages/* must appear in the publish-npm matrix
+    (and vice versa), using its directory name as the matrix key.
   * The root pyproject's `[tool.ty.environment] extra-paths` and
     `[tool.pytest.ini_options] testpaths` must list every framework/* and
     modules/* package (and its tests/ dir) on disk, and nothing stale (#520).
@@ -36,6 +38,7 @@ import sys
 from pathlib import Path
 
 import tomlkit
+import yaml
 
 CANONICAL_REPO = "https://github.com/antosubash/simple_module_python"
 PLACEHOLDER_DESCRIPTIONS = {"", "Add your description here"}
@@ -223,6 +226,32 @@ def check_tooling_lists(root: Path) -> list[str]:
     return errors
 
 
+def check_npm_release_matrix(root: Path) -> list[str]:
+    """Match package directory names (the npm matrix keys) to packed packages."""
+    workflow = root / RELEASE_WORKFLOW
+    if not workflow.exists():
+        return []
+    try:
+        data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        entries = data["jobs"]["publish-npm"]["strategy"]["matrix"]["package"]
+        if (
+            not isinstance(entries, list)
+            or not entries
+            or not all(isinstance(entry, str) for entry in entries)
+        ):
+            raise ValueError("expected a non-empty package list")
+    except (KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+        return [f"{RELEASE_WORKFLOW}: invalid publish-npm matrix: {exc}"]
+    packaged = {pkg.parent.name for pkg in discover_npm_packages(root)}
+    published = set(entries)
+    errors = []
+    for name in sorted(packaged - published):
+        errors.append(f"{RELEASE_WORKFLOW}: '{name}' is missing from the publish-npm matrix")
+    for name in sorted(published - packaged):
+        errors.append(f"{RELEASE_WORKFLOW}: publish-npm lists '{name}', not a workspace package")
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -240,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     for pkg in discover_npm_packages(root):
         all_errors.extend(check_npm_package(pkg))
     all_errors.extend(check_release_matrix(root))
+    all_errors.extend(check_npm_release_matrix(root))
     all_errors.extend(check_tooling_lists(root))
 
     if all_errors:

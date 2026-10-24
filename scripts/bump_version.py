@@ -27,7 +27,7 @@ from pathlib import Path
 
 import tomlkit
 
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+([-.]?(a|b|rc|alpha|beta)\d*)?$")
+VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:[-.]?(a|b|rc|alpha|beta)(\d*))?")
 PY_PKG_PREFIX = "simple_module_"
 NPM_SCOPE_PREFIX = "@simple-module-py/"
 
@@ -88,6 +88,14 @@ def bump_python_package(pyproject: Path, new_version: str, *, check: bool = Fals
 
 
 def bump_npm_package(package_json: Path, new_version: str, *, check: bool = False) -> bool:
+    match = VERSION_RE.fullmatch(new_version)
+    if match is None:
+        raise ValueError(f"Invalid release version: {new_version!r}")
+    major, minor, patch, pre, number = match.groups()
+    new_version = ".".join(str(int(part)) for part in (major, minor, patch))
+    if pre:
+        label = {"a": "alpha", "b": "beta"}.get(pre, pre)
+        new_version += f"-{label}.{int(number or '0')}"
     data = json.loads(package_json.read_text(encoding="utf-8"))
     changed = False
 
@@ -141,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
 
-    if not VERSION_RE.match(args.version):
+    if not VERSION_RE.fullmatch(args.version):
         print(f"ERROR: '{args.version}' is not a valid version.", file=sys.stderr)
         raise SystemExit(2)
 
