@@ -8,7 +8,7 @@ import { Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../api';
-import { failureMessage } from '../../failureMessage';
+import { adminFailureMessage } from '../../failureMessage';
 
 interface Props {
   userId: string;
@@ -43,11 +43,11 @@ export function DangerZone({ userId, email, isSelf }: Props) {
         return; // navigating away — leave `deleting` set
       }
       toast.error(
-        failureMessage(
+        adminFailureMessage(
           res,
           t(keys.users.danger_zone.toast_failed),
           t(keys.users.common.error_occurred),
-          true,
+          t,
         ),
       );
       setDeleting(false);

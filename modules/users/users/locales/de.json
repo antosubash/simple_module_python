@@ -415,5 +415,15 @@
     "incomplete_description": "Dieser Link ist unvollständig. Öffnen Sie ihn erneut aus der E-Mail.",
     "resend_failed": "Senden ist derzeit nicht möglich. Versuchen Sie es in einer Minute erneut."
   },
-  "permission_group": "Benutzer"
+  "permission_group": "Benutzer",
+  "admin_errors": {
+    "more_privileged": "Sie können kein Konto mit höheren Berechtigungen verwalten.",
+    "roles_not_held": "Sie können keine Rollen zuweisen, die Sie selbst nicht innehaben.",
+    "own_account": "Sie können Ihr eigenes Konto nicht deaktivieren oder herabstufen.",
+    "last_admin": "Sie können den letzten aktiven Administrator nicht entfernen.",
+    "delete_self": "Sie können Ihr eigenes Konto nicht löschen.",
+    "email_exists": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
+    "not_found": "Benutzer nicht gefunden",
+    "external_password": "Externe Benutzer (SSO) haben kein Passwort zum Zurücksetzen."
+  }
 }

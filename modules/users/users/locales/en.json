@@ -415,5 +415,15 @@
     "incomplete_description": "This link is incomplete — open it from the email again.",
     "resend_failed": "We could not send it just now. Try again in a minute."
   },
-  "permission_group": "Users"
+  "permission_group": "Users",
+  "admin_errors": {
+    "more_privileged": "You cannot manage a more privileged account.",
+    "roles_not_held": "You cannot assign roles you do not hold.",
+    "own_account": "You cannot disable or demote your own account.",
+    "last_admin": "You cannot remove the last active administrator.",
+    "delete_self": "You cannot delete your own account.",
+    "email_exists": "A user with this email already exists.",
+    "not_found": "User not found",
+    "external_password": "External (SSO) users have no password to reset"
+  }
 }

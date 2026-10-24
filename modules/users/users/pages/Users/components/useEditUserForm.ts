@@ -5,6 +5,7 @@ import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../api';
+import { adminFailureMessage } from '../../failureMessage';
 
 export interface EditableUser {
   id: string;
@@ -104,9 +105,12 @@ export function useEditUserForm(user: EditableUser) {
         );
         if (!resp.ok) {
           setError(
-            resp.status === NETWORK_FAILURE
-              ? t(keys.users.common.error_occurred)
-              : (resp.detail ?? t(keys.users.edit.error_details)),
+            adminFailureMessage(
+              resp,
+              t(keys.users.edit.error_details),
+              t(keys.users.common.error_occurred),
+              t,
+            ),
           );
           return;
         }
@@ -120,12 +124,16 @@ export function useEditUserForm(user: EditableUser) {
           }),
         );
         if (!resp.ok) {
+          const message = adminFailureMessage(
+            resp,
+            t(keys.users.edit.error_roles),
+            t(keys.users.common.error_occurred),
+            t,
+          );
           setError(
-            resp.status === NETWORK_FAILURE
-              ? t(keys.users.common.error_occurred)
-              : detailsDirty
-                ? t(keys.users.edit.error_partial)
-                : t(keys.users.edit.error_roles),
+            detailsDirty && resp.status !== NETWORK_FAILURE
+              ? `${t(keys.users.edit.error_partial)} ${message}`
+              : message,
           );
           return;
         }

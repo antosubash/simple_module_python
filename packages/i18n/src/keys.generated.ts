@@ -1461,6 +1461,16 @@ export const keys = {
       toast_invites_sent_other: 'users.add_people.toast_invites_sent_other',
       toast_user_created: 'users.add_people.toast_user_created',
     },
+    admin_errors: {
+      delete_self: 'users.admin_errors.delete_self',
+      email_exists: 'users.admin_errors.email_exists',
+      external_password: 'users.admin_errors.external_password',
+      last_admin: 'users.admin_errors.last_admin',
+      more_privileged: 'users.admin_errors.more_privileged',
+      not_found: 'users.admin_errors.not_found',
+      own_account: 'users.admin_errors.own_account',
+      roles_not_held: 'users.admin_errors.roles_not_held',
+    },
     audit: {
       user: 'users.audit.user',
     },
