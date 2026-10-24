@@ -69,7 +69,8 @@ describe('useDrawerA11y', () => {
     act(() => media.toDesktop());
 
     expect(drawer.dataset.open).toBe('false');
-    expect(media.listeners.size).toBe(0);
+    // Keep observing so a closed drawer becomes inert on a return to mobile.
+    expect(media.listeners.size).toBe(1);
     const last = screen.getByRole('button', { name: 'last' });
     last.focus();
     fireEvent.keyDown(last, { key: 'Tab' });

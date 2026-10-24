@@ -66,7 +66,7 @@ export async function apiResult<T, E>(
 
 /** Parse a raw response body: JSON when it is JSON, the text otherwise, null when empty. */
 export async function readBody(response: Response): Promise<unknown> {
-  const text = await response.text().catch(() => '');
+  const text = await response.text();
   if (!text) return null;
   try {
     return JSON.parse(text);

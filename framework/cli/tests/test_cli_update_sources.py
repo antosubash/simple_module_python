@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from simple_module_cli.update_cmd import run_sources_update
 
 
@@ -125,3 +126,37 @@ def test_no_newer_tag_is_a_quiet_noop(tmp_path: Path, capsys) -> None:
     )
     assert p.read_text(encoding="utf-8") == before
     assert "up to date" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("blog_range", "comments_range", "expected"),
+    [
+        (">=0.3,<1.0", ">=0.1,<0.3", None),  # disjoint ranges
+        (">=0.1,<1.0,!=0.3.0", ">=0.1,<0.4", "v0.2.0"),  # hole below best tags
+        (">=0.1,<1.0", ">=0.8,<1.0", None),  # one sibling has no matching tag
+    ],
+)
+def test_group_update_requires_tag_accepted_by_every_sibling(
+    tmp_path: Path, blog_range: str, comments_range: str, expected: str | None
+) -> None:
+    p = _host(tmp_path, "https://github.com/x/mods")
+    before = (
+        p.read_text(encoding="utf-8")
+        .replace("simple_module_blog>=0.1.0,<1.0", f"simple_module_blog{blog_range}")
+        .replace("simple_module_comments>=0.1.0,<1.0", f"simple_module_comments{comments_range}")
+    )
+    p.write_text(before, encoding="utf-8")
+    calls, runner = _recorder()
+    run_sources_update(
+        p,
+        only="simple_module_blog",
+        dry_run=False,
+        git_runner=_git_stub(["v0.1.0", "v0.2.0", "v0.3.0", "v0.5.0"]),
+        exec_runner=runner,
+    )
+    after = p.read_text(encoding="utf-8")
+    if expected is None:
+        assert after == before
+        assert calls == []
+    else:
+        assert after.count(f'tag = "{expected}"') == 2

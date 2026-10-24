@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
+import { shouldInterceptNavigation } from '@simple-module-py/ui/lib/spa-links';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -99,5 +100,14 @@ describe('FileTable visibility', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Make public' }));
 
     expect(onTogglePublic).toHaveBeenCalledWith(FILES[0]);
+  });
+});
+
+describe('FileTable downloads (#638)', () => {
+  test('leaves the download endpoint to the browser for signed-URL redirects', () => {
+    renderTable();
+    const link = screen.getByRole<HTMLAnchorElement>('link', { name: 'Download' });
+    expect(link.getAttribute('href')).toBe('/api/file-storage/files/f1/download');
+    expect(shouldInterceptNavigation(link, new URL('http://localhost:3000/files'))).toBe(false);
   });
 });

@@ -21,7 +21,6 @@ from simple_module_cli.git_source import (
     derive_range,
     list_remote_refs,
     pick_latest_tag,
-    version_tuple,
 )
 from simple_module_cli.pyproject_edit import (
     dep_constraint,
@@ -39,11 +38,6 @@ def _groups(sources: dict[str, dict]) -> dict[str, list[str]]:
     for name, src in sources.items():
         by_url.setdefault(str(src["git"]), []).append(name)
     return by_url
-
-
-def _older_tag(a: str, b: str) -> str:
-    """The lower of two v-prefixed tags — every sibling must accept the shared tag."""
-    return a if version_tuple(a[1:]) <= version_tuple(b[1:]) else b
 
 
 def run_sources_update(
@@ -87,12 +81,8 @@ def run_sources_update(
         if not tag_pinned:
             continue
         tags, _ = list_remote_refs(url, **git_kwargs)
-        candidate: str | None = None
-        for name in tag_pinned:
-            best = pick_latest_tag(tags, dep_constraint(doc, name))
-            if best is None:
-                continue
-            candidate = best if candidate is None else _older_tag(candidate, best)
+        constraint = ",".join(dep_constraint(doc, name) or "" for name in tag_pinned)
+        candidate = pick_latest_tag(tags, constraint)
         if candidate is None:
             continue
         current = {str(sources[n]["tag"]) for n in tag_pinned}

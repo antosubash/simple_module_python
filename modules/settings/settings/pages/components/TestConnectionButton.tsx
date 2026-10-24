@@ -3,7 +3,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { apiFetch } from '@simple-module-py/ui/lib/api';
 import { CheckCircle2, PlugZap, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ROUTES } from '../routes';
 import { type LastTest, readLastTest, writeLastTest } from './last-test';
 
@@ -35,9 +35,19 @@ export function TestConnectionButton({ pkg, checks }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [last, setLast] = useState<LastTest | null>(null);
 
+  const requestId = useRef(0);
+
   // Read on mount rather than during render: the result is per-tab session
   // state, and touching sessionStorage while rendering breaks SSR hydration.
-  useEffect(() => setLast(readLastTest(pkg)), [pkg]);
+  useEffect(() => {
+    setLast(readLastTest(pkg));
+    setResults(null);
+    setError(null);
+    setBusy(false);
+    return () => {
+      requestId.current++;
+    };
+  }, [pkg]);
 
   // "users.mailer" → "mailer". Naming the check is the difference between
   // "Test connection" and knowing an SMTP dial is about to happen; with two
@@ -50,6 +60,7 @@ export function TestConnectionButton({ pkg, checks }: Props) {
       : t(keys.settings.modules.test_connection_generic);
 
   async function run() {
+    const id = ++requestId.current;
     setBusy(true);
     setError(null);
     setResults(null);
@@ -57,8 +68,9 @@ export function TestConnectionButton({ pkg, checks }: Props) {
     const result = await apiFetch<{ checks?: CheckResult[] }>(ROUTES.testConnection(pkg), {
       method: 'POST',
     });
-    if (result.ok) {
-      const checkResults = result.data?.checks ?? [];
+    if (id !== requestId.current) return;
+    const checkResults = result.data?.checks;
+    if (result.ok && Array.isArray(checkResults) && checkResults.length > 0) {
       setResults(checkResults);
       setLast(
         writeLastTest(

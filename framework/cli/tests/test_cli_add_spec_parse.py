@@ -50,6 +50,16 @@ def test_git_ssh_userinfo_with_ref() -> None:
     assert p.git.ref == "main"
 
 
+@pytest.mark.parametrize("scheme", ["https://", "ssh://git@"])
+def test_git_spec_ref_with_slash(scheme: str) -> None:
+    url = f"{scheme}github.com/x/repo.git"
+    p = parse_add_spec(f"git+{url}@feature/new#subdirectory=modules/blog")
+    assert p.git is not None
+    assert p.git.url == url
+    assert p.git.ref == "feature/new"
+    assert p.git.subdirectory == "modules/blog"
+
+
 def test_path_spec() -> None:
     p = parse_add_spec("../mod")
     assert p.kind == "path"
@@ -89,3 +99,24 @@ def test_pick_latest_tag() -> None:
     assert pick_latest_tag(tags, ">=1.0,<2.0") == "v1.10.0"
     assert pick_latest_tag(tags, None) == "v2.0.0"
     assert pick_latest_tag(["nope"], None) is None
+
+
+@pytest.mark.parametrize("prerelease", ["1.1.0a1", "1.1.0b1", "1.1.0rc1"])
+def test_prerelease_does_not_satisfy_final_floor(prerelease: str) -> None:
+    assert not satisfies(prerelease, ">=1.1.0")
+    assert not satisfies(prerelease, "==1.1.0")
+    assert satisfies(prerelease, "<1.1.0")
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        (["v1.1.0rc1", "v1.1.0"], "v1.1.0"),
+        (["v1.1.0rc2", "v1.1.0rc10"], "v1.1.0rc10"),
+        (["v1.1.0a1", "v1.1.0b1", "v1.1.0rc1"], "v1.1.0rc1"),
+        (["v1.1.0alpha2", "v1.1.0beta1", "v1.1.0"], "v1.1.0"),
+        (["v1.1.0alpha2", "v1.1.0beta1"], "v1.1.0beta1"),
+    ],
+)
+def test_pick_latest_tag_orders_prereleases(tags: list[str], expected: str) -> None:
+    assert pick_latest_tag(tags, None) == expected

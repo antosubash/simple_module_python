@@ -142,7 +142,11 @@ function ModulesEdit({ modules, testable = {} }: Props) {
               </div>
             </Card>
           ) : current ? (
-            <ModuleForm module={current} checks={testable[current.package] ?? []} />
+            <ModuleForm
+              key={current.package}
+              module={current}
+              checks={testable[current.package] ?? []}
+            />
           ) : (
             <p className="text-muted-foreground">{t(keys.settings.modules.empty_title)}</p>
           )}

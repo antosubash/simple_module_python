@@ -26,6 +26,23 @@ All notable changes to this project are documented in this file. The format is b
   an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
   `UserDeleted` now lives in `simple_module_core.user_events` (still re-exported from
   `users.contracts.events`) so modules can subscribe without depending on `users`.
+- Frontend: verification failures show a generic error unless the server reports a bad
+  token or an already-verified account; file downloads bypass Inertia so signed-URL
+  redirects work; closed mobile sidebars are inert and hidden from assistive technology,
+  while desktop sidebars remain accessible (#638).
+- Settings: reverting a field preserves other unsaved edits; connection-test results
+  stay with their module, and unreadable or empty check responses report failure (#637).
+  `@simple-module-py/ui`: `readBody` now rethrows a body-read failure instead of returning
+  `null`; `apiFetch` reports it as a network failure (status 0).
+- Release tooling converts Python prereleases to npm SemVer and publishes them
+  with the `next` tag; metadata checks catch missing/stale npm matrix entries.
+  Memray loadtests refuse occupied ports and stop only their own process group (#629).
+- Release workflow serializes runs, rejects non-main or stale dispatches before
+  publishing, tags the published release commit and merges concurrent main changes
+  into it before atomically pushing main and the tag, failing safely on conflicts (#628).
+- CLI: `smpy update` selects a tag accepted by every sibling's constraint;
+  git sources preserve refs containing `/`, and Python prerelease tags sort before
+  their final release (#636).
 - Hosting: derive the production Inertia asset version from the Vite manifest hash so
   stale tabs reload after deployment; include CSS from statically imported chunks (#633).
 - Hosting: unwind started modules and dispose the database engine after lifecycle failures;
@@ -40,6 +57,7 @@ All notable changes to this project are documented in this file. The format is b
   winning cache row; bearer requests throttle last-login writes to once per five minutes (#618).
 
 ### Added
+- Weekly Dependabot updates for uv, npm and GitHub Actions (#629).
 - `tenants.contracts.UsageMeter`: an implementation-free usage-metering protocol next to
   `EntitlementProvider` (`check`, `consume`, `record`, `refund`, `reserve`/`commit`/`release`,
   `summary`) with `UsageOutcome`/`UsageReservation`/`UsageSummaryRow`, `UsageExceededError`,

@@ -4,7 +4,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
-import { CheckCircle2, Loader2, TimerOff, Unlink } from 'lucide-react';
+import { CheckCircle2, CircleAlert, Loader2, TimerOff, Unlink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AuthStateCard, type AuthStateTone } from '../auth_local/components/AuthStateCard';
 import { ResendVerification } from '../auth_local/components/ResendVerification';
@@ -17,7 +17,7 @@ interface Props {
   verification_lifetime_days: number;
 }
 
-type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'expired' | 'incomplete';
+type VerifyStatus = 'pending' | 'success' | 'already_verified' | 'expired' | 'incomplete' | 'error';
 
 function VerifyEmail({ token, email, verification_lifetime_days: lifetimeDays }: Props) {
   const { t } = useT();
@@ -38,7 +38,13 @@ function VerifyEmail({ token, email, verification_lifetime_days: lifetimeDays }:
         setStatus('success');
         return;
       }
-      setStatus(res.detail === 'VERIFY_USER_ALREADY_VERIFIED' ? 'already_verified' : 'expired');
+      if (res.status === 400 && res.detail === 'VERIFY_USER_ALREADY_VERIFIED') {
+        setStatus('already_verified');
+      } else if (res.status === 400 && res.detail === 'VERIFY_USER_BAD_TOKEN') {
+        setStatus('expired');
+      } else {
+        setStatus('error');
+      }
     });
   }, [token]);
 
@@ -86,6 +92,13 @@ function VerifyEmail({ token, email, verification_lifetime_days: lifetimeDays }:
       title: t(keys.users.verify_email.expired_title),
       description: t(keys.users.verify_email.expired_description, { days: lifetimeDays }),
       body: <ResendVerification email={email} />,
+    },
+    error: {
+      icon: CircleAlert,
+      tone: 'destructive',
+      title: t(keys.users.common.error_occurred),
+      description: t(keys.users.common.error_try_again),
+      body: null,
     },
     incomplete: {
       icon: Unlink,
