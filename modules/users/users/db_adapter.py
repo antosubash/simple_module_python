@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
 from fastapi import Depends
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
 from users.models import OAuthAccount, User, UserAccessToken
+from users.token_storage import prune_tokens
 
 
 class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
@@ -58,7 +60,15 @@ async def get_user_db(
     yield UserDatabaseWithRoles(session, User, OAuthAccount)
 
 
+class PruningAccessTokenDatabase(SQLAlchemyAccessTokenDatabase[UserAccessToken]):
+    """Clean up spent credentials when a cookie login mints an access token."""
+
+    async def create(self, create_dict):
+        await prune_tokens(self.session, create_dict["user_id"], datetime.now(UTC))
+        return await super().create(create_dict)
+
+
 async def get_access_token_db(
     session: AsyncSession = Depends(get_db),
 ) -> AsyncGenerator[SQLAlchemyAccessTokenDatabase[UserAccessToken], None]:
-    yield SQLAlchemyAccessTokenDatabase(session, UserAccessToken)
+    yield PruningAccessTokenDatabase(session, UserAccessToken)

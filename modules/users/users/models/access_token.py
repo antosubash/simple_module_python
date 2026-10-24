@@ -32,7 +32,7 @@ class UserAccessToken(Base, table=True):  # ty: ignore[unsupported-base]
 
     __tablename__ = "users_access_token"
 
-    token: str = Field(max_length=43, primary_key=True)
+    token: str = Field(max_length=64, primary_key=True)
     created_at: datetime = Field(
         default_factory=now_utc,
         sa_type=TIMESTAMPAware(timezone=True),

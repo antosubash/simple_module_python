@@ -48,6 +48,7 @@ from users.deps import (
     get_user_manager,
 )
 from users.manager import UserManager
+from users.token_storage import revoke_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -165,10 +166,11 @@ async def login(
 
 
 @router.post("/auth/logout", status_code=204)
-async def api_logout(request: Request):
-    """API logout — clears both the access-token cookie and the session."""
+async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
+    """API logout — revokes the access token, clears its cookie and the session."""
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
+    await revoke_access_token(db, request.cookies.get(cookie_name))
     response = Response(status_code=204)
     response.delete_cookie(cookie_name, path="/")
     return response

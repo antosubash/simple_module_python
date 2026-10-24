@@ -104,6 +104,7 @@ class TestRevokeAll:
 
         async with users_app.state.sm.db.session_factory() as session:
             token = RefreshToken(
+                token="a" * 64,
                 user_id=signed_in_admin,
                 expires_at=datetime.now(UTC) + timedelta(days=1),
             )

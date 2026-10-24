@@ -20,6 +20,7 @@ from users.invites.preview import preview_invite
 from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
 from users.models import User
+from users.token_storage import revoke_access_token
 
 router = APIRouter()
 
@@ -116,11 +117,12 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
 
 
 @router.post("/logout", response_model=None)
-async def logout(request: Request) -> RedirectResponse:
+async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     """POST-only to resist cross-site `<img>` logout attacks — the menu's
     logout link submits this as an Inertia form."""
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
+    await revoke_access_token(db, request.cookies.get(cookie_name))
     # 303 forces the follow-up to GET — Inertia treats the redirect as a full
     # navigation rather than replaying the POST.
     response = RedirectResponse("/", status_code=303)

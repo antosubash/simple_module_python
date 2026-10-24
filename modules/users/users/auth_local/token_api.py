@@ -28,6 +28,7 @@ from users.auth_local.lockout import (
 from users.demo.guard import DEMO_READ_ONLY_DETAIL, is_read_only_demo
 from users.models import User
 from users.models.refresh_token import RefreshToken
+from users.token_storage import hash_token, prune_tokens
 
 # Pre-computed bcrypt hash used when a login attempt targets a non-existent
 # user. Running verify against this takes the same time as a real check,
@@ -140,7 +141,7 @@ async def token_refresh(
     stmt = (
         update(RefreshToken)
         .where(
-            col(RefreshToken.token) == token_uuid,
+            col(RefreshToken.token) == hash_token(str(token_uuid)),
             col(RefreshToken.revoked_at).is_(None),
             col(RefreshToken.expires_at) > now,
         )
@@ -150,7 +151,9 @@ async def token_refresh(
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt is None:
         reused = (
-            await db.execute(select(RefreshToken).where(col(RefreshToken.token) == token_uuid))
+            await db.execute(
+                select(RefreshToken).where(col(RefreshToken.token) == hash_token(str(token_uuid)))
+            )
         ).scalar_one_or_none()
         if reused is not None and reused.revoked_at is not None:
             await db.execute(
@@ -192,7 +195,7 @@ async def token_revoke(
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid token format") from None
 
-    stmt = select(RefreshToken).where(col(RefreshToken.token) == token_uuid)
+    stmt = select(RefreshToken).where(col(RefreshToken.token) == hash_token(str(token_uuid)))
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt and rt.revoked_at is None:
         rt.revoked_at = datetime.now(UTC)
@@ -219,8 +222,10 @@ async def _create_token_pair(
 
     now = datetime.now(UTC)
 
+    access_secret = str(uuid_mod.uuid4())
+    refresh_secret = str(uuid_mod.uuid4())
     access_token = UserAccessToken(
-        token=str(uuid_mod.uuid4()),
+        token=hash_token(access_secret),
         user_id=user_id,
         created_at=now,
         expires_at=now + timedelta(seconds=settings.bearer_token_lifetime_seconds),
@@ -229,7 +234,7 @@ async def _create_token_pair(
     db.add(access_token)
 
     refresh = RefreshToken(
-        token=uuid_mod.uuid4(),
+        token=hash_token(refresh_secret),
         family_id=family_id or uuid_mod.uuid4(),
         user_id=user_id,
         created_at=now,
@@ -237,10 +242,11 @@ async def _create_token_pair(
     )
     db.add(refresh)
     await db.flush()
+    await prune_tokens(db, user_id, now)
 
     return TokenResponse(
-        access_token=access_token.token,
-        refresh_token=str(refresh.token),
+        access_token=access_secret,
+        refresh_token=refresh_secret,
         token_type="Bearer",
         expires_in=settings.bearer_token_lifetime_seconds,
     )

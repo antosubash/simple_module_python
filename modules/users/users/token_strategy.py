@@ -30,6 +30,7 @@ from fastapi_users.manager import BaseUserManager
 from sqlmodel import col
 
 from users.models import UserAccessToken
+from users.token_storage import hash_token
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,16 @@ class ExpiringDatabaseStrategy(DatabaseStrategy):
         data["session_version"] = int(getattr(user, "session_version", 0) or 0)
         return data
 
+    async def write_token(self, user: models.UP) -> str:
+        data = self._create_access_token_dict(user)
+        secret = data["token"]
+        data["token"] = hash_token(secret)
+        await self.database.create(data)
+        return secret
+
+    async def destroy_token(self, token: str, user: models.UP) -> None:
+        await super().destroy_token(hash_token(token), user)
+
     async def read_token(
         self, token: str | None, user_manager: BaseUserManager[models.UP, models.ID]
     ) -> models.UP | None:
@@ -93,7 +104,7 @@ class ExpiringDatabaseStrategy(DatabaseStrategy):
         if self.lifetime_seconds:
             max_age = datetime.now(UTC) - timedelta(seconds=self.lifetime_seconds)
 
-        access_token = await self.database.get_by_token(token, max_age)
+        access_token = await self.database.get_by_token(hash_token(token), max_age)
         if access_token is None:
             return None
 
@@ -136,7 +147,7 @@ async def resolve_bearer(scope, token: str) -> UserContext | None:
             now = datetime.now(UTC)
             cutoff = now - timedelta(seconds=_TOKEN_LIFETIME_SECONDS)
             stmt = select(UserAccessToken).where(
-                col(UserAccessToken.token) == token,
+                col(UserAccessToken.token) == hash_token(token),
                 col(UserAccessToken.created_at) > cutoff,
                 col(UserAccessToken.expires_at) > now,
             )
