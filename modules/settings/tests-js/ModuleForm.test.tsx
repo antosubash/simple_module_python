@@ -105,7 +105,7 @@ describe('ModuleForm', () => {
     // control's cell, where it wrapped a word per line.
     const error = screen.getByText(/item rejected/);
     expect(error.contains(screen.getByLabelText('retention_days'))).toBe(false);
-    expect(error.className).toContain('lg:col-span-2');
+    expect(error.className).toContain('@xl:col-span-2');
   });
 
   test('shows an error whose loc names no field at form level', async () => {

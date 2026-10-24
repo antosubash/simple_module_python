@@ -17,6 +17,9 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 - Users: show password policy reasons on the reset screen instead of suggesting
   that a valid link expired; allow retry with the same token (#667).
+- Settings: size module field rows by the editor card width, stack controls in narrow
+  cards, and wrap long field/ENV identifiers to prevent collapsed inputs and horizontal
+  overflow with two sidebars (#669).
 
 ## [0.0.40] — 2026-10-24
 
