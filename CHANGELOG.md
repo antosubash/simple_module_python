@@ -55,6 +55,8 @@ All notable changes to this project are documented in this file. The format is b
   so an account verified after signing in can accept without signing in again.
   **Behaviour change:** with `users.require_verification` off, self-registered accounts must
   verify their email (or be marked verified by an admin) before accepting an invitation.
+- Users: atomically consume refresh tokens and revoke their refresh-token family on reuse
+  (#625). Migration `a625f0b7c912` adds family tracking; existing tokens start separate families.
 - DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
   policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
 - Keycloak JWKS fetches now use a per-cache lock and a 30-second minimum interval

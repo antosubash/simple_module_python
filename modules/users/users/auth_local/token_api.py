@@ -13,9 +13,10 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_db.deps import get_db
 from simple_module_db.transaction import rollback_session
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, col
+from starlette.responses import JSONResponse
 
 from users.auth_local.lockout import (
     admit,
@@ -136,19 +137,32 @@ async def token_refresh(
         raise HTTPException(status_code=401, detail="Invalid refresh token") from None
 
     now = datetime.now(UTC)
-    stmt = select(RefreshToken).where(
-        col(RefreshToken.token) == token_uuid,
-        RefreshToken.revoked_at.is_(None),
-        col(RefreshToken.expires_at) > now,
+    stmt = (
+        update(RefreshToken)
+        .where(
+            col(RefreshToken.token) == token_uuid,
+            col(RefreshToken.revoked_at).is_(None),
+            col(RefreshToken.expires_at) > now,
+        )
+        .values(revoked_at=now)
+        .returning(RefreshToken)
     )
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-
-    # Burn the presented token first: it is committed even when the account
-    # check below answers 401, so a deactivated account's token stays dead.
-    rt.revoked_at = now
-    await db.flush()
+        reused = (
+            await db.execute(select(RefreshToken).where(col(RefreshToken.token) == token_uuid))
+        ).scalar_one_or_none()
+        if reused is not None and reused.revoked_at is not None:
+            await db.execute(
+                update(RefreshToken)
+                .where(
+                    col(RefreshToken.family_id) == reused.family_id,
+                    col(RefreshToken.revoked_at).is_(None),
+                )
+                .values(revoked_at=now)
+            )
+        # Returning a response lets get_db commit revocations; raising rolls them back.
+        return JSONResponse({"detail": "Invalid or expired refresh token"}, status_code=401)
 
     # The account is re-read rather than trusted from the row: a refresh token
     # outlives the access tokens it mints, so between two refreshes the user may
@@ -157,14 +171,14 @@ async def token_refresh(
     # longer has one.
     user = (await db.execute(select(User).where(col(User.id) == rt.user_id))).scalar_one_or_none()
     if user is None or not user.is_active or user.disabled_at is not None:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        return JSONResponse({"detail": "Invalid or expired refresh token"}, status_code=401)
     if is_read_only_demo(request.app, user.id):
         # A refusal must not consume the token: undo the revocation above.
         await rollback_session(db)
         raise HTTPException(status_code=403, detail=DEMO_READ_ONLY_DETAIL)
 
     settings = request.app.state.users.settings
-    return await _create_token_pair(db, user.id, settings, user.session_version)
+    return await _create_token_pair(db, user.id, settings, user.session_version, rt.family_id)
 
 
 @router.delete("/token")
@@ -191,6 +205,7 @@ async def _create_token_pair(
     user_id: uuid_mod.UUID,
     settings,
     session_version: int = 0,
+    family_id: uuid_mod.UUID | None = None,
 ) -> TokenResponse:
     """Mint a new access token + refresh token pair and persist both.
 
@@ -215,6 +230,7 @@ async def _create_token_pair(
 
     refresh = RefreshToken(
         token=uuid_mod.uuid4(),
+        family_id=family_id or uuid_mod.uuid4(),
         user_id=user_id,
         created_at=now,
         expires_at=now + timedelta(seconds=settings.refresh_token_lifetime_seconds),

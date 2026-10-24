@@ -23,6 +23,7 @@ class RefreshToken(Base, table=True):  # ty: ignore[unsupported-base]
     # never matched a parent row and any SQL join across it returned nothing.
     # Invisible until ``PRAGMA foreign_keys=ON`` (GH #339).
     user_id: uuid_mod.UUID = Field(sa_type=GUID, foreign_key="users_user.id", index=True)
+    family_id: uuid_mod.UUID = Field(default_factory=uuid_mod.uuid4, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime
     revoked_at: datetime | None = None
