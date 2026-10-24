@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC
+import time
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
 from simple_module_core.tenancy import is_tenant_role
-from simple_module_db import is_valid_tenant_id
+from simple_module_db import independent_session, is_valid_tenant_id
+from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, session_has_expired
 from sqlmodel import col
 from starlette.requests import Request
+
+from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token, seal_refresh_token
 
 if TYPE_CHECKING:
     from keycloak.jwks import JWKSCache
@@ -21,6 +26,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _SESSION_USER_CTX_KEY = "user_ctx"
+_SESSION_ID_TOKEN_KEY = "keycloak_id_token"
+_LAST_LOGIN_WRITE_INTERVAL = timedelta(minutes=5)
+# 4xx answers that say "try again", not "this grant is dead".
+_RETRYABLE_STATUSES = frozenset({408, 425, 429})
 
 
 class KeycloakAuthProvider:
@@ -55,6 +64,9 @@ class KeycloakAuthProvider:
             return await self._resolve_bearer(request, credential)
 
         session = request.scope.get("session", {})
+        # Renew authority from the IdP at expiry, without interrupting the request.
+        if session_has_expired(session):
+            return await self._refresh_session(request)
         ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
         if ctx is not None:
             # The cookie froze what was decided at login; re-decide with the
@@ -62,6 +74,67 @@ class KeycloakAuthProvider:
             # on sessions that already exist.
             ctx.tenant_id = self._trusted_tenant(ctx.tenant_id)
             ctx.roles = self._without_tenant_roles(ctx.roles)
+        return ctx
+
+    @staticmethod
+    def _forget_session(session: Any) -> None:
+        for key in (
+            _SESSION_USER_CTX_KEY,
+            _SESSION_ID_TOKEN_KEY,
+            SESSION_REFRESH_TOKEN_KEY,
+            SESSION_EXPIRES_AT_KEY,
+        ):
+            session.pop(key, None)
+
+    async def _refresh_session(self, request: Request) -> UserContext | None:
+        """Renew an expired session with a refresh grant; sign it out if that is refused.
+
+        A transient failure (network error, 5xx) signs this request out but keeps
+        the session, so the next request retries instead of losing the sign-in.
+        """
+        from keycloak.endpoints.api import _get_oidc_client
+
+        session = request.scope.get("session", {})
+        sealed = session.get(SESSION_REFRESH_TOKEN_KEY)
+        refresh_token = open_refresh_token(request.app, sealed) if sealed else None
+        old_ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
+        if not refresh_token or old_ctx is None or self.jwks_cache is None:
+            self._forget_session(session)
+            return None
+        if getattr(request.state, "keycloak_refresh_attempted", False):
+            return None
+        request.state.keycloak_refresh_attempted = True
+        try:
+            tokens = await _get_oidc_client(request).refresh_tokens(refresh_token)
+        except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+            # Never log the exception text or body: token endpoints can echo credentials.
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+            logger.warning("Keycloak session refresh failed (status=%s)", status)
+            if status is None or status >= 500 or status in _RETRYABLE_STATUSES:
+                return None
+            self._forget_session(session)
+            return None
+        except Exception:
+            logger.warning("Keycloak session refresh failed")
+            self._forget_session(session)
+            return None
+        claims = await self.jwks_cache.validate_jwt(tokens.get("access_token", ""))
+        expires_at = claims.get("exp") if claims else None
+        if (
+            not claims
+            or not claims.get("sub")
+            or type(expires_at) is not int
+            or expires_at <= time.time()
+        ):
+            self._forget_session(session)
+            return None
+        ctx = self._claims_to_user_context(claims, cache_id=old_ctx.id)
+        session[_SESSION_USER_CTX_KEY] = ctx.to_session_dict()
+        new_refresh = tokens.get("refresh_token") or refresh_token
+        session[SESSION_REFRESH_TOKEN_KEY] = seal_refresh_token(request.app, new_refresh)
+        # Old cookies may still carry an ID token; make room for the refresh token.
+        session.pop(_SESSION_ID_TOKEN_KEY, None)
+        session[SESSION_EXPIRES_AT_KEY] = expires_at
         return ctx
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
@@ -83,7 +156,7 @@ class KeycloakAuthProvider:
         if claims is None:
             return None
 
-        cache_id = await self._upsert_user_cache(request, claims)
+        cache_id = await self._upsert_user_cache(request, claims, throttle_login=True)
         ctx = self._claims_to_user_context(claims, cache_id=cache_id)
         # Full rights, but a bearer credential: it may not manage API tokens
         # (``auth.contracts.tokens.AUTH_KIND_BEARER``). The browser sign-in
@@ -145,37 +218,54 @@ class KeycloakAuthProvider:
                 )
         return kept
 
-    async def _upsert_user_cache(self, request: Request, claims: dict) -> str:
+    async def _upsert_user_cache(
+        self, request: Request, claims: dict, *, throttle_login: bool = False
+    ) -> str:
         try:
-            from sqlalchemy import select
+            from sqlalchemy import or_, select, update
+            from sqlalchemy.exc import IntegrityError
 
             from keycloak.models import KeycloakUserCache
 
-            session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
-            async with session_factory() as db:
+            now = datetime.now(UTC)
+            async with independent_session(request.app) as db:
                 stmt = select(KeycloakUserCache).where(col(KeycloakUserCache.keycloak_sub) == sub)
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
-                    import uuid as uuid_mod
-                    from datetime import datetime
+                    try:
+                        async with db.begin_nested():
+                            row = KeycloakUserCache(
+                                keycloak_sub=sub,
+                                email=claims.get("email", ""),
+                                full_name=claims.get("preferred_username"),
+                                last_login_at=now,
+                            )
+                            db.add(row)
+                            await db.flush()
+                    except IntegrityError:
+                        # Another request inserted this sub after our SELECT.
+                        row = (await db.execute(stmt)).scalar_one()
 
-                    row = KeycloakUserCache(
-                        id=uuid_mod.uuid4(),
-                        keycloak_sub=sub,
-                        email=claims.get("email", ""),
-                        full_name=claims.get("preferred_username"),
-                        last_login_at=datetime.now(UTC),
-                    )
-                    db.add(row)
-                    await db.flush()
+                row.email = claims.get("email", row.email)
+                row.full_name = claims.get("preferred_username", row.full_name)
+                if not throttle_login:
+                    row.last_login_at = now
                 else:
-                    from datetime import datetime
-
-                    row.email = claims.get("email", row.email)
-                    row.full_name = claims.get("preferred_username", row.full_name)
-                    row.last_login_at = datetime.now(UTC)
-                    await db.flush()
+                    cutoff = now - _LAST_LOGIN_WRITE_INTERVAL
+                    if row.last_login_at is None or row.last_login_at <= cutoff:
+                        # Recheck in SQL so concurrent bearer requests share one touch.
+                        await db.execute(
+                            update(KeycloakUserCache)
+                            .where(
+                                col(KeycloakUserCache.id) == row.id,
+                                or_(
+                                    col(KeycloakUserCache.last_login_at).is_(None),
+                                    col(KeycloakUserCache.last_login_at) <= cutoff,
+                                ),
+                            )
+                            .values(last_login_at=now)
+                        )
                 return str(row.id)
         except Exception:
             logger.exception(
