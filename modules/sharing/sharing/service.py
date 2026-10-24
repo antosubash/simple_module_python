@@ -9,10 +9,10 @@ grantee is someone the user directory knows. Rows are tenant-scoped by
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from simple_module_core.datetimes import aware as _aware
+from simple_module_core.datetimes import utcnow
 from simple_module_core.resources import (
     ACTION_SHARE,
     ResourcePrincipal,
@@ -91,7 +91,7 @@ class SharingService:
         resource_type = self._type(data.resource_type)
         if data.role not in resource_type.shareable_actions:
             raise SharingError(422, ERR_BAD_ROLE)
-        if data.expires_at is not None and _aware(data.expires_at) <= datetime.now(UTC):
+        if data.expires_at is not None and _aware(data.expires_at) <= utcnow():
             raise SharingError(422, ERR_EXPIRED)
         row = await self._authorize(principal, resource_type, data.resource_id)
         grantee = (await self.directory.get_many(self.db, [data.subject_id])).get(data.subject_id)
