@@ -30,6 +30,10 @@ All notable changes to this project are documented in this file. The format is b
 - CLI: `smpy update` selects a tag accepted by every sibling's constraint;
   git sources preserve refs containing `/`, and Python prerelease tags sort before
   their final release (#636).
+- Hosting: derive the production Inertia asset version from the Vite manifest hash so
+  stale tabs reload after deployment; include CSS from statically imported chunks (#633).
+- Hosting: unwind started modules and dispose the database engine after lifecycle failures;
+  serialize setup-wizard migrations across workers, including fresh databases (#634).
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
 - Role-permission edits, module settings updates/clears and system/tenant feature-flag
@@ -49,6 +53,9 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- Inertia: `Inertia.back()` and the exported validation handler now redirect only to a
+  same-site path taken from `Referer`, falling back to `/`; an off-site or malformed
+  `Referer` previously produced an open redirect (#635).
 - Users: account administration never exceeds the actor's own authority. Outside a full
   admin session, a role can be granted and an account managed (edit, disable, reset link,
   invite) only when its effective permissions (roles plus direct grants) are within the

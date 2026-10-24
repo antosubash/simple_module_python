@@ -16,12 +16,12 @@ from collections.abc import Generator
 from fastapi import HTTPException, Request
 
 from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting.setup_wizard._migration_lock import migration_lock
 
 logger = logging.getLogger(__name__)
 
-# The endpoint is anonymous, so nothing stops two requests (a double click, a
-# second tab) from starting two Alembic runs against one database at once.
-# Serialized here; the second run then finds the schema at head and is a no-op.
+# Alembic and logging have process-global state, even for different databases.
+# Cross-worker serialization is provided by migration_lock inside the thread.
 _MIGRATION_LOCK = asyncio.Lock()
 
 
@@ -68,7 +68,7 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
         # branch_labels, so the history legitimately has several heads and
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
-        with _preserve_logging():
+        with migration_lock(request.app.state.sm.db.engine.url), _preserve_logging():
             command.upgrade(AlembicConfig(ini_path), "heads")
 
     try:
