@@ -45,6 +45,9 @@ class DirectoryUser:
     #: Role names, or ``None`` when the provider does not know them (Keycloak
     #: keeps roles in the IdP). Only filled when ``with_roles=True`` was asked.
     roles: tuple[str, ...] | None = None
+    #: Whether the account's email is proven, or ``None`` when the provider
+    #: does not track it (Keycloak: read the token's ``email_verified``).
+    email_verified: bool | None = None
 
     @property
     def label(self) -> str:

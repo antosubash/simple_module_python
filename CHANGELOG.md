@@ -32,6 +32,12 @@ All notable changes to this project are documented in this file. The format is b
   by email or automatically verify new accounts; existing subject links still
   sign in (#622). **Behaviour change:** providers without email verification
   proof cannot sign in to an existing account by matching its email alone.
+- Tenants: require a verified principal email before accepting invitations, including
+  local accounts allowed to sign in without verification and Keycloak accounts (#623).
+  Verification is read fresh from the user directory (new `DirectoryUser.email_verified`;
+  `None` when the provider doesn't track it, in which case Keycloak's `email_verified`
+  token claim decides), so an account verified after signing in can accept without
+  re-signing in.
 - DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
   policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)

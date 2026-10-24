@@ -26,6 +26,7 @@ def to_directory_user(
     *,
     roles: tuple[str, ...] | None = None,
     is_active: bool = True,
+    email_verified: bool | None = None,
 ) -> DirectoryUser:
     """Convert identity columns, preserving unknown versus empty roles.
 
@@ -38,4 +39,5 @@ def to_directory_user(
         full_name=row.full_name,
         is_active=is_active,
         roles=roles,
+        email_verified=email_verified,
     )

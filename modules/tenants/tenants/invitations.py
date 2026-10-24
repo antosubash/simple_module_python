@@ -142,7 +142,9 @@ class InvitationService:
     def is_expired(invitation: Invitation) -> bool:
         return _aware(invitation.expires_at) <= _now()
 
-    async def accept(self, token: str, *, user_id: str, user_email: str) -> Tenant:
+    async def accept(
+        self, token: str, *, user_id: str, user_email: str, email_verified: bool = False
+    ) -> Tenant:
         found = await self.lookup(token, for_update=True)
         if found is None:
             raise TenantError("invitation_not_found", status_code=404)
@@ -153,9 +155,8 @@ class InvitationService:
             raise TenantError("tenant_suspended", status_code=409)
         if self.is_expired(invitation):
             raise TenantError("invitation_expired", status_code=410)
-        # The link is a bearer secret; binding it to the invited address means
-        # a forwarded or leaked link cannot enrol a different account.
-        if user_email.strip().lower() != invitation.email:
+        # A leaked link cannot prove ownership of a self-asserted address.
+        if email_verified is not True or user_email.strip().lower() != invitation.email:
             raise TenantError("invitation_email_mismatch", status_code=403)
         invitation.accepted_at = _now()
         await self.tenants.add_member(

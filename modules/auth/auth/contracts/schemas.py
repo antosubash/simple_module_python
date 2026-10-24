@@ -58,6 +58,9 @@ class UserContext:
     # routes). ``None`` (a session, a service key) requires nothing.
     required_permission: str | None = None
 
+    # Providers must explicitly attest ownership of the principal's email.
+    email_verified: bool = False
+
     @property
     def is_scoped(self) -> bool:
         """Whether a scope cap applies (any token-authenticated principal)."""
@@ -83,6 +86,7 @@ class UserContext:
         return cls(
             id=str(user.id),
             email=user.email,
+            email_verified=getattr(user, "is_verified", False) is True,
             name=user.full_name or user.email,
             roles=[r.name for r in user.roles],
             auth_kind=auth_kind,
@@ -98,6 +102,7 @@ class UserContext:
         return {
             "id": self.id,
             "email": self.email,
+            "email_verified": self.email_verified,
             "name": self.name,
             "roles": list(self.roles),
             "tenant_id": self.tenant_id,
@@ -117,6 +122,7 @@ class UserContext:
             return cls(
                 id=str(payload["id"]),
                 email=str(payload["email"]),
+                email_verified=payload.get("email_verified") is True,
                 name=str(payload["name"]),
                 roles=list(payload.get("roles") or []),
                 tenant_id=payload.get("tenant_id"),

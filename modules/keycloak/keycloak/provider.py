@@ -108,6 +108,7 @@ class KeycloakAuthProvider:
         return UserContext(
             id=cache_id,
             email=claims.get("email", ""),
+            email_verified=claims.get("email_verified") is True,
             name=(claims.get("preferred_username") or claims.get("name", "")),
             roles=self._without_tenant_roles(mapped),
             tenant_id=self._trusted_tenant(claims.get("tenant_id")),

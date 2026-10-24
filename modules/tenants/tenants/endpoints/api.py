@@ -9,8 +9,11 @@ permissions.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request, Response
 from simple_module_core.permissions import grants
+from simple_module_core.user_directory import get_user_directory
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from simple_module_hosting.token_guard import Authenticated
 
@@ -49,6 +52,17 @@ _MANAGE = [Depends(RequiresPermission(PERM_MEMBERS_MANAGE))]
 
 def _email_of(request: Request) -> str | None:
     return getattr(getattr(request.state, "user", None), "email", None)
+
+
+async def _email_verified(request: Request, invitations: Any, user_id: str) -> bool:
+    """Read email proof fresh from the directory; the session's principal is a
+    sign-in-time snapshot. Providers that don't track it (Keycloak) fall back to
+    the principal's token claim (#623)."""
+    found = await get_user_directory(request.app).get_many(invitations.db, [user_id])
+    known = found[user_id].email_verified if user_id in found else None
+    if known is not None:
+        return known
+    return getattr(getattr(request.state, "user", None), "email_verified", False) is True
 
 
 @router.get("/", response_model=list[MyTenantView], dependencies=[Depends(Authenticated())])
@@ -176,7 +190,12 @@ async def accept_invitation(
     email = _email_of(request)
     if not email:
         raise TenantError("invitation_email_mismatch", status_code=403)
-    tenant = await invitations.accept(payload.get("token", ""), user_id=user_id, user_email=email)
+    tenant = await invitations.accept(
+        payload.get("token", ""),
+        user_id=user_id,
+        user_email=email,
+        email_verified=await _email_verified(request, invitations, user_id),
+    )
     switch_active(request, tenant.id)
     membership = await invitations.tenants.get_membership(tenant.id, user_id)
     role = membership.role if membership else MembershipRole.MEMBER
