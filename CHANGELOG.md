@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.40] — 2026-10-24
+
 ### Fixed
 - **Behaviour change:** evict expired site-lock attempt buckets, paginate personal/admin API token lists
   (default and maximum API page size 100, with `limit`/`offset`), preserve revoke-all
@@ -1288,7 +1290,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...HEAD
+[0.0.40]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...v0.0.40
 [0.0.39]: https://github.com/antosubash/simple_module_python/compare/v0.0.38...v0.0.39
 [0.0.38]: https://github.com/antosubash/simple_module_python/compare/v0.0.37...v0.0.38
 [0.0.27]: https://github.com/antosubash/simple_module_python/compare/v0.0.26...v0.0.27

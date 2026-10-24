@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/feature_flags",
-  "version": "0.0.39",
+  "version": "0.0.40",
   "private": true,
   "description": "Frontend assets for the FeatureFlags module",
   "peerDependencies": {

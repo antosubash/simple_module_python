@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_sharing"
-version = "0.0.39"
+version = "0.0.40"
 description = "Generic resource shares (owner / shared-with-user) for simple_module resource-scoped access"
 readme = "README.md"
 license = "MIT"
@@ -9,10 +9,10 @@ requires-python = ">=3.12"
 authors = [{ name = "Anto Subash", email = "antosubash@live.com" }]
 keywords = ["simple-module", "sharing", "permissions", "access-control"]
 dependencies = [
-    "simple_module_core==0.0.39",
-    "simple_module_db==0.0.39",
-    "simple_module_hosting==0.0.39",
-    "simple_module_inertia==0.0.39",
+    "simple_module_core==0.0.40",
+    "simple_module_db==0.0.40",
+    "simple_module_hosting==0.0.40",
+    "simple_module_inertia==0.0.40",
 ]
 
 [project.entry-points.simple_module]
