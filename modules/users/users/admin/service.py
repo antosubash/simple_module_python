@@ -10,7 +10,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import noload
 from sqlmodel import col
 
-from users.admin.safety import _UserAdminSafety, check_role_assignment
+from users.admin.safety import _UserAdminSafety
 from users.constants import ADMIN_ROLE_NAME
 from users.contracts.schemas import UserCreate
 from users.exceptions import (
@@ -48,7 +48,7 @@ class UserService(_UserAdminSafety):
         check. ``is_verified=True`` means ``on_after_register`` does not fire a
         verification email (and with no request, no event is published here —
         the endpoint publishes ``UserCreated``)."""
-        check_role_assignment(self._actor, role_names)
+        await self._check_roles(role_names)
         user_create = UserCreate(
             email=email,
             password=password,
@@ -154,7 +154,7 @@ class UserService(_UserAdminSafety):
         signed themselves up: the two rows are otherwise identical, and only
         this one has an outstanding email worth resending.
         """
-        check_role_assignment(self._actor, role_names)
+        await self._check_roles(role_names)
         password = secrets.token_urlsafe(32)
         user_create = UserCreate(
             email=email,
@@ -262,7 +262,7 @@ class UserService(_UserAdminSafety):
         assigned_by: str | None = None,
     ) -> User:
         user = await self._require_manageable_user(user_id)
-        check_role_assignment(self._actor, role_names)
+        await self._check_roles(role_names)
         if ADMIN_ROLE_NAME in {r.name for r in user.roles} and ADMIN_ROLE_NAME not in role_names:
             await self._guard_admin_removal(user)
 

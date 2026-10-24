@@ -2,13 +2,11 @@
 
 import httpx
 import pytest
-from auth.contracts.schemas import UserContext
 from fastapi import FastAPI
 from simple_module_test import forge_session_cookie
 from sqlalchemy import select
 from test_api_admin import _make_user
 from test_service_admin import _build_service
-from users.admin.safety import check_role_assignment
 from users.errors import install_exception_handlers
 from users.exceptions import AdminAccountSafetyError, AdminPermissionError
 from users.models import Role, User, UserRole
@@ -35,33 +33,13 @@ async def test_admin_guard_http_status(error, status):
     assert response.json() == {"detail": "Refused"}
 
 
-@pytest.mark.parametrize(
-    ("roles", "scopes", "wanted", "allowed"),
-    [
-        (["admin"], None, ["admin", "user"], True),
-        (["manager", "user"], None, ["user"], True),
-        (["manager"], None, ["admin"], False),
-        (["manager"], None, ["powerful"], False),
-        (["admin"], ["users.manage"], ["admin"], False),
-    ],
-)
-def test_role_assignment_ceiling(roles, scopes, wanted, allowed):
-    actor = UserContext(
-        id="actor", email="actor@example.com", name="Actor", roles=roles, scopes=scopes
-    )
-    if allowed:
-        check_role_assignment(actor, wanted)
-    else:
-        with pytest.raises(AdminPermissionError):
-            check_role_assignment(actor, wanted)
-
-
 @pytest.fixture
 async def delegated_client(users_app, users_db):
     users_db.add(Role(name="manager"))
     users_db.add(Role(name="powerful"))
     await users_db.commit()
     users_app.state.sm.permissions.map_role("manager", ["users.manage"])
+    users_app.state.sm.permissions.map_role("powerful", ["files.delete"])
     actor = await _make_user(users_db, "manager@example.com", role_names=["manager", "user"])
     cookie = forge_session_cookie(
         str(users_app.state.sm.settings.secret_key), {"user_id": str(actor.id)}

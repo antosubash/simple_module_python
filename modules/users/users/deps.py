@@ -68,7 +68,7 @@ async def get_user_service(
     actor = getattr(request.state, "user", None)
     if actor is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return UserService(db, user_manager, request.app, actor=actor)
+    return UserService(db, user_manager, request.app, actor=actor, request=request)
 
 
 __all__ = [
