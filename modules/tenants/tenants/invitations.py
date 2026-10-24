@@ -155,9 +155,13 @@ class InvitationService:
             raise TenantError("tenant_suspended", status_code=409)
         if self.is_expired(invitation):
             raise TenantError("invitation_expired", status_code=410)
-        # A leaked link cannot prove ownership of a self-asserted address.
-        if email_verified is not True or user_email.strip().lower() != invitation.email:
+        # The link is a bearer secret; binding it to the invited address means
+        # a forwarded or leaked link cannot enrol a different account.
+        if user_email.strip().lower() != invitation.email:
             raise TenantError("invitation_email_mismatch", status_code=403)
+        # ...and a self-asserted, unverified address proves nothing (#623).
+        if email_verified is not True:
+            raise TenantError("invitation_email_unverified", status_code=403)
         invitation.accepted_at = _now()
         await self.tenants.add_member(
             tenant.id,

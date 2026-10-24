@@ -27,6 +27,7 @@ export function useTenantErrors() {
     invitation_expired: t(keys.tenants.errors.invitation_expired),
     invitation_used: t(keys.tenants.errors.invitation_used),
     invitation_email_mismatch: t(keys.tenants.errors.invitation_email_mismatch),
+    invitation_email_unverified: t(keys.tenants.errors.invitation_email_unverified),
   };
 
   /** Translated copy for a failed call: its `{detail}` code (and `limit` for
