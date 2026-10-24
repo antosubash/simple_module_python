@@ -8,7 +8,7 @@ and publishes ``SettingsReloaded``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from branding.constants import FAVICON_URL, LOGO_DARK_URL, LOGO_URL, PACKAGE, TENANT_IMAGE_FIELDS
 from branding.contracts.schemas import BrandingOut
@@ -76,7 +76,8 @@ class BrandingService:
         validated = await apply_changes_and_reload(
             self.app, bus, store, package=PACKAGE, changes=changes
         )
-        return to_out(validated)
+        # Registered for PACKAGE, so the validated object is BrandingSettings.
+        return to_out(cast("BrandingSettings", validated))
 
     async def _swap_asset(self, field: str, file_id: str) -> BrandingOut:
         """Point *field* at *file_id* ("" to clear) and reap what it replaced.

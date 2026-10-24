@@ -25,7 +25,7 @@ async def test_periodic_refresh_retries_without_a_message_and_stops(monkeypatch)
         await refresh.stop()
     assert attempts[:2] == [None, None]
     count = len(attempts)
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.01)  # intentional-sleep: proves no reload runs after stop()
     assert len(attempts) == count
 
 
