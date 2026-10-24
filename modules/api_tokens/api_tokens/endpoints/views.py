@@ -7,7 +7,7 @@ secret has to reach the page as data, not as a redirect.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from simple_module_db import TenantIsolationError
 from simple_module_hosting.csrf import get_csrf_token
 from simple_module_hosting.i18n_deps import TranslatorDep
@@ -56,12 +56,15 @@ async def index(
     service: ApiTokenServiceDep,
     settings: SettingsDep,
     t: TranslatorDep,
+    limit: int = Query(100, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> InertiaResponse:
-    tokens = await service.list_for_owner(user_uuid(user, t))
+    tokens = await service.list_for_owner(user_uuid(user, t), limit=limit + 1, offset=offset)
     return await inertia.render(
         PAGE_INDEX,
         {
-            "tokens": [service.to_view(tok).model_dump(mode="json") for tok in tokens],
+            "tokens": [service.to_view(tok).model_dump(mode="json") for tok in tokens[:limit]],
+            "pagination": {"limit": limit, "offset": offset, "has_more": len(tokens) > limit},
             "scopes": await assignable_scopes(request),
             **_form_props(request, settings.max_lifetime_days),
         },
@@ -74,9 +77,11 @@ async def admin_index(
     inertia: InertiaDep,
     service: ApiTokenServiceDep,
     settings: SettingsDep,
+    limit: int = Query(100, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> InertiaResponse:
     try:
-        views = await tenant_token_views(service)
+        views = await tenant_token_views(service, limit=limit + 1, offset=offset)
         tenant_required = False
     except TenantIsolationError:
         # Strict tenancy with no active tenant: nothing to list, and nowhere
@@ -85,7 +90,8 @@ async def admin_index(
     return await inertia.render(
         PAGE_ADMIN,
         {
-            "tokens": [v.model_dump(mode="json") for v in views],
+            "tokens": [v.model_dump(mode="json") for v in views[:limit]],
+            "pagination": {"limit": limit, "offset": offset, "has_more": len(views) > limit},
             "scopes": await assignable_scopes(request),
             "roles": assignable_roles(request),
             "tenant_required": tenant_required,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_db import TenantIsolationError
 from simple_module_hosting.csrf import RequiresCsrf
 from simple_module_hosting.i18n_deps import TranslatorDep
@@ -31,8 +31,10 @@ router = APIRouter(
 )
 
 
-async def tenant_token_views(service: ApiTokenService) -> list[TokenView]:
-    tokens = await service.list_tenant()
+async def tenant_token_views(
+    service: ApiTokenService, *, limit: int = 100, offset: int = 0
+) -> list[TokenView]:
+    tokens = await service.list_tenant(limit=limit, offset=offset)
     emails = await service.owner_emails(tokens)
     return [
         service.to_view(t, emails.get(t.owner_user_id) if t.owner_user_id else None) for t in tokens
@@ -40,9 +42,14 @@ async def tenant_token_views(service: ApiTokenService) -> list[TokenView]:
 
 
 @router.get("/tokens", response_model=list[TokenView])
-async def list_all(service: ApiTokenServiceDep, t: TranslatorDep) -> list[TokenView]:
+async def list_all(
+    service: ApiTokenServiceDep,
+    t: TranslatorDep,
+    limit: int = Query(100, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> list[TokenView]:
     try:
-        return await tenant_token_views(service)
+        return await tenant_token_views(service, limit=limit, offset=offset)
     except TenantIsolationError:
         raise HTTPException(
             status_code=409, detail=t.t("api_tokens.errors.tenant_required")

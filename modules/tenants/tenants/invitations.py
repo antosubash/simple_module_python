@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from functools import partial
 
+from simple_module_core.datetimes import aware as _aware
+from simple_module_core.datetimes import utcnow as _now
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,15 +31,6 @@ ACCEPT_PATH = "/tenants/invitations/accept"
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def _now() -> datetime:
-    return datetime.now(UTC)
-
-
-def _aware(value: datetime) -> datetime:
-    # SQLite hands back naive datetimes even for timezone=True columns.
-    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def _pending_clause(tenant_id: str):

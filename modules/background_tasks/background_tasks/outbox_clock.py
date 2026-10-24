@@ -22,16 +22,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from simple_module_core.datetimes import aware as _aware
+from simple_module_core.datetimes import utcnow
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 
 def _is_postgres(session: Any) -> bool:
     return session.get_bind().dialect.name == "postgresql"
-
-
-def _aware(value: datetime) -> datetime:
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 async def db_now(session: Any) -> datetime:
@@ -41,7 +39,7 @@ async def db_now(session: Any) -> datetime:
     hold either).
     """
     if not _is_postgres(session):
-        return datetime.now(UTC)
+        return utcnow()
     stmt = select(func.clock_timestamp())
     if isinstance(session, Session):
         value = session.execute(stmt).scalar_one()

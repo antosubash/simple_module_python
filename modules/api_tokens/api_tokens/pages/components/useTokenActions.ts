@@ -13,7 +13,7 @@ export interface TokenCalls {
   revokeAll?: () => Promise<ApiResult<{ revoked: number }>>;
 }
 
-/** Create / revoke through the JSON API, then reload the page's `tokens` prop. */
+/** Create / revoke through the JSON API, then reload the tokens and pagination. */
 export function useTokenActions({ create: createCall, revoke, revokeAll }: TokenCalls) {
   const { t } = useT();
   const [created, setCreated] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function useTokenActions({ create: createCall, revoke, revokeAll }: Token
       return false;
     }
     setCreated(result.data.token);
-    router.reload({ only: ['tokens'] });
+    router.reload({ only: ['tokens', 'pagination'] });
     return true;
   }
 
@@ -45,7 +45,7 @@ export function useTokenActions({ create: createCall, revoke, revokeAll }: Token
       return;
     }
     toast.success(t(keys.api_tokens.toasts.revoked));
-    router.reload({ only: ['tokens'] });
+    router.reload({ only: ['tokens', 'pagination'] });
   }
 
   async function confirmRevokeAll() {
@@ -59,7 +59,7 @@ export function useTokenActions({ create: createCall, revoke, revokeAll }: Token
       return;
     }
     toast.success(t(keys.api_tokens.toasts.revoked_all, { count: result.data.revoked }));
-    router.reload({ only: ['tokens'] });
+    router.reload({ only: ['tokens', 'pagination'] });
   }
 
   return {

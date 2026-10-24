@@ -9,9 +9,10 @@ grantee is someone the user directory knows. Rows are tenant-scoped by
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
+from simple_module_core.datetimes import aware as _aware
+from simple_module_core.datetimes import utcnow
 from simple_module_core.resources import (
     ACTION_SHARE,
     ResourcePrincipal,
@@ -20,6 +21,7 @@ from simple_module_core.resources import (
 )
 from simple_module_core.user_directory import UserDirectory
 from simple_module_db.resource_policy import load_authorized
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -47,10 +49,6 @@ class SharingError(Exception):
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
-
-
-def _aware(value: datetime) -> datetime:
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 class SharingService:
@@ -93,7 +91,7 @@ class SharingService:
         resource_type = self._type(data.resource_type)
         if data.role not in resource_type.shareable_actions:
             raise SharingError(422, ERR_BAD_ROLE)
-        if data.expires_at is not None and _aware(data.expires_at) <= datetime.now(UTC):
+        if data.expires_at is not None and _aware(data.expires_at) <= utcnow():
             raise SharingError(422, ERR_EXPIRED)
         row = await self._authorize(principal, resource_type, data.resource_id)
         grantee = (await self.directory.get_many(self.db, [data.subject_id])).get(data.subject_id)
@@ -112,8 +110,17 @@ class SharingService:
                 subject_id=grantee.id,
                 role=data.role,
                 granted_by=principal.user_id or "",
+                expires_at=data.expires_at,
             )
-            self.db.add(share)
+            try:
+                async with self.db.begin_nested():
+                    self.db.add(share)
+                    await self.db.flush()
+            except IntegrityError:
+                # Another grant may have won the unique-key race.
+                share = await self._existing(data.resource_type, resource_id, grantee.id)
+                if share is None:
+                    raise
         share.role = data.role
         share.expires_at = data.expires_at
         share.granted_by = principal.user_id or ""

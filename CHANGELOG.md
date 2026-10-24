@@ -15,6 +15,11 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- **Behaviour change:** evict expired site-lock attempt buckets, paginate personal/admin API token lists
+  (default and maximum API page size 100, with `limit`/`offset`), preserve revoke-all
+  across pages, and recover concurrent duplicate share grants without a 500 (#640).
+- Share UTC timestamp helpers across sharing, tenants, background tasks, API tokens
+  and users (#640).
 - Users: publish deletion, disabling and new role assignments transactionally through
   the durable outbox (inline cleanup without background tasks). Deletion purges tenant
   memberships, shares to the user and direct permission grants; tenants left without
@@ -61,6 +66,8 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- Remove account-status and superuser fields from the users `UserUpdate` contract;
+  self-profile routes already used a narrower input schema (#640).
 - Inertia: `Inertia.back()` and the exported validation handler now redirect only to a
   same-site path taken from `Referer`, falling back to `/`; an off-site or malformed
   `Referer` previously produced an open redirect (#635).

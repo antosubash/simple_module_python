@@ -32,17 +32,32 @@ class AttemptLimiter:
         self._window = window_seconds
         self._cooldown = cooldown_seconds
         self._buckets: dict[str, _Bucket] = {}
+        self._next_sweep = 0.0
 
     @staticmethod
     def _now(now: float | None) -> float:
         return time.monotonic() if now is None else now
 
+    def _sweep(self, moment: float) -> None:
+        if moment < self._next_sweep:
+            return
+        self._buckets = {
+            key: bucket
+            for key, bucket in self._buckets.items()
+            if bucket.blocked_until > moment
+            or (bucket.failures and moment - bucket.failures[-1] < self._window)
+        }
+        self._next_sweep = moment + self._window
+
     def is_blocked(self, key: str, *, now: float | None = None) -> bool:
+        moment = self._now(now)
+        self._sweep(moment)
         bucket = self._buckets.get(key)
-        return bucket is not None and bucket.blocked_until > self._now(now)
+        return bucket is not None and bucket.blocked_until > moment
 
     def record_failure(self, key: str, *, now: float | None = None) -> None:
         moment = self._now(now)
+        self._sweep(moment)
         bucket = self._buckets.setdefault(key, _Bucket())
         bucket.failures = [t for t in bucket.failures if moment - t < self._window]
         bucket.failures.append(moment)
