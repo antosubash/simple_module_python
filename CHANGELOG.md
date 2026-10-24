@@ -25,9 +25,11 @@ All notable changes to this project are documented in this file. The format is b
 ### Security
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
   clears it and keeps only the pending post-login redirect, so a CSRF token (or any other
-  session state) issued before sign-in no longer survives it. Keycloak sign-in and the tenant
-  switch rotate the CSRF token (#615). **Behaviour change:** session keys a module stored
+  session state) issued before sign-in no longer survives it. Keycloak sign-in rotates the CSRF
+  token (#615). **Behaviour change:** session keys a module stored
   before sign-in are dropped at sign-in.
+  `simple_module_hosting.session.preserve_across_sign_in(app, key)` lets a module keep browser-bound
+  gate state across it; site_lock uses it so the unlock marker survives sign-in.
 
 ## [0.0.39] — 2026-10-24
 

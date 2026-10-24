@@ -114,3 +114,14 @@ def test_rotation_discards_only_csrf_state(with_session):
         assert get_csrf_token(request) != old
     else:
         assert get_csrf_token(request) == ""
+
+
+def test_sign_in_survivors_registry():
+    from types import SimpleNamespace
+
+    from simple_module_hosting.session import preserve_across_sign_in, sign_in_preserved_keys
+
+    app = SimpleNamespace(state=SimpleNamespace())
+    assert sign_in_preserved_keys(app) == frozenset()
+    preserve_across_sign_in(app, "gate_marker")
+    assert sign_in_preserved_keys(app) == {"gate_marker"}

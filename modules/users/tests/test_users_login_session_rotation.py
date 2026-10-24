@@ -111,3 +111,26 @@ async def test_demo_sign_in_rotates_token_and_restamps_marker(demo_app, demo_cli
     assert props["demo"]["active"] is True
     session = (await demo_client.get(f"{_PROBE}/session")).json()
     assert "untrusted" not in session
+
+
+async def test_registered_gate_keys_survive_sign_in(users_app, anon_client):
+    from simple_module_hosting.session import preserve_across_sign_in
+
+    preserve_across_sign_in(users_app, "gate_marker")
+
+    @users_app.get(f"{_PROBE}/gate")
+    async def gate(request: Request):
+        request.session["gate_marker"] = "unlocked"
+        request.session["untrusted"] = "discard me"
+        return {}
+
+    _install_probe(users_app)
+    await anon_client.get(f"{_PROBE}/gate")
+    response = await anon_client.post(
+        "/api/users/auth/login",
+        data={"username": "admin@example.com", "password": "AdminPass1!"},
+    )
+    assert response.status_code == 204, response.text
+    session = (await anon_client.get(f"{_PROBE}/session")).json()
+    assert session["gate_marker"] == "unlocked"
+    assert "untrusted" not in session

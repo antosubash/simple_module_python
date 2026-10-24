@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
-from simple_module_hosting.session import stamp_session_expiry
+from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
 
 from users.constants import (
     LOGIN_SESSION_PRESERVED_KEYS,
@@ -194,7 +194,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         if request is not None:
             preserved = {
                 key: request.session[key]
-                for key in LOGIN_SESSION_PRESERVED_KEYS
+                for key in (*LOGIN_SESSION_PRESERVED_KEYS, *sign_in_preserved_keys(request.app))
                 if key in request.session
             }
             # Signed-cookie sessions have no server-side id: replace their state
