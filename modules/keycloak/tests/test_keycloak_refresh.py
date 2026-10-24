@@ -129,13 +129,15 @@ async def test_bearer_does_not_refresh_browser_session(refresh_session, monkeypa
     assert request.session["expires_at"] == 999
 
 
-@pytest.mark.parametrize("failure", ["network", "server_error"])
+@pytest.mark.parametrize("failure", ["network", "server_error", "rate_limited"])
 async def test_transient_refresh_failure_keeps_session_for_retry(
     refresh_session, httpx_mock, failure
 ):
     provider, request = refresh_session
     if failure == "network":
         httpx_mock.add_exception(httpx.ConnectError("offline"))
+    elif failure == "rate_limited":
+        httpx_mock.add_response(status_code=429)
     else:
         httpx_mock.add_response(status_code=503)
     sealed = request.session["keycloak_refresh_token"]

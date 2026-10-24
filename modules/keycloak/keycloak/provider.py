@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 _SESSION_USER_CTX_KEY = "user_ctx"
 _SESSION_ID_TOKEN_KEY = "keycloak_id_token"
 _LAST_LOGIN_WRITE_INTERVAL = timedelta(minutes=5)
+# 4xx answers that say "try again", not "this grant is dead".
+_RETRYABLE_STATUSES = frozenset({408, 425, 429})
 
 
 class KeycloakAuthProvider:
@@ -108,7 +110,7 @@ class KeycloakAuthProvider:
             # Never log the exception text or body: token endpoints can echo credentials.
             status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
             logger.warning("Keycloak session refresh failed (status=%s)", status)
-            if status is None or status >= 500:
+            if status is None or status >= 500 or status in _RETRYABLE_STATUSES:
                 return None
             self._forget_session(session)
             return None
