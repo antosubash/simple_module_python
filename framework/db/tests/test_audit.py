@@ -18,21 +18,28 @@ from _audit_models import (
     PartialExcludeModel,
     SoftDeleteItem,
 )
+from simple_module_core.correlation import correlation_id
 from simple_module_db.audit import (
     AuditRecord,
     collect_audit_records,
     finalize_records,
     snapshot_changes,
 )
-from simple_module_db.listeners import register_listeners
+from simple_module_db.listeners import current_user_id, register_listeners
 from simple_module_db.session import init_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.fixture
-async def audit_session() -> AsyncGenerator[AsyncSession, None]:
+def audit_records() -> list[AuditRecord]:
+    return []
+
+
+@pytest.fixture
+async def audit_session(audit_records: list[AuditRecord]) -> AsyncGenerator[AsyncSession, None]:
     """Session backed by in-memory SQLite with listeners registered."""
     db_state = init_db("sqlite+aiosqlite:///:memory:")
+    db_state.audit_callback = lambda session, records: audit_records.extend(records)
     try:
         register_listeners(db_state)
         async with db_state.engine.begin() as conn:
@@ -191,47 +198,44 @@ async def test_collect_records_for_update(audit_session: AsyncSession):
 # ── collect_audit_records: soft-deleted entity ────────────────────────────
 
 
+@pytest.mark.parametrize("change_title", [False, True])
 async def test_soft_deleted_entity_produces_soft_deleted_record(
     audit_session: AsyncSession,
+    audit_records: list[AuditRecord],
+    change_title: bool,
 ):
-    """A SoftDeleteMixin object re-added to session.new with is_deleted=True
-    should produce action='soft_deleted', not action='created'."""
+    """Deleting a persistent row emits one soft_deleted record, even with edits."""
     item = SoftDeleteItem(title="doomed")
     audit_session.add(item)
     await audit_session.commit()
     await audit_session.refresh(item)
 
-    # Simulate what the soft-delete listener does: expunge from deleted,
-    # set is_deleted=True, re-add to session.new.  We use make_transient
-    # so SQLAlchemy treats the re-added object as new (matching the
-    # session state that triggers Bug 1).
-    await audit_session.delete(item)
+    audit_records.clear()
+    if change_title:
+        item.title = "edited before deletion"
+    user_token = current_user_id.set("admin")
+    correlation_token = correlation_id.set("req-sd")
+    try:
+        await audit_session.delete(item)
+        await audit_session.flush()
+    finally:
+        current_user_id.reset(user_token)
+        correlation_id.reset(correlation_token)
 
-    def _simulate_soft_delete(session):
-        from sqlalchemy.orm import make_transient
-
-        session.expunge(item)
-        item.is_deleted = True
-        make_transient(item)
-        session.add(item)
-
-    await audit_session.run_sync(_simulate_soft_delete)
-
-    records: list[AuditRecord] = []
-
-    def _collect(session):
-        records.extend(collect_audit_records(session, user_id="admin", correlation_id="req-sd"))
-
-    await audit_session.run_sync(_collect)
-
-    assert len(records) == 1
-    rec = records[0]
+    assert item.is_deleted is True
+    [rec] = audit_records
     assert rec.action == "soft_deleted"
     assert rec.entity_type == "SoftDeleteItem"
     assert rec.entity_id == str(item.id)
     assert rec.changes == []
     assert rec.user_id == "admin"
     assert rec.correlation_id == "req-sd"
+
+    audit_records.clear()
+    item.title = "edited after deletion"
+    await audit_session.flush()
+    [rec] = audit_records
+    assert rec.action == "updated"
 
 
 # ── collect_audit_records: soft-delete fields excluded from diffs ─────────

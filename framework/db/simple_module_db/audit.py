@@ -155,21 +155,6 @@ def snapshot_changes(
         if _is_excluded(obj):
             continue
 
-        # Soft-delete listener moves objects from session.deleted → session.new
-        # with is_deleted=True.  Classify them as "soft_deleted", not "created".
-        if isinstance(obj, SoftDeleteMixin) and getattr(obj, "is_deleted", False):
-            pending.append(
-                _PendingChange(
-                    obj_ref=obj,
-                    entity_type=type(obj).__name__,
-                    action="soft_deleted",
-                    changes=[],
-                    user_id=user_id,
-                    correlation_id=correlation_id,
-                )
-            )
-            continue
-
         excl = _get_excluded(obj)
         pk_cols = _get_pk_cols(obj)
         changes: list[dict[str, Any]] = []
@@ -194,9 +179,26 @@ def snapshot_changes(
             continue
         if _is_excluded(obj):
             continue
+        inspector = sa_inspect(obj)
+        # The soft-delete listener re-adds persistent objects as dirty.
+        if (
+            isinstance(obj, SoftDeleteMixin)
+            and obj.is_deleted
+            and inspector.attrs.is_deleted.history.has_changes()
+        ):
+            pending.append(
+                _PendingChange(
+                    obj_ref=obj,
+                    entity_type=type(obj).__name__,
+                    action="soft_deleted",
+                    changes=[],
+                    user_id=user_id,
+                    correlation_id=correlation_id,
+                )
+            )
+            continue
         excl = _get_excluded(obj)
         pk_cols = _get_pk_cols(obj)
-        inspector = sa_inspect(obj)
         changes = []
         for col_name in _column_names(obj):
             if col_name in excl or col_name in pk_cols:

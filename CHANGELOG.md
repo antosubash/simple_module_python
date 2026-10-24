@@ -78,6 +78,8 @@ All notable changes to this project are documented in this file. The format is b
   tracked for removal in 0.1.0 (#594).
 
 ### Fixed
+- DB audit: persistent rows deleted through the soft-delete listener now emit one
+  `soft_deleted` record, including when business fields were edited before deletion (#632).
 - Users: read-only demo mode now follows the resolved identity, not only the session cookie. Writes made with a bearer access token or personal API token of a demo account are refused (403 `DEMO_READ_ONLY`, or the Inertia 409 redirect) through the new `AuthState.principal_guards` hook, and demo accounts can no longer mint tokens via `POST /api/users/auth/token` or `/token/refresh` while `demo_read_only` is on (#611).
 - Users: the default user role is created at startup when missing, so an app scaffolded with
   `smpy new` (schema baseline, no data migrations) can register users (#600).
