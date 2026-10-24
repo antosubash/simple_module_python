@@ -53,6 +53,8 @@ ALLOWED_VERIFIED = frozenset({"yes", "no"})
 ALLOWED_SORT = frozenset({"email", "last_login_at", "created_at"})
 ALLOWED_ORDER = frozenset({"asc", "desc"})
 
+LOGIN_PAGE_PATH = "/users/login"
+
 # Anonymous-allowed prefixes (login, registration, reset, token endpoints),
 # registered in ``UsersModule.register_public_routes``.
 PUBLIC_PATH_PREFIXES = (

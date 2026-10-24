@@ -44,7 +44,7 @@ from users.contracts.schemas import (
 from users.db_adapter import get_access_token_db
 from users.deps import (
     auth_backend,
-    fastapi_users,
+    get_current_local_user,
     get_user_manager,
 )
 from users.manager import UserManager
@@ -227,7 +227,7 @@ async def accept_invite(
 
 
 @router.get("/me", response_model=UserRead, dependencies=[Depends(Authenticated())])
-async def read_me(user=Depends(fastapi_users.current_user(active=True))):
+async def read_me(user=Depends(get_current_local_user)):
     """Return the currently authenticated user's profile."""
     return user
 
@@ -236,7 +236,7 @@ async def read_me(user=Depends(fastapi_users.current_user(active=True))):
 async def update_me(
     data: SelfProfileUpdate,
     request: Request,
-    user=Depends(fastapi_users.current_user(active=True)),
+    user=Depends(get_current_local_user),
     user_manager: UserManager = Depends(get_user_manager),
 ):
     """Update the currently authenticated user's profile."""

@@ -23,11 +23,14 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_users import exceptions as fu_exceptions
+from httpx import HTTPError
+from httpx_oauth.exceptions import HTTPXOAuthError
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from starlette.responses import RedirectResponse
 
 from users.constants import OAUTH_REGISTRATION_REQUEST_FLAG
 from users.deps import auth_backend, get_user_manager
+from users.oauth.errors import refuse_login
 
 if TYPE_CHECKING:
     from users.manager import UserManager
@@ -109,21 +112,22 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         state_key = _SESSION_STATE_KEY_FMT.format(provider=provider)
         expected_state = request.session.pop(state_key, None)
         if not state or not expected_state or not secrets.compare_digest(state, expected_state):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_INVALID_STATE"
-            )
+            return refuse_login(request, "OAUTH_INVALID_STATE")
+        if "error" in request.query_params:
+            return refuse_login(request, "OAUTH_PROVIDER_ERROR")
         if not code:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_MISSING_CODE"
-            )
+            return refuse_login(request, "OAUTH_MISSING_CODE")
 
         callback_url = str(request.url_for(_CALLBACK_ROUTE_NAME, provider=provider))
-        token = await provider_obj.client.get_access_token(code, callback_url)
-        account_id, account_email, email_verified = await provider_obj.get_identity(
-            token["access_token"]
-        )
+        try:
+            token = await provider_obj.client.get_access_token(code, callback_url)
+            account_id, account_email, email_verified = await provider_obj.get_identity(
+                token["access_token"]
+            )
+        except (HTTPXOAuthError, HTTPError):
+            return refuse_login(request, "OAUTH_PROVIDER_ERROR")
         if account_email is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_NO_EMAIL")
+            return refuse_login(request, "OAUTH_NO_EMAIL")
 
         existing, linked = await _existing_account(
             user_manager, provider, account_id, account_email
@@ -133,13 +137,9 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         # SSO for staff would otherwise open signup to the provider's whole
         # user base (GH #543). Existing accounts still link and sign in.
         if existing is None and not request.app.state.users.settings.allow_signup:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_SIGNUP_DISABLED"
-            )
+            return refuse_login(request, "OAUTH_SIGNUP_DISABLED", status.HTTP_403_FORBIDDEN)
         if existing is not None and not linked and _unproven_account(existing):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_ACCOUNT_NOT_VERIFIED"
-            )
+            return refuse_login(request, "OAUTH_ACCOUNT_NOT_VERIFIED", status.HTTP_403_FORBIDDEN)
 
         # Mark this request so the manager's on_after_register provisions a
         # *new* OAuth user as external (null password). Ignored when the login
@@ -158,15 +158,10 @@ def register_oauth_routes(api_router: APIRouter) -> None:
                 is_verified_by_default=email_verified,
             )
         except fu_exceptions.UserAlreadyExists:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="OAUTH_USER_ALREADY_EXISTS",
-            ) from None
+            return refuse_login(request, "OAUTH_USER_ALREADY_EXISTS")
 
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="LOGIN_BAD_CREDENTIALS"
-            )
+            return refuse_login(request, "LOGIN_BAD_CREDENTIALS")
 
         login_response = await auth_backend.login(strategy, user)
         await user_manager.on_after_login(user, request, login_response)

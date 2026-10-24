@@ -29,6 +29,7 @@ interface Props {
   keycloak_installed?: boolean;
   login_redirect_url: string;
   oauth_providers: OAuthProvider[];
+  oauth_error?: string | null;
   remember_me_days: number;
 }
 
@@ -39,6 +40,7 @@ function Login({
   keycloak_installed,
   login_redirect_url,
   oauth_providers,
+  oauth_error,
   remember_me_days,
 }: Props) {
   const { t } = useT();
@@ -46,7 +48,15 @@ function Login({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const oauthMessage =
+    oauth_error === 'account_not_verified'
+      ? t(keys.users.login.oauth_account_not_verified)
+      : oauth_error === 'signup_disabled'
+        ? t(keys.users.login.oauth_signup_disabled)
+        : oauth_error === 'signin_failed'
+          ? t(keys.users.login.oauth_signin_failed)
+          : null;
+  const [error, setError] = useState<string | null>(oauthMessage);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resent, setResent] = useState(false);
   const [resendFailed, setResendFailed] = useState(false);

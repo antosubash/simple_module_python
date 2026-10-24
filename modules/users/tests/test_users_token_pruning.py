@@ -105,7 +105,9 @@ def test_users_token_pair_persists_only_digests_with_sync_sqlite():
                     _SyncSession(session),
                     user_id,
                     SimpleNamespace(
-                        bearer_token_lifetime_seconds=900, refresh_token_lifetime_seconds=3600
+                        bearer_token_lifetime_seconds=900,
+                        refresh_token_lifetime_seconds=3600,
+                        refresh_token_family_max_age_days=90,
                     ),
                 )
             )

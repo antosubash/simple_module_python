@@ -150,13 +150,29 @@ async def token_refresh(
         .returning(RefreshToken)
     )
     rt = (await db.execute(stmt)).scalar_one_or_none()
+    rotated = rt is not None
     if rt is None:
-        reused = await db.scalar(select(RefreshToken).where(col(RefreshToken.token) == digest))
-        if reused is not None and reused.revoked_at is not None:
+        rt = await db.scalar(select(RefreshToken).where(col(RefreshToken.token) == digest))
+    if rt is None:
+        return JSONResponse({"detail": "Invalid or expired refresh token"}, status_code=401)
+
+    settings = request.app.state.users.settings
+    family_start = (
+        await db.execute(
+            select(func.min(RefreshToken.created_at)).where(
+                col(RefreshToken.family_id) == rt.family_id,
+            )
+        )
+    ).scalar_one()
+    family_expired = family_start <= now - timedelta(
+        days=settings.refresh_token_family_max_age_days
+    )
+    if not rotated or family_expired:
+        if rt.revoked_at is not None or family_expired:
             await db.execute(
                 update(RefreshToken)
                 .where(
-                    col(RefreshToken.family_id) == reused.family_id,
+                    col(RefreshToken.family_id) == rt.family_id,
                     col(RefreshToken.revoked_at).is_(None),
                 )
                 .values(revoked_at=now)
@@ -177,7 +193,6 @@ async def token_refresh(
         await rollback_session(db)
         raise HTTPException(status_code=403, detail=DEMO_READ_ONLY_DETAIL)
 
-    settings = request.app.state.users.settings
     return await _create_token_pair(db, user.id, settings, user.session_version, rt.family_id)
 
 
@@ -239,7 +254,9 @@ async def _create_token_pair(
     )
     db.add(refresh)
     await db.flush()
-    await prune_tokens(db, user_id, now)
+    await prune_tokens(
+        db, user_id, now, family_max_age_days=settings.refresh_token_family_max_age_days
+    )
 
     return TokenResponse(
         access_token=access_secret,

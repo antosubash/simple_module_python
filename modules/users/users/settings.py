@@ -29,6 +29,8 @@ logger = logging.getLogger("users.settings")
 _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
+DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS = 90
+
 DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 # Groups the demo fields together in the module-settings editor.
@@ -83,6 +85,8 @@ class UsersSettings(DbBackedSettings):
     # Bearer token (mobile / API clients)
     bearer_token_lifetime_seconds: int = 60 * 15  # 15 minutes
     refresh_token_lifetime_seconds: int = 60 * 60 * 24 * 30  # 30 days
+
+    refresh_token_family_max_age_days: int = Field(DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS, ge=1)
 
     # Cookie (fastapi-users AuthenticationBackend)
     cookie_name: str = "sm_auth"

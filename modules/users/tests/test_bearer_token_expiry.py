@@ -32,6 +32,30 @@ _ME = "/api/users/me"
 _CREDS = {"username": "admin@example.com", "password": "AdminPass1!"}
 
 
+async def _cookie_strategy_user(app, client):
+    """Resolve the ``sm_auth`` cookie through the cookie strategy itself.
+
+    ``/api/users/me`` now resolves the request principal (session or bearer,
+    #658), so it no longer exercises ``ExpiringDatabaseStrategy``; read the row
+    the way ``fastapi_users.current_user`` does instead.
+    """
+    from users.backend import build_strategy
+    from users.db_adapter import PruningAccessTokenDatabase
+    from users.models import UserAccessToken
+
+    async with app.state.sm.db.session_factory() as session:
+
+        class _Manager:
+            def parse_id(self, value):
+                return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
+            async def get(self, user_id):
+                return await session.get(User, user_id)
+
+        strategy = build_strategy(PruningAccessTokenDatabase(session, UserAccessToken), 900)
+        return await strategy.read_token(client.cookies.get("sm_auth"), _Manager())
+
+
 async def _tokens(app) -> list[UserAccessToken]:
     async with app.state.sm.db.session_factory() as session:
         return list((await session.execute(select(UserAccessToken))).scalars())
@@ -129,15 +153,14 @@ class TestAnExpiredRowStopsAuthenticating:
     async def test_the_cookie_strategy_path_refuses_it(self, users_app, anon_client):
         """`fastapi_users.current_user`, via ExpiringDatabaseStrategy.
 
-        ``/api/users/me`` is the probe because it depends on ``current_user``,
-        which is what reads the ``sm_auth`` row. The row stays well inside the
-        thirty-day read ceiling — only the deadline it was issued for has passed.
+        The row stays well inside the thirty-day read ceiling — only the
+        deadline it was issued for has passed.
         """
         assert (await anon_client.post(_LOGIN, data=_CREDS)).status_code == 204
-        assert (await anon_client.get(_ME)).status_code == 200
+        assert await _cookie_strategy_user(users_app, anon_client) is not None
 
         await _expire_all(users_app)
-        assert (await anon_client.get(_ME)).status_code == 401
+        assert await _cookie_strategy_user(users_app, anon_client) is None
 
     @pytest.mark.anyio
     async def test_the_provider_path_refuses_it(self, users_app, anon_client):

@@ -3,7 +3,7 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../api';
-import { failureMessage } from '../../failureMessage';
+import { adminFailureMessage } from '../../failureMessage';
 
 /**
  * The immediate account actions on the edit page — disable/enable, mark
@@ -39,7 +39,7 @@ export function useUserActions(
           onSuccess();
           toast.success(okMsg);
         } else {
-          toast.error(failureMessage(res, failMsg, t(keys.users.common.error_occurred)));
+          toast.error(adminFailureMessage(res, failMsg, t(keys.users.common.error_occurred), t));
         }
       })
       .finally(() => setSavingStatus(false));
@@ -80,10 +80,11 @@ export function useUserActions(
           toast.success(t(keys.users.edit.toast_verified));
         } else {
           toast.error(
-            failureMessage(
+            adminFailureMessage(
               res,
               t(keys.users.edit.toast_verify_failed),
               t(keys.users.common.error_occurred),
+              t,
             ),
           );
         }
@@ -99,10 +100,11 @@ export function useUserActions(
           toast.success(t(keys.users.edit.toast_reset_copied));
         } else {
           toast.error(
-            failureMessage(
+            adminFailureMessage(
               res,
               t(keys.users.edit.toast_reset_failed),
               t(keys.users.common.error_occurred),
+              t,
             ),
           );
         }

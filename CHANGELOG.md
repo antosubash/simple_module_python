@@ -22,6 +22,19 @@ All notable changes to this project are documented in this file. The format is b
   across pages, and recover concurrent duplicate share grants without a 500 (#640).
 - Share UTC timestamp helpers across sharing, tenants, background tasks, API tokens
   and users (#640).
+- Background tasks: serialize eager outbox dispatches so chained deliveries do not
+  overlap on shared in-memory SQLite connections or trip another handler's commit
+  guard during tenant teardown (#655).
+- Api tokens: durably purge a deleted user's personal tokens across all tenants
+  on `UserDeleted`, preserving service keys and other users' tokens (#657).
+- Users: cap refresh-token families at a DB-configurable 90 days, refusing refreshes
+  and revoking/pruning aged families while preserving reuse evidence for live families (#656).
+- Users admin actions show translated server refusal details instead of generic errors;
+  unknown details retain the existing fallback (#653).
+- Users: GET and PATCH `/api/users/me` now accept bearer access tokens from
+  `/api/users/auth/token` alongside browser sessions (#658).
+- Users: redirect refused OAuth/OIDC browser sign-ins to login with translated English
+  and German messages; preserve JSON errors for API callers (#654).
 - Users: publish deletion, disabling and new role assignments transactionally through
   the durable outbox (inline cleanup without background tasks). Deletion purges tenant
   memberships, shares to the user and direct permission grants; tenants left without

@@ -220,6 +220,9 @@
     "resend_verification": "Resend verification email",
     "verification_resent": "Verification email resent. Please check your inbox.",
     "error_rate_limited": "Too many attempts. Please try again in a few minutes.",
+    "oauth_account_not_verified": "Verify the email address on your existing account before linking single sign-on. Contact an administrator if you need help.",
+    "oauth_signup_disabled": "This account is not registered. Contact an administrator to request access.",
+    "oauth_signin_failed": "Single sign-on failed. Please try again or use another sign-in method.",
     "error_invalid_credentials": "Invalid email or password.",
     "remember_me": "Keep me signed in for {days} days",
     "divider_or": "or",
@@ -415,5 +418,15 @@
     "incomplete_description": "This link is incomplete — open it from the email again.",
     "resend_failed": "We could not send it just now. Try again in a minute."
   },
-  "permission_group": "Users"
+  "permission_group": "Users",
+  "admin_errors": {
+    "more_privileged": "You cannot manage a more privileged account.",
+    "roles_not_held": "You cannot assign roles you do not hold.",
+    "own_account": "You cannot disable or demote your own account.",
+    "last_admin": "You cannot remove the last active administrator.",
+    "delete_self": "You cannot delete your own account.",
+    "email_exists": "A user with this email already exists.",
+    "not_found": "User not found",
+    "external_password": "External (SSO) users have no password to reset"
+  }
 }

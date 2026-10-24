@@ -38,10 +38,13 @@ class ApiTokensModule(ModuleBase):
 
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
+        from simple_module_core.user_events import UserDeleted
 
         from api_tokens.tenant_cleanup import purge_tenant_data
+        from api_tokens.user_cleanup import purge_user_tokens
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
+        bus.subscribe_durable(UserDeleted, purge_user_tokens)
 
     def register_settings(self, app: FastAPI) -> None:
         from api_tokens.services import ApiTokensServices

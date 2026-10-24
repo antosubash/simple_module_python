@@ -4,7 +4,7 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../pages/api';
-import { failureMessage } from '../../pages/failureMessage';
+import { adminFailureMessage } from '../../pages/failureMessage';
 
 /**
  * The per-row actions on the users table — resend, copy a reset link, and
@@ -41,7 +41,9 @@ export function useUserRowActions() {
         }),
       );
       if (!resp.ok) {
-        toast.error(failureMessage(resp, t(keys.users.user_row.toast_resend_failed), network));
+        toast.error(
+          adminFailureMessage(resp, t(keys.users.user_row.toast_resend_failed), network, t),
+        );
         return;
       }
       const body = resp.data;
@@ -74,7 +76,9 @@ export function useUserRowActions() {
         }),
       );
       if (!resp.ok) {
-        toast.error(failureMessage(resp, t(keys.users.user_row.toast_reset_failed), network));
+        toast.error(
+          adminFailureMessage(resp, t(keys.users.user_row.toast_reset_failed), network, t),
+        );
         return;
       }
       const copied = await copyToClipboard(resp.data?.link ?? '');
@@ -97,7 +101,9 @@ export function useUserRowActions() {
           : api.PATCH('/api/users/admin/{user_id}/disable', params),
       );
       if (!resp.ok) {
-        toast.error(failureMessage(resp, t(keys.users.user_row.toast_status_failed), network));
+        toast.error(
+          adminFailureMessage(resp, t(keys.users.user_row.toast_status_failed), network, t),
+        );
         return;
       }
       toast.success(

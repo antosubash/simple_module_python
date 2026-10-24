@@ -20,6 +20,7 @@ from users.invites.preview import preview_invite
 from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
 from users.models import User
+from users.oauth.errors import OAUTH_ERROR_CODES
 from users.token_storage import revoke_access_token
 
 router = APIRouter()
@@ -52,6 +53,7 @@ def _mailer_delivers(request: Request) -> bool:
 async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     users_state = request.app.state.users
     users_settings = users_state.settings
+    oauth_error = request.query_params.get("oauth_error")
     # In development only, surface the bootstrap credentials as click-to-fill
     # buttons so manual QA doesn't need to retype them. Never exposed in
     # production, regardless of whether the vars are set. Uses the same
@@ -103,6 +105,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
                 or users_settings.login_redirect_url
             ),
             "oauth_providers": users_state.oauth_providers,
+            "oauth_error": oauth_error if oauth_error in OAUTH_ERROR_CODES else None,
             # Gates the "Keycloak SSO" line of the split aside: copy that
             # advertises a module should not render where it isn't installed.
             "keycloak_installed": any(
