@@ -9,6 +9,8 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import RedirectResponse
 
+from simple_module_inertia.response import back_url
+
 
 class InertiaVersionConflictException(Exception):  # noqa: N818 - upstream name; hosting imports it
     """Raised on a GET whose ``X-Inertia-Version`` no longer matches ours."""
@@ -50,4 +52,4 @@ async def inertia_request_validation_exception_handler(
     code = (
         status.HTTP_307_TEMPORARY_REDIRECT if request.method == "GET" else status.HTTP_303_SEE_OTHER
     )
-    return RedirectResponse(url=request.headers.get("Referer", "/"), status_code=code)
+    return RedirectResponse(url=back_url(request), status_code=code)

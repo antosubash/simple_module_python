@@ -8,6 +8,18 @@ import pytest
 from alembic import command
 from fastapi import HTTPException
 from simple_module_hosting.setup_wizard.migrate import apply_migrations
+from sqlalchemy.engine import make_url
+
+
+def _request(correlation_id):
+    engine = SimpleNamespace(url=make_url("sqlite+aiosqlite:///:memory:"))
+    return SimpleNamespace(
+        state=SimpleNamespace(correlation_id=correlation_id),
+        app=SimpleNamespace(
+            state=SimpleNamespace(sm=SimpleNamespace(db=SimpleNamespace(engine=engine)))
+        ),
+    )
+
 
 _SECRET = "postgresql://admin:hunter2@db.internal/prod"
 
@@ -17,7 +29,7 @@ async def test_migration_failure_detail_is_redacted(monkeypatch, caplog) -> None
         raise RuntimeError(f"could not connect to {_SECRET}")
 
     monkeypatch.setattr(command, "upgrade", _boom)
-    request = SimpleNamespace(state=SimpleNamespace(correlation_id="cid-123"))
+    request = _request("cid-123")
 
     with pytest.raises(HTTPException) as info:
         await apply_migrations(request, {})
@@ -45,7 +57,7 @@ async def test_in_process_migration_keeps_app_logging(monkeypatch) -> None:
         raise RuntimeError("stop after clobbering")
 
     monkeypatch.setattr(command, "upgrade", _clobber)
-    request = SimpleNamespace(state=SimpleNamespace(correlation_id=""))
+    request = _request("")
     try:
         with pytest.raises(HTTPException):
             await apply_migrations(request, {})

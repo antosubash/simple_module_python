@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -145,12 +146,18 @@ def setup_inertia(
 
     use_dev_server = settings.environment in NON_PROD_ENVIRONMENTS
     inertia_environment = "development" if use_dev_server else "production"
+    manifest_path = "" if use_dev_server else _prod_manifest_path(project_root)
+    version = (
+        hashlib.sha256(Path(manifest_path).read_bytes()).hexdigest()
+        if manifest_path
+        else _INERTIA_VERSION
+    )
 
     inertia_config = InertiaConfig(
         environment=inertia_environment,
-        version=_INERTIA_VERSION,
+        version=version,
         dev_url=settings.vite_dev_url if use_dev_server else "",
-        manifest_json_path="" if use_dev_server else _prod_manifest_path(project_root),
+        manifest_json_path=manifest_path,
         assets_prefix="" if use_dev_server else _ASSETS_PREFIX,
         templates=templates,
         root_template_filename=_ROOT_TEMPLATE_FILENAME,
