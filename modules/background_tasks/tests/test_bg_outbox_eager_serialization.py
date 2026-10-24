@@ -33,8 +33,7 @@ async def test_chained_eager_delivery_waits_for_parent_dispatch(app, outbox_rows
         active = True
         try:
             await ctx.db.connection()
-            # intentional-sleep: let the child dispatcher attempt its claim while guarded
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.05)  # intentional-sleep: child dispatcher claims while guarded
             ctx.db.add(TaskExecution(task_name=f"effect:{type(event).__name__}"))
             await ctx.db.flush()
         finally:
