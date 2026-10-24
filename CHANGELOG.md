@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
+  including released child savepoints, while preserving callbacks from surviving work (#631).
+
 ### Added
 - `tenants.contracts.UsageMeter`: an implementation-free usage-metering protocol next to
   `EntitlementProvider` (`check`, `consume`, `record`, `refund`, `reserve`/`commit`/`release`,
