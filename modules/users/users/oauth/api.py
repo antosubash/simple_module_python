@@ -67,21 +67,18 @@ async def _existing_account(
         return None, False
 
 
-def _unproven_password_account(user: User) -> bool:
-    """A self-registered password account nobody has proven owns its email.
+def _unproven_account(user: User) -> bool:
+    """An account nobody has proven owns its email.
 
     Linking an SSO identity to it by email would hand the provider's user an
-    account someone else may hold the password to — register the victim's
-    address first, wait for them to sign in with SSO, and share their account
-    (GH #547). External (SSO-provisioned) accounts have no password, and a
-    pending invite's password is random and unknown to anyone, so both link.
+    account someone else may already control: register the victim's address
+    with a password (GH #547), or sign in first through a provider that gives
+    no email proof so an unverified SSO account holds the attacker's link
+    (#622), then wait for the real owner to sign in with a verified email. A
+    pending invite links: its password is random and an admin chose the
+    address, so nobody could have pre-created it.
     """
-    return (
-        not user.is_verified
-        and not user.is_external
-        and user.hashed_password is not None
-        and user.invited_at is None
-    )
+    return not user.is_verified and user.invited_at is None
 
 
 def register_oauth_routes(api_router: APIRouter) -> None:
@@ -139,7 +136,7 @@ def register_oauth_routes(api_router: APIRouter) -> None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_SIGNUP_DISABLED"
             )
-        if existing is not None and not linked and _unproven_password_account(existing):
+        if existing is not None and not linked and _unproven_account(existing):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_ACCOUNT_NOT_VERIFIED"
             )

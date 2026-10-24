@@ -125,3 +125,20 @@ async def test_non_oidc_identity_does_not_infer_email_proof(provider):
         _EMAIL,
         False,
     )
+
+
+@pytest.mark.anyio
+async def test_unproven_sso_account_cannot_capture_a_later_verified_login(users_app, anon_client):
+    """Pre-hijack: an unproven provider creates the account, a verified one must not join it."""
+    set_allow_signup(users_app, True)
+    assert (await _callback(users_app, anon_client, {}, "microsoft")).status_code == 303
+    assert (await find_user(users_app, _EMAIL)).is_verified is False
+    anon_client.cookies.clear()
+
+    response = await _callback(users_app, anon_client, {"email_verified": True})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "OAUTH_ACCOUNT_NOT_VERIFIED"
+    async with users_app.state.sm.db.session_factory() as session:
+        providers = {a.oauth_name for a in (await session.execute(select(OAuthAccount))).scalars()}
+    assert providers == {"microsoft"}
