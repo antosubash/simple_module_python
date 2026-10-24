@@ -13,7 +13,7 @@ from tenants.models import Membership, Tenant
 from tenants.resolver import forget
 
 if TYPE_CHECKING:
-    from users.contracts.events import UserDeleted
+    from simple_module_core.user_events import UserDeleted
 
 
 async def purge_user_memberships(event: UserDeleted, ctx: DurableContext) -> None:

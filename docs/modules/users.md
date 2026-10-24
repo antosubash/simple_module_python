@@ -36,7 +36,7 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | `POST /api/users/auth/accept-invite` | `AcceptInviteRequest` | sets password + signs the user in |
 | `POST /api/users/auth/demo/{role}` | — | one-click sign-in as a shared demo account (`role` ∈ `admin`, `user`); `404` unless that account is configured; rate-limited per role — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
 | `POST /api/users/auth/token` | `TokenRequest` (email + password) | bearer login for mobile / API clients → `{access_token, refresh_token, token_type, expires_in}`; `401` for bad credentials and external/SSO users; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
-| `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked) |
+| `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked atomically; reuse of a revoked token revokes its family) |
 | `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
 | `GET /api/users/auth/{provider}/callback` | `?code=&state=` | OAuth: find-or-create user, set cookie, 303 to `login_redirect_url` |
@@ -161,11 +161,11 @@ permissions role pages. The edit page's *Recent activity* card reads the core
 
 `UserRole` (table `users_user_role`) — composite-PK join table with `assigned_at`, `assigned_by`. The `(user_id, role_id)` PK is user-id-first; a separate index covers reverse lookups by `role_id`.
 
-`UserAccessToken` (table `users_access_token`) — bearer API tokens; resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
+`UserAccessToken` (table `users_access_token`) — bearer API tokens, stored as SHA-256 digests (the secret is shown once at login); resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
 
 `OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`.
 
-`RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK), `user_id`, `created_at`, `expires_at`, `revoked_at`.
+`RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK, SHA-256 digest of the secret), `family_id` (rotation lineage; presenting an already-revoked token revokes the whole family), `user_id`, `created_at`, `expires_at`, `revoked_at`.
 
 Two pre-seeded roles get fixed UUIDs so other modules can reference them safely:
 
@@ -242,7 +242,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `UserRegistered` | `user_id`, `email` | on signup |
 | `UserInvited` | `user_id`, `email`, `invited_by` | on admin invite |
 | `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
-| `UserDeleted` | `user_id` | on admin delete |
+| `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
 
@@ -446,7 +446,7 @@ In the admin UI, the user list and edit page show an **"External · SSO"** badge
 
 `UsersAuthProvider` (registered on `app.state.auth.auth_provider` in `register_settings`) is the `AuthProvider` the auth module's `AuthMiddleware` delegates to. On each request `resolve_user`:
 
-- For a `Bearer` token, looks the token up in `users_access_token` and returns the active user.
+- For a `Bearer` token, looks the token's SHA-256 digest up in `users_access_token` and returns the active user.
 - Otherwise reads `session["user_id"]`, returns the cached context from `session["user_ctx"]` on a hit, else loads the User row with eagerly-loaded roles, builds a `UserContext`, caches it in `session["user_ctx"]`, and clears stale session keys when the user is missing/disabled.
 
 `get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. `UsersModule.register_public_routes` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, `/`):

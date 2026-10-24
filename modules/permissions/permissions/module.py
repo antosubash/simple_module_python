@@ -52,7 +52,7 @@ class PermissionsModule(ModuleBase):
     )
 
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
-        from users.contracts.events import UserDeleted
+        from simple_module_core.user_events import UserDeleted
 
         from permissions.user_cleanup import purge_user_grants
 

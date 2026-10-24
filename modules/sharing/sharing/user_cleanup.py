@@ -12,7 +12,7 @@ from sharing.constants import SUBJECT_USER
 from sharing.models import ResourceShare
 
 if TYPE_CHECKING:
-    from users.contracts.events import UserDeleted
+    from simple_module_core.user_events import UserDeleted
 
 
 async def purge_user_shares(event: UserDeleted, ctx: DurableContext) -> None:

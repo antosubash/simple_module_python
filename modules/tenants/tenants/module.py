@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import importlib
 import importlib.resources
-import importlib.util
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -88,13 +87,11 @@ class TenantsModule(ModuleBase):
             InvitationCreated, send_invitation_email, name=c.INVITATION_MAIL_HANDLER
         )
 
-        # Users is optional: Keycloak-only installations have no local users package.
-        if importlib.util.find_spec("users") is not None:
-            from users.contracts.events import UserDeleted
+        from simple_module_core.user_events import UserDeleted
 
-            from tenants.user_cleanup import purge_user_memberships
+        from tenants.user_cleanup import purge_user_memberships
 
-            bus.subscribe_durable(UserDeleted, purge_user_memberships)
+        bus.subscribe_durable(UserDeleted, purge_user_memberships)
 
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_hosting.shared_props import register_inertia_shared_provider
