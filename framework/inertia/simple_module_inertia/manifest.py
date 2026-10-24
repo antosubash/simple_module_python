@@ -46,6 +46,23 @@ def _public(prefix: str, file: str) -> str:
     return posixpath.join("/", prefix, file) if prefix else posixpath.join("/", file)
 
 
+def _collect_css(manifest: dict[str, Any], entry: dict[str, Any]) -> list[str]:
+    css: dict[str, None] = {}
+    visited: set[str] = set()
+
+    def visit(chunk: dict[str, Any]) -> None:
+        if chunk["file"] in visited:
+            return
+        visited.add(chunk["file"])
+        for file in chunk.get("css") or []:
+            css[file] = None
+        for key in chunk.get("imports") or []:
+            visit(manifest[key])
+
+    visit(entry)
+    return list(css)
+
+
 def entry_assets(config: InertiaConfig) -> InertiaFiles:
     if config.environment == "production" or config.ssr_enabled:
         if not config.manifest_json_path:
@@ -61,7 +78,7 @@ def entry_assets(config: InertiaConfig) -> InertiaFiles:
             )
         return InertiaFiles(
             js=_public(config.assets_prefix, entry["file"]),
-            css=[_public(config.assets_prefix, f) for f in entry.get("css") or []],
+            css=[_public(config.assets_prefix, f) for f in _collect_css(manifest, entry)],
         )
     root = config.root_directory.strip("/")
     path = (

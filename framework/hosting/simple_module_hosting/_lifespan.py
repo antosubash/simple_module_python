@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncGenerator, Callable, Sequence
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from simple_module_core.app_state import get_migration_status
@@ -97,49 +97,49 @@ def build_lifespan(modules: Sequence) -> Callable:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        # Report first, decide second. On a genuinely fresh install a
-        # behind-head database must still boot far enough to serve the wizard —
-        # running the migrations is one of the things that wizard does, and
-        # check_migrations' RuntimeError would make it unreachable. Anywhere
-        # else the original behaviour stands: a schema the code does not match
-        # fails the boot. See _is_first_run for why those two cases cannot be
-        # told apart by "is setup complete".
-        app.state.migration = await migration_status(app.state.sm.db.engine)
-        if not app.state.migration["is_current"] and not await _is_first_run(app):
-            raise RuntimeError(
-                f"Database is {app.state.migration['pending_count']} revision(s) behind "
-                f"(at {app.state.migration['current_revision']!r}, head is "
-                f"{app.state.migration['head_revision']!r}). Run: make migrate"
-            )
-
-        await hydrate_settings_from_db(app)
-
-        # Behind head on a first run the tables a module's on_startup reads do
-        # not exist yet. Boot must still reach the wizard, so a hook that fails
-        # here is deferred and replayed once the wizard has applied the
-        # migrations (run_deferred_startup) rather than aborting the process.
-        app.state.deferred_startup = []
-        tolerate = not app.state.migration["is_current"]
-        for mod in modules:
-            try:
-                await mod.on_startup(app)
-            except Exception:
-                if not tolerate:
-                    raise
-                logger.warning(
-                    "on_startup of %s failed on an unmigrated database; "
-                    "deferring it until the setup wizard has run the migrations",
-                    mod.meta.name,
-                    exc_info=True,
+        async with AsyncExitStack() as cleanup:
+            cleanup.push_async_callback(app.state.sm.db.engine.dispose)
+            # Report first, decide second. On a genuinely fresh install a
+            # behind-head database must still boot far enough to serve the wizard —
+            # running the migrations is one of the things that wizard does, and
+            # check_migrations' RuntimeError would make it unreachable. Anywhere
+            # else the original behaviour stands: a schema the code does not match
+            # fails the boot. See _is_first_run for why those two cases cannot be
+            # told apart by "is setup complete".
+            app.state.migration = await migration_status(app.state.sm.db.engine)
+            if not app.state.migration["is_current"] and not await _is_first_run(app):
+                raise RuntimeError(
+                    f"Database is {app.state.migration['pending_count']} revision(s) behind "
+                    f"(at {app.state.migration['current_revision']!r}, head is "
+                    f"{app.state.migration['head_revision']!r}). Run: make migrate"
                 )
-                app.state.deferred_startup.append(mod)
-        # Here rather than in create_app: the host includes its own routers
-        # after create_app returns, and those should be guarded too.
-        settings = getattr(app.state.sm, "settings", None)
-        guard_included_routers(app, warm=getattr(settings, "environment", None) != "testing")
-        yield
-        for mod in reversed(modules):
-            await mod.on_shutdown(app)
-        await app.state.sm.db.engine.dispose()
+
+            await hydrate_settings_from_db(app)
+
+            # Behind head on a first run the tables a module's on_startup reads do
+            # not exist yet. Boot must still reach the wizard, so a hook that fails
+            # here is deferred and replayed once the wizard has applied the
+            # migrations (run_deferred_startup) rather than aborting the process.
+            app.state.deferred_startup = []
+            tolerate = not app.state.migration["is_current"]
+            for mod in modules:
+                try:
+                    await mod.on_startup(app)
+                except Exception:
+                    if not tolerate:
+                        raise
+                    logger.warning(
+                        "on_startup of %s failed on an unmigrated database; "
+                        "deferring it until the setup wizard has run the migrations",
+                        mod.meta.name,
+                        exc_info=True,
+                    )
+                    app.state.deferred_startup.append(mod)
+                cleanup.push_async_callback(mod.on_shutdown, app)
+            # Here rather than in create_app: the host includes its own routers
+            # after create_app returns, and those should be guarded too.
+            settings = getattr(app.state.sm, "settings", None)
+            guard_included_routers(app, warm=getattr(settings, "environment", None) != "testing")
+            yield
 
     return lifespan

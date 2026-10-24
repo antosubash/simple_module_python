@@ -18,6 +18,7 @@ from simple_module_inertia.request import InertiaRequest
 from simple_module_inertia.resolve import resolve_props
 from simple_module_inertia.response import (
     InertiaResponse,
+    back_url,
     fragment_redirect,
     json_response,
     location,
@@ -79,7 +80,7 @@ class Inertia:
         return redirect(url, method=self._request.method)
 
     def back(self) -> RedirectResponse:
-        return self.redirect(self._request.headers.get("Referer", "/"))
+        return self.redirect(back_url(self._request))
 
     @staticmethod
     def location(url: str) -> Response:
