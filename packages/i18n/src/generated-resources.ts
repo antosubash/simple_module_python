@@ -912,6 +912,7 @@ export default {
     'tenants.errors.already_member': '',
     'tenants.errors.generic': '',
     'tenants.errors.invitation_email_mismatch': '',
+    'tenants.errors.invitation_email_unverified': '',
     'tenants.errors.invitation_expired': '',
     'tenants.errors.invitation_not_found': '',
     'tenants.errors.invitation_used': '',

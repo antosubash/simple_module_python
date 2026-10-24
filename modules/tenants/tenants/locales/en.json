@@ -137,6 +137,7 @@
     "invitation_expired": "That invitation has expired.",
     "invitation_used": "That invitation has already been used.",
     "invitation_email_mismatch": "This invitation must be accepted by the invited email address.",
+    "invitation_email_unverified": "Verify your email address before accepting this invitation.",
     "generic": "Something went wrong. Please try again.",
     "already_member": "That person is already a member of this organisation.",
     "tenant_manager_required": "Only an owner or admin of this organisation can do that.",

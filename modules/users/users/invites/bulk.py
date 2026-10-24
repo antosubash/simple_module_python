@@ -17,6 +17,7 @@ from simple_module_core.events import EventBus
 from simple_module_db import independent_session
 
 from users.admin.links import admin_link_base
+from users.admin.safety import check_request_role_assignment
 from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
@@ -87,6 +88,7 @@ async def admin_bulk_invite(
 ) -> BulkInviteResponse:
     """Invite every address in *data*, all sharing the same roles."""
     invited_by = getattr(request.state, "user", None)
+    await check_request_role_assignment(request, data.role_names)
     invited_by_name = invited_by.name if invited_by else "Administrator"
 
     # Same question the page's ``mailer_delivers`` prop answers, asked once.
@@ -125,7 +127,9 @@ async def admin_bulk_invite(
                     mailer,
                     request.app.state.users.settings,
                 )
-                service = UserService(checkpoint, manager, request.app)
+                service = UserService(
+                    checkpoint, manager, request.app, actor=invited_by, request=request
+                )
                 user, token = await service.invite(
                     email, None, data.role_names, invited_by=invited_by
                 )

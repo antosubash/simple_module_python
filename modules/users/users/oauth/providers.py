@@ -12,7 +12,7 @@ when no provider is configured.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
     from httpx_oauth.oauth2 import BaseOAuth2
@@ -28,6 +28,46 @@ class OAuthProvider(NamedTuple):
     name: str
     display_name: str
     client: BaseOAuth2
+
+    async def get_identity(self, token: str) -> tuple[str, str | None, bool]:
+        """Return subject, email, and proof that the provider verified that email.
+
+        ``get_id_email`` drops verification metadata, so each provider reads it
+        from its own profile shape. Only a positive proof links an existing
+        account or marks a new one verified (#622).
+        """
+        if self.name == "oidc":
+            profile = await self.client.get_profile(token)
+            return str(profile["sub"]), profile.get("email"), profile.get("email_verified") is True
+        if self.name == "google":
+            return _google_identity(await self.client.get_profile(token))
+        account_id, email = await self.client.get_id_email(token)
+        if email is None:
+            return account_id, None, False
+        if self.name == "github":
+            return account_id, email, await _github_verified(self.client, token, email)
+        # Microsoft (Entra) email claims are tenant-controlled and unverified ("nOAuth").
+        return account_id, email, False
+
+
+def _google_identity(profile: dict[str, Any]) -> tuple[str, str | None, bool]:
+    """People API profile → (resourceName, primary email, its ``metadata.verified``)."""
+    primary = next(
+        (e for e in profile.get("emailAddresses", []) if e.get("metadata", {}).get("primary")),
+        None,
+    )
+    if primary is None:
+        return str(profile["resourceName"]), None, False
+    verified = primary.get("metadata", {}).get("verified") is True
+    return str(profile["resourceName"]), primary.get("value"), verified
+
+
+async def _github_verified(client: Any, token: str, email: str) -> bool:
+    try:
+        emails = await client.get_emails(token)
+    except Exception:
+        return False
+    return any(e.get("email") == email and e.get("verified") is True for e in emails)
 
 
 def build_clients(settings: UsersSettings) -> list[OAuthProvider]:

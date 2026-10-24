@@ -14,6 +14,14 @@ class UsersError(Exception):
     """Base for users business failures, independent of HTTP."""
 
 
+class AdminPermissionError(UsersError):
+    """Delegated management cannot grant or control a stronger account."""
+
+
+class AdminAccountSafetyError(UsersError):
+    """An operation would disable the actor or remove the last administrator."""
+
+
 class UserNotFoundError(UsersError):
     """Raised when a user lookup by id/email returns nothing."""
 

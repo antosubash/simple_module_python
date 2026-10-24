@@ -7,6 +7,7 @@ from api_tokens.service import ApiTokenService
 from simple_module_test import forge_session_cookie
 from users.auth_local.token_api import _create_token_pair
 from users.demo import ensure_demo_users
+from users.models import User
 
 
 @pytest.fixture
@@ -37,11 +38,18 @@ async def test_demo_token_writes_follow_read_only_setting(
     demo_app.state.users.settings.demo_read_only = read_only
     headers = {"Authorization": f"Bearer {demo_credentials[credential]}"}
     # A successful read proves this credential actually resolves the demo identity.
-    target = demo_app.state.users.demo_user_ids[1]
     assert (await demo_client.get("/api/users/admin", headers=headers)).status_code == 200
+    # A role-less account: the PAT's scopes (users.manage, api_tokens.use) cover it, so
+    # only the demo read-only gate decides. A target holding permissions beyond the
+    # token's scopes is refused regardless (#624).
+    async with demo_app.state.sm.db.session_factory() as db:
+        plain = User(email="plain@example.com", hashed_password=None, is_external=True)
+        db.add(plain)
+        await db.commit()
+        target = str(plain.id)
     response = await demo_client.patch(
         f"/api/users/admin/{target}",
-        json={"email": demo_app.state.users.settings.demo_user_email, "full_name": "Changed"},
+        json={"email": "plain@example.com", "full_name": "Changed"},
         headers=headers,
     )
     assert response.status_code == (403 if read_only else 200), response.text

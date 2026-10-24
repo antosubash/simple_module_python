@@ -51,10 +51,10 @@ def _resolve_provider(request: Request, provider: str) -> OAuthProvider:
 async def _existing_account(
     user_manager: UserManager, provider: str, account_id: str, account_email: str
 ) -> tuple[User | None, bool]:
-    """The account ``oauth_callback`` would sign in, and whether it is already linked.
+    """Find an existing identity or email, and whether it is already linked.
 
-    Mirrors its two lookups: the linked OAuth account first, then — because
-    the callback passes ``associate_by_email=True`` — an account by email.
+    Mirrors the callback's two lookups: the linked OAuth account first, then
+    an account by email (which requires provider verification before linking).
     ``(None, False)`` means the callback would create a new account.
     """
     try:
@@ -67,21 +67,18 @@ async def _existing_account(
         return None, False
 
 
-def _unproven_password_account(user: User) -> bool:
-    """A self-registered password account nobody has proven owns its email.
+def _unproven_account(user: User) -> bool:
+    """An account nobody has proven owns its email.
 
     Linking an SSO identity to it by email would hand the provider's user an
-    account someone else may hold the password to — register the victim's
-    address first, wait for them to sign in with SSO, and share their account
-    (GH #547). External (SSO-provisioned) accounts have no password, and a
-    pending invite's password is random and unknown to anyone, so both link.
+    account someone else may already control: register the victim's address
+    with a password (GH #547), or sign in first through a provider that gives
+    no email proof so an unverified SSO account holds the attacker's link
+    (#622), then wait for the real owner to sign in with a verified email. A
+    pending invite links: its password is random and an admin chose the
+    address, so nobody could have pre-created it.
     """
-    return (
-        not user.is_verified
-        and not user.is_external
-        and user.hashed_password is not None
-        and user.invited_at is None
-    )
+    return not user.is_verified and user.invited_at is None
 
 
 def register_oauth_routes(api_router: APIRouter) -> None:
@@ -122,7 +119,9 @@ def register_oauth_routes(api_router: APIRouter) -> None:
 
         callback_url = str(request.url_for(_CALLBACK_ROUTE_NAME, provider=provider))
         token = await provider_obj.client.get_access_token(code, callback_url)
-        account_id, account_email = await provider_obj.client.get_id_email(token["access_token"])
+        account_id, account_email, email_verified = await provider_obj.get_identity(
+            token["access_token"]
+        )
         if account_email is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAUTH_NO_EMAIL")
 
@@ -137,7 +136,7 @@ def register_oauth_routes(api_router: APIRouter) -> None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_SIGNUP_DISABLED"
             )
-        if existing is not None and not linked and _unproven_password_account(existing):
+        if existing is not None and not linked and _unproven_account(existing):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="OAUTH_ACCOUNT_NOT_VERIFIED"
             )
@@ -155,8 +154,8 @@ def register_oauth_routes(api_router: APIRouter) -> None:
                 token.get("expires_at"),
                 token.get("refresh_token"),
                 request,
-                associate_by_email=True,
-                is_verified_by_default=True,
+                associate_by_email=email_verified,
+                is_verified_by_default=email_verified,
             )
         except fu_exceptions.UserAlreadyExists:
             raise HTTPException(

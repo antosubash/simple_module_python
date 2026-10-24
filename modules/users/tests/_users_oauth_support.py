@@ -25,12 +25,15 @@ class _FakeOAuthClient:
     async def get_id_email(self, access_token: str) -> tuple[str, str]:
         return self._account_id, self._account_email
 
+    async def get_profile(self, access_token: str) -> dict:
+        return {"sub": self._account_id, "email": self._account_email, "email_verified": True}
+
 
 def install_fake_provider(app, account_id: str, account_email: str) -> None:
     from users.oauth import OAuthProvider
 
-    app.state.users.oauth_clients["microsoft"] = OAuthProvider(
-        "microsoft", "Microsoft", _FakeOAuthClient(account_id, account_email)
+    app.state.users.oauth_clients["oidc"] = OAuthProvider(
+        "oidc", "OIDC", _FakeOAuthClient(account_id, account_email)
     )
 
 
@@ -70,11 +73,11 @@ async def seed_password_user(app, email: str, **fields) -> uuid.UUID:
 
 async def oauth_callback(client: httpx.AsyncClient) -> httpx.Response:
     """Drive /login then /callback; return the callback response."""
-    login = await client.get("/api/users/auth/microsoft/login", follow_redirects=False)
+    login = await client.get("/api/users/auth/oidc/login", follow_redirects=False)
     assert login.status_code == 302
     state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
     return await client.get(
-        f"/api/users/auth/microsoft/callback?code=abc&state={state}",
+        f"/api/users/auth/oidc/callback?code=abc&state={state}",
         follow_redirects=False,
     )
 

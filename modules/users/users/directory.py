@@ -27,7 +27,14 @@ from users.models import Role, User, UserRole
 
 # Columns only: loading ``User`` itself would also selectin-load its OAuth
 # accounts, a second query per lookup that nothing here reads.
-_COLUMNS = (User.id, User.email, User.full_name, User.is_active, User.disabled_at)
+_COLUMNS = (
+    User.id,
+    User.email,
+    User.full_name,
+    User.is_active,
+    User.disabled_at,
+    User.is_verified,
+)
 
 
 def _is_usable(row: Any) -> bool:
@@ -55,7 +62,11 @@ class UsersDirectory:
                 user_roles = tuple(sorted(roles.get(row.id, ()))) if with_roles else None
                 for key in parsed[row.id]:
                     found[key] = to_directory_user(
-                        row, key, roles=user_roles, is_active=_is_usable(row)
+                        row,
+                        key,
+                        roles=user_roles,
+                        is_active=_is_usable(row),
+                        email_verified=bool(row.is_verified),
                     )
         return found
 

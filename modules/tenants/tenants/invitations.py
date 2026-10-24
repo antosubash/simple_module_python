@@ -142,7 +142,9 @@ class InvitationService:
     def is_expired(invitation: Invitation) -> bool:
         return _aware(invitation.expires_at) <= _now()
 
-    async def accept(self, token: str, *, user_id: str, user_email: str) -> Tenant:
+    async def accept(
+        self, token: str, *, user_id: str, user_email: str, email_verified: bool = False
+    ) -> Tenant:
         found = await self.lookup(token, for_update=True)
         if found is None:
             raise TenantError("invitation_not_found", status_code=404)
@@ -157,6 +159,9 @@ class InvitationService:
         # a forwarded or leaked link cannot enrol a different account.
         if user_email.strip().lower() != invitation.email:
             raise TenantError("invitation_email_mismatch", status_code=403)
+        # ...and a self-asserted, unverified address proves nothing (#623).
+        if email_verified is not True:
+            raise TenantError("invitation_email_unverified", status_code=403)
         invitation.accepted_at = _now()
         await self.tenants.add_member(
             tenant.id,

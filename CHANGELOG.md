@@ -30,6 +30,28 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- Users: account administration never exceeds the actor's own authority. Outside a full
+  admin session, a role can be granted and an account managed (edit, disable, reset link,
+  invite) only when its effective permissions (roles plus direct grants) are within the
+  actor's: a delegate holding `users.manage`, or an admin's scoped token, cannot grant
+  `admin`, cannot reach admin/superuser accounts, and cannot grant a role mapped to
+  permissions it lacks. Nobody can disable or demote themselves or the last active
+  administrator (#624).
+- Users: OAuth sign-in links to an existing account by email, or marks a new account
+  verified, only with the provider's proof that the email is verified: OIDC
+  `email_verified: true`, Google's People API `metadata.verified` on the primary email,
+  a verified GitHub address from `/user/emails`; Microsoft (Entra) email claims are never
+  proof. An unverified account (SSO-provisioned ones included, pending invites excepted)
+  never absorbs a later OAuth login, closing an account pre-hijacking path (#622).
+  **Behaviour change:** a provider without proof cannot sign in to an existing account by
+  matching its email alone (`400 OAUTH_USER_ALREADY_EXISTS`); existing subject links still
+  sign in.
+- Tenants: accepting an invitation requires a verified email (#623). Verification is read
+  fresh from the user directory (new `DirectoryUser.email_verified`; `None` when the
+  provider doesn't track it, in which case Keycloak's `email_verified` token claim decides),
+  so an account verified after signing in can accept without signing in again.
+  **Behaviour change:** with `users.require_verification` off, self-registered accounts must
+  verify their email (or be marked verified by an admin) before accepting an invitation.
 - DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
   policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
 - Keycloak JWKS fetches now use a per-cache lock and a 30-second minimum interval

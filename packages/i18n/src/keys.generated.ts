@@ -1177,6 +1177,7 @@ export const keys = {
       already_member: 'tenants.errors.already_member',
       generic: 'tenants.errors.generic',
       invitation_email_mismatch: 'tenants.errors.invitation_email_mismatch',
+      invitation_email_unverified: 'tenants.errors.invitation_email_unverified',
       invitation_expired: 'tenants.errors.invitation_expired',
       invitation_not_found: 'tenants.errors.invitation_not_found',
       invitation_used: 'tenants.errors.invitation_used',

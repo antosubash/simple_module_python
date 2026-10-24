@@ -137,6 +137,7 @@
     "invitation_expired": "Diese Einladung ist abgelaufen.",
     "invitation_used": "Diese Einladung wurde bereits verwendet.",
     "invitation_email_mismatch": "Diese Einladung muss mit der eingeladenen E-Mail-Adresse angenommen werden.",
+    "invitation_email_unverified": "Bestätigen Sie Ihre E-Mail-Adresse, bevor Sie diese Einladung annehmen.",
     "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
     "already_member": "Diese Person ist bereits Mitglied dieser Organisation.",
     "tenant_manager_required": "Nur ein Inhaber oder Administrator dieser Organisation kann dies tun.",
