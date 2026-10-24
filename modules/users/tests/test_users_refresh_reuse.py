@@ -56,7 +56,7 @@ async def test_users_concurrent_refresh_has_one_winner(monkeypatch, tmp_path):
                 ):
                     frozen = result.freeze()
                     row = frozen().scalar_one_or_none()
-                    if row is not None and row.revoked_at is None:
+                    if isinstance(row, RefreshToken) and row.revoked_at is None:
                         # Force both stale reads before either request can burn the token.
                         await readers.wait()
                     return frozen()

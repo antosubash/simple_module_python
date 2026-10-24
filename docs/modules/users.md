@@ -196,6 +196,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
 | `bearer_token_lifetime_seconds` | `900` (15 min) |
 | `refresh_token_lifetime_seconds` | `2_592_000` (30 days) |
+| `refresh_token_family_max_age_days` | `90` (≥ 1) — absolute age from the first token; requires a new login after expiry |
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_secure` | `True` (flipped to `False` in dev at startup) |

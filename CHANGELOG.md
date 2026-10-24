@@ -27,6 +27,8 @@ All notable changes to this project are documented in this file. The format is b
   guard during tenant teardown (#655).
 - Api tokens: durably purge a deleted user's personal tokens across all tenants
   on `UserDeleted`, preserving service keys and other users' tokens (#657).
+- Users: cap refresh-token families at a DB-configurable 90 days, refusing refreshes
+  and revoking/pruning aged families while preserving reuse evidence for live families (#656).
 - Users: publish deletion, disabling and new role assignments transactionally through
   the durable outbox (inline cleanup without background tasks). Deletion purges tenant
   memberships, shares to the user and direct permission grants; tenants left without

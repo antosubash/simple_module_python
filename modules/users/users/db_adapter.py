@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from simple_module_db.deps import get_db
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
 from users.models import OAuthAccount, User, UserAccessToken
+from users.settings import DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS
 from users.token_storage import prune_tokens
 
 
@@ -63,12 +64,32 @@ async def get_user_db(
 class PruningAccessTokenDatabase(SQLAlchemyAccessTokenDatabase[UserAccessToken]):
     """Clean up spent credentials when a cookie login mints an access token."""
 
+    def __init__(
+        self,
+        session,
+        access_token_table,
+        *,
+        family_max_age_days: int = DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS,
+    ):
+        super().__init__(session, access_token_table)
+        self.family_max_age_days = family_max_age_days
+
     async def create(self, create_dict):
-        await prune_tokens(self.session, create_dict["user_id"], datetime.now(UTC))
+        await prune_tokens(
+            self.session,
+            create_dict["user_id"],
+            datetime.now(UTC),
+            family_max_age_days=self.family_max_age_days,
+        )
         return await super().create(create_dict)
 
 
 async def get_access_token_db(
+    request: Request,
     session: AsyncSession = Depends(get_db),
 ) -> AsyncGenerator[SQLAlchemyAccessTokenDatabase[UserAccessToken], None]:
-    yield PruningAccessTokenDatabase(session, UserAccessToken)
+    yield PruningAccessTokenDatabase(
+        session,
+        UserAccessToken,
+        family_max_age_days=request.app.state.users.settings.refresh_token_family_max_age_days,
+    )
