@@ -32,6 +32,10 @@ All notable changes to this project are documented in this file. The format is b
 ### Security
 - DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
   policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
+- Keycloak JWKS fetches now use a per-cache lock and a 30-second minimum interval
+  between attempts, including failures, preventing random-`kid` bearer tokens from
+  triggering an outbound request each. Newly rotated keys may take up to 30 seconds
+  to be accepted (#620).
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
   clears it and keeps only the pending post-login redirect, so a CSRF token (or any other
   session state) issued before sign-in no longer survives it. Keycloak sign-in rotates the CSRF
