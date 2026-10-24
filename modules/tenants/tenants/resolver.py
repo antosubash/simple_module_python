@@ -25,6 +25,7 @@ from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation, InvalidationBus
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
+from simple_module_hosting.csrf import rotate_csrf_token
 from simple_module_hosting.middleware import TenantResolution
 from starlette.requests import Request
 
@@ -238,6 +239,7 @@ def _enter(request: Request, user: Any, active: MyTenantView) -> str:
 
 def switch_active(request: Request, tenant_id: str) -> None:
     """Record the user's choice; ``resolve_tenant`` validates it next request."""
+    rotate_csrf_token(request)
     request.session[SESSION_ACTIVE_TENANT] = tenant_id
 
 

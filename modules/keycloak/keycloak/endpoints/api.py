@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_hosting.csrf import rotate_csrf_token
 from starlette.responses import RedirectResponse
 
 if TYPE_CHECKING:
@@ -84,6 +85,7 @@ async def oidc_callback(request: Request):
     cache_id = await provider._upsert_user_cache(request, claims)
     user_ctx = provider._claims_to_user_context(claims, cache_id=cache_id)
 
+    rotate_csrf_token(request)
     request.session[_SESSION_USER_CTX] = user_ctx.to_session_dict()
     request.session[_SESSION_ID_TOKEN] = id_token
 
