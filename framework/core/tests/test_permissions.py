@@ -141,3 +141,13 @@ class TestGrants:
         """Callers hand it whatever they have — the middleware caches a set,
         a test hands a list."""
         assert grants(["users.manage"], "users.manage") is True
+
+
+async def test_reloading_role_overlays_removes_deleted_grants_but_keeps_code_grants():
+    registry = PermissionRegistry()
+    registry.map_role("editor", ["code.view"])
+    registry.set_role_overlay("editor", ["db.view"])
+    registry.replace_role_overlays({"reviewer": ["db.review"]})
+    assert registry.role_map["editor"] == ["code.view"]
+    assert registry.role_map["reviewer"] == ["db.review"]
+    assert registry.role_map["admin"] == ["*"]

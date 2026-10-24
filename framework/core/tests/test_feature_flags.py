@@ -194,3 +194,16 @@ class TestConsumerHelpers:
 
         request.state.tenant_id = "other"
         assert is_flag_enabled(request, "beta_ui") is False
+
+
+async def test_reloading_overrides_removes_deleted_values_in_both_scopes():
+    registry = FeatureFlagRegistry()
+    registry.add(FeatureFlagDefinition("switch", default_enabled=True))
+    registry.set_override("switch", False)
+    registry.set_override("switch", False, tenant_id="acme")
+    registry.replace_overrides({}, {("switch", "globex"): False})
+    assert registry.is_enabled("switch") is True
+    assert registry.is_enabled("switch", "acme") is True
+    assert registry.is_enabled("switch", "globex") is False
+    registry.replace_overrides({}, {})
+    assert registry.is_enabled("switch", "globex") is True

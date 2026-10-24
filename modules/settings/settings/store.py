@@ -18,6 +18,7 @@ see ``_module_settings._field_view``.
 
 from __future__ import annotations
 
+from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.stored_settings import (  # noqa: F401  (re-exported, #500)
     SYSTEM_SCOPE_ID,
     get_overrides_sync,
@@ -40,6 +41,9 @@ class SettingsStore:
 
     def __init__(self, service: SettingService) -> None:
         self._service = service
+
+    def on_commit(self, callback: OnCommitCallback) -> None:
+        self._service.db.on_commit(callback)
 
     async def get_overrides(self, package: str) -> dict[str, tuple[str, str]]:
         """Return ``{field_name: (raw_value, value_type)}`` for a package."""

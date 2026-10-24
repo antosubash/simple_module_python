@@ -6,6 +6,7 @@ import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from fastapi import FastAPI
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +49,9 @@ class PermissionService(RegistrySyncMixin):
         db: AsyncSession,
         registry: PermissionRegistry,
         directory: UserDirectory | None = None,
+        app: FastAPI | None = None,
     ) -> None:
+        self.app = app
         self.db = db
         self.registry = registry
         self.directory: UserDirectory = directory or NullUserDirectory()
@@ -125,9 +128,18 @@ class PermissionService(RegistrySyncMixin):
             for key in wanted - existing
         )
         await self.db.flush()
+
         # Replace only the DB overlay: code-registered mappings stay in effect, removed
         # DB keys drop without a restart, and unregistered stored grants stay mapped.
-        self.registry.set_role_overlay(role.name, wanted | (existing - registered))
+        async def committed() -> None:
+            if self.app is None:
+                self.registry.set_role_overlay(role.name, wanted | (existing - registered))
+            else:
+                from permissions.role_invalidation import CHANNEL
+
+                await self.app.state.sm.invalidation.publish(CHANNEL, key=role.name)
+
+        self.db.on_commit(committed)
 
         return RolePermissionsOut(role=role, permissions=sorted(wanted))
 

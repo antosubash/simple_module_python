@@ -9,11 +9,9 @@ share one failure shape: the worker that performed the write drops its own entry
 immediately, and **every other worker keeps serving the stale value until its own
 entry expires**.
 
-``settings`` has the same shape without the TTL — ``apply_changes_and_reload``
-hot-swaps the settings object in the worker that handled the save and announces it
-on the in-process :class:`~simple_module_core.events.EventBus`, so the others serve
-the old configuration until restart. It needs a re-read rather than an eviction, so
-it is a consumer this bus makes *possible* rather than one it already serves.
+``settings``, role overlays and feature-flag overrides had it too (#621); they now
+re-read the committed DB state on invalidation (and every 30 s as a fallback, see
+:mod:`simple_module_core.invalidation_refresh`) rather than evicting an entry.
 
 The obvious fix — publish the write on Redis pub/sub so every worker drops its
 entry at once — was not reachable from any of those modules. Redis belongs to

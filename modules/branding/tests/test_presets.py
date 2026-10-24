@@ -11,6 +11,9 @@ from __future__ import annotations
 import httpx
 import pytest
 from branding.presets import BUILTIN_PRESETS, PRESET_FIELDS, BrandingPreset, find_preset
+from settings.invalidation import reload_package
+from settings.service import SettingService
+from settings.store import SettingsStore
 
 # ── Unit: definitions ──────────────────────────────────────────────────
 
@@ -104,7 +107,15 @@ async def test_applying_a_preset_preserves_identity_and_banner(
 async def test_applying_a_preset_keeps_an_uploaded_logo(
     app, authenticated_client: httpx.AsyncClient
 ) -> None:
-    app.state.branding.settings.logo_file_id = "11111111-1111-1111-1111-111111111111"
+    # Persist the logo: settings now reload from the DB after commit, so an
+    # in-memory-only assignment would (correctly) be discarded.
+    async with app.state.sm.db.session_factory() as db:
+        store = SettingsStore(SettingService(db))
+        await store.set_override(
+            "branding", "logo_file_id", "11111111-1111-1111-1111-111111111111", "string"
+        )
+        await db.commit()
+        await reload_package(app, app.state.sm.event_bus, store, "branding")
 
     await authenticated_client.post(f"/api/branding/presets/{BUILTIN_PRESETS[0].key}")
 

@@ -12,7 +12,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
 from pydantic import ValidationError
 from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.settings_hydrate import hydrate_settings
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -23,8 +22,8 @@ from settings._module_settings import (
 )
 from settings._module_settings_props import serialize
 from settings.constants import PERM_DELETE, PERM_EDIT, PERM_VIEW
-from settings.contracts.events import SettingsReloaded
 from settings.deps import get_setting_service
+from settings.invalidation import reload_on_commit
 from settings.reload import EnvPinnedError, apply_changes_and_reload
 from settings.service import SettingService
 from settings.store import SettingsStore
@@ -162,11 +161,6 @@ async def clear_module_field(
     store = SettingsStore(service)
     await store.clear_override(package, field)
 
-    hydrated = await hydrate_settings(cls, store, package)
-    services = getattr(request.app.state, package)
-    services.settings = hydrated
-
-    bus = request.app.state.sm.event_bus
-    await bus.publish(SettingsReloaded(package=package, changed=(field,)))
+    reload_on_commit(request.app, request.app.state.sm.event_bus, store, package)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from fastapi import FastAPI
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,8 +61,9 @@ class FeatureFlagService:
     extra DB hit per request.
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, app: FastAPI | None = None) -> None:
         self.db = db
+        self.app = app
 
     async def list_overrides(self) -> list[FeatureFlagOverrideOut]:
         """Every persisted override across all scopes, ordered for stable display."""
@@ -179,7 +181,7 @@ class FeatureFlagService:
             existing.enabled = enabled
             await self.db.flush()
         if registry is not None:
-            registry.set_override(name, enabled, tenant_id=_registry_tenant_id(scope, scope_id))
+            self._on_commit(registry, name, enabled, scope, scope_id)
         return FeatureFlagOverrideOut.model_validate(existing)
 
     async def clear_override(
@@ -195,16 +197,34 @@ class FeatureFlagService:
             return False
         await self.db.delete(existing)
         if registry is not None:
-            registry.clear_override(name, tenant_id=_registry_tenant_id(scope, scope_id))
+            self._on_commit(registry, name, None, scope, scope_id)
         return True
 
     async def hydrate_registry(self, registry: FeatureFlagRegistry) -> int:
         """Load every persisted override (system + tenant) into the registry at boot."""
         overrides = await self.list_overrides()
-        for ovr in overrides:
-            registry.set_override(
-                ovr.name,
-                ovr.enabled,
-                tenant_id=_registry_tenant_id(ovr.scope, ovr.scope_id),
-            )
+        registry.replace_overrides(
+            {o.name: o.enabled for o in overrides if o.scope == SCOPE_SYSTEM},
+            {(o.name, o.scope_id): o.enabled for o in overrides if o.scope == SCOPE_TENANT},
+        )
         return len(overrides)
+
+    def _on_commit(
+        self,
+        registry: FeatureFlagRegistry,
+        name: str,
+        enabled: bool | None,
+        scope: str,
+        scope_id: str,
+    ) -> None:
+        async def committed() -> None:
+            if self.app is not None:
+                from feature_flags.invalidation import CHANNEL
+
+                await self.app.state.sm.invalidation.publish(CHANNEL, key=name)
+            elif enabled is None:
+                registry.clear_override(name, tenant_id=_registry_tenant_id(scope, scope_id))
+            else:
+                registry.set_override(name, enabled, tenant_id=_registry_tenant_id(scope, scope_id))
+
+        self.db.on_commit(committed)
