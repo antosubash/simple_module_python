@@ -42,6 +42,22 @@ afterEach(() => {
 });
 
 describe('users Login', () => {
+  it.each([
+    ['account_not_verified', keys.users.login.oauth_account_not_verified],
+    ['signup_disabled', keys.users.login.oauth_signup_disabled],
+    ['signin_failed', keys.users.login.oauth_signin_failed],
+  ])('shows the translated OAuth message for %s', (code, key) => {
+    configureI18n({ locale: 'en', messages: { [key]: 'Sign-in was refused.' } });
+    render(<Login {...props} oauth_error={code} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Sign-in was refused.');
+    configureI18n({ locale: 'en', messages: {} });
+  });
+
+  it('ignores unknown OAuth codes instead of displaying query text', () => {
+    render(<Login {...props} oauth_error="<script>untrusted text</script>" />);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('posts the form-encoded credentials and follows the server redirect on 204', async () => {
     const mock = stubFetch(() => new Response(null, { status: 204 }));
     render(<Login {...props} />);

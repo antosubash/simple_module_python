@@ -33,6 +33,8 @@ All notable changes to this project are documented in this file. The format is b
   unknown details retain the existing fallback (#653).
 - Users: GET and PATCH `/api/users/me` now accept bearer access tokens from
   `/api/users/auth/token` alongside browser sessions (#658).
+- Users: redirect refused OAuth/OIDC browser sign-ins to login with translated English
+  and German messages; preserve JSON errors for API callers (#654).
 - Users: publish deletion, disabling and new role assignments transactionally through
   the durable outbox (inline cleanup without background tasks). Deletion purges tenant
   memberships, shares to the user and direct permission grants; tenants left without
