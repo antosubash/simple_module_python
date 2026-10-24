@@ -94,7 +94,7 @@ Every workspace package bumps in lockstep to the same version — `scripts/bump_
 | Bug fix, docs, internal refactor | **bump**: `patch` |
 | New feature, no breaking changes | **bump**: `minor` |
 | Breaking change (post-1.0) | **bump**: `major` |
-| Pre-release rehearsal or specific number | **version**: e.g. `0.2.0rc1` |
+| Pre-release rehearsal or specific number | **version**: e.g. `0.2.0rc1` (npm: `0.2.0-rc.1`, tag `next`) |
 
 The workflow derives the next version from the current `framework/core/pyproject.toml` version when you pick a bump level. If you set **version** explicitly, it overrides the bump choice. Version strings must match `^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$`.
 
@@ -106,6 +106,11 @@ The workflow derives the next version from the current `framework/core/pyproject
 4. **pending_publishers**: for first uploads only, enter comma-separated `simple_module_*` names whose pending publishers you have registered and verified (e.g. `simple_module_core,simple_module_users`). Leave blank otherwise.
 5. **Run workflow**.
 
+Releases run one at a time without cancelling the active release. Dispatch from
+`main` only: the workflow rejects other refs and requires the dispatch SHA to
+still equal `origin/main` both at version selection and after the build, before
+publishing. If it has moved, dispatch again from the current `main`.
+
 What happens:
 - `resolve` computes the final version and shares it with every downstream job.
 - `checks` calls `pr.yml` (`workflow_call`) on the dispatched commit, so the `pr-checks` aggregate must be green. `build` needs it: nothing is built or published from a red commit.
@@ -113,7 +118,7 @@ What happens:
 - `build` rewrites every version, runs `uv build --all-packages` (a wheel + sdist for every buildable workspace package) plus the 3 npm tarballs, and uploads them as artifacts.
 - `publish-pypi` fans out 22 parallel jobs (the matrix package list), each filtering the artifact set down to one package and publishing its wheel+sdist pair via OIDC Trusted Publishing. Existing distributions are skipped using the publish action’s `skip-existing` option, so a retry can fill in a missing wheel or sdist.
 - `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs via OIDC Trusted Publishing. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`. It queries the exact version from the tarball: HTTP 200 skips it, 404 publishes it, and any other HTTP or network error fails the job.
-- `finalize` re-applies the bump (the shared `.github/actions/bump-version` action, also used by `build`), cuts the CHANGELOG, commits `release: vX.Y.Z`, tags it, and pushes both.
+- `finalize` re-applies the bump (the shared `.github/actions/bump-version` action, also used by `build`), cuts the CHANGELOG, commits `release: vX.Y.Z` and tags that commit (so the tag is exactly the published source), merges the latest `origin/main` into it, then pushes main and the tag atomically. Unrelated merges are preserved and the tag stays an ancestor of main; a merge conflict or rejected push stops finalization without partially updating the remote refs. Packages have already been published at this point; resolve the failure and re-run failed jobs.
 
 Expected wall time: 5–8 minutes.
 
@@ -136,7 +141,7 @@ gh release edit vX.Y.Z --notes-file - < notes.md
 
 Two version numbers exist on purpose:
 
-- **Package version** (`0.0.x`, lockstep). Every `simple_module_*` wheel and every `package.json` under `framework/`, `modules/` and `packages/` carries the same number, enforced by `scripts/bump_version.py` (`--check` verifies it). The root and `host/` `pyproject.toml` are not published and are not bumped.
+- **Package version** (`0.0.x`, lockstep). Every `simple_module_*` wheel and every `package.json` under `framework/`, `modules/` and `packages/` carries the same release, enforced by `scripts/bump_version.py` (`--check` verifies it). Python prereleases such as `0.2.0rc1` become npm SemVer `0.2.0-rc.1` (`a`/`b` become `alpha`/`beta`); npm prereleases publish under `next`, stable releases under `latest`. The root and `host/` `pyproject.toml` are not published and are not bumped.
 - **Framework API version** (`FRAMEWORK_API_VERSION` in `simple_module_core/versioning.py`, currently `1.0.0`). It versions the *module contract* (`ModuleBase`, the registries, the event bus, `create_module_base`, the model mixins), independent of release cadence. Modules declare a compatible range in `ModuleMeta.requires_framework` (PEP 440, e.g. `">=1.0,<2.0"`) and boot fails on a mismatch. Bump its major only for a breaking contract change.
 
 A test (`framework/cli/tests/test_template_requires_framework.py`) pins that the scaffolded module template's `requires_framework` contains `FRAMEWORK_API_VERSION`.
@@ -218,7 +223,8 @@ version and original build artifacts. Already uploaded PyPI distributions and
 exact npm versions are skipped, and only missing artifacts are published.
 `finalize` still commits and tags only after every publish leg succeeds.
 
-If a new workflow dispatch is necessary, select the same source commit and set
+If a new workflow dispatch is necessary, the original source commit must still
+be the tip of `main`; otherwise use **Re-run failed jobs**. Set
 **version** explicitly to the partially published version. Keep the source and
 artifacts unchanged: these skip checks do not compare artifact hashes and cannot
 replace immutable releases. Do not yank, unpublish, or bump just to resume.

@@ -52,7 +52,10 @@ def test_postgres_runs_for_concurrency_sensitive_modules() -> None:
 
 
 @pytest.mark.parametrize("status", [200, 404, 403, 429, 500, "network"])
-def test_npm_only_publishes_missing_exact_version(tmp_path: Path, status: int | str) -> None:
+@pytest.mark.parametrize("version, tag", [("1.2.3", "latest"), ("1.2.3-rc.1", "next")])
+def test_npm_only_publishes_missing_exact_version(
+    tmp_path: Path, status: int | str, version: str, tag: str
+) -> None:
     jobs = yaml.safe_load(WORKFLOW.read_text())["jobs"]
     step = next(
         step for step in jobs["publish-npm"]["steps"] if step.get("name") == "Publish tarball"
@@ -60,8 +63,8 @@ def test_npm_only_publishes_missing_exact_version(tmp_path: Path, status: int | 
     script = step["run"].replace("${{ matrix.package }}", "ui")
     dist = tmp_path / "dist-npm"
     dist.mkdir()
-    metadata = json.dumps({"name": "@simple-module-py/ui", "version": "1.2.3"}).encode()
-    with tarfile.open(dist / "simple-module-py-ui-1.2.3.tgz", "w:gz") as archive:
+    metadata = json.dumps({"name": "@simple-module-py/ui", "version": version}).encode()
+    with tarfile.open(dist / f"simple-module-py-ui-{version}.tgz", "w:gz") as archive:
         info = tarfile.TarInfo("package/package.json")
         info.size = len(metadata)
         archive.addfile(info, io.BytesIO(metadata))
@@ -71,27 +74,27 @@ def test_npm_only_publishes_missing_exact_version(tmp_path: Path, status: int | 
     curl = bin_dir / "curl"
     curl.write_text(
         "#!/bin/bash\n"
-        '[[ "$*" == *"https://registry.npmjs.org/@simple-module-py%2Fui/1.2.3"* ]] || exit 90\n'
-        + ("exit 7\n" if status == "network" else f"printf '{status}'\n")
+        f'[[ "$*" == *"https://registry.npmjs.org/@simple-module-py%2Fui/{version}"* ]] '
+        "|| exit 90\n" + ("exit 7\n" if status == "network" else f"printf '{status}'\n")
     )
     npm = bin_dir / "npm"
     npm.write_text('#!/bin/bash\nprintf "%s\\n" "$*" > published\n')
     curl.chmod(0o755)
     npm.chmod(0o755)
     result = subprocess.run(
-        ["bash", "-euo", "pipefail", "-c", script],
+        ["bash", "--noprofile", "--norc", "-euo", "pipefail", "-c", script],
         cwd=tmp_path,
-        env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"},
+        env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "BASH_ENV": ""},
         capture_output=True,
         text=True,
     )
     assert (result.returncode == 0) == (status in (200, 404)), result.stderr
     assert (tmp_path / "published").exists() == (status == 404)
     if status == 404:
-        assert (
-            "publish --access public ./dist-npm/simple-module-py-ui-1.2.3.tgz"
-            in (tmp_path / "published").read_text()
-        )
+        args = (tmp_path / "published").read_text().split()
+        assert args[:3] == ["publish", "--access", "public"]
+        assert args[args.index("--tag") + 1] == tag
+        assert f"./dist-npm/simple-module-py-ui-{version}.tgz" in args
 
 
 def test_preflight_reports_every_new_matrix_package(capsys: pytest.CaptureFixture[str]) -> None:
