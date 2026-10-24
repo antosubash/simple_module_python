@@ -11,6 +11,7 @@ import { api, csrfHeaders } from './api';
 import { CreatedTokenDialog } from './components/CreatedTokenDialog';
 import { CreateTokenDialog } from './components/CreateTokenDialog';
 import { RevokeTokenDialog } from './components/RevokeTokenDialog';
+import { TokenPagination } from './components/TokenPagination';
 import { TokenTable } from './components/TokenTable';
 import { useTokenActions } from './components/useTokenActions';
 import { type CreatePayload, type TokenFormProps, tokenStatus } from './types';
@@ -31,7 +32,11 @@ function Index(props: TokenFormProps) {
       ),
     revokeAll: () => apiResult(api.POST('/api/api_tokens/tokens/revoke-all', { headers })),
   });
-  const hasLive = props.tokens.some((tok) => tokenStatus(tok) === 'active');
+  // Unseen pages may still contain live tokens.
+  const hasLive =
+    props.pagination.has_more ||
+    props.pagination.offset > 0 ||
+    props.tokens.some((tok) => tokenStatus(tok) === 'active');
 
   async function submit(payload: CreatePayload) {
     const ok = await actions.create(payload);
@@ -64,6 +69,7 @@ function Index(props: TokenFormProps) {
       >
         <p className="text-sm text-muted-foreground">{t(keys.api_tokens.index.usage)}</p>
         <TokenTable tokens={props.tokens} onRevoke={actions.setPendingRevoke} />
+        <TokenPagination {...props.pagination} />
       </PageShell>
 
       <CreateTokenDialog

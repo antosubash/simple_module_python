@@ -204,3 +204,24 @@ async def test_expired_share_can_be_renewed_without_duplicate_grants(env):
         assert renewed.id == share.id
         assert await _visible(service.db, FRIEND, ACTION_EDIT) == ["n"]
         assert len(await service.for_resource(_who(OWNER), NOTE_TYPE, note_id)) == 1
+
+
+async def test_duplicate_insert_race_reuses_winner_and_preserves_transaction(env, monkeypatch):
+    service, note_id = env
+    with tenant_context("t1"):
+        winner = await service.grant(_who(OWNER), _grant(note_id))
+        original = service._existing
+        calls = 0
+
+        async def miss_once(*args):
+            nonlocal calls
+            calls += 1
+            return None if calls == 1 else await original(*args)
+
+        # Simulate a concurrent winner becoming visible after our initial lookup.
+        monkeypatch.setattr(service, "_existing", miss_once)
+        result = await service.grant(_who(OWNER), _grant(note_id, role=ACTION_EDIT))
+        assert result.id == winner.id
+        assert result.role == ACTION_EDIT
+        assert len(await service.for_resource(_who(OWNER), NOTE_TYPE, note_id)) == 1
+        assert await _visible(service.db, FRIEND, ACTION_EDIT) == ["n"]

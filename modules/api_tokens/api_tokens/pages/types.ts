@@ -17,6 +17,7 @@ export interface ApiToken {
 /** Props both pages receive for their create form. */
 export interface TokenFormProps {
   tokens: ApiToken[];
+  pagination: { limit: number; offset: number; has_more: boolean };
   scopes: string[];
   max_lifetime_days: number;
   expiry_presets: number[];

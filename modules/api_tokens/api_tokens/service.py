@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
+from simple_module_core.datetimes import utcnow as _utcnow
 from simple_module_core.user_directory import NullUserDirectory, UserDirectory
 from simple_module_db import ALL_TENANTS_OPTION, all_tenants
 from sqlalchemy import select
@@ -33,10 +34,6 @@ class TokenError(Exception):
         super().__init__(key)
         self.key = key
         self.params = params
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 class ApiTokenService:
@@ -98,17 +95,24 @@ class ApiTokenService:
 
     async def revoke_all_for_owner(self, owner_user_id: uuid.UUID) -> int:
         """Revoke every live personal token *owner_user_id* holds, in any tenant."""
-        tokens = [t for t in await self.list_for_owner(owner_user_id) if t.revoked_at is None]
+        revoked = 0
+        offset = 0
         now = _utcnow()
-        for token in tokens:
-            token.revoked_at = now
-        if tokens:
-            with all_tenants():
-                await self.db.flush()
-        return len(tokens)
+        while tokens := await self.list_for_owner(owner_user_id, offset=offset):
+            live = [t for t in tokens if t.revoked_at is None]
+            for token in live:
+                token.revoked_at = now
+            if live:
+                with all_tenants():
+                    await self.db.flush()
+            revoked += len(live)
+            offset += len(tokens)
+        return revoked
 
-    async def list_for_owner(self, owner_user_id: uuid.UUID) -> list[ApiToken]:
-        """Every personal token *owner_user_id* holds, in any tenant.
+    async def list_for_owner(
+        self, owner_user_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+    ) -> list[ApiToken]:
+        """A page of personal tokens *owner_user_id* holds, in any tenant.
 
         Across tenants on purpose: a token is its owner's, and one created
         while another organisation was active must still be listable — and
@@ -120,14 +124,21 @@ class ApiTokenService:
                 col(ApiToken.owner_user_id) == owner_user_id,
                 col(ApiToken.kind) == TokenKind.PERSONAL,
             )
-            .order_by(ApiToken.created_at.desc())
+            .order_by(ApiToken.created_at.desc(), ApiToken.id.desc())
+            .limit(limit)
+            .offset(offset)
             .execution_options(**{ALL_TENANTS_OPTION: True})
         )
         return list((await self.db.execute(stmt)).scalars())
 
-    async def list_tenant(self) -> list[ApiToken]:
-        """Every token in the active tenant (tenant-filtered, fail-closed)."""
-        stmt = select(ApiToken).order_by(ApiToken.created_at.desc())
+    async def list_tenant(self, *, limit: int = 100, offset: int = 0) -> list[ApiToken]:
+        """A page of tokens in the active tenant (tenant-filtered, fail-closed)."""
+        stmt = (
+            select(ApiToken)
+            .order_by(ApiToken.created_at.desc(), ApiToken.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
         return list((await self.db.execute(stmt)).scalars())
 
     async def get_owned(self, token_id: uuid.UUID, owner_user_id: uuid.UUID) -> ApiToken | None:

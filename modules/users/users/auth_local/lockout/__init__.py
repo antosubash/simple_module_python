@@ -29,10 +29,11 @@ exactly one can take the last slot.
 from __future__ import annotations
 
 import math
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from fastapi import Request
+from simple_module_core.datetimes import utcnow as _utcnow
 from simple_module_core.rate_limit import RateSpec
 from simple_module_db import independent_session
 from sqlalchemy import case, func, select, update
@@ -48,10 +49,6 @@ if TYPE_CHECKING:
 
 
 LOCKED_DETAIL = LOGIN_LOCKED_DETAIL
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 def login_attempt(request: Request, username: str) -> LoginAttempt:

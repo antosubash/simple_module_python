@@ -58,3 +58,15 @@ def test_reset_clears_a_block() -> None:
         lim.record_failure("1.2.3.4", now=float(i))
     lim.reset("1.2.3.4")
     assert lim.is_blocked("1.2.3.4", now=3.0) is False
+
+
+def test_expired_keys_are_collected_without_dropping_live_cooldowns():
+    lim = _limiter()
+    lim.record_failure("stale", now=0)
+    for i in range(3):
+        lim.record_failure("blocked", now=90 + i)
+    lim.record_failure("fresh", now=101)
+    assert "stale" not in lim._buckets
+    assert lim.is_blocked("blocked", now=101)
+    lim.is_blocked("visitor", now=700)
+    assert not lim._buckets

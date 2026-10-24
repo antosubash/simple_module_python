@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from simple_module_core.datetimes import aware as _aware
 from simple_module_core.resources import (
     ACTION_SHARE,
     ResourcePrincipal,
@@ -20,6 +21,7 @@ from simple_module_core.resources import (
 )
 from simple_module_core.user_directory import UserDirectory
 from simple_module_db.resource_policy import load_authorized
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -47,10 +49,6 @@ class SharingError(Exception):
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
-
-
-def _aware(value: datetime) -> datetime:
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 class SharingService:
@@ -112,8 +110,17 @@ class SharingService:
                 subject_id=grantee.id,
                 role=data.role,
                 granted_by=principal.user_id or "",
+                expires_at=data.expires_at,
             )
-            self.db.add(share)
+            try:
+                async with self.db.begin_nested():
+                    self.db.add(share)
+                    await self.db.flush()
+            except IntegrityError:
+                # Another grant may have won the unique-key race.
+                share = await self._existing(data.resource_type, resource_id, grantee.id)
+                if share is None:
+                    raise
         share.role = data.role
         share.expires_at = data.expires_at
         share.granted_by = principal.user_id or ""

@@ -11,6 +11,7 @@ import { api, csrfHeaders } from './api';
 import { CreatedTokenDialog } from './components/CreatedTokenDialog';
 import { CreateTokenDialog } from './components/CreateTokenDialog';
 import { RevokeTokenDialog } from './components/RevokeTokenDialog';
+import { TokenPagination } from './components/TokenPagination';
 import { TokenTable } from './components/TokenTable';
 import { useTokenActions } from './components/useTokenActions';
 import type { CreatePayload, TokenFormProps } from './types';
@@ -72,6 +73,7 @@ function Admin(props: Props) {
             onRevoke={actions.setPendingRevoke}
           />
         )}
+        <TokenPagination {...props.pagination} />
       </PageShell>
 
       <CreateTokenDialog

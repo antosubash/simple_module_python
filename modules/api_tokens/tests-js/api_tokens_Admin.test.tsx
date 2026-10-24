@@ -43,6 +43,7 @@ function setProps(over: Partial<ComponentProps<typeof Admin>> = {}) {
     tenant_required: false,
     max_lifetime_days: 365,
     expiry_presets: [7, 30],
+    pagination: { limit: 100, offset: 0, has_more: false },
     csrf_token: 'csrf-xyz',
     ...over,
   };

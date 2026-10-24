@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_db import TenantIsolationError
 from simple_module_hosting.csrf import RequiresCsrf
 from simple_module_hosting.i18n_deps import TranslatorDep
@@ -45,9 +45,13 @@ router = APIRouter(
 
 @router.get("/", response_model=list[TokenView])
 async def list_tokens(
-    user: SessionPrincipal, service: ApiTokenServiceDep, t: TranslatorDep
+    user: SessionPrincipal,
+    service: ApiTokenServiceDep,
+    t: TranslatorDep,
+    limit: int = Query(100, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[TokenView]:
-    tokens = await service.list_for_owner(user_uuid(user, t))
+    tokens = await service.list_for_owner(user_uuid(user, t), limit=limit, offset=offset)
     return [service.to_view(token) for token in tokens]
 
 

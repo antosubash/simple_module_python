@@ -30,6 +30,7 @@ function setProps(over: Partial<ComponentProps<typeof Index>> = {}) {
     scopes: ['files.read', 'files.write'],
     max_lifetime_days: 365,
     expiry_presets: [7, 30, 90],
+    pagination: { limit: 100, offset: 0, has_more: false },
     csrf_token: 'csrf-abc',
     ...over,
   };
@@ -100,7 +101,7 @@ describe('api_tokens Index', () => {
       scopes: ['files.read'],
       expires_in_days: 30,
     });
-    expect(reload).toHaveBeenCalledWith({ only: ['tokens'] });
+    expect(reload).toHaveBeenCalledWith({ only: ['tokens', 'pagination'] });
   });
 
   it('removes the secret once dismissed and never renders it after a reload', async () => {
@@ -168,7 +169,7 @@ describe('api_tokens Index', () => {
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith(keys.api_tokens.toasts.revoked));
     expect((await sent(fetchMock)).path).toBe('/api/api_tokens/tokens/t1/revoke');
-    expect(reload).toHaveBeenCalledWith({ only: ['tokens'] });
+    expect(reload).toHaveBeenCalledWith({ only: ['tokens', 'pagination'] });
   });
 
   it('toasts an error and does not reload when revoke fails', async () => {
@@ -200,5 +201,14 @@ describe('api_tokens Index', () => {
     fireEvent.click(await screen.findByRole('button', { name: ra.cancel }));
     await waitFor(() => expect(screen.queryByText(ra.description)).toBeNull());
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps revoke-all available when other pages may hold live tokens', () => {
+    setProps({
+      tokens: [token({ revoked_at: '2026-02-01T00:00:00Z' })],
+      pagination: { limit: 1, offset: 0, has_more: true },
+    });
+    render(<Index {...state.props} />);
+    expect(screen.getByRole('button', { name: ra.button })).toBeEnabled();
   });
 });
