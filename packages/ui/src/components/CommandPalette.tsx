@@ -9,7 +9,7 @@ import {
   CommandList,
 } from '@simple-module-py/ui/components/ui/command';
 import { Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isPostMenuItem, type MenuItem } from '../types';
 import { NavIcon } from './NavIcon';
 
@@ -32,19 +32,37 @@ interface CommandPaletteProps {
 export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
+  const returnFocus = useRef<HTMLElement | null>(null);
+
+  const changeOpen = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      returnFocus.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+    setOpen(nextOpen);
+  }, []);
+
+  useEffect(
+    () => () => {
+      returnFocus.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        changeOpen(!open);
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [open, changeOpen]);
 
   const go = (item: MenuItem) => {
+    // Navigation owns focus on the destination, even when this layout stays mounted.
+    returnFocus.current = null;
     setOpen(false);
     if (isPostMenuItem(item)) router.post(item.url);
     else router.visit(item.url);
@@ -75,7 +93,7 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => changeOpen(true)}
         className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <Search className="size-3.5" aria-hidden="true" />
@@ -85,7 +103,12 @@ export function CommandPalette({ navItems, accountItems }: CommandPaletteProps) 
 
       <CommandDialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={changeOpen}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (returnFocus.current?.isConnected) returnFocus.current.focus();
+          returnFocus.current = null;
+        }}
         title={t(keys.ui.command_palette.title)}
         description={t(keys.ui.command_palette.description)}
       >

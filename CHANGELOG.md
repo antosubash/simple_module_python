@@ -20,6 +20,9 @@ All notable changes to this project are documented in this file. The format is b
 - Settings: size module field rows by the editor card width, stack controls in narrow
   cards, and wrap long field/ENV identifiers to prevent collapsed inputs and horizontal
   overflow with two sidebars (#669).
+- Restore keyboard focus to the Search command palette's opener after dismissal, including Ctrl/Cmd+K toggles, without stealing focus after command navigation (#668).
+- Raise shared muted sidebar text contrast above 4.5:1 on both the default and
+  hover backgrounds in light and dark modes, preserving secondary text hierarchy (#670).
 
 ## [0.0.40] — 2026-10-24
 
