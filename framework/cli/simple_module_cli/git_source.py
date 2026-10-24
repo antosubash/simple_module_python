@@ -123,10 +123,13 @@ def _cmp(a: str, b: str) -> int:
 
 def _prerelease_key(version: str) -> tuple[int, int]:
     # shortcut: handles Python a/b/rc suffixes; use a full parser for other version schemes.
-    match = re.search(r"(a|b|rc)(\d*)$", version, re.IGNORECASE)
+    match = re.search(r"(alpha|beta|a|b|rc)(\d*)$", version, re.IGNORECASE)
     if match is None:
         return (3, 0)
-    return ({"a": 0, "b": 1, "rc": 2}[match[1].lower()], int(match[2] or "0"))
+    return (
+        {"a": 0, "alpha": 0, "b": 1, "beta": 1, "rc": 2}[match[1].lower()],
+        int(match[2] or "0"),
+    )
 
 
 _OPS = ("<=", ">=", "==", "!=", "<", ">")

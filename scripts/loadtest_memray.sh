@@ -20,6 +20,8 @@ import socket
 import sys
 
 with socket.socket() as sock:
+    # Match uvicorn: leftover TIME_WAIT from a previous run is not "occupied".
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("127.0.0.1", int(sys.argv[1])))
 PY
 command -v setsid > /dev/null

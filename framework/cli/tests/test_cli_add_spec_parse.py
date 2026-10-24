@@ -114,6 +114,8 @@ def test_prerelease_does_not_satisfy_final_floor(prerelease: str) -> None:
         (["v1.1.0rc1", "v1.1.0"], "v1.1.0"),
         (["v1.1.0rc2", "v1.1.0rc10"], "v1.1.0rc10"),
         (["v1.1.0a1", "v1.1.0b1", "v1.1.0rc1"], "v1.1.0rc1"),
+        (["v1.1.0alpha2", "v1.1.0beta1", "v1.1.0"], "v1.1.0"),
+        (["v1.1.0alpha2", "v1.1.0beta1"], "v1.1.0beta1"),
     ],
 )
 def test_pick_latest_tag_orders_prereleases(tags: list[str], expected: str) -> None:
