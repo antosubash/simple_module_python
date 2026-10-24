@@ -25,7 +25,7 @@ async def test_jwt_bearer_principal_is_bearer_kind_and_unscoped(monkeypatch, sch
     provider = KeycloakAuthProvider(state.settings, state=state)
     provider.jwks_cache = _Jwks()
 
-    async def upsert(request, claims) -> str:
+    async def upsert(request, claims, **kwargs) -> str:
         return "00000000-0000-0000-0000-0000000000aa"
 
     monkeypatch.setattr(provider, "_upsert_user_cache", upsert)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any
@@ -11,13 +12,14 @@ import jwt
 from jwt.algorithms import RSAAlgorithm
 
 logger = logging.getLogger(__name__)
+_MIN_REFETCH_INTERVAL_SECONDS = 30
 
 
 class JWKSCache:
     """Caches Keycloak's public signing keys and validates JWTs.
 
-    On validation failure with cached keys, refetches JWKS once before
-    rejecting -- this handles Keycloak key rotation gracefully.
+    Unknown keys trigger a refresh, with a per-cache cooldown and lock to
+    bound unauthenticated fetches while still discovering key rotation.
     """
 
     def __init__(
@@ -38,6 +40,8 @@ class JWKSCache:
         self._audience = audience
         self._keys: dict[str, Any] = {}
         self._fetched_at: float = 0
+        self._last_fetch_attempt: float | None = None
+        self._fetch_lock = asyncio.Lock()
 
     async def validate_jwt(self, token: str) -> dict[str, Any] | None:
         """Decode and validate a JWT. Returns claims dict or None."""
@@ -77,20 +81,22 @@ class JWKSCache:
 
     async def _get_key(self, kid: str) -> Any | None:
         if self._is_stale() or kid not in self._keys:
-            await self._fetch_keys()
-
-        if kid in self._keys:
-            return self._keys[kid]
-
-        await self._fetch_keys(force=True)
+            async with self._fetch_lock:
+                await self._fetch_keys()
         return self._keys.get(kid)
 
     def _is_stale(self) -> bool:
         return time.monotonic() - self._fetched_at > self._ttl
 
-    async def _fetch_keys(self, *, force: bool = False) -> None:
-        if not force and not self._is_stale():
+    async def _fetch_keys(self) -> None:
+        now = time.monotonic()
+        if (
+            self._last_fetch_attempt is not None
+            and now - self._last_fetch_attempt < _MIN_REFETCH_INTERVAL_SECONDS
+        ):
             return
+        # Failed attempts must also cool down; keep the last good keys on failure.
+        self._last_fetch_attempt = now
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(self._jwks_url, timeout=10)

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Request
 from simple_module_hosting.inertia_deps import InertiaDep
-from starlette.responses import RedirectResponse
+from simple_module_inertia.response import location
+from starlette.responses import RedirectResponse, Response
 
+from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
+
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["keycloak-views"])
 
-_SESSION_ID_TOKEN = "keycloak_id_token"
 _PAGE_LOGIN = "Keycloak/Login"
 _PAGE_LOGGED_OUT = "Keycloak/LoggedOut"
 _LOGGED_OUT_PATH = "/keycloak/logged-out"
@@ -44,12 +49,11 @@ async def logged_out_page(inertia: InertiaDep):
 
 
 @router.post("/logout")
-async def logout(request: Request):
+async def logout(request: Request) -> Response:
     from keycloak.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
-    id_token = request.session.get(_SESSION_ID_TOKEN)
-
+    refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
     request.session.clear()
 
     client = OIDCClient(
@@ -58,9 +62,20 @@ async def logout(request: Request):
         client_id=s.client_id,
         client_secret=s.client_secret,
     )
+    if refresh_token:
+        # Without an id_token_hint the browser redirect alone may only show a
+        # confirmation page, so end the SSO session back-channel first.
+        try:
+            await client.revoke_session(refresh_token)
+        except Exception:
+            # Never log the exception text: it may carry request details.
+            logger.warning("Keycloak back-channel logout failed")
     base_url = str(request.base_url).rstrip("/")
     logout_url = client.build_logout_url(
         post_logout_redirect_uri=f"{base_url}{_LOGGED_OUT_PATH}",
-        id_token_hint=id_token,
     )
+    if request.headers.get("X-Inertia"):
+        # An Inertia XHR cannot follow a redirect to the IdP (CSP connect-src);
+        # 409 + X-Inertia-Location makes the client do a full-page visit.
+        return location(logout_url)
     return RedirectResponse(logout_url, status_code=303)
