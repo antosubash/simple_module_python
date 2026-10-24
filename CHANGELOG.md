@@ -22,6 +22,9 @@ All notable changes to this project are documented in this file. The format is b
   across pages, and recover concurrent duplicate share grants without a 500 (#640).
 - Share UTC timestamp helpers across sharing, tenants, background tasks, API tokens
   and users (#640).
+- Background tasks: serialize eager outbox dispatches so chained deliveries do not
+  overlap on shared in-memory SQLite connections or trip another handler's commit
+  guard during tenant teardown (#655).
 - Users: publish deletion, disabling and new role assignments transactionally through
   the durable outbox (inline cleanup without background tasks). Deletion purges tenant
   memberships, shares to the user and direct permission grants; tenants left without

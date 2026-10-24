@@ -1,7 +1,9 @@
 """A real tenant deletion delivers every installed owner's durable teardown."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from api_tokens.models import ApiToken
 from audit_log.models import AuditEntry
 from background_tasks.outbox_claim import OutboxPolicy
@@ -9,10 +11,19 @@ from background_tasks.outbox_dispatch import dispatch
 from feature_flags.models import FeatureFlagOverride
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.models import StoredFile
+from sharing.module import SharingModule
 from simple_module_db import all_tenants, tenant_context
 from simple_module_db.stored_settings import SCOPE_TENANT, Setting
 from sqlmodel import select
 from tenants.service import TenantService
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["default-order", "sharing-after-users"])
+def _sharing_load_order(request, monkeypatch):
+    if request.param:
+        monkeypatch.setattr(
+            SharingModule, "meta", replace(SharingModule.meta, optional_depends_on=["Users"])
+        )
 
 
 async def test_tenants_delete_removes_owned_data_but_retains_audit(

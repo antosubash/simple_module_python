@@ -132,6 +132,8 @@ class OutboxTransport(_OutboxWriter):
         # Eager in-process deliveries still running (kept so they aren't
         # garbage-collected mid-flight, and so ``drain`` can await them).
         self._tasks: set[asyncio.Task[Any]] = set()
+        # Chained eager publishes must not share a StaticPool transaction (#655).
+        self._dispatch_lock = asyncio.Lock()
 
     def policy(self) -> OutboxPolicy:
         s = self._services.settings
@@ -155,8 +157,9 @@ class OutboxTransport(_OutboxWriter):
         id_strs = [str(i) for i in id_list]
         after_commit(db, [lambda: self._send(id_strs)])
 
-    def _dispatch(self, ids: list[uuid.UUID]) -> Any:
-        return dispatch(self._db_state.session_factory, self._bus, self.policy(), ids=ids)
+    async def _dispatch(self, ids: list[uuid.UUID]) -> Any:
+        async with self._dispatch_lock:
+            return await dispatch(self._db_state.session_factory, self._bus, self.policy(), ids=ids)
 
     def _dispatch_soon(self, ids: list[uuid.UUID]) -> None:
         """Eager delivery from a session's ``after_commit`` event.
