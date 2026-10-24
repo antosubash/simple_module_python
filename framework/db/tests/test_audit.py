@@ -227,7 +227,10 @@ async def test_soft_deleted_entity_produces_soft_deleted_record(
     assert rec.action == "soft_deleted"
     assert rec.entity_type == "SoftDeleteItem"
     assert rec.entity_id == str(item.id)
-    assert rec.changes == []
+    if change_title:
+        assert rec.changes == [{"field": "title", "old": "doomed", "new": "edited before deletion"}]
+    else:
+        assert rec.changes == []
     assert rec.user_id == "admin"
     assert rec.correlation_id == "req-sd"
 
