@@ -72,6 +72,28 @@ which would sign the entire user base out on deploy — or accepting it forever,
 which would leave the hole this key was added to close.
 """
 
+_SIGN_IN_SURVIVORS_ATTR = "sign_in_preserved_session_keys"
+
+
+def preserve_across_sign_in(app: Any, key: str) -> None:
+    """Keep ``key`` when sign-in replaces the session (it is not user-bound state).
+
+    For gate state that belongs to the browser rather than the principal, such
+    as the site-lock unlock marker: clearing it at sign-in would re-prompt the
+    visitor who just passed the gate. Call from ``register_settings``.
+    """
+    keys = getattr(app.state, _SIGN_IN_SURVIVORS_ATTR, None)
+    if keys is None:
+        keys = set()
+        setattr(app.state, _SIGN_IN_SURVIVORS_ATTR, keys)
+    keys.add(key)
+
+
+def sign_in_preserved_keys(app: Any) -> frozenset[str]:
+    """Keys this app registered through :func:`preserve_across_sign_in`."""
+    return frozenset(getattr(app.state, _SIGN_IN_SURVIVORS_ATTR, ()))
+
+
 SESSION_COOKIE_NAME = "session"
 """The session cookie's name (Starlette's default, pinned so the OpenAPI export can cite it)."""
 

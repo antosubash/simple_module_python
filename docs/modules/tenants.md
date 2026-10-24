@@ -102,6 +102,42 @@ The module ships no billing, but a billing module needs nothing more from it:
   `TenantService.delete_tenant` — subscribe to clean up per-tenant state),
   `MembershipAdded`, `MembershipRemoved`, `InvitationCreated`.
 
+### Usage metering
+
+`tenants.contracts` exports the runtime-checkable `UsageMeter` protocol and
+frozen value objects `UsageOutcome`, `UsageReservation`, and `UsageSummaryRow`.
+Consumers import these contracts instead of importing billing. A billing module
+installs its implementation during startup with `app.state.tenants.usage = provider`.
+`get_usage_meter(app)` returns that provider, or an `UnlimitedUsageMeter` when
+tenants state is absent. The tenants services container also defaults to this
+unlimited provider: every check and consumption is allowed with `limit=None`
+and `used=0`, reservations are issued, accounting operations do nothing, and
+summaries are empty. No billing storage or enforcement is included here.
+
+All protocol methods are async and use string tenant IDs and meter keys such as
+`"jobs.concurrent"`:
+
+- `check(tenant_id, meter, quantity=1)` inspects capacity without side effects.
+- `consume(tenant_id, meter, quantity=1, *, idempotency_key=None)` atomically
+  checks and increments usage. A rejection returns `allowed=False` and records
+  nothing; a successful outcome's `used` includes the consumed quantity.
+- `record(tenant_id, meter, quantity, *, idempotency_key=None)` unconditionally
+  records usage after the fact; `refund` has the same signature and returns usage.
+- `reserve(tenant_id, meter, quantity=1, *, ttl=None)` holds capacity and returns
+  a `UsageReservation`, or `None` if the limit would be exceeded. `ttl` is an
+  optional `timedelta`. Pass the reservation back to the same provider's
+  `commit(reservation)` to record it, or `release(reservation)` to return capacity.
+- `summary(tenant_id)` returns a sequence of `UsageSummaryRow` objects with
+  `meter`, `used`, `limit`, and `resets_at`.
+
+`UsageOutcome` carries `meter`, `allowed`, `limit`, `used`, `requested`, and
+`resets_at`. `remaining` is `None` for unlimited meters, otherwise
+`max(0, limit - used)`. Reset and expiry timestamps may be `None` when absent.
+Providers own persistence, period boundaries, idempotency and hold expiry.
+`UsageExceededError(outcome)` carries a denied outcome for implementers that
+choose to raise it and map it to HTTP 402; the protocol's `consume` returns a
+decision rather than requiring an exception.
+
 ## Models
 
 `tenants_tenant` (id = the value stored in every `tenant_id`, slug, name,

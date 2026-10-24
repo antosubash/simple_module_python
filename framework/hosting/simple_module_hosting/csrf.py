@@ -19,7 +19,9 @@ bind a token to.
 
 This lifts the design the pagebuilder module shipped first
 (``pagebuilder/security.py``) into the framework, so every module shares
-one header name and one token-discovery convention.
+one header name and one token-discovery convention. Sign-in clears the users
+session, rotating its token; principal changes that retain the session must
+call ``rotate_csrf_token`` before rendering the next page.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ import secrets
 
 from fastapi import HTTPException, Request
 
-__all__ = ["CSRF_HEADER", "RequiresCsrf", "get_csrf_token"]
+__all__ = ["CSRF_HEADER", "RequiresCsrf", "get_csrf_token", "rotate_csrf_token"]
 
 CSRF_HEADER = "X-CSRF-Token"
 _SESSION_KEY = "sm_csrf_token"
@@ -59,6 +61,17 @@ def get_csrf_token(request: Request) -> str:
         token = secrets.token_urlsafe(32)
         session[_SESSION_KEY] = token
     return token
+
+
+def rotate_csrf_token(request: Request) -> None:
+    """Discard the old token; the next page render mints a fresh one.
+
+    Use when changing the principal while deliberately retaining the session.
+    Clearing the whole session already discards the token. No session is a no-op.
+    """
+    session = request.scope.get("session")
+    if session is not None:
+        session.pop(_SESSION_KEY, None)
 
 
 class RequiresCsrf:

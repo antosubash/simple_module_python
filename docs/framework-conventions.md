@@ -493,6 +493,19 @@ Callers echo the token back as `X-CSRF-Token` on `POST`/`PUT`/`PATCH`/`DELETE`;
 safe methods are never checked, and apps without `SessionMiddleware` (bare
 test apps) are exempt.
 
+Signing in through users (password, OAuth, invite acceptance or demo) clears
+and rebuilds the signed-cookie session, preserving only the pending login
+redirect and any key a module registered with
+`simple_module_hosting.session.preserve_across_sign_in(app, key)` (browser-bound
+gate state such as the site-lock unlock marker). Locale lives in a separate cookie. This discards the pre-login CSRF
+token and cached principal; the next Inertia render supplies a fresh
+`csrfToken` shared prop. Clients must read that prop again after sign-in.
+Keycloak sign-in retains the session and calls
+`rotate_csrf_token(request)` to discard its token (switching the active tenant
+keeps the same principal and the same token). Use this public helper for
+other principal changes that intentionally keep the session; clearing the
+session already rotates the token. A stale `X-CSRF-Token` receives `403`.
+
 ### Error responses (HTML vs JSON)
 
 401, 403, 404, 419, 422, 429, 500 and 503 are content-negotiated. Requests

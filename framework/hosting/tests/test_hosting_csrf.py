@@ -96,3 +96,32 @@ class TestWithoutSessionMiddleware:
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
             assert (await c.get("/token")).json()["token"] == ""
             assert (await c.post("/things")).status_code == 200
+
+
+@pytest.mark.parametrize("with_session", [False, True])
+def test_rotation_discards_only_csrf_state(with_session):
+    from simple_module_hosting.csrf import rotate_csrf_token
+
+    scope = {"type": "http"}
+    if with_session:
+        scope["session"] = {"user_id": "keep"}
+    request = Request(scope)
+    old = get_csrf_token(request)
+    rotate_csrf_token(request)
+    rotate_csrf_token(request)  # safe even before another token has been minted
+    if with_session:
+        assert request.session == {"user_id": "keep"}
+        assert get_csrf_token(request) != old
+    else:
+        assert get_csrf_token(request) == ""
+
+
+def test_sign_in_survivors_registry():
+    from types import SimpleNamespace
+
+    from simple_module_hosting.session import preserve_across_sign_in, sign_in_preserved_keys
+
+    app = SimpleNamespace(state=SimpleNamespace())
+    assert sign_in_preserved_keys(app) == frozenset()
+    preserve_across_sign_in(app, "gate_marker")
+    assert sign_in_preserved_keys(app) == {"gate_marker"}

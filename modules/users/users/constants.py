@@ -2,6 +2,8 @@
 
 import uuid
 
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+
 ADMIN_ROLE_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 USER_ROLE_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
 
@@ -16,6 +18,10 @@ USER_ROLE_DESCRIPTION = "Standard user"
 # Permission identifiers
 PERM_USERS_MANAGE = "users.manage"
 PERM_USERS_SELF_PROFILE = "users.self.profile"
+
+# Only the pending redirect belongs to both the anonymous and signed-in session.
+# Locale is a separate cookie; cached principal, OAuth and CSRF state must go.
+LOGIN_SESSION_PRESERVED_KEYS = (SESSION_NEXT_KEY,)
 
 # Session keys
 SESSION_USER_ID_KEY = "user_id"

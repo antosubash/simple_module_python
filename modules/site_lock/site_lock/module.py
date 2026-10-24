@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
+from simple_module_hosting.session import preserve_across_sign_in
 
 from site_lock import constants as c
 
@@ -28,6 +29,8 @@ class SiteLockModule(ModuleBase):
         from site_lock.settings import SiteLockSettings
         from site_lock.state import SiteLockState
 
+        # Signing in replaces the session; the unlock marker must outlive it.
+        preserve_across_sign_in(app, c.SESSION_KEY)
         register_module_settings(
             app,
             c.MODULE_PACKAGE,

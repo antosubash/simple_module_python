@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
-from simple_module_hosting.session import stamp_session_expiry
+from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
 
 from users.constants import (
+    LOGIN_SESSION_PRESERVED_KEYS,
     OAUTH_REGISTRATION_REQUEST_FLAG,
-    SESSION_DEMO_KEY,
     SESSION_USER_ID_KEY,
     SESSION_VERSION_KEY,
 )
@@ -192,14 +192,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # explicitly. Password / accept-invite flows already set this in their
         # wrappers — re-assigning the same value here is a harmless no-op.
         if request is not None:
+            preserved = {
+                key: request.session[key]
+                for key in (*LOGIN_SESSION_PRESERVED_KEYS, *sign_in_preserved_keys(request.app))
+                if key in request.session
+            }
+            # Signed-cookie sessions have no server-side id: replace their state
+            # on sign-in, including CSRF, cached principal and remember/demo flags.
+            request.session.clear()
+            request.session.update(preserved)
             request.session[SESSION_USER_ID_KEY] = str(user.id)
-            # Whoever signs in here is not the shared demo account: the demo
-            # endpoint re-stamps this *after* calling the hook, and every other
-            # path must clear a marker the browser is still carrying from an
-            # earlier demo visit. Left behind, ``DemoReadOnlyMiddleware`` would
-            # treat this real session as read-only — and refuse the very
-            # ``/api/users/auth/login`` that created it.
-            request.session.pop(SESSION_DEMO_KEY, None)
             # Stamp the session with the revocation counter it was minted
             # under. ``UsersAuthProvider`` refuses any session whose stamp has
             # fallen behind the account's, which is what makes "sign out
