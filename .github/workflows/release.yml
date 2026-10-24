@@ -268,7 +268,9 @@ jobs:
           # Prefix with ./ so npm treats the arg as a file path, not a
           # GitHub `user/repo` shorthand (which it does for any bare
           # single-slash arg, even when the tarball exists on disk).
-          npm publish --access public "./${files[0]}"
+          tag=latest
+          if [[ "$version" == *-* ]]; then tag=next; fi
+          npm publish --access public "./${files[0]}" --tag "$tag"
 
   # Only after every publish succeeded do we commit the version bump + tag.
   finalize:

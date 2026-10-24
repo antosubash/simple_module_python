@@ -94,7 +94,7 @@ Every workspace package bumps in lockstep to the same version — `scripts/bump_
 | Bug fix, docs, internal refactor | **bump**: `patch` |
 | New feature, no breaking changes | **bump**: `minor` |
 | Breaking change (post-1.0) | **bump**: `major` |
-| Pre-release rehearsal or specific number | **version**: e.g. `0.2.0rc1` |
+| Pre-release rehearsal or specific number | **version**: e.g. `0.2.0rc1` (npm: `0.2.0-rc.1`, tag `next`) |
 
 The workflow derives the next version from the current `framework/core/pyproject.toml` version when you pick a bump level. If you set **version** explicitly, it overrides the bump choice. Version strings must match `^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|alpha|beta)[0-9]*)?$`.
 
@@ -141,7 +141,7 @@ gh release edit vX.Y.Z --notes-file - < notes.md
 
 Two version numbers exist on purpose:
 
-- **Package version** (`0.0.x`, lockstep). Every `simple_module_*` wheel and every `package.json` under `framework/`, `modules/` and `packages/` carries the same number, enforced by `scripts/bump_version.py` (`--check` verifies it). The root and `host/` `pyproject.toml` are not published and are not bumped.
+- **Package version** (`0.0.x`, lockstep). Every `simple_module_*` wheel and every `package.json` under `framework/`, `modules/` and `packages/` carries the same release, enforced by `scripts/bump_version.py` (`--check` verifies it). Python prereleases such as `0.2.0rc1` become npm SemVer `0.2.0-rc.1` (`a`/`b` become `alpha`/`beta`); npm prereleases publish under `next`, stable releases under `latest`. The root and `host/` `pyproject.toml` are not published and are not bumped.
 - **Framework API version** (`FRAMEWORK_API_VERSION` in `simple_module_core/versioning.py`, currently `1.0.0`). It versions the *module contract* (`ModuleBase`, the registries, the event bus, `create_module_base`, the model mixins), independent of release cadence. Modules declare a compatible range in `ModuleMeta.requires_framework` (PEP 440, e.g. `">=1.0,<2.0"`) and boot fails on a mismatch. Bump its major only for a breaking contract change.
 
 A test (`framework/cli/tests/test_template_requires_framework.py`) pins that the scaffolded module template's `requires_framework` contains `FRAMEWORK_API_VERSION`.

@@ -97,6 +97,27 @@ def test_npm_bump_updates_version_and_inter_pkg(tmp_pkg_dir: Path, writer) -> No
     assert data["peerDependencies"]["react"] == "^19.0.0"
 
 
+@pytest.mark.parametrize(
+    ("version", "npm_version"),
+    [
+        ("0.2.0rc1", "0.2.0-rc.1"),
+        ("0.2.0a2", "0.2.0-alpha.2"),
+        ("0.2.0-beta3", "0.2.0-beta.3"),
+        ("0.2.0.rc", "0.2.0-rc.0"),
+    ],
+)
+def test_prerelease_versions_and_pins_use_npm_semver(tmp_path, writer, version, npm_version):
+    root = _fake_repo(tmp_path, writer)
+    package = writer(root / "packages/ui/package.json", json.dumps(NPM_SAMPLE))
+    assert main([version, "--root", str(root)]) == 0
+    data = json.loads(package.read_text())
+    assert data["version"] == npm_version
+    assert data["dependencies"]["@simple-module-py/i18n"] == npm_version
+    assert data["devDependencies"]["@simple-module-py/tsconfig"] == npm_version
+    assert f'version = "{version}"' in (root / "framework/core/pyproject.toml").read_text()
+    assert main([version, "--root", str(root), "--check"]) == 0
+
+
 # -------- main() orchestration --------
 
 
