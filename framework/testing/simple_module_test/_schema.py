@@ -29,9 +29,17 @@ def _ensure_models_imported() -> list:
     return list(all_module_bases)
 
 
-@lru_cache(maxsize=1)
+_heads_cache: tuple[str, ...] | None = None
+
+
 def _alembic_heads() -> tuple[str, ...]:
-    """Cached head revisions — cannot change within a pytest run.
+    """Head revisions — cannot change within a pytest run, once found.
+
+    Only a non-empty result is cached. ``resolve_head_revisions`` returns ``()``
+    when ``alembic.ini`` is not found, which is what happens under a test that
+    points ``SM_PROJECT_ROOT`` at a tmp dir; caching that would leave every
+    later test in the worker unstamped while its app, resolving the real ini,
+    demands the heads ("Database is N revision(s) behind").
 
     Plural: each module's first migration sets its own ``branch_labels``, so
     the history has one head per module and a real upgraded database carries
@@ -39,9 +47,15 @@ def _alembic_heads() -> tuple[str, ...]:
     looking un-applied, which now reads as a behind-head schema and puts every
     test app behind the setup gate.
     """
+    global _heads_cache
     from simple_module_hosting.migrations import resolve_head_revisions
 
-    return resolve_head_revisions()
+    if _heads_cache is None:
+        heads = resolve_head_revisions()
+        if not heads:
+            return heads
+        _heads_cache = heads
+    return _heads_cache
 
 
 async def _create_all_tables(engine) -> None:

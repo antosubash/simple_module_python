@@ -94,6 +94,9 @@ class PermissionsModule(ModuleBase):
         from permissions.grants import subscribe
 
         subscribe(bus)
+        from permissions.role_invalidation import subscribe as subscribe_roles
+
+        self._refresh = subscribe_roles(bus, app)
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))
@@ -108,3 +111,10 @@ class PermissionsModule(ModuleBase):
             service = PermissionService(db, registry)
             await service.load_all_into_registry()
             await service.sync_admin_all_permissions()
+
+        if hasattr(self, "_refresh"):
+            self._refresh.start()
+
+    async def on_shutdown(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            await self._refresh.stop()

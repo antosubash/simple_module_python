@@ -25,6 +25,13 @@ class _SecretCfg(BaseSettings):
 class _Store:
     def __init__(self) -> None:
         self.rows: dict[str, tuple[str, str]] = {}
+        self.callbacks = []
+
+    def on_commit(self, callback) -> None:
+        self.callbacks.append(callback)
+
+    async def get_overrides(self, package):
+        return dict(self.rows)
 
     async def set_override(self, package, field, raw, value_type) -> None:
         self.rows[field] = (raw, value_type)

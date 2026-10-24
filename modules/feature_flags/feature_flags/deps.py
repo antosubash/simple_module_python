@@ -14,9 +14,10 @@ from feature_flags.service import FeatureFlagService
 
 
 async def get_feature_flag_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> FeatureFlagService:
-    return FeatureFlagService(db)
+    return FeatureFlagService(db, app=request.app)
 
 
 async def get_feature_flag_registry(request: Request) -> FeatureFlagRegistry:

@@ -71,6 +71,13 @@ class FeatureFlagRegistry:
         else:
             self._tenant_overrides.pop((name, tenant_id), None)
 
+    def replace_overrides(
+        self, system: dict[str, bool], tenants: dict[tuple[str, str], bool]
+    ) -> None:
+        """Replace a complete DB snapshot, removing overrides absent from it."""
+        self._system_overrides = dict(system)
+        self._tenant_overrides = dict(tenants)
+
     def tenant_override(self, name: str, tenant_id: str) -> bool | None:
         """Return the per-tenant override for ``(name, tenant_id)`` if set, else None."""
         return self._tenant_overrides.get((name, tenant_id))

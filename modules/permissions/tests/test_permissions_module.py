@@ -11,6 +11,7 @@ from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 from permissions.module import PermissionsModule
 from permissions.service import PermissionService
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_db.transaction import finalize_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.directory import UsersDirectory
 
@@ -126,6 +127,7 @@ class TestRoleService:
         role_id = await _seed_role(db_session)
         svc = PermissionService(db_session, registry, UsersDirectory())
         await svc.set_role_permissions(role_id, ["products.view"])
+        await finalize_session(db_session)
         assert "products.view" in registry.role_map.get("user", [])
 
     async def test_load_all_into_registry(
@@ -200,6 +202,7 @@ class TestUserService:
         await svc.set_role_permissions(role_id, ["products.view"])
         await svc.set_user_permissions(user_id, ["products.create"])
 
+        await finalize_session(db_session)
         effective = await svc.resolve_effective_permissions(user_id)
         assert effective == {"products.view", "products.create"}
 

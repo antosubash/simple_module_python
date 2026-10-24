@@ -12,11 +12,13 @@ Several modules cache a row that is cheap to read and expensive to read *often*:
 |---|---|---|---|
 | `User.session_version` | nearly every authenticated request | 30s | `users.session_version_cache` |
 | aggregate storage size | the files index | 30s | `file_storage` |
-| hydrated settings objects | every request that reads a setting | **never** | `settings` |
+| hydrated settings objects | every request that reads a setting | 30s periodic reload | `settings` |
+| role permission overlays | every permission check | 30s periodic reload | `permissions` |
+| feature flag overrides | every flag check | 30s periodic reload | `feature_flags` |
 
 The first two share one failure shape: the worker that performed the write dropped its own entry immediately and **every other worker kept serving the stale value until its own entry expired**. Acceptable for "sign out everywhere"; much less so for a password change made because an account is believed compromised ([#318](https://github.com/antosubash/simple_module_python/issues/318)).
 
-The third is worse, and is worth stating separately because it is easy to assume it has a TTL too. `settings.reload.apply_changes_and_reload` swaps the settings object on `app.state.<module>` in the worker that handled the save and announces it on the **in-process** `EventBus`. There is no TTL and no re-read, so every other worker serves the old configuration **until it is restarted** — an admin editing a setting on a four-worker deployment changes it for one worker in four. That needs a re-read rather than a `pop`, which is why it is not wired here (see *Still per-process*).
+Role overlays, module settings and feature-flag overrides now reload from the committed DB on invalidation (#621). The writing worker publishes only from `db.on_commit`; rollback changes no live state. Reloads replace snapshots so deleted overrides disappear too. Settings reloads emit a local `SettingsReloaded` event when values change. A serialized periodic reload every 30 seconds provides the fallback when a message is lost or broadcasting is disabled; failed reads keep the last snapshot and retry on the next interval.
 
 The obvious fix — publish on Redis pub/sub — was not reachable from any of those modules. Redis belongs to the `background_tasks` plugin, so `users` would have to open a second connection with its own settings that can disagree with it; `SM009` makes a `framework/*` → plugin import an error, so the framework cannot borrow the plugin's client either. Hence the split below.
 
@@ -107,4 +109,4 @@ A standalone worker never builds the FastAPI app, so it installs no transport: i
 
 ## Still per-process
 
-Only `users.session_version` is wired so far. `file_storage`'s aggregate cache and `settings`' hot-swap have the same staleness shape and the same fix available; they are separate changes because each needs its own decision about what "forget" means for it — a settings hot-swap in particular has to *re-read*, not just drop, so it needs more than a `pop`.
+`file_storage`'s aggregate cache remains per-process. Role overlays (`permissions.role_grants`), module settings (`settings.modules`, keyed by package) and feature flags (`feature_flags.overrides`, both scopes) subscribe through their modules' `register_invalidations` hooks. Their refresh tasks start and stop with module lifespan.

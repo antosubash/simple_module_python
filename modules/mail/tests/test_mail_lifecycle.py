@@ -9,6 +9,7 @@ from settings.service import SettingService
 from settings.store import SettingsStore
 from simple_module_core import mail as core_mail
 from simple_module_core.mail import ConsoleMailSender, resolve_mail_sender
+from simple_module_db.transaction import finalize_session
 
 
 async def test_startup_installs_the_configured_sender(app) -> None:
@@ -17,15 +18,18 @@ async def test_startup_installs_the_configured_sender(app) -> None:
     assert sender.include_body is True  # the explicit backend, not the fallback
 
 
-async def test_a_settings_reload_reinstalls_the_sender(app, db_session) -> None:
-    store = SettingsStore(SettingService(db_session))
-    await apply_changes_and_reload(
-        app,
-        app.state.sm.event_bus,
-        store,
-        package="mail",
-        changes={"backend": "smtp", "smtp_host": "smtp.test"},
-    )
+async def test_a_settings_reload_reinstalls_the_sender(app) -> None:
+    # Use the app's own session: the reload re-reads the committed DB state.
+    async with app.state.sm.db.session_factory() as db:
+        store = SettingsStore(SettingService(db))
+        await apply_changes_and_reload(
+            app,
+            app.state.sm.event_bus,
+            store,
+            package="mail",
+            changes={"backend": "smtp", "smtp_host": "smtp.test"},
+        )
+        await finalize_session(db)  # the reload runs after commit
     assert isinstance(core_mail.current_mail_sender(), SmtpMailSender)
 
 

@@ -29,6 +29,7 @@ from settings.constants import (
 )
 
 if TYPE_CHECKING:
+    from simple_module_core.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -78,6 +79,19 @@ class SettingsModule(ModuleBase):
 
         # Self-register so the UI lists our own settings alongside other modules.
         services.module_registry.register(MODULE_PACKAGE, SettingsSettings)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from settings.invalidation import subscribe
+
+        self._refresh = subscribe(bus, app)
+
+    async def on_startup(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            self._refresh.start()
+
+    async def on_shutdown(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            await self._refresh.stop()
 
     def register_exception_handlers(self, app: FastAPI) -> None:
         from settings.errors import install_exception_handlers

@@ -70,6 +70,8 @@ async def set_override(
     await service.set_override(name, body.enabled, registry=registry)
     view = service.build_view(registry, name)
     assert view is not None  # _ensure_registered already proved it exists
+    view.enabled = body.enabled
+    view.overridden = True
     return view
 
 
@@ -125,6 +127,8 @@ async def set_tenant_override(
     )
     view = service.build_view(registry, name, tenant_id=tenant_id)
     assert view is not None  # _ensure_registered already proved it exists
+    view.enabled = body.enabled
+    view.overridden = True
     return view
 
 

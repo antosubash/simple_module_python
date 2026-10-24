@@ -208,6 +208,14 @@ class PermissionRegistry:
         self._role_overlay[role] = set(permissions)
         self._invalidate()
 
+    def replace_role_overlays(self, overlays: dict[str, list[str]]) -> None:
+        """Replace the complete persisted snapshot, including removed grants."""
+        snapshot = {role: set(keys) for role, keys in overlays.items()}
+        if snapshot == self._role_overlay:  # periodic reloads: keep derived caches warm
+            return
+        self._role_overlay = snapshot
+        self._invalidate()
+
     @property
     def role_map(self) -> dict[str, list[str]]:
         """Merged role→permission mapping (``DEFAULT_ROLE_PERMISSIONS`` + module maps)."""
