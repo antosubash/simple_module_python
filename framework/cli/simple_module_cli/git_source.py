@@ -11,12 +11,14 @@ tomlkit alone (see test_no_framework_deps.py); clones are read with tomllib.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tomllib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 __all__ = [
     "FoundModule",
@@ -84,9 +86,8 @@ def _parse_git(raw: str) -> GitAddSpec:
                 )
     ref: str | None = None
     head, sep, tail = body.rpartition("@")
-    # `@` also appears in URL userinfo (ssh://git@host/...). A ref candidate
-    # never contains "/" and what precedes it must still be a full URL.
-    if sep and tail and "/" not in tail and "://" in head:
+    # Only an @ in the URL path separates a ref; userinfo belongs to the authority.
+    if sep and tail and "://" in head and "@" in urlsplit(body).path:
         body, ref = head, tail
     if "://" not in body:
         raise SpecError(f"cannot parse a git URL out of {raw!r}")
@@ -114,7 +115,18 @@ def _cmp(a: str, b: str) -> int:
     width = max(len(ta), len(tb))
     ta += (0,) * (width - len(ta))
     tb += (0,) * (width - len(tb))
-    return (ta > tb) - (ta < tb)
+    if ta != tb:
+        return (ta > tb) - (ta < tb)
+    pa, pb = _prerelease_key(a), _prerelease_key(b)
+    return (pa > pb) - (pa < pb)
+
+
+def _prerelease_key(version: str) -> tuple[int, int]:
+    # shortcut: handles Python a/b/rc suffixes; use a full parser for other version schemes.
+    match = re.search(r"(a|b|rc)(\d*)$", version, re.IGNORECASE)
+    if match is None:
+        return (3, 0)
+    return ({"a": 0, "b": 1, "rc": 2}[match[1].lower()], int(match[2] or "0"))
 
 
 _OPS = ("<=", ">=", "==", "!=", "<", ">")
