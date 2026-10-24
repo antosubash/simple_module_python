@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Any
 from weakref import WeakKeyDictionary
 
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
 from simple_module_db import model_registry as registry
@@ -73,6 +73,8 @@ def bind_engine_policy(engine: Engine, policy: Any) -> None:
 def engine_policy(session: Session) -> Any:
     """The policy bound to this session's engine, or ``None``."""
     bind = session.bind
+    if isinstance(bind, Connection):
+        bind = bind.engine
     return _engine_policy.get(bind) if isinstance(bind, Engine) else None
 
 

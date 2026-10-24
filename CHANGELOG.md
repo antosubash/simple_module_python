@@ -23,6 +23,8 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
+  policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
   clears it and keeps only the pending post-login redirect, so a CSRF token (or any other
   session state) issued before sign-in no longer survives it. Keycloak sign-in rotates the CSRF
