@@ -138,10 +138,11 @@ async def token_refresh(
         raise HTTPException(status_code=401, detail="Invalid refresh token") from None
 
     now = datetime.now(UTC)
+    digest = hash_token(str(token_uuid))
     stmt = (
         update(RefreshToken)
         .where(
-            col(RefreshToken.token) == hash_token(str(token_uuid)),
+            col(RefreshToken.token) == digest,
             col(RefreshToken.revoked_at).is_(None),
             col(RefreshToken.expires_at) > now,
         )
@@ -150,11 +151,7 @@ async def token_refresh(
     )
     rt = (await db.execute(stmt)).scalar_one_or_none()
     if rt is None:
-        reused = (
-            await db.execute(
-                select(RefreshToken).where(col(RefreshToken.token) == hash_token(str(token_uuid)))
-            )
-        ).scalar_one_or_none()
+        reused = await db.scalar(select(RefreshToken).where(col(RefreshToken.token) == digest))
         if reused is not None and reused.revoked_at is not None:
             await db.execute(
                 update(RefreshToken)

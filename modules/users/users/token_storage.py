@@ -21,8 +21,9 @@ async def revoke_access_token(db: AsyncSession, secret: str | None) -> None:
     """Delete the access-token row behind a presented cookie, so logging out
     ends that credential server-side instead of leaving it valid until expiry."""
     if secret:
-        digest = hash_token(secret)
-        await db.execute(delete(UserAccessToken).where(col(UserAccessToken.token) == digest))
+        await db.execute(
+            delete(UserAccessToken).where(col(UserAccessToken.token) == hash_token(secret))
+        )
 
 
 async def prune_tokens(db: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:

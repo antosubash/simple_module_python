@@ -19,25 +19,11 @@ if TYPE_CHECKING:
 async def purge_user_memberships(event: UserDeleted, ctx: DurableContext) -> None:
     user_id = str(event.user_id)
     # Use the same tenant locks as membership edits; lock in a stable order.
-    tenants = (
-        (
-            await ctx.db.execute(
-                select(Tenant)
-                .where(
-                    col(Tenant.id).in_(
-                        select(Membership.tenant_id).where(
-                            col(Membership.user_id) == user_id,
-                            Membership.role == MembershipRole.OWNER,
-                        )
-                    )
-                )
-                .order_by(Tenant.id)
-                .with_for_update()
-            )
-        )
-        .scalars()
-        .all()
+    owned = select(Membership.tenant_id).where(
+        col(Membership.user_id) == user_id, Membership.role == MembershipRole.OWNER
     )
+    stmt = select(Tenant).where(col(Tenant.id).in_(owned)).order_by(Tenant.id).with_for_update()
+    tenants = (await ctx.db.scalars(stmt)).all()
     await ctx.db.execute(delete(Membership).where(col(Membership.user_id) == user_id))
     for tenant in tenants:
         owner = await ctx.db.scalar(
