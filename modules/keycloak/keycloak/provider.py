@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
 from simple_module_core.tenancy import is_tenant_role
-from simple_module_db import is_valid_tenant_id
+from simple_module_db import independent_session, is_valid_tenant_id
 from sqlmodel import col
 from starlette.requests import Request
 
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _SESSION_USER_CTX_KEY = "user_ctx"
+_LAST_LOGIN_WRITE_INTERVAL = timedelta(minutes=5)
 
 
 class KeycloakAuthProvider:
@@ -83,7 +84,7 @@ class KeycloakAuthProvider:
         if claims is None:
             return None
 
-        cache_id = await self._upsert_user_cache(request, claims)
+        cache_id = await self._upsert_user_cache(request, claims, throttle_login=True)
         ctx = self._claims_to_user_context(claims, cache_id=cache_id)
         # Full rights, but a bearer credential: it may not manage API tokens
         # (``auth.contracts.tokens.AUTH_KIND_BEARER``). The browser sign-in
@@ -145,37 +146,54 @@ class KeycloakAuthProvider:
                 )
         return kept
 
-    async def _upsert_user_cache(self, request: Request, claims: dict) -> str:
+    async def _upsert_user_cache(
+        self, request: Request, claims: dict, *, throttle_login: bool = False
+    ) -> str:
         try:
-            from sqlalchemy import select
+            from sqlalchemy import or_, select, update
+            from sqlalchemy.exc import IntegrityError
 
             from keycloak.models import KeycloakUserCache
 
-            session_factory = request.app.state.sm.db.session_factory
             sub = claims["sub"]
-            async with session_factory() as db:
+            now = datetime.now(UTC)
+            async with independent_session(request.app) as db:
                 stmt = select(KeycloakUserCache).where(col(KeycloakUserCache.keycloak_sub) == sub)
                 row = (await db.execute(stmt)).scalar_one_or_none()
                 if row is None:
-                    import uuid as uuid_mod
-                    from datetime import datetime
+                    try:
+                        async with db.begin_nested():
+                            row = KeycloakUserCache(
+                                keycloak_sub=sub,
+                                email=claims.get("email", ""),
+                                full_name=claims.get("preferred_username"),
+                                last_login_at=now,
+                            )
+                            db.add(row)
+                            await db.flush()
+                    except IntegrityError:
+                        # Another request inserted this sub after our SELECT.
+                        row = (await db.execute(stmt)).scalar_one()
 
-                    row = KeycloakUserCache(
-                        id=uuid_mod.uuid4(),
-                        keycloak_sub=sub,
-                        email=claims.get("email", ""),
-                        full_name=claims.get("preferred_username"),
-                        last_login_at=datetime.now(UTC),
-                    )
-                    db.add(row)
-                    await db.flush()
+                row.email = claims.get("email", row.email)
+                row.full_name = claims.get("preferred_username", row.full_name)
+                if not throttle_login:
+                    row.last_login_at = now
                 else:
-                    from datetime import datetime
-
-                    row.email = claims.get("email", row.email)
-                    row.full_name = claims.get("preferred_username", row.full_name)
-                    row.last_login_at = datetime.now(UTC)
-                    await db.flush()
+                    cutoff = now - _LAST_LOGIN_WRITE_INTERVAL
+                    if row.last_login_at is None or row.last_login_at <= cutoff:
+                        # Recheck in SQL so concurrent bearer requests share one touch.
+                        await db.execute(
+                            update(KeycloakUserCache)
+                            .where(
+                                col(KeycloakUserCache.id) == row.id,
+                                or_(
+                                    col(KeycloakUserCache.last_login_at).is_(None),
+                                    col(KeycloakUserCache.last_login_at) <= cutoff,
+                                ),
+                            )
+                            .values(last_login_at=now)
+                        )
                 return str(row.id)
         except Exception:
             logger.exception(

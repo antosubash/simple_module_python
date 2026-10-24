@@ -17,6 +17,9 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
+- Keycloak user-cache inserts and profile updates now commit in an independent transaction,
+  preserving user IDs across logins and bearer requests. Concurrent first logins reuse the
+  winning cache row; bearer requests throttle last-login writes to once per five minutes (#618).
 
 ### Added
 - `tenants.contracts.UsageMeter`: an implementation-free usage-metering protocol next to
