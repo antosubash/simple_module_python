@@ -9,6 +9,7 @@ import { CheckCircle2, TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
+import { resetPasswordReason } from '../auth_local/resetPasswordError';
 import { api } from './api';
 import { signIn } from './signIn';
 
@@ -64,7 +65,8 @@ function ResetPassword({
           return;
         }
         if (res.status !== 200 && res.status !== 204) {
-          setError(res.detail ?? t(keys.users.reset_password.error_failed));
+          const reason = res.status === 400 ? resetPasswordReason(res.error) : null;
+          setError(reason ?? res.detail ?? t(keys.users.reset_password.error_failed));
           return;
         }
         if (await signedIn()) {

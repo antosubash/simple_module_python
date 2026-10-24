@@ -37,7 +37,8 @@
   --color-app-sidebar: oklch(0.16 0.02 250);
   --color-app-sidebar-hover: oklch(0.22 0.02 250);
   --color-app-sidebar-text: oklch(0.88 0.005 250);
-  --color-app-sidebar-text-muted: oklch(0.55 0.01 250);
+  /* 5.33:1 on the sidebar; 4.75:1 on account-row hover (#670). */
+  --color-app-sidebar-text-muted: oklch(0.62 0.01 250);
 
   /* Sidebar icon/text tones */
   --color-sidebar-icon: oklch(0.75 0.005 250);

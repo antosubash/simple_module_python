@@ -16,10 +16,11 @@ interface Props {
 /**
  * One settings row: label, control, trailing meta.
  *
- * Three columns rather than a stacked label block, because the trailing column
- * is what makes the screen readable at a glance — every row answers "where is
- * this value from?" in the same place, so the exceptions stand out instead of
- * having to be hunted for.
+ * Three columns when the editor card has room, because the trailing column is
+ * what makes the screen readable at a glance — every row answers "where is
+ * this value from?" in the same place, so the exceptions stand out. The tracks
+ * follow the card's width (container query), not the viewport: two sidebars
+ * can leave a narrow card on a wide screen, and the row stacks instead.
  */
 export function ModuleFieldRow({
   field,
@@ -37,15 +38,14 @@ export function ModuleFieldRow({
   const showDescription = field.description && field.type !== 'bool';
 
   return (
-    // `minmax(170px, auto)`: a fixed 170px track cannot grow, so a long field
-    // name overflowed it and printed straight over the input beside it.
-    <div className="grid gap-3 sm:grid-cols-[minmax(170px,auto)_1fr] lg:grid-cols-[minmax(170px,auto)_1fr_210px] lg:items-center">
+    // Query the editor card: two sidebars can leave little space at a wide viewport.
+    <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,140px)_minmax(180px,1fr)] @xl:grid-cols-[minmax(0,140px)_minmax(180px,1fr)_minmax(0,160px)] @xl:items-center">
       <div className="min-w-0">
-        <label htmlFor={id} className="block break-words text-[13px] font-medium">
+        <label htmlFor={id} className="block [overflow-wrap:anywhere] text-[13px] font-medium">
           {field.name}
         </label>
         {showDescription && (
-          <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
+          <p className="mt-0.5 [overflow-wrap:anywhere] text-[11.5px] leading-snug text-muted-foreground">
             {field.description}
           </p>
         )}
@@ -65,7 +65,7 @@ export function ModuleFieldRow({
         </fieldset>
       </div>
 
-      <div className="sm:col-span-2 lg:col-span-1 lg:justify-self-start">
+      <div className="min-w-0 [overflow-wrap:anywhere] @md:col-span-2 @xl:col-span-1 @xl:justify-self-start">
         <FieldSource field={field} onReset={onReset} />
       </div>
 
@@ -75,7 +75,7 @@ export function ModuleFieldRow({
       {error && (
         <p
           data-testid={`field-error-${field.name}`}
-          className="break-words text-xs text-destructive sm:col-span-1 sm:col-start-2 lg:col-span-2"
+          className="min-w-0 [overflow-wrap:anywhere] text-xs text-destructive @md:col-span-1 @md:col-start-2 @xl:col-span-2"
         >
           {error}
         </p>
