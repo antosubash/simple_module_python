@@ -9,6 +9,7 @@ import pytest
 from auth.contracts.schemas import UserContext
 from keycloak.provider import KeycloakAuthProvider
 from keycloak.settings import KeycloakSettings
+from keycloak.tokens import open_refresh_token, seal_refresh_token
 from starlette.requests import Request
 
 
@@ -34,18 +35,27 @@ def refresh_session(monkeypatch):
             }
         )
     )
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            keycloak=SimpleNamespace(settings=settings),
+            sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
+        )
+    )
     session = {
         "user_ctx": UserContext(
             id="user", email="old@example.com", name="Old", roles=["admin"]
         ).to_session_dict(),
-        "keycloak_refresh_token": "refresh-old",
+        "keycloak_refresh_token": seal_refresh_token(app, "refresh-old"),
         "keycloak_id_token": "id-old",
         "expires_at": 999,
         "gate": "unlocked",
     }
-    app = SimpleNamespace(state=SimpleNamespace(keycloak=SimpleNamespace(settings=settings)))
     request = Request({"type": "http", "headers": [], "session": session, "app": app})
     return provider, request
+
+
+def _plain(request):
+    return open_refresh_token(request.app, request.session["keycloak_refresh_token"])
 
 
 async def test_expired_session_refreshes_roles_and_deadline(refresh_session, httpx_mock):
@@ -62,7 +72,7 @@ async def test_expired_session_refreshes_roles_and_deadline(refresh_session, htt
     assert principal.auth_kind == "session"
     assert request.session["user_ctx"] == principal.to_session_dict()
     assert request.session["expires_at"] == 1300
-    assert request.session["keycloak_refresh_token"] == "refresh-new"
+    assert _plain(request) == "refresh-new"
     assert "keycloak_id_token" not in request.session
     sent = httpx_mock.get_request()
     assert parse_qs(sent.content.decode()) == {
@@ -80,12 +90,10 @@ async def test_expired_session_refreshes_roles_and_deadline(refresh_session, htt
     assert len(httpx_mock.get_requests()) == 1
 
 
-@pytest.mark.parametrize("failure", ["invalid_grant", "network", "invalid_token", "expired_token"])
+@pytest.mark.parametrize("failure", ["invalid_grant", "invalid_token", "expired_token"])
 async def test_failed_refresh_clears_auth(refresh_session, httpx_mock, failure):
     provider, request = refresh_session
-    if failure == "network":
-        httpx_mock.add_exception(httpx.ConnectError("offline"))
-    elif failure == "invalid_grant":
+    if failure == "invalid_grant":
         httpx_mock.add_response(status_code=400, json={"error": "invalid_grant"})
     else:
         httpx_mock.add_response(json={"access_token": "access-new", "refresh_token": "refresh-new"})
@@ -109,7 +117,7 @@ async def test_refresh_keeps_token_when_not_rotated(refresh_session, httpx_mock)
     provider, request = refresh_session
     httpx_mock.add_response(json={"access_token": "access-new"})
     assert await provider.resolve_user(request) is not None
-    assert request.session["keycloak_refresh_token"] == "refresh-old"
+    assert _plain(request) == "refresh-old"
 
 
 async def test_bearer_does_not_refresh_browser_session(refresh_session, monkeypatch):
@@ -117,5 +125,36 @@ async def test_bearer_does_not_refresh_browser_session(refresh_session, monkeypa
     request.scope["headers"] = [(b"authorization", b"Bearer access-bearer")]
     monkeypatch.setattr(provider, "_resolve_bearer", AsyncMock(return_value=None))
     assert await provider.resolve_user(request) is None
-    assert request.session["keycloak_refresh_token"] == "refresh-old"
+    assert _plain(request) == "refresh-old"
     assert request.session["expires_at"] == 999
+
+
+@pytest.mark.parametrize("failure", ["network", "server_error"])
+async def test_transient_refresh_failure_keeps_session_for_retry(
+    refresh_session, httpx_mock, failure
+):
+    provider, request = refresh_session
+    if failure == "network":
+        httpx_mock.add_exception(httpx.ConnectError("offline"))
+    else:
+        httpx_mock.add_response(status_code=503)
+    sealed = request.session["keycloak_refresh_token"]
+    assert await provider.resolve_user(request) is None
+    assert request.session["keycloak_refresh_token"] == sealed
+    assert "user_ctx" in request.session
+
+
+async def test_refresh_token_is_not_stored_in_plaintext(refresh_session):
+    _, request = refresh_session
+    assert "refresh-old" not in request.session["keycloak_refresh_token"]
+
+
+@pytest.mark.parametrize("tamper", ["garbage", "other-key"])
+async def test_undecryptable_refresh_token_requires_sign_in(refresh_session, tamper):
+    provider, request = refresh_session
+    if tamper == "garbage":
+        request.session["keycloak_refresh_token"] = "not-a-fernet-token"
+    else:
+        request.app.state.sm.settings.secret_key = "rotated-secret"
+    assert await provider.resolve_user(request) is None
+    assert request.session == {"gate": "unlocked"}

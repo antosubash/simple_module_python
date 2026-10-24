@@ -84,6 +84,17 @@ class OIDCClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def revoke_session(self, refresh_token: str) -> None:
+        """End the SSO session back-channel (RP-initiated logout without a browser)."""
+        data = {
+            "client_id": self._client_id,
+            "client_secret": self._client_secret,
+            "refresh_token": refresh_token,
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(f"{self._base}/logout", data=data, timeout=5)
+            resp.raise_for_status()
+
     def build_logout_url(
         self,
         post_logout_redirect_uri: str,

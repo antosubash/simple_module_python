@@ -43,6 +43,10 @@ All notable changes to this project are documented in this file. The format is b
   at the next access-token expiry; failed refreshes or expired sessions without a refresh
   token require sign-in. The ID token is no longer stored in the signed cookie to keep
   it below browser size limits; logout uses `client_id` instead of `id_token_hint`.
+  Sessions created before this release carry no refresh token, so every Keycloak browser
+  session signs in once after upgrading. Realms with "Revoke Refresh Token" enabled should
+  allow a refresh-token reuse count of at least 1, or parallel requests at expiry can sign a
+  user out.
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
   clears it and keeps only the pending post-login redirect, so a CSRF token (or any other
   session state) issued before sign-in no longer survives it. Keycloak sign-in rotates the CSRF

@@ -14,6 +14,7 @@ from keycloak.endpoints import api
 from keycloak.jwks import JWKSCache
 from keycloak.provider import KeycloakAuthProvider
 from keycloak.settings import KeycloakSettings
+from keycloak.tokens import open_refresh_token
 from simple_module_hosting.csrf import get_csrf_token
 from simple_module_hosting.session import preserve_across_sign_in
 from starlette.requests import Request
@@ -69,6 +70,7 @@ def callback(monkeypatch):
                 jwks_cache=SimpleNamespace(validate_jwt=validate),
             ),
             auth=SimpleNamespace(auth_provider=provider),
+            sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
         )
     )
     preserve_across_sign_in(app, "gate")
@@ -226,5 +228,9 @@ async def test_keycloak_realistic_session_cookie_fits(callback, monkeypatch):
         base_url="https://app.test",
     ) as client:
         response = await client.get("/")
-    assert request.session["keycloak_refresh_token"] == tokens["refresh_token"]
+    assert tokens["refresh_token"] not in request.session["keycloak_refresh_token"]
+    assert (
+        open_refresh_token(request.app, request.session["keycloak_refresh_token"])
+        == tokens["refresh_token"]
+    )
     assert len(response.headers["set-cookie"].encode()) < 4096

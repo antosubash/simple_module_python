@@ -13,6 +13,8 @@ from simple_module_hosting.csrf import rotate_csrf_token
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
 
+from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, seal_refresh_token
+
 if TYPE_CHECKING:
     from keycloak.settings import KeycloakSettings
 
@@ -22,7 +24,6 @@ router = APIRouter(prefix="/auth", tags=["keycloak-auth"])
 _SESSION_OIDC_STATE = "keycloak_oidc_state"
 _SESSION_OIDC_NONCE = "keycloak_oidc_nonce"
 _SESSION_USER_CTX = "user_ctx"
-_SESSION_REFRESH_TOKEN = "keycloak_refresh_token"
 
 
 def _get_settings(request: Request) -> KeycloakSettings:
@@ -121,6 +122,8 @@ async def oidc_callback(request: Request):
     request.session[_SESSION_USER_CTX] = user_ctx.to_session_dict()
     # Keep the signed cookie below browser limits: validate, but don't store, the ID token.
     if tokens.get("refresh_token"):
-        request.session[_SESSION_REFRESH_TOKEN] = tokens["refresh_token"]
+        request.session[SESSION_REFRESH_TOKEN_KEY] = seal_refresh_token(
+            request.app, tokens["refresh_token"]
+        )
     request.session[SESSION_EXPIRES_AT_KEY] = expires_at
     return RedirectResponse(next_url, status_code=303)

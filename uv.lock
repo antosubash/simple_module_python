@@ -3399,6 +3399,7 @@ name = "simple-module-keycloak"
 version = "0.0.39"
 source = { editable = "modules/keycloak" }
 dependencies = [
+    { name = "cryptography" },
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "simple-module-auth" },
@@ -3410,6 +3411,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=42" },
     { name = "httpx", specifier = ">=0.27,<0.29" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8,<3" },
     { name = "simple-module-auth", editable = "modules/auth" },
