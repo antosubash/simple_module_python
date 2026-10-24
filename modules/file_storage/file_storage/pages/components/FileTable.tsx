@@ -141,7 +141,9 @@ export function FileTable({
                   size="sm"
                   className="h-auto p-0 text-primary-700 max-lg:min-h-11"
                 >
-                  <a href={ROUTES.apiDownload(file.id)}>{t(keys.file_storage.actions.download)}</a>
+                  <a href={ROUTES.apiDownload(file.id)} data-native-link>
+                    {t(keys.file_storage.actions.download)}
+                  </a>
                 </Button>
                 {canPublish && (
                   <Button

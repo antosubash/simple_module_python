@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@inertiajs/react', () => ({
@@ -118,5 +118,64 @@ describe('SidebarLayout mobile drawer', () => {
     expect(document.activeElement).toBe(first);
     fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(last);
+  });
+});
+
+describe('SidebarLayout closed drawer accessibility (#638)', () => {
+  it('makes a closed phone drawer inert and hides it from assistive technology', () => {
+    render(
+      <AdminLayout>
+        <p>page</p>
+      </AdminLayout>,
+    );
+    const drawer = document.querySelector('aside');
+    expect(drawer).toHaveAttribute('inert');
+    expect(drawer).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('link', { name: 'One' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'open' }));
+    expect(drawer).not.toHaveAttribute('inert');
+    expect(drawer).not.toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('link', { name: 'One' })).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(drawer).toHaveAttribute('inert');
+    expect(drawer).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('keeps the desktop sidebar accessible and updates a closed drawer on resize', () => {
+    const listeners = new Set<(event: MediaQueryListEvent) => void>();
+    const media = {
+      matches: true,
+      addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
+        listeners.add(listener),
+      removeEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
+        listeners.delete(listener),
+    };
+    vi.stubGlobal('matchMedia', () => media);
+    try {
+      render(
+        <AdminLayout>
+          <p>page</p>
+        </AdminLayout>,
+      );
+      const drawer = document.querySelector('aside');
+      expect(drawer).not.toHaveAttribute('inert');
+      expect(screen.getByRole('link', { name: 'One' })).toBeInTheDocument();
+      act(() => {
+        media.matches = false;
+        for (const listener of listeners) listener({ matches: false } as MediaQueryListEvent);
+      });
+      expect(drawer).toHaveAttribute('inert');
+      expect(drawer).toHaveAttribute('aria-hidden', 'true');
+      act(() => {
+        media.matches = true;
+        for (const listener of listeners) listener({ matches: true } as MediaQueryListEvent);
+      });
+      expect(drawer).not.toHaveAttribute('inert');
+      expect(screen.getByRole('link', { name: 'One' })).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
