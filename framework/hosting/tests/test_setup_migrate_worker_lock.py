@@ -30,7 +30,7 @@ def test_independent_workers_serialize_migrations(monkeypatch, tmp_path):
         with guard:
             active += 1
             maximum = max(maximum, active)
-        time.sleep(0.1)
+        time.sleep(0.1)  # intentional-sleep: hold the lock so an overlap would show
         with guard:
             active -= 1
 
