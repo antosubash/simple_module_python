@@ -105,3 +105,48 @@ def test_development_keeps_a_real_root_directory(tmp_path) -> None:
 def test_read_manifest_is_cached_per_path(tmp_path) -> None:
     path = _manifest(tmp_path, {"a": {"file": "a.js"}})
     assert read_manifest(path) is read_manifest(path)
+
+
+def test_production_includes_static_import_css_once_in_manifest_order(tmp_path) -> None:
+    manifest = _manifest(
+        tmp_path,
+        {
+            "main.tsx": {
+                "file": "assets/main.js",
+                "css": ["assets/main.css"],
+                "imports": ["_left.js", "_right.js"],
+                "dynamicImports": ["lazy.tsx"],
+            },
+            "_left.js": {
+                "file": "assets/left.js",
+                "css": ["assets/left.css"],
+                "imports": ["_shared.js"],
+            },
+            "_right.js": {
+                "file": "assets/right.js",
+                "css": ["assets/shared.css", "assets/right.css"],
+                "imports": ["_shared.js"],
+            },
+            "_shared.js": {
+                "file": "assets/shared.js",
+                "css": ["assets/shared.css"],
+                "imports": ["main.tsx"],
+            },
+            "lazy.tsx": {"file": "assets/lazy.js", "css": ["assets/lazy.css"]},
+        },
+    )
+    cfg = _cfg(
+        tmp_path,
+        environment="production",
+        manifest_json_path=manifest,
+        entrypoint_filename="main.tsx",
+        assets_prefix="static/dist",
+    )
+    files = entry_assets(cfg)
+    assert files.js == "/static/dist/assets/main.js"
+    assert files.css == [
+        "/static/dist/assets/main.css",
+        "/static/dist/assets/left.css",
+        "/static/dist/assets/shared.css",
+        "/static/dist/assets/right.css",
+    ]

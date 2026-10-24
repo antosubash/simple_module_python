@@ -21,6 +21,8 @@ All notable changes to this project are documented in this file. The format is b
   an owner are suspended. Existing roles no longer emit `RoleAssigned` (#627).
   `UserDeleted` now lives in `simple_module_core.user_events` (still re-exported from
   `users.contracts.events`) so modules can subscribe without depending on `users`.
+- Hosting: derive the production Inertia asset version from the Vite manifest hash so
+  stale tabs reload after deployment; include CSS from statically imported chunks (#633).
 - Database: discard `on_commit` callbacks registered inside a rolled-back savepoint,
   including released child savepoints, while preserving callbacks from surviving work (#631).
 - Role-permission edits, module settings updates/clears and system/tenant feature-flag
