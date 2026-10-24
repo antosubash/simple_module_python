@@ -27,6 +27,11 @@ All notable changes to this project are documented in this file. The format is b
   session (#615).
 
 ### Security
+- Users: require an OIDC UserInfo `email_verified: true` claim before linking by
+  email or marking a new account verified. Other OAuth providers no longer link
+  by email or automatically verify new accounts; existing subject links still
+  sign in (#622). **Behaviour change:** providers without email verification
+  proof cannot sign in to an existing account by matching its email alone.
 - DB: sessions bound to a SQLAlchemy `Connection` now inherit its engine's tenant
   policy and audit configuration, preserving strict tenant isolation and audit callbacks (#630).
 - Sign-in now rotates the session: users' `on_after_login` (password, OAuth, accept-invite)
