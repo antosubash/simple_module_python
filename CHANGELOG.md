@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.41] — 2026-10-25
+
 ### Fixed
 - Users: show password policy reasons on the reset screen instead of suggesting
   that a valid link expired; allow retry with the same token (#667).
@@ -1313,7 +1315,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...HEAD
+[0.0.41]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...v0.0.41
 [0.0.40]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...v0.0.40
 [0.0.39]: https://github.com/antosubash/simple_module_python/compare/v0.0.38...v0.0.39
 [0.0.38]: https://github.com/antosubash/simple_module_python/compare/v0.0.37...v0.0.38

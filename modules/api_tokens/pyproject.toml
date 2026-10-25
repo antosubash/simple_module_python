@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_api_tokens"
-version = "0.0.40"
+version = "0.0.41"
 description = "Personal access tokens and service API keys for simple_module"
 readme = "README.md"
 license = "MIT"
@@ -21,12 +21,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.40",
-    "simple_module_db==0.0.40",
-    "simple_module_hosting==0.0.40",
-    "simple_module_inertia==0.0.40",
-    "simple_module_auth==0.0.40",
-    "simple_module_settings==0.0.40",
+    "simple_module_core==0.0.41",
+    "simple_module_db==0.0.41",
+    "simple_module_hosting==0.0.41",
+    "simple_module_inertia==0.0.41",
+    "simple_module_auth==0.0.41",
+    "simple_module_settings==0.0.41",
     # Owners are read through the app's user directory, so ``users`` is not
     # required. ``GUID`` (the owner column's type, as ``users_user.id`` has it)
     # comes from here.

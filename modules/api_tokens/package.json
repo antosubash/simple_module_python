@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/api-tokens",
-  "version": "0.0.40",
+  "version": "0.0.41",
   "private": true,
   "description": "Frontend assets for the ApiTokens module",
   "peerDependencies": {

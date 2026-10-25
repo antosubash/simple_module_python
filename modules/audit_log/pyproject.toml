@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_audit_log"
-version = "0.0.40"
+version = "0.0.41"
 description = "Automatic field-level audit trail for all SQLModel entities"
 readme = "README.md"
 license = "MIT"
@@ -21,9 +21,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.40",
-    "simple_module_db==0.0.40",
-    "simple_module_hosting==0.0.40",
+    "simple_module_core==0.0.41",
+    "simple_module_db==0.0.41",
+    "simple_module_hosting==0.0.41",
 ]
 
 [project.entry-points.simple_module]
