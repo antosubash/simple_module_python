@@ -15,6 +15,7 @@ from collections.abc import Generator
 import pytest
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage_uploads_helpers import PART
+from file_storage_worker_helpers import worker_db as worker_db
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 

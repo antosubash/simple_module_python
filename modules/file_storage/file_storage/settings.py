@@ -123,6 +123,8 @@ class FileStorageSettings(DbBackedSettings):
     multipart_part_size_bytes: int = Field(
         default=constants.DEFAULT_PART_SIZE_BYTES,
         ge=constants.MIN_PART_SIZE_BYTES,
+        # S3 refuses parts over 5 GiB; a larger value would fail every multipart put.
+        le=constants.MAX_S3_PART_SIZE_BYTES,
         description="Preferred part size; grown automatically to stay under 10,000 parts.",
     )
     upload_session_ttl_seconds: int = Field(

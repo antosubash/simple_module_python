@@ -19,6 +19,13 @@ All notable changes to this project are documented in this file. The format is b
   including delegated share management: a role implying `ACTION_SHARE` may list,
   grant and revoke shares on that resource. Default view/edit roles remain
   unchanged; no migration (#707).
+- Tenant-scoped sync file worker contracts (`store_path`, `open_local`, and
+  `presigned_url`), reusing worker settings/pools, upload validation and hashing,
+  with commit compensation and `FileUploaded` publication after commit (#708).
+- **Behaviour change:** S3 server-side uploads (including browser single-request
+  ones) above `direct_upload_threshold_bytes` now use bounded multipart, including
+  unknown-length streams, with size/part bounds and abort on failure; the S3
+  credentials need `s3:AbortMultipartUpload` (#708).
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).
@@ -43,6 +50,11 @@ All notable changes to this project are documented in this file. The format is b
   most 32 characters now fail at registration (#707).
 
 ### Fixed
+- `file_storage_stored_file.size_bytes` is now `BIGINT` (migration `f5b1c3e8a207`,
+  which also gives `file_storage` its own branch label): on PostgreSQL it was a
+  32-bit `INTEGER`, so a file of 2 GiB or more failed on insert (#708).
+- A cancelled one-shot upload's metadata write now also deletes the uploaded
+  object (#708).
 - **Behaviour change:** bare UI borders now use the theme border colour in light
   and dark themes, including pseudo-elements. Use `border-current` to retain the
   previous foreground-coloured look; explicit border colour utilities still win (#714).

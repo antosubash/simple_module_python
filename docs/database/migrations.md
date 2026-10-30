@@ -21,7 +21,7 @@ The history is **not** a single linear chain. It has several roots and several h
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
-| `b31a70971001` | background_tasks (resource references) | `api_tokens`, `background_tasks`, `users` |
+| `f5b1c3e8a207` | file_storage (`size_bytes` BIGINT) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
 | `a7c2e91d4b58` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
 | `d263ea727663` | framework (`sm_lease`) | `leases` |
@@ -34,11 +34,11 @@ A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **
 
 ### Known mislabels
 
-The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases` and `users` (added by `a625f0b7c912`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
+The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases`, `users` (added by `a625f0b7c912`) and `file_storage` (added by `f5b1c3e8a207`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
 
 - `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.
-- `users`, `file_storage`, `background_tasks`, `settings`, `permissions` and `feature_flags` have no label of their own.
+- `settings`, `permissions` and `feature_flags` have no label of their own. `users` and `file_storage` gained labels late (`a625f0b7c912`, `f5b1c3e8a207`), so their earlier revisions stay unlabelled and report `api_tokens`.
 
 Guidance: give an unlabelled module a `branch_labels` on its **next** revision. Adding a label to an existing revision file is technically possible, because `alembic_version` stores revision ids and never labels, but it also relabels every descendant and changes what `<label>@head` resolves to, so treat it as a deliberate, reviewed change rather than a cleanup.
 

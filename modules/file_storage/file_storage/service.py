@@ -115,7 +115,8 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
             key,
             _hashing_stream(),
             content_type=content_type,
-            size=0,  # unknown until stream is drained; backends that need it can spool
+            # 0 means unknown: the backend spools, or streams multipart parts.
+            size=upload.size or 0,
         )
 
         # Compensation: on DB failure, drop the just-uploaded object. A
@@ -139,10 +140,10 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
                 self.db.add(row)
                 await self.db.flush()
                 await self.db.refresh(row)
-        except Exception:
+        except BaseException:
             try:
                 await self.backend.delete(key)
-            except Exception:
+            except BaseException:
                 _logger.exception(
                     "file_storage.cleanup_failed key=%s — original upload error follows",
                     key,

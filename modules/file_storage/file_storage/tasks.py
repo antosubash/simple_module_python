@@ -44,13 +44,9 @@ _REAP_BATCH = 500
 
 
 def _backend_and_settings():
-    from background_tasks import settings_for
+    from file_storage.worker_support import backend_and_settings
 
-    from file_storage.backends import build_backend
-    from file_storage.settings import FileStorageSettings
-
-    settings = settings_for(FileStorageSettings, constants.MODULE_NAME)
-    return build_backend(settings), settings
+    return backend_and_settings()
 
 
 @shared_task(name=constants.Task.REAP_STALE_UPLOADS)
@@ -122,7 +118,9 @@ async def _abort_all(backend, targets: list[tuple[str, str]]) -> set[tuple[str, 
     return failed
 
 
-# Keys this module mints: ``<tenant>/<yyyy>/<mm>/<dd>/<32 hex><ext>``.
+# Keys this module mints: ``<tenant>/<yyyy>/<mm>/<dd>/<32 hex><ext>``. A server-side
+# put that went multipart and died is an orphan like a browser one: no real put
+# runs for the 2 x session-TTL age the reaper waits, so it is safe to abort.
 _OWN_KEY = constants.OWN_KEY
 
 
