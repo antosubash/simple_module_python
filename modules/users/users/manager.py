@@ -21,12 +21,12 @@ from users.constants import (
     SESSION_VERSION_KEY,
 )
 from users.contracts.events import UserRegistered
-from users.credentials import revoke_all_credentials
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
 from users.models import User
 from users.registration import attach_default_role
+from users.reset_revocation import ResetRevocationMixin
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
+class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     """Customizes password validation, token secrets, and lifecycle emails."""
 
     # Secrets and lifetimes pulled from settings at construction time so
@@ -170,15 +170,15 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         await self.mailer.send_password_reset(user.email, token)
 
     async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
-        """Revoke credentials and lift lockout after mailbox proof (GH #530, #686).
+        """Lift a login lockout (GH #530): proving control of the mailbox is the way out.
+
+        Credentials were already revoked in the reset's own commit (#686, see
+        ``ResetRevocationMixin``).
 
         Through ``user_db.update`` — an ORM write — so the audit log records the
         unlock, as it does an admin's. The per-IP throttle keys are left alone:
         they are keyed by source address, which this request does not know.
         """
-        await revoke_all_credentials(
-            self.user_db.session, user, request.app if request is not None else None
-        )
         if user.locked_until is None and not user.failed_login_count:
             return
         await self.user_db.update(

@@ -27,6 +27,13 @@ async def revoke_all_credentials(db: AsyncSession, user: User, app: FastAPI | No
     it over the invalidation bus at once where a transport is installed,
     otherwise when their own entry expires (GH #318).
     """
+    await revoke_credential_rows(db, user)
+    user_id = user.id
+    register_on_commit(db, lambda: announce_revocation(app, user_id))
+
+
+async def revoke_credential_rows(db: AsyncSession, user: User) -> None:
+    """Bump the session counter and revoke or delete every bearer credential."""
     await bump_session_version(db, user)
     await db.execute(
         update(RefreshToken)
@@ -35,10 +42,11 @@ async def revoke_all_credentials(db: AsyncSession, user: User, app: FastAPI | No
     )
     await db.execute(delete(UserAccessToken).where(col(UserAccessToken.user_id) == user.id))
     await db.flush()
-    user_id = user.id
-    register_on_commit(
-        db,
-        lambda: (
-            publish_revocation(app, user_id) if app is not None else forget_session_version(user_id)
-        ),
-    )
+
+
+async def announce_revocation(app: FastAPI | None, user_id) -> None:
+    """Evict cached counters everywhere; call only once the revocation is durable."""
+    if app is None:
+        forget_session_version(user_id)
+    else:
+        await publish_revocation(app, user_id)
