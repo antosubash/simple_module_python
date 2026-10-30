@@ -277,7 +277,7 @@ DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live e
 | Field | Default | Purpose |
 |---|---|---|
 | `backend` | `"filesystem"` | active backend id (`filesystem` \| `s3`) |
-| `fs_root_path` | `"./uploads"` | root dir for the filesystem backend (resolved against repo root) |
+| `fs_root_path` | `"./uploads"` | root dir for the filesystem backend (resolved against the process working directory) |
 | `s3_bucket` | `""` | required when `backend="s3"` |
 | `s3_region` | `""` | required when `backend="s3"` |
 | `s3_access_key_id` | `""` | optional — falls back to env / IAM if empty |
@@ -294,6 +294,24 @@ DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live e
 ### Filesystem (default)
 
 Stores files on local disk under `fs_root_path`, sharded by the first two characters of the storage key (`<root>/ab/abcd1234...`) so a single directory doesn't blow up `readdir`. Path traversal is blocked. `presigned_get_url()` is unsupported — downloads stream through the API process.
+
+#### Docker persistence
+
+The reference image and both `smpy new` image layouts link the default
+`./uploads` directory to `/app/data/uploads`. The reference `docker-compose.yml`
+and `make docker-app` mount `/app/data` on a named volume. Scaffolded SQLite
+and Postgres stacks do the same, sharing that volume with worker/beat when
+background tasks are selected. Uploads therefore survive container recreation
+without changing the DB-backed `fs_root_path` setting. Keep the named volume;
+`docker compose down -v` removes it and its files.
+
+Existing deployments must copy files from their old container's upload directory
+into the volume's `uploads/` directory **before** removing that container. This
+change does not move existing uploads automatically. If `fs_root_path` has been
+customized, set it to `/app/data/uploads` under Files in `/admin/settings/`, or
+mount persistent storage at the custom path. All processes that run storage
+tasks need the same files and a writable directory for the container's app user
+(UID 10001).
 
 ### S3
 

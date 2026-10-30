@@ -31,6 +31,7 @@ services:
       # SM_APP_PORT frees you from a host-port clash with `make dev`.
       - "${SM_APP_PORT:-8000}:8000"
     volumes:
+      # SQLite and filesystem uploads (via /app/uploads -> /app/data/uploads).
       - appdata:/app/data
 
   # Postgres + Redis now come from the shared ../dev-services stack
@@ -51,6 +52,8 @@ services:
       SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/5
       SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
     networks: [devnet]
+    volumes:
+      - appdata:/app/data
     command:
       - "uv"
       - "run"
@@ -77,6 +80,8 @@ services:
       worker:
         condition: service_started
     networks: [devnet]
+    volumes:
+      - appdata:/app/data
     command:
       - "uv"
       - "run"

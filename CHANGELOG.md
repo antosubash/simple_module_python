@@ -25,6 +25,14 @@ All notable changes to this project are documented in this file. The format is b
 - Permission service user-grant writes now invalidate caches after commit for
   every caller, including cross-worker delivery with an app; deprecate the
   endpoint invalidation helper for removal in 0.1.0 (#687, #621).
+- Docker: exclude `.env*` (except `.env.example`), private keys, credentials
+  and secrets directories from reference and scaffold image build contexts (#688).
+- **Behaviour change:** reference and scaffold images keep default filesystem
+  uploads under `/app/data/uploads` on the persistent app volume, including
+  Postgres scaffolds and their storage workers. Existing uploads must be copied
+  into the volume before replacing old containers (#689).
+- Load-test cookie seeding resolves the server's stored session-signing key
+  through `merge_host_settings()`, preserving explicit environment overrides (#697).
 
 ## [0.0.41] — 2026-10-25
 

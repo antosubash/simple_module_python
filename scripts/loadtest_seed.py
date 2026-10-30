@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 
 from simple_module_db.session import init_db
-from simple_module_hosting.settings import Settings
+from simple_module_hosting import merge_host_settings
 from simple_module_test import forge_session_cookie
 from users.bootstrap import create_admin
 
@@ -25,7 +25,7 @@ LOAD_PASSWORD = "loadtest-password-x!1"
 
 
 async def _main() -> None:
-    settings = Settings()
+    settings = merge_host_settings()
     db_state = init_db(settings.database_url)
     try:
         async with db_state.session_factory() as session:

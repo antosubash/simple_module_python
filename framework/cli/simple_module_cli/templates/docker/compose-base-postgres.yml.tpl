@@ -31,6 +31,8 @@ services:
       SM_DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/{{PG_DB}}"
 {{APP_EXTRA_ENV}}    ports:
       - "8000:8000"
+    volumes:
+      - appdata:/app/data
     depends_on:
       postgres:
         condition: service_healthy

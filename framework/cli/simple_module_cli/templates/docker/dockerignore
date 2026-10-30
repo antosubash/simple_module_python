@@ -11,6 +11,16 @@ __pycache__
 .ruff_cache
 *.db
 *.sqlite3
-.env
+# Anywhere in the context, not just the root. `credentials*` stays root-only:
+# recursive, it would also drop source modules such as users/credentials.py.
+**/.env*
+!**/.env.example
+**/*.pem
+**/*.key
+credentials*
+**/credentials*.json
+**/secrets/
+uploads/
+host/uploads/
 host/static/dist
 static/dist

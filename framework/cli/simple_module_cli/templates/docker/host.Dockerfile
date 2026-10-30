@@ -59,8 +59,10 @@ RUN apt-get update \
 
 COPY --from=builder /app /app
 
-# /app/data backs the SQLite named volume (harmless for Postgres apps).
-RUN mkdir -p /app/data \
+# Keep default ./uploads on the shared data volume for both app and workers.
+RUN mkdir -p /app/data/uploads \
+    && ln -s /app/data/uploads /app/uploads \
+    && ln -s /app/data/uploads /app/host/uploads \
     && useradd --system --uid 10001 --home /app --shell /usr/sbin/nologin app \
     && chown -R app:app /app
 USER app

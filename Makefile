@@ -326,6 +326,7 @@ docker-build:               ## Build the default app image
 	docker build -t simple-module-python .
 
 docker-app: docker-build    ## Run the built image standalone on http://localhost:$(SM_APP_PORT)
+	@# The data volume keeps both SQLite and filesystem uploads.
 	docker run --rm -p $(SM_APP_PORT):8000 \
 		-v simple-module-python-data:/app/data \
 		simple-module-python
