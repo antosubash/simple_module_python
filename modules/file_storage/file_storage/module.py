@@ -165,9 +165,7 @@ class FileStorageModule(ModuleBase):
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
-                # Platform admins, and every member of the active organisation
-                # (the files screen is where a tenant's own uploads live).
-                roles=[constants.ADMIN_ROLE, *(tenant_role(r) for r in TenantRole)],
+                permissions=[constants.Permission.DOWNLOAD],
                 group="Content",
                 group_key="ui.nav_groups.content",
             )

@@ -92,7 +92,7 @@ class BrandingModule(ModuleBase):
                 section=MenuSection.ADMIN_SIDEBAR,
                 group="Appearance",
                 group_key="ui.nav_groups.appearance",
-                roles=["admin"],
+                permissions=[constants.PERM_VIEW],
             )
         )
 

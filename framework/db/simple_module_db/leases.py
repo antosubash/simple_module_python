@@ -106,19 +106,40 @@ class DbLeaseBackend:
                 await conn.execute(_SQLITE_WRITE_LOCK)
             yield conn, await _db_now(conn)
 
+    async def _locked_now(self, conn: AsyncConnection, *where: Any) -> datetime:
+        """Lock the matching rows on Postgres, then read the clock (#698).
+
+        Postgres computes an UPDATE's new values before it waits on a row lock,
+        so a time read first could grant (or "refresh") a lease that expired
+        during the wait. SQLite holds the database write lock already.
+        """
+        await conn.execute(select(_T.c.slot).where(*where).with_for_update())
+        return await _db_now(conn)
+
     async def _take_slot(
         self,
         conn: AsyncConnection,
         name: str,
         slot: int,
         token: str,
-        expires: datetime,
+        ttl: float,
         now: datetime,
     ) -> int | None:
         """Claim *slot* if free (missing or expired) or already ours; return its fence."""
-        values = {"holder": token, "expires_at": expires}
-        ins = _insert(conn.dialect.name).values(name=name, slot=slot, fence=1, **values)
-        taken = (await conn.execute(ins.on_conflict_do_nothing())).rowcount == 1
+        if self._sqlite:
+            values = {"holder": token, "expires_at": now + timedelta(seconds=ttl)}
+            ins = _insert(conn.dialect.name).values(name=name, slot=slot, fence=1, **values)
+            taken = (await conn.execute(ins.on_conflict_do_nothing())).rowcount == 1
+        else:
+            # An expired placeholder gives a missing slot a row to lock; the
+            # UPDATE below then claims it exactly like an expired lease (fence 1).
+            placeholder = _insert(conn.dialect.name).values(
+                name=name, slot=slot, holder=_FREE, fence=0, expires_at=_EPOCH
+            )
+            await conn.execute(placeholder.on_conflict_do_nothing())
+            now = await self._locked_now(conn, _row(name, slot))
+            values = {"holder": token, "expires_at": now + timedelta(seconds=ttl)}
+            taken = False
         if not taken:
             stmt = (
                 update(_T)
@@ -144,15 +165,14 @@ class DbLeaseBackend:
 
     async def acquire(self, name: str, token: str, ttl: float) -> int | None:
         async with self._tx() as (conn, now):
-            return await self._take_slot(conn, name, 0, token, now + timedelta(seconds=ttl), now)
+            return await self._take_slot(conn, name, 0, token, ttl, now)
 
     async def semaphore_acquire(self, name: str, token: str, slots: int, ttl: float) -> int | None:
         async with self._tx() as (conn, now):
-            expires = now + timedelta(seconds=ttl)
             mine = await self._slot_of(conn, name, token, now)
             order = [mine] if mine is not None else range(slots)
             for slot in order:
-                if await self._take_slot(conn, name, slot, token, expires, now) is not None:
+                if await self._take_slot(conn, name, slot, token, ttl, now) is not None:
                     return await self._next_counter(conn, name)
             return None
 
@@ -169,8 +189,11 @@ class DbLeaseBackend:
     ) -> bool:
         """Extend (``ttl``) or end (``None``) *token*'s unexpired hold."""
         async with self._tx() as (conn, now):
-            where = [_T.c.name == name, _T.c.holder == token, _T.c.expires_at > now]
+            where = [_T.c.name == name, _T.c.holder == token]
             where.append(_T.c.slot >= 0 if any_slot else _T.c.slot == 0)
+            if not self._sqlite:
+                now = await self._locked_now(conn, *where)
+            where.append(_T.c.expires_at > now)
             expires = now if ttl is None else now + timedelta(seconds=ttl)
             result = await conn.execute(update(_T).where(*where).values(expires_at=expires))
             return result.rowcount > 0

@@ -449,3 +449,7 @@ and worker processes, and verify authenticated/public downloads, ranged reads,
 thumbnails and deletion before resuming writes. Keep the source and backups
 until verification is complete, then remove source objects explicitly. There
 is no automatic migration command or historical-backend registry.
+
+The Files navigation entry requires `file_storage.download`, matching the browse
+route (#698). It is available to permitted ordinary users on single-tenant
+installs as well as tenant members; role names do not independently gate it.

@@ -75,6 +75,12 @@ class FeatureFlagsModule(ModuleBase):
         from feature_flags.tenant_cleanup import purge_tenant_data
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
+        if app is not None:
+
+            async def forget_tenant(event: TenantDeleted) -> None:
+                app.state.sm.feature_flags.clear_tenant_overrides(event.tenant_id)
+
+            bus.subscribe(TenantDeleted, forget_tenant)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         from feature_flags.invalidation import subscribe

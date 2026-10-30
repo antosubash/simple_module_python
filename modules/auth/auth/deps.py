@@ -5,14 +5,13 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
-from simple_module_core.permissions import grants
+from simple_module_core.deprecation import deprecated
+from simple_module_core.permissions import ADMIN_ROLE, grants
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import ensure_resolved_permissions
 from simple_module_hosting.token_guard import GATE_PERMISSION, mark_token_gate
 
 from auth.contracts.schemas import UserContext
-
-_ADMIN_ROLE = "admin"
 
 
 async def get_current_user(request: Request, t: TranslatorDep) -> UserContext:
@@ -29,13 +28,13 @@ async def get_current_user(request: Request, t: TranslatorDep) -> UserContext:
 CurrentUser = Annotated[UserContext, Depends(get_current_user)]
 
 
+@deprecated(remove_in="0.1.0", use="simple_module_hosting.permissions.RequiresPermission")
 def require_permission(*permissions: str):
-    """Create a dependency that checks if the user has required permissions.
+    """Legacy any-of gate, removed in 0.1.0; use ``RequiresPermission`` instead.
 
-    Usage::
-
-        @router.post("/", dependencies=[Depends(require_permission("products.create"))])
-        async def create_product(...): ...
+    Retains the role-based admin bypass and cached permission behaviour for
+    compatibility. ``RequiresPermission`` rechecks a principal demoted during
+    the request; this helper does not.
     """
 
     async def check(
@@ -46,7 +45,7 @@ def require_permission(*permissions: str):
         # Admin role bypasses permission checks — but not for a token: an
         # admin's PAT is worth only the scopes it carries, and the resolved
         # set below already applies that cap.
-        if _ADMIN_ROLE in user.roles and user.scopes is None:
+        if ADMIN_ROLE in user.roles and user.scopes is None:
             return
 
         # The same resolution RequiresPermission reads: the registry's role map

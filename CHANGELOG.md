@@ -25,6 +25,18 @@ All notable changes to this project are documented in this file. The format is b
   distinguishing an unconfigured worker from single-tenant operation (#685).
 
 ### Fixed
+- Deprecate `auth.deps.require_permission` for removal in 0.1.0; recommend
+  `RequiresPermission` and enforce the removal release in the shim ledger (#698).
+- **Behaviour change:** gate Files and Branding navigation by their page
+  permissions instead of hardcoded roles (#698).
+- Clear deleted tenants' feature-flag registry overrides locally and on remote
+  tenant-deletion invalidations, preserving other scopes (#639, #698).
+- Keep unexpected bulk-invite exception details in logs and return a generic
+  failure message instead of exposing SQL and parameters (#698).
+- **Behaviour change:** align audit-log JSON list actor search and inclusive
+  end-of-day filtering with the browse screen and CSV export (#698).
+- Start database lease TTLs after locking each slot on Postgres, and recheck expiry after
+  lock waits when refreshing or releasing (#698).
 - File storage: cancellation during upload-session lookup prevents transport from
   starting; clearing completed upload rows releases their retained files (#695, #588).
 - **Behaviour change:** password resets revoke all browser sessions, access tokens

@@ -306,3 +306,7 @@ edits show at once, in every worker once a transport is installed.
 
 - Branding has no table: the system identity is SYSTEM-scope settings, a tenant's overrides are TENANT-scope settings (see [Per-tenant branding](#per-tenant-branding)).
 - The primary colour overrides the `--primary` / `--sidebar-primary` CSS variables from a single hex; the full OKLCH colour scale is not regenerated.
+
+The Branding navigation entry requires `branding.view`, matching its page guard,
+rather than the `admin` role (#698). Custom roles with that permission see the
+entry; changing branding still requires `branding.manage`.

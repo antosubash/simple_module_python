@@ -132,3 +132,10 @@ Top-level keys in `feature_flags/locales/en.json`:
 - The `FeatureFlagService` keeps the in-memory registry in sync after every DB mutation, so `is_enabled()` is always cheap.
 - Tenant-scope endpoints use a non-empty `scope_id`; the system scope uses `""`. Don't pass `None` — the unique index treats `NULL` as distinct on Postgres and you'll end up with duplicate rows.
 - The `Browse` page lists tenants that have any override attached, so you can jump from system view → a tenant view that actually has overrides without typing IDs.
+
+Tenant deletion durably removes persisted tenant overrides and clears the local
+registry through a `TenantDeleted` subscriber (#639, #698). Workers also forget
+the tenant on the existing `tenants.deleted` invalidation broadcast; system and
+other tenants' overrides are preserved, including overrides for unknown flags.
+The periodic override reload remains the fallback for missed broadcasts after
+durable cleanup completes.

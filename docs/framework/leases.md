@@ -50,7 +50,7 @@ The backend is process-global because a Celery worker has no `app.state`. `creat
 | Configured | Backend | Notes |
 |---|---|---|
 | `SM_REDIS_URL` | `RedisLeaseBackend` (`simple_module_hosting`) | `SET NX PX` plus Lua compare-and-set for refresh and release; a semaphore is a sorted set scored by expiry against Redis `TIME`; `INCR <key>:fence` for the fence. |
-| a database, no Redis | `DbLeaseBackend` (`simple_module_db`) | Rows in `sm_lease (name, slot, holder, fence, expires_at)`, primary key `(name, slot)`. Every comparison uses the database clock, so clock skew between hosts does not matter. |
+| a database, no Redis | `DbLeaseBackend` (`simple_module_db`) | Rows in `sm_lease (name, slot, holder, fence, expires_at)`, primary key `(name, slot)`. Every comparison uses the database clock, so clock skew between hosts does not matter; on Postgres the clock is read after the slot row is locked, so a lock wait never shortens a TTL. |
 | neither | `InProcessLeaseBackend` | One process only. Also what tests and eager Celery get when nothing else is configured. |
 
 Backend errors propagate. A lease that the backend could not confirm is never reported as held. This is unlike the rate limiter, which falls back to per-process counters.

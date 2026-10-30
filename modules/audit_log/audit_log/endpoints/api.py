@@ -26,6 +26,7 @@ _VIEW = [Depends(RequiresPermission(PERM_VIEW))]
 
 @router.get("/", response_model=AuditEntryList, dependencies=_VIEW)
 async def list_audit_entries(
+    request: Request,
     service: AuditLogServiceDep,
     entity_type: str | None = Query(default=None),
     entity_id: str | None = Query(default=None),
@@ -38,18 +39,17 @@ async def list_audit_entries(
     page: int = Query(default=1, ge=1, le=MAX_PAGE),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PER_PAGE),
 ) -> AuditEntryList:
-    return await service.list_entries(
+    filters = EntryFilters.for_date_only_range(
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,
-        user_id=user_id,
+        actor_match=actor_filter(get_user_directory(request.app), user_id or ""),
         correlation_id=correlation_id,
         tenant_id=tenant_id,
         from_date=from_date,
         to_date=to_date,
-        page=page,
-        page_size=page_size,
     )
+    return await service.list_filtered(filters, page=page, page_size=page_size)
 
 
 @router.get("/export.csv", response_model=None, dependencies=_VIEW)

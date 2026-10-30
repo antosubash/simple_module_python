@@ -44,8 +44,7 @@ class TestDateRange:
         assert filters.to_date == datetime(2026, 8, 19, 23, 59, 59, 999999, tzinfo=UTC)
 
     def test_plain_construction_keeps_the_exact_bound(self) -> None:
-        """The JSON list endpoint documents ``to_date`` as a timestamp; only
-        the screen's date-only control needs stretching."""
+        """Service callers can request an exact bound through plain construction."""
         exact = datetime(2026, 8, 19, 10, 30, tzinfo=UTC)
 
         assert EntryFilters(to_date=exact).to_date == exact
