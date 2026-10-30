@@ -5,14 +5,17 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from background_tasks.constants import SM_RESOURCE_ID_HEADER, SM_RESOURCE_TYPE_HEADER
-from background_tasks.tenant_context import _header_of_request
+from background_tasks.constants import (
+    RESOURCE_REF_MAX_LENGTH,
+    SM_RESOURCE_ID_HEADER,
+    SM_RESOURCE_TYPE_HEADER,
+)
+from background_tasks.tenant_context import header_of_request
 
 if TYPE_CHECKING:
     from celery.canvas import Signature
 
 _TYPE_NAME = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+")
-RESOURCE_REF_MAX_LENGTH = 255
 
 
 def resource_headers(resource_type: str, resource_id: str) -> dict[str, str]:
@@ -41,8 +44,8 @@ def message_resource(*, headers: dict | None = None, request: Any = None) -> dic
     kind = (headers or {}).get(SM_RESOURCE_TYPE_HEADER)
     key = (headers or {}).get(SM_RESOURCE_ID_HEADER)
     if headers is None:
-        kind = _header_of_request(request, SM_RESOURCE_TYPE_HEADER)
-        key = _header_of_request(request, SM_RESOURCE_ID_HEADER)
+        kind = header_of_request(request, SM_RESOURCE_TYPE_HEADER)
+        key = header_of_request(request, SM_RESOURCE_ID_HEADER)
     if not isinstance(kind, str) or not isinstance(key, str):
         return {}
     try:

@@ -42,7 +42,6 @@ from background_tasks.log_context import signal_task_finished, signal_task_start
 from background_tasks.models import TaskExecution
 from background_tasks.task_heartbeat import forget_heartbeat
 from background_tasks.tenant_context import (
-    message_owner,
     message_tenant,
     published_owner,
     published_tenant,
@@ -124,7 +123,6 @@ def on_task_prerun(
         },
         task=task or sender,
         tenant_id=message_tenant(task=task or sender),
-        owner_user_id=message_owner(task=task or sender),
     )
     signal_task_started(task_id=task_id, task_name=name)
 

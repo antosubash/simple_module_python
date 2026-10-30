@@ -135,6 +135,11 @@ def apply_signal(
     ``tenant_id`` and ``owner_user_id`` (the message's) are written only when
     known, so a signal whose message carries neither never blanks a row already
     stamped.
+
+    The task's tracking mode (:mod:`.tracking`) decides first whether this
+    signal is recorded at all. When it is, the row also takes args, kwargs,
+    queue, owner and resource from the message when ``defaults`` lack them, so
+    a worker can create the row itself when the publisher never did.
     """
     name = defaults.get("task_name", "")
     mode = tracking_mode(task=task, request=request, headers=headers, name=name)

@@ -165,7 +165,7 @@ resize_image.s(image_id).set(headers={SM_TRACKING_HEADER: TrackingMode.OFF}).app
 
 All reduced modes skip publish/prerun/postrun tracking and `heartbeat()` without opening a tracking session. `track_publish=False` also skips the publisher-side DB write for `full`: the worker creates the row from message metadata, retaining owner, tenant, queue, arguments and resource. Tenant/owner message stamping and worker context restoration/cleanup still run in every mode. Invalid tracking overrides fall back to `full`, so malformed metadata cannot hide a failure. The internal outbox sweep defaults to `failures` through this same policy.
 
-Reduced modes lose live progress, stuck detection and some history/retry information. Worker-first tracking returns `404` until the worker creates a row; reduced modes may have no row until a recorded terminal event, or ever for successful failures-only/off tasks. Broker publishing itself remains synchronous. Administrative retries still reserve their own attempt rows transactionally before publishing.
+Reduced modes lose live progress, stuck detection and some history/retry information. Worker-first tracking returns `404` until the worker creates a row; reduced modes may have no row until a recorded terminal event, or ever for successful failures-only/off tasks. Broker publishing itself remains synchronous. Administrative retries still reserve their own attempt rows transactionally before publishing, and are always published with `full` tracking so the reserved `pending` row can advance.
 
 
 ## Retained task and app logs

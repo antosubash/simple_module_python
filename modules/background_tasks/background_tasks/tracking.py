@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any
 
 from background_tasks.constants import INTERNAL_TASK_SWEEP_OUTBOX, SM_TRACKING_HEADER, TaskStatus
-from background_tasks.tenant_context import _header_of_request
+from background_tasks.tenant_context import header_of_request
 
 
 class TrackingMode(StrEnum):
@@ -29,7 +29,7 @@ def tracking_mode(
         request = getattr(task, "request", None)
     explicit = (headers or {}).get(SM_TRACKING_HEADER)
     if explicit is None:
-        explicit = _header_of_request(request, SM_TRACKING_HEADER)
+        explicit = header_of_request(request, SM_TRACKING_HEADER)
     value = explicit if explicit is not None else getattr(task, SM_TRACKING_HEADER, None)
     # Publishers may not have imported the internal task registration yet.
     if value is None and name == INTERNAL_TASK_SWEEP_OUTBOX:

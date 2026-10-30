@@ -22,6 +22,7 @@ from background_tasks.constants import (
     OWNER_ID_MAX_LENGTH,
     PROGRESS_MESSAGE_MAX_LENGTH,
     PROGRESS_PHASE_MAX_LENGTH,
+    RESOURCE_REF_MAX_LENGTH,
     TABLE_LOG_RECORD,
     TABLE_OUTBOX,
     TABLE_TASK_EXECUTION,
@@ -86,8 +87,10 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     # publishes. It scopes who may read the task's status (#536).
     owner_user_id: str | None = Field(default=None, index=True, max_length=OWNER_ID_MAX_LENGTH)
 
-    resource_type: str | None = Field(default=None, max_length=255)
-    resource_id: str | None = Field(default=None, max_length=255)
+    # Optional resource this task is about (#709); lets viewers of that resource
+    # read the task's status. Both set or both null (check constraint below).
+    resource_type: str | None = Field(default=None, max_length=RESOURCE_REF_MAX_LENGTH)
+    resource_id: str | None = Field(default=None, max_length=RESOURCE_REF_MAX_LENGTH)
 
     # Progress the task body reports through ``heartbeat(progress=...)``.
     progress_current: int | None = None
