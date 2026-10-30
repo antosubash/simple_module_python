@@ -43,6 +43,8 @@ from users.exceptions import (
 from users.invites.bulk import bulk_router
 from users.invites.resend import resend_router
 
+_DUPLICATE_EMAIL = "A user with this email already exists."
+
 admin_router = APIRouter(
     prefix="/admin",
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
@@ -97,9 +99,12 @@ async def admin_invite_user(
     """Invite a new user by email, optionally assigning roles."""
     invited_by = getattr(request.state, "user", None)
     invited_by_name = invited_by.name if invited_by else "Administrator"
-    user, token = await service.invite(
-        data.email, data.full_name, data.role_names, invited_by=invited_by
-    )
+    try:
+        user, token = await service.invite(
+            data.email, data.full_name, data.role_names, invited_by=invited_by
+        )
+    except fa_exceptions.UserAlreadyExists:
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     db.on_commit(lambda: mailer.send_invite(user.email, token, invited_by_name))
     await publish_admin_event(
         bus,
@@ -137,10 +142,7 @@ async def admin_create_user(
             created_by=created_by,
         )
     except fa_exceptions.UserAlreadyExists:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists.",
-        ) from None
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     except fa_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from None
     await publish_admin_event(
@@ -161,10 +163,7 @@ async def admin_update_user(
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
     except EmailAlreadyExistsError:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists.",
-        ) from None
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     return service.to_list_item(user)
 
 

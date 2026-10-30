@@ -65,3 +65,13 @@ async def test_admin_creation_side_effects_wait_for_commit(
         assert observed[0].email == email
         if operation == "invite":
             assert any("/users/invite/accept?token=" in m.text for m in captured_mail.to(email))
+
+
+async def test_admin_invite_existing_email_is_a_conflict(admin_client, captured_mail):
+    body = {"email": "dup-invite@example.com", "role_names": []}
+    first = await admin_client.post("/api/users/admin/invite", json=body)
+    assert first.status_code == 201, first.text
+    sent = len(captured_mail.messages)
+    again = await admin_client.post("/api/users/admin/invite", json=body)
+    assert again.status_code == 409, again.text
+    assert len(captured_mail.messages) == sent
