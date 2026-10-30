@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,7 @@ from permissions.contracts.schemas import (
 )
 from permissions.group_labels import localized_groups
 from permissions.models import RolePermission, UserPermission
+from permissions.write_safety import check_permission_write
 
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
@@ -50,8 +51,11 @@ class PermissionService(RegistrySyncMixin):
         registry: PermissionRegistry,
         directory: UserDirectory | None = None,
         app: FastAPI | None = None,
+        *,
+        request: Request | None = None,
     ) -> None:
         self.app = app
+        self.request = request
         self.db = db
         self.registry = registry
         self.directory: UserDirectory = directory or NullUserDirectory()
@@ -114,6 +118,7 @@ class PermissionService(RegistrySyncMixin):
         registered = self._registered_keys()
         wanted = {k for k in keys if k in registered}
         existing = set(await self._get_role_keys(role.name))
+        await check_permission_write(self.request, self.registry, wanted - existing)
         to_remove = (existing - wanted) & registered  # unregistered grants are never pruned
 
         if to_remove:
@@ -201,6 +206,7 @@ class PermissionService(RegistrySyncMixin):
         registered = self._registered_keys()
         wanted = {k for k in keys if k in registered}
         existing = set(await self.get_user_direct_keys(user_id))
+        await check_permission_write(self.request, self.registry, wanted - existing, user)
         to_remove = (existing - wanted) & registered
 
         if to_remove:
@@ -215,6 +221,14 @@ class PermissionService(RegistrySyncMixin):
             for key in wanted - existing
         )
         await self.db.flush()
+
+        from permissions.grants import clear_grants_cache, publish_grants_changed
+
+        app = self.app
+        if app is None:
+            self.db.on_commit(clear_grants_cache)
+        else:
+            self.db.on_commit(lambda: publish_grants_changed(app, user_id))
 
         role_names = _role_names(user)
         inherited = self._resolve_role_permissions(role_names) - wanted

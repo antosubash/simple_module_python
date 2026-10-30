@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import Depends, Request
+from simple_module_core.deprecation import deprecated
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
@@ -30,7 +31,9 @@ async def get_permission_service(
     db: AsyncSession = Depends(get_db),
     registry: PermissionRegistry = Depends(get_permission_registry),
 ) -> PermissionService:
-    return PermissionService(db, registry, get_user_directory(request.app), app=request.app)
+    return PermissionService(
+        db, registry, get_user_directory(request.app), app=request.app, request=request
+    )
 
 
 def assigned_by(request: Request) -> str | None:
@@ -39,8 +42,9 @@ def assigned_by(request: Request) -> str | None:
     return str(user.id) if user is not None else None
 
 
+@deprecated(remove_in="0.1.0", use="PermissionService.set_user_permissions (invalidates on commit)")
 def invalidate_grants_on_commit(request: Request, service: PermissionService, user_id) -> None:
-    """Evict *user_id*'s cached direct grants in every worker once this commits."""
+    """Compatibility for callers predating service-owned invalidation."""
     service.db.on_commit(lambda: publish_grants_changed(request.app, user_id))
 
 

@@ -28,6 +28,16 @@ module still depends on `Users`.
 
 All require authentication. Read endpoints need `permissions.view`; mutate endpoints need `permissions.manage`.
 
+**Behaviour change (#687):** `permissions.manage` alone does not allow escalation.
+Role and user updates refuse added keys the actor does not hold, using the same
+resolved permissions as authorization (roles, direct grants, other grant sources,
+and token scopes). User updates also refuse targets with permissions beyond the
+actor's, admin targets, or targets whose provider cannot report their roles.
+Unscoped admins are unrestricted. Refusals return HTTP 403 with a reason in
+`detail`, on both API and Inertia write routes. Existing role keys may be retained
+or removed without holding them; unregistered submitted keys are still ignored and
+stored grants for unavailable modules are preserved.
+
 | Method + path | Body / response | Permission |
 |---|---|---|
 | `GET /api/permissions/` | → `list[PermissionGroupOut]` | `permissions.view` |
@@ -72,7 +82,14 @@ All three are resolved once per request by `InertiaLayoutDataMiddleware` and cac
 
 ### Caching and propagation
 
-The grant source runs on every authenticated request, so each process caches a user's direct grants for 30 seconds (`permissions.grants.GRANTS_TTL_SECONDS`). Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. The worker that made the change sees it on the next request. Other workers see it immediately when `background_tasks` provides a Redis transport, and otherwise within the TTL.
+The grant source runs on every authenticated request, so each process caches a user's direct grants for 30 seconds (`permissions.grants.GRANTS_TTL_SECONDS`). Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. `PermissionService.set_user_permissions` owns this callback, so service callers
+receive the same invalidation as endpoints (#687, #621); rollback publishes nothing.
+Pass `app` to the service for cross-worker delivery. Without an app, commit clears
+the local grant cache. The endpoint helper
+`permissions.deps.invalidate_grants_on_commit` is deprecated until 0.1.0; callers
+no longer need it. A service constructed without a `request` is a trusted
+in-process caller; pass the actor's request for delegated writes.
+The worker that made the change sees it on the next request. Other workers see it immediately when `background_tasks` provides a Redis transport, and otherwise within the TTL.
 
 ## Public contracts
 

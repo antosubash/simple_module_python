@@ -66,7 +66,13 @@ async def test_role_request_publishes_only_after_commit(app, commit):
         role = Role(id=uuid.uuid4(), name="editor")
         db.add(role)
         await db.flush()
-        service = await get_permission_service(Request({"type": "http", "app": app}), db, registry)
+        from auth.contracts.schemas import UserContext
+
+        request = Request({"type": "http", "app": app})
+        request.state.user = UserContext(
+            id="admin", email="admin@test", name="Admin", roles=["admin"]
+        )
+        service = await get_permission_service(request, db, registry)
         await service.set_role_permissions(role.id, ["test.view"])
         assert "test.view" not in registry.role_map.get("editor", [])
         assert messages == []
