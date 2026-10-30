@@ -63,7 +63,7 @@ class StorageBackend(Protocol):
         content_type: str,
         size: int,
     ) -> None:
-        """Persist ``stream`` under ``key``. ``size`` is the total byte count."""
+        """Persist ``stream`` under ``key``. ``size`` is the byte count, or 0 if unknown."""
 
     async def get(self, key: str) -> AsyncIterator[bytes]:
         """Return an iterator over the object's bytes in bounded chunks.

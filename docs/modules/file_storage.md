@@ -285,6 +285,68 @@ Any task that touches `StoredFile` outside a request must run under
 `tenant_context(row.tenant_id)` for per-tenant work, or `all_tenants()` for a
 deliberate platform-wide sweep.
 
+## Synchronous worker API
+
+Install the `[tasks]` extra and configure the background-tasks worker normally.
+`file_storage.contracts` lazily exports `store_path`, `open_local`, and
+`presigned_url` for synchronous task bodies (#708):
+
+```python
+from simple_module_db import tenant_context
+from file_storage.contracts import open_local, presigned_url, store_path
+
+with tenant_context(tenant_id):
+    stored = store_path("output.tif", content_type="image/tiff")
+    with open_local(stored.id) as local_path:
+        process_raster(local_path)
+    url = presigned_url(stored.id, ttl_seconds=300)  # S3-compatible backends
+```
+
+`store_path(source, *, filename=None, content_type="application/octet-stream",
+public=False)` accepts a string/path-like path or binary stream and returns
+`StoredFileOut`. Paths default to their basename; streams use their `name`
+basename or require an explicit filename. Streams are read from their current
+position and remain open. The API reuses MIME, size, quota and SHA-256 checks,
+with an independent transaction. It returns after commit and publishes
+`FileUploaded` on the worker event bus only after a successful commit. Flush or
+commit failures attempt to delete the uploaded object; an uncertain commit
+outcome is checked in a fresh session first. If that check cannot reach the DB,
+the object is preserved for reconciliation. Cleanup failures are logged without
+replacing the original error. Settings are hydrated from the DB
+through the existing worker cache (normally refreshed within 30 seconds), and
+calls reuse the worker thread's event loop and pooled engine.
+
+All three operations inherit the caller's tenant context. A strict multi-tenant
+install refuses unscoped access; missing and cross-tenant IDs behave alike.
+Reads reload metadata by ID and refuse a file recorded against another backend.
+`open_local(file_id)` closes the metadata transaction before downloading, yields
+a path inside a private temporary directory, and removes the directory on
+normal exit, download failure or a consumer exception. Budget temporary disk
+space for the entire downloaded object. `presigned_url(file_id, *,
+ttl_seconds=None)` uses `s3_presign_ttl_seconds` unless overridden with a positive
+TTL; unsupported backends (including filesystem) raise `NotSupportedError`.
+These sync functions are for task bodies, not async handlers running on the
+worker loop itself.
+
+S3 server-side `put` switches to multipart above
+`direct_upload_threshold_bytes`, even for streams whose size is unknown. It
+spools only the threshold prefix and one part at a time (each spills to disk
+above 10 MiB). Part size comes from `multipart_part_size_bytes`, grown for known
+sizes to fit 10,000 parts; unknown-size streams abort if they exceed that bound.
+Declared nonzero sizes must match the bytes read. Multipart is also used above
+S3's single-PUT limit, even if the threshold was configured higher. Stream,
+part-upload and completion failures, including cancellation, attempt abort
+without masking the failure. Worker uploads still honor `max_file_size_bytes`
+(default 100 MiB): raise that existing DB limit for multi-GB outputs.
+`StoredFile.size_bytes` is a `BIGINT` since migration `f5b1c3e8a207` (it was a
+32-bit `INTEGER` on PostgreSQL, which refused files of 2 GiB or more), and the
+S3 backend's `put` goes multipart, so objects beyond 5 GiB work end to end.
+
+A process killed mid-upload cannot run compensation. Its incomplete multipart
+upload is an orphan like an abandoned browser one, and the upload reaper aborts
+it once it is older than twice `upload_session_ttl_seconds` (48 hours by
+default), which no real put runs for.
+
 ## Settings
 
 DB-backed via `register_module_settings`; pydantic defaults seed at boot. Live edits under Files at `/admin/settings/`.

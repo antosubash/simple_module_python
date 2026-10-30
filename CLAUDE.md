@@ -313,7 +313,7 @@ development and testing (`session_cookie_secure`).
   four roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants,
   `f733c7938fd1` sharing, `d263ea727663` the framework's `sm_lease`) and six
   heads (`audit_log`, `tenants`, `keycloak`, `sharing`, `leases`, and the users
-  trunk, which Alembic reports as `api_tokens` and, since #536,
+  trunk, which Alembic reports as `api_tokens`, `users`, `file_storage` and, since #536,
   `background_tasks`). Apply with `upgrade heads` (what `make migrate`
   does); plain `revision --autogenerate` refuses with "Multiple heads", so name
   the branch:

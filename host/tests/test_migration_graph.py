@@ -34,6 +34,7 @@ _OWNER: dict[str, str] = {
     "a659221c464b": "file_storage",
     "e5a8c1f27b94": "file_storage",
     "c7f2d9a41e83": "file_storage",
+    "f5b1c3e8a207": "file_storage",  # size_bytes BIGINT (#708)
     "e5f2a8c1d7b3": "core",  # timezone-aware timestamps across modules
     "b5d3f08a6e17": "background_tasks",
     "e878882924e7": "background_tasks",
@@ -58,7 +59,7 @@ _ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1", "d263ea727663"}
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
     "a7c2e91d4b58": "audit_log",
-    "b31a70971001": "background_tasks",  # also carries ``api_tokens`` and ``users``
+    "f5b1c3e8a207": "file_storage",  # also carries ``api_tokens``, ``background_tasks``, ``users``
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
     "f733c7938fd1": "sharing",
@@ -75,6 +76,7 @@ _DECLARED_LABELS = {
     "bb906e1a1089": "background_tasks",
     "d263ea727663": "leases",
     "a625f0b7c912": "users",
+    "f5b1c3e8a207": "file_storage",
 }
 
 # Known mislabels: revisions that inherit a label from an ancestor owned by a
@@ -99,6 +101,7 @@ _INHERITED_MISLABELS = {
     "1f5985daa10b": "api_tokens",  # also inherits ``background_tasks``
     "a625f0b7c912": "api_tokens",  # also inherits ``background_tasks``
     "b31a70971001": "api_tokens",
+    "f5b1c3e8a207": "api_tokens",
     "a626b1c8d023": "api_tokens",  # also inherits ``background_tasks``
     "51b2058d8afd": "api_tokens",  # ancestors of a labelled revision inherit its label too
 }

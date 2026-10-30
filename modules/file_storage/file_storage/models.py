@@ -39,7 +39,8 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True
     key: str = Field(max_length=512)
     filename: str = Field(max_length=255)
     content_type: str = Field(max_length=128)
-    size_bytes: int = Field()
+    # BIGINT: server-side puts can exceed 2 GiB (#708).
+    size_bytes: int = Field(sa_column=sa.Column(sa.BigInteger(), nullable=False))
     backend: str = Field(max_length=32)
     # Null for multipart uploads until ``file_storage.compute_checksum`` has
     # streamed the object (or forever, with no background_tasks): the bytes

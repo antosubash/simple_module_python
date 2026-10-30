@@ -139,10 +139,10 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
                 self.db.add(row)
                 await self.db.flush()
                 await self.db.refresh(row)
-        except Exception:
+        except BaseException:
             try:
                 await self.backend.delete(key)
-            except Exception:
+            except BaseException:
                 _logger.exception(
                     "file_storage.cleanup_failed key=%s — original upload error follows",
                     key,

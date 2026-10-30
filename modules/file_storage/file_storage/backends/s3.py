@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import datetime
-from tempfile import SpooledTemporaryFile
 from typing import Any
 
 from file_storage import constants
@@ -47,6 +46,8 @@ class S3Backend(S3MultipartMixin):
         region: str,
         client_kwargs: dict[str, Any],
         public_endpoint_url: str = "",
+        multipart_threshold_bytes: int = constants.DEFAULT_DIRECT_UPLOAD_THRESHOLD_BYTES,
+        multipart_part_size_bytes: int = constants.DEFAULT_PART_SIZE_BYTES,
     ) -> None:
         try:
             import aioboto3
@@ -58,6 +59,8 @@ class S3Backend(S3MultipartMixin):
         self.region = region
         self.client_kwargs = client_kwargs
         self.public_endpoint_url = public_endpoint_url
+        self.multipart_threshold_bytes = multipart_threshold_bytes
+        self.multipart_part_size_bytes = multipart_part_size_bytes
 
     def _client(self):
         return self._session.client("s3", **self.client_kwargs)
@@ -70,25 +73,9 @@ class S3Backend(S3MultipartMixin):
         content_type: str,
         size: int,
     ) -> None:
-        # Spool to memory up to SPOOL_MAX_SIZE_BYTES, then to a temp file.
-        # put_object needs a seekable file-like; multipart upload would be
-        # the next step for very large files (deferred to v2).
-        with SpooledTemporaryFile(max_size=constants.SPOOL_MAX_SIZE_BYTES) as buf:
-            async for chunk in stream:
-                buf.write(chunk)
-            length = buf.tell()
-            buf.seek(0)
-            try:
-                async with self._client() as client:
-                    await client.put_object(
-                        Bucket=self.bucket,
-                        Key=key,
-                        Body=buf,
-                        ContentType=content_type,
-                        ContentLength=length,
-                    )
-            except Exception as exc:
-                raise StorageBackendError(f"S3 put_object failed: {exc}") from exc
+        from file_storage.backends.s3_put import put_stream
+
+        await put_stream(self, key, stream, content_type, size)
 
     async def get(self, key: str) -> AsyncIterator[bytes]:
         return await _open(self._stream(key, {}))
@@ -233,4 +220,6 @@ def _build(settings: FileStorageSettings) -> S3Backend:
         region=settings.s3_region,
         client_kwargs=client_kwargs,
         public_endpoint_url=settings.s3_public_endpoint_url,
+        multipart_threshold_bytes=settings.direct_upload_threshold_bytes,
+        multipart_part_size_bytes=settings.multipart_part_size_bytes,
     )

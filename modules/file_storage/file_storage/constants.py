@@ -171,6 +171,7 @@ DEFAULT_MAX_DIRECT_UPLOAD_BYTES: Final = 10 * 1024 * MIB  # 10 GiB
 DEFAULT_PART_SIZE_BYTES: Final = 16 * MIB
 # S3's hard ceiling; ``part_size`` is grown until the upload fits under it.
 MAX_UPLOAD_PARTS: Final = 10_000
+MAX_S3_PART_SIZE_BYTES: Final = 5 * 1024 * MIB
 # S3 rejects non-final parts below 5 MiB.
 MIN_PART_SIZE_BYTES: Final = 5 * MIB
 DEFAULT_UPLOAD_SESSION_TTL_SECONDS: Final = 24 * 3600
