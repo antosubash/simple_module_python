@@ -33,6 +33,10 @@ All notable changes to this project are documented in this file. The format is b
   into the volume before replacing old containers (#689).
 - Load-test cookie seeding resolves the server's stored session-signing key
   through `merge_host_settings()`, preserving explicit environment overrides (#697).
+- DB: stamp tenant destinations in INSERT ... SELECT without appending VALUES;
+  validate explicit tenant literals and retain strict isolation and source scoping (#693).
+- Inertia: honor custom once-prop keys in client exclusions, skipping loaders
+  and values on full and partial requests (#694).
 
 ## [0.0.41] — 2026-10-25
 

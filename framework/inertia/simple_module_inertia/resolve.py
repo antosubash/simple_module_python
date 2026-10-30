@@ -41,7 +41,7 @@ async def _deep_resolve(value: Any) -> Any:
 
 def _wants(name: str, prop: Prop, req: InertiaRequest, partial: bool) -> bool:
     """Should this prop's value be resolved for this response?"""
-    if prop.is_once and name in req.except_once_props:
+    if prop.is_once and (prop.once_key or name) in req.except_once_props:
         return False
     if prop.always:
         return True

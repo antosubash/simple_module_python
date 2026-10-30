@@ -741,6 +741,11 @@ await inertia.render(
 )
 ```
 
+`once(loader, key="feature-flags")` announces its cache entry under the custom
+key, defaulting to the prop name when no key is given. Clients send that key in
+`X-Inertia-Except-Once-Props` to skip both the loader and the returned prop on
+full and partial requests (#694).
+
 `errors` is always present in props (it is the protocol's always-prop) and is
 filled from validation failures flashed by the previous request. A page `url`
 is always root-relative, and a prop that cannot be serialised raises
