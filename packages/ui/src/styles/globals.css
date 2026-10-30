@@ -222,6 +222,12 @@
 
 /* ── Base Styles ────────────────────────────────────────────── */
 @layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

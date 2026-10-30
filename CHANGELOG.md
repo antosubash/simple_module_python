@@ -28,6 +28,13 @@ All notable changes to this project are documented in this file. The format is b
   distinguishing an unconfigured worker from single-tenant operation (#685).
 
 ### Fixed
+- **Behaviour change:** bare UI borders now use the theme border colour in light
+  and dark themes, including pseudo-elements. Use `border-current` to retain the
+  previous foreground-coloured look; explicit border colour utilities still win (#714).
+- `smpy package-update` now includes Python dependency groups and optional extras,
+  plus root/member and client-app `@simple-module-py/*` pins. npm updates follow
+  the selected core release, preserve pin style and skip unavailable releases;
+  all manifest changes are planned before writing, including dry runs (#715).
 - Deprecate `auth.deps.require_permission` for removal in 0.1.0; recommend
   `RequiresPermission` and enforce the removal release in the shim ledger (#698).
 - **Behaviour change:** gate Files and Branding navigation by their page
