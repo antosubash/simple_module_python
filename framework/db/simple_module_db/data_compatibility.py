@@ -17,17 +17,31 @@ async def database_compatibility_diagnostics(
 ) -> list[Diagnostic]:
     if not _database_exists(database_url):
         return []  # Nothing migrated yet; opening it would create an empty SQLite file.
-    engine = None
+    engine = create_async_engine(database_url)
     try:
-        engine = create_async_engine(database_url)
-        async with engine.connect() as conn:
-            migrated = await conn.run_sync(
-                lambda sync: bool(MigrationContext.configure(sync).get_current_heads())
-            )
+        try:
+            async with engine.connect() as conn:
+                migrated = await conn.run_sync(
+                    lambda sync: bool(MigrationContext.configure(sync).get_current_heads())
+                )
+        except Exception:
+            # Unreachable is a warning: doctor also runs where no database is up
+            # (CI, a laptop without the stack); boot is where errors are refused.
+            # Connection errors can carry credentials, so the cause is not shown.
+            return [_problem(DiagnosticLevel.WARNING, "Could not reach the database.")]
         if not migrated:
             return []
-        async with async_sessionmaker(engine)() as db:
-            issues = await collect_data_compatibility(modules, db)
+        try:
+            async with async_sessionmaker(engine)() as db:
+                issues = await collect_data_compatibility(modules, db)
+        except Exception as exc:
+            # A check that crashes is a bug to fix, not a pass: doctor must fail.
+            return [
+                _problem(
+                    DiagnosticLevel.ERROR,
+                    f"A module data compatibility check failed ({type(exc).__name__}).",
+                )
+            ]
         return [
             Diagnostic(
                 level=DiagnosticLevel(issue.severity),
@@ -38,23 +52,19 @@ async def database_compatibility_diagnostics(
             )
             for issue in issues
         ]
-    except Exception:
-        # Connection exceptions can contain credentials; do not print them.
-        return [
-            # A warning: doctor also runs where no database is reachable (CI, a
-            # laptop without the stack); boot is where a real error is refused.
-            Diagnostic(
-                level=DiagnosticLevel.WARNING,
-                code=DATA_COMPATIBILITY_CODE,
-                module_name="<database>",
-                message="Could not check module data compatibility.",
-                suggestion="Check database connectivity and apply pending host schema migrations, "
-                "then rerun doctor.",
-            )
-        ]
     finally:
-        if engine is not None:
-            await engine.dispose()
+        await engine.dispose()
+
+
+def _problem(level: DiagnosticLevel, message: str) -> Diagnostic:
+    return Diagnostic(
+        level=level,
+        code=DATA_COMPATIBILITY_CODE,
+        module_name="<database>",
+        message=message,
+        suggestion="Check database connectivity and apply pending host schema migrations, "
+        "then rerun doctor.",
+    )
 
 
 def _database_exists(database_url: str) -> bool:

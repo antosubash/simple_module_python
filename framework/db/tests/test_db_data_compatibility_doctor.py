@@ -66,4 +66,26 @@ async def test_db_doctor_warns_on_unreachable_database(tmp_path):
     findings = await database_compatibility_diagnostics([], f"sqlite+aiosqlite:///{tmp_path}")
     assert len(findings) == 1
     assert findings[0].level == "warning"
-    assert "could not" in findings[0].message.lower()
+    assert "could not reach" in findings[0].message.lower()
+
+
+async def test_db_doctor_fails_when_a_module_check_crashes(tmp_path):
+    from simple_module_core.module import ModuleBase
+    from simple_module_core.module_meta import ModuleMeta
+    from simple_module_db.data_compatibility import database_compatibility_diagnostics
+    from sqlalchemy import create_engine, text
+
+    path = tmp_path / "app.db"
+    with create_engine(f"sqlite:///{path}").begin() as conn:
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
+        conn.execute(text("INSERT INTO alembic_version VALUES ('abc')"))
+
+    class Broken(ModuleBase):
+        meta = ModuleMeta(name="Broken")
+
+        async def check_data_compatibility(self, db):
+            raise KeyError("bug")
+
+    findings = await database_compatibility_diagnostics([Broken()], f"sqlite+aiosqlite:///{path}")
+    assert [f.level for f in findings] == ["error"]
+    assert "KeyError" in findings[0].message

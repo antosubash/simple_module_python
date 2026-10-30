@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 from collections.abc import Sequence
 
+from simple_module_core.data_compatibility import checking_modules
 from simple_module_core.diagnostics import Diagnostic
 from simple_module_core.module import ModuleBase
 
@@ -14,9 +15,7 @@ def data_compatibility_diagnostics(
     # Core-only installations have no database runtime to inspect.
     if importlib.util.find_spec("simple_module_db") is None:
         return []
-    if all(
-        type(mod).check_data_compatibility is ModuleBase.check_data_compatibility for mod in modules
-    ):
+    if not checking_modules(modules):
         return []
     from simple_module_db.data_compatibility import database_compatibility_diagnostics
 

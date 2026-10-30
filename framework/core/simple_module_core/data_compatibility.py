@@ -27,6 +27,17 @@ async def collect_data_compatibility(
 ) -> list[DataCompatibilityIssue]:
     """Read module state without applying migrations or changing credentials."""
     issues = []
-    for module in modules:
+    for module in checking_modules(modules):
         issues.extend(await module.check_data_compatibility(db))
     return issues
+
+
+def checking_modules(modules: Sequence[ModuleBase]) -> list[ModuleBase]:
+    """Modules that override the hook; the rest need no database session."""
+    from simple_module_core.module import ModuleBase
+
+    return [
+        module
+        for module in modules
+        if type(module).check_data_compatibility is not ModuleBase.check_data_compatibility
+    ]

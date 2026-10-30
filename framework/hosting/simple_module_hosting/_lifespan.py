@@ -115,7 +115,12 @@ def build_lifespan(modules: Sequence) -> Callable:
                     f"{app.state.migration['head_revision']!r}). Run: make migrate"
                 )
 
-            if app.state.migration.get("current_revision") is not None:
+            # Only a schema at head can be judged: a first run that stopped part-way
+            # still has pre-upgrade columns, and refusing it would hide the wizard
+            # that finishes the migration. The setup gate runs deferred checks
+            # once the schema is current.
+            migration = app.state.migration
+            if migration["is_current"] and migration.get("current_revision") is not None:
                 await check_data_compatibility(app, modules)
             else:
                 app.state.deferred_data_compatibility = list(modules)

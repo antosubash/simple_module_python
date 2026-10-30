@@ -66,6 +66,41 @@ async def test_hosting_compatibility_before_hydration(
             )
 
 
+async def test_partly_migrated_first_run_defers_the_check(monkeypatch):
+    # A first run that stopped part-way has a revision but pre-upgrade columns:
+    # judging it would refuse the boot and hide the wizard that finishes it.
+    events = []
+
+    class Module(ModuleBase):
+        meta = ModuleMeta(name="Example")
+
+        async def check_data_compatibility(self, db):
+            events.append("check")
+            return []
+
+    async def status(engine):
+        return {"is_current": False, "current_revision": "partial", "pending_count": 3}
+
+    async def first_run(app):
+        return True
+
+    async def hydrate(app):
+        events.append("hydrate")
+
+    monkeypatch.setattr("simple_module_hosting._lifespan.migration_status", status)
+    monkeypatch.setattr("simple_module_hosting._lifespan._is_first_run", first_run)
+    monkeypatch.setattr("simple_module_hosting._lifespan.hydrate_settings_from_db", hydrate)
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        db=SimpleNamespace(engine=engine, session_factory=async_sessionmaker(engine)),
+        settings=SimpleNamespace(environment="production"),
+    )
+    async with build_lifespan([Module()])(app):
+        assert "check" not in events
+        assert app.state.deferred_data_compatibility
+
+
 async def test_hosting_deferred_checks_gate_replay_before_hydration(monkeypatch):
     from simple_module_core.data_compatibility import DataCompatibilityIssue
     from simple_module_hosting._deferred_startup import run_deferred_startup
