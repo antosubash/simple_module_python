@@ -4,6 +4,7 @@ from simple_module_core.audit_links import AuditLink, AuditLinkRegistry, LabelRe
 from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
 from simple_module_core.csp import CspSourceError, CspSourceRegistry
+from simple_module_core.data_compatibility import DataCompatibilityIssue
 from simple_module_core.design_packs import DesignPack, DesignPackRegistry
 from simple_module_core.diagnostics import (
     DiagnosticLevel,
@@ -78,6 +79,7 @@ __all__ = [
     "CorsPolicyRegistry",
     "CspSourceError",
     "CspSourceRegistry",
+    "DataCompatibilityIssue",
     "DesignPack",
     "DesignPackRegistry",
     "DiagnosticLevel",

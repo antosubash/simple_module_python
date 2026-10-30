@@ -23,6 +23,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting import migrations
 from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting.data_compatibility import DataCompatibilityError
 
 logger = logging.getLogger(__name__)
 _migration_failure_warned = False
@@ -74,6 +75,11 @@ async def _database_migrated(app) -> bool:
     if not status:
         return True
     if status.get("is_current", True):
+        if getattr(app.state, "deferred_data_compatibility", None):
+            try:
+                await run_deferred_startup(app)
+            except DataCompatibilityError:
+                return False
         return True
 
     try:
@@ -90,9 +96,12 @@ async def _database_migrated(app) -> bool:
     if status["is_current"]:
         # Finish starting the modules whose on_startup needed these tables —
         # this worker may not be the one that ran the migrations. Never lets
-        # a failure there change the verdict, which only reports the schema.
+        # an ordinary startup-hook failure change the schema verdict. A failed
+        # data compatibility check must keep the gate closed.
         try:
             await run_deferred_startup(app)
+        except DataCompatibilityError:
+            return False
         except Exception:
             logger.exception("Replaying deferred on_startup hooks failed")
     return bool(status["is_current"])

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from simple_module_core._request_hooks import RequestHooksMixin
+from simple_module_core.data_compatibility import DataCompatibilityIssue
 from simple_module_core.module_meta import ModuleMeta
 
 if TYPE_CHECKING:
@@ -225,6 +227,14 @@ class ModuleBase(RequestHooksMixin, ABC):
         return []
 
     # ── Lifecycle ─────────────────────────────────────────────
+
+    async def check_data_compatibility(self, db: Any) -> Sequence[DataCompatibilityIssue]:
+        """Read-only upgrade checks before settings hydration and module startup.
+
+        Report semantic state, never demand an upstream Alembic revision id:
+        scaffolded hosts own their histories and may port an equivalent step.
+        """
+        return ()
 
     async def on_startup(self, app: FastAPI) -> None:
         """Called after all modules are registered, during app startup."""

@@ -24,6 +24,7 @@ import os
 import sys
 from pathlib import Path
 
+from simple_module_core._data_doctor import data_compatibility_diagnostics
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
@@ -75,13 +76,18 @@ def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:
     return supported, default
 
 
+def _database_url() -> str:
+    """``SM_DATABASE_URL``, defaulting like ``Settings.database_url``."""
+    return os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+
+
 def _database_dialect() -> str:
     """Dialect name of ``SM_DATABASE_URL`` (``.env`` merged by the i18n loader first).
 
     Defaults to ``sqlite`` like ``Settings.database_url``. Reads the env var
     directly for the same reason the i18n settings do: no hosting import.
     """
-    url = os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    url = _database_url()
     return url.split(":", 1)[0].split("+", 1)[0]
 
 
@@ -182,6 +188,7 @@ def main() -> int:
         database_dialect=_database_dialect(),
     )
     diagnostics.extend(override_findings)
+    diagnostics.extend(data_compatibility_diagnostics(modules, _database_url()))
     # A missing dependency only warns at a dev boot, but production refuses
     # to start with it (GH #501), so doctor reports it as what it will be.
     for finding in diagnostics:

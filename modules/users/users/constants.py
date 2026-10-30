@@ -87,3 +87,6 @@ def sanitize_list_filters(
         sort if sort in ALLOWED_SORT else "email",
         order if order in ALLOWED_ORDER else "asc",
     )
+
+
+UPGRADE_HASHED_BEARER_TOKENS = "users.hashed_bearer_tokens_v1"

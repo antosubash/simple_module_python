@@ -92,6 +92,7 @@ export default defineConfig({
             { text: "Quickstart", link: "/guide/quickstart" },
             { text: "Project structure", link: "/guide/project-structure" },
             { text: "Configuration", link: "/guide/configuration" },
+            { text: "Upgrading a host", link: "/guide/upgrading" },
             { text: "Your first module", link: "/guide/first-module" },
             { text: "OpenAPI & clients", link: "/guide/openapi-clients" },
           ],

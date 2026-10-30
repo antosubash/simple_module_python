@@ -22,3 +22,14 @@ MAX_PORT = 65535
 #: Seconds per SMTP operation (aiosmtplib defaults to 60). A send can run in a
 #: request's after-commit hook, so a hung server must not hold it for a minute.
 SMTP_TIMEOUT_SECONDS = 15.0
+
+UPGRADE_SETTINGS_NAMESPACE = "mail.settings_namespace_v1"
+LEGACY_MAIL_KEYS = (
+    "users.mailer",
+    "users.smtp_host",
+    "users.smtp_port",
+    "users.smtp_username",
+    "users.smtp_password",
+    "users.smtp_from",
+    "users.smtp_tls",
+)

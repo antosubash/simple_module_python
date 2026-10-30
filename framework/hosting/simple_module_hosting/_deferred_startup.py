@@ -11,6 +11,7 @@ from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
 from simple_module_hosting._hydrate_step import hydrate_all
+from simple_module_hosting.data_compatibility import check_data_compatibility
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,13 @@ async def run_deferred_startup(app: FastAPI) -> None:
     operator's out-of-band ``make migrate``) still finishes starting its
     modules. Serialised per app; a hook that fails again is logged and dropped
     rather than raised, because this runs after the migrations have already
-    committed and a 500 there would help nobody.
+    committed. Compatibility checks run first and still raise: an incompatible
+    security state must keep the setup gate closed.
     """
+    pending_checks = getattr(app.state, "deferred_data_compatibility", None)
+    if pending_checks:
+        await check_data_compatibility(app, pending_checks)
+        app.state.deferred_data_compatibility = []
     deferred = get_deferred_startup(app)
     if not deferred:
         return

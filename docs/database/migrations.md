@@ -8,6 +8,29 @@ All migrations live in `host/migrations/versions/` — **not** in module package
 - **Autogenerate sees everything.** `host/migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
 - **Operators run one command.** `make migrate` is the only target. No "did you also run `orders/migrate`?" footgun.
 
+## Module data upgrades in consuming hosts (#711)
+
+Scaffolded hosts own their migration graphs. A schema-only baseline generated
+from current models does not include this repository's historical data changes.
+Before deploying upgraded packages, run `make doctor` or `uv run smpy doctor`.
+Semantic module checks (`SM033`) recognize equivalent/manual ports independently
+of upstream revision ids.
+
+`uv run smpy migrations prepare <upgrade-id> --head <host-head-or-label@head>`
+copies a frozen, self-contained recipe into the host's own `migrations/versions`;
+it never applies it. An explicit current head is required. The bundled ids are
+`mail.settings_namespace_v1` (system settings move, target wins, matching
+`d7b3a9e5c1f2`) and `users.hashed_bearer_tokens_v1` (invalidate credentials before
+altering both token columns, matching `a626b1c8d023`). The first recipe for an
+unlabelled module declares `mail`/`users`; existing labels are not redeclared.
+Review the generated revision before applying it with `upgrade heads`.
+
+Boot checks run before module settings hydration/startup; token incompatibility
+refuses boot outside development, while obsolete mail keys warn. Never-migrated
+first runs defer checks until the wizard applies migrations. No automatic
+credential deletion happens at startup. See the [scaffolded host upgrade
+guide](../guide/upgrading.md) for the operator workflow and token sign-out risk.
+
 ## The real graph
 
 The history is **not** a single linear chain. It has several roots and several heads, and `make migrate` runs `upgrade heads` for that reason. On `main` today:

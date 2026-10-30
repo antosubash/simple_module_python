@@ -169,3 +169,17 @@ def require_cli_asset():
         pytest.skip(message)
 
     return require
+
+
+@pytest.fixture
+def alembic_host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """A flat host: ``alembic.ini`` and one head, ``local``. Returns (host, versions)."""
+    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+    versions = tmp_path / "migrations/versions"
+    versions.mkdir(parents=True)
+    (tmp_path / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s/migrations\n")
+    (versions / "local.py").write_text(
+        "revision = 'local'\ndown_revision = None\nbranch_labels = None\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    return tmp_path, versions

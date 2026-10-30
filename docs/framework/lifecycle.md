@@ -27,6 +27,7 @@ register_exception_handlers
 register_middleware
 register_routes
 register_admin_routes       (only when meta.admin_view_prefix is set)
+-- check_data_compatibility (async, before module settings hydration)
 -- on_startup (async, after middleware is installed)
 ```
 
@@ -349,6 +350,17 @@ def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
         ResourceType(name="notes.note", policy=NOTE_POLICY, select_by_id=select_by_id(Note))
     )
 ```
+
+## `check_data_compatibility(db)`
+
+This async read-only hook returns a sequence of `DataCompatibilityIssue` frozen
+dataclasses (`upgrade_id`, `message`, `severity="warning"|"error"`), empty by default.
+Use stable semantic ids and inspect actual schema/data state so hosts with
+independently ported revisions pass. Checks run before module DB-settings
+hydration and `on_startup`; errors refuse boot outside development. A never-
+migrated first run defers checks until migrations have been applied. Doctor
+reports the same issues as `SM033`. Checks must never clear credentials or apply
+migrations; see [Migrations](../database/migrations.md).
 
 ## `on_startup()` / `on_shutdown()`
 

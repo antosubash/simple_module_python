@@ -17,6 +17,8 @@ The `smpy` command is provided by `simple_module_cli` (installed as a dep of `si
 | `smpy create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
 | `smpy create-module <name>` | You're authoring a publishable module package (separate repo, distributed via PyPI) |
 | `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency, optional extra and dependency group to its latest non-yanked PyPI release, and `@simple-module-py/*` npm pins to the same core version (workspace/path/git/URL sources are left untouched) |
+| `smpy migrations prepare <upgrade-id> --head <label>@head` | Write the host-side revision for a framework data upgrade that boot or `make doctor` reported (`mail.settings_namespace_v1`, `users.hashed_bearer_tokens_v1`); it never applies it — run your migrate step afterwards |
+| `smpy doctor` | Run the module diagnostics (`SM0xx`, including `SM033` data-compatibility findings) against this host's database |
 | `smpy skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
 | `smpy host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
 | `smpy settings …` | Settings-module admin — currently `import-from-env` |
@@ -120,6 +122,21 @@ smpy package-update --path apps/web      # point at another project root or a py
 | `--loosen` | off | Rewrite Python constraints to `>=<latest>` instead of keeping their operator |
 
 **Deps it deliberately skips:** anything whose `[tool.uv.sources]` entry points at a workspace member, a local `path`, a `git` ref, or a `url` — those don't come from PyPI, so their version lives elsewhere. Skipped deps are listed with a reason (`workspace/local source`, `not found on PyPI`). The command only edits constraints; **run `uv sync` (and `npm install` for npm changes) afterward** to actually install the new versions (it reminds you to).
+
+## `smpy migrations prepare` — framework data upgrades
+
+A scaffolded host owns its Alembic history, so framework data migrations don't
+reach it. When boot (outside development it refuses on an `error`) or
+`make doctor` (`SM033`) names an upgrade id, generate the revision into the
+host and apply it like any other:
+
+```bash
+smpy migrations prepare users.hashed_bearer_tokens_v1 --head users@head
+uv run alembic -c host/alembic.ini upgrade heads
+```
+
+The token upgrade deletes existing bearer tokens before altering the columns,
+so every client signs in again; stop old workers first.
 
 ## `smpy skills` — install the bundled agent skills
 
