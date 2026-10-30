@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
 from starlette.responses import RedirectResponse
 
+from settings._managed_keys import ModuleKeyError
 from settings._unique_write import DuplicateSettingError
 from settings.constants import ERR_SETTING_EXISTS
 from settings.contracts.schemas import SettingCreate, SettingScope
@@ -31,4 +32,6 @@ async def create_from_form(
         await service.create(data)
     except DuplicateSettingError:
         return redirect_back_with_errors(request, {"key": ERR_SETTING_EXISTS})
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"key": str(exc)})
     return RedirectResponse(redirect_to, status_code=303)

@@ -39,27 +39,33 @@ class FileStorageSettings(DbBackedSettings):
     # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
-    backend: str = constants.DEFAULT_BACKEND
+    backend: str = Field(
+        default=constants.DEFAULT_BACKEND, json_schema_extra={"requires_restart": True}
+    )
 
     # Filesystem backend
     fs_root_path: str = Field(
         default=constants.DEFAULT_FS_ROOT,
-        json_schema_extra={"group": "Filesystem"},
+        json_schema_extra={"group": "Filesystem", "requires_restart": True},
     )
 
     # S3-compatible backend (works with AWS S3, MinIO, R2, etc.)
-    s3_bucket: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_region: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_access_key_id: str = Field(default="", json_schema_extra={"group": "S3"})
-    s3_secret_access_key: str = Field(default="", json_schema_extra={"group": "S3"})
+    s3_bucket: str = Field(default="", json_schema_extra={"group": "S3", "requires_restart": True})
+    s3_region: str = Field(default="", json_schema_extra={"group": "S3", "requires_restart": True})
+    s3_access_key_id: str = Field(
+        default="", json_schema_extra={"group": "S3", "requires_restart": True}
+    )
+    s3_secret_access_key: str = Field(
+        default="", json_schema_extra={"group": "S3", "requires_restart": True}
+    )
     s3_endpoint_url: str = Field(
         default="",
-        json_schema_extra={"group": "S3"},
+        json_schema_extra={"group": "S3", "requires_restart": True},
         description="Custom endpoint for MinIO / R2. Blank uses AWS default.",
     )
     s3_public_endpoint_url: str = Field(
         default="",
-        json_schema_extra={"group": "S3"},
+        json_schema_extra={"group": "S3", "requires_restart": True},
         description=(
             "Browser-facing S3 endpoint used to presign direct part uploads, when it "
             "differs from s3_endpoint_url (e.g. an internal MinIO hostname). Blank "
@@ -68,7 +74,7 @@ class FileStorageSettings(DbBackedSettings):
     )
     s3_signature_version: str = Field(
         default="s3v4",
-        json_schema_extra={"group": "S3"},
+        json_schema_extra={"group": "S3", "requires_restart": True},
         description="Presign signature version. Keep s3v4; SigV2 is rejected by most providers.",
     )
     s3_presign_ttl_seconds: int = Field(

@@ -91,21 +91,21 @@ class TestKnownKeysNeverLeaksADsn:
         resp = await authenticated_client.get(_CREATE, headers=_INERTIA)
         assert resp.status_code == 200, resp.text[:400]
         entries = resp.json()["props"]["known_keys"]
-        broker = next(e for e in entries if e["key"] == "background_tasks.broker_url")
-
-        assert broker["is_secret"] is True
-        assert broker["env_value"] == SECRET_MASK
+        assert not any(e["key"] == "background_tasks.broker_url" for e in entries)
         assert "hunter2" not in resp.text
 
-    async def test_a_password_free_broker_url_stays_visible(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
+    async def test_declared_generic_dsn_is_masked(self, app, authenticated_client) -> None:
+        from settings.contracts.registry import SettingDefinition
+
+        app.state.settings.registry.add(
+            SettingDefinition(key="integration.database_url", default=_WITH_PASSWORD)
+        )
         resp = await authenticated_client.get(_CREATE, headers=_INERTIA)
         entries = resp.json()["props"]["known_keys"]
-        broker = next(e for e in entries if e["key"] == "background_tasks.broker_url")
-
-        assert broker["is_secret"] is False
-        assert broker["default"].startswith("redis://")
+        entry = next(e for e in entries if e["key"] == "integration.database_url")
+        assert entry["is_secret"] is True
+        assert entry["default"] == SECRET_MASK
+        assert "hunter2" not in resp.text
 
 
 class TestMaskSentinelIsNeverStored:

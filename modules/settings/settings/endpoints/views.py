@@ -22,7 +22,7 @@ from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from settings import browse_query, known_keys
-from settings._managed_keys import ManagedKeyError
+from settings._managed_keys import ManagedKeyError, ModuleKeyError
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
@@ -53,7 +53,7 @@ from settings.constants import (
     VIEW_STORE_PATH,
 )
 from settings.contracts.schemas import SettingUpdate
-from settings.deps import get_setting_service
+from settings.deps import get_generic_setting_service
 from settings.endpoints._create_form import create_from_form
 from settings.service import SettingService
 from settings.tenant_scope import tenant_update_error
@@ -81,7 +81,7 @@ router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 @router.get(VIEW_STORE_PATH, response_model=None)
 async def browse(
     inertia: InertiaDep,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
     scope: str = SCOPE_ALL,
     q: str = "",
     page: browse_query.PageParam = 1,
@@ -139,7 +139,7 @@ async def create_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
 async def edit_view(
     setting_id: int,
     inertia: InertiaDep,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> InertiaResponse:
     item = await service.get_by_id(setting_id)
     if item is None:
@@ -159,7 +159,7 @@ async def edit_view(
 )
 async def create_action(
     request: Request,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> RedirectResponse:
     return await create_from_form(request, service, _REDIRECT_SETTINGS)
 
@@ -172,7 +172,7 @@ async def create_action(
 async def update_action(
     setting_id: int,
     request: Request,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> RedirectResponse:
     body = await request.json()
     try:
@@ -181,7 +181,10 @@ async def update_action(
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     if error := await tenant_update_error(request, await service.get_by_id(setting_id), data.value):
         return redirect_back_with_errors(request, {"value": error})
-    await service.update(setting_id, data)
+    try:
+        await service.update(setting_id, data)
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"value": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
@@ -194,7 +197,7 @@ async def delete_action(
     setting_id: int,
     request: Request,
     t: TranslatorDep,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> RedirectResponse:
     try:
         await service.delete(setting_id)
@@ -204,6 +207,8 @@ async def delete_action(
             "settings.browse.delete_managed_error", setting=exc.key, clear_via=exc.clear_via
         )
         return redirect_back_with_errors(request, {"delete": message})
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"delete": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
@@ -211,7 +216,7 @@ async def delete_action(
 async def modules_view(
     request: Request,
     inertia: InertiaDep,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> InertiaResponse:
     """Read-only view of every module's pydantic ``BaseSettings`` instance.
 

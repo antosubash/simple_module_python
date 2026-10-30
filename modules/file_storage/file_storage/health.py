@@ -21,7 +21,10 @@ _PROBE_PREFIX = "__healthcheck__/"
 
 
 def build_backend_check(app: FastAPI):
-    """Return an async check closing over *app* so it re-reads the live backend."""
+    """Return an async check closing over *app* that probes its startup backend.
+
+    Storage settings are restart-required (#691), so that is the backend in use.
+    """
 
     async def check() -> HealthCheckResult:
         services = getattr(app.state, "file_storage", None)

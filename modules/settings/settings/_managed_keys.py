@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from settings.constants import ERR_MANAGED_KEY_DELETE
+from settings.constants import ERR_MANAGED_KEY_DELETE, ERR_MODULE_KEY_EDIT
 from settings.contracts.registry import SettingsRegistry, clear_route
 from settings.contracts.schemas import SettingScope
 from settings.exceptions import SettingsError
@@ -58,3 +58,11 @@ async def ensure_deletable(
     if orphaned:
         return
     raise ManagedKeyError(key, clear_route(definition, scope))
+
+
+class ModuleKeyError(SettingsError):
+    """A generic mutation would bypass the module editor's validation."""
+
+    def __init__(self, package: str, edit_via: str) -> None:
+        self.edit_via = edit_via
+        super().__init__(ERR_MODULE_KEY_EDIT.format(package=package, edit_via=edit_via))

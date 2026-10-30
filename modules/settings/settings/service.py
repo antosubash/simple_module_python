@@ -11,9 +11,10 @@ from sqlmodel import col
 
 from settings._announce import announce
 from settings._listing import SettingListing
-from settings._managed_keys import TenantIsLive, ensure_deletable
+from settings._managed_keys import ModuleKeyError, TenantIsLive, ensure_deletable
 from settings._row_masking import drop_placeholder_write, is_placeholder_write, out
 from settings._unique_write import DuplicateSettingError, insert_if_free
+from settings.constants import VIEW_PREFIX
 from settings.contracts.schemas import (
     SettingCreate,
     SettingOut,
@@ -24,6 +25,7 @@ from settings.contracts.schemas import (
 
 if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.module_settings import ModuleSettingsRegistry
 
     from settings.contracts.registry import SettingsRegistry
 
@@ -43,6 +45,7 @@ class SettingService(SettingListing):
         tenant_is_live: TenantIsLive | None = None,
     ) -> None:
         self.db = db
+        self.module_registry: ModuleSettingsRegistry | None = None
         # With a registry, ``delete``/``delete_scoped`` refuse a ``clear_via``
         # key (see ``_managed_keys``); ``tenant_is_live`` lets a deleted
         # tenant's leftover row through.
@@ -54,6 +57,22 @@ class SettingService(SettingListing):
 
     def _changed(self, entity: Setting) -> None:
         announce(self.db, self.invalidation, entity.scope, entity.scope_id, entity.key)
+
+    def _ensure_generic_key(self, scope: SettingScope | str, key: str) -> None:
+        """Refuse a system row for a module field: only its editor validates and reloads.
+
+        Tenant (and user) rows stay writable here: a ``tenant_overridable``
+        module key's per-tenant override has no other platform route (#690).
+        """
+        if SettingScope(scope) is not SettingScope.SYSTEM:
+            return
+        package, sep, field = key.partition(".")
+        registry = self.module_registry
+        settings_cls = registry.get(package) if sep and registry is not None else None
+        # An orphaned row (no such field any more) has no editor to clear it, so
+        # it stays deletable here.
+        if settings_cls is not None and field in settings_cls.model_fields:
+            raise ModuleKeyError(package, registry.manage_url(package) or f"{VIEW_PREFIX}/")
 
     # ── Lookup ──────────────────────────────────────────────────────
 
@@ -115,6 +134,7 @@ class SettingService(SettingListing):
     # ── Mutations ───────────────────────────────────────────────────
 
     async def create(self, data: SettingCreate) -> SettingOut:
+        self._ensure_generic_key(data.scope, data.key)
         entity = Setting(**data.model_dump())
         if not await insert_if_free(self.db, entity):
             raise DuplicateSettingError(f"{data.scope.value}/{data.scope_id}/{data.key}")
@@ -126,6 +146,7 @@ class SettingService(SettingListing):
         entity = await self.db.get(Setting, setting_id)
         if entity is None:
             return None
+        self._ensure_generic_key(entity.scope, entity.key)
         changes = data.model_dump(exclude_unset=True)
         drop_placeholder_write(entity, changes)
         for field, value in changes.items():
@@ -142,6 +163,7 @@ class SettingService(SettingListing):
         key: str,
         data: SettingUpsert,
     ) -> SettingOut:
+        self._ensure_generic_key(scope, key)
         entity = await self._find(scope, scope_id, key)
         if entity is None:
             entity = Setting(
@@ -194,9 +216,11 @@ class SettingService(SettingListing):
 
     async def _remove(self, entity: Setting, as_owner: bool) -> None:
         if not as_owner:
+            # A managed key's own clear route is the more specific refusal.
             await ensure_deletable(
                 self.registry, self.tenant_is_live, entity.scope, entity.scope_id, entity.key
             )
+        self._ensure_generic_key(entity.scope, entity.key)
         self._changed(entity)
         await self.db.delete(entity)
         await self.db.flush()

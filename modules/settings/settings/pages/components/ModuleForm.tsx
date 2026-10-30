@@ -46,6 +46,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Refresh saved values without discarding drafts in other fields (#637).
@@ -61,6 +62,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     }));
     setErrors({});
     setSaved(false);
+    setSavedOverrides({});
   }, [initial]);
 
   const modifiedFields = useMemo(() => {
@@ -113,6 +115,14 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       // Keeping the form mounted lets the confirmation remain visible instead
       // of being discarded by an immediate Inertia reload.
       setBuffer((prev) => ({ ...prev, baseline: { ...values } }));
+      setSavedOverrides((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          m.fields
+            .filter((f) => f.name in changed)
+            .map((f) => [f.name, notEqual(changed[f.name], f.default)]),
+        ),
+      }));
       setSaved(true);
     }
     setBusy(false);
@@ -126,11 +136,28 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         params: { path: { package: m.package, field: name } },
       }),
     );
+    setSavedOverrides((prev) => ({ ...prev, [name]: false }));
     setBuffer((prev) => ({
       ...prev,
       values: { ...prev.values, [name]: prev.baseline[name] },
     }));
-    router.reload({ only: ['modules'] });
+    // Take the field's live value from the reload itself: when the page never
+    // reloaded after a save, the fresh props equal the old ones and the
+    // [initial] effect does not fire, leaving the reverted value on screen.
+    router.reload({
+      only: ['modules'],
+      onSuccess: (page) => {
+        const modules = (page.props as { modules?: ModuleView[] }).modules ?? [];
+        const fresh = modules
+          .find((other) => other.package === m.package)
+          ?.fields.find((f) => f.name === name);
+        if (!fresh) return;
+        setBuffer((prev) => ({
+          values: { ...prev.values, [name]: fresh.value },
+          baseline: { ...prev.baseline, [name]: fresh.value },
+        }));
+      },
+    });
   }
 
   return (
@@ -188,7 +215,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
               {fields.map((f) => (
                 <ModuleFieldRow
                   key={f.name}
-                  field={f}
+                  field={{ ...f, db_override: savedOverrides[f.name] ?? f.db_override }}
                   package={m.package}
                   value={values[f.name]}
                   modified={modifiedFields.has(f.name)}

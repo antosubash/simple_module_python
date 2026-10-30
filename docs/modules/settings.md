@@ -7,6 +7,11 @@ Two distinct surfaces:
 1. **Generic key/value settings** — anything addressable by a string `key`. Useful for arbitrary config you don't want to wedge into a pydantic class. Edited at `/admin/settings/store`.
 2. **Per-module pydantic settings** — each module registers a `BaseSettings` subclass via `register_module_settings`. Hydrated from the DB at boot, edited at `/admin/settings/`, hot-swapped on save with a `SettingsReloaded` event so dependents (SMTP clients, Celery configs, …) can rebuild.
 
+Generic store mutations reject keys prefixed by a registered module package with
+HTTP 422 and a link to `/admin/settings/` (or its dedicated management
+page). Use the module editor/API for validation, environment pinning and reload;
+Browse autocomplete offers only declared generic keys (#690).
+
 ## ModuleMeta
 
 | Field | Value |
@@ -127,7 +132,7 @@ per-tenant value subscribes and forgets.
 
 ### Generic K/V API (`/api/settings/...`)
 
-All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`. These are platform-operator permissions: no tenant role holds them, and the holder may write any key at system scope or at any tenant's scope. A TENANT `scope_id` must name a real tenant when a tenant-owning module is installed (`simple_module_core.tenancy.tenant_exists`): 404 on the `/tenant/{scope_id}/…` GET/PUT, 422 for a `POST /` body. `DELETE` stays unvalidated so a deleted tenant's leftovers can be cleared. A key declaring `SettingDefinition.clear_via` (a file set through an upload route, which reaps the stored file) is protected inside `SettingService.delete` / `delete_scoped`, so it holds for every scope (SYSTEM, TENANT, USER) and every caller: a generic delete raises `ManagedKeyError`, which the API maps to 422 naming that route (`clear_via` may be a `{SettingScope: route}` mapping when system and tenant rows clear differently; the 422 names the route for the row's scope, via `clear_route`) and the Inertia store screen shows as a toast. Two deliberate ways through: the owner of the key passes `as_owner=True` after taking responsibility for the file (branding's tenant clear route reaps it), and a TENANT row whose tenant no longer exists may be cleared by a platform operator. The guard needs the registry, which `get_setting_service` supplies; a bare `SettingService(db)` guards nothing.
+All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`. These are platform-operator permissions: no tenant role holds them, and the holder may write generic keys at system scope or at any tenant's scope; registered module namespaces must use the module editor/API. A TENANT `scope_id` must name a real tenant when a tenant-owning module is installed (`simple_module_core.tenancy.tenant_exists`): 404 on the `/tenant/{scope_id}/…` GET/PUT, 422 for a `POST /` body. `DELETE` stays unvalidated so a deleted tenant's leftovers can be cleared. A key declaring `SettingDefinition.clear_via` (a file set through an upload route, which reaps the stored file) is protected inside `SettingService.delete` / `delete_scoped`, so it holds for every scope (SYSTEM, TENANT, USER) and every caller: a generic delete raises `ManagedKeyError`, which the API maps to 422 naming that route (`clear_via` may be a `{SettingScope: route}` mapping when system and tenant rows clear differently; the 422 names the route for the row's scope, via `clear_route`) and the Inertia store screen shows as a toast. Two deliberate ways through: the owner of the key passes `as_owner=True` after taking responsibility for the file (branding's tenant clear route reaps it), and a TENANT row whose tenant no longer exists may be cleared by a platform operator. The guard needs the registry, which `get_setting_service` supplies; a bare `SettingService(db)` guards nothing.
 
 | Method + path | Purpose |
 |---|---|
