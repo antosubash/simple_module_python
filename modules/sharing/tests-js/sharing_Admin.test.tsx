@@ -40,6 +40,11 @@ const props: ComponentProps<typeof Admin> = {
 afterEach(() => vi.clearAllMocks());
 
 describe('sharing Admin', () => {
+  it('shows custom role ids unchanged', () => {
+    render(<Admin {...props} shares={[{ ...props.shares[0], role: 'collection_manager' }]} />);
+    expect(screen.getByText('collection_manager')).toBeInTheDocument();
+  });
+
   it('renders labels and hides revoke from read-only viewers', () => {
     render(<Admin {...props} can_revoke={false} />);
     expect(screen.getByText('Friend')).toBeInTheDocument();

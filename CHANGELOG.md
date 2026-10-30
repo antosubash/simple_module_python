@@ -15,6 +15,9 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Per-resource-type sharing roles and implied actions, including delegated share
+  management via `ACTION_SHARE`; deprecate `shareable_actions` for removal in
+  0.1.0. Default view/edit roles remain unchanged; no migration (#707).
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).

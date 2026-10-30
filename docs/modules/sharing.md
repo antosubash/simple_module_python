@@ -2,7 +2,7 @@
 
 Optional generic share table for [resource-scoped access](/framework/resource-access).
 A module whose rows are owned by a user can let the owner share one row with
-another user (`view` or `edit`, optionally until a date) without shipping its
+another user (a declared role, optionally until a date) without shipping its
 own share model. Nothing depends on it: the framework only sees the
 `share_exists` factory a module passes to its `OwnedResourcePolicy`.
 
@@ -39,10 +39,49 @@ class NotesModule(ModuleBase):
 
 A module that uses `sharing.policy` must list `Sharing` in `depends_on`.
 
-Roles are actions: `view` grants view; `edit` grants view and edit. A type
-limits what may be granted with `ResourceType.shareable_actions` (default
-`("view", "edit")`). Only the owner, or a holder of the policy's bypass
-permission, passes `can("share")` and may grant.
+By default, `ROLE_IMPLIES` supplies two roles: `view` grants view; `edit` grants
+view and edit. Set the keyword-only `ResourceType.share_roles` to a mapping of
+role ids to tuples of implied actions. Pass **the same mapping** to
+`share_exists_for(..., roles=...)` so grant validation and SQL access agree:
+
+```python
+from simple_module_core.resources import ACTION_EDIT, ACTION_SHARE, ACTION_VIEW
+
+NOTE_SHARE_ROLES = {
+    "viewer": (ACTION_VIEW,),
+    "contributor": (ACTION_VIEW, ACTION_EDIT),
+    "manager": (ACTION_VIEW, ACTION_EDIT, ACTION_SHARE),
+}
+NOTE_POLICY = OwnedResourcePolicy(
+    Note.owner_id,
+    bypass_perm=PERM_NOTES_MANAGE,
+    share_exists=share_exists_for(NOTE_TYPE, Note.id, roles=NOTE_SHARE_ROLES),
+)
+NOTE_RESOURCE = ResourceType(
+    name=NOTE_TYPE,
+    policy=NOTE_POLICY,
+    select_by_id=select_by_id(Note),
+    share_roles=NOTE_SHARE_ROLES,
+)
+```
+
+Register `NOTE_RESOURCE` in `register_resource_types`. Every declared role must
+include `ACTION_VIEW`; registration rejects a role without it. `None` uses the
+default mapping; an empty mapping permits no share roles. Role ids are stored
+and shown as-is on the admin page. `roles_granting(action, roles=...)` returns
+the role ids implying that action; custom actions work the same way as built-ins.
+
+The owner, a holder of the policy's bypass permission, or a grantee whose role
+implies `ACTION_SHARE` may list, grant and revoke shares on that resource.
+There is no role ranking: such a grantee may grant **any** declared role,
+including another manager. The API still requires `sharing.share`. Expired
+shares and shares from other tenants grant no access.
+
+`ResourceType.shareable_actions` is deprecated for removal in **0.1.0** and
+warns when supplied. Existing view/edit subsets still restrict grantable roles;
+`edit` continues to imply view. Migrate to `share_roles` and pass that mapping
+to the SQL factory too. When both are supplied, `share_roles` takes precedence.
+No database migration is needed.
 
 ## Routes
 

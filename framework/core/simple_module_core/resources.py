@@ -25,10 +25,11 @@ typed ``Any``; the stock policy lives in ``simple_module_db.resource_policy``.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+from simple_module_core.deprecation import deprecate
 from simple_module_core.permissions import grants
 
 ACTION_VIEW = "view"
@@ -38,6 +39,10 @@ ACTION_EDIT = "edit"
 ACTION_DELETE = "delete"
 ACTION_SHARE = "share"
 """Granting someone else access; the ``sharing`` module checks it on the granter."""
+
+_SHAREABLE_ACTIONS = deprecate(
+    "ResourceType.shareable_actions", remove_in="0.1.0", use="ResourceType.share_roles"
+)
 
 _TYPE_NAME = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 
@@ -92,8 +97,23 @@ class ResourceType:
     name: str
     policy: ResourcePolicy
     select_by_id: StatementForId
-    #: Actions a share may grant on this type, beyond :data:`ACTION_VIEW`.
-    shareable_actions: tuple[str, ...] = field(default=(ACTION_VIEW, ACTION_EDIT))
+    #: Deprecated role allowlist; retained for view/edit subsets until 0.1.0.
+    shareable_actions: tuple[str, ...] | None = None
+    #: Role ids mapped to their implied actions; None uses sharing's view/edit default.
+    share_roles: Mapping[str, tuple[str, ...]] | None = field(default=None, kw_only=True)
+
+    def __post_init__(self) -> None:
+        if self.shareable_actions is not None:
+            _SHAREABLE_ACTIONS.warn(stacklevel=3)
+            if self.share_roles is None:
+                object.__setattr__(
+                    self,
+                    "share_roles",
+                    {
+                        role: (ACTION_VIEW,) if role == ACTION_VIEW else (ACTION_VIEW, role)
+                        for role in self.shareable_actions
+                    },
+                )
 
 
 class ResourceTypeError(ValueError):
@@ -115,6 +135,12 @@ class ResourceTypeRegistry:
             raise ResourceTypeError(f"Resource type name {name!r} must look like 'module.thing'")
         if name in self._types:
             raise ResourceTypeError(f"Resource type {name!r} is registered twice")
+        if resource_type.share_roles is not None:
+            for role, actions in resource_type.share_roles.items():
+                if ACTION_VIEW not in actions:
+                    raise ResourceTypeError(
+                        f"Resource type {name!r} share role {role!r} must include {ACTION_VIEW!r}"
+                    )
         self._types[name] = resource_type
 
     def get(self, name: str) -> ResourceType | None:
