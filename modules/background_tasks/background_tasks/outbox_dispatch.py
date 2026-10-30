@@ -41,7 +41,7 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
-from simple_module_core.durable_events import DurableContext, deserialize_event
+from simple_module_core.durable_events import IN_DELIVERY, DurableContext, deserialize_event
 from simple_module_core.events import EventBus
 from simple_module_db import is_valid_tenant_id
 from simple_module_db.callbacks import discard_on_commit_callbacks, run_on_commit_callbacks
@@ -166,7 +166,11 @@ async def deliver_one(
                     async with deadline:
                         with handler_guard(session):
                             ctx = DurableContext(db=session, attempt=row.attempts)
-                            await sub.handler(event, ctx)
+                            token = IN_DELIVERY.set(True)
+                            try:
+                                await sub.handler(event, ctx)
+                            finally:
+                                IN_DELIVERY.reset(token)
                 except TimeoutError as exc:
                     if not deadline.expired():
                         raise  # the handler's own timeout, not ours

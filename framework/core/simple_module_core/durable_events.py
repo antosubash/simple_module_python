@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache
 from typing import Any, Protocol, runtime_checkable
@@ -32,6 +33,14 @@ logger = logging.getLogger(__name__)
 # Width of the outbox's ``event_key`` / ``handler_name`` columns. Checked at
 # subscribe time so an over-long name fails at boot, not on a publisher's flush.
 MAX_NAME_LENGTH = 255
+
+# Set by delivery transports only while invoking a durable handler.
+IN_DELIVERY: ContextVar[bool] = ContextVar("durable_event_in_delivery", default=False)
+
+
+def in_delivery() -> bool:
+    """Whether this context runs in a durable handler (including child tasks)."""
+    return IN_DELIVERY.get()
 
 
 class DurableDeliveryUnavailable(RuntimeError):  # noqa: N818 - name fixed by the design
@@ -177,6 +186,7 @@ class DurableRegistry:
 
 
 __all__ = [
+    "IN_DELIVERY",
     "DurableContext",
     "DurableDeliveryUnavailable",
     "DurableHandler",
@@ -186,5 +196,6 @@ __all__ = [
     "deserialize_event",
     "event_key",
     "handler_name",
+    "in_delivery",
     "serialize_event",
 ]

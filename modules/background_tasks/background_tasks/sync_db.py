@@ -28,6 +28,7 @@ from simple_module_db.query_filter import EngineTenancy, bind_engine_policy
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlmodel import SQLModel
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,20 @@ _url_override: str | None = None
 _database_options: dict[str, int] = {}
 _tenant_strict: bool = False
 _default_tenant: str | None = None
+
+
+class WorkerTenancy(SQLModel, frozen=True):
+    """Snapshot of the host tenancy configured for this worker (#685)."""
+
+    multi_tenant: bool
+    default_tenant: str | None
+
+
+def worker_tenancy() -> WorkerTenancy | None:
+    """Return configured tenancy, or ``None`` when no database URL is pinned."""
+    if _url_override is None:
+        return None
+    return WorkerTenancy(multi_tenant=_tenant_strict, default_tenant=_default_tenant)
 
 
 class WorkerSession(Session):
