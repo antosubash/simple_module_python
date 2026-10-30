@@ -21,13 +21,15 @@ from permissions.deps import (
     RequiresPermission,
     assigned_by,
     get_permission_service,
-    invalidate_grants_on_commit,
 )
 from permissions.service import PermissionService
+from permissions.write_safety import PermissionWriteRefused
 
 router = APIRouter()
 
 _ADMIN_URL = "/admin/users/"
+# Form-error key the edit pages read to show why a save was refused (#687).
+_REFUSAL_FIELD = "permissions"
 
 
 @router.get("/", response_model=None)
@@ -78,7 +80,10 @@ async def update_role(
         data = RolePermissionsUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
+    try:
+        await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
+    except PermissionWriteRefused as exc:
+        return redirect_back_with_errors(request, {_REFUSAL_FIELD: exc.detail})
     return RedirectResponse(_ADMIN_URL, status_code=303)
 
 
@@ -128,6 +133,8 @@ async def update_user(
         data = UserPermissionsUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
-    invalidate_grants_on_commit(request, service, user_id)
+    try:
+        await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
+    except PermissionWriteRefused as exc:
+        return redirect_back_with_errors(request, {_REFUSAL_FIELD: exc.detail})
     return RedirectResponse(_ADMIN_URL, status_code=303)

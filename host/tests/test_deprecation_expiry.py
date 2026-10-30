@@ -22,6 +22,7 @@ from simple_module_core.deprecation import (
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES = (
     "host.routes_legacy",
+    "permissions.deps",
     "settings.registration",
     "settings.module_registry",
     "settings.hydrate",
@@ -31,6 +32,7 @@ _SHIM_MODULES = (
 )
 _EXPECTED = {
     "host.routes_legacy (pre-/admin view URL redirects)",
+    "permissions.deps.invalidate_grants_on_commit",
     "settings.registration",
     "settings.module_registry",
     "settings.hydrate",

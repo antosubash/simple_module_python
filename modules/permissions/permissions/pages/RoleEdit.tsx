@@ -69,7 +69,8 @@ function RoleEdit({ role, assigned, groups }: Props) {
     put(`/admin/permissions/roles/${role.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
-      onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
+      onError: (errors) =>
+        toast.error(errors.permissions ?? t(keys.permissions.toasts.save_failed)),
       onFinish: () => {
         savingRef.current = false;
       },

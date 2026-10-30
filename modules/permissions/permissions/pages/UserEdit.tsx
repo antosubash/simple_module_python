@@ -65,7 +65,8 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
     put(`/admin/permissions/users/${user.id}`, {
       preserveScroll: true,
       onSuccess: () => toast.success(t(keys.permissions.toasts.saved)),
-      onError: () => toast.error(t(keys.permissions.toasts.save_failed)),
+      onError: (errors) =>
+        toast.error(errors.permissions ?? t(keys.permissions.toasts.save_failed)),
       onFinish: () => {
         savingRef.current = false;
       },

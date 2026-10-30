@@ -19,6 +19,12 @@ All notable changes to this project are documented in this file. The format is b
   and refresh tokens, sharing revocation with password changes and sign-out-everywhere (#686).
 - Defer single admin create/invite events and invitation-related emails until the
   request commits; failed commits deliver neither mail nor ordinary events (#692, #627).
+- **Behaviour change:** permission managers may only add keys they hold and cannot
+  edit stronger users; scoped admin tokens obey their permission ceiling. Both
+  API and Inertia writes return a refusal reason (#687, following #624 and #653).
+- Permission service user-grant writes now invalidate caches after commit for
+  every caller, including cross-worker delivery with an app; deprecate the
+  endpoint invalidation helper for removal in 0.1.0 (#687, #621).
 
 ## [0.0.41] — 2026-10-25
 
