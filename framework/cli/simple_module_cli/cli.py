@@ -56,7 +56,14 @@ app.add_typer(migrations_app, name="migrations")
 @app.command("doctor")
 def doctor() -> None:
     """Check installed modules and their database compatibility."""
-    from simple_module_core.__main__ import main as run_doctor
+    try:
+        from simple_module_core.__main__ import main as run_doctor
+    except ImportError:
+        # The CLI installs on its own (to scaffold); doctor needs a project's framework.
+        typer.echo(
+            "ERROR: smpy doctor needs simple_module_core; run it inside a project.", err=True
+        )
+        raise typer.Exit(1) from None
 
     raise typer.Exit(run_doctor())
 

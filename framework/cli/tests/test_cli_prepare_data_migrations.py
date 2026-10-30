@@ -4,6 +4,7 @@ import importlib.util
 
 import pytest
 import sqlalchemy as sa
+from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
@@ -11,21 +12,8 @@ from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
 
-def _host(tmp_path, monkeypatch):
-    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
-    host = tmp_path / "host"
-    versions = host / "migrations/versions"
-    versions.mkdir(parents=True)
-    (host / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s/migrations\n")
-    (versions / "local.py").write_text(
-        "revision = 'local'\ndown_revision = None\nbranch_labels = None\n"
-    )
-    monkeypatch.chdir(tmp_path)
-    return host, versions
-
-
-def _prepare(tmp_path, monkeypatch, upgrade):
-    host, versions = _host(tmp_path, monkeypatch)
+def _prepare(alembic_host, upgrade):
+    host, versions = alembic_host
     result = CliRunner().invoke(app, ["migrations", "prepare", upgrade, "--head", "local"])
     assert result.exit_code == 0, result.output
     generated = [p for p in versions.glob("*.py") if p.name != "local.py"]
@@ -33,15 +21,13 @@ def _prepare(tmp_path, monkeypatch, upgrade):
     spec = importlib.util.spec_from_file_location("prepared_revision", generated[0])
     revision = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(revision)
-    from alembic.config import Config
-
     script = ScriptDirectory.from_config(Config(str(host / "alembic.ini")))
     assert script.get_revision(revision.revision).down_revision == "local"
     return revision
 
 
-def test_cli_prepared_mail_revision_target_wins_and_roundtrips(tmp_path, monkeypatch):
-    revision = _prepare(tmp_path, monkeypatch, "mail.settings_namespace_v1")
+def test_cli_prepared_mail_revision_target_wins_and_roundtrips(alembic_host):
+    revision = _prepare(alembic_host, "mail.settings_namespace_v1")
     assert revision.branch_labels == ("mail",)
     engine = sa.create_engine("sqlite://")
     try:
@@ -84,8 +70,8 @@ def test_cli_prepared_mail_revision_target_wins_and_roundtrips(tmp_path, monkeyp
         engine.dispose()
 
 
-def test_cli_prepared_token_revision_invalidates_before_altering(tmp_path, monkeypatch):
-    revision = _prepare(tmp_path, monkeypatch, "users.hashed_bearer_tokens_v1")
+def test_cli_prepared_token_revision_invalidates_before_altering(alembic_host):
+    revision = _prepare(alembic_host, "users.hashed_bearer_tokens_v1")
     assert revision.branch_labels == ("users",)
     engine = sa.create_engine("sqlite://")
     try:
@@ -118,34 +104,31 @@ def test_cli_prepared_token_revision_invalidates_before_altering(tmp_path, monke
         ["mail.settings_namespace_v1", "--head", "missing"],
     ],
 )
-def test_cli_prepare_rejects_invalid_input_without_writing(tmp_path, monkeypatch, args):
-    _, versions = _host(tmp_path, monkeypatch)
+def test_cli_prepare_rejects_invalid_input_without_writing(alembic_host, args):
+    _, versions = alembic_host
     result = CliRunner().invoke(app, ["migrations", "prepare", *args])
     assert result.exit_code != 0
     assert [p.name for p in versions.glob("*.py")] == ["local.py"]
 
 
-def test_cli_prepare_flat_host_reuses_label_and_attaches_explicit_head(tmp_path, monkeypatch):
-    host, versions = _host(tmp_path, monkeypatch)
+def test_cli_prepare_flat_host_reuses_label_and_attaches_explicit_head(alembic_host):
+    host, versions = alembic_host
     (versions / "local.py").write_text(
         "revision = 'local'\ndown_revision = None\nbranch_labels = ('mail',)\n"
     )
-    monkeypatch.chdir(host)
     result = CliRunner().invoke(
         app, ["migrations", "prepare", "mail.settings_namespace_v1", "--head", "mail@head"]
     )
     assert result.exit_code == 0, result.output
-    from alembic.config import Config
-
     script = ScriptDirectory.from_config(Config(str(host / "alembic.ini")))
     head = script.get_revision("mail@head")
     assert head.down_revision == "local"
     assert head.module.branch_labels is None
-    assert not list(tmp_path.rglob("*.db"))
+    assert not list(host.rglob("*.db"))
 
 
-def test_cli_prepare_rejects_ambiguous_heads_and_non_heads(tmp_path, monkeypatch):
-    _, versions = _host(tmp_path, monkeypatch)
+def test_cli_prepare_rejects_ambiguous_heads_and_non_heads(alembic_host):
+    _, versions = alembic_host
     (versions / "second.py").write_text(
         "revision = 'second'\ndown_revision = 'local'\nbranch_labels = None\n"
     )
@@ -163,14 +146,12 @@ def test_cli_prepare_rejects_ambiguous_heads_and_non_heads(tmp_path, monkeypatch
 @pytest.mark.parametrize(
     "upgrade_id", ["mail.settings_namespace_v1", "users.hashed_bearer_tokens_v1"]
 )
-def test_cli_prepared_recipe_runs_with_framework_imports_blocked(tmp_path, monkeypatch, upgrade_id):
+def test_cli_prepared_recipe_runs_with_framework_imports_blocked(alembic_host, upgrade_id):
     import subprocess
     import sys
 
-    _prepare(tmp_path, monkeypatch, upgrade_id)
-    generated = next(
-        (tmp_path / "host/migrations/versions").glob(f"*_{upgrade_id.replace('.', '_')}.py")
-    )
+    _prepare(alembic_host, upgrade_id)
+    generated = next(alembic_host[1].glob(f"*_{upgrade_id.replace('.', '_')}.py"))
     code = """
 import importlib.abc
 import runpy
@@ -182,6 +163,7 @@ class BlockFramework(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, BlockFramework())
 namespace = runpy.run_path(sys.argv[1])
 import sqlalchemy as sa
+from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 with sa.create_engine('sqlite://').begin() as conn:
@@ -193,3 +175,11 @@ with sa.create_engine('sqlite://').begin() as conn:
         namespace['downgrade']()
 """
     subprocess.run([sys.executable, "-I", "-c", code, str(generated)], check=True, timeout=15)
+
+
+def test_cli_recipe_ids_match_the_module_constants():
+    from mail.constants import UPGRADE_SETTINGS_NAMESPACE
+    from simple_module_cli.migrations_cmd import _RECIPES
+    from users.constants import UPGRADE_HASHED_BEARER_TOKENS
+
+    assert set(_RECIPES) == {UPGRADE_SETTINGS_NAMESPACE, UPGRADE_HASHED_BEARER_TOKENS}

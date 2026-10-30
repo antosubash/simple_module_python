@@ -477,8 +477,9 @@ not run the suite** (only `SM025` is reported there). What fails a production
 boot is strict discovery (a bad entry point, missing `meta`, or a missing
 `depends_on` target), the
 auth-provider check, placeholder secrets (`SM_SECRET_KEY`, users token
-secrets), a localhost Celery broker, and the `SM010` migration check (except
-on a never-migrated first run, which goes to `/setup`). Catch everything else
+secrets), a localhost Celery broker, the `SM010` migration check (except
+on a never-migrated first run, which goes to `/setup`) and an `error` from a
+module's `check_data_compatibility` (`SM033`). Catch everything else
 with `make doctor` before shipping. Codes that
 change how you write code: `SM003`/`SM004` render-key mismatch, `SM009`
 framework→plugin import, `SM011` table missing from migrations, `SM012`

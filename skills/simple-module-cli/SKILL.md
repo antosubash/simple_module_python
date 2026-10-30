@@ -18,6 +18,7 @@ The `smpy` command is provided by `simple_module_cli` (installed as a dep of `si
 | `smpy create-module <name>` | You're authoring a publishable module package (separate repo, distributed via PyPI) |
 | `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency, optional extra and dependency group to its latest non-yanked PyPI release, and `@simple-module-py/*` npm pins to the same core version (workspace/path/git/URL sources are left untouched) |
 | `smpy migrations prepare <upgrade-id> --head <label>@head` | Write the host-side revision for a framework data upgrade that boot or `make doctor` reported (`mail.settings_namespace_v1`, `users.hashed_bearer_tokens_v1`); it never applies it — run your migrate step afterwards |
+| `smpy doctor` | Run the module diagnostics (`SM0xx`, including `SM033` data-compatibility findings) against this host's database |
 | `smpy skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
 | `smpy host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
 | `smpy settings …` | Settings-module admin — currently `import-from-env` |

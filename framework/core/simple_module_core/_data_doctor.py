@@ -2,14 +2,15 @@
 
 import asyncio
 import importlib.util
-import os
 from collections.abc import Sequence
 
 from simple_module_core.diagnostics import Diagnostic
 from simple_module_core.module import ModuleBase
 
 
-def data_compatibility_diagnostics(modules: Sequence[ModuleBase]) -> list[Diagnostic]:
+def data_compatibility_diagnostics(
+    modules: Sequence[ModuleBase], database_url: str
+) -> list[Diagnostic]:
     # Core-only installations have no database runtime to inspect.
     if importlib.util.find_spec("simple_module_db") is None:
         return []
@@ -19,5 +20,4 @@ def data_compatibility_diagnostics(modules: Sequence[ModuleBase]) -> list[Diagno
         return []
     from simple_module_db.data_compatibility import database_compatibility_diagnostics
 
-    url = os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
-    return asyncio.run(database_compatibility_diagnostics(modules, url))
+    return asyncio.run(database_compatibility_diagnostics(modules, database_url))

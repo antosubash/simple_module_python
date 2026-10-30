@@ -55,7 +55,7 @@ async def test_failing_hook_is_deferred_then_replayed_on_unmigrated_first_run():
 
     with (
         patch("simple_module_hosting._deferred_startup.hydrate_settings_from_db", AsyncMock()),
-        patch("simple_module_hosting.data_compatibility.check_data_compatibility", AsyncMock()),
+        patch("simple_module_hosting._deferred_startup.check_data_compatibility", AsyncMock()),
     ):
         status = {"is_current": False, "pending_count": 1}
         with (

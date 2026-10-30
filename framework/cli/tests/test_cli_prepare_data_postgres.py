@@ -12,24 +12,17 @@ from typer.testing import CliRunner
 pytestmark = pytest.mark.postgres
 
 
-def _revision(tmp_path, monkeypatch, upgrade):
-    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
-    versions = tmp_path / "migrations/versions"
-    versions.mkdir(parents=True)
-    (tmp_path / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s/migrations\n")
-    (versions / "local.py").write_text(
-        "revision = 'local'\ndown_revision = None\nbranch_labels = None\n"
-    )
-    monkeypatch.chdir(tmp_path)
+def _revision(alembic_host, upgrade):
+    _, versions = alembic_host
     result = CliRunner().invoke(app, ["migrations", "prepare", upgrade, "--head", "local"])
     assert result.exit_code == 0, result.output
     return runpy.run_path(str(next(p for p in versions.glob("*.py") if p.name != "local.py")))
 
 
-async def test_cli_postgres_token_recipe_and_equivalent_port(db_session, tmp_path, monkeypatch):
+async def test_cli_postgres_token_recipe_and_equivalent_port(db_session, alembic_host):
     from users.module import UsersModule
 
-    revision = _revision(tmp_path, monkeypatch, "users.hashed_bearer_tokens_v1")
+    revision = _revision(alembic_host, "users.hashed_bearer_tokens_v1")
     conn = await db_session.connection()
     await conn.execute(
         sa.text(
@@ -65,10 +58,10 @@ async def test_cli_postgres_token_recipe_and_equivalent_port(db_session, tmp_pat
     ].upgrade_id == "users.hashed_bearer_tokens_v1"
 
 
-async def test_cli_postgres_mail_target_wins(db_session, tmp_path, monkeypatch):
+async def test_cli_postgres_mail_target_wins(db_session, alembic_host):
     from mail.module import MailModule
 
-    revision = _revision(tmp_path, monkeypatch, "mail.settings_namespace_v1")
+    revision = _revision(alembic_host, "mail.settings_namespace_v1")
     conn = await db_session.connection()
     await conn.execute(
         sa.text(

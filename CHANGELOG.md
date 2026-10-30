@@ -30,7 +30,8 @@ All notable changes to this project are documented in this file. The format is b
   Doctor (`SM033`); legacy bearer-token storage refuses boot outside development,
   while obsolete mail settings warn (#711). `smpy migrations prepare` writes
   frozen host-owned recipes for mail namespace changes (`d7b3a9e5c1f2`) and token
-  invalidation/column changes (`a626b1c8d023`), without applying migrations.
+  invalidation/column changes (`a626b1c8d023`), without applying migrations. `smpy doctor` is a new alias for `make doctor`
+  on scaffolded hosts.
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).

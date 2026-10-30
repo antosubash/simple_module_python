@@ -47,3 +47,20 @@ async def test_missing_token_tables_are_not_a_finding():
             assert await UsersModule().check_data_compatibility(db) == []
     finally:
         await engine.dispose()
+
+
+async def test_plaintext_rows_behind_hashed_ones_are_found():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as conn:
+            for name in ("access", "refresh"):
+                await conn.execute(text(f"CREATE TABLE users_{name}_token (token VARCHAR(64))"))
+                for i in range(150):
+                    await conn.execute(
+                        text(f"INSERT INTO users_{name}_token VALUES (:t)"), {"t": f"{i:064x}"}
+                    )
+            await conn.execute(text("INSERT INTO users_access_token VALUES ('plaintext')"))
+        async with async_sessionmaker(engine)() as db:
+            assert await UsersModule().check_data_compatibility(db)
+    finally:
+        await engine.dispose()

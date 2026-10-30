@@ -48,14 +48,14 @@ def prepare(
         if parent is None or not parent.is_head:
             raise typer.BadParameter("--head must resolve to one existing host head")
         label, recipe = _RECIPES[upgrade_id]
-        labels = {label for rev in script.walk_revisions() for label in rev.branch_labels}
+        existing = {name for rev in script.walk_revisions() for name in rev.branch_labels}
     except CommandError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     # Frozen source is copied, so future package changes cannot change this revision.
     source = files("simple_module_cli").joinpath("migration_recipes", recipe).read_text()
     revision = uuid4().hex[:12]
-    branch_labels = None if label in labels else (label,)
+    branch_labels = None if label in existing else (label,)
     identifiers = (
         f"\nrevision = {revision!r}\ndown_revision = {parent.revision!r}\n"
         f"branch_labels = {branch_labels!r}\ndepends_on = None\n"
