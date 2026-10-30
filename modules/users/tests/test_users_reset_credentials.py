@@ -97,3 +97,22 @@ async def test_reset_revokes_in_the_password_commit(
         assert refreshed.status_code == 401, refreshed.text
     async with users_app.state.sm.db.session_factory() as session:
         assert (await session.execute(select(UserAccessToken))).scalars().all() == []
+
+
+async def test_rejected_reset_password_revokes_nothing(admin_client, anon_client, users_app):
+    login = await anon_client.post(
+        "/api/users/auth/login",
+        data={"username": "admin@example.com", "password": "AdminPass1!"},
+    )
+    assert login.status_code == 204, login.text
+    me = await anon_client.get("/api/users/me")
+    link = await admin_client.post(f"/api/users/admin/{me.json()['id']}/reset-password-link")
+    token = parse_qs(urlsplit(link.json()["link"]).query)["token"][0]
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=users_app), base_url="http://testserver"
+    ) as fresh:
+        reset = await fresh.post(
+            "/api/users/auth/reset-password", json={"token": token, "password": "12345678"}
+        )
+        assert reset.status_code == 400, reset.text
+    assert (await anon_client.get("/admin/users/", follow_redirects=False)).status_code == 200

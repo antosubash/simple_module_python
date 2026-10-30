@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import Request
 
 from users.credentials import announce_revocation, revoke_credential_rows
 from users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 class ResetRevocationMixin:
@@ -40,5 +43,11 @@ class ResetRevocationMixin:
         await revoke_credential_rows(self.user_db.session, user)
         updated = await super()._update(user, update_dict)
         request = self._reset_request
-        await announce_revocation(request.app if request is not None else None, user.id)
+        try:
+            await announce_revocation(request.app if request is not None else None, user.id)
+        except Exception:
+            # The reset is durable; like an on_commit callback, a failed eviction
+            # is logged (cached counters still expire on their TTL) rather than
+            # turning a completed reset into a 500.
+            logger.exception("users.reset.revocation_announce_failed")
         return updated
