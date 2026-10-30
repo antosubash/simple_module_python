@@ -107,7 +107,9 @@ def plan_npm(
                     if name not in available:
                         try:
                             data = fetcher(_REGISTRY + quote(name, safe="@"))
-                            available[name] = target in data.get("versions", {})
+                            available[name] = isinstance(data, dict) and target in (
+                                data.get("versions") or {}
+                            )
                         except (OSError, ValueError):  # HTTP/URL/timeout, bad JSON
                             available[name] = False
                     if not available[name]:
