@@ -83,6 +83,36 @@ row.
 
 Audit entries link to `/admin/sharing/?share={id}` (`AuditLink.for_model`).
 
+## Cleanup
+
+Durable `UserDeleted` cleanup removes shares addressed to the deleted user
+across tenants; durable `TenantDeleted` cleanup removes the deleted tenant's
+shares. Neither detects deletion of an arbitrary shared resource.
+
+Resource owners must call the public
+`sharing.contracts.forget_resource(db, resource_type, resource_id)` when purging
+a resource (#683). Pass one canonical text id (UUID hex, decimal integer, or the
+resource's natural key), or an iterable of those ids for a batch. The function
+deletes every matching share, including expired shares, under the caller's
+bound tenant using the caller's transaction. Other tenants and resource types
+are unaffected. Repeated calls and empty batches are safe.
+
+```python
+from sharing.contracts import forget_resource
+
+with tenant_context(tenant_id):
+    await forget_resource(db, NOTE_TYPE, note.id.hex)
+    await db.delete(note)
+    await db.flush()
+```
+
+This is a trusted cleanup API for the owning module: it performs no authorization
+or resource-existence check and does not commit. Bind the resource's tenant;
+strict tenancy fails closed without one. Declare `Sharing` in `depends_on` when
+using this contract. Clean up in the same transaction as the purge so a rollback
+restores both the resource and its shares. Existing orphan rows are not swept
+automatically.
+
 ## Migration
 
 `f733c7938fd1` creates the table. It is its own root and head

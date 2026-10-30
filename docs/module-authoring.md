@@ -99,6 +99,26 @@ existing service. Translate messages at the request boundary. Endpoint-level
 `HTTPException` remains appropriate for pure request validation. Inertia forms
 may catch domain errors to report field errors or redirect instead.
 
+For a custom exception handler that needs the standard error response, import
+the public `render_error_page` from `simple_module_hosting` (#684):
+
+```python
+from simple_module_hosting import render_error_page
+
+
+async def handle_module_error(request, exc):
+    return await render_error_page(request, exc.status_code, detail=str(exc))
+```
+
+Its stable signature is
+`render_error_page(request, status_code, detail, headers=None, *, required_permission=None)`.
+It uses the framework's content negotiation: API clients receive
+`{"detail": detail}`, while browser navigations and Inertia visits receive the
+standard `Error` page with shared layout props. Both retain the status and
+supplied headers (for example, `Retry-After`). `required_permission` optionally
+names a missing permission on a 403 page. Rendering failures fall back to JSON.
+Modules need no imports from private hosting modules.
+
 ### Minimal `pyproject.toml`
 
 ```toml

@@ -202,6 +202,18 @@ A publisher that never imported a task can still enqueue it by name: `enqueue_af
 
 ## Worker tuning
 
+Task bodies can inspect the host's configured tenancy with the public
+`background_tasks.sync_db.worker_tenancy() -> WorkerTenancy | None` (#685).
+`WorkerTenancy` is an immutable SQLModel snapshot with `multi_tenant: bool` and
+`default_tenant: str | None`. It returns `None` until `set_database_url` pins a
+URL, including when a URL is only available from the environment. A configured
+single-tenant worker returns `multi_tenant=False`; a strict worker returns
+`multi_tenant=True` and `default_tenant=None` (the default is ignored in strict
+mode). In single-tenant mode, a null default means the framework's default
+tenant id. Reconfiguration updates subsequent snapshots; `set_database_url(None)`
+or `dispose_sync_engine()` returns the accessor to `None`. Treat unknown tenancy
+as unconfigured rather than assuming single-tenant operation.
+
 Each field defaults to `None`, which keeps Celery's own default; all require a worker restart.
 
 | Field | Celery key |

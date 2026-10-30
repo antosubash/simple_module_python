@@ -177,6 +177,14 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
   publisher).
 - A durable handler may itself `publish_durable(..., ctx.db)`; the new event
   commits with the handler's delivery.
+- Public `simple_module_core.durable_events.in_delivery()` reports whether the
+  current context is running a durable handler (#682). The outbox transport sets
+  the public `IN_DELIVERY: ContextVar[bool]` around the handler and resets it in
+  `finally`, including after failure or cancellation. Child tasks inherit `True`
+  when created inside a handler; unrelated tasks remain `False`. A child retains
+  its inherited value even if it outlives the handler. Use this to skip awaiting
+  an eager outbox drain from delivery code, which would wait on itself. Modules
+  no longer need stack inspection or pins on private dispatcher functions.
 - The handler `name=` (default `f"{handler.__module__}.{handler.__qualname__}"`)
   keys delivery state, so keep it stable across deploys.
 - Events must be `@dataclass` classes serialisable to JSON; `UUID`, `datetime`,
