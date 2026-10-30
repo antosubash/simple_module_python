@@ -142,6 +142,11 @@ opt-in setting, is not implemented.
 
 ### Direct, resumable uploads
 
+Cancelling an upload while its session lookup is pending prevents it from starting
+transport or offering a resume prompt. Completed queue rows and their retained
+browser files are cleared after the file-list reload finishes; failed rows keep
+their files available for retry (#695, #588).
+
 Files above `direct_upload_threshold_bytes` (default 64 MiB) upload in parts through a *session*, so a dropped connection or a reload loses at most one part. The Files page does this automatically; API clients drive it themselves. All routes need `file_storage.upload` and act only on the caller's own sessions (anyone else's id is a 404).
 
 | Route | Purpose |

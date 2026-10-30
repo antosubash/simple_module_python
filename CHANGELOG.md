@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- File storage: cancellation during upload-session lookup prevents transport from
+  starting; clearing completed upload rows releases their retained files (#695, #588).
 - **Behaviour change:** password resets revoke all browser sessions, access tokens
   and refresh tokens, sharing revocation with password changes and sign-out-everywhere (#686).
 - Defer single admin create/invite events and invitation-related emails until the
