@@ -16,7 +16,7 @@ The `smpy` command is provided by `simple_module_cli` (installed as a dep of `si
 | `smpy new <name>` | Greenfield: scaffold a complete app (host + selected modules) in one shot, with an interactive wizard for DB / tenancy / module preset |
 | `smpy create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
 | `smpy create-module <name>` | You're authoring a publishable module package (separate repo, distributed via PyPI) |
-| `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency in `pyproject.toml` to its latest non-yanked PyPI release (workspace/path/git/URL sources are left untouched) |
+| `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency, optional extra and dependency group to its latest non-yanked PyPI release, and `@simple-module-py/*` npm pins to the same core version (workspace/path/git/URL sources are left untouched) |
 | `smpy skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
 | `smpy host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
 | `smpy settings …` | Settings-module admin — currently `import-from-env` |
@@ -103,7 +103,7 @@ For the post-scaffold steps (entry point, Inertia namespace, etc.) see **simple-
 
 ## `smpy package-update` — bump `simple_module_*` deps
 
-Walks the project's `pyproject.toml` (plus every `[tool.uv.workspace]` member), finds each dependency whose distribution name matches `simple_module_*` / `simple-module-*`, queries PyPI for the latest non-yanked release, and rewrites the constraint to `name>=<latest>`. PyPI lookups run in parallel, so it's quick even across a multi-package workspace.
+Walks the project's `pyproject.toml` (plus every `[tool.uv.workspace]` member), finds each dependency whose distribution name matches `simple_module_*` / `simple-module-*`, queries PyPI for the latest non-yanked release, and rewrites the constraint to the latest release, keeping its operator (`==` stays `==`, `>=` stays `>=`; `--loosen` rewrites to `>=<latest>`). It covers `[project] dependencies`, optional-dependency extras and `[dependency-groups]`. It also bumps `@simple-module-py/*` pins in each root/member `package.json` and `client_app/package.json` to the selected `simple_module_core` version (keeping `^`/`~`, never downgrading, skipping versions not on npm or when the Python core pin was held back). PyPI lookups run in parallel, so it's quick even across a multi-package workspace.
 
 ```bash
 smpy package-update                      # rewrite constraints in ./pyproject.toml (+ workspace members)
@@ -117,8 +117,9 @@ smpy package-update --path apps/web      # point at another project root or a py
 | `--path <DIR\|FILE>` | cwd | Project root or an explicit `pyproject.toml` |
 | `--dry-run` | off | Print planned changes only; don't write |
 | `--include-pre` | off | Allow pre-release versions as the "latest" |
+| `--loosen` | off | Rewrite Python constraints to `>=<latest>` instead of keeping their operator |
 
-**Deps it deliberately skips:** anything whose `[tool.uv.sources]` entry points at a workspace member, a local `path`, a `git` ref, or a `url` — those don't come from PyPI, so their version lives elsewhere. Skipped deps are listed with a reason (`workspace/local source`, `not found on PyPI`). The command only edits constraints; **run `uv sync` afterward** to actually install the new versions (it reminds you to).
+**Deps it deliberately skips:** anything whose `[tool.uv.sources]` entry points at a workspace member, a local `path`, a `git` ref, or a `url` — those don't come from PyPI, so their version lives elsewhere. Skipped deps are listed with a reason (`workspace/local source`, `not found on PyPI`). The command only edits constraints; **run `uv sync` (and `npm install` for npm changes) afterward** to actually install the new versions (it reminds you to).
 
 ## `smpy skills` — install the bundled agent skills
 

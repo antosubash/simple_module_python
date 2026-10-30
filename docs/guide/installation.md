@@ -141,7 +141,26 @@ When new releases of `simple_module_*` ship to PyPI, bump every dep in lockstep:
 smpy package-update
 ```
 
-Pass `--dry-run` first to preview the diff.
+Pass `--dry-run` first to preview the diff. The command scans the root and uv
+workspace members: project dependencies, every optional-dependency extra and
+every dependency group, including workspace roots with only dev groups.
+Include-group objects and workspace/local uv sources are left alone; source
+names are normalized and member sources override root sources.
+
+It also scans each root/member `package.json` and `client_app/package.json`, in
+`dependencies`, `devDependencies`, `optionalDependencies` and `peerDependencies`.
+`@simple-module-py/*` pins follow the selected `simple_module_core` PyPI version
+in lockstep, preserving exact, `^` or `~` style and never downgrading. The npm
+registry must contain that exact version; unavailable releases, incompatible
+version spellings, unsupported ranges and workspace/file/git/alias references
+are reported as skips, and so is every npm pin when the run leaves the Python
+`simple_module_core` pin alone (an upper bound or a local source), so npm never
+runs ahead of Python. `--include-pre` also applies to core target selection.
+
+All manifests are parsed and changes planned before any writes. Dry runs write
+nothing; JSON indentation and trailing-newline style are preserved. Writes to
+multiple files are not atomic against filesystem errors. Lockfiles are left
+alone: run the reported `uv sync` and `npm install` commands afterwards.
 
 Each constraint keeps the operator you wrote — `==0.0.32` becomes `==0.0.33`,
 `>=0.0.32` becomes `>=0.0.33` — so bumping versions never changes your pinning
@@ -157,7 +176,7 @@ Two consequences worth knowing:
 - A dependency with no constraint at all has no pin style to preserve, so it
   gets `>=<latest>`.
 
-Pass `--loosen` to rewrite every constraint to `>=<latest>` instead.
+Pass `--loosen` to rewrite every Python constraint to `>=<latest>` instead.
 
 ## Troubleshooting
 
