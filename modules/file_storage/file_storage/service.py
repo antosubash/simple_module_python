@@ -115,7 +115,8 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
             key,
             _hashing_stream(),
             content_type=content_type,
-            size=0,  # unknown until stream is drained; backends that need it can spool
+            # 0 means unknown: the backend spools, or streams multipart parts.
+            size=upload.size or 0,
         )
 
         # Compensation: on DB failure, drop the just-uploaded object. A

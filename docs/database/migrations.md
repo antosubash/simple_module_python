@@ -38,7 +38,7 @@ The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, 
 
 - `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.
-- `users`, `file_storage`, `background_tasks`, `settings`, `permissions` and `feature_flags` have no label of their own.
+- `settings`, `permissions` and `feature_flags` have no label of their own. `users` and `file_storage` gained labels late (`a625f0b7c912`, `f5b1c3e8a207`), so their earlier revisions stay unlabelled and report `api_tokens`.
 
 Guidance: give an unlabelled module a `branch_labels` on its **next** revision. Adding a label to an existing revision file is technically possible, because `alembic_version` stores revision ids and never labels, but it also relabels every descendant and changes what `<label>@head` resolves to, so treat it as a deliberate, reviewed change rather than a cleanup.
 

@@ -64,7 +64,10 @@ def store_path(
                 service = FileStorageService(db, backend, settings)
                 with _source(source, filename) as (handle, name):
                     upload = UploadFile(
-                        handle, filename=name, headers=Headers({"content-type": content_type})
+                        handle,
+                        filename=name,
+                        size=_remaining_size(handle),
+                        headers=Headers({"content-type": content_type}),
                     )
                     out = await service.upload(upload, public=public)
                 register_on_commit(db, mark_committed)
@@ -119,6 +122,18 @@ def _source(source, filename) -> Generator[tuple[BinaryIO, str]]:
         yield source, filename or Path(name).name
 
 
+def _remaining_size(handle: BinaryIO) -> int | None:
+    """Bytes left in a real file, so S3 can size its parts; ``None`` for a pipe or buffer.
+
+    Without it a server put is treated as unknown-length, its part size can't
+    grow, and anything past 10,000 parts (156 GiB at the 16 MiB default) fails.
+    """
+    try:
+        return os.fstat(handle.fileno()).st_size - handle.tell()
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
 def _reader(file_id: UUID):
     backend, settings = backend_and_settings()
     factory = worker_session_factory()
@@ -158,10 +173,10 @@ def open_local(file_id: UUID) -> Generator[Path]:
 
 def presigned_url(file_id: UUID, *, ttl_seconds: int | None = None) -> str:
     """Sign a scoped file download, or raise ``NotSupportedError``."""
+    if ttl_seconds is not None and ttl_seconds <= 0:
+        raise ValueError("ttl_seconds must be positive")
     backend, settings, row = _reader(file_id)
     if not backend.supports_presigned_url:
         raise NotSupportedError("The configured backend cannot presign downloads")
     ttl = settings.s3_presign_ttl_seconds if ttl_seconds is None else ttl_seconds
-    if ttl <= 0:
-        raise ValueError("ttl_seconds must be positive")
     return run_on_worker_loop(lambda: presigned_download_url(backend, row, ttl, attachment=True))

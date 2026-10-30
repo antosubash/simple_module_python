@@ -37,8 +37,10 @@ accepts a path or binary stream and returns committed `StoredFileOut` metadata;
 `presigned_url(file_id)` requires a backend with signing support.
 
 Uploads retain the existing MIME, quota, size and hashing rules. S3 writes above
-`direct_upload_threshold_bytes` use bounded multipart, including unknown-size
-streams. Raise the DB's `max_file_size_bytes` for large worker outputs. An
+`direct_upload_threshold_bytes` use bounded multipart. A file path's size is
+known, so parts grow to fit S3's 10,000-part limit; an unknown-size stream uses
+`multipart_part_size_bytes` as is (raise it for streams beyond ~156 GiB). Raise
+the DB's `max_file_size_bytes` for large worker outputs. An
 incomplete multipart upload left by a killed job is aborted by the upload reaper.
 See `docs/modules/file_storage.md` in the repository for transaction and cleanup
 semantics.

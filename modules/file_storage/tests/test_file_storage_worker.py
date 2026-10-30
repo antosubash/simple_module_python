@@ -215,3 +215,17 @@ from file_storage.contracts import store_path, open_local, presigned_url
 assert all(callable(fn) for fn in (store_path, open_local, presigned_url))
 """
     subprocess.run([sys.executable, "-c", code], check=True, timeout=20)
+
+
+def test_remaining_size_lets_s3_size_parts_for_real_files(tmp_path):
+    import io
+
+    from file_storage.worker import _remaining_size
+
+    path = tmp_path / "out.bin"
+    path.write_bytes(b"x" * 10)
+    with path.open("rb") as handle:
+        handle.read(3)
+        assert _remaining_size(handle) == 7
+    # A buffer or pipe has no size to declare: S3 then streams parts of unknown total.
+    assert _remaining_size(io.BytesIO(b"abc")) is None

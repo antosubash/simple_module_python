@@ -126,6 +126,7 @@ async def test_declared_size_mismatch_is_not_published(wire_backend, declared):
     with pytest.raises(SizeMismatchError):
         await backend.put("key", chunks(b"1234567890"), content_type="text/plain", size=declared)
     assert wire.single is None and wire.completed is None
+    assert wire.aborted
 
 
 async def test_part_count_bound_aborts(wire_backend, monkeypatch):
