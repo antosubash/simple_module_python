@@ -66,9 +66,12 @@ class SettingService(SettingListing):
         """
         if SettingScope(scope) is not SettingScope.SYSTEM:
             return
-        package, sep, _ = key.partition(".")
+        package, sep, field = key.partition(".")
         registry = self.module_registry
-        if sep and registry is not None and registry.get(package) is not None:
+        settings_cls = registry.get(package) if sep and registry is not None else None
+        # An orphaned row (no such field any more) has no editor to clear it, so
+        # it stays deletable here.
+        if settings_cls is not None and field in settings_cls.model_fields:
             raise ModuleKeyError(package, registry.manage_url(package) or f"{VIEW_PREFIX}/")
 
     # ── Lookup ──────────────────────────────────────────────────────

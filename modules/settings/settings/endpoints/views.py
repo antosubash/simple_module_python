@@ -22,7 +22,7 @@ from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from settings import browse_query, known_keys
-from settings._managed_keys import ManagedKeyError
+from settings._managed_keys import ManagedKeyError, ModuleKeyError
 from settings._module_settings import (
     _package_of,
     collect_module_settings,
@@ -181,7 +181,10 @@ async def update_action(
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
     if error := await tenant_update_error(request, await service.get_by_id(setting_id), data.value):
         return redirect_back_with_errors(request, {"value": error})
-    await service.update(setting_id, data)
+    try:
+        await service.update(setting_id, data)
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"value": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
@@ -204,6 +207,8 @@ async def delete_action(
             "settings.browse.delete_managed_error", setting=exc.key, clear_via=exc.clear_via
         )
         return redirect_back_with_errors(request, {"delete": message})
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"delete": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
