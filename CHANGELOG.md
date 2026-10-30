@@ -14,6 +14,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- Public durable delivery context (`in_delivery()` and `IN_DELIVERY`), inherited
+  by handler child tasks and reset after delivery (#682).
+- Transactional, tenant-scoped `sharing.contracts.forget_resource` for resource
+  owners purging shared resources (#683).
+- Public `simple_module_hosting.render_error_page` with standard JSON/Inertia
+  negotiation, status and header preservation (#684).
+- Public `background_tasks.sync_db.worker_tenancy` and `WorkerTenancy` snapshot,
+  distinguishing an unconfigured worker from single-tenant operation (#685).
+
 ### Fixed
 - Deprecate `auth.deps.require_permission` for removal in 0.1.0; recommend
   `RequiresPermission` and enforce the removal release in the shim ledger (#698).

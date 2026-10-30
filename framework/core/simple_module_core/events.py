@@ -11,6 +11,7 @@ from typing import Any
 from pyee.asyncio import AsyncIOEventEmitter
 
 from simple_module_core.durable_events import (
+    IN_DELIVERY,
     DurableContext,
     DurableDeliveryUnavailable,
     DurableHandler,
@@ -160,4 +161,9 @@ class EventBus:
             subscription = self.durable.lookup(key, name)
             if subscription is None:
                 continue
-            await subscription.handler(event, ctx)
+            # Inline delivery is still a durable delivery for ``in_delivery()`` (#682).
+            token = IN_DELIVERY.set(True)
+            try:
+                await subscription.handler(event, ctx)
+            finally:
+                IN_DELIVERY.reset(token)
