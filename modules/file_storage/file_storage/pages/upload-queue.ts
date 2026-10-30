@@ -41,7 +41,7 @@ function nextId(): string {
  * progress events in any current browser, and a large file uploading behind a
  * spinner with no feedback is the exact complaint this replaces.
  *
- * The queue keeps the `File` object for every job it has seen, so a failed row
+ * The queue keeps the `File` object while its row remains, so a failed row
  * can be retried from the row itself — the alternative is asking the person to
  * find the file on disk again to answer a transient 502.
  */
@@ -91,6 +91,7 @@ export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}
   const maybePause = useCallback(
     async (jobId: string, file: File): Promise<RemoteSession | 'paused' | null> => {
       const session = await findSession(file);
+      if (!files.current.has(jobId)) return null;
       if (!session || session.parts.length === 0) return session;
       const sent = session.parts.reduce((sum, part) => sum + part.size, 0);
       waiting.current.set(jobId, session);
@@ -144,6 +145,7 @@ export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}
     async (jobId: string, file: File, resumeAutomatically = false): Promise<Outcome> => {
       if (directThresholdBytes && file.size > directThresholdBytes) {
         const found = resumeAutomatically ? await findSession(file) : await maybePause(jobId, file);
+        if (!files.current.has(jobId)) return 'canceled';
         if (found === 'paused') return 'paused';
         return uploadInParts(jobId, file, found);
       }
@@ -160,7 +162,14 @@ export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}
   // second batch dropped while this reload is in flight must not have its
   // progress rows swept away by the first batch's cleanup.
   const settleBatch = useCallback((uploaded: number) => {
-    const clearFinished = () => setJobs((current) => current.filter((j) => j.status !== 'done'));
+    const clearFinished = () =>
+      setJobs((current) =>
+        current.filter((job) => {
+          if (job.status !== 'done') return true;
+          files.current.delete(job.id);
+          return false;
+        }),
+      );
     if (uploaded > 0) {
       router.reload({ only: RELOAD_PROPS, onFinish: clearFinished });
     } else {
@@ -250,6 +259,7 @@ export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}
       patch(id, { percent: 0, status: 'uploading' });
       return finishResumed(id, async (file) => {
         if (session) await discardSession(file, session.id);
+        if (!files.current.has(id)) return 'canceled';
         return uploadInParts(id, file, null);
       });
     },
