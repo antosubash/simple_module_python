@@ -22,8 +22,10 @@ All notable changes to this project are documented in this file. The format is b
 - Tenant-scoped sync file worker contracts (`store_path`, `open_local`, and
   `presigned_url`), reusing worker settings/pools, upload validation and hashing,
   with commit compensation and `FileUploaded` publication after commit (#708).
-- Bounded S3 server-side multipart uploads above the stored threshold, including
-  unknown-length streams, size/part bounds and abort on failure (#708).
+- **Behaviour change:** S3 server-side uploads (including browser single-request
+  ones) above `direct_upload_threshold_bytes` now use bounded multipart, including
+  unknown-length streams, with size/part bounds and abort on failure; the S3
+  credentials need `s3:AbortMultipartUpload` (#708).
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).

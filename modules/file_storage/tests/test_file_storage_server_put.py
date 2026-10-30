@@ -206,3 +206,16 @@ async def test_failed_part_upload_aborts(wire_backend, monkeypatch):
     with pytest.raises(Exception, match="part failed"):
         await backend.put("key", chunks(b"1234567"), content_type="text/plain", size=0)
     assert wire.aborted and wire.completed is None
+
+
+def test_part_size_setting_is_capped_at_the_s3_limit():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        FileStorageSettings(multipart_part_size_bytes=constants.MAX_S3_PART_SIZE_BYTES + 1)
+    assert (
+        FileStorageSettings(
+            multipart_part_size_bytes=constants.MAX_S3_PART_SIZE_BYTES
+        ).multipart_part_size_bytes
+        == constants.MAX_S3_PART_SIZE_BYTES
+    )

@@ -94,7 +94,8 @@ async def _compensate(factory, backend, out: StoredFileOut) -> None:
     # A lost COMMIT acknowledgement is ambiguous: never delete a durable file.
     try:
         async with factory() as db:
-            row = await db.get(StoredFile, out.id)
+            # Trashed rows keep their object for restore: only a missing row means rollback.
+            row = await db.get(StoredFile, out.id, execution_options={"include_deleted": True})
     except BaseException:
         logger.exception("file_storage.worker_commit_check_failed key=%s", out.key)
         return

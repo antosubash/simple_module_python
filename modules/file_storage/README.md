@@ -38,8 +38,8 @@ accepts a path or binary stream and returns committed `StoredFileOut` metadata;
 
 Uploads retain the existing MIME, quota, size and hashing rules. S3 writes above
 `direct_upload_threshold_bytes` use bounded multipart, including unknown-size
-streams. Raise the DB's `max_file_size_bytes` for large worker outputs and set an
-S3 lifecycle rule to abort incomplete server uploads left by terminated jobs.
+streams. Raise the DB's `max_file_size_bytes` for large worker outputs. An
+incomplete multipart upload left by a killed job is aborted by the upload reaper.
 See `docs/modules/file_storage.md` in the repository for transaction and cleanup
 semantics.
 
