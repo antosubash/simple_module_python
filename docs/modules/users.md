@@ -434,7 +434,8 @@ It defaults to an empty list and has no environment variable. Restart every
 application worker after changing it. Startup skips, with a warning, relative paths,
 missing directories and paths that refer to files, so a typo cannot stop the app
 from booting. These directories contain trusted
-deployment code and must never come from request input.
+deployment code and must never come from request input. Templates render in
+Jinja's sandbox, so a file dropped into a listed directory cannot run Python.
 
 The mailer searches the configured directories in order, then its bundled
 templates, independently for each file:

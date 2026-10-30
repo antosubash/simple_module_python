@@ -136,3 +136,15 @@ def test_template_setting_is_restart_required_and_defaults_are_independent(monke
     assert UsersSettings.model_fields["mail_template_dirs"].json_schema_extra == {
         "requires_restart": True
     }
+
+
+async def test_host_templates_render_sandboxed(tmp_path, captured_mail):
+    # The directory list is admin-editable, so a template must not reach Python
+    # internals (the classic ``__class__.__mro__`` escape).
+    from jinja2.exceptions import SecurityError
+
+    (tmp_path / "verify_email.txt").write_text("{{ ''.__class__.__mro__[1].__subclasses__() }}")
+    mailer = TemplatedMailer("https://example.com", template_dirs=[tmp_path])
+    with pytest.raises(SecurityError):
+        await mailer.send_verification("a@example.com", "tok")
+    assert captured_mail.messages == []

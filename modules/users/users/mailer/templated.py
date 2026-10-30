@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import jinja2
+import jinja2.sandbox
 from simple_module_core.mail import MailMessage, current_mail_sender
 
 from users.constants import MAIL_TEMPLATE_INVITE, MAIL_TEMPLATE_RESET, MAIL_TEMPLATE_VERIFY
@@ -47,7 +48,10 @@ class TemplatedMailer:
                     "Ignoring mail template path %s: not an existing absolute directory",
                     directory,
                 )
-        self._template_env = jinja2.Environment(
+        # Sandboxed: the setting is editable from the admin UI, so a template
+        # dropped into a writable directory (an upload folder) must not be able
+        # to run arbitrary Python.
+        self._template_env = jinja2.sandbox.SandboxedEnvironment(
             loader=jinja2.FileSystemLoader(
                 [*directories, str(importlib.resources.files(__package__) / "templates")]
             ),
@@ -62,12 +66,16 @@ class TemplatedMailer:
     async def send_verification(self, email: str, token: str) -> None:
         app = self._app_name()
         link = f"{self._base}/users/verify?token={token}"
-        await self._send(email, f"Verify your email for {app}", MAIL_TEMPLATE_VERIFY, link=link)
+        await self._send(
+            email, f"Verify your email for {app}", MAIL_TEMPLATE_VERIFY, app_name=app, link=link
+        )
 
     async def send_password_reset(self, email: str, token: str) -> None:
         app = self._app_name()
         link = f"{self._base}/users/reset-password?token={token}"
-        await self._send(email, f"Reset your {app} password", MAIL_TEMPLATE_RESET, link=link)
+        await self._send(
+            email, f"Reset your {app} password", MAIL_TEMPLATE_RESET, app_name=app, link=link
+        )
 
     async def send_invite(
         self,
@@ -82,6 +90,7 @@ class TemplatedMailer:
             email,
             f"{invited_by_name} invited you to {app}",
             MAIL_TEMPLATE_INVITE,
+            app_name=app,
             link=link,
             invited_by_name=invited_by_name,
             # Stripped here rather than in the template: a message of nothing
@@ -90,7 +99,6 @@ class TemplatedMailer:
         )
 
     async def _send(self, to: str, subject: str, template_name: str, **context: Any) -> None:
-        context["app_name"] = self._app_name()
         body = self._template_env.get_template(template_name).render(**context)
         html_name = str(Path(template_name).with_suffix(".html"))
         try:
