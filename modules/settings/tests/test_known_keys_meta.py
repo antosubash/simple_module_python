@@ -28,13 +28,18 @@ def _by_key(entries: list[dict], key: str) -> dict:
 
 
 class TestFieldMetadata:
-    async def test_every_suggestion_carries_the_full_meta_shape(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
+    async def test_module_fields_are_not_suggested(self, authenticated_client):
         entries = await _known_keys(authenticated_client)
+        assert not any(e["key"].startswith("mail.") for e in entries)
 
-        assert entries
-        expected = {
+    async def test_generic_suggestions_carry_the_full_meta_shape(self, app, authenticated_client):
+        from settings.contracts.registry import SettingDefinition
+
+        app.state.settings.registry.add(
+            SettingDefinition(key="orders.checkout.require_terms", default="true")
+        )
+        entry = _by_key(await _known_keys(authenticated_client), "orders.checkout.require_terms")
+        assert {
             "key",
             "type",
             "env_var",
@@ -45,54 +50,18 @@ class TestFieldMetadata:
             "requires_restart",
             "is_secret",
             "choices",
-        }
-        assert expected <= set(entries[0])
+        } <= set(entry)
 
-    async def test_the_env_var_label_matches_the_module_prefix(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
-        mailer = _by_key(await _known_keys(authenticated_client), "mail.backend")
-
-        assert mailer["env_var"] == "SM_MAIL_BACKEND"
-        assert mailer["default"] == "console"
-
-    async def test_a_db_backed_module_reports_its_env_var_as_not_read(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
-        """``MailSettings`` declares no ``env_prefix``, so ``SM_MAIL_*`` is a
-        label and not a fallback. Saying otherwise inverts the question the
-        Resolved value panel exists to answer."""
-        mailer = _by_key(await _known_keys(authenticated_client), "mail.backend")
-
-        assert mailer["env_readable"] is False
-        assert mailer["env_set"] is False
-        assert mailer["env_value"] is None
-
-    async def test_a_pattern_constrained_string_advertises_its_choices(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
-        mailer = _by_key(await _known_keys(authenticated_client), "mail.backend")
-
-        assert mailer["choices"] == ["console", "smtp"]
-
-    async def test_an_unconstrained_string_has_no_choices(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
-        host = _by_key(await _known_keys(authenticated_client), "mail.smtp_host")
-
-        assert host["choices"] is None
-
-    async def test_a_secret_default_is_masked(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
+    async def test_secret_generic_defaults_are_masked(self, app, authenticated_client):
         from settings._module_settings import SECRET_MASK
+        from settings.contracts.registry import SettingDefinition
 
-        secret = _by_key(
-            await _known_keys(authenticated_client), "users.reset_password_token_secret"
+        app.state.settings.registry.add(
+            SettingDefinition(key="orders.api_key", default="private-credential")
         )
-
-        assert secret["is_secret"] is True
-        assert secret["default"] == SECRET_MASK
+        entry = _by_key(await _known_keys(authenticated_client), "orders.api_key")
+        assert entry["is_secret"] is True
+        assert entry["default"] == SECRET_MASK
 
 
 class TestRegistryDefinitions:
@@ -125,10 +94,10 @@ class TestRegistryDefinitions:
         assert entry["choices"] is None
         assert entry["env_readable"] is False
 
-    async def test_a_module_field_wins_over_a_declaration_of_the_same_key(
+    async def test_a_module_declaration_is_not_suggested(
         self, app: FastAPI, authenticated_client: httpx.AsyncClient
     ) -> None:
-        """The pydantic field is the live one; the declaration only records intent."""
+        """A stale declaration must not reintroduce a refused module key."""
         from settings.contracts.registry import SettingDefinition
 
         app.state.settings.registry.add(
@@ -137,8 +106,7 @@ class TestRegistryDefinitions:
 
         mailer = [e for e in await _known_keys(authenticated_client) if e["key"] == "mail.backend"]
 
-        assert len(mailer) == 1
-        assert mailer[0]["default"] == "console"
+        assert mailer == []
 
 
 class TestSuggestionsStaySorted:

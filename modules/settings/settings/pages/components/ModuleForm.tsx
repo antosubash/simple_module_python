@@ -46,6 +46,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Refresh saved values without discarding drafts in other fields (#637).
@@ -61,6 +62,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
     }));
     setErrors({});
     setSaved(false);
+    setSavedOverrides({});
   }, [initial]);
 
   const modifiedFields = useMemo(() => {
@@ -113,6 +115,14 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
       // Keeping the form mounted lets the confirmation remain visible instead
       // of being discarded by an immediate Inertia reload.
       setBuffer((prev) => ({ ...prev, baseline: { ...values } }));
+      setSavedOverrides((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          m.fields
+            .filter((f) => f.name in changed)
+            .map((f) => [f.name, notEqual(changed[f.name], f.default)]),
+        ),
+      }));
       setSaved(true);
     }
     setBusy(false);
@@ -188,7 +198,7 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
               {fields.map((f) => (
                 <ModuleFieldRow
                   key={f.name}
-                  field={f}
+                  field={{ ...f, db_override: savedOverrides[f.name] ?? f.db_override }}
                   package={m.package}
                   value={values[f.name]}
                   modified={modifiedFields.has(f.name)}

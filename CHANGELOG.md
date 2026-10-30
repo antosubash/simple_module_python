@@ -37,6 +37,12 @@ All notable changes to this project are documented in this file. The format is b
   validate explicit tenant literals and retain strict isolation and source scoping (#693).
 - Inertia: honor custom once-prop keys in client exclusions, skipping loaders
   and values on full and partial requests (#694).
+- **Behaviour change:** generic settings API and Browse mutations reject registered
+  module keys and point to their validated editor; stop suggesting them (#690).
+- Mark storage backend construction fields as requiring coordinated web/worker
+  restart; document multipart draining and connection-check behaviour (#691).
+- Show Revert immediately after saving a defaulted module field while preserving
+  drafts and the saved confirmation (#696).
 
 ## [0.0.41] — 2026-10-25
 

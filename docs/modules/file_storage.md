@@ -10,6 +10,16 @@ The extras combine as `simple_module_file_storage[s3,tasks]`. Without
 `background_tasks`, uploads still work; completed multipart uploads keep
 `checksum_sha256` null. Streamed uploads compute their checksum inline.
 
+Backend selection, filesystem root, and S3 bucket, region, credentials, endpoints
+and signature version require a coordinated restart of web and worker processes
+(#691). Saving these fields persists configuration; it does not move files or
+rebuild the web backend. Drain or abort multipart uploads and pause storage traffic
+and jobs before changing them, then restart every process before resuming. Workers
+read stored settings per task and may otherwise use the new store before the web
+process restarts. Existing files must be migrated separately when changing roots
+or buckets. The connection check probes the currently active web backend, so it
+continues to test the old configuration until restart.
+
 ## ModuleMeta
 
 | Field | Value |

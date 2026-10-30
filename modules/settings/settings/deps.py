@@ -12,6 +12,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from simple_module_core.app_state import get_services
+from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +35,15 @@ async def get_setting_service(
     return SettingService(
         db, invalidation=bus, registry=registry_of(request), tenant_is_live=tenant_is_live
     )
+
+
+async def get_generic_setting_service(
+    request: Request,
+    service: SettingService = Depends(get_setting_service),
+) -> SettingService:
+    """Raw store routes must send module configuration through its own editor."""
+    service.module_registry = get_module_settings_registry(request.app)
+    return service
 
 
 def get_settings_registry(request: Request) -> SettingsRegistry:

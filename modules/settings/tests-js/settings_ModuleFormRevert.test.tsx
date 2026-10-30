@@ -12,6 +12,7 @@ configureI18n({
   locale: 'en',
   messages: {
     'settings.modules_form.save': 'Save',
+    'settings.modules_form.saved_toast': 'Saved',
     'settings.modules_form.reset_to_default': 'Revert',
     'settings.modules.unsaved_count_one': '{count} unsaved',
   },
@@ -85,4 +86,46 @@ test('switching modules starts a fresh edit buffer even when field names match',
   fireEvent.click(screen.getByRole('button', { name: /mail/ }));
   expect(screen.getByLabelText('sender')).toHaveValue('mail original');
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+});
+
+test('saving a defaulted field immediately offers Revert and keeps confirmation visible', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('{}', { status: 200 })),
+  );
+  render(<ModuleForm module={view([field('sender', '')])} />);
+  expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'new sender' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(await screen.findByRole('button', { name: 'Revert' })).toBeVisible();
+  expect(screen.getByRole('status')).toHaveTextContent('Saved');
+});
+
+test('saving the default removes Revert without changing other fields', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('{}', { status: 200 })),
+  );
+  render(
+    <ModuleForm
+      module={view([field('sender', 'override', true), field('host', 'stored', true)])}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText('sender'), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Saved'));
+  expect(screen.getAllByRole('button', { name: 'Revert' })).toHaveLength(1);
+});
+
+test('a failed save keeps a defaulted field without Revert', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('{}', { status: 422 })),
+  );
+  render(<ModuleForm module={view([field('sender', '')])} />);
+  fireEvent.change(screen.getByLabelText('sender'), { target: { value: 'rejected' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+  expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('sender')).toHaveValue('rejected');
 });
