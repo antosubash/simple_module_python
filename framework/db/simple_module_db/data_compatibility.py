@@ -15,9 +15,14 @@ DATA_COMPATIBILITY_CODE = "SM033"
 async def database_compatibility_diagnostics(
     modules: Sequence[ModuleBase], database_url: str
 ) -> list[Diagnostic]:
-    if not _database_exists(database_url):
-        return []  # Nothing migrated yet; opening it would create an empty SQLite file.
-    engine = create_async_engine(database_url)
+    try:
+        if not _database_exists(database_url):
+            return []  # Nothing migrated yet; opening it would create an empty SQLite file.
+        engine = create_async_engine(database_url)
+    except Exception:
+        # A malformed or non-async URL must be a finding, not a traceback; the URL can
+        # carry credentials, so it is not echoed.
+        return [_problem(DiagnosticLevel.WARNING, "Could not open the database URL.")]
     try:
         try:
             async with engine.connect() as conn:
