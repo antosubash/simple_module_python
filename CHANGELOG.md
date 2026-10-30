@@ -14,6 +14,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- **Behaviour change:** password resets revoke all browser sessions, access tokens
+  and refresh tokens, sharing revocation with password changes and sign-out-everywhere (#686).
+- Defer single admin create/invite events and invitation-related emails until the
+  request commits; failed commits deliver neither mail nor ordinary events (#692, #627).
+
 ## [0.0.41] — 2026-10-25
 
 ### Fixed

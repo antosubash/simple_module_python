@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
+from simple_module_db.callbacks import register_on_commit
 from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
 
 from users.constants import (
@@ -25,6 +26,7 @@ from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
 from users.models import User
 from users.registration import attach_default_role
+from users.reset_revocation import ResetRevocationMixin
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
@@ -32,7 +34,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
+class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     """Customizes password validation, token secrets, and lifecycle emails."""
 
     # Secrets and lifetimes pulled from settings at construction time so
@@ -143,7 +145,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             # Request-less creates (admin, invite) keep their verify-by-link flow.
             return
         # Kicks off on_after_request_verify, which sends the email
-        await self.request_verify(user, request)
+        if request is None:
+            # Admin invites also send verification mail; neither may precede the commit.
+            register_on_commit(self.user_db.session, lambda: self.request_verify(user, request))
+        else:
+            await self.request_verify(user, request)
 
     async def _publish_user_registered(self, user: User, request: Request | None) -> None:
         """Emit ``UserRegistered`` on the app-wide event bus.
@@ -165,6 +171,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
         """Lift a login lockout (GH #530): proving control of the mailbox is the way out.
+
+        Credentials were already revoked in the reset's own commit (#686, see
+        ``ResetRevocationMixin``).
 
         Through ``user_db.update`` — an ORM write — so the audit log records the
         unlock, as it does an admin's. The per-IP throttle keys are left alone:

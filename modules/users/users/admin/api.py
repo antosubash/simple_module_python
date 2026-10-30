@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
+from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
 from simple_module_db.pagination import PageParams
 from simple_module_hosting.pagination import page_params
@@ -41,6 +42,8 @@ from users.exceptions import (
 )
 from users.invites.bulk import bulk_router
 from users.invites.resend import resend_router
+
+_DUPLICATE_EMAIL = "A user with this email already exists."
 
 admin_router = APIRouter(
     prefix="/admin",
@@ -91,20 +94,26 @@ async def admin_invite_user(
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
     mailer=Depends(get_mailer),
+    db: RequestSession = Depends(get_db),
 ):
     """Invite a new user by email, optionally assigning roles."""
     invited_by = getattr(request.state, "user", None)
     invited_by_name = invited_by.name if invited_by else "Administrator"
-    user, token = await service.invite(
-        data.email, data.full_name, data.role_names, invited_by=invited_by
-    )
-    await mailer.send_invite(user.email, token, invited_by_name)
-    await bus.publish(
+    try:
+        user, token = await service.invite(
+            data.email, data.full_name, data.role_names, invited_by=invited_by
+        )
+    except fa_exceptions.UserAlreadyExists:
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
+    db.on_commit(lambda: mailer.send_invite(user.email, token, invited_by_name))
+    await publish_admin_event(
+        bus,
         UserInvited(
             user_id=user.id,
             email=user.email,
             invited_by=(str(invited_by.id) if invited_by else None),
-        )
+        ),
+        db,
     )
     return service.to_list_item(user)
 
@@ -119,6 +128,7 @@ async def admin_create_user(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Create an active+verified user with an admin-set password."""
     creator = getattr(request.state, "user", None)
@@ -132,13 +142,12 @@ async def admin_create_user(
             created_by=created_by,
         )
     except fa_exceptions.UserAlreadyExists:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists.",
-        ) from None
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     except fa_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from None
-    await bus.publish(UserCreated(user_id=user.id, email=user.email, created_by=created_by))
+    await publish_admin_event(
+        bus, UserCreated(user_id=user.id, email=user.email, created_by=created_by), db
+    )
     return service.to_list_item(user)
 
 
@@ -154,10 +163,7 @@ async def admin_update_user(
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
     except EmailAlreadyExistsError:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists.",
-        ) from None
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     return service.to_list_item(user)
 
 
