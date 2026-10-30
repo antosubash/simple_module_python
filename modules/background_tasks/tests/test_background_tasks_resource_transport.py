@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from background_tasks import sync_db
+from background_tasks.constants import SM_TRACKING_HEADER
 from background_tasks.models import TaskExecution
 from background_tasks.signals import on_task_failure, on_task_publish
 from sqlalchemy import select
@@ -71,6 +72,8 @@ async def test_admin_retry_preserves_resource_in_row_and_message(
     assert app.state.background_tasks.celery.send_task.call_args.kwargs["headers"] == {
         "sm_resource_type": "demo.image",
         "sm_resource_id": "7",
+        # A reduced mode would leave the reserved ``pending`` row stuck.
+        SM_TRACKING_HEADER: "full",
     }
 
 

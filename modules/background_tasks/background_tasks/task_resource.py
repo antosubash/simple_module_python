@@ -1,12 +1,15 @@
 """Explicit resource references on task messages (#709)."""
 
-import re
-from typing import Any
+from __future__ import annotations
 
-from celery.canvas import Signature
+import re
+from typing import TYPE_CHECKING, Any
 
 from background_tasks.constants import SM_RESOURCE_ID_HEADER, SM_RESOURCE_TYPE_HEADER
 from background_tasks.tenant_context import _header_of_request
+
+if TYPE_CHECKING:
+    from celery.canvas import Signature
 
 _TYPE_NAME = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+")
 RESOURCE_REF_MAX_LENGTH = 255

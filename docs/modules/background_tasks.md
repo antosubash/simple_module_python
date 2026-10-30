@@ -488,7 +488,7 @@ from background_tasks.contracts.schemas import (
 
 | Class | Purpose |
 |---|---|
-| `TaskFailed` (event) | Published when a task transitions to `failed`. Fields: `task_execution_id`, `task_name`, `exception_type`. |
+| `TaskFailed` (event) | Published when a task transitions to `failed` and the failure is recorded, so not for a task in `off` tracking mode (there is no row to point at). Fields: `task_execution_id`, `task_name`, `exception_type`. |
 | `TaskRetried` (event) | Published when an admin retries via the UI. Fields: `original_id`, `new_id`, `task_name`. |
 | `TaskExecutionListItem` | Compact row for the listing table. |
 | `TaskExecutionDetail` | Full record incl. `args`, `kwargs`, `result`, `traceback`. |

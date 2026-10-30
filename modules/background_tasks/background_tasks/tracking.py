@@ -3,8 +3,6 @@
 from enum import StrEnum
 from typing import Any
 
-from celery import current_app
-
 from background_tasks.constants import INTERNAL_TASK_SWEEP_OUTBOX, SM_TRACKING_HEADER, TaskStatus
 from background_tasks.tenant_context import _header_of_request
 
@@ -20,10 +18,15 @@ def tracking_mode(
     *, task: Any = None, request: Any = None, headers: dict | None = None, name: str = ""
 ) -> TrackingMode:
     """Message override → task option → frozen application default."""
+    from celery import current_app  # lazy: keeps ``import background_tasks`` free of celery
+
     app = getattr(task, "app", None) or current_app
     if task is None or isinstance(task, str):
         task = app.tasks.get(name or task)
-    request = request if request is not None else getattr(task, "request", None)
+    # A publish carries its own headers; the looked-up task's thread-local request
+    # belongs to whatever instance of it is running now, not to this message.
+    if request is None and headers is None:
+        request = getattr(task, "request", None)
     explicit = (headers or {}).get(SM_TRACKING_HEADER)
     if explicit is None:
         explicit = _header_of_request(request, SM_TRACKING_HEADER)

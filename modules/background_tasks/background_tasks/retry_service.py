@@ -20,7 +20,7 @@ from sqlmodel import col
 
 from background_tasks._signal_support import now_utc
 from background_tasks.after_commit import after_commit
-from background_tasks.constants import RETRY_ALL_BATCH, TaskStatus
+from background_tasks.constants import RETRY_ALL_BATCH, SM_TRACKING_HEADER, TaskStatus
 from background_tasks.contracts.events import TaskRetried
 from background_tasks.contracts.schemas import RetryFailedResult
 from background_tasks.filters import Conditions, bulk_retry_conditions
@@ -28,6 +28,7 @@ from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
 from background_tasks.task_resource import resource_headers
 from background_tasks.tenant_context import publish_as_owner
+from background_tasks.tracking import TrackingMode
 
 if TYPE_CHECKING:
     from celery import Celery
@@ -197,8 +198,12 @@ class RetryCoordinator:
             "task_id": task_id,
         }
 
+        # The retry already reserved a ``pending`` row; a reduced tracking
+        # mode would never move it on, so an operator's retry is tracked fully.
+        headers: dict[str, str] = {SM_TRACKING_HEADER: TrackingMode.FULL.value}
         if row.resource_type and row.resource_id:
-            options["headers"] = resource_headers(row.resource_type, row.resource_id)
+            headers.update(resource_headers(row.resource_type, row.resource_id))
+        options["headers"] = headers
 
         def publish() -> str:
             try:
