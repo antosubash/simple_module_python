@@ -7,6 +7,7 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from background_tasks.models import TaskExecution
+from sqlalchemy.exc import IntegrityError
 
 
 def test_resource_reference_migration_roundtrip(tmp_path, monkeypatch):
@@ -45,7 +46,7 @@ def test_resource_reference_migration_roundtrip(tmp_path, monkeypatch):
         connection.exec_driver_sql(
             "UPDATE background_tasks_task_execution SET resource_type='demo.image', resource_id='7'"
         )
-        with pytest.raises(sa.exc.IntegrityError):
+        with pytest.raises(IntegrityError):
             connection.exec_driver_sql(
                 "UPDATE background_tasks_task_execution SET resource_id=NULL"
             )
