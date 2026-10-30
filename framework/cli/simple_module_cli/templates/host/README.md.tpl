@@ -64,3 +64,21 @@ Modules declare `requires_framework` in their `Meta`. If a module can't
 work with your installed `simple_module_core` version, the host refuses
 to boot with `FrameworkVersionError` listing the offending modules.
 Upgrade or pin as appropriate.
+
+
+Your host owns its Alembic history: package upgrades do not import framework data
+migrations. Run `uv run smpy doctor` after upgrading packages. For a reported
+upgrade, prepare a revision against an explicit head in this host's graph:
+
+```bash
+uv run smpy migrations prepare mail.settings_namespace_v1 --head <your-host-head>
+```
+
+The CLI detects `alembic.ini` or `host/alembic.ini` (`--config` overrides it).
+Preparation only writes a frozen, self-contained revision into this host's
+`migrations/versions`; review it before running `alembic upgrade heads`.
+`users.hashed_bearer_tokens_v1` deletes access/refresh credentials before changing
+column types: stop all old workers first and expect clients to sign in again.
+Fresh current baselines need neither recipe. Boot warns about unmoved mail keys
+and refuses incompatible token storage outside development. Role seeding stays
+an idempotent startup step. See the framework's scaffolded host upgrade guide.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from simple_module_core.health import HealthCheck, HealthRegistry
 from simple_module_core.mail import install_mail_resolver, install_mail_sender
@@ -12,6 +12,7 @@ from mail import constants as c
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from simple_module_core.data_compatibility import DataCompatibilityIssue
     from simple_module_core.events import EventBus
 
 
@@ -64,6 +65,11 @@ class MailModule(ModuleBase):
             install_app_sender(app)
 
         bus.subscribe(SettingsReloaded, _reinstall)
+
+    async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
+        from mail.data_compatibility import check_data_compatibility
+
+        return await check_data_compatibility(db)
 
     async def on_startup(self, app: FastAPI) -> None:
         from mail.runtime import install_app_sender

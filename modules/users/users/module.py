@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
 from simple_module_core.audit_links import AuditLinkRegistry
@@ -25,6 +25,7 @@ from users.constants import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from simple_module_core.data_compatibility import DataCompatibilityIssue
     from simple_module_core.events import EventBus
     from simple_module_core.invalidation import InvalidationBus
 
@@ -253,6 +254,11 @@ class UsersModule(ModuleBase):
         from users.admin.views import router as admin_views
 
         admin_router.include_router(admin_views)
+
+    async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
+        from users.data_compatibility import check_data_compatibility
+
+        return await check_data_compatibility(db)
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, limiters, OAuth clients and the seeded admin.

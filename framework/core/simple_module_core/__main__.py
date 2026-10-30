@@ -24,6 +24,7 @@ import os
 import sys
 from pathlib import Path
 
+from simple_module_core._data_doctor import data_compatibility_diagnostics
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
@@ -182,6 +183,7 @@ def main() -> int:
         database_dialect=_database_dialect(),
     )
     diagnostics.extend(override_findings)
+    diagnostics.extend(data_compatibility_diagnostics(modules))
     # A missing dependency only warns at a dev boot, but production refuses
     # to start with it (GH #501), so doctor reports it as what it will be.
     for finding in diagnostics:

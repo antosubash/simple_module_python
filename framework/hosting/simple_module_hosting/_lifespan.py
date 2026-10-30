@@ -22,6 +22,7 @@ from simple_module_core.app_state import get_migration_status
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._route_guard import guard_included_routers
+from simple_module_hosting.data_compatibility import check_data_compatibility
 from simple_module_hosting.migrations import migration_status
 from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 
@@ -113,6 +114,11 @@ def build_lifespan(modules: Sequence) -> Callable:
                     f"(at {app.state.migration['current_revision']!r}, head is "
                     f"{app.state.migration['head_revision']!r}). Run: make migrate"
                 )
+
+            if app.state.migration.get("current_revision") is not None:
+                await check_data_compatibility(app, modules)
+            else:
+                app.state.deferred_data_compatibility = list(modules)
 
             await hydrate_settings_from_db(app)
 

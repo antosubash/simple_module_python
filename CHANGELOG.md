@@ -26,6 +26,11 @@ All notable changes to this project are documented in this file. The format is b
   ones) above `direct_upload_threshold_bytes` now use bounded multipart, including
   unknown-length streams, with size/part bounds and abort on failure; the S3
   credentials need `s3:AbortMultipartUpload` (#708).
+- **Behaviour change:** module data compatibility checks run before startup and in
+  Doctor (`SM033`); legacy bearer-token storage refuses boot outside development,
+  while obsolete mail settings warn (#711). `smpy migrations prepare` writes
+  frozen host-owned recipes for mail namespace changes (`d7b3a9e5c1f2`) and token
+  invalidation/column changes (`a626b1c8d023`), without applying migrations.
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).
