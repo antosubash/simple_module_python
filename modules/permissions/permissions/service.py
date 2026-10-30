@@ -118,7 +118,12 @@ class PermissionService(RegistrySyncMixin):
         registered = self._registered_keys()
         wanted = {k for k in keys if k in registered}
         existing = set(await self._get_role_keys(role.name))
-        await check_permission_write(self.request, self.registry, wanted - existing)
+        await check_permission_write(
+            self.request,
+            self.registry,
+            wanted - existing,
+            role=(role.name, self._resolve_role_permissions([role.name]) | existing),
+        )
         to_remove = (existing - wanted) & registered  # unregistered grants are never pruned
 
         if to_remove:

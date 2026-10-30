@@ -151,11 +151,26 @@ async def test_actor_direct_grant_can_be_delegated(writes):
     assert response.status_code == 200
 
 
-async def test_existing_role_grant_can_be_retained_without_holding_it(writes):
+@pytest.mark.parametrize("kept", [["test.unheld", "test.held"], ["test.held"]])
+async def test_cannot_edit_role_holding_unheld_grant(writes, kept):
+    """Retaining or stripping a key the actor lacks are both refused."""
     writes.db.add(RolePermission(role_name="user", permission_key="test.unheld"))
     await writes.db.flush()
     response = await writes.client.put(
-        f"/api/permissions/roles/{writes.role.id}",
-        json={"permissions": ["test.unheld", "test.held"]},
+        f"/api/permissions/roles/{writes.role.id}", json={"permissions": kept}
     )
-    assert response.status_code == 200
+    assert response.status_code == 403
+    keys = await writes.db.execute(
+        select(RolePermission.permission_key).where(RolePermission.role_name == "user")
+    )
+    assert set(keys.scalars()) == {"test.unheld"}
+
+
+async def test_cannot_edit_admin_role(writes):
+    admin = Role(id=uuid.uuid4(), name="admin")
+    writes.db.add(admin)
+    await writes.db.flush()
+    response = await writes.client.put(
+        f"/api/permissions/roles/{admin.id}", json={"permissions": ["test.held"]}
+    )
+    assert response.status_code == 403
