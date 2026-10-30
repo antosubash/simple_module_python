@@ -1,11 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
-const { maps, findSession, runResumable, reload } = vi.hoisted(() => ({
+const { maps, findSession, runResumable, reload, discardSession } = vi.hoisted(() => ({
   maps: [] as Map<string, File>[],
   findSession: vi.fn(),
   runResumable: vi.fn(),
   reload: vi.fn(),
+  discardSession: vi.fn(),
 }));
 
 vi.mock('react', async (importOriginal) => {
@@ -25,7 +26,7 @@ vi.mock('@inertiajs/react', () => ({ router: { reload } }));
 vi.mock('../file_storage/pages/resumable-upload', () => ({
   findSession,
   runResumable,
-  discardSession: vi.fn(),
+  discardSession,
 }));
 
 import type { RemoteSession } from '../file_storage/pages/resumable-upload';
@@ -46,6 +47,7 @@ beforeEach(() => {
   findSession.mockReset().mockResolvedValue(null);
   runResumable.mockReset().mockResolvedValue(undefined);
   reload.mockReset();
+  discardSession.mockReset().mockResolvedValue(undefined);
 });
 
 const sessionDefaults = {
@@ -140,4 +142,27 @@ test('batch cleanup keeps failed and concurrently uploading files for retry', as
   });
   act(() => reload.mock.calls[2][0].onFinish());
   expect(maps[0].size).toBe(0);
+});
+
+test('cancel while start-over discards the old session starts no transport', async () => {
+  const partial = sessions[2];
+  runResumable.mockRejectedValueOnce(new Error('connection lost'));
+  findSession.mockResolvedValue(partial);
+  const { result } = renderHook(() => useUploadQueue({ directThresholdBytes: 1 }));
+  await act(async () => {
+    await result.current.start([file()]);
+  });
+  expect(result.current.jobs[0].status).toBe('resumable');
+  const discard = deferred<void>();
+  discardSession.mockReturnValue(discard.promise);
+  let restarted!: Promise<boolean>;
+  act(() => {
+    restarted = result.current.startOver(result.current.jobs[0].id);
+  });
+  act(() => result.current.cancel(result.current.jobs[0].id));
+  await act(async () => {
+    discard.resolve();
+    expect(await restarted).toBe(false);
+  });
+  expect(runResumable).not.toHaveBeenCalled();
 });

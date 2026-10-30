@@ -259,6 +259,7 @@ export function useUploadQueue({ directThresholdBytes }: UploadQueueOptions = {}
       patch(id, { percent: 0, status: 'uploading' });
       return finishResumed(id, async (file) => {
         if (session) await discardSession(file, session.id);
+        if (!files.current.has(id)) return 'canceled';
         return uploadInParts(id, file, null);
       });
     },
