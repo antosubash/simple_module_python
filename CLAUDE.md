@@ -173,8 +173,10 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_design_packs`,
 `register_audit_links`, `register_resource_types`, `register_exception_handlers`, `register_middleware`,
 `register_routes(api_router, view_router)`, `register_admin_routes(admin_router)`
-(only with `ModuleMeta.admin_view_prefix`), then async `on_startup` /
-`on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
+(only with `ModuleMeta.admin_view_prefix`), then async `check_data_compatibility(db)`
+(read-only upgrade checks before settings hydration; an `error` refuses boot
+outside development, `smpy migrations prepare <upgrade-id>` writes the fix into
+the host), then async `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
 `db_extensions()`, `template_dirs()`, `static_mounts()`, `spa_mounts()`.
 
 - A module gets one view router per prefix. All-admin modules point

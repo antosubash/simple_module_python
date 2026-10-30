@@ -9,6 +9,7 @@ from users.models import RefreshToken, UserAccessToken
 
 # A SHA-256 hex digest; tokens hashed at rest (#626) are always this long.
 _DIGEST_LENGTH = 64
+_SAMPLE = 100
 
 
 async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:
@@ -28,12 +29,17 @@ async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIs
         if kind is None:
             # Not migrated yet: the migration check owns that, not this one.
             continue
-        if not isinstance(kind, String) or kind.length != _DIGEST_LENGTH:
+        # Only a column too short for a digest is wrong; TEXT or a wider VARCHAR
+        # from a hand-ported revision holds hashes just as well.
+        length = getattr(kind, "length", None)
+        if not isinstance(kind, String) or (length is not None and length < _DIGEST_LENGTH):
             return _incompatible()
         # One probe, not a scan into Python: boot runs this every time. Stripping
         # the hex digits with nested replace() is portable (SQLite has no regex);
         # anything left over, or the wrong length, is a pre-hashing token.
-        token = table(name, column("token")).c.token
+        # A sample, not the table: un-hashed tokens come from a skipped upgrade,
+        # so every old row is plaintext and the first few show it.
+        token = select(table(name, column("token")).c.token).limit(_SAMPLE).subquery().c.token
         leftover = token
         for digit in "0123456789abcdef":
             leftover = func.replace(leftover, digit, "")

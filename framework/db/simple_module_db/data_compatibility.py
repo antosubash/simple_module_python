@@ -1,6 +1,7 @@
 """Database-backed Doctor diagnostics, separate from core's static checks."""
 
 from collections.abc import Sequence
+from pathlib import Path
 
 from alembic.runtime.migration import MigrationContext
 from simple_module_core.data_compatibility import collect_data_compatibility
@@ -14,6 +15,8 @@ DATA_COMPATIBILITY_CODE = "SM033"
 async def database_compatibility_diagnostics(
     modules: Sequence[ModuleBase], database_url: str
 ) -> list[Diagnostic]:
+    if not _database_exists(database_url):
+        return []  # Nothing migrated yet; opening it would create an empty SQLite file.
     engine = None
     try:
         engine = create_async_engine(database_url)
@@ -38,8 +41,10 @@ async def database_compatibility_diagnostics(
     except Exception:
         # Connection exceptions can contain credentials; do not print them.
         return [
+            # A warning: doctor also runs where no database is reachable (CI, a
+            # laptop without the stack); boot is where a real error is refused.
             Diagnostic(
-                level=DiagnosticLevel.ERROR,
+                level=DiagnosticLevel.WARNING,
                 code=DATA_COMPATIBILITY_CODE,
                 module_name="<database>",
                 message="Could not check module data compatibility.",
@@ -50,3 +55,14 @@ async def database_compatibility_diagnostics(
     finally:
         if engine is not None:
             await engine.dispose()
+
+
+def _database_exists(database_url: str) -> bool:
+    """False for a SQLite file that isn't there yet; every other URL is tried."""
+    from sqlalchemy.engine import make_url
+
+    url = make_url(database_url)
+    if not url.get_backend_name().startswith("sqlite"):
+        return True
+    database = url.database or ""
+    return database in ("", ":memory:") or Path(database).exists()

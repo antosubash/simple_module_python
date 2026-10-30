@@ -19,6 +19,10 @@ async def check_data_compatibility(app: FastAPI, modules: Sequence[ModuleBase]) 
         async with app.state.sm.db.session_factory() as db:
             issues = await collect_data_compatibility(modules, db)
     except Exception as exc:
+        # Log the cause here: callers such as the setup gate only see the verdict.
+        logger.exception("Module data compatibility check failed")
+        if app.state.sm.settings.environment == "development":
+            return
         raise DataCompatibilityError("Could not check module data compatibility") from exc
     errors = []
     for issue in issues:

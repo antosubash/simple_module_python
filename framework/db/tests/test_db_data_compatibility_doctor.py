@@ -50,12 +50,20 @@ async def test_db_doctor_data_findings(tmp_path, migrated, severity, expected):
         assert findings == []
 
 
-async def test_db_doctor_reports_unavailable_database(tmp_path):
+async def test_db_doctor_skips_a_sqlite_file_that_does_not_exist(tmp_path):
     from simple_module_db.data_compatibility import database_compatibility_diagnostics
 
-    findings = await database_compatibility_diagnostics(
-        [], f"sqlite+aiosqlite:///{tmp_path}/missing/db"
-    )
+    path = tmp_path / "app.db"
+    assert await database_compatibility_diagnostics([], f"sqlite+aiosqlite:///{path}") == []
+    # Doctor must not leave an empty database behind.
+    assert not path.exists()
+
+
+async def test_db_doctor_warns_on_unreachable_database(tmp_path):
+    from simple_module_db.data_compatibility import database_compatibility_diagnostics
+
+    # A directory exists but cannot be opened as a SQLite database.
+    findings = await database_compatibility_diagnostics([], f"sqlite+aiosqlite:///{tmp_path}")
     assert len(findings) == 1
-    assert findings[0].level == "error"
+    assert findings[0].level == "warning"
     assert "could not" in findings[0].message.lower()

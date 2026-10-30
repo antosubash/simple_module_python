@@ -16,6 +16,7 @@ from collections.abc import Generator
 from fastapi import HTTPException, Request
 
 from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting.data_compatibility import DataCompatibilityError
 from simple_module_hosting.setup_wizard._migration_lock import migration_lock
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,13 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
 
     request.app.state.migration = await migration_status(request.app.state.sm.db.engine)
     # Modules whose on_startup could not run before the tables existed.
-    await run_deferred_startup(request.app)
+    try:
+        await run_deferred_startup(request.app)
+    except DataCompatibilityError as exc:
+        # The detail names upgrade ids and the remediation command, never data.
+        logger.error("Setup: %s", exc)
+        raise HTTPException(
+            status_code=409, detail="A module data upgrade is required; see the server log."
+        ) from exc
     logger.info("Setup: migrations applied")
     return {"migration": request.app.state.migration}

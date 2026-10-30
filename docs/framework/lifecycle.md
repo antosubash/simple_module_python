@@ -353,8 +353,8 @@ def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
 
 ## `check_data_compatibility(db)`
 
-This async read-only hook returns a sequence of `DataCompatibilityIssue` SQLModel
-DTOs (`upgrade_id`, `message`, `severity="warning"|"error"`), empty by default.
+This async read-only hook returns a sequence of `DataCompatibilityIssue` frozen
+dataclasses (`upgrade_id`, `message`, `severity="warning"|"error"`), empty by default.
 Use stable semantic ids and inspect actual schema/data state so hosts with
 independently ported revisions pass. Checks run before module DB-settings
 hydration and `on_startup`; errors refuse boot outside development. A never-
