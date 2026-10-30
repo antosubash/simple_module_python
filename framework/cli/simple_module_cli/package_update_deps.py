@@ -28,12 +28,12 @@ class Skip:
     reason: str
 
 
-def _normalize(name: str) -> str:
+def normalize(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def _is_sm_package(name: str) -> bool:
-    return _normalize(name).startswith("simple-module-")
+    return normalize(name).startswith("simple-module-")
 
 
 def _dep_name(spec: str) -> str | None:
@@ -63,7 +63,7 @@ def _get_uv_section(doc: tomlkit.TOMLDocument, key: str) -> dict[str, Any] | Non
     return section if isinstance(section, dict) else None
 
 
-def _workspace_member_dirs(root_pyproject: Path, doc: tomlkit.TOMLDocument) -> list[Path]:
+def workspace_member_dirs(root_pyproject: Path, doc: tomlkit.TOMLDocument) -> list[Path]:
     workspace = _get_uv_section(doc, "workspace")
     if workspace is None:
         return []
@@ -78,7 +78,7 @@ def _workspace_member_dirs(root_pyproject: Path, doc: tomlkit.TOMLDocument) -> l
 
 
 def source_map(doc: tomlkit.TOMLDocument) -> dict[str, Any]:
-    return {_normalize(name): src for name, src in (_get_uv_section(doc, "sources") or {}).items()}
+    return {normalize(name): src for name, src in (_get_uv_section(doc, "sources") or {}).items()}
 
 
 def local_sources(doc: tomlkit.TOMLDocument, inherited: dict[str, Any]) -> set[str]:
@@ -104,7 +104,7 @@ def _dependency_arrays(doc: tomlkit.TOMLDocument):
                 yield deps
 
 
-def _collect_sm_deps(doc: tomlkit.TOMLDocument, local: set[str]) -> list[str]:
+def collect_sm_deps(doc: tomlkit.TOMLDocument, local: set[str]) -> list[str]:
     return [
         name
         for deps in _dependency_arrays(doc)
@@ -112,11 +112,11 @@ def _collect_sm_deps(doc: tomlkit.TOMLDocument, local: set[str]) -> list[str]:
         if isinstance(raw, str)
         and (name := _dep_name(raw))
         and _is_sm_package(name)
-        and _normalize(name) not in local
+        and normalize(name) not in local
     ]
 
 
-def _process_file(
+def process_file(
     path: Path,
     doc: tomlkit.TOMLDocument,
     *,
@@ -135,7 +135,7 @@ def _process_file(
             name = _dep_name(dep_str)
             if not name or not _is_sm_package(name):
                 continue
-            if _normalize(name) in local:
+            if normalize(name) in local:
                 skips.append(Skip(path, name, "workspace/local source"))
                 continue
             latest = cache.get(name)

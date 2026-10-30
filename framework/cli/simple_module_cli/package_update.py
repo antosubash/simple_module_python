@@ -29,12 +29,12 @@ import typer
 from simple_module_cli.package_update_deps import (
     Change,
     Skip,
-    _collect_sm_deps,
-    _normalize,
-    _process_file,
-    _workspace_member_dirs,
+    collect_sm_deps,
     local_sources,
+    normalize,
+    process_file,
     source_map,
+    workspace_member_dirs,
 )
 from simple_module_cli.package_update_npm import load_manifests, plan_npm
 from simple_module_cli.pypi import Fetcher, default_fetcher, fetch_latest
@@ -52,9 +52,9 @@ def _npm_target(cache: dict[str, str | None], skips: list[Skip]) -> tuple[str | 
     that pin alone (an upper bound, a local source) the npm pins stay too.
     """
     for skip in skips:
-        if _normalize(skip.package) == _CORE:
+        if normalize(skip.package) == _CORE:
             return None, f"simple_module_core not updated ({skip.reason})"
-    latest = next((v for n, v in cache.items() if _normalize(n) == _CORE), None)
+    latest = next((v for n, v in cache.items() if normalize(n) == _CORE), None)
     return latest, None if latest else "simple_module_core not found on PyPI"
 
 
@@ -104,7 +104,7 @@ def run_update(
     fetch = fetcher or default_fetcher
     root_doc = tomlkit.parse(root.read_bytes().decode("utf-8"))
     files: list[tuple[Path, tomlkit.TOMLDocument]] = [(root, root_doc)]
-    for member in _workspace_member_dirs(root, root_doc):
+    for member in workspace_member_dirs(root, root_doc):
         if member == root:
             continue
         files.append((member, tomlkit.parse(member.read_bytes().decode("utf-8"))))
@@ -114,9 +114,9 @@ def run_update(
     locals_by_file = {file: local_sources(doc, inherited) for file, doc in files}
 
     # Pre-fetch all unique sm packages in parallel — PyPI calls dominate runtime.
-    names = {n for file, doc in files for n in _collect_sm_deps(doc, locals_by_file[file])}
+    names = {n for file, doc in files for n in collect_sm_deps(doc, locals_by_file[file])}
     if any(manifest.packages for manifest in npm_manifests) and not any(
-        _normalize(n) == _CORE for n in names
+        normalize(n) == _CORE for n in names
     ):
         names.add("simple_module_core")
     unique_names = sorted(names)
@@ -134,7 +134,7 @@ def run_update(
     pending: list[tuple[Path, str]] = []
 
     for file, doc in files:
-        changes, skips, new_doc = _process_file(
+        changes, skips, new_doc = process_file(
             file, doc, cache=cache, loosen=loosen, local=locals_by_file[file]
         )
         all_changes.extend(changes)

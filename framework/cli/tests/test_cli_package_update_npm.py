@@ -33,7 +33,6 @@ def setup_project(root):
 
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_npm_all_sections_and_locations(tmp_path, registry, dry_run, capsys):
-    setup_project(tmp_path)
     (tmp_path / "pyproject.toml").write_text("""[tool.uv.workspace]
 members = ["host", "host"]
 """)
@@ -153,7 +152,9 @@ def test_missing_target_warns_without_npm_writes(tmp_path, capsys, missing_core)
     assert path.read_text() == original
     output = capsys.readouterr().out
     assert "@simple-module-py/ui: skipped" in output
-    assert ("simple_module_core not updated" if missing_core else "npm release 1.2.3 unavailable") in output
+    assert (
+        "simple_module_core not updated" if missing_core else "npm release 1.2.3 unavailable"
+    ) in output
     if not missing_core:
         assert "1 dependency(ies) across 1 file(s)" in output
 
