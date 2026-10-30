@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import literal, select
 from sqlalchemy.orm import ORMExecuteState
+from sqlalchemy.sql.elements import BindParameter, Label
 
 from simple_module_db import model_registry as registry
 from simple_module_db.tenancy import (
@@ -77,6 +79,8 @@ def guard_insert(
     bound = current_tenant_id.get()
     tenant_id = None if bypass else bound
     stamp = bound or fallback
+    if getattr(execute_state.statement, "select", None) is not None:
+        return _guard_from_select(execute_state, tenant_id, stamp, mappers[0], strict)
     if getattr(execute_state.statement, "_multi_values", None):
         return _guard_multi_values(execute_state, tenant_id, stamp, mappers[0], strict)
     for value in assigned_tenant_ids(execute_state):
@@ -98,6 +102,46 @@ def guard_insert(
         return execute_state.invoke_statement(params=payload)
     execute_state.statement = execute_state.statement.values(**{TENANT_COLUMN: stamp})
     return None
+
+
+def _guard_from_select(
+    execute_state: ORMExecuteState, tenant_id: str | None, stamp: str, entity: str, strict: bool
+) -> None:
+    stmt = execute_state.statement
+    if tenant_id is None and strict:
+        raise missing_tenant_error(entity, "INSERT")
+    names = list(stmt._select_names)
+    if TENANT_COLUMN in names:
+        if tenant_id is None:
+            return
+        # SQL expressions cannot be validated as Python values; require a bound
+        # literal, or an explicit all_tenants bypass for cross-tenant copies.
+        params = _param_rows(execute_state)
+        bind_names = stmt.compile().bind_names if params else {}
+        sources = [stmt.select]
+        while sources:
+            source = sources.pop()
+            if hasattr(source, "selects"):
+                sources.extend(source.selects)
+                continue
+            value = list(source.selected_columns)[names.index(TENANT_COLUMN)]
+            while isinstance(value, Label):
+                value = value.element
+            if not isinstance(value, BindParameter) or value.callable is not None:
+                raise TenantIsolationError("INSERT ... SELECT tenant_id must be a bound literal")
+            for row in params or [{}]:
+                assigned = row.get(
+                    value.key, row.get(bind_names.get(value, value.key), value.value)
+                )
+                if assigned != tenant_id:
+                    raise _foreign_insert(assigned, tenant_id)
+        return
+    source = stmt.select.subquery()
+    execute_state.statement = stmt.from_select(
+        [*names, TENANT_COLUMN],
+        select(*source.c, literal(stamp)),
+        include_defaults=stmt.include_insert_from_select_defaults,
+    )
 
 
 def _guard_multi_values(
