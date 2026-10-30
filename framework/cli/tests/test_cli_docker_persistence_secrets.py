@@ -1,5 +1,6 @@
 """Docker scaffolds keep secrets out and filesystem uploads on a volume."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -16,9 +17,35 @@ def test_cli_dockerignore_excludes_secret_variants(tmp_path, source):
         target = tmp_path / "demo"
         create_app_project(target, name="demo", db="sqlite", tenancy=False)
     patterns = (target / ".dockerignore").read_text().splitlines()
-    for pattern in (".env*", "!.env.example", "*.pem", "*.key", "credentials*", "secrets/"):
-        assert pattern in patterns
-    assert patterns.index(".env*") < patterns.index("!.env.example")
+    for path in (
+        ".env",
+        ".env.production",
+        "host/.env.local",
+        "deploy/tls/server.pem",
+        "keys/signing.key",
+        "credentials.json",
+        "config/credentials-prod.json",
+        "secrets/token",
+        "host/secrets/token",
+    ):
+        assert _ignored(patterns, path), path
+    for path in (".env.example", "host/.env.example", "modules/users/users/credentials.py"):
+        assert not _ignored(patterns, path), path
+
+
+def _ignored(patterns: list[str], path: str) -> bool:
+    """Approximate Docker's matcher: last matching rule wins, ``!`` re-includes."""
+    ignored = False
+    for raw in patterns:
+        rule = raw.strip()
+        if not rule or rule.startswith("#"):
+            continue
+        negate = rule.startswith("!")
+        rule = rule.lstrip("!").strip("/")
+        regex = re.escape(rule).replace(r"\*\*/", "(?:.*/)?").replace(r"\*", "[^/]*")
+        if re.fullmatch(regex + "(?:/.*)?", path):
+            ignored = not negate
+    return ignored
 
 
 @pytest.mark.parametrize("db", ["sqlite", "postgres"])

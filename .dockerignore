@@ -32,12 +32,15 @@ host/static/dist/
 .DS_Store
 
 # Secrets / local data
-.env*
-!.env.example
-*.pem
-*.key
+# Anywhere in the context, not just the root. `credentials*` stays root-only:
+# recursive, it would also drop source modules such as users/credentials.py.
+**/.env*
+!**/.env.example
+**/*.pem
+**/*.key
 credentials*
-secrets/
+**/credentials*.json
+**/secrets/
 *.db
 *.sqlite
 .memray/
