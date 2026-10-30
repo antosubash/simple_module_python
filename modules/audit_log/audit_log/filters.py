@@ -34,10 +34,10 @@ def end_of_day(moment: datetime | None) -> datetime | None:
 class EntryFilters:
     """A narrowing of the audit log, independent of paging.
 
-    ``user_id`` is an exact match on the stored id — what the JSON list
-    endpoint takes. ``actor_match`` is the predicate an Actor *search* compiles
-    to (see ``resolve.actor_filter``), which may match by name or email and is
-    therefore a subquery rather than a value.
+    ``user_id`` is an exact match on the stored id for service callers.
+    ``actor_match`` is the predicate an Actor search compiles to (see
+    ``resolve.actor_filter``), which may match by name or email and is therefore
+    a subquery rather than a value.
     """
 
     entity_type: str | None = None
@@ -68,12 +68,11 @@ class EntryFilters:
 
         The upper bound is stretched over the whole day it names — see
         :func:`end_of_day`. A named constructor rather than a step a caller has
-        to remember: the browse view and the CSV export both build filters from
+        to remember: the browse view, JSON list and CSV export build filters from
         the same query string, and one of them forgetting would mean the file
         and the page disagreed about which day the range ended on.
 
-        Plain construction keeps exact ``datetime`` bounds, which is what the
-        JSON list endpoint's documented ``from_date``/``to_date`` mean.
+        Plain construction keeps exact ``datetime`` bounds for service callers.
         """
         return cls(
             entity_type=entity_type,

@@ -32,3 +32,38 @@ async def test_durable_tenant_cleanup_is_scoped_idempotent_and_transactional(db_
         (SCOPE_TENANT, "other"),
         (SCOPE_SYSTEM, "deleted"),
     }
+
+
+async def test_feature_flags_tenant_event_clears_only_deleted_tenant():
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+    from simple_module_core.feature_flags import FeatureFlagRegistry
+
+    app = FastAPI()
+    registry = FeatureFlagRegistry()
+    app.state.sm = SimpleNamespace(feature_flags=registry)
+    registry.set_override("unknown.flag", True, tenant_id="deleted")
+    registry.set_override("unknown.flag", True, tenant_id="other")
+    registry.set_override("unknown.flag", False)
+    bus = EventBus()
+    FeatureFlagsModule().register_event_handlers(bus, app)
+    event = TenantDeleted(tenant_id="deleted", slug="deleted", name="Deleted")
+    await bus.publish(event)
+    await bus.publish(event)
+    assert registry.tenant_override("unknown.flag", "deleted") is None
+    assert registry.tenant_override("unknown.flag", "other") is True
+    assert registry.system_override("unknown.flag") is False
+
+
+async def test_feature_flags_remote_tenant_deletion_clears_registry(app):
+    from simple_module_core.invalidation import Invalidation
+    from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
+
+    registry = app.state.sm.feature_flags
+    registry.set_override("unknown.flag", True, tenant_id="deleted")
+    registry.set_override("unknown.flag", True, tenant_id="other")
+    message = Invalidation(channel=TENANT_DELETED_CHANNEL, key="deleted", origin="other")
+    await app.state.sm.invalidation.deliver(message.to_wire())
+    assert registry.tenant_override("unknown.flag", "deleted") is None
+    assert registry.tenant_override("unknown.flag", "other") is True

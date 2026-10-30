@@ -55,18 +55,10 @@ exists to produce."""
 
 
 def _failure_detail(exc: Exception) -> str:
-    """Human-readable reason for one address failing.
-
-    ``str(UserAlreadyExists())`` is the empty string — fastapi-users carries the
-    meaning in the exception *type*, not its message. Passing that straight
-    through renders the single most common failure as a bare red address with no
-    reason beside it, which is exactly the question the per-address results exist
-    to answer. The final fallback names the exception class rather than leaving
-    the cell blank: a class name is a poor message, but it is still a lead.
-    """
+    """Only known errors have specific messages; backend details stay in logs."""
     if isinstance(exc, UserAlreadyExists):
         return "Already a member of this workspace"
-    return str(exc) or type(exc).__name__
+    return "The invitation could not be created. Please try again."
 
 
 def invite_link(request: Request, token: str) -> str:

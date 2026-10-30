@@ -71,6 +71,12 @@ class FeatureFlagRegistry:
         else:
             self._tenant_overrides.pop((name, tenant_id), None)
 
+    def clear_tenant_overrides(self, tenant_id: str) -> None:
+        """Forget every override for a deleted tenant, including unknown flags."""
+        self._tenant_overrides = {
+            key: value for key, value in self._tenant_overrides.items() if key[1] != tenant_id
+        }
+
     def replace_overrides(
         self, system: dict[str, bool], tenants: dict[tuple[str, str], bool]
     ) -> None:

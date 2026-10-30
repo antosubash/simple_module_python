@@ -111,6 +111,13 @@ GET /api/audit_log/
 
 Requires `audit_log.view`. Returns `AuditEntryList`. Query filters (all optional): `entity_type`, `entity_id`, `action`, `user_id`, `from_date`, `to_date`, `page` (≥1), `page_size` (1–200, default 50). Results are ordered newest-first (`created_at` desc).
 
+The JSON list, browse screen and CSV export share actor and date-range semantics
+(#698): `user_id` accepts an exact UUID or a name/email substring (an exact
+stored actor id when the directory cannot search). `to_date` includes the whole
+day it names, even if supplied with a time. `from_date` remains the supplied
+lower bound. Service callers needing an exact upper timestamp can use
+`AuditLogService.list_entries` or construct `EntryFilters` directly.
+
 ### View
 
 | Method + path | Inertia component | Permission |

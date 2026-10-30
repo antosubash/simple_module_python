@@ -15,6 +15,18 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- Deprecate `auth.deps.require_permission` for removal in 0.1.0; recommend
+  `RequiresPermission` and enforce the removal release in the shim ledger (#698).
+- **Behaviour change:** gate Files and Branding navigation by their page
+  permissions instead of hardcoded roles (#698).
+- Clear deleted tenants' feature-flag registry overrides locally and on remote
+  tenant-deletion invalidations, preserving other scopes (#639, #698).
+- Keep unexpected bulk-invite exception details in logs and return a generic
+  failure message instead of exposing SQL and parameters (#698).
+- **Behaviour change:** align audit-log JSON list actor search and inclusive
+  end-of-day filtering with the browse screen and CSV export (#698).
+- Start database lease TTLs after locking each slot on Postgres, and recheck expiry after
+  lock waits when refreshing or releasing (#698).
 - **Behaviour change:** password resets revoke all browser sessions, access tokens
   and refresh tokens, sharing revocation with password changes and sign-out-everywhere (#686).
 - Defer single admin create/invite events and invitation-related emails until the
