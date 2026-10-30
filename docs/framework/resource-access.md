@@ -59,7 +59,9 @@ nobody bypasses ownership, not even an admin.
 
 `share_exists` is injected as a `(principal, action) -> EXISTS(...) | None`
 factory. The framework never imports the `sharing` module (SM009). A module can
-supply its own bespoke share table the same way.
+supply its own bespoke share table the same way. Custom share roles (for
+example a `manager` role that may reshare) are declared per type with
+`ResourceType.share_roles`; see [sharing](../modules/sharing.md).
 
 ## Detail endpoints: `RequiresResource`
 

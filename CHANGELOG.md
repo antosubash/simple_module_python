@@ -15,6 +15,10 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Per-resource-type sharing roles and implied actions (`ResourceType.share_roles`),
+  including delegated share management: a role implying `ACTION_SHARE` may list,
+  grant and revoke shares on that resource. Default view/edit roles remain
+  unchanged; no migration (#707).
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).
@@ -31,6 +35,12 @@ All notable changes to this project are documented in this file. The format is b
   negotiation, status and header preservation (#684).
 - Public `background_tasks.sync_db.worker_tenancy` and `WorkerTenancy` snapshot,
   distinguishing an unconfigured worker from single-tenant operation (#685).
+
+### Deprecated
+- `ResourceType.shareable_actions`, for removal in 0.1.0; use `share_roles`.
+  **Behaviour change:** it now defaults to `None`, not `("view", "edit")`, so
+  read `share_roles` instead. Legacy values that are not lowercase role ids of at
+  most 32 characters now fail at registration (#707).
 
 ### Fixed
 - **Behaviour change:** bare UI borders now use the theme border colour in light

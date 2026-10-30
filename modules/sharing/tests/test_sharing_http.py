@@ -6,7 +6,11 @@ import uuid
 
 import pytest
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
+from sharing.constants import PERM_SHARE
+from sharing.policy import share_exists_for
+from simple_module_core.resources import ACTION_SHARE, ACTION_VIEW, ResourceType
 from simple_module_core.tenancy import TenantRole
+from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from simple_module_test.tenant_client import session_client
 
 SHARES = "/api/sharing/shares"
@@ -101,3 +105,47 @@ async def test_admin_page_lists_tenant_shares(note_app, tenant_client):
             assert revoked.status_code == 303
         # A plain tenant owner holds sharing.share but not the admin page.
         assert (await owner.client.get("/admin/sharing/")).status_code == 403
+
+
+async def test_custom_manager_uses_api_but_still_needs_permission(app, tenant_client, monkeypatch):
+    roles = {"manager": (ACTION_VIEW, ACTION_SHARE), "reviewer": (ACTION_VIEW, "review")}
+    policy = OwnedResourcePolicy(
+        SharingTestNote.owner_id,
+        bypass_perm=None,
+        share_exists=share_exists_for(NOTE_TYPE, SharingTestNote.id, roles=roles),
+    )
+    app.state.sm.resource_types.register(
+        ResourceType(NOTE_TYPE, policy, select_by_id(SharingTestNote), share_roles=roles)
+    )
+    async with app.state.sm.db.engine.begin() as conn:
+        await create_note_table(conn)
+    async with (
+        tenant_client() as owner,
+        tenant_client(tenant_id=owner.tenant_id) as manager,
+        tenant_client(tenant_id=owner.tenant_id) as reader,
+    ):
+        note_id = await _note(app, owner.user_id)
+        response = await owner.client.post(
+            SHARES, json=_body(note_id, manager.user_id, role="manager")
+        )
+        assert response.status_code == 201, response.text
+        query = {"resource_type": NOTE_TYPE, "resource_id": note_id}
+        assert (await manager.client.get(SHARES, params=query)).status_code == 200
+        response = await manager.client.post(
+            SHARES, json=_body(note_id, reader.user_id, role="reviewer")
+        )
+        assert response.status_code == 201, response.text
+        share_id = response.json()["id"]
+        assert (await manager.client.delete(f"{SHARES}/{share_id}")).status_code == 204
+        # Removing the API permission must refuse even an active resource manager.
+        registry = app.state.sm.permissions
+        denied_map = {
+            role: [key for key in keys if key != PERM_SHARE]
+            for role, keys in registry.role_map.items()
+        }
+        monkeypatch.setattr(type(registry), "role_map", property(lambda self: denied_map))
+        assert (await manager.client.get(SHARES, params=query)).status_code == 403
+        assert (
+            await manager.client.post(SHARES, json=_body(note_id, reader.user_id, role="manager"))
+        ).status_code == 403
+        assert (await manager.client.delete(f"{SHARES}/{share_id}")).status_code == 403

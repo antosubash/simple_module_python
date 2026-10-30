@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -26,9 +26,16 @@ from sharing.constants import ROLE_IMPLIES, SUBJECT_USER
 from sharing.models import ResourceShare
 
 
-def roles_granting(action: str) -> tuple[str, ...]:
+def resolve_roles(roles: Mapping[str, tuple[str, ...]] | None) -> Mapping[str, tuple[str, ...]]:
+    """*roles* as declared on a resource type; ``None`` means the default view/edit roles."""
+    return ROLE_IMPLIES if roles is None else roles
+
+
+def roles_granting(
+    action: str, *, roles: Mapping[str, tuple[str, ...]] | None = None
+) -> tuple[str, ...]:
     """Every share role that implies *action*."""
-    return tuple(role for role, implied in ROLE_IMPLIES.items() if action in implied)
+    return tuple(role for role, implied in resolve_roles(roles).items() if action in implied)
 
 
 def _is_uuid(column: Any) -> bool:
@@ -72,18 +79,20 @@ def active_share_clause(now: datetime | None = None) -> Any:
 
 
 def share_exists_for(
-    resource_type: str, id_col: Any
+    resource_type: str, id_col: Any, *, roles: Mapping[str, tuple[str, ...]] | None = None
 ) -> Callable[[ResourcePrincipal, str], Any | None]:
     """A ``share_exists`` factory for ``OwnedResourcePolicy``.
 
     Correlated on *id_col*; tenant scoping comes from the share table's
-    ``MultiTenantMixin`` filter, and expired shares never match.
+    ``MultiTenantMixin`` filter, and expired shares never match. *roles* is the
+    type's ``ResourceType.share_roles`` (``None``: the default view/edit roles);
+    pass the same mapping to both so SQL access and grant validation agree.
     """
     key = id_text(id_col)
 
     def share_exists(principal: ResourcePrincipal, action: str) -> Any | None:
-        roles = roles_granting(action)
-        if not roles or principal.user_id is None:
+        granting_roles = roles_granting(action, roles=roles)
+        if not granting_roles or principal.user_id is None:
             return None
         return exists(
             select(ResourceShare.id).where(
@@ -91,7 +100,7 @@ def share_exists_for(
                 ResourceShare.resource_id == key,
                 ResourceShare.subject_type == SUBJECT_USER,
                 ResourceShare.subject_id == principal.user_id,
-                ResourceShare.role.in_(roles),
+                ResourceShare.role.in_(granting_roles),
                 active_share_clause(),
             )
         )
@@ -103,6 +112,7 @@ __all__ = [
     "active_share_clause",
     "canonical_id",
     "id_text",
+    "resolve_roles",
     "roles_granting",
     "row_id",
     "share_exists_for",

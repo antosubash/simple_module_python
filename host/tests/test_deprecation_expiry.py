@@ -30,8 +30,10 @@ _SHIM_MODULES = (
     "simple_module_hosting._registrations",
     "simple_module_core.public_routes",
     "simple_module_core.versioning",
+    "simple_module_core.resources",
 )
 _EXPECTED = {
+    "ResourceType.shareable_actions",
     "auth.deps.require_permission",
     "host.routes_legacy (pre-/admin view URL redirects)",
     "permissions.deps.invalidate_grants_on_commit",
