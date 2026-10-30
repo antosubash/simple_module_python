@@ -3,11 +3,14 @@
 from typing import TYPE_CHECKING, Any
 
 from background_tasks.after_commit import enqueue_after_commit
+from background_tasks.constants import SM_TRACKING_HEADER
 from background_tasks.log_context import (
     bind_task_context,
     get_log_context,
     install_log_filter,
 )
+from background_tasks.task_resource import with_task_resource
+from background_tasks.tracking import TrackingMode
 
 if TYPE_CHECKING:
     from background_tasks.task_heartbeat import heartbeat
@@ -30,10 +33,13 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    "SM_TRACKING_HEADER",
+    "TrackingMode",
     "bind_task_context",
     "enqueue_after_commit",
     "get_log_context",
     "heartbeat",
     "install_log_filter",
     "settings_for",
+    "with_task_resource",
 ]

@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from simple_module_db.types import AwareDateTime
-from sqlalchemy import JSON, Column, Index, String
+from sqlalchemy import JSON, CheckConstraint, Column, Index, String
 from sqlmodel import Field
 
 from background_tasks.constants import (
@@ -86,6 +86,9 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     # publishes. It scopes who may read the task's status (#536).
     owner_user_id: str | None = Field(default=None, index=True, max_length=OWNER_ID_MAX_LENGTH)
 
+    resource_type: str | None = Field(default=None, max_length=255)
+    resource_id: str | None = Field(default=None, max_length=255)
+
     # Progress the task body reports through ``heartbeat(progress=...)``.
     progress_current: int | None = None
     progress_total: int | None = None
@@ -118,6 +121,10 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     heartbeat_at: datetime | None = None
 
     __table_args__ = (
+        CheckConstraint(
+            "(resource_type IS NULL) = (resource_id IS NULL)",
+            name="task_resource_pair",
+        ),
         Index(
             "ix_background_tasks_task_execution_status_queued",
             "status",

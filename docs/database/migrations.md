@@ -21,7 +21,7 @@ The history is **not** a single linear chain. It has several roots and several h
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
-| `a626b1c8d023` | users (hashed bearer tokens) | `api_tokens`, `background_tasks`, `users` |
+| `b31a70971001` | background_tasks (resource references) | `api_tokens`, `background_tasks`, `users` |
 | `a7c2e91d4b58` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
 | `d263ea727663` | framework (`sm_lease`) | `leases` |

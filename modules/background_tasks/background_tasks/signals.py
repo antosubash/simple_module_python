@@ -86,6 +86,7 @@ def on_task_publish(
     }
     apply_signal(
         "on_task_publish",
+        headers=headers,
         celery_task_id=task_id,
         defaults=defaults,
         tenant_id=published_tenant(headers),
@@ -106,6 +107,7 @@ def on_task_prerun(
     **_k: Any,
 ) -> None:
     """Flip the row to ``running``, start the heartbeat, bind log context."""
+    restore_tenant(task_id=task_id, task=task or sender)
     args_n, kwargs_n = coerce_args_kwargs(args, kwargs)
     now = now_utc()
     name = task_name_of(sender, task)
@@ -120,11 +122,11 @@ def on_task_prerun(
             "started_at": now,
             "heartbeat_at": now,
         },
-        tenant_id=message_tenant(task=task),
-        owner_user_id=message_owner(task=task),
+        task=task or sender,
+        tenant_id=message_tenant(task=task or sender),
+        owner_user_id=message_owner(task=task or sender),
     )
     signal_task_started(task_id=task_id, task_name=name)
-    restore_tenant(task_id=task_id, task=task)
 
 
 @signals.task_postrun.connect
@@ -140,15 +142,18 @@ def on_task_postrun(
     ``task_retry`` which fire *before* postrun; postrun only refreshes the
     heartbeat so the sweep doesn't immediately flip a just-finished row.
     """
-    apply_signal(
-        "on_task_postrun",
-        celery_task_id=task_id,
-        defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
-        tenant_id=message_tenant(task=task),
-    )
-    release_tenant(task_id=task_id)
-    forget_heartbeat(task_id)
-    signal_task_finished(task_id=task_id)
+    try:
+        apply_signal(
+            "on_task_postrun",
+            celery_task_id=task_id,
+            defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
+            task=task or sender,
+            tenant_id=message_tenant(task=task or sender),
+        )
+    finally:
+        release_tenant(task_id=task_id)
+        forget_heartbeat(task_id)
+        signal_task_finished(task_id=task_id)
 
 
 @signals.task_success.connect
@@ -164,6 +169,7 @@ def on_task_success(sender: Any = None, result: Any = None, **_k: Any) -> None:
             "traceback": None,
             "exception_type": None,
         },
+        task=sender,
         tenant_id=message_tenant(task=sender),
     )
 
@@ -189,6 +195,7 @@ def on_task_failure(
             "exception_type": exception_type,
             "finished_at": now_utc(),
         },
+        task=sender,
         tenant_id=message_tenant(task=sender),
     )
 
@@ -225,6 +232,8 @@ def on_task_retry(
             "heartbeat_at": now_utc(),
         },
         after=_stamp_reason,
+        task=sender,
+        request=request,
         tenant_id=message_tenant(request=request),
     )
 
@@ -239,6 +248,8 @@ def on_task_revoked(sender: Any = None, request: Any = None, **_k: Any) -> None:
             "status": TaskStatus.REVOKED,
             "finished_at": now_utc(),
         },
+        task=sender,
+        request=request,
         tenant_id=message_tenant(request=request),
     )
 

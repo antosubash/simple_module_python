@@ -26,6 +26,7 @@ from background_tasks.contracts.schemas import RetryFailedResult
 from background_tasks.filters import Conditions, bulk_retry_conditions
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
+from background_tasks.task_resource import resource_headers
 from background_tasks.tenant_context import publish_as_owner
 
 if TYPE_CHECKING:
@@ -196,6 +197,9 @@ class RetryCoordinator:
             "task_id": task_id,
         }
 
+        if row.resource_type and row.resource_id:
+            options["headers"] = resource_headers(row.resource_type, row.resource_id)
+
         def publish() -> str:
             try:
                 return _send()
@@ -233,6 +237,8 @@ class RetryCoordinator:
             queue=row.queue,
             tenant_id=row.tenant_id,
             owner_user_id=row.owner_user_id,
+            resource_type=row.resource_type,
+            resource_id=row.resource_id,
             args=list(row.args or []),
             kwargs=dict(row.kwargs or {}),
             retried_from_id=row.id,

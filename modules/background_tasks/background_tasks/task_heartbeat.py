@@ -35,6 +35,7 @@ from background_tasks.constants import (
 )
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
+from background_tasks.tracking import TrackingMode, tracking_mode
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ def heartbeat(
     reporting on.
     """
     task_id = _current_task_id()
-    if task_id is None:
+    if task_id is None or tracking_mode(task=current_task) != TrackingMode.FULL:
         return False
     try:
         reported = _progress_values(progress, message, phase)
