@@ -1,7 +1,6 @@
 """Delegated grant writes are bounded by the actor's effective access (#687)."""
 
-from fastapi import Request
-from simple_module_core.permission_denied import PermissionDenied
+from fastapi import HTTPException, Request, status
 from simple_module_core.permissions import ADMIN_ROLE, PermissionRegistry, grants
 from simple_module_core.user_directory import DirectoryUser
 from simple_module_hosting.permissions import (
@@ -9,7 +8,18 @@ from simple_module_hosting.permissions import (
     resolve_principal_permissions,
 )
 
-from permissions.constants import PERM_MANAGE
+
+class PermissionWriteRefused(HTTPException):
+    """A 403 with a reason but no ``required_permission``: the actor holds
+    ``permissions.manage``, so nothing may claim it is missing. View routes turn
+    it into a form error so the edit screen can show the reason."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
+
+
+def _refuse(reason: str) -> PermissionWriteRefused:
+    return PermissionWriteRefused(reason)
 
 
 async def check_permission_write(
@@ -35,13 +45,13 @@ async def check_permission_write(
     if target is not None:
         # Unknown provider roles cannot prove that the target is within reach.
         if target.roles is None or ADMIN_ROLE in target.roles:
-            raise PermissionDenied(PERM_MANAGE, "You cannot manage a more privileged account.")
+            raise _refuse("You cannot manage a more privileged account.")
         target_permissions = await resolve_principal_permissions(request, target, registry)
         if any(not grants(held, key) for key in target_permissions):
-            raise PermissionDenied(PERM_MANAGE, "You cannot manage a more privileged account.")
+            raise _refuse("You cannot manage a more privileged account.")
     if role is not None:
         name, role_keys = role
         if name == ADMIN_ROLE or any(not grants(held, key) for key in role_keys):
-            raise PermissionDenied(PERM_MANAGE, "You cannot manage a more privileged role.")
+            raise _refuse("You cannot manage a more privileged role.")
     if any(not grants(held, key) for key in added):
-        raise PermissionDenied(PERM_MANAGE, "You cannot assign permissions you do not hold.")
+        raise _refuse("You cannot assign permissions you do not hold.")

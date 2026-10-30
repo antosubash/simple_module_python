@@ -14,6 +14,7 @@ from permissions.models import RolePermission, UserPermission
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
 from sqlalchemy import select
+from starlette.middleware.sessions import SessionMiddleware
 from users.models import Role
 
 
@@ -48,6 +49,7 @@ async def writes(db_session):
 
     registry.add_grant_source(direct_grants)
     app = FastAPI()
+    app.add_middleware(SessionMiddleware, secret_key="test-only")
     app.state.sm = SimpleNamespace(permissions=registry)
     app.state.user_directory = directory
 
@@ -83,9 +85,15 @@ async def writes(db_session):
 async def test_added_grants_must_be_held(writes, prefix, kind, key, allowed):
     target_id = writes.role.id if kind == "roles" else writes.actor.id
     response = await writes.client.put(f"{prefix}/{kind}/{target_id}", json={"permissions": [key]})
-    assert response.status_code == ((200 if prefix.startswith("/api") else 303) if allowed else 403)
-    if not allowed:
+    api = prefix.startswith("/api")
+    if allowed:
+        assert response.status_code == (200 if api else 303)
+    elif api:
+        assert response.status_code == 403
         assert response.json()["detail"]
+    else:
+        # The edit page gets the reason back as a form error, not an error page.
+        assert response.status_code in (302, 303)
     model = RolePermission if kind == "roles" else UserPermission
     rows = (await writes.db.execute(select(model.permission_key))).scalars().all()
     assert rows == ([key] if allowed else [])
