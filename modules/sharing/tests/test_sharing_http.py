@@ -6,7 +6,11 @@ import uuid
 
 import pytest
 from _sharing_support import NOTE_TYPE, SharingTestNote, create_note_table, register_note_type
+from sharing.constants import PERM_SHARE
+from sharing.policy import share_exists_for
+from simple_module_core.resources import ACTION_SHARE, ACTION_VIEW, ResourceType
 from simple_module_core.tenancy import TenantRole
+from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from simple_module_test.tenant_client import session_client
 
 SHARES = "/api/sharing/shares"
@@ -104,11 +108,6 @@ async def test_admin_page_lists_tenant_shares(note_app, tenant_client):
 
 
 async def test_custom_manager_uses_api_but_still_needs_permission(app, tenant_client, monkeypatch):
-    from sharing.constants import PERM_SHARE
-    from sharing.policy import share_exists_for
-    from simple_module_core.resources import ACTION_SHARE, ACTION_VIEW, ResourceType
-    from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
-
     roles = {"manager": (ACTION_VIEW, ACTION_SHARE), "reviewer": (ACTION_VIEW, "review")}
     policy = OwnedResourcePolicy(
         SharingTestNote.owner_id,

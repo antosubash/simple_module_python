@@ -84,7 +84,9 @@ def share_exists_for(
     """A ``share_exists`` factory for ``OwnedResourcePolicy``.
 
     Correlated on *id_col*; tenant scoping comes from the share table's
-    ``MultiTenantMixin`` filter, and expired shares never match.
+    ``MultiTenantMixin`` filter, and expired shares never match. *roles* is the
+    type's ``ResourceType.share_roles`` (``None``: the default view/edit roles);
+    pass the same mapping to both so SQL access and grant validation agree.
     """
     key = id_text(id_col)
 

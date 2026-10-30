@@ -7,6 +7,7 @@ from datetime import timedelta
 
 import pytest
 from _sharing_support import FakeDirectory, SharingTestNote, create_note_table
+from sharing.constants import ROLE_MAX
 from sharing.contracts.schemas import ShareGrant
 from sharing.policy import roles_granting, share_exists_for
 from sharing.service import SharingError, SharingService
@@ -227,3 +228,8 @@ def test_role_ids_must_fit_the_share_column(role):
     # A role the 32-character ``role`` column can't store would only fail at grant time.
     with pytest.raises(ResourceTypeError, match="lowercase identifier"):
         ResourceTypeRegistry().register(declaration(share_roles={role: (ACTION_VIEW,)}))
+
+
+def test_core_role_pattern_matches_share_column_width():
+    # ``simple_module_core.resources._ROLE_ID`` hard-codes the width (core can't import sharing).
+    assert ROLE_MAX == 32

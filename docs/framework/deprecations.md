@@ -31,6 +31,7 @@ core, so `props.lazy()` exposes `LAZY_REMOVE_IN` and the test registers it.
 | `settings.registration`, `settings.module_registry`, `settings.hydrate` | `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` |
 | `simple_module_inertia.props.lazy()` | `optional()` |
 | one-argument `register_event_handlers(self, bus)` | `register_event_handlers(self, bus, app=None)` |
+| `ResourceType.shareable_actions` | `ResourceType.share_roles` |
 | `AuthProvider.get_public_paths()` (still honoured by `AuthMiddleware` and the maintenance gate) | `register_public_routes` |
 
 `simple_module_hosting.settings.Settings` is **not** a shim: it is the combined

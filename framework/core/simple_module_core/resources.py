@@ -94,6 +94,12 @@ class ResourceType:
     ``name`` is dotted and owned by the module (``"notes.note"``). ``select_by_id``
     builds the unfiltered ``SELECT`` for one row from its string id; callers
     always pass it through ``policy.filter`` before executing it.
+
+    ``share_roles`` maps each share role id this type allows to the actions it
+    implies (each must include ``view``; checked at registration). ``None``
+    means the ``sharing`` module's default view/edit roles. Pass the same
+    mapping to ``sharing``'s ``share_exists_for(..., roles=...)``.
+    ``shareable_actions`` is deprecated in favour of ``share_roles``.
     """
 
     name: str
