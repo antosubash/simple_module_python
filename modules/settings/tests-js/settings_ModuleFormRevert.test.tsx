@@ -129,3 +129,22 @@ test('a failed save keeps a defaulted field without Revert', async () => {
   expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
   expect(screen.getByLabelText('sender')).toHaveValue('rejected');
 });
+
+test('revert right after a save shows the live default and hides Revert', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('{}', { status: 200 })),
+  );
+  const fields = [{ ...field('sender', 'default-sender'), default: 'default-sender' }];
+  mocks.reload.mockImplementation((options: { onSuccess?: (page: unknown) => void }) => {
+    options.onSuccess?.({ props: { modules: [view(fields)] } });
+  });
+  render(<ModuleForm module={view(fields)} />);
+  const input = screen.getByDisplayValue('default-sender');
+  fireEvent.change(input, { target: { value: 'custom' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  const revert = await screen.findByRole('button', { name: 'Revert' });
+  fireEvent.click(revert);
+  await waitFor(() => expect(screen.getByDisplayValue('default-sender')).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Revert' })).not.toBeInTheDocument();
+});

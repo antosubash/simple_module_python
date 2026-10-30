@@ -136,11 +136,28 @@ export function ModuleForm({ module: m, checks = [] }: Props) {
         params: { path: { package: m.package, field: name } },
       }),
     );
+    setSavedOverrides((prev) => ({ ...prev, [name]: false }));
     setBuffer((prev) => ({
       ...prev,
       values: { ...prev.values, [name]: prev.baseline[name] },
     }));
-    router.reload({ only: ['modules'] });
+    // Take the field's live value from the reload itself: when the page never
+    // reloaded after a save, the fresh props equal the old ones and the
+    // [initial] effect does not fire, leaving the reverted value on screen.
+    router.reload({
+      only: ['modules'],
+      onSuccess: (page) => {
+        const modules = (page.props as { modules?: ModuleView[] }).modules ?? [];
+        const fresh = modules
+          .find((other) => other.package === m.package)
+          ?.fields.find((f) => f.name === name);
+        if (!fresh) return;
+        setBuffer((prev) => ({
+          values: { ...prev.values, [name]: fresh.value },
+          baseline: { ...prev.baseline, [name]: fresh.value },
+        }));
+      },
+    });
   }
 
   return (
