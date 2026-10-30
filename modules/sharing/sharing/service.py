@@ -35,12 +35,11 @@ from sharing.constants import (
     ERR_UNKNOWN_GRANTEE,
     ERR_UNKNOWN_TYPE,
     PERM_MANAGE,
-    ROLE_IMPLIES,
     SUBJECT_USER,
 )
 from sharing.contracts.schemas import ShareGrant
 from sharing.models import ResourceShare
-from sharing.policy import row_id
+from sharing.policy import resolve_roles, row_id
 
 
 class SharingError(Exception):
@@ -90,8 +89,7 @@ class SharingService:
 
     async def grant(self, principal: ResourcePrincipal, data: ShareGrant) -> ResourceShare:
         resource_type = self._type(data.resource_type)
-        roles = ROLE_IMPLIES if resource_type.share_roles is None else resource_type.share_roles
-        if data.role not in roles:
+        if data.role not in resolve_roles(resource_type.share_roles):
             raise SharingError(422, ERR_BAD_ROLE)
         if data.expires_at is not None and _aware(data.expires_at) <= utcnow():
             raise SharingError(422, ERR_EXPIRED)

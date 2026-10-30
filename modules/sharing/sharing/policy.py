@@ -26,12 +26,16 @@ from sharing.constants import ROLE_IMPLIES, SUBJECT_USER
 from sharing.models import ResourceShare
 
 
+def resolve_roles(roles: Mapping[str, tuple[str, ...]] | None) -> Mapping[str, tuple[str, ...]]:
+    """*roles* as declared on a resource type; ``None`` means the default view/edit roles."""
+    return ROLE_IMPLIES if roles is None else roles
+
+
 def roles_granting(
     action: str, *, roles: Mapping[str, tuple[str, ...]] | None = None
 ) -> tuple[str, ...]:
     """Every share role that implies *action*."""
-    mapping = ROLE_IMPLIES if roles is None else roles
-    return tuple(role for role, implied in mapping.items() if action in implied)
+    return tuple(role for role, implied in resolve_roles(roles).items() if action in implied)
 
 
 def _is_uuid(column: Any) -> bool:
@@ -106,6 +110,7 @@ __all__ = [
     "active_share_clause",
     "canonical_id",
     "id_text",
+    "resolve_roles",
     "roles_granting",
     "row_id",
     "share_exists_for",

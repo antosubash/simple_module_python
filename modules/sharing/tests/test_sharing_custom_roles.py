@@ -220,3 +220,10 @@ def test_explicit_roles_take_precedence_over_legacy_subset():
     with pytest.warns(DeprecationWarning):
         resource = declaration(share_roles=ROLES, shareable_actions=(ACTION_VIEW,))
     assert resource.share_roles == ROLES
+
+
+@pytest.mark.parametrize("role", ["Manager", "x" * 33, "has-dash", ""])
+def test_role_ids_must_fit_the_share_column(role):
+    # A role the 32-character ``role`` column can't store would only fail at grant time.
+    with pytest.raises(ResourceTypeError, match="lowercase identifier"):
+        ResourceTypeRegistry().register(declaration(share_roles={role: (ACTION_VIEW,)}))

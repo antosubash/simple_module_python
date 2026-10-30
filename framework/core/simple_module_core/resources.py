@@ -45,6 +45,8 @@ _SHAREABLE_ACTIONS = deprecate(
 )
 
 _TYPE_NAME = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
+# A share role id is stored in a 32-character column (``sharing`` ``ROLE_MAX``).
+_ROLE_ID = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 
 @dataclass(frozen=True)
@@ -100,7 +102,9 @@ class ResourceType:
     #: Deprecated role allowlist; retained for view/edit subsets until 0.1.0.
     shareable_actions: tuple[str, ...] | None = None
     #: Role ids mapped to their implied actions; None uses sharing's view/edit default.
-    share_roles: Mapping[str, tuple[str, ...]] | None = field(default=None, kw_only=True)
+    share_roles: Mapping[str, tuple[str, ...]] | None = field(
+        default=None, kw_only=True, hash=False
+    )
 
     def __post_init__(self) -> None:
         if self.shareable_actions is not None:
@@ -137,7 +141,12 @@ class ResourceTypeRegistry:
             raise ResourceTypeError(f"Resource type {name!r} is registered twice")
         if resource_type.share_roles is not None:
             for role, actions in resource_type.share_roles.items():
-                if ACTION_VIEW not in actions:
+                if not isinstance(role, str) or not _ROLE_ID.match(role):
+                    raise ResourceTypeError(
+                        f"Resource type {name!r} share role {role!r} must be a lowercase "
+                        "identifier of at most 32 characters"
+                    )
+                if isinstance(actions, str) or ACTION_VIEW not in actions:
                     raise ResourceTypeError(
                         f"Resource type {name!r} share role {role!r} must include {ACTION_VIEW!r}"
                     )
