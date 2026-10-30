@@ -153,7 +153,9 @@ It also scans each root/member `package.json` and `client_app/package.json`, in
 in lockstep, preserving exact, `^` or `~` style and never downgrading. The npm
 registry must contain that exact version; unavailable releases, incompatible
 version spellings, unsupported ranges and workspace/file/git/alias references
-are reported as skips. `--include-pre` also applies to core target selection.
+are reported as skips, and so is every npm pin when the run leaves the Python
+`simple_module_core` pin alone (an upper bound or a local source), so npm never
+runs ahead of Python. `--include-pre` also applies to core target selection.
 
 All manifests are parsed and changes planned before any writes. Dry runs write
 nothing; JSON indentation and trailing-newline style are preserved. Writes to

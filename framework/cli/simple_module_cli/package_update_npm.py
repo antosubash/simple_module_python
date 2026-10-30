@@ -7,7 +7,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 
 from simple_module_cli.package_update_deps import Change, Skip
@@ -82,7 +81,7 @@ def _render(manifest: Manifest) -> str:
 
 
 def plan_npm(
-    manifests: list[Manifest], target: str | None, fetcher: Fetcher
+    manifests: list[Manifest], target: str | None, fetcher: Fetcher, *, blocked: str | None = None
 ) -> tuple[list[Change], list[Skip], list[tuple[Path, str]]]:
     changes: list[Change] = []
     skips: list[Skip] = []
@@ -101,7 +100,7 @@ def plan_npm(
                 if current is None:
                     reason = f"unsupported npm reference {pin!r}"
                 elif target_key is None:
-                    reason = f"no npm-compatible simple_module_core target ({target})"
+                    reason = blocked or f"no npm-compatible simple_module_core target ({target})"
                 elif current >= target_key:
                     continue
                 else:
@@ -109,7 +108,7 @@ def plan_npm(
                         try:
                             data = fetcher(_REGISTRY + quote(name, safe="@"))
                             available[name] = target in data.get("versions", {})
-                        except (HTTPError, URLError):
+                        except (OSError, ValueError):  # HTTP/URL/timeout, bad JSON
                             available[name] = False
                     if not available[name]:
                         reason = f"npm release {target} unavailable"

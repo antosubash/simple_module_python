@@ -30,6 +30,7 @@ from simple_module_cli.package_update_deps import (
     Change,
     Skip,
     _collect_sm_deps,
+    _normalize,
     _process_file,
     _workspace_member_dirs,
     local_sources,
@@ -39,6 +40,22 @@ from simple_module_cli.package_update_npm import load_manifests, plan_npm
 from simple_module_cli.pypi import Fetcher, default_fetcher, fetch_latest
 
 __all__ = ["package_update", "run_update"]
+
+
+_CORE = "simple-module-core"
+
+
+def _npm_target(cache: dict[str, str | None], skips: list[Skip]) -> tuple[str | None, str | None]:
+    """The core version npm pins follow, or why there is none.
+
+    npm pins move in lockstep with the Python core pin, so when this run left
+    that pin alone (an upper bound, a local source) the npm pins stay too.
+    """
+    for skip in skips:
+        if _normalize(skip.package) == _CORE:
+            return None, f"simple_module_core not updated ({skip.reason})"
+    latest = next((v for n, v in cache.items() if _normalize(n) == _CORE), None)
+    return latest, None if latest else "simple_module_core not found on PyPI"
 
 
 def _print_summary(changes: list[Change], skips: list[Skip], dry_run: bool) -> None:
@@ -85,12 +102,12 @@ def run_update(
         raise typer.Exit(code=1)
 
     fetch = fetcher or default_fetcher
-    root_doc = tomlkit.parse(root.read_text(encoding="utf-8"))
+    root_doc = tomlkit.parse(root.read_bytes().decode("utf-8"))
     files: list[tuple[Path, tomlkit.TOMLDocument]] = [(root, root_doc)]
     for member in _workspace_member_dirs(root, root_doc):
         if member == root:
             continue
-        files.append((member, tomlkit.parse(member.read_text(encoding="utf-8"))))
+        files.append((member, tomlkit.parse(member.read_bytes().decode("utf-8"))))
 
     npm_manifests = load_manifests([file.parent for file, _ in files])
     inherited = source_map(root_doc)
@@ -98,7 +115,9 @@ def run_update(
 
     # Pre-fetch all unique sm packages in parallel — PyPI calls dominate runtime.
     names = {n for file, doc in files for n in _collect_sm_deps(doc, locals_by_file[file])}
-    if any(manifest.packages for manifest in npm_manifests):
+    if any(manifest.packages for manifest in npm_manifests) and not any(
+        _normalize(n) == _CORE for n in names
+    ):
         names.add("simple_module_core")
     unique_names = sorted(names)
     cache: dict[str, str | None] = {}
@@ -123,14 +142,16 @@ def run_update(
         if new_doc is not None:
             pending.append((file, tomlkit.dumps(new_doc)))
 
-    changes, skips, npm_pending = plan_npm(npm_manifests, cache.get("simple_module_core"), fetch)
+    target, blocked = _npm_target(cache, all_skips)
+    changes, skips, npm_pending = plan_npm(npm_manifests, target, fetch, blocked=blocked)
     all_changes.extend(changes)
     all_skips.extend(skips)
     pending.extend(npm_pending)
 
     if not dry_run:
         for file, content in pending:
-            file.write_text(content, encoding="utf-8")
+            # newline="" keeps each file's own line endings (CRLF must not become CRCRLF).
+            file.write_text(content, encoding="utf-8", newline="")
 
     _print_summary(all_changes, all_skips, dry_run)
 

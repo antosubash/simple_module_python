@@ -153,7 +153,7 @@ def test_missing_target_warns_without_npm_writes(tmp_path, capsys, missing_core)
     assert path.read_text() == original
     output = capsys.readouterr().out
     assert "@simple-module-py/ui: skipped" in output
-    assert ("no npm-compatible" if missing_core else "npm release 1.2.3 unavailable") in output
+    assert ("simple_module_core not updated" if missing_core else "npm release 1.2.3 unavailable") in output
     if not missing_core:
         assert "1 dependency(ies) across 1 file(s)" in output
 
@@ -172,3 +172,48 @@ def test_core_prerelease_selection_controls_npm_target(tmp_path, capsys):
     assert json.loads(path.read_text())["dependencies"]["@simple-module-py/ui"] == "1.2.3"
     run_update(tmp_path, include_pre=True, fetcher=fetch)
     assert json.loads(path.read_text())["dependencies"]["@simple-module-py/ui"] == "2.0.0-rc.1"
+
+
+def _client_pin(root, pin="^0.1.0"):
+    path = root / "client_app" / "package.json"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps({"dependencies": {"@simple-module-py/ui": pin}}) + "\n")
+    return path
+
+
+def test_npm_stays_when_python_core_pin_is_held_back(tmp_path, registry, capsys):
+    # An upper bound keeps Python core on 0.1.x; npm must not run ahead of it.
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["simple_module_core>=0.1.0,<0.2"]\n'
+    )
+    pkg = _client_pin(tmp_path)
+    run_update(tmp_path, fetcher=registry())
+    assert '"^0.1.0"' in pkg.read_text()
+    assert "simple_module_core not updated" in capsys.readouterr().out
+
+
+def test_npm_follows_hyphenated_core_name(tmp_path, registry):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["simple-module-core==0.1.0"]\n'
+    )
+    pkg = _client_pin(tmp_path)
+    run_update(tmp_path, fetcher=registry())
+    assert '"^1.2.3"' in pkg.read_text()
+
+
+@pytest.mark.parametrize("error", [TimeoutError("slow"), ValueError("bad json")])
+def test_npm_registry_failure_skips_instead_of_aborting(tmp_path, registry, error, capsys):
+    setup_project(tmp_path)
+    pkg = _client_pin(tmp_path)
+    pypi = registry()
+
+    def fetch(url):
+        if url.startswith("https://registry.npmjs.org/"):
+            raise error
+        return pypi(url)
+
+    run_update(tmp_path, fetcher=fetch)
+    assert '"^0.1.0"' in pkg.read_text()
+    out = capsys.readouterr().out
+    assert "unavailable" in out
+    assert "simple_module_core==1.2.3" in (tmp_path / "pyproject.toml").read_text()
