@@ -174,6 +174,8 @@ def build_celery(settings: BackgroundTasksSettings) -> Celery:
             beat_schedule[name] = entry
 
     celery.conf.update(
+        sm_execution_tracking=settings.execution_tracking,
+        sm_track_publish=settings.track_publish,
         broker_url=settings.broker_url,
         result_backend=settings.result_backend,
         task_default_queue=settings.task_default_queue,

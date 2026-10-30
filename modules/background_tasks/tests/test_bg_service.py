@@ -201,6 +201,7 @@ class TestRetry:
             kwargs={"priority": "high"},
             queue="orders",
             task_id=detail.celery_task_id,
+            headers={"sm_tracking": "full"},
         )
 
         assert len(received) == 1

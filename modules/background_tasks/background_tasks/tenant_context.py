@@ -119,7 +119,8 @@ def _tenant_of(task: Any) -> str | None:
     return _tenant_of_request(getattr(task, "request", None))
 
 
-def _header_of_request(request: Any, name: str) -> Any:
+def header_of_request(request: Any, name: str) -> Any:
+    """A message header off a running task's request (``Request`` or publish-side object)."""
     value = getattr(request, name, None)
     # A worker ``Request`` (revoked signal) keeps headers in a dict instead.
     for attr in ("headers", "request_dict"):
@@ -133,14 +134,14 @@ def message_owner(*, task: Any = None, request: Any = None) -> str | None:
     request = request if request is not None else getattr(task, "request", None)
     if request is None:
         return None
-    value = _header_of_request(request, OWNER_HEADER)
+    value = header_of_request(request, OWNER_HEADER)
     return str(value)[:OWNER_ID_MAX_LENGTH] if value else None
 
 
 def _tenant_of_request(request: Any) -> str | None:
     if request is None:
         return None
-    value = _header_of_request(request, TENANT_HEADER)
+    value = header_of_request(request, TENANT_HEADER)
     if not value:
         return None
     if not is_valid_tenant_id(value):
@@ -199,6 +200,7 @@ __all__ = [
     "OWNER_HEADER",
     "TENANT_HEADER",
     "default_tenant",
+    "header_of_request",
     "message_owner",
     "message_tenant",
     "publish_as_owner",

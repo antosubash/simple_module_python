@@ -18,6 +18,11 @@ All notable changes to this project are documented in this file. The format is b
 - Users auth emails support ordered host template directories through the
   restart-required DB setting `mail_template_dirs`, with per-file bundled
   fallback and optional autoescaped HTML alternatives (#712).
+- Background-task resource references and resource-policy status visibility (#709);
+  migration `b31a70971001` adds nullable resource columns and a paired-reference constraint.
+- **Behaviour change:** configurable task execution tracking (`full`, `terminal`,
+  `failures`, `off`) and DB-backed `track_publish` for worker-first tracking (#710).
+  Defaults preserve existing tracking; reduced modes retain tenant/owner context.
 - Public durable delivery context (`in_delivery()` and `IN_DELIVERY`), inherited
   by handler child tasks and reset after delivery (#682).
 - Transactional, tenant-scoped `sharing.contracts.forget_resource` for resource

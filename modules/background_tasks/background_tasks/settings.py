@@ -53,6 +53,7 @@ from background_tasks.settings_env_checks import (
     forbid_localhost_broker_in_production,
     warn_on_legacy_redis_vars,
 )
+from background_tasks.tracking import TrackingMode
 
 __all__ = ["DEFAULT_RETENTION_DAYS", "ENV_PREFIX", "BackgroundTasksSettings"]
 
@@ -61,6 +62,33 @@ logger = logging.getLogger(__name__)
 
 class BackgroundTasksSettings(CelerySettingsFields):
     """Configuration for the Celery + Redis task runner."""
+
+    execution_tracking: TrackingMode = Field(
+        default=TrackingMode.FULL, json_schema_extra=_CELERY_RESTART
+    )
+    track_publish: bool = Field(default=True, json_schema_extra=_CELERY_RESTART)
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings
+    ):
+        # Tracking controls are DB-backed; preserve env wiring for older fields.
+        def db_only(source):
+            def read():
+                return {
+                    k: v
+                    for k, v in source().items()
+                    if k not in {"execution_tracking", "track_publish"}
+                }
+
+            return read
+
+        return (
+            init_settings,
+            db_only(env_settings),
+            db_only(dotenv_settings),
+            db_only(file_secret_settings),
+        )
 
     # ── Durable event outbox (GH #459) ──────────────────────
     outbox_mode: Literal["celery", "inprocess"] = Field(

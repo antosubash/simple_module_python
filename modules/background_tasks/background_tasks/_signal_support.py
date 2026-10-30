@@ -13,13 +13,16 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from celery import current_app
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlmodel import col
 
-from background_tasks.constants import INTERNAL_TASK_SWEEP_OUTBOX, TaskStatus
 from background_tasks.models import TaskExecution
 from background_tasks.sync_db import sync_session
+from background_tasks.task_resource import message_resource
+from background_tasks.tenant_context import message_owner
+from background_tasks.tracking import records_signal, tracking_mode
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +115,6 @@ def render_traceback(einfo: Any, exception: BaseException | None) -> str | None:
     return None
 
 
-# Beat ticks that fire every few seconds and are a no-op almost every time;
-# recording each run buried real work (QA, GH #459). Only a run that went wrong
-# is worth a row.
-_UNRECORDED_WHEN_QUIET = frozenset({INTERNAL_TASK_SWEEP_OUTBOX})
-_QUIET_STATUSES = frozenset({None, TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCESS})
-
-
 def apply_signal(
     handler: str,
     *,
@@ -127,6 +123,9 @@ def apply_signal(
     after: Callable[[TaskExecution], None] | None = None,
     tenant_id: str | None = None,
     owner_user_id: str | None = None,
+    task: Any = None,
+    request: Any = None,
+    headers: dict | None = None,
 ) -> TaskExecution | None:
     """Open a sync session, upsert by celery_task_id, log on failure.
 
@@ -136,12 +135,30 @@ def apply_signal(
     ``tenant_id`` and ``owner_user_id`` (the message's) are written only when
     known, so a signal whose message carries neither never blanks a row already
     stamped.
+
+    The task's tracking mode (:mod:`.tracking`) decides first whether this
+    signal is recorded at all. When it is, the row also takes args, kwargs,
+    queue, owner and resource from the message when ``defaults`` lack them, so
+    a worker can create the row itself when the publisher never did.
     """
-    if (
-        defaults.get("task_name") in _UNRECORDED_WHEN_QUIET
-        and defaults.get("status") in _QUIET_STATUSES
-    ):
+    name = defaults.get("task_name", "")
+    mode = tracking_mode(task=task, request=request, headers=headers, name=name)
+    app = getattr(task, "app", None) or current_app
+    if not records_signal(mode, handler, defaults.get("status"), app=app):
         return None
+    request = request if request is not None else getattr(task, "request", None)
+    if request is not None:
+        metadata = {}
+        if getattr(request, "args", None) is not None:
+            metadata["args"] = list(request.args)
+        if getattr(request, "kwargs", None) is not None:
+            metadata["kwargs"] = dict(request.kwargs)
+        delivery = getattr(request, "delivery_info", None) or {}
+        if delivery.get("routing_key"):
+            metadata["queue"] = delivery["routing_key"]
+        defaults = {**metadata, **defaults}
+        owner_user_id = owner_user_id or message_owner(request=request)
+    defaults = {**message_resource(headers=headers, request=request), **defaults}
     if tenant_id:
         defaults = {**defaults, "tenant_id": tenant_id}
     if owner_user_id:

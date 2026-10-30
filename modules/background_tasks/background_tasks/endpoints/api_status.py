@@ -1,8 +1,8 @@
-"""Owner-scoped task status (#536).
+"""Owner- and resource-scoped task status (#536, #709).
 
 Mounted apart from the admin router because it carries no ``PERM_VIEW`` gate:
-the person who started a job may follow it without being a task operator. It
-is marked ``Authenticated()`` (SM031); the ownership check lives in the
+owners and resource viewers may follow a job without being task operators. It
+is marked ``Authenticated()`` (SM031); the visibility check lives in the
 handler, and every refusal is a 404 so the route does not reveal which task
 ids exist.
 """
@@ -13,9 +13,12 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.permissions import grants
+from simple_module_core.resources import ACTION_VIEW
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.deps import get_db
+from simple_module_db.resource_policy import load_authorized
 from simple_module_hosting.permissions import ensure_resolved_permissions
+from simple_module_hosting.resource_deps import resource_principal
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import select
 from sqlmodel import col
@@ -30,15 +33,28 @@ _TYPE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,254}")
 _NOT_FOUND = "Task not found"
 
 
-async def _visible(request: Request, row: TaskExecution, user_id: str) -> bool:
+async def _visible(request: Request, row: TaskExecution, user_id: str, db: RequestSession) -> bool:
     if grants(await ensure_resolved_permissions(request), PERM_VIEW):
         return True
-    if not row.owner_user_id or row.owner_user_id != user_id:
-        return False
-    if not bool(getattr(request.app.state.sm.settings, "multi_tenant", False)):
+    if bool(getattr(request.app.state.sm.settings, "multi_tenant", False)):
+        tenant_id = current_tenant_id.get()
+        if tenant_id is None or row.tenant_id != tenant_id:
+            return False
+    if row.owner_user_id and row.owner_user_id == user_id:
         return True
-    tenant_id = current_tenant_id.get()
-    return tenant_id is not None and row.tenant_id == tenant_id
+    if not row.resource_type or not row.resource_id:
+        return False
+    resource = request.app.state.sm.resource_types.get(row.resource_type)
+    if resource is None:
+        return False
+    try:
+        stmt = resource.select_by_id(row.resource_id)
+    except ValueError:
+        return False
+    obj, allowed = await load_authorized(
+        db, resource.policy, await resource_principal(request), ACTION_VIEW, stmt
+    )
+    return obj is not None and allowed
 
 
 @router.get(
@@ -62,7 +78,7 @@ async def get_task_status(
             .limit(1)
         )
     ).scalar_one_or_none()
-    if row is None or not await _visible(request, row, str(user.id)):
+    if row is None or not await _visible(request, row, str(user.id), db):
         raise HTTPException(status_code=404, detail=_NOT_FOUND)
     error = row.exception_type
     if error and not _TYPE_NAME.fullmatch(error):

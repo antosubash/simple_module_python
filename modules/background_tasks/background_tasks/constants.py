@@ -199,3 +199,9 @@ DEFAULT_LOG_RETENTION_DAYS = 7
 LOG_PER_PAGE = 50
 # Level names the admin filter offers, lowest first.
 LOG_LEVEL_NAMES = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+# Message metadata shared by publishers and workers.
+SM_TRACKING_HEADER = "sm_tracking"
+SM_RESOURCE_TYPE_HEADER = "sm_resource_type"
+SM_RESOURCE_ID_HEADER = "sm_resource_id"
+RESOURCE_REF_MAX_LENGTH = 255

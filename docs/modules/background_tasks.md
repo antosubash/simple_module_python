@@ -120,7 +120,53 @@ def rebuild(report_id: int) -> None:
 
 The enqueuing user is recorded as `owner_user_id` from the `sm_owner_id` message header (stamped from `current_user_id` at publish, next to the tenant header). A task that enqueues another task passes the owner on, and a retry keeps the original owner rather than adopting the operator. Beat and other platform publishes have no owner.
 
-`GET /api/background_tasks/tasks/{celery_task_id}/status` returns a `TaskStatusDTO`: status, the progress fields, timestamps and the exception's type name. It never returns args, kwargs, result, traceback or an error message. It is visible to the owner while acting in the row's tenant (any tenant when multi-tenancy is off) and to holders of `background_tasks.view`; everyone else, and every unknown id, gets `404` so the route does not reveal which ids exist. The task detail page shows a progress bar once a report exists.
+`GET /api/background_tasks/tasks/{celery_task_id}/status` returns a `TaskStatusDTO`: status, the progress fields, timestamps and the exception's type name. It never returns args, kwargs, result, traceback or an error message. Holders of `background_tasks.view` may see any task. Everyone else must act in the task's active tenant when multi-tenancy is enabled, and must either own the task or have `view` access to its attached resource. Unknown tasks, unknown resource types, malformed IDs, missing/deleted resources and denied access all return the same `404`. Resource authorization is checked afresh through the registered policy's filtered loader, so revoking a share removes visibility immediately. The task detail page shows a progress bar once a report exists.
+
+Attach a resource explicitly to a signature before enqueueing it (#709):
+
+```python
+from background_tasks import enqueue_after_commit, with_task_resource
+
+job = with_task_resource(
+    import_images.s(collection_id),
+    resource_type="images.collection",
+    resource_id=str(collection_id),
+)
+task_id = enqueue_after_commit(db, job)
+```
+
+The helper returns a cloned signature and merges validated headers. The type must be a dotted resource type name, and the ID a nonempty string of at most 255 characters without control characters. Register the type in `app.state.sm.resource_types` through the module's `register_resource_types` hook. The reference survives worker-only tracking and administrative retries; unrelated child tasks never inherit it automatically. Resource viewers receive only the status DTO, with no retry or admin authority. Progress messages are visible to these viewers: avoid secrets in them. Migration `b31a70971001` adds nullable `resource_type` / `resource_id` columns with a both-or-neither constraint; existing tasks keep their owner/operator visibility.
+
+## Execution tracking
+
+The DB-backed, restart-required settings `execution_tracking` (default `full`) and `track_publish` (default `True`) control execution history (#710). They deliberately have no environment source. Web and worker processes freeze them into Celery configuration at startup; the publish signal never queries settings.
+
+| Mode | Records |
+|---|---|
+| `full` | Publish, prerun, terminal transitions, retries, postrun and heartbeats (existing behavior) |
+| `terminal` | Success, final failure and revocation only |
+| `failures` | Final failure and revocation only; no intermediate retries |
+| `off` | No execution tracking |
+
+Resolution is per-message header → `@shared_task(sm_tracking=...)` option → configured default. Public `TrackingMode` values and `SM_TRACKING_HEADER` avoid hardcoded header names:
+
+```python
+from celery import shared_task
+from background_tasks import SM_TRACKING_HEADER, TrackingMode
+
+
+@shared_task(sm_tracking=TrackingMode.FAILURES)
+def resize_image(image_id): ...
+
+
+# Override this one message, retaining the task's usual default otherwise.
+resize_image.s(image_id).set(headers={SM_TRACKING_HEADER: TrackingMode.OFF}).apply_async()
+```
+
+All reduced modes skip publish/prerun/postrun tracking and `heartbeat()` without opening a tracking session. `track_publish=False` also skips the publisher-side DB write for `full`: the worker creates the row from message metadata, retaining owner, tenant, queue, arguments and resource. Tenant/owner message stamping and worker context restoration/cleanup still run in every mode. Invalid tracking overrides fall back to `full`, so malformed metadata cannot hide a failure. The internal outbox sweep defaults to `failures` through this same policy.
+
+Reduced modes lose live progress, stuck detection and some history/retry information. Worker-first tracking returns `404` until the worker creates a row; reduced modes may have no row until a recorded terminal event, or ever for successful failures-only/off tasks. Broker publishing itself remains synchronous. Administrative retries still reserve their own attempt rows transactionally before publishing, and are always published with `full` tracking so the reserved `pending` row can advance.
+
 
 ## Retained task and app logs
 
@@ -169,7 +215,7 @@ Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/
 
 Beat persists its schedule (`celery.beat:PersistentScheduler`) so it survives restarts.
 
-The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
+The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Except for the DB-only `execution_tracking` and `track_publish` fields, precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
 
 ## Routing and queues
 
@@ -411,7 +457,7 @@ All require `background_tasks.view`; retry additionally needs `background_tasks.
 | `GET /api/background_tasks/admin/executions/{execution_id}/logs` | `?level=&page=&per_page=` → `LogListResponse` | the task's retained lines, newest first; `level` is a minimum |
 | `GET /api/background_tasks/admin/logs` | `?q=&level=&task_id=&logger=&page=&per_page=` → `LogListResponse` | search across retained lines |
 | `POST /api/background_tasks/admin/executions/{execution_id}/retry` | → `TaskExecutionDetail` | 409 unless status is `failed` or `stuck` |
-| `GET /api/background_tasks/tasks/{celery_task_id}/status` | → `TaskStatusDTO` | no permission gate: owner in the active tenant or `view`; otherwise 404 |
+| `GET /api/background_tasks/tasks/{celery_task_id}/status` | → `TaskStatusDTO` | no permission gate: owner/resource viewer in the active tenant or `background_tasks.view`; otherwise 404 |
 | `GET /api/background_tasks/admin/workers` | → `WorkerSnapshot` | live ping; consumed by the `Workers` page |
 | `GET /api/background_tasks/admin/outbox` | `?status=&page=&per_page=` → `OutboxListResponse` | undelivered rows (pending, running, dead) and per-status counts |
 | `POST /api/background_tasks/admin/outbox/{id}/retry` | → `OutboxItem` | `manage`; 409 unless `dead`; resets attempts and dispatches after commit |
@@ -442,7 +488,7 @@ from background_tasks.contracts.schemas import (
 
 | Class | Purpose |
 |---|---|
-| `TaskFailed` (event) | Published when a task transitions to `failed`. Fields: `task_execution_id`, `task_name`, `exception_type`. |
+| `TaskFailed` (event) | Published when a task transitions to `failed` and the failure is recorded, so not for a task in `off` tracking mode (there is no row to point at). Fields: `task_execution_id`, `task_name`, `exception_type`. |
 | `TaskRetried` (event) | Published when an admin retries via the UI. Fields: `original_id`, `new_id`, `task_name`. |
 | `TaskExecutionListItem` | Compact row for the listing table. |
 | `TaskExecutionDetail` | Full record incl. `args`, `kwargs`, `result`, `traceback`. |
@@ -466,6 +512,7 @@ from background_tasks.contracts.schemas import (
 | `worker` | `str(255) \| None` | hostname that ran it |
 | `retries` | `int` | |
 | `retried_from_id` | `UUID \| None` | self-FK; tracks retry chains |
+| `resource_type` / `resource_id` | `str(255) \| None` | optional both-or-neither resource reference (#709) |
 | `owner_user_id` | `str(64) \| None` | indexed; user whose request enqueued the task (#536) |
 | `progress_current` / `progress_total` | `int \| None` | latest `heartbeat(progress=...)` report |
 | `progress_message` / `progress_phase` | `str(255) \| None` / `str(64) \| None` | not audited |
@@ -500,6 +547,8 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `task_routes_override`, tuning fields | unset | restart required; see [Routing and queues](#routing-and-queues) and [Worker tuning](#worker-tuning) |
 | `task_always_eager` | `False` | runs tasks in-process (test mode) |
 | `task_eager_propagates` | `True` | re-raises eager-mode errors |
+| `execution_tracking` | `full` | `full`, `terminal`, `failures`, `off`; DB-only, restart required |
+| `track_publish` | `True` | publish-side tracking for full mode; DB-only, restart required |
 | `stuck_after_seconds` | `300` | heartbeat-staleness threshold; a task's own `stuck_after` overrides it — see [Long-running tasks](#long-running-tasks-heartbeats-and-stuck-thresholds) |
 | `stuck_sweep_interval_seconds` | `60` | beat cadence for the stuck sweep |
 | `purge_interval_seconds` | `86_400` | beat cadence for old-row purge |
@@ -562,6 +611,8 @@ Published (and consumable from any other module):
 It's synchronous; the view route calls it via `asyncio.to_thread`.
 
 ## Celery signal hooks
+
+The table below describes full tracking with `track_publish=True`; reduced modes gate these writes as described under [Execution tracking](#execution-tracking).
 
 Synchronous handlers in `signals.py`, all bound through Celery's `signals.<name>.connect`, persisting through a separate **sync** SQLAlchemy engine (`sync_db.py`) so they don't have to spin up an event loop:
 
