@@ -90,7 +90,9 @@ RUN apt-get update \
 
 COPY --from=builder /app /app
 
-RUN mkdir -p /app/data \
+# Keep the filesystem backend's default ./uploads on the data volume too.
+RUN mkdir -p /app/data/uploads \
+    && ln -s /app/data/uploads /app/uploads \
     && useradd --system --uid 10001 --home /app --shell /usr/sbin/nologin app \
     && chown -R app:app /app
 USER app

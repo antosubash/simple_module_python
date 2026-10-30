@@ -17,7 +17,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates{{APT_PACKAGES}} \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app /app
-RUN mkdir -p /app/data \
+# Default ./uploads lives on the shared data volume, as in the app image.
+RUN mkdir -p /app/data/uploads \
+    && ln -s /app/data/uploads /app/uploads \
     && useradd --system --uid 10001 --home /app --shell /usr/sbin/nologin app \
     && chown -R app:app /app
 USER app

@@ -78,7 +78,7 @@ def scaffold_docker_assets(target: Path, ctx: ScaffoldCtx, *, flat: bool = False
         .replace(_PG_DB_TOKEN, pg_db)
         .replace(_APP_EXTRA_ENV_TOKEN, _APP_BROKER_ENV if with_tasks else "")
     )
-    volumes = ["pgdata"] if db == "postgres" else ["appdata"]
+    volumes = ["appdata", "pgdata"] if db == "postgres" else ["appdata"]
     if with_tasks:
         compose += _read(templates / f"compose-tasks-{db}.yml.tpl").replace(_PG_DB_TOKEN, pg_db)
         volumes.append("redisdata")

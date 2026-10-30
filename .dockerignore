@@ -32,7 +32,12 @@ host/static/dist/
 .DS_Store
 
 # Secrets / local data
-.env
+.env*
+!.env.example
+*.pem
+*.key
+credentials*
+secrets/
 *.db
 *.sqlite
 .memray/

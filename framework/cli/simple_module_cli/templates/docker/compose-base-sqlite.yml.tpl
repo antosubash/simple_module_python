@@ -19,4 +19,5 @@ services:
 {{APP_EXTRA_ENV}}    ports:
       - "8000:8000"
     volumes:
+      # SQLite and filesystem uploads share this persistent volume.
       - appdata:/app/data

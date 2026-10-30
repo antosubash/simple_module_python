@@ -25,6 +25,8 @@
       SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
       SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
     working_dir: /app
+    volumes:
+      - appdata:/app/data
     depends_on:
       redis:
         condition: service_healthy
@@ -52,6 +54,8 @@
       SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
       SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
     working_dir: /app
+    volumes:
+      - appdata:/app/data
     depends_on:
       redis:
         condition: service_healthy

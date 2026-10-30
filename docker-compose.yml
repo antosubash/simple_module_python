@@ -31,6 +31,7 @@ services:
       # SM_APP_PORT frees you from a host-port clash with `make dev`.
       - "${SM_APP_PORT:-8000}:8000"
     volumes:
+      # SQLite and filesystem uploads (via /app/uploads -> /app/data/uploads).
       - appdata:/app/data
 
   # Postgres + Redis now come from the shared ../dev-services stack

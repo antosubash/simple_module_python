@@ -11,6 +11,13 @@ __pycache__
 .ruff_cache
 *.db
 *.sqlite3
-.env
+.env*
+!.env.example
+*.pem
+*.key
+credentials*
+secrets/
+uploads/
+host/uploads/
 host/static/dist
 static/dist
