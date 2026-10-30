@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
+from simple_module_db.callbacks import register_on_commit
 from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
 
 from users.constants import (
@@ -20,6 +21,7 @@ from users.constants import (
     SESSION_VERSION_KEY,
 )
 from users.contracts.events import UserRegistered
+from users.credentials import revoke_all_credentials
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
@@ -143,7 +145,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             # Request-less creates (admin, invite) keep their verify-by-link flow.
             return
         # Kicks off on_after_request_verify, which sends the email
-        await self.request_verify(user, request)
+        if request is None:
+            # Admin invites also send verification mail; neither may precede the commit.
+            register_on_commit(self.user_db.session, lambda: self.request_verify(user, request))
+        else:
+            await self.request_verify(user, request)
 
     async def _publish_user_registered(self, user: User, request: Request | None) -> None:
         """Emit ``UserRegistered`` on the app-wide event bus.
@@ -164,12 +170,15 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         await self.mailer.send_password_reset(user.email, token)
 
     async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
-        """Lift a login lockout (GH #530): proving control of the mailbox is the way out.
+        """Revoke credentials and lift lockout after mailbox proof (GH #530, #686).
 
         Through ``user_db.update`` — an ORM write — so the audit log records the
         unlock, as it does an admin's. The per-IP throttle keys are left alone:
         they are keyed by source address, which this request does not know.
         """
+        await revoke_all_credentials(
+            self.user_db.session, user, request.app if request is not None else None
+        )
         if user.locked_until is None and not user.failed_login_count:
             return
         await self.user_db.update(

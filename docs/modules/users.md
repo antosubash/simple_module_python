@@ -236,6 +236,18 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
 
+## Password reset and credential revocation
+
+A successful password reset, including one reached through an admin-generated
+reset link, signs the account out everywhere: it increments `session_version`,
+revokes all refresh tokens, and deletes all access-token rows (#686). Old browser
+sessions return to login; old access and refresh tokens receive `401`. Session
+counter caches are invalidated only after the revocation commits.
+
+Password changes and sign-out-everywhere use the same revocation. A password
+change reissues the calling browser's cookie so that browser remains signed in;
+a password reset and sign-out-everywhere preserve no existing credentials.
+
 ## Events
 
 | Event | Fields | Fired |
@@ -246,6 +258,14 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
 | `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
+
+Single admin create/invite publishes `UserCreated` / `UserInvited` through the
+transactional admin-event helper: durable handlers use the request transaction
+(or outbox), and ordinary subscribers run only after commit. Invitation and
+request-less registration verification emails also wait for successful request
+finalization. A failed final commit discards those emails and ordinary event
+callbacks (#692, #627). Post-commit delivery failures are logged and do not
+undo the committed account; these callbacks do not retry mail delivery.
 
 ## CLI
 

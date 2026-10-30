@@ -133,18 +133,20 @@ class TestRollbackDoesNotBroadcast:
     ):
         """Fail the endpoint *after* it has registered the on-commit callback.
 
-        ``delete`` is called for the access-token rows, which happens after the
-        bump and after ``db.on_commit(...)``. Making it raise reproduces "the
-        transaction did not commit" without needing to break the database.
+        Let the shared helper finish, then fail before the response commits.
+        This exercises rollback with an invalidation callback already queued.
         """
         import users.auth_local.self_account as self_account
 
         await _sign_in(anon_client)
 
-        def _explode(*args, **kwargs):
+        revoke = self_account.revoke_all_credentials
+
+        async def _explode(*args, **kwargs):
+            await revoke(*args, **kwargs)
             raise RuntimeError("simulated failure after the session_version bump")
 
-        monkeypatch.setattr(self_account, "delete", _explode)
+        monkeypatch.setattr(self_account, "revoke_all_credentials", _explode)
 
         with pytest.raises(RuntimeError, match="simulated failure"):
             await anon_client.post(_REVOKE)

@@ -11,7 +11,6 @@ session already exists and act on the account behind it.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
@@ -19,18 +18,15 @@ from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
 from simple_module_hosting.session import SESSION_REMEMBER_KEY
 from simple_module_hosting.token_guard import Authenticated
-from sqlalchemy import delete, update
-from sqlmodel import col
 
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.backend import cookie_login_response
 from users.constants import SESSION_VERSION_KEY
 from users.contracts.schemas import SelfPasswordChange, UserUpdate
+from users.credentials import revoke_all_credentials
 from users.db_adapter import get_access_token_db
 from users.deps import fastapi_users, get_user_manager
 from users.manager import UserManager
-from users.models import RefreshToken, UserAccessToken
-from users.session_revocation import bump_session_version, publish_revocation
 
 router = APIRouter()
 
@@ -94,31 +90,8 @@ async def change_my_password(
     except fu_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from exc
 
-    await bump_session_version(db, user)
+    await revoke_all_credentials(db, user, request.app)
     request.session[SESSION_VERSION_KEY] = user.session_version
-    # Every worker caches the counter; without this they would keep honouring
-    # the sessions this change was meant to strand. Hung on the commit rather
-    # than run inline: clearing before the row is durable means a failed commit
-    # leaves the cache empty and the counter unchanged, so the next read
-    # repopulates the *old* value and quietly re-admits everything. The
-    # callback runs inside the response cycle, so the browser that pressed the
-    # button is never told it worked while this worker still lets the old
-    # sessions in. The other workers hear about it over the invalidation bus —
-    # at once where a transport is installed, otherwise when their own entry
-    # expires (GH #318).
-    db.on_commit(lambda: publish_revocation(request.app, user.id))
-    # The bearer half of the same revocation. The stamped ``session_version``
-    # on each row already strands them, but leaving the rows behind means a
-    # stolen token keeps resolving a row until its own deadline passes — and
-    # the refresh tokens would mint fresh ones in the meantime. Deleting is
-    # what "this password is no longer the one that works" has to mean.
-    await db.execute(
-        update(RefreshToken)
-        .where(col(RefreshToken.user_id) == user.id, col(RefreshToken.revoked_at).is_(None))
-        .values(revoked_at=datetime.now(UTC))
-    )
-    await db.execute(delete(UserAccessToken).where(col(UserAccessToken.user_id) == user.id))
-    await db.flush()
     return await _reissue_browser_cookie(request, user, access_token_db)
 
 
@@ -165,20 +138,7 @@ async def revoke_all_my_sessions(
     with it. The caller is signed out too — anything else would leave the one
     session that ordered the revocation as the exception to it.
     """
-    now = datetime.now(UTC)
-    await bump_session_version(db, user)
-    # See the password change: the cached counter has to go with the bump, or
-    # the workers keep letting the sessions this just revoked back in — and it
-    # has to go *after* the commit, or a rollback restores the old counter
-    # behind an emptied cache.
-    db.on_commit(lambda: publish_revocation(request.app, user.id))
-    await db.execute(
-        update(RefreshToken)
-        .where(col(RefreshToken.user_id) == user.id, col(RefreshToken.revoked_at).is_(None))
-        .values(revoked_at=now)
-    )
-    await db.execute(delete(UserAccessToken).where(col(UserAccessToken.user_id) == user.id))
-    await db.flush()
+    await revoke_all_credentials(db, user, request.app)
 
     request.session.clear()
     response = Response(status_code=204)
