@@ -202,6 +202,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `cookie_secure` | `True` (flipped to `False` in dev at startup) |
 | `cookie_samesite` | `"lax"` |
 | `base_url` | `"http://localhost:8000"` |
+| `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
 | `login_rate_limit_cooldown_seconds` | `900` — how long an account lock lasts |
@@ -418,7 +419,7 @@ Trade-offs to know about:
 
 ## Mailer
 
-`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the bundled verify / reset / invite templates and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.mailer` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
+`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the verify / reset / invite templates (bundled, or [overridden by the host](#overriding-auth-email-templates)) and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.mailer` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
 
 Bulk invite failures return a known, safe reason for an existing account and a
 generic retry message for unexpected errors (#698). SQL statements, parameters

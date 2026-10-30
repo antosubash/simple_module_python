@@ -1,4 +1,4 @@
-"""Built-in mailer: renders the bundled templates and hands them to the mail sender.
+"""Built-in mailer: renders host or bundled templates and hands them to the mail sender.
 
 Transport (SMTP, console, ...) belongs to the ``mail`` module. The sender is
 looked up at send time so a settings change there takes effect without a

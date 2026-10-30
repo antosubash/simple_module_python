@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from jinja2 import TemplateNotFound, TemplateSyntaxError
+from jinja2.exceptions import SecurityError
+from simple_module_core.settings_hydrate import build_settings
 from users.mailer import build_mailer
 from users.mailer.templated import TemplatedMailer
 from users.settings import UsersSettings
@@ -109,8 +111,6 @@ def test_invalid_template_directory_is_skipped_with_warning(tmp_path, kind, capl
 
 
 async def test_startup_forwards_db_setting_and_keeps_branding_live(tmp_path, captured_mail):
-    from simple_module_core.settings_hydrate import build_settings
-
     (tmp_path / "verify_email.html").write_text("<p>{{ app_name }}</p>")
     settings = build_settings(
         UsersSettings, {"mail_template_dirs": (json.dumps([str(tmp_path)]), "json")}
@@ -141,8 +141,6 @@ def test_template_setting_is_restart_required_and_defaults_are_independent(monke
 async def test_host_templates_render_sandboxed(tmp_path, captured_mail):
     # The directory list is admin-editable, so a template must not reach Python
     # internals (the classic ``__class__.__mro__`` escape).
-    from jinja2.exceptions import SecurityError
-
     (tmp_path / "verify_email.txt").write_text("{{ ''.__class__.__mro__[1].__subclasses__() }}")
     mailer = TemplatedMailer("https://example.com", template_dirs=[tmp_path])
     with pytest.raises(SecurityError):
