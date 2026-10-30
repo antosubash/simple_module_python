@@ -426,6 +426,40 @@ and backend exception messages stay in the application log.
 
 `delivers_email` reflects the installed sender, so screens that need to hand the one-time link back (reset-sent card, add people, resend and bulk invite) do so whenever the sender only logs. `build_mailer(settings)` returns the `TemplatedMailer`; a third-party `Mailer` can still be assigned to `app.state.users.mailer`.
 
+### Overriding auth email templates
+
+Set the DB-backed Users setting `mail_template_dirs` to an ordered list of
+absolute directory paths, for example `["/app/email-templates/build"]` (#712).
+It defaults to an empty list and has no environment variable. Restart every
+application worker after changing it. Startup skips, with a warning, relative paths,
+missing directories and paths that refer to files, so a typo cannot stop the app
+from booting. These directories contain trusted
+deployment code and must never come from request input.
+
+The mailer searches the configured directories in order, then its bundled
+templates, independently for each file:
+
+| Email | Required text template | Optional HTML template | Context |
+|---|---|---|---|
+| Verification | `verify_email.txt` | `verify_email.html` | `app_name`, `link` |
+| Password reset | `reset_password.txt` | `reset_password.html` | `app_name`, `link` |
+| Invitation | `invite.txt` | `invite.html` | `app_name`, `link`, `invited_by_name`, `message` |
+
+An HTML-only override keeps the bundled text alternative. Both parts receive
+the same context; branding is read live, and the invitation message is trimmed
+(`None` when blank). HTML escapes interpolated values automatically; text
+remains unescaped. A missing HTML template sends text only. Invalid templates,
+missing includes and other rendering errors propagate and prevent delivery.
+Subjects, links, transport selection and email localization are unchanged.
+
+Hosts can supply compiled HTML from tools such as MJML; the framework does not
+compile it. Code constructing a mailer directly can pass the keyword-only
+`template_dirs` argument to `TemplatedMailer(base_url, ..., template_dirs=...)`
+or `build_mailer(settings, ..., template_dirs=...)`, using strings or `Path`
+objects. Startup passes `settings.mail_template_dirs` explicitly. Each mailer
+owns its template environment, so one application's overrides cannot affect
+another's.
+
 ## OAuth providers
 
 OAuth/OIDC sign-in is **DB-settings-driven**: a provider is enabled simply by setting its `client_id` + `client_secret` (and, for generic OIDC, a discovery URL) in the settings UI under Users at `/admin/settings/`. No code change or restart — `register_event_handlers` rebuilds the client cache (`app.state.users.oauth_clients`) on the `SettingsReloaded` event, so changes take effect live. Providers with no credentials are silently skipped.

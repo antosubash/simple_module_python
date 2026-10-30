@@ -112,6 +112,9 @@ class UsersSettings(DbBackedSettings):
 
     # Mail transport (SMTP, console) lives in the ``mail`` module.
     base_url: str = "http://localhost:8000"
+    mail_template_dirs: list[str] = Field(
+        default_factory=list, json_schema_extra={"requires_restart": True}
+    )
 
     # Login lockout (GH #530, ``users.auth_local.lockout``). Failures within the
     # window: ``login_rate_limit_failures`` from one IP for one username

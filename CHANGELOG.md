@@ -15,6 +15,9 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- Users auth emails support ordered host template directories through the
+  restart-required DB setting `mail_template_dirs`, with per-file bundled
+  fallback and optional autoescaped HTML alternatives (#712).
 - Public durable delivery context (`in_delivery()` and `IN_DELIVERY`), inherited
   by handler child tasks and reset after delivery (#682).
 - Transactional, tenant-scoped `sharing.contracts.forget_resource` for resource

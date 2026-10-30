@@ -8,32 +8,51 @@ restart, and ``delivers_email`` reads it live for the same reason.
 from __future__ import annotations
 
 import importlib.resources
+import logging
+from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import jinja2
 from simple_module_core.mail import MailMessage, current_mail_sender
 
+from users.constants import MAIL_TEMPLATE_INVITE, MAIL_TEMPLATE_RESET, MAIL_TEMPLATE_VERIFY
+
 if TYPE_CHECKING:
     from users.mailer import AppNameProvider
 
-_TPL_VERIFY = "verify_email.txt"
-_TPL_RESET = "reset_password.txt"
-_TPL_INVITE = "invite.txt"
-
-
-# The bundled templates directory; plain text, so no autoescape.
-_template_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(str(importlib.resources.files(__package__) / "templates")),
-    autoescape=False,
-)
+logger = logging.getLogger(__name__)
 
 
 class TemplatedMailer:
-    def __init__(self, base_url: str, app_name_provider: AppNameProvider | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        app_name_provider: AppNameProvider | None = None,
+        *,
+        template_dirs: Sequence[str | Path] = (),
+    ) -> None:
         self._base = base_url.rstrip("/")
         from users.mailer import default_app_name
 
         self._app_name = app_name_provider or default_app_name
+        # An admin edits this setting in the UI; a bad entry must not stop the
+        # app from booting, so it is skipped with a warning instead.
+        directories = []
+        for directory in map(Path, template_dirs):
+            if directory.is_absolute() and directory.is_dir():
+                directories.append(directory)
+            else:
+                logger.warning(
+                    "Ignoring mail template path %s: not an existing absolute directory",
+                    directory,
+                )
+        self._template_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(
+                [*directories, str(importlib.resources.files(__package__) / "templates")]
+            ),
+            autoescape=jinja2.select_autoescape(enabled_extensions=("html",), default=False),
+        )
 
     @property
     def delivers_email(self) -> bool:
@@ -43,12 +62,12 @@ class TemplatedMailer:
     async def send_verification(self, email: str, token: str) -> None:
         app = self._app_name()
         link = f"{self._base}/users/verify?token={token}"
-        await self._send(email, f"Verify your email for {app}", _TPL_VERIFY, link=link)
+        await self._send(email, f"Verify your email for {app}", MAIL_TEMPLATE_VERIFY, link=link)
 
     async def send_password_reset(self, email: str, token: str) -> None:
         app = self._app_name()
         link = f"{self._base}/users/reset-password?token={token}"
-        await self._send(email, f"Reset your {app} password", _TPL_RESET, link=link)
+        await self._send(email, f"Reset your {app} password", MAIL_TEMPLATE_RESET, link=link)
 
     async def send_invite(
         self,
@@ -62,7 +81,7 @@ class TemplatedMailer:
         await self._send(
             email,
             f"{invited_by_name} invited you to {app}",
-            _TPL_INVITE,
+            MAIL_TEMPLATE_INVITE,
             link=link,
             invited_by_name=invited_by_name,
             # Stripped here rather than in the template: a message of nothing
@@ -71,7 +90,14 @@ class TemplatedMailer:
         )
 
     async def _send(self, to: str, subject: str, template_name: str, **context: Any) -> None:
-        body = _template_env.get_template(template_name).render(
-            app_name=self._app_name(), **context
-        )
-        await current_mail_sender().send(MailMessage(to=to, subject=subject, text=body))
+        context["app_name"] = self._app_name()
+        body = self._template_env.get_template(template_name).render(**context)
+        html_name = str(Path(template_name).with_suffix(".html"))
+        try:
+            html_template = self._template_env.get_template(html_name)
+        except jinja2.TemplateNotFound as exc:
+            if exc.name != html_name:
+                raise
+            html_template = None
+        html = html_template.render(**context) if html_template is not None else None
+        await current_mail_sender().send(MailMessage(to=to, subject=subject, text=body, html=html))
