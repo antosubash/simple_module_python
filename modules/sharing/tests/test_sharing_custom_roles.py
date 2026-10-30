@@ -223,7 +223,7 @@ def test_explicit_roles_take_precedence_over_legacy_subset():
     assert resource.share_roles == ROLES
 
 
-@pytest.mark.parametrize("role", ["Manager", "x" * 33, "has-dash", ""])
+@pytest.mark.parametrize("role", ["Manager", "x" * 33, "has-dash", "", "manager\n"])
 def test_role_ids_must_fit_the_share_column(role):
     # A role the 32-character ``role`` column can't store would only fail at grant time.
     with pytest.raises(ResourceTypeError, match="lowercase identifier"):

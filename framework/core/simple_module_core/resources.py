@@ -147,7 +147,7 @@ class ResourceTypeRegistry:
             raise ResourceTypeError(f"Resource type {name!r} is registered twice")
         if resource_type.share_roles is not None:
             for role, actions in resource_type.share_roles.items():
-                if not isinstance(role, str) or not _ROLE_ID.match(role):
+                if not isinstance(role, str) or not _ROLE_ID.fullmatch(role):
                     raise ResourceTypeError(
                         f"Resource type {name!r} share role {role!r} must be a lowercase "
                         "identifier of at most 32 characters"

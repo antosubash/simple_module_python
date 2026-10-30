@@ -39,7 +39,8 @@ All notable changes to this project are documented in this file. The format is b
 ### Deprecated
 - `ResourceType.shareable_actions`, for removal in 0.1.0; use `share_roles`.
   **Behaviour change:** it now defaults to `None`, not `("view", "edit")`, so
-  read `share_roles` instead (#707).
+  read `share_roles` instead. Legacy values that are not lowercase role ids of at
+  most 32 characters now fail at registration (#707).
 
 ### Fixed
 - **Behaviour change:** bare UI borders now use the theme border colour in light

@@ -42,7 +42,9 @@ A module that uses `sharing.policy` must list `Sharing` in `depends_on`.
 By default, `ROLE_IMPLIES` supplies two roles: `view` grants view; `edit` grants
 view and edit. Set the keyword-only `ResourceType.share_roles` to a mapping of
 role ids to tuples of implied actions. Pass **the same mapping** to
-`share_exists_for(..., roles=...)` so grant validation and SQL access agree:
+`share_exists_for(..., roles=...)` so grant validation and SQL access agree.
+Removing a role from the mapping later revokes the access of every share
+stored with that role (the rows stay, but no longer match):
 
 ```python
 from simple_module_core.resources import ACTION_EDIT, ACTION_SHARE, ACTION_VIEW
@@ -67,7 +69,7 @@ NOTE_RESOURCE = ResourceType(
 
 Register `NOTE_RESOURCE` in `register_resource_types`. Every declared role must
 include `ACTION_VIEW`; registration rejects a role without it. `None` uses the
-default mapping; an empty mapping permits no share roles. Role ids are stored
+default mapping; an empty mapping permits no share roles. Role ids must match `[a-z][a-z0-9_]{0,31}` (checked at registration) and are stored
 and shown as-is on the admin page. `roles_granting(action, roles=...)` returns
 the role ids implying that action; custom actions work the same way as built-ins.
 
