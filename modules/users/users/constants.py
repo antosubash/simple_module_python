@@ -15,6 +15,11 @@ USER_ROLE_NAME = "user"
 ADMIN_ROLE_DESCRIPTION = "Administrator"
 USER_ROLE_DESCRIPTION = "Standard user"
 
+# Auth email template filenames (HTML siblings are optional).
+MAIL_TEMPLATE_VERIFY = "verify_email.txt"
+MAIL_TEMPLATE_RESET = "reset_password.txt"
+MAIL_TEMPLATE_INVITE = "invite.txt"
+
 # Permission identifiers
 PERM_USERS_MANAGE = "users.manage"
 PERM_USERS_SELF_PROFILE = "users.self.profile"

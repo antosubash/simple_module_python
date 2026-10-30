@@ -96,7 +96,7 @@ def _build_mailer(app: FastAPI, state, s) -> None:
         name = getattr(getattr(branding, "settings", None), "app_name", None)
         return name or default_app_name()
 
-    state.mailer = build_mailer(s, _app_name)
+    state.mailer = build_mailer(s, _app_name, template_dirs=s.mail_template_dirs)
 
 
 def _build_limiters(state, s) -> None:

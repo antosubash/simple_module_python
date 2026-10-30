@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from users.settings import UsersSettings
@@ -52,7 +53,13 @@ def mailer_delivers(mailer: object | None) -> bool:
 def build_mailer(
     settings: UsersSettings,
     app_name_provider: AppNameProvider | None = None,
+    *,
+    template_dirs: Sequence[str | Path] = (),
 ) -> Mailer:
     from users.mailer.templated import TemplatedMailer
 
-    return TemplatedMailer(base_url=settings.base_url, app_name_provider=app_name_provider)
+    return TemplatedMailer(
+        base_url=settings.base_url,
+        app_name_provider=app_name_provider,
+        template_dirs=template_dirs,
+    )
