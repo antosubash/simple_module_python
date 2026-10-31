@@ -56,6 +56,11 @@ All notable changes to this project are documented in this file. The format is b
   most 32 characters now fail at registration (#707).
 
 ### Fixed
+- Two connections opening a fresh SQLite file at the same time no longer fail
+  with "database is locked": switching the file to WAL needs an exclusive lock
+  that SQLite refuses at once instead of waiting out `busy_timeout`. A
+  connection now skips the switch when the file is already in WAL, and retries a
+  lost switch until `busy_timeout` runs out.
 - `file_storage_stored_file.size_bytes` is now `BIGINT` (migration `f5b1c3e8a207`,
   which also gives `file_storage` its own branch label): on PostgreSQL it was a
   32-bit `INTEGER`, so a file of 2 GiB or more failed on insert (#708).
