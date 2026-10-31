@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 
 import pytest
 from simple_module_db.session import _ensure_wal
@@ -59,19 +60,28 @@ def test_a_switch_that_leaves_the_file_unjournaled_still_raises():
         _ensure_wal(_Cursor("delete", "delete"), timeout_ms=50)
 
 
-def test_wal_file_opens_while_another_connection_writes(tmp_path):
+def test_fresh_file_waits_for_a_concurrent_switch(tmp_path):
+    """The old one-shot switch failed here at once: the other opener held a lock."""
     path = tmp_path / "app.db"
-    writer = sqlite3.connect(path)
-    writer.execute("PRAGMA journal_mode=WAL")
-    writer.execute("CREATE TABLE t (x)")
-    writer.commit()
-    writer.execute("BEGIN IMMEDIATE")
-    writer.execute("INSERT INTO t VALUES (1)")
-    reader = sqlite3.connect(path, timeout=0)
+    other = sqlite3.connect(path, check_same_thread=False)
+    other.execute("CREATE TABLE t (x)")
+    other.commit()
+    other.execute("BEGIN IMMEDIATE")
+    other.execute("INSERT INTO t VALUES (1)")
+
+    def finish_and_switch():
+        other.commit()
+        other.execute("PRAGMA journal_mode=WAL")
+
+    timer = threading.Timer(0.2, finish_and_switch)
+    opener = sqlite3.connect(path, timeout=0)
     try:
-        _ensure_wal(reader.cursor())
-        assert reader.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            opener.execute("PRAGMA journal_mode=WAL")
+        timer.start()
+        _ensure_wal(opener.cursor(), timeout_ms=5000)
+        assert opener.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     finally:
-        reader.close()
-        writer.rollback()
-        writer.close()
+        timer.join()
+        opener.close()
+        other.close()

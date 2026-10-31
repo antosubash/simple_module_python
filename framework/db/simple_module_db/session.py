@@ -163,7 +163,8 @@ def _ensure_wal(cursor, timeout_ms: int = 5000) -> None:
     connection holds a lock. That happens when two connections open a fresh
     file together. So read the mode first (WAL persists in the file, so later
     connections skip the switch), and retry a lost switch until the winner has
-    finished or ``timeout_ms`` has passed.
+    finished or ``timeout_ms`` has passed. On aiosqlite the sleep blocks the
+    event loop, but only while a fresh file is being switched.
     """
     deadline = time.monotonic() + timeout_ms / 1000
     while _journal_mode(cursor) != "wal":
