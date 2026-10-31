@@ -6,12 +6,14 @@ import { ErrorBoundary } from './ErrorBoundary';
 vi.mock('../lib/client-errors', () => ({ reportClientError: vi.fn() }));
 afterEach(() => vi.restoreAllMocks());
 
+const error = new Error('broken page');
+
+function Broken(): never {
+  throw error;
+}
+
 test('reports render errors through the shared hook and preserves the caller callback', () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  const error = new Error('broken page');
-  function Broken(): never {
-    throw error;
-  }
   const onError = vi.fn();
   render(
     <ErrorBoundary onError={onError} fallback={() => <p>Recovered</p>}>
