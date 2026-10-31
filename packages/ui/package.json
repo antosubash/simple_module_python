@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/ui",
-  "version": "0.0.41",
+  "version": "0.0.42",
   "description": "shadcn-derived React UI components and layouts for simple_module apps",
   "keywords": [
     "simple-module",
@@ -65,7 +65,7 @@
     "react-dom": "^19.3.1"
   },
   "dependencies": {
-    "@simple-module-py/i18n": "0.0.41",
+    "@simple-module-py/i18n": "0.0.42",
     "@tailwindcss/typography": "^0.5.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -84,7 +84,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@simple-module-py/tsconfig": "0.0.41",
+    "@simple-module-py/tsconfig": "0.0.42",
     "openapi-typescript": "7.13.0"
   }
 }

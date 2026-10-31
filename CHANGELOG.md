@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.42] — 2026-10-31
+
 ### Added
 - Per-resource-type sharing roles and implied actions (`ResourceType.share_roles`),
   including delegated share management: a role implying `ACTION_SHARE` may list,
@@ -1417,7 +1419,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...HEAD
+[0.0.42]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...v0.0.42
 [0.0.41]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...v0.0.41
 [0.0.40]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...v0.0.40
 [0.0.39]: https://github.com/antosubash/simple_module_python/compare/v0.0.38...v0.0.39

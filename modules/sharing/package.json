@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/sharing",
-  "version": "0.0.41",
+  "version": "0.0.42",
   "private": true,
   "description": "Frontend assets for the Sharing module",
   "peerDependencies": {
