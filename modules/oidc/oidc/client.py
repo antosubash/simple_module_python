@@ -33,10 +33,6 @@ class OIDCClient:
         self._client_id = client_id
         self._client_secret = client_secret
 
-    @property
-    def token_endpoint(self) -> str:
-        return self._token_endpoint
-
     def build_authorization_url(
         self,
         redirect_uri: str,
