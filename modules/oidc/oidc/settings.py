@@ -88,18 +88,16 @@ class OidcSettings(DbBackedSettings):
             segments = urlsplit(self.discovery_url).path.lower().split("/")
             if self.tenant_id.strip().lower() in forbidden or forbidden.intersection(segments):
                 raise ValueError("Entra supports single-tenant configuration only")
-        if self.uid_claim == _UNSET:
-            self.uid_claim = preset.uid_claim
-        if self.username_claim == _UNSET:
-            self.username_claim = preset.username_claim
-        if self.email_claim == _UNSET:
-            self.email_claim = preset.email_claim
-        if self.name_claim == _UNSET:
-            self.name_claim = preset.name_claim
-        if self.roles_claim_path == _UNSET:
-            self.roles_claim_path = preset.roles_claim_path
-        if self.scope == _UNSET:
-            self.scope = preset.scope
+        for name in (
+            "uid_claim",
+            "username_claim",
+            "email_claim",
+            "name_claim",
+            "roles_claim_path",
+            "scope",
+        ):
+            if getattr(self, name) == _UNSET:
+                setattr(self, name, getattr(preset, name))
         if not self.discovery_url and self.tenant_id:
             self.discovery_url = preset.discovery_url(self.tenant_id)
         return self

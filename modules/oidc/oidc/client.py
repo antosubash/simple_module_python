@@ -62,18 +62,12 @@ class OIDCClient:
     async def exchange_code(
         self, code: str, redirect_uri: str, *, code_verifier: str
     ) -> dict[str, Any]:
-        data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "code_verifier": code_verifier,
-            "redirect_uri": redirect_uri,
-            "client_id": self._client_id,
-            "client_secret": self._client_secret,
-        }
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(self._token_endpoint, data=data, timeout=10)
-            resp.raise_for_status()
-            return resp.json()
+        return await self._token_request(
+            grant_type="authorization_code",
+            code=code,
+            code_verifier=code_verifier,
+            redirect_uri=redirect_uri,
+        )
 
     def build_logout_url(
         self,
@@ -90,16 +84,11 @@ class OIDCClient:
         return f"{self._end_session_endpoint}?{urlencode(params)}"
 
     async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
+        return await self._token_request(grant_type="refresh_token", refresh_token=refresh_token)
+
+    async def _token_request(self, **grant: str) -> dict[str, Any]:
+        data = {**grant, "client_id": self._client_id, "client_secret": self._client_secret}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                self._token_endpoint,
-                data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "client_id": self._client_id,
-                    "client_secret": self._client_secret,
-                },
-                timeout=10,
-            )
+            resp = await client.post(self._token_endpoint, data=data, timeout=10)
             resp.raise_for_status()
             return resp.json()
