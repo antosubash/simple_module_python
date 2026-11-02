@@ -6,16 +6,33 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import noload
+from sqlmodel import col
 
-from users.admin.queries import _UserServiceBase
+from users.admin.safety import _UserAdminSafety
+from users.constants import ADMIN_ROLE_NAME
 from users.contracts.schemas import UserCreate
-from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
+from users.exceptions import (
+    EmailAlreadyExistsError,
+    ExternalUserNoPasswordError,
+    NotPendingInviteError,
+    UserNotFoundError,
+)
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken, UserRole
 
 
-class UserService(_UserServiceBase):
+def _display_name(actor: User | None) -> str | None:
+    """What the invite email and the accept card should call the inviter.
+
+    Duck-typed: the endpoints hand this an ``auth`` ``UserContext``, which has
+    a ``name`` but is not a ``User``. ``None`` when nobody is attributable —
+    a CLI invite has no acting session — and the token simply omits the claim.
+    """
+    return getattr(actor, "name", None) or None
+
+
+class UserService(_UserAdminSafety):
     async def create_user(
         self,
         email: str,
@@ -31,6 +48,7 @@ class UserService(_UserServiceBase):
         check. ``is_verified=True`` means ``on_after_register`` does not fire a
         verification email (and with no request, no event is published here —
         the endpoint publishes ``UserCreated``)."""
+        await self._check_roles(role_names)
         user_create = UserCreate(
             email=email,
             password=password,
@@ -39,7 +57,7 @@ class UserService(_UserServiceBase):
             is_verified=True,
             is_superuser=False,
         )
-        user = await self._manager.create(user_create, safe=False)
+        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
 
         roles = await self._resolve_roles(role_names)
         for role in roles:
@@ -71,7 +89,7 @@ class UserService(_UserServiceBase):
         """Update a user's email + full name. Raises UserNotFoundError if the
         user is missing, EmailAlreadyExistsError if the new email is taken by
         another user."""
-        user = await self._require_user(user_id)
+        user = await self._require_manageable_user(user_id)
         if email.lower() != user.email.lower():
             clash = await self._db.execute(
                 select(User.id).where(
@@ -90,9 +108,9 @@ class UserService(_UserServiceBase):
         """Hard-delete a user and all of its dependent rows.
 
         Every child table is cleared with an explicit bulk ``DELETE`` so the
-        result is deterministic and identical on Postgres and SQLite (SQLite
-        only honours FK cascade with a per-connection pragma we don't set, and
-        ``RefreshToken`` has no DB cascade at all).
+        result is deterministic and identical on Postgres and SQLite, including
+        tables such as ``RefreshToken`` without DB cascade. SQLite foreign keys
+        are enabled by the framework. Other modules clean up via ``UserDeleted``.
 
         The user is loaded with ``roles`` and ``oauth_accounts`` forced to
         ``noload``. ``noload`` returns an empty collection *without* emitting a
@@ -105,16 +123,19 @@ class UserService(_UserServiceBase):
         mid-flush. ``session.delete(user)`` is what flags the session as
         written so ``get_db`` commits — a bulk ``DELETE`` of the user alone
         would be rolled back as a read-only request."""
+        user = await self._require_manageable_user(user_id)
+        await self._guard_admin_removal(user)
+        self._db.expunge(user)
         result = await self._db.execute(
             select(User)
-            .where(User.id == user_id)
-            .options(noload(User.roles), noload(User.oauth_accounts))
+            .where(col(User.id) == user_id)
+            .options(noload(User.roles), noload(User.oauth_accounts))  # ty: ignore[invalid-argument-type]
         )
         user = result.scalar_one_or_none()
         if user is None:
             raise UserNotFoundError(user_id)
         for model in (UserRole, UserAccessToken, OAuthAccount, RefreshToken):
-            await self._db.execute(delete(model).where(model.user_id == user_id))
+            await self._db.execute(delete(model).where(col(model.user_id) == user_id))
         await self._db.delete(user)
         await self._db.flush()
 
@@ -127,7 +148,13 @@ class UserService(_UserServiceBase):
         invited_by: User | None = None,
     ) -> tuple[User, str]:
         """Creates unverified user + random unusable password, assigns roles,
-        mints a verification token. Returns (user, token)."""
+        mints an invite token. Returns (user, token).
+
+        ``invited_at`` is what later tells this account apart from someone who
+        signed themselves up: the two rows are otherwise identical, and only
+        this one has an outstanding email worth resending.
+        """
+        await self._check_roles(role_names)
         password = secrets.token_urlsafe(32)
         user_create = UserCreate(
             email=email,
@@ -136,7 +163,8 @@ class UserService(_UserServiceBase):
             is_active=True,
             is_verified=False,
         )
-        user = await self._manager.create(user_create, safe=False)
+        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
+        user.invited_at = datetime.now(UTC)
 
         # Assign roles
         roles = await self._resolve_roles(role_names)
@@ -149,29 +177,78 @@ class UserService(_UserServiceBase):
                     assigned_by=invited_by_str,
                 )
             )
+        await self._db.flush()
         if roles:
-            await self._db.flush()
             await self._db.refresh(user, attribute_names=["roles"])
 
-        token = await self._manager.generate_verification_token(user)
-        return user, token
+        return user, self._manager.mint_invite_token(user, _display_name(invited_by))
+
+    async def resend_invite(
+        self,
+        user_id: uuid.UUID,
+        *,
+        invited_by: User | None = None,
+    ) -> tuple[User, str]:
+        """Mint a fresh invite token for a pending account.
+
+        ``invited_at`` moves forward with the new token rather than recording
+        the first attempt: the row advertises "expires in 5d", and that has to
+        describe the link the person was just sent, not the one that never
+        arrived.
+
+        Only rows in the ``invited`` state qualify — ``invited_at`` set and not
+        yet verified. The three ways to miss are refused rather than repaired,
+        because each repair would be a lie: stamping ``invited_at`` on a
+        self-signup would claim someone invited them, and re-enabling a
+        disabled account to let its invite through would undo the disabling.
+        """
+        user = await self._require_manageable_user(user_id)
+        if user.is_verified:
+            raise NotPendingInviteError(user_id, "the invitation was already accepted")
+        if not user.is_active:
+            raise NotPendingInviteError(user_id, "the account is disabled")
+        if user.invited_at is None:
+            raise NotPendingInviteError(user_id, "this account signed itself up")
+        user.invited_at = datetime.now(UTC)
+        await self._db.flush()
+        return user, self._manager.mint_invite_token(user, _display_name(invited_by))
 
     async def disable(self, user_id: uuid.UUID) -> User:
-        user = await self._require_user(user_id)
+        user = await self._require_manageable_user(user_id)
+        await self._guard_admin_removal(user)
         user.disabled_at = datetime.now(UTC)
         user.is_active = False
+        await self._revoke_sessions(user)
+        # Refresh tokens are spent too, so re-enabling the account later does not
+        # revive credentials issued before it was disabled (as the self-service
+        # "sign out everywhere" does).
+        await self._db.execute(
+            update(RefreshToken)
+            .where(col(RefreshToken.user_id) == user.id, col(RefreshToken.revoked_at).is_(None))
+            .values(revoked_at=datetime.now(UTC))
+        )
         await self._db.flush()
         return user
 
     async def enable(self, user_id: uuid.UUID) -> User:
-        user = await self._require_user(user_id)
+        user = await self._require_manageable_user(user_id)
         user.disabled_at = None
         user.is_active = True
+        await self._revoke_sessions(user)
+        await self._db.flush()
+        return user
+
+    async def unlock(self, user_id: uuid.UUID) -> User:
+        """Lift a login lockout early. An ORM write, so the audit log records it."""
+        user = await self._require_manageable_user(user_id)
+        user.locked_until = None
+        user.failed_login_count = 0
+        user.last_failed_login_at = None
         await self._db.flush()
         return user
 
     async def mark_verified(self, user_id: uuid.UUID) -> User:
-        user = await self._require_user(user_id)
+        user = await self._require_manageable_user(user_id)
         if not user.is_verified:
             user.is_verified = True
             await self._db.flush()
@@ -184,10 +261,13 @@ class UserService(_UserServiceBase):
         *,
         assigned_by: str | None = None,
     ) -> User:
-        user = await self._require_user(user_id)
+        user = await self._require_manageable_user(user_id)
+        await self._check_roles(role_names)
+        if ADMIN_ROLE_NAME in {r.name for r in user.roles} and ADMIN_ROLE_NAME not in role_names:
+            await self._guard_admin_removal(user)
 
         # Delete all existing role assignments for this user
-        await self._db.execute(delete(UserRole).where(UserRole.user_id == user_id))
+        await self._db.execute(delete(UserRole).where(col(UserRole.user_id) == user_id))
 
         # Insert new role assignments
         roles = await self._resolve_roles(role_names)
@@ -200,13 +280,20 @@ class UserService(_UserServiceBase):
                 )
             )
 
+        await self._revoke_sessions(user)
         await self._db.flush()
-        await self._db.refresh(user, attribute_names=["roles"])
-        return user
+        return await self._require_user(user_id)
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
-        """Build an admin-copyable password-reset URL. No email side-effect."""
-        user = await self._require_user(user_id)
+        """Build an admin-copyable password-reset URL. No email side-effect.
+
+        Raises ``ExternalUserNoPasswordError`` for SSO users — they have no
+        local password, so a reset link is meaningless (and would crash on the
+        null-hash fingerprint).
+        """
+        user = await self._require_manageable_user(user_id)
+        if user.is_external:
+            raise ExternalUserNoPasswordError(user_id)
 
         token = await self._manager.generate_reset_password_token(user)
         return f"{base_url.rstrip('/')}/users/reset-password?token={token}"

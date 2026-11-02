@@ -7,6 +7,11 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core.diagnostics._db_extensions import check_db_extensions_need_postgres
+from simple_module_core.diagnostics._expression_index import (
+    check_expression_indexes_unverifiable,
+    module_all_tables,
+)
 from simple_module_core.diagnostics._migration import MigrationDiagnostics
 from simple_module_core.diagnostics._module import ModuleDiagnostics
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
@@ -26,26 +31,48 @@ def run_diagnostics(
     i18n_supported_locales: list[str] | None = None,
     i18n_default_locale: str | None = None,
     i18n_extra_sources: list[tuple[str, str, Path]] | None = None,
+    database_dialect: str | None = None,
+    i18n_unknown_overrides: dict[str, list[str]] | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
     When ``migration_state`` is provided, also runs migration diagnostics.
-    When ``i18n_supported_locales`` and ``i18n_default_locale`` are provided,
-    also runs i18n locale coverage diagnostics. ``i18n_extra_sources`` lets
-    callers include host/ui locale dirs that aren't owned by a ``ModuleBase``.
+    ``i18n_default_locale`` turns on the locale checks; ``i18n_supported_locales``
+    is the declared locale set, and leaving it empty runs those checks against
+    whatever locale files are on disk instead of skipping them entirely (see
+    :class:`I18nDiagnostics`). ``i18n_extra_sources`` lets callers include
+    host/ui locale dirs that aren't owned by a ``ModuleBase``.
+    ``database_dialect`` (``"sqlite"``, ``"postgresql"``...) enables SM026, which
+    flags expression indexes a SQLite database cannot verify, and SM029, which flags
+    modules declaring ``db_extensions`` on SQLite.
+    ``i18n_unknown_overrides`` (``I18nRegistry.unknown_override_keys``) enables SM027.
     """
     diagnostics = ModuleDiagnostics().run(modules)
 
-    if i18n_supported_locales and i18n_default_locale:
+    if database_dialect is not None:
+        for mod in modules:
+            diagnostics.extend(
+                check_expression_indexes_unverifiable(
+                    module_all_tables(mod), database_dialect, mod.meta.name
+                )
+            )
+            diagnostics.extend(check_db_extensions_need_postgres(mod, database_dialect))
+
+    if i18n_default_locale:
         from simple_module_core.diagnostics._i18n import I18nDiagnostics
 
         diagnostics.extend(
             I18nDiagnostics(
-                supported_locales=i18n_supported_locales,
+                supported_locales=i18n_supported_locales or None,
                 default_locale=i18n_default_locale,
                 extra_sources=i18n_extra_sources,
             ).run(modules)
         )
+
+    if i18n_unknown_overrides:
+        from simple_module_core.diagnostics._i18n import check_unknown_overrides
+
+        diagnostics.extend(check_unknown_overrides(i18n_unknown_overrides))
 
     if migration_state is not None:
         migration_diag = MigrationDiagnostics()

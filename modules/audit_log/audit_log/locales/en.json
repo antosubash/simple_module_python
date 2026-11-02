@@ -1,43 +1,69 @@
 {
   "browse": {
-    "title": "Audit Log",
-    "description": "Track all entity changes across the system.",
+    "title": "Audit log",
+    "description": "Field-level change history across all modules",
+    "export_csv": "Export CSV",
     "empty_title": "No audit entries",
     "empty_description": "Changes to entities will appear here automatically.",
-    "showing": "Showing {from}–{to} of {total} entries",
-    "previous": "Previous",
-    "next": "Next"
+    "no_match_title": "No entries match these filters",
+    "no_match_description": "Entries exist outside the current filters.",
+    "clear_filters": "Clear filters"
   },
   "filters": {
-    "entity_type_label": "Entity Type",
+    "entity_type_label": "Entity type",
     "entity_type_all": "All types",
     "action_label": "Action",
     "action_all": "All actions",
-    "user_label": "User ID",
-    "user_placeholder": "Filter by user…",
-    "from_date_label": "From",
-    "to_date_label": "To",
+    "user_label": "Actor",
+    "user_placeholder": "Anyone",
+    "date_range_label": "Date range",
+    "date_range_any": "Any date",
+    "date_range_reset": "Clear dates",
     "apply": "Apply",
-    "clear": "Clear"
+    "clear": "Clear",
+    "tenant_label": "Tenant",
+    "tenant_all": "All tenants",
+    "tenant_platform": "Platform"
   },
   "table": {
-    "timestamp": "Timestamp",
+    "timestamp": "Time",
     "action": "Action",
     "entity": "Entity",
-    "user": "User",
-    "changes": "Changes"
+    "user": "Actor",
+    "changes": "Changes",
+    "tenant": "Tenant"
   },
   "actions": {
-    "created": "Created",
-    "updated": "Updated",
-    "deleted": "Deleted",
-    "soft_deleted": "Archived"
+    "created": "created",
+    "updated": "updated",
+    "deleted": "deleted",
+    "soft_deleted": "archived",
+    "bulk_inserted": "bulk created",
+    "bulk_updated": "bulk updated",
+    "bulk_deleted": "bulk deleted",
+    "bulk_soft_deleted": "bulk archived",
+    "bulk_restored": "bulk restored"
+  },
+  "correlation": {
+    "view_related": "Related",
+    "view_related_title": "Show every entry from this same request",
+    "banner_title_one": "One action, {count} entry",
+    "banner_title_other": "One action, {count} entries",
+    "banner_description": "Everything recorded by a single request.",
+    "banner_clear": "Show all entries"
   },
   "changes": {
     "fields_set": "{count} fields set",
-    "show_more": "Show {count} more…",
+    "show_more": "+{count} more fields",
     "show_less": "Show less",
-    "system_user": "System",
-    "no_changes": "—"
-  }
+    "system_user": "system",
+    "no_changes": "no changes recorded",
+    "unresolved_user": "No matching account for this id",
+    "fields_set_one": "{count} field set",
+    "fields_set_other": "{count} fields set"
+  },
+  "nav": {
+    "audit_log": "Audit log"
+  },
+  "permission_group": "Audit log"
 }

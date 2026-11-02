@@ -89,6 +89,7 @@ class UserAdminCreate(SQLModel):
     full_name: str | None = None
     role_names: list[str] = []
 
+
 class UserDetailsUpdate(SQLModel):
     email: EmailStr
     full_name: str | None = None
@@ -102,6 +103,7 @@ class UserCreated(Event):
     user_id: uuid.UUID
     email: str
     created_by: str | None
+
 
 @dataclass
 class UserDeleted(Event):

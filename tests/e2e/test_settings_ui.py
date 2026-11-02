@@ -1,6 +1,6 @@
 """E2E smoke test for the Settings modules admin UI.
 
-Drives a real browser through the sidebar layout at ``/settings/modules``,
+Drives a real browser through the sidebar layout at ``/admin/settings/``,
 toggles a module setting, and verifies the change hot-reloads into
 ``app.state`` without a server restart by exercising a downstream endpoint
 whose behaviour flips when the setting flips.
@@ -17,12 +17,12 @@ pytestmark = pytest.mark.e2e
 
 
 def _login(page: Page, username: str, password: str) -> None:
-    page.get_by_role("link", name="Log in").first.click()
+    page.get_by_role("link", name="Sign in").first.click()
     page.locator("#email").fill(username)
     page.locator("#password").fill(password)
-    page.get_by_role("button", name="Log in").click()
+    page.get_by_role("button", name="Sign in").click()
     # Wait for the session cookie to land before navigating away, or
-    # /settings/modules bounces us back to login and the sidebar never renders.
+    # /admin/settings/ bounces us back to login and the sidebar never renders.
     page.wait_for_url("**/dashboard/**", timeout=15_000)
 
 
@@ -35,15 +35,16 @@ def test_toggle_host_multi_tenant_persists(
     page.goto("/")
     _login(page, e2e_username, e2e_password)
 
-    page.goto("/settings/modules")
+    page.goto("/admin/settings/")
     expect(page.get_by_text("Host", exact=False)).to_be_visible()
 
     # Click the Host entry in the sidebar.
     page.get_by_role("button", name=re.compile(r"host", re.I)).first.click()
 
-    checkbox = page.get_by_role("checkbox").first
-    before = checkbox.is_checked()
-    checkbox.click()
+    # Booleans render as a shadcn Switch (role=switch), not a bare checkbox.
+    toggle = page.get_by_role("switch").first
+    before = toggle.is_checked()
+    toggle.click()
 
     save = page.get_by_role("button", name="Save")
     expect(save).to_be_enabled()
@@ -53,9 +54,9 @@ def test_toggle_host_multi_tenant_persists(
     expect(save).to_be_disabled()
 
     # Toggle back so the test is idempotent.
-    checkbox.click()
+    toggle.click()
     expect(save).to_be_enabled()
     save.click()
     expect(save).to_be_disabled()
 
-    assert page.get_by_role("checkbox").first.is_checked() == before
+    assert page.get_by_role("switch").first.is_checked() == before

@@ -35,7 +35,6 @@ class TestUserTableShape:
             "is_superuser",
             "is_verified",
             "full_name",
-            "tenant_id",
             "disabled_at",
             "last_login_at",
             # AuditMixin columns

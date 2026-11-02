@@ -1,6 +1,15 @@
-"""Enforce per-package metadata rules across all 17 published packages.
+"""Enforce per-package metadata rules across every published package.
 
 Rules:
+  * Every package under framework/* and modules/* must appear in the
+    publish-pypi matrix of `.github/workflows/release.yml` (and vice versa) —
+    a workspace package missing from the matrix builds a wheel on every
+    release and then silently never reaches PyPI.
+  * Every package under packages/* must appear in the publish-npm matrix
+    (and vice versa), using its directory name as the matrix key.
+  * The root pyproject's `[tool.ty.environment] extra-paths` and
+    `[tool.pytest.ini_options] testpaths` must list every framework/* and
+    modules/* package (and its tests/ dir) on disk, and nothing stale (#520).
   * Every `pyproject.toml` under framework/* and modules/* must have:
       - name starting with "simple_module_"
       - non-placeholder description (not "Add your description here" or empty)
@@ -24,13 +33,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 import tomlkit
+import yaml
 
 CANONICAL_REPO = "https://github.com/antosubash/simple_module_python"
 PLACEHOLDER_DESCRIPTIONS = {"", "Add your description here"}
+RELEASE_WORKFLOW = Path(".github/workflows/release.yml")
+
+# The publish-pypi job body: every line after the job key until the next
+# sibling job (a line indented exactly two spaces).
+_PUBLISH_JOB_RE = re.compile(r"^  publish-pypi:\n(?P<body>(?:(?!^  \S).*\n)*)", re.M)
+# The flat `package:` list inside that job's build matrix.
+_MATRIX_RE = re.compile(r"^ +package:\n(?P<items>(?: +- \S+\n)+)", re.M)
 
 
 def check_python_package(pyproject: Path) -> list[str]:
@@ -128,6 +146,112 @@ def discover_npm_packages(root: Path) -> list[Path]:
     return found
 
 
+def parse_publish_matrix(workflow: Path) -> list[str]:
+    """Return the distribution names in the release workflow's publish-pypi matrix.
+
+    Parsed with a targeted regex rather than a YAML dependency — the block is a
+    flat list in a file we own. A parse miss raises instead of returning an
+    empty list, so a workflow reshuffle fails loudly here rather than quietly
+    reporting that every package is unpublished.
+    """
+    text = workflow.read_text(encoding="utf-8")
+    job = _PUBLISH_JOB_RE.search(text)
+    if job is None:
+        raise ValueError(f"{workflow}: no 'publish-pypi:' job found")
+    matrix = _MATRIX_RE.search(job.group("body"))
+    if matrix is None:
+        raise ValueError(f"{workflow}: publish-pypi job has no 'package:' matrix list")
+    return [line.split("- ", 1)[1].strip() for line in matrix.group("items").splitlines()]
+
+
+def check_release_matrix(root: Path) -> list[str]:
+    """Cross-check discovered workspace packages against the publish-pypi matrix.
+
+    Catches the failure mode where a new module ships, builds, and is offered
+    by the CLI, but was never added to the release matrix — so `pip install`
+    of it 404s forever. Hit twice already: simple_module_branding, then
+    simple_module_site_lock.
+    """
+    workflow = root / RELEASE_WORKFLOW
+    if not workflow.exists():
+        # main() also runs against partial trees (tests, scaffolded apps);
+        # only enforce the matrix where a release workflow actually exists.
+        return []
+
+    published = set(parse_publish_matrix(workflow))
+    packaged = set()
+    for pyproject in discover_python_packages(root):
+        data = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
+        name = str(data.get("project", {}).get("name", ""))
+        if name:
+            packaged.add(name)
+
+    errors: list[str] = []
+    for name in sorted(packaged - published):
+        errors.append(
+            f"{RELEASE_WORKFLOW}: '{name}' is a workspace package but is missing from the "
+            "publish-pypi matrix — it would build on release and never reach PyPI"
+        )
+    for name in sorted(published - packaged):
+        errors.append(
+            f"{RELEASE_WORKFLOW}: publish-pypi matrix lists '{name}', which is not a "
+            "workspace package — that release job fails with no matching artifact"
+        )
+    return errors
+
+
+def check_tooling_lists(root: Path) -> list[str]:
+    """Assert ty `extra-paths` and pytest `testpaths` track the packages on disk."""
+    root_toml = root / "pyproject.toml"
+    if not root_toml.exists():
+        return []
+    data = tomlkit.parse(root_toml.read_text(encoding="utf-8"))
+    tool = data.get("tool", {})
+    extra = {str(p) for p in tool.get("ty", {}).get("environment", {}).get("extra-paths", [])}
+    tests = {str(p) for p in tool.get("pytest", {}).get("ini_options", {}).get("testpaths", [])}
+
+    pkgs = [p.parent.relative_to(root).as_posix() for p in discover_python_packages(root)]
+    want_extra = set(pkgs)
+    want_tests = {f"{p}/tests" for p in pkgs if (root / p / "tests").is_dir()}
+
+    errors: list[str] = []
+    for label, have, want in (
+        ("[tool.ty.environment] extra-paths", extra, want_extra),
+        ("[tool.pytest.ini_options] testpaths", tests, want_tests),
+    ):
+        for entry in sorted(want - have):
+            errors.append(f"pyproject.toml {label}: missing '{entry}' (exists on disk)")
+        for entry in sorted(e for e in have - want if e.startswith(("framework/", "modules/"))):
+            errors.append(f"pyproject.toml {label}: stale '{entry}' (not on disk)")
+    return errors
+
+
+def check_npm_release_matrix(root: Path) -> list[str]:
+    """Match package directory names (the npm matrix keys) to packed packages."""
+    workflow = root / RELEASE_WORKFLOW
+    if not workflow.exists():
+        return []
+    try:
+        data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        entries = data["jobs"]["publish-npm"]["strategy"]["matrix"]["package"]
+        if (
+            not isinstance(entries, list)
+            or not entries
+            or not all(isinstance(entry, str) for entry in entries)
+        ):
+            raise ValueError("expected a non-empty package list")
+    except (KeyError, TypeError, ValueError, yaml.YAMLError) as exc:
+        return [f"{RELEASE_WORKFLOW}: invalid publish-npm matrix: {exc}"]
+    packaged = {pkg.parent.name for pkg in discover_npm_packages(root)}
+    published = set(entries)
+    errors = []
+    for name in sorted(packaged - published):
+        errors.append(f"{RELEASE_WORKFLOW}: '{name}' is missing from the publish-npm matrix")
+    for name in sorted(published - packaged):
+        errors.append(f"{RELEASE_WORKFLOW}: publish-npm lists '{name}', not a workspace package")
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -144,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
         all_errors.extend(check_python_package(pyproject))
     for pkg in discover_npm_packages(root):
         all_errors.extend(check_npm_package(pkg))
+    all_errors.extend(check_release_matrix(root))
+    all_errors.extend(check_npm_release_matrix(root))
+    all_errors.extend(check_tooling_lists(root))
 
     if all_errors:
         for e in all_errors:

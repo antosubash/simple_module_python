@@ -7,9 +7,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
+from simple_module_core.diagnostics._css import check_module_css
+from simple_module_core.diagnostics._dependencies import check_missing_dependencies
+from simple_module_core.diagnostics._heavy_task_imports import check_heavy_task_imports
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._pages import check_pages, find_render_calls
+from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
+from simple_module_core.diagnostics._tenancy import check_tenant_unique_keys, module_tables
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
@@ -27,7 +32,11 @@ class ModuleDiagnostics:
         diagnostics.extend(self._check_missing_meta(modules))
         diagnostics.extend(self._check_views_without_menu(modules))
         diagnostics.extend(self._check_auth_provider_conflict(modules))
+        diagnostics.extend(check_missing_dependencies(modules))
         diagnostics.extend(check_framework_module_coupling(modules))
+        diagnostics.extend(check_spa_mount_overlaps(modules))
+        for mod in modules:
+            diagnostics.extend(check_tenant_unique_keys(module_tables(mod), mod.meta.name))
 
         # File-based checks (need to find module source directories)
         for mod in modules:
@@ -37,6 +46,8 @@ class ModuleDiagnostics:
                 diagnostics.extend(check_pages(mod, src_dir, rendered_pages))
                 diagnostics.extend(check_js_workspace_files(mod, src_dir))
                 diagnostics.extend(check_inertia_api_calls(mod, src_dir))
+                diagnostics.extend(check_module_css(mod, src_dir))
+                diagnostics.extend(check_heavy_task_imports(mod, src_dir))
 
         return diagnostics
 
@@ -93,14 +104,21 @@ class ModuleDiagnostics:
                     "register_permissions",
                     "register_feature_flags",
                     "register_event_handlers",
+                    "register_invalidations",
                     "register_middleware",
                     "register_health_checks",
                     "register_public_routes",
+                    "register_body_limits",
+                    "register_cors_policies",
+                    "register_rate_limits",
+                    "register_csp_sources",
                     "register_exception_handlers",
                     "register_settings",
                     "template_dirs",
                     "static_mounts",
+                    "spa_mounts",
                     "locale_dirs",
+                    "db_extensions",
                     "on_startup",
                     "on_shutdown",
                 )

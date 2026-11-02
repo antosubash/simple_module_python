@@ -36,7 +36,7 @@ class TestJsonFormatter:
             args=None,
             exc_info=None,
         )
-        record.correlation_id = ""  # type: ignore[attr-defined]
+        record.correlation_id = ""
         output = formatter.format(record)
         parsed = json.loads(output)
 
@@ -56,11 +56,11 @@ class TestJsonFormatter:
             args=None,
             exc_info=None,
         )
-        record.correlation_id = "abc-123"  # type: ignore[attr-defined]
-        record.method = "GET"  # type: ignore[attr-defined]
-        record.path = "/api/test"  # type: ignore[attr-defined]
-        record.status_code = 200  # type: ignore[attr-defined]
-        record.duration_ms = 12.5  # type: ignore[attr-defined]
+        record.correlation_id = "abc-123"
+        record.method = "GET"
+        record.path = "/api/test"
+        record.status_code = 200
+        record.duration_ms = 12.5
 
         parsed = json.loads(formatter.format(record))
         assert parsed["correlation_id"] == "abc-123"
@@ -80,7 +80,7 @@ class TestJsonFormatter:
             args=None,
             exc_info=None,
         )
-        record.correlation_id = ""  # type: ignore[attr-defined]
+        record.correlation_id = ""
         parsed = json.loads(formatter.format(record))
         assert "method" not in parsed
         assert "status_code" not in parsed
@@ -103,7 +103,7 @@ class TestJsonFormatter:
             args=None,
             exc_info=exc_info,
         )
-        record.correlation_id = ""  # type: ignore[attr-defined]
+        record.correlation_id = ""
         parsed = json.loads(formatter.format(record))
         assert "exception" in parsed
         assert "ValueError: boom" in parsed["exception"]

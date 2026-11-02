@@ -53,7 +53,7 @@ class TestDefinitionAcceptance:
             app=SimpleNamespace(state=SimpleNamespace(sm=SimpleNamespace(feature_flags=reg))),
             state=SimpleNamespace(tenant_id=None),
         )
-        assert is_flag_enabled(request, FLAG_BETA_UI) is True  # type: ignore[arg-type]
+        assert is_flag_enabled(request, FLAG_BETA_UI) is True
 
     async def test_flag_enabled_and_require_flag_accept_definition(self):
         reg = FeatureFlagRegistry()
@@ -147,4 +147,4 @@ class TestFeatureFlagDecorator:
             app=SimpleNamespace(state=SimpleNamespace(sm=SimpleNamespace(feature_flags=reg))),
             state=SimpleNamespace(tenant_id=None),
         )
-        assert handler(request) == "ok"  # type: ignore[arg-type]
+        assert handler(request) == "ok"

@@ -23,16 +23,15 @@ export function SectionTitle({
       <div className="flex items-center justify-between gap-3">
         <Tag
           className={cn(
-            'flex items-center gap-2.5 font-bold tracking-tight font-[var(--font-display)] text-foreground',
+            'flex items-center gap-2.5 font-bold tracking-tight font-display text-foreground',
             size,
           )}
         >
-          <span className="block h-[18px] w-1 rounded-full bg-gradient-to-b from-primary-600 to-primary-800" />
           {children}
         </Tag>
         {right}
       </div>
-      {description && <p className="mt-1 ml-3.5 text-sm text-muted-foreground">{description}</p>}
+      {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
     </div>
   );
 }

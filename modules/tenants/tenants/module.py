@@ -1,0 +1,214 @@
+"""Tenants module — organisations, memberships and tenant resolution.
+
+Installing it replaces the framework's claim-based tenant resolution with a
+membership-validated one (``app.state.tenant_resolver``). It only takes effect
+when the host runs with ``multi_tenant`` on, which also turns on strict
+(fail-closed) isolation in the DB layer.
+"""
+
+from __future__ import annotations
+
+import importlib
+import importlib.resources
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
+
+from tenants import constants as c
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
+
+    from fastapi import APIRouter, FastAPI
+    from simple_module_core.events import EventBus
+    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.tenancy import TenantExists, TenantMembers
+
+logger = logging.getLogger(__name__)
+
+
+def _tenant_exists(app: FastAPI) -> TenantExists:
+    """The ``app.state.tenant_exists`` callable core's ``tenant_exists()`` reads."""
+    from tenants.models import Tenant
+
+    async def exists(tenant_id: str) -> bool:
+        async with app.state.sm.db.session_factory() as db:
+            return await db.get(Tenant, tenant_id) is not None
+
+    return exists
+
+
+def _tenant_members() -> TenantMembers:
+    """The ``app.state.tenant_members`` callable core's ``tenant_member_ids()`` reads."""
+    from sqlmodel import col, select
+
+    from tenants.models import Membership
+
+    async def members(db: Any, tenant_id: str, user_ids: Collection[str]) -> set[str]:
+        wanted = list(dict.fromkeys(user_ids))
+        stmt = select(Membership.user_id).where(
+            Membership.tenant_id == tenant_id, col(Membership.user_id).in_(wanted)
+        )
+        return set((await db.execute(stmt)).scalars())
+
+    return members
+
+
+class TenantsModule(ModuleBase):
+    # ModuleBase instances are built per app. register_settings runs before
+    # register_routes/register_menu_items, so _app is set when those hooks read it.
+    _app: FastAPI | None = None
+
+    def _settings_available(self) -> bool:
+        return self._app is not None and getattr(self._app.state, "settings", None) is not None
+
+    meta = ModuleMeta(
+        name=c.DISPLAY_NAME,
+        route_prefix="/api/tenants",
+        view_prefix="/tenants",
+        admin_view_prefix="/admin/tenants",
+        # Auth: its middleware must have set request.state.user before the
+        # resolver runs. Settings: ordering only, since registering settings
+        # is the framework's (#500).
+        depends_on=[c._MODULE_AUTH],
+        optional_depends_on=[c._MODULE_SETTINGS],
+    )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from tenants.contracts.events import InvitationCreated
+        from tenants.invitation_mail import send_invitation_email
+
+        bus.subscribe_durable(
+            InvitationCreated, send_invitation_email, name=c.INVITATION_MAIL_HANDLER
+        )
+
+        from simple_module_core.user_events import UserDeleted
+
+        from tenants.user_cleanup import purge_user_memberships
+
+        bus.subscribe_durable(UserDeleted, purge_user_memberships)
+
+    def register_settings(self, app: FastAPI) -> None:
+        from simple_module_hosting.shared_props import register_inertia_shared_provider
+
+        from tenants.resolver import resolve_tenant
+        from tenants.services import TenantsServices
+        from tenants.settings import TenantsSettings
+        from tenants.shared_props import tenant_shared_props
+
+        self._app = app
+        register_module_settings(
+            app,
+            c.MODULE_PACKAGE,
+            TenantsSettings,
+            lambda s: TenantsServices(settings=s),
+        )
+        app.state.tenant_resolver = resolve_tenant
+        app.state.tenant_exists = _tenant_exists(app)
+        app.state.tenant_members = _tenant_members()
+        register_inertia_shared_provider(app, tenant_shared_props)
+
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from tenants.errors import install_exception_handlers
+
+        install_exception_handlers(app)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from tenants.resolver import subscribe
+
+        subscribe(bus)
+
+    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
+        from tenants.endpoints.admin import api as admin_api
+        from tenants.endpoints.api import router as api
+        from tenants.endpoints.views import router as views
+        from tenants.endpoints.views import settings_router
+
+        # Admin first: "/admin" must not be captured by "/{tenant_id}/…".
+        api_router.include_router(admin_api)
+        api_router.include_router(api)
+        view_router.include_router(views)
+        if self._settings_available():
+            view_router.include_router(settings_router)
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        from tenants.endpoints.admin import views as admin_views
+
+        admin_router.include_router(admin_views)
+
+    def register_menu_items(self, registry: MenuRegistry) -> None:
+        registry.add(
+            MenuItem(
+                label="Organisations",
+                label_key="tenants.nav.organisations",
+                url="/tenants/",
+                icon="briefcase",
+                order=90,
+                section=MenuSection.SIDEBAR,
+            )
+        )
+        registry.add(
+            MenuItem(
+                label="Members",
+                label_key="tenants.nav.members",
+                url="/tenants/members",
+                icon="users",
+                order=91,
+                section=MenuSection.SIDEBAR,
+                permissions=[c.PERM_MEMBERS_VIEW],
+            )
+        )
+        if self._settings_available():
+            registry.add(
+                MenuItem(
+                    label="Organisation settings",
+                    label_key="tenants.nav.settings",
+                    url="/tenants/settings",
+                    icon="settings",
+                    order=92,
+                    section=MenuSection.SIDEBAR,
+                    permissions=[c.PERM_TENANT_SETTINGS],
+                )
+            )
+        registry.add(
+            MenuItem(
+                label="Tenants",
+                label_key="tenants.nav.tenants",
+                url="/admin/tenants/",
+                icon="briefcase",
+                order=105,
+                section=MenuSection.ADMIN_SIDEBAR,
+                permissions=[c.PERM_PLATFORM_VIEW],
+                group="Access",
+                group_key="ui.nav_groups.access",
+            )
+        )
+
+    def register_permissions(self, registry: PermissionRegistry) -> None:
+        registry.add_group(
+            c.DISPLAY_NAME,
+            [
+                c.PERM_MEMBERS_VIEW,
+                c.PERM_MEMBERS_MANAGE,
+                c.PERM_PLATFORM_VIEW,
+                c.PERM_PLATFORM_MANAGE,
+            ],
+            label_key="tenants.permission_group",
+        )
+        for role, perms in c.ROLE_PERMISSIONS.items():
+            registry.map_role(c.tenant_role(role), perms)
+
+    async def on_startup(self, app: FastAPI) -> None:
+        if not getattr(app.state.sm.settings, "multi_tenant", False):
+            logger.warning(
+                "tenants module is installed but multi_tenant is off: organisations can be "
+                "managed, but requests are not scoped to them until it is enabled"
+            )
+
+    def locale_dirs(self) -> dict[str, Path]:
+        return {c.MODULE_PACKAGE: Path(str(importlib.resources.files(__package__) / "locales"))}

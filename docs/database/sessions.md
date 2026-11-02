@@ -25,10 +25,11 @@ Usage in endpoints:
 ```python
 from typing import Annotated
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
 
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
+SessionDep = Annotated[RequestSession, Depends(get_db)]
+
 
 @router.post("")
 async def create_order(data: OrderCreate, session: SessionDep): ...
@@ -40,8 +41,10 @@ Most modules wrap `get_db` in their own `deps.py` so the service is injected rat
 # modules/orders/orders/deps.py
 from orders.service import OrderService
 
+
 def _order_service(session: SessionDep) -> OrderService:
     return OrderService(session)
+
 
 OrderServiceDep = Annotated[OrderService, Depends(_order_service)]
 ```
@@ -78,12 +81,40 @@ Instead, **flush** when you need a DB-assigned value (e.g. an auto-generated `id
 async def create(self, data: OrderCreate) -> OrderOut:
     order = Order(**data.model_dump())
     self.session.add(order)
-    await self.session.flush()     # populates order.id, stays inside the transaction
+    await self.session.flush()  # populates order.id, stays inside the transaction
     # further logic can see order.id but won't persist until the dependency commits
     return OrderOut.model_validate(order)
 ```
 
 Flushing sends the INSERT but keeps the transaction open. Rollback still works until the dependency commits.
+
+## Refreshing derived state after commit
+
+The request session exposes `on_commit()` for cache invalidation and other derived
+in-process state that must never reflect an uncommitted transaction:
+
+```python
+async def create(self, data: OrderCreate) -> OrderOut:
+    order = Order(**data.model_dump())
+    self.session.add(order)
+    await self.session.flush()
+    self.session.on_commit(self.order_cache.refresh)
+    return OrderOut.model_validate(order)
+```
+
+Callbacks take no arguments and may be synchronous or asynchronous. The framework
+runs them in registration order after a successful commit and before the response
+leaves the server. It discards them when the request rolls back, when commit fails,
+or when the request has no writes. A callback should refresh derived state, not
+perform more database mutations.
+
+At callback time the original transaction is already durable, so callback errors
+cannot roll it back. The framework logs a `db.session.on_commit_failed` error,
+continues with remaining callbacks, and preserves the successful response.
+
+`on_commit()` is supported by framework-managed requests and independent
+checkpoints. For other manually managed sessions, perform post-commit work
+explicitly after the transaction block.
 
 ## Manual transactions
 
@@ -91,6 +122,7 @@ If you need finer control — e.g. a background worker that processes many items
 
 ```python
 from simple_module_db import DatabaseState
+
 
 async def worker(db: DatabaseState):
     async with db.session_factory() as session:
@@ -101,6 +133,42 @@ async def worker(db: DatabaseState):
 ```
 
 The `async with session.begin()` pattern opens a transaction you control. Use it in code that runs **outside** a request scope.
+
+### `independent_session(source)`
+
+Use an independent checkpoint when a write must be durable before continuing,
+including before a request can fail. Examples are reserving a login attempt
+before checking its password and saving invitation roles before sending mail.
+Ordinary request writes still belong to `CommitBeforeResponseMiddleware`.
+
+```python
+from simple_module_db import independent_session
+
+
+async def reserve_attempt(app):
+    async with independent_session(app) as db:
+        await reserve_slot(db)
+    # The slot is durable here, even if subsequent authentication fails.
+```
+
+The source can be an app, its `app.state.sm.db.session_factory`, or a
+framework-created session (which supplies that same factory). The helper opens
+and closes its own short-lived session, commits on clean exit, and rolls back
+and re-raises on error. It never commits or transfers the source session's
+pending work. Do not call `commit()` inside the block.
+
+On SQLite, an independent session cannot write while the request session holds uncommitted writes (there is only one writer), so call it before the request writes, as users lockout and bulk invite do.
+
+`on_commit` callbacks run in registration order after the checkpoint commits;
+rollback or commit failure discards them. Callback failures are logged without
+undoing the durable checkpoint, as for request sessions.
+
+A checkpoint cannot see uncommitted request rows. Pass identifiers and reload
+objects in the independent session rather than sharing attached ORM objects.
+Keep checkpoints short and open them before the request holds a write
+transaction: SQLite permits only one writer, and overlapping writes can block.
+Use `session_factory()` directly for read-only work or transactions needing
+several explicit commit boundaries.
 
 ## Sessions and `MultiTenantMixin`
 

@@ -7,9 +7,13 @@ mirrors mutations into the registry.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
+from fastapi import FastAPI
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from feature_flags.constants import SCOPE_SYSTEM, SCOPE_TENANT, SYSTEM_SCOPE_ID
 from feature_flags.contracts.schemas import FeatureFlagOverrideOut, FeatureFlagView
@@ -21,16 +25,25 @@ def _registry_tenant_id(scope: str, scope_id: str) -> str | None:
     return scope_id if scope == SCOPE_TENANT else None
 
 
+def _description(flag: FeatureFlagDefinition, translate: Callable[[str], str] | None) -> str:
+    # Translator.t() echoes an unknown key back; keep the literal in that case.
+    if not flag.description_key or translate is None:
+        return flag.description
+    translated = translate(flag.description_key)
+    return flag.description if translated == flag.description_key else translated
+
+
 def _build_view(
     flag: FeatureFlagDefinition,
     *,
     enabled: bool,
     overridden: bool,
     system_enabled: bool | None = None,
+    translate: Callable[[str], str] | None = None,
 ) -> FeatureFlagView:
     return FeatureFlagView(
         name=flag.name,
-        description=flag.description,
+        description=_description(flag, translate),
         default_enabled=flag.default_enabled,
         enabled=enabled,
         overridden=overridden,
@@ -48,8 +61,9 @@ class FeatureFlagService:
     extra DB hit per request.
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, app: FastAPI | None = None) -> None:
         self.db = db
+        self.app = app
 
     async def list_overrides(self) -> list[FeatureFlagOverrideOut]:
         """Every persisted override across all scopes, ordered for stable display."""
@@ -73,7 +87,10 @@ class FeatureFlagService:
         return list(result.scalars())
 
     async def list_flags(
-        self, registry: FeatureFlagRegistry, tenant_id: str | None = None
+        self,
+        registry: FeatureFlagRegistry,
+        tenant_id: str | None = None,
+        translate: Callable[[str], str] | None = None,
     ) -> list[FeatureFlagView]:
         """Join registered definitions with persisted overrides for admin display.
 
@@ -95,7 +112,12 @@ class FeatureFlagService:
             system_enabled = system_value if system_value is not None else flag.default_enabled
             if tenant_id is None:
                 views.append(
-                    _build_view(flag, enabled=system_enabled, overridden=system_value is not None)
+                    _build_view(
+                        flag,
+                        enabled=system_enabled,
+                        overridden=system_value is not None,
+                        translate=translate,
+                    )
                 )
                 continue
             tenant_value = registry.tenant_override(flag.name, tenant_id)
@@ -105,6 +127,7 @@ class FeatureFlagService:
                     enabled=tenant_value if tenant_value is not None else system_enabled,
                     overridden=tenant_value is not None,
                     system_enabled=system_enabled,
+                    translate=translate,
                 )
             )
         return views
@@ -131,9 +154,9 @@ class FeatureFlagService:
     async def _find(self, scope: str, scope_id: str, name: str) -> FeatureFlagOverride | None:
         result = await self.db.execute(
             select(FeatureFlagOverride).where(
-                FeatureFlagOverride.scope == scope,
-                FeatureFlagOverride.scope_id == scope_id,
-                FeatureFlagOverride.name == name,
+                col(FeatureFlagOverride.scope) == scope,
+                col(FeatureFlagOverride.scope_id) == scope_id,
+                col(FeatureFlagOverride.name) == name,
             )
         )
         return result.scalar_one_or_none()
@@ -158,7 +181,7 @@ class FeatureFlagService:
             existing.enabled = enabled
             await self.db.flush()
         if registry is not None:
-            registry.set_override(name, enabled, tenant_id=_registry_tenant_id(scope, scope_id))
+            self._on_commit(registry, name, enabled, scope, scope_id)
         return FeatureFlagOverrideOut.model_validate(existing)
 
     async def clear_override(
@@ -174,16 +197,34 @@ class FeatureFlagService:
             return False
         await self.db.delete(existing)
         if registry is not None:
-            registry.clear_override(name, tenant_id=_registry_tenant_id(scope, scope_id))
+            self._on_commit(registry, name, None, scope, scope_id)
         return True
 
     async def hydrate_registry(self, registry: FeatureFlagRegistry) -> int:
         """Load every persisted override (system + tenant) into the registry at boot."""
         overrides = await self.list_overrides()
-        for ovr in overrides:
-            registry.set_override(
-                ovr.name,
-                ovr.enabled,
-                tenant_id=_registry_tenant_id(ovr.scope, ovr.scope_id),
-            )
+        registry.replace_overrides(
+            {o.name: o.enabled for o in overrides if o.scope == SCOPE_SYSTEM},
+            {(o.name, o.scope_id): o.enabled for o in overrides if o.scope == SCOPE_TENANT},
+        )
         return len(overrides)
+
+    def _on_commit(
+        self,
+        registry: FeatureFlagRegistry,
+        name: str,
+        enabled: bool | None,
+        scope: str,
+        scope_id: str,
+    ) -> None:
+        async def committed() -> None:
+            if self.app is not None:
+                from feature_flags.invalidation import CHANNEL
+
+                await self.app.state.sm.invalidation.publish(CHANNEL, key=name)
+            elif enabled is None:
+                registry.clear_override(name, tenant_id=_registry_tenant_id(scope, scope_id))
+            else:
+                registry.set_override(name, enabled, tenant_id=_registry_tenant_id(scope, scope_id))
+
+        self.db.on_commit(committed)

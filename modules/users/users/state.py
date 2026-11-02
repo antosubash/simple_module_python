@@ -16,7 +16,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from users.auth_local.rate_limit import LoginRateLimiter, ThroughputLimiter
+    import uuid
+
+    from users.auth_local.rate_limit import ThroughputLimiter
     from users.mailer import Mailer
     from users.oauth.providers import OAuthProvider
     from users.roles_cache import RoleSummary
@@ -29,8 +31,11 @@ class UsersState:
 
     settings: UsersSettings
     mailer: Mailer | None = None
-    rate_limiter: LoginRateLimiter | None = None
     auth_throughput_limiter: ThroughputLimiter | None = None
     roles_cache: list[RoleSummary] = field(default_factory=list)
     oauth_providers: list[dict[str, str]] = field(default_factory=list)
     oauth_clients: dict[str, OAuthProvider] = field(default_factory=dict)
+    # Ids of the seeded demo accounts, empty when demo mode is off. Cached at
+    # boot (and on every settings reload) so ``DemoReadOnlyMiddleware`` can
+    # recognise a demo session without a database read per request.
+    demo_user_ids: tuple[uuid.UUID, ...] = ()

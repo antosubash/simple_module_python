@@ -11,7 +11,8 @@ pip install simple_module_db
 ## What it provides
 
 - `create_module_base("<module_name>")` — a module-scoped declarative `Base` with its own `MetaData`. All modules share the host's single schema, so `__tablename__` should be prefixed with the module name (e.g. `users_user`) to avoid collisions.
-- Per-request async session (`get_db`) with an auto-commit-on-flush hook — `after_flush` commits if there are pending writes, rolls back otherwise.
+- Per-request `RequestSession` (`get_db`) that commits pending writes before the response and rolls back read-only requests.
+- `session.on_commit(callback)` for synchronous or asynchronous cache refreshes that must only run after a successful request commit.
 - Mixins in `simple_module_db.mixins`: `AuditMixin` (created_at/updated_at), `SoftDeleteMixin` (auto-filtered unless `stmt.execution_options(include_deleted=True)`), `MultiTenantMixin`, `VersionedMixin`.
 - `DatabaseState` container used by the framework to avoid global mutable state.
 
@@ -34,12 +35,13 @@ class Order(Base, AuditMixin, SoftDeleteMixin, table=True):
 In a service:
 
 ```python
-from simple_module_db import get_db
+from simple_module_db import RequestSession, get_db
 
-async def create_order(session = Depends(get_db), ...):
+async def create_order(session: RequestSession = Depends(get_db), ...):
     order = Order(customer_id=..., total_cents=...)
     session.add(order)
-    await session.flush()   # assigns order.id; auto-commit happens after the request
+    await session.flush()   # assigns order.id; commit happens before the response
+    session.on_commit(order_cache.refresh)
     return order
 ```
 

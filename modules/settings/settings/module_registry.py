@@ -1,33 +1,17 @@
-"""Registry of per-module pydantic BaseSettings classes.
+"""Deprecated: import from :mod:`simple_module_core.module_settings` (#500).
 
-Populated during each module's ``register_settings`` via
-``register_module_settings``. The hosting lifespan reads this at startup
-to hydrate every module's effective settings from the DB.
+Kept as a re-export until 0.1.0; ``simple_module_core.deprecation`` enforces the date.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from simple_module_core.deprecation import deprecated_module
+from simple_module_core.module_settings import ModuleSettingsRegistry
 
-from pydantic_settings import BaseSettings
+__all__ = ["ModuleSettingsRegistry"]
 
-
-@dataclass(slots=True)
-class ModuleSettingsRegistry:
-    """In-memory map of ``package`` → ``BaseSettings`` subclass."""
-
-    _classes: dict[str, type[BaseSettings]] = field(default_factory=dict)
-
-    def register(self, package: str, cls: type[BaseSettings]) -> None:
-        if package in self._classes:
-            raise ValueError(f"{package!r} already registered")
-        self._classes[package] = cls
-
-    def get(self, package: str) -> type[BaseSettings] | None:
-        return self._classes.get(package)
-
-    def all_packages(self) -> list[str]:
-        return sorted(self._classes)
-
-    def items(self) -> list[tuple[str, type[BaseSettings]]]:
-        return sorted(self._classes.items())
+deprecated_module(
+    "settings.module_registry",
+    remove_in="0.1.0",
+    use="simple_module_core.module_settings.ModuleSettingsRegistry",
+)

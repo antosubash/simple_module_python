@@ -1,15 +1,25 @@
 {
   "login": {
-    "redirecting": "Redirecting to identity provider…",
-    "title": "Sign In"
+    "redirecting": "Redirecting to your identity provider",
+    "title": "Signing in",
+    "body_prefix": "Taking you to",
+    "body_suffix": ". You'll come straight back once signed in.",
+    "body_generic": "Taking you to your identity provider. You'll come straight back once signed in.",
+    "manual": "Not redirected? Continue manually",
+    "progress_label": "Redirecting"
   },
   "logout": {
-    "title": "Signed Out",
-    "message": "You have been signed out successfully."
+    "title": "You're signed out",
+    "message": "Your app session and the Keycloak session both ended. Close the browser to be certain on a shared machine.",
+    "sign_in_again": "Sign in again",
+    "back_to_site": "Back to site"
   },
   "errors": {
     "callback_failed": "Authentication failed. Please try again.",
     "invalid_state": "Invalid authentication state. Please try again.",
     "token_validation_failed": "Token validation failed."
+  },
+  "nav": {
+    "logout": "Logout"
   }
 }

@@ -21,11 +21,16 @@ def test_logout_url():
     assert provider.get_logout_url(None) == "/users/logout"
 
 
-def test_public_paths():
-    provider = UsersAuthProvider()
-    prefixes, _exact = provider.get_public_paths()
-    assert "/users/login" in prefixes
-    assert "/api/users/auth/" in prefixes
+def test_public_paths_come_from_the_registry():
+    from simple_module_core.public_routes import PublicRouteRegistry
+    from users.module import UsersModule
+
+    registry = PublicRouteRegistry()
+    UsersModule().register_public_routes(registry)
+    assert registry.matches("GET", "/users/login")
+    assert registry.matches("POST", "/api/users/auth/login")
+    assert not registry.matches("GET", "/users/admin")
+    assert not hasattr(UsersAuthProvider(), "get_public_paths")
 
 
 def test_is_bearer_request_true():

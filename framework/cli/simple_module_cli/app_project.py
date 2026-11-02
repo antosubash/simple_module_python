@@ -19,9 +19,23 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from simple_module_cli._app_project_manifests import (
+    _APP_NPM_DEPS,
+    _APP_NPM_DEV_DEPS,
+    _APP_PY_DEV_DEPS,
+    _FRAMEWORK_VERSION,
+    _db_url,
+    _rewrite_pyproject,
+)
 from simple_module_cli._env import set_env_key
-from simple_module_cli.case import to_kebab_case, to_pascal_case
+from simple_module_cli._local_env import (
+    add_postgres_password_placeholder,
+    comment_out_env_key,
+    write_local_env,
+)
+from simple_module_cli.case import to_kebab_case, to_pascal_case, to_snake_case
 from simple_module_cli.catalog import CATALOG, PRESETS, expand_deps
+from simple_module_cli.docker_assets import scaffold_docker_assets
 from simple_module_cli.recipes import RECIPES, ScaffoldCtx
 from simple_module_cli.scaffolding import (
     SAFE_PRESERVED_NAMES,
@@ -29,45 +43,12 @@ from simple_module_cli.scaffolding import (
     create_host,
     create_module,
     create_workspace,
-    resolve_framework_version,
 )
 
 __all__ = ["create_app_project"]
 
 _SAMPLE_MODULE_NAME = "hello"
 _SAMPLE_MODULE_PKG = _module_to_pypi_name(_SAMPLE_MODULE_NAME)
-
-
-_FRAMEWORK_VERSION = resolve_framework_version()
-
-# Pin ``simple_module_cli`` as a dev dep so ``uv run smpy`` resolves to the
-# project venv. The global ``uv tool`` install runs in its own isolated venv
-# that can't see the project's plugin entry points (issue #134). The lint /
-# test tooling (ruff, ty, pytest-*) backs the generated `make lint`/`make
-# test` targets so a fresh app can run its own quality gates.
-_APP_PY_DEV_DEPS = [
-    f"simple_module_test=={_FRAMEWORK_VERSION}",
-    f"simple_module_cli=={_FRAMEWORK_VERSION}",
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "pytest-playwright>=0.7.2",
-    "ruff>=0.8",
-    "ty>=0.0.29",
-]
-
-_APP_NPM_DEPS = {
-    "@simple-module-py/ui": _FRAMEWORK_VERSION,
-    "@simple-module-py/i18n": _FRAMEWORK_VERSION,
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@inertiajs/react": "^2.0.0",
-}
-_APP_NPM_DEV_DEPS = {
-    "@simple-module-py/tsconfig": _FRAMEWORK_VERSION,
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "^5.6.0",
-    "vite": "^8.0.0",
-}
 
 # Files the host template ships that the workspace template re-emits at
 # the project root. Host copies are stripped in workspace mode.
@@ -138,10 +119,33 @@ def create_app_project(
         py_deps.append(_SAMPLE_MODULE_PKG)
         workspace_sources.append(_SAMPLE_MODULE_PKG)
 
+    # Generated secrets go to the gitignored .env, never the committed
+    # .env.example (GH #441) — see write_local_env below.
+    secret_keys = ["SM_SECRET_KEY"]
+    if "users" in resolved:
+        # UsersSettings refuses its placeholder token secrets when
+        # SM_ENVIRONMENT=production — the mode the compose containers run
+        # in — so generate real ones, same as SM_SECRET_KEY.
+        secret_keys += [
+            "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+            "SM_USERS_VERIFICATION_TOKEN_SECRET",
+        ]
+    db_name = to_snake_case(name)
     env_path = target / ".env.example"
     env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    env_text = set_env_key(env_text, "SM_SECRET_KEY", _secrets.token_urlsafe(32))
-    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, to_kebab_case(name), flat=flat))
+    for key in secret_keys:
+        env_text = comment_out_env_key(env_text, key)
+    local_overrides: dict[str, str] = {}
+    if db == "postgres":
+        # The compose `postgres` service takes its password from .env, and
+        # the dev SM_DATABASE_URL must match it (GH #444).
+        env_text = add_postgres_password_placeholder(env_text)
+        password = _secrets.token_urlsafe(24)
+        local_overrides = {
+            "POSTGRES_PASSWORD": password,
+            "SM_DATABASE_URL": _db_url(db, db_name, flat=flat, password=password),
+        }
+    env_text = set_env_key(env_text, "SM_DATABASE_URL", _db_url(db, db_name, flat=flat))
     env_text = set_env_key(env_text, "SM_MULTI_TENANT", "true" if tenancy else "false")
     env_path.write_text(env_text, encoding="utf-8")
 
@@ -176,6 +180,10 @@ def create_app_project(
         if recipe_key is not None and recipe_key in RECIPES:
             RECIPES[recipe_key].apply(target, ctx)
 
+    scaffold_docker_assets(target, ctx, flat=flat)
+    # Last, so .env picks up every key the recipes added to .env.example.
+    write_local_env(target, secret_keys=secret_keys, overrides=local_overrides)
+
     return host_dir, preserved
 
 
@@ -199,7 +207,7 @@ def _scaffold_sample_module(target: Path) -> None:
         sample_dest,
         name=_SAMPLE_MODULE_NAME,
         framework_version=_FRAMEWORK_VERSION,
-        include_ci=False,
+        standalone=False,
     )
     _seed_static_dist_placeholder(sample_dest / _SAMPLE_MODULE_NAME / "static" / "dist")
 
@@ -209,46 +217,3 @@ def _seed_static_dist_placeholder(static_dist: Path) -> None:
     # an empty placeholder keeps `uv sync` from failing before vite build runs.
     static_dist.mkdir(parents=True, exist_ok=True)
     (static_dist / ".gitkeep").touch()
-
-
-def _db_url(db: str, slug: str, *, flat: bool) -> str:
-    if db == "postgres":
-        return f"postgresql+asyncpg://postgres:postgres@localhost:5432/{slug}"
-    # Workspace mode keeps the SQLite file next to host/'s alembic.ini so
-    # `cd host && uvicorn` and `cd host && alembic` resolve the same path.
-    return "sqlite+aiosqlite:///./app.db" if flat else "sqlite+aiosqlite:///./host/app.db"
-
-
-def _rewrite_pyproject(
-    text: str,
-    deps: list[str],
-    dev_deps: list[str],
-    *,
-    sources: Sequence[str] = (),
-    project_name: str | None = None,
-) -> str:
-    """Replace deps in a host ``pyproject.toml`` and pin workspace sources.
-
-    ``sources`` lists ``simple_module_*`` packages that should resolve from
-    the uv workspace (``modules/*``) instead of PyPI. Emits a
-    ``[tool.uv.sources]`` block per entry. Empty in flat mode.
-
-    ``project_name`` overrides ``[project].name`` — set in workspace mode
-    so the host's package name differs from the workspace root's.
-    """
-    import tomlkit
-
-    doc = tomlkit.parse(text)
-    project = doc.setdefault("project", tomlkit.table())
-    if project_name is not None:
-        project["name"] = project_name
-    project["dependencies"] = list(deps)
-    groups = doc.setdefault("dependency-groups", tomlkit.table())
-    groups["dev"] = list(dev_deps)
-    if sources:
-        tool = doc.setdefault("tool", tomlkit.table())
-        uv_table = tool.setdefault("uv", tomlkit.table())
-        uv_sources = uv_table.setdefault("sources", tomlkit.table())
-        for src in sources:
-            uv_sources[src] = {"workspace": True}
-    return tomlkit.dumps(doc)

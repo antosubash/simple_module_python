@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 from _models import _TenantItem, _TenantSoftItem
+from simple_module_db import DEFAULT_TENANT_ID
 from simple_module_db.listeners import TenantIsolationError, current_tenant_id
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -231,15 +231,14 @@ class TestMultiTenancyEdgeCases:
         finally:
             current_tenant_id.reset(token)
 
-    async def test_creation_without_tenant_or_context_fails_at_db(
+    async def test_creation_without_tenant_or_context_uses_default(
         self, tenant_session: AsyncSession
     ):
-        """No tenant context and no explicit tenant_id → NOT NULL constraint fires."""
+        """Not strict, no tenant, no explicit tenant_id → the default tenant (#380)."""
         item = _TenantItem(name="Orphan")
         tenant_session.add(item)
-        with pytest.raises(IntegrityError):
-            await tenant_session.flush()
-        await tenant_session.rollback()
+        await tenant_session.flush()
+        assert item.tenant_id == DEFAULT_TENANT_ID
 
     async def test_system_operation_sees_all_tenants(self, tenant_session: AsyncSession):
         """Without a tenant context, a system query can read across all tenants."""

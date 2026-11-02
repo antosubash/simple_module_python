@@ -21,11 +21,35 @@ smpy --help
 | `smpy create-module <name>` | Scaffold a publishable module package at `./simple_module_<name>` (or `--dest <path>`). |
 | `smpy create-host <name>` | Scaffold just a host project (no sample module). Useful when you want a minimal shell that consumes published modules. |
 
+### Installing modules
+
+| Command | What |
+|---|---|
+| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` + `gen-pages` unless `--no-sync`. |
+| `smpy update [name]` | Update git-sourced modules to their newest release tag. Omit the name to update every git-sourced module; `--dry-run` previews. |
+
+`smpy add` handles a repo containing several modules: `--module a,b` picks specific dist names and `--all` takes every module it finds.
+
+Modules from one repo move **in lockstep** — one repo, one ref. `smpy update` takes every module sourced from the same URL to the same new tag, which must be a `v*` semver tag satisfying every sibling's declared dependency range. Mixing tags from one source tree is how you end up with a module built against a sibling it was never shipped with. Branch-pinned sources re-lock to the newest SHA (dev mode), rev-pinned sources are left alone, and a plain PyPI name delegates to `uv lock --upgrade-package`.
+
+Both take `--path` to point at a project root or `pyproject.toml` other than the cwd. `smpy add` takes `--yes` to fail rather than prompt, which is what you want in CI.
+
+### Authoring a module
+
+Run these from inside a module package directory:
+
+| Command | What |
+|---|---|
+| `smpy module verify` | Build this module's frontend inside a throwaway scaffolded host — catches "works in the monorepo, breaks as a wheel" before you publish. |
+| `smpy module build` | Bundle `<pkg>/assets_src/` into `<pkg>/static/dist/` for `static_mounts()`. |
+
+Both cache the scratch host under `.smpy/verify-host`; pass `--fresh` to rebuild it from scratch.
+
 ### Maintenance
 
 | Command | What |
 |---|---|
-| `smpy package-update` | Bump every `simple_module_*` dependency in `pyproject.toml` to the latest PyPI version. `--dry-run` previews the diff. |
+| `smpy package-update` | Bump `simple_module_*` dependencies, optional extras and dependency groups across the uv workspace, keeping operators. Update root/member and `client_app/package.json` `@simple-module-py/*` pins to the selected core version when published on npm. `--dry-run` writes nothing; `--loosen` rewrites Python constraints to `>=`. |
 | `smpy skills add\|list\|update` | Install or update the bundled agent skills under `.claude/skills/` for use with Claude Code. |
 
 ### Module-contributed plugins
@@ -35,6 +59,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 | Command | From | What |
 |---|---|---|
 | `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
+| `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists. |
 | `smpy host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
 | `smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 
@@ -56,6 +81,8 @@ uv run smpy users create-admin --email admin@example.com --password changeme
 | `make build` | `cd client_app && npm run build`. Produces the production frontend bundle. |
 | `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `smpy host gen-pages`. |
 | `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `smpy host sync-js-deps`. |
+| `make gen-i18n` | Regenerate the typed `t(keys.<ns>...)` union in `node_modules/@simple-module-py/i18n/src`. Dev boot does this too; `make install` runs it once so `tsc` works before the first boot. Same effect as `smpy host gen-i18n`. |
+| `make kill` | Free the dev ports with `lsof`, nothing else: `API_PORT` (default `8000`) and `VITE_PORT` (read from `SM_VITE_DEV_URL` in `.env`, default `5050`). Never pkills by process name, so other apps' servers and test runs survive. Override with `make dev API_PORT=8010`. |
 
 If you included `background_tasks` in `smpy new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
 
@@ -67,14 +94,14 @@ The scaffolded Makefile intentionally doesn't wrap one-off things. Run them dire
 |---|---|
 | New Alembic migration | `uv run alembic revision --autogenerate -m "..."` |
 | Downgrade one revision | `uv run alembic downgrade -1` |
-| Roll back a single module | `uv run alembic downgrade <module>@base` |
+| Remove one module's schema | See [Removing one module's schema](/database/migrations#removing-one-modules-schema); `<module>@base` rolls back the whole chain beneath it |
 | Single Python test | `uv run pytest path/to/test_file.py::test_name` |
 | Single JS test | `cd client_app && npx vitest run <path>` |
 | Format + lint Python | `uv run ruff format . && uv run ruff check .` |
 | Type-check Python | `uv run ty check` |
 | Format + lint JS | `cd client_app && npx biome check .` |
 | Type-check JS | `cd client_app && npx tsc --noEmit` |
-| Free stuck dev ports | `lsof -ti:8000,5050 \| xargs kill -9` |
+| Free stuck dev ports | `make kill` (frees only `API_PORT`/`VITE_PORT`) |
 
 ## Working on the framework itself
 

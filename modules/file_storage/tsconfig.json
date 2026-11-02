@@ -1,11 +1,15 @@
 {
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./file_storage/*"],
       "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["file_storage/**/*.ts", "file_storage/**/*.tsx"]
+  "include": [
+    "file_storage/**/*.ts",
+    "file_storage/**/*.tsx",
+    "tests-js/**/*.ts",
+    "tests-js/**/*.tsx"
+  ]
 }

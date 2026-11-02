@@ -8,7 +8,8 @@ The default auth provider + user-management module: email/password login, OAuth/
 |---|---|
 | `name` | `Users` |
 | `route_prefix` | `/api/users` |
-| `view_prefix` | `/users` |
+| `view_prefix` | `/users` (sign-in, self-service) |
+| `admin_view_prefix` | `/admin/users` (management CRUD) |
 | `depends_on` | `["Auth"]` |
 
 ## Auth flow
@@ -18,20 +19,25 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 - A signed session cookie (`sm_auth` by default) — the auth module's `AuthMiddleware` calls `UsersAuthProvider.resolve_user`, which reads it on every request and populates `request.state.user`. Bearer tokens (`Authorization: Bearer <token>`) resolve against `users_access_token`.
 - OAuth / OIDC sign-in (Google, GitHub, Microsoft/Entra ID, and any generic OIDC provider) — see [OAuth providers](#oauth-providers).
 - An invite flow — admins generate an invite link; the recipient sets their password via `POST /api/users/auth/accept-invite`.
-- `LoginRateLimiter` — N failures within a window triggers a cooldown per `email::ip` key.
+- Login lockout — see [Login lockout](#login-lockout). Shared across workers, source IPs and restarts.
 - `ThroughputLimiter` — per-IP rate limit across register / forgot-password / accept-invite / verify-token endpoints.
 
 ### Auth endpoints
 
 | Method + path | Body | Notes |
 |---|---|---|
-| `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; rate-limited per email |
+| `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; `400 LOGIN_BAD_CREDENTIALS`; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
+| `POST /api/users/auth/logout` | — | clears the `sm_auth` cookie and the session |
 | `POST /api/users/auth/register` | `UserCreate` | gated by `users.allow_signup`; rate-limited |
 | `POST /api/users/auth/forgot-password` | `PasswordReset` | rate-limited |
 | `POST /api/users/auth/reset-password` | `{token, password}` | |
 | `POST /api/users/auth/request-verify-token` | `RequestVerifyToken` | rate-limited |
 | `POST /api/users/auth/verify` | `VerifyRequest` | |
 | `POST /api/users/auth/accept-invite` | `AcceptInviteRequest` | sets password + signs the user in |
+| `POST /api/users/auth/demo/{role}` | — | one-click sign-in as a shared demo account (`role` ∈ `admin`, `user`); `404` unless that account is configured; rate-limited per role — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
+| `POST /api/users/auth/token` | `TokenRequest` (email + password) | bearer login for mobile / API clients → `{access_token, refresh_token, token_type, expires_in}`; `401` for bad credentials and external/SSO users; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
+| `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked atomically; reuse of a revoked token revokes its family) |
+| `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
 | `GET /api/users/auth/{provider}/callback` | `?code=&state=` | OAuth: find-or-create user, set cookie, 303 to `login_redirect_url` |
 
@@ -47,12 +53,18 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 | Method + path | Body / response |
 |---|---|
 | `GET /api/users/admin` | `?q=&status=&role=&verified=&sort=&order=&page=&per_page=` → `list[UserListItem]` |
-| `POST /api/users/admin/invite` | `UserInvite` → `UserListItem` |
-| `POST /api/users/admin/{user_id}/disable` | → `UserListItem` |
-| `POST /api/users/admin/{user_id}/enable` | → `UserListItem` |
-| `POST /api/users/admin/{user_id}/roles` | `RoleAssignment` |
-| `POST /api/users/admin/{user_id}/mark-verified` | → `UserListItem` |
-| `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` |
+| `POST /api/users/admin` | `UserAdminCreate` → `UserListItem` (201) — active+verified user with an admin-set password |
+| `POST /api/users/admin/invite` | `UserInvite` → `UserListItem` (201) |
+| `PATCH /api/users/admin/{user_id}` | `UserDetailsUpdate` → `UserListItem` — edit email + full name |
+| `DELETE /api/users/admin/{user_id}` | → `204` (hard delete; an admin cannot delete their own account → `400`) |
+| `PATCH /api/users/admin/{user_id}/disable` | → `UserListItem` |
+| `PATCH /api/users/admin/{user_id}/enable` | → `UserListItem` |
+| `PATCH /api/users/admin/{user_id}/unlock` | → `UserListItem` — lifts a [login lockout](#login-lockout) and clears the failure count (audited) |
+| `PUT /api/users/admin/{user_id}/roles` | `RoleAssignment` → `UserListItem` |
+| `PATCH /api/users/admin/{user_id}/verify` | → `UserListItem` (mark verified; idempotent) |
+| `POST /api/users/admin/{user_id}/reset-password-link` | → `PasswordResetLink` (`409` for external/SSO users) |
+
+`POST /api/users/admin` creates an **active + verified** user directly — no invite email, no verification flow; the admin sets the password. It returns `409` if the email is already taken and `400` for an invalid password. The matching admin UI (Create form, Edit details card, and a delete "danger zone") lives under `/admin/users/` — see [View routes](#view-routes) and [Inertia pages](#inertia-pages).
 
 ### View routes
 
@@ -71,31 +83,59 @@ Authenticated:
 - `GET /users/me` → `Users/Profile`
 - `PATCH /users/me` → form action (redirects)
 
-Admin (`users.manage`):
+Admin (`users.manage`) — served from the module's `admin_view_prefix`, `/admin/users`:
 
-- `GET /users/admin` → `Users/Users/Index`
-- `GET /users/admin/invite` → `Users/Users/Invite`
-- `GET /users/admin/{user_id}/edit` → `Users/Users/Edit`
+- `GET /admin/users/` → `Users/Users/Index`
+- `GET /admin/users/add` → `Users/Users/AddPeople` — one form for both flows; `?mode=create|invite` picks which
+- `GET /admin/users/{user_id}` → `Users/Users/Edit`
+
+The separate Create and Invite pages merged into `AddPeople`. Their old paths survive as 307 redirects carrying the mode: `GET /admin/users/invite` → `/admin/users/add?mode=invite`, and `GET /admin/users/create` → `/admin/users/add?mode=create`.
+
+These pages moved out of `/users/admin` when the admin screens were gathered under `/admin` — the pre-move URLs still 301 for now, but link to the new ones. The `/api/users/admin/*` endpoints below are a separate contract and did **not** move.
 
 ## Public contracts
 
 ```python
-from users.contracts import (
-    UserRead, UserCreate, UserUpdate, UserInvite,
-    UserListItem, RoleListItem, RoleAssignment,
-    AcceptInviteRequest, PasswordResetLink, SelfProfileUpdate,
+from users.contracts.schemas import (
+    UserRead,
+    UserCreate,
+    UserUpdate,
+    UserInvite,
+    UserAdminCreate,
+    UserDetailsUpdate,
+    UserListItem,
+    RoleListItem,
+    RoleAssignment,
+    AcceptInviteRequest,
+    PasswordResetLink,
+    SelfProfileUpdate,
 )
 from users.contracts.events import (
-    UserRegistered, UserInvited, UserDisabled, RoleAssigned,
+    UserRegistered,
+    UserInvited,
+    UserCreated,
+    UserDeleted,
+    UserDisabled,
+    RoleAssigned,
 )
 ```
 
 | Class | Purpose |
 |---|---|
-| `UserRead` | `id`, `email`, `is_active`, `is_superuser`, `is_verified`, `full_name`, `tenant_id`, `disabled_at`, `last_login_at`. |
-| `UserListItem` | Admin list row with `roles`. |
+| `UserRead` | `id`, `email`, `is_active`, `is_superuser`, `is_verified`, `is_external`, `full_name`, `tenant_id`, `disabled_at`, `last_login_at`. |
+| `UserAdminCreate` | Admin create-user input: `email`, `password`, `full_name`, `role_names`. |
+| `UserDetailsUpdate` | Admin edit input: `email`, `full_name`. |
+| `UserListItem` | Admin list row; adds `is_external`, `created_at`, `roles`. |
 | `RoleListItem` | `id`, `name`, `description`, `user_count`. |
-| `UserRegistered`, `UserInvited`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
+| `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
+
+Other modules read accounts through the [user directory](/framework/user-directory),
+which this module installs as `users.directory.UsersDirectory` in
+`register_settings`; they should not import `users.models`. The one table read
+directly is `Role`, re-exported as `users.contracts.roles.Role` for the
+permissions role pages. The edit page's *Recent activity* card reads the core
+[activity feed](/framework/user-directory#activity-feed) rather than importing
+`audit_log`.
 
 ## Models
 
@@ -105,23 +145,27 @@ from users.contracts.events import (
 |---|---|---|
 | `id` | `UUID` | PK |
 | `email` | `str` | unique, indexed; functional index on `lower(email)` |
-| `hashed_password` | `str` | |
+| `hashed_password` | `str \| None` | **nullable** — external (SSO) users have no local password (see [External / SSO users](#external-sso-users)) |
 | `is_active` / `is_superuser` / `is_verified` | `bool` | |
+| `is_external` | `bool` | `True` for users provisioned via an external IdP; default `False` (`server_default false`) |
 | `full_name` | `str \| None` | |
 | `tenant_id` | `str \| None` | indexed; only set when multi-tenant |
 | `disabled_at` | `datetime \| None` | |
 | `last_login_at` | `datetime \| None` | indexed |
+| `failed_login_count` | `int` | failed password logins in the current window; `server_default 0`; not audited |
+| `last_failed_login_at` | `datetime \| None` | when the window's last failure happened; not audited |
+| `locked_until` | `datetime \| None` | set while a [login lockout](#login-lockout) holds; audited |
 | `roles` | relationship → `Role` via `UserRole` | eagerly loaded by `AuthMiddleware` |
 
 `Role` (table `users_role`) — `id`, `name` (unique, indexed), `description`.
 
 `UserRole` (table `users_user_role`) — composite-PK join table with `assigned_at`, `assigned_by`. The `(user_id, role_id)` PK is user-id-first; a separate index covers reverse lookups by `role_id`.
 
-`UserAccessToken` (table `users_access_token`) — bearer API tokens; resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
+`UserAccessToken` (table `users_access_token`) — bearer API tokens, stored as SHA-256 digests (the secret is shown once at login); resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
 
 `OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`.
 
-`RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK), `user_id`, `created_at`, `expires_at`, `revoked_at`.
+`RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK, SHA-256 digest of the secret), `family_id` (rotation lineage; presenting an already-revoked token revokes the whole family), `user_id`, `created_at`, `expires_at`, `revoked_at`.
 
 Two pre-seeded roles get fixed UUIDs so other modules can reference them safely:
 
@@ -141,7 +185,7 @@ DB-backed via `register_module_settings`. Two values are read **only** from the 
 
 Both **must** be replaced with non-placeholder values in production — the boot-time check refuses to start otherwise.
 
-Everything else is DB-backed (initial values are pydantic defaults; edit at `/settings/modules/users`):
+Everything else is DB-backed (initial values are pydantic defaults; edit under Users at `/admin/settings/`):
 
 | Field | Default |
 |---|---|
@@ -152,19 +196,25 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
 | `bearer_token_lifetime_seconds` | `900` (15 min) |
 | `refresh_token_lifetime_seconds` | `2_592_000` (30 days) |
+| `refresh_token_family_max_age_days` | `90` (≥ 1) — absolute age from the first token; requires a new login after expiry |
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_secure` | `True` (flipped to `False` in dev at startup) |
 | `cookie_samesite` | `"lax"` |
-| `mailer` | `"console"` (or `"smtp"`) |
 | `base_url` | `"http://localhost:8000"` |
-| `smtp_host` / `smtp_port` / `smtp_username` / `smtp_password` / `smtp_from` / `smtp_tls` | SMTP config when `mailer="smtp"` |
-| `login_rate_limit_failures` | `5` |
-| `login_rate_limit_window_seconds` | `300` |
-| `login_rate_limit_cooldown_seconds` | `900` |
+| `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
+| `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
+| `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
+| `login_rate_limit_cooldown_seconds` | `900` — how long an account lock lasts |
+| `login_lockout_account_failures` | `10` (≥ 1) — failures for one account, from anywhere, before it locks |
 | `auth_rate_limit_attempts` | `10` |
 | `auth_rate_limit_window_seconds` | `300` |
 | `bootstrap_email`, `bootstrap_password`, `bootstrap_user_email`, `bootstrap_user_password` | `""` — see [Bootstrap](#bootstrap-the-first-admin) |
+| `demo_mode` | `False` — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
+| `demo_admin_email` | `"demo-admin@example.com"` — blank to stop offering the admin demo |
+| `demo_user_email` | `"demo-user@example.com"` — blank to stop offering the standard-user demo |
+| `demo_admin_password` / `demo_user_password` | `""` (a random one is generated, so the account is reachable only through its button) |
+| `demo_read_only` | `True` |
 | `oauth_google_client_id` / `oauth_google_client_secret` | `""` — Google OAuth |
 | `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
@@ -177,13 +227,27 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 | `users.manage` | admin: list / invite / disable / role-assign |
 | `users.self.profile` | edit own profile (granted to `user` role) |
 
+`users.manage` also unlocks account *names* in the audit log's entity column: the module registers its audit link with `label_permission="users.manage"`, so a reader holding only `audit_log.view` sees the id of an edited account rather than its display name or email. See [audit_log](/modules/audit_log) § Entity and actor names.
+
 ## Menu
 
 | Label | URL | Icon | Section | Group | Order | Roles |
 |---|---|---|---|---|---|---|
-| `Users` | `/users/admin` | `users` | `SIDEBAR` | `Administration` | `100` | `["admin"]` |
+| `Users` | `/admin/users/` | `users` | `ADMIN_SIDEBAR` | `Access` | `100` | `["admin"]` |
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
+
+## Password reset and credential revocation
+
+A successful password reset, including one reached through an admin-generated
+reset link, signs the account out everywhere: it increments `session_version`,
+revokes all refresh tokens, and deletes all access-token rows (#686). Old browser
+sessions return to login; old access and refresh tokens receive `401`. Session
+counter caches are invalidated only after the revocation commits.
+
+Password changes and sign-out-everywhere use the same revocation. A password
+change reissues the calling browser's cookie so that browser remains signed in;
+a password reset and sign-out-everywhere preserve no existing credentials.
 
 ## Events
 
@@ -191,8 +255,18 @@ Everything else is DB-backed (initial values are pydantic defaults; edit at `/se
 |---|---|---|
 | `UserRegistered` | `user_id`, `email` | on signup |
 | `UserInvited` | `user_id`, `email`, `invited_by` | on admin invite |
+| `UserCreated` | `user_id`, `email`, `created_by` | on admin create (`POST /api/users/admin`) |
+| `UserDeleted` | `user_id` | on admin delete; durable (outbox, or inline in the request transaction). Defined in `simple_module_core.user_events` so modules subscribe without depending on `users` |
 | `UserDisabled` | `user_id` | on admin disable |
-| `RoleAssigned` | `user_id`, `role_name` | once per role on `POST /admin/{user_id}/roles` |
+| `RoleAssigned` | `user_id`, `role_name` | once per role on `PUT /admin/{user_id}/roles` |
+
+Single admin create/invite publishes `UserCreated` / `UserInvited` through the
+transactional admin-event helper: durable handlers use the request transaction
+(or outbox), and ordinary subscribers run only after commit. Invitation and
+request-less registration verification emails also wait for successful request
+finalization. A failed final commit discards those emails and ordinary event
+callbacks (#692, #627). Post-commit delivery failures are logged and do not
+undo the committed account; these callbacks do not retry mail delivery.
 
 ## CLI
 
@@ -218,20 +292,179 @@ Two paths to seed the first admin:
 1. **CLI** — `smpy users create-admin ...`.
 2. **Env vars** — set `SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD` before first `make dev`. `bootstrap_admin_from_env(app)` runs at startup and creates the admin if the `users_user` table is empty. Optionally seed a non-admin too via `SM_USERS_BOOTSTRAP_USER_EMAIL` + `SM_USERS_BOOTSTRAP_USER_PASSWORD`.
 
-## Mailer backends
+## Demo mode (hosting a showcase instance)
 
-`mailer/` ships two implementations of the `Mailer` protocol:
+Turn `demo_mode` on and the sign-in card grows a button per demo account.
+One click signs the visitor straight in — no email, no password, no signup.
 
-| Backend | When to use | Configured via |
-|---|---|---|
-| `ConsoleMailer` | dev — prints invite / verify / reset links to stdout | `mailer="console"` |
-| `SmtpMailer` | prod — talks SMTP | `mailer="smtp"` + `smtp_*` settings |
+```
+users.demo_mode         = true
+users.demo_admin_email  = demo-admin@example.com
+users.demo_user_email   = demo-user@example.com
+users.demo_read_only    = true       # default; leave it on
+```
 
-`build_mailer(settings)` returns the right instance based on `users.mailer`.
+Set these under Users at `/admin/settings/`, or seed them in the settings store
+before first boot. Changes apply live — the `SettingsReloaded` handler re-seeds
+the accounts and refreshes the cached ids, so there is no restart.
+
+### Two accounts, not one
+
+An **administrator** and an ordinary **standard user**, because the two halves
+of the app look nothing alike. The admin surface — users, roles, settings,
+modules, audit history — is what the framework is *for*, and a visitor who
+only ever sees the end-user app never meets it. One who only ever sees
+`/admin/*` never meets the app you actually build for people. Offering both,
+and letting someone switch between them without signing out, is what makes a
+showcase instance answer "what is this?" in one visit.
+
+Each is independently switchable: blank an email and that button disappears
+*and* its route starts answering 404 — the offer and the endpoint come from
+the same resolution, so hiding a button never leaves a live way in behind it.
+Blank both and `demo_mode` has nothing to turn on (logged, since you plainly
+meant something by switching it on).
+
+### What it does
+
+- **Seeds the accounts** on every boot and every settings reload
+  (`users.demo.ensure_demo_users`). Idempotent, and it *reconciles*: the admin
+  row carries `is_superuser` and the `admin` role, the user row carries
+  neither, and repointing an email from one to the other demotes the row
+  rather than leaving the old grant in place. One account failing to seed does
+  not withdraw the other.
+- **Never sends a password to the browser.** Each button posts to
+  `POST /api/users/auth/demo/{role}` with an empty body and the server
+  resolves the account itself. This is the difference between demo mode and
+  the dev quick-login buttons, which paste real credentials into the form and
+  are therefore development-only. Leave a `demo_*_password` blank and that
+  account is seeded with a random secret nobody — including you — can type;
+  set one only if you also intend to publish the credentials (for an API
+  demo, say).
+- **Refuses writes** while `demo_read_only` is on.
+  `DemoReadOnlyMiddleware` rejects every unsafe HTTP method from either demo
+  session with `403 {"detail": "DEMO_READ_ONLY"}`, except signing out and the
+  demo sign-in routes themselves — switching between the two accounts is the
+  point of having two, so it must not require a sign-out. Inertia requests get
+  the protocol's `409` + `X-Inertia-Location` instead, so a blocked save
+  re-renders the page rather than throwing up an error modal.
+- **Says so.** `DemoBanner` renders a standing bar in every app shell, driven
+  by the `demo` shared prop. It is **per session**, not per install — you,
+  signed in to your own account on the same instance, do not see it, and your
+  writes are not touched.
+
+### `demo_read_only = false`
+
+With an admin demo configured, this hands anyone who can reach your sign-in
+page a writable superuser: the settings editor (including the SMTP password
+and OAuth client secrets), the user table, and maintenance mode. It is allowed
+— an instance whose database is rebuilt on a timer has a legitimate reason to
+want a writable demo — but it logs `users.demo.writable_admin` at WARNING on
+every settings load. Do not run it against a database you care about. Blanking
+`demo_admin_email` is the way to have a writable demo without that exposure.
+
+### Limits worth knowing
+
+- The accounts are **shared**. Two visitors exploring the same one at once see
+  each other's state, and with `demo_read_only = false` they can overwrite
+  each other. Periodically resetting the database is the only real answer.
+- `demo_read_only` matches on the **session** — the stamp a demo endpoint
+  writes, or a session whose `user_id` is one of the demo accounts'. A bearer
+  token is not covered directly, but minting one is itself a `POST`, so a
+  read-only demo cannot get hold of one.
+- The guard deliberately does **not** consult `demo_mode`. Switching demo mode
+  off withdraws the *offer* — it does not retract the sessions already handed
+  out, and promoting those live cookies to writable superusers on the way out
+  would be the opposite of what "turn the demo off" means. A stamped session
+  stays read-only (and keeps its banner) until it signs out or lapses. To end
+  the sessions themselves, disable the demo rows in the user editor; a
+  reconcile will not re-enable them.
+- Signing in with real credentials (`POST /api/users/auth/login`) is allowed
+  from a demo session — it is how you *stop* being the demo, it takes a real
+  password, and the rate limiter still applies. Every non-demo sign-in clears
+  the stamp, so a browser that once held a demo session is never locked out of
+  the ordinary login.
+- Each role's endpoint has its own `auth_rate_limit_*` budget (the limiter
+  keys on path + client IP), so a bot hammering one cannot lock a visitor out
+  of the other. Each click mints a session row, so a demo instance under real
+  traffic may want the budget raised.
+- The demo **admin satisfies the first-run setup gate** — an administrator
+  exists, so `/setup` never appears. Seed your own admin first
+  (`smpy users create-admin`, or the `SM_USERS_BOOTSTRAP_*` vars), because a
+  read-only demo session cannot complete the wizard.
+
+## Login lockout
+
+Both password logins — `POST /api/users/auth/login` and `POST /api/users/auth/token` — go through `users.auth_local.lockout` (GH #530). Each attempt **takes a slot before its password is checked** and a correct password gives it back, so checking for a free slot and taking it are one step: a parallel burst cannot get more password tries than the threshold. An unverified-email `400` gives its slot back too — it is not a failure.
+
+- **Account lock (database).** A conditional, atomic `UPDATE … RETURNING` on `users_user.failed_login_count` takes the slot. The count restarts at 1 when the previous attempt is older than `login_rate_limit_window_seconds`. Every worker shares that count. The attempt that takes the last of `login_lockout_account_failures` (default 10) slots and fails sets `locked_until` to now + `login_rate_limit_cooldown_seconds` through the ORM, so the audit log records the lock, and is itself answered `429`. While it holds, every password login for the account answers `429` — the correct password included. A success clears the count but never `locked_until`.
+- **Source throttle (host rate-limit store).** `login:ip:<ip>:<username>` admits `login_rate_limit_failures` (default 5) attempts per window; a correct password clears it.
+- **Unknown usernames.** A username with **no** account goes through the same account rules on the store — `login:acct:<username>` on a sliding window that matches the row's restart rule, `login:acct-lock:<username>` for the cooldown — so it trips on the same attempt, answers with the same status, detail and `Retry-After`, and stays locked for as long. The unknown path still spends a password hash, as fastapi-users already does.
+
+The store is the host's `app.state.sm.rate_limit_store` — Redis when `SM_REDIS_URL` is set, per-worker counters otherwise (see [Request guards](../framework/request-guards.md#storage)). Without Redis and with more than one worker, an unknown username's counters are per worker (and do not survive a restart) while an account's are not, so that deployment shape can still tell the two apart; run Redis with several workers.
+
+The refusal is always `429 {"detail": "Too many attempts — try again later"}` with a `Retry-After` header. The login page shows its "too many attempts" message for it.
+
+Admins see a **locked** badge on the users list and a "Locked until" row with an **Unlock** button on the edit page, backed by `PATCH /api/users/admin/{user_id}/unlock`. Unlocking is an ORM write and is audited; the failure counters are excluded from audit diffs so failed attempts do not flood the log.
+
+The account default is 10 rather than 5 because anyone who knows an address could otherwise lock its owner out from any network; the per-source throttle still stops a single source after 5. OAuth, Keycloak and invite-link sign-ins involve no password and are not counted. The stock fastapi-users router (`/api/users/auth-inner/*`) is not mounted.
+
+A successful password reset (`POST /api/users/auth/reset-password`, from the emailed link or an admin's reset link) also lifts the lock and clears the failure count: proving control of the mailbox is the standard way out of a lockout. Like an admin unlock it is an ORM write, so the audit log records it. The per-source throttle keys are left to expire, since they are keyed by an address the reset request does not know.
+
+Trade-offs to know about:
+
+- **Anyone can lock a known address.** The lock holds against the right password, so whoever knows an account's email can keep its owner out of password login for the cooldown, from any network. This is mitigated by the threshold of 10, by the per-source throttle (one source gets 5), by admin unlock, and by password reset now lifting the lock; OAuth/Keycloak sign-in is unaffected.
+- **A dead request still counts.** An attempt takes its slot before the password is checked; if the request dies (client disconnect, worker crash) after taking it and before settling, the slot stays counted until the window passes. If it held the last slot, the account answers `429` until `login_rate_limit_window_seconds` after that attempt — no `locked_until` is written, since only a settled failure writes it.
+- **Without Redis, entries can be evicted.** The in-process store caps its key count and evicts under that pressure, so a flood of distinct usernames can drop an unknown username's lock or a source's throttle early. Account locks live on the row and are unaffected. Set `SM_REDIS_URL` in production.
+- Login values longer than an address can be (254 characters) are hashed before they become store keys, so a large request body cannot park a large key in Redis.
+
+## Mailer
+
+`mailer/` ships one implementation of the `Mailer` protocol, `TemplatedMailer`. It renders the verify / reset / invite templates (bundled, or [overridden by the host](#overriding-auth-email-templates)) and sends each as a `MailMessage` through the framework mail sender (`simple_module_core.mail.current_mail_sender()`), looked up at send time. The transport (SMTP or console), its credentials and the `mail.mailer` health check belong to the [`mail` module](./mail.md); the former `mailer` and `smtp_*` users settings no longer exist.
+
+Bulk invite failures return a known, safe reason for an existing account and a
+generic retry message for unexpected errors (#698). SQL statements, parameters
+and backend exception messages stay in the application log.
+
+`delivers_email` reflects the installed sender, so screens that need to hand the one-time link back (reset-sent card, add people, resend and bulk invite) do so whenever the sender only logs. `build_mailer(settings)` returns the `TemplatedMailer`; a third-party `Mailer` can still be assigned to `app.state.users.mailer`.
+
+### Overriding auth email templates
+
+Set the DB-backed Users setting `mail_template_dirs` to an ordered list of
+absolute directory paths, for example `["/app/email-templates/build"]` (#712).
+It defaults to an empty list and has no environment variable. Restart every
+application worker after changing it. Startup skips, with a warning, relative paths,
+missing directories and paths that refer to files, so a typo cannot stop the app
+from booting. These directories contain trusted
+deployment code and must never come from request input. Templates render in
+Jinja's sandbox, so a file dropped into a listed directory cannot run Python.
+
+The mailer searches the configured directories in order, then its bundled
+templates, independently for each file:
+
+| Email | Required text template | Optional HTML template | Context |
+|---|---|---|---|
+| Verification | `verify_email.txt` | `verify_email.html` | `app_name`, `link` |
+| Password reset | `reset_password.txt` | `reset_password.html` | `app_name`, `link` |
+| Invitation | `invite.txt` | `invite.html` | `app_name`, `link`, `invited_by_name`, `message` |
+
+An HTML-only override keeps the bundled text alternative. Both parts receive
+the same context; branding is read live, and the invitation message is trimmed
+(`None` when blank). HTML escapes interpolated values automatically; text
+remains unescaped. A missing HTML template sends text only. Invalid templates,
+missing includes and other rendering errors propagate and prevent delivery.
+Subjects, links, transport selection and email localization are unchanged.
+
+Hosts can supply compiled HTML from tools such as MJML; the framework does not
+compile it. Code constructing a mailer directly can pass the keyword-only
+`template_dirs` argument to `TemplatedMailer(base_url, ..., template_dirs=...)`
+or `build_mailer(settings, ..., template_dirs=...)`, using strings or `Path`
+objects. Startup passes `settings.mail_template_dirs` explicitly. Each mailer
+owns its template environment, so one application's overrides cannot affect
+another's.
 
 ## OAuth providers
 
-OAuth/OIDC sign-in is **DB-settings-driven**: a provider is enabled simply by setting its `client_id` + `client_secret` (and, for generic OIDC, a discovery URL) in the settings UI at `/settings/modules/users`. No code change or restart — `register_event_handlers` rebuilds the client cache (`app.state.users.oauth_clients`) on the `SettingsReloaded` event, so changes take effect live. Providers with no credentials are silently skipped.
+OAuth/OIDC sign-in is **DB-settings-driven**: a provider is enabled simply by setting its `client_id` + `client_secret` (and, for generic OIDC, a discovery URL) in the settings UI under Users at `/admin/settings/`. No code change or restart — `register_event_handlers` rebuilds the client cache (`app.state.users.oauth_clients`) on the `SettingsReloaded` event, so changes take effect live. Providers with no credentials are silently skipped.
 
 Built-in provider keys (the `{provider}` URL segment):
 
@@ -242,16 +475,42 @@ Built-in provider keys (the `{provider}` URL segment):
 | Microsoft (Entra ID) | `microsoft` | `oauth_microsoft_tenant`: `"common"` (any account), `"organizations"` (work/school), or a tenant GUID |
 | Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
 
-A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`.
+A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
+
+## Importing users from another system
+
+`users` stores passwords through fastapi-users' default `PasswordHelper`, so you can import `hashed_password` values from another system and users keep their existing passwords (no reset needed). Accepted formats:
+
+| Format | Prefix | Role |
+|---|---|---|
+| Argon2 (`argon2id`/`argon2i`/`argon2d`, PHC string) | `$argon2...` | Current scheme, used for all new hashes |
+| bcrypt | `$2a$` / `$2b$` / `$2y$` | Accepted on import (deprecated) |
+
+Other formats (PBKDF2, scrypt, SHA-based, plain text) are **not** recognised, and such users cannot sign in until they reset their password. A bcrypt hash is verified as-is and transparently re-hashed to Argon2 on the user's next successful sign-in, through both the session login (`/api/users/auth/login`) and the bearer-token login (`/api/users/auth/token`). Leave `hashed_password` as `NULL` for accounts that should only sign in through an external IdP (see below).
+
+## External / SSO users
+
+Users created through an external IdP (Google, GitHub, Microsoft/Entra ID, or generic OIDC) are provisioned with `is_external=True` and **no local password** (`hashed_password` is `NULL`). The OAuth callback's find-or-create only nulls the password + marks external for accounts it *creates* — an existing password account that gets linked by email keeps its password and stays non-external. External users sign in **only** through their IdP; roles are still assigned locally like any other user.
+
+Every password-credential path guards against external users, server-side:
+
+| Action | Behaviour for an external user |
+|---|---|
+| `POST /api/users/auth/login` (session) | `401` — treated like a missing user (a dummy bcrypt verify still runs, so timing doesn't leak that the account is SSO-only) |
+| `POST /api/users/auth/token` (bearer) | `401` — same guard as session login |
+| `POST /api/users/auth/forgot-password` | `200` but a **silent no-op** — preserves anti-enumeration |
+| `POST /api/users/admin/{user_id}/reset-password-link` | `409` — raises `ExternalUserNoPasswordError`; there is no password to reset |
+
+In the admin UI, the user list and edit page show an **"External · SSO"** badge, and the password-reset action is hidden with an explanation. Disable / enable, role assignment, and delete work the same as for any other user.
 
 ## UsersAuthProvider
 
 `UsersAuthProvider` (registered on `app.state.auth.auth_provider` in `register_settings`) is the `AuthProvider` the auth module's `AuthMiddleware` delegates to. On each request `resolve_user`:
 
-- For a `Bearer` token, looks the token up in `users_access_token` and returns the active user.
+- For a `Bearer` token, looks the token's SHA-256 digest up in `users_access_token` and returns the active user.
 - Otherwise reads `session["user_id"]`, returns the cached context from `session["user_ctx"]` on a hit, else loads the User row with eagerly-loaded roles, builds a `UserContext`, caches it in `session["user_ctx"]`, and clears stale session keys when the user is missing/disabled.
 
-`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. The provider's `get_public_paths()` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/openapi.json`, `/i18n/`, `/`):
+`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. `UsersModule.register_public_routes` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, `/`):
 
 `/users/login`, `/users/register`, `/users/forgot-password`, `/users/reset-password`, `/users/verify`, `/users/invite/accept`, `/api/users/auth/`, `/api/users/register`.
 
@@ -261,19 +520,25 @@ Anything else without a session redirects to `/users/login` (or returns 401 JSON
 
 `roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. Used by the admin UI to render role pickers without hitting the DB on every request.
 
+## Branding the auth screens
+
+The sign-in aside copy lives under `users.login.aside_*` (`aside_heading`, `aside_body`, `aside_check_sessions`, `aside_check_sso`). A host replaces any of them with an override file `host/locales/overrides/<lang>.json`, keyed by the full dotted path (for example `{"users.login.aside_heading": "Forest Observation System"}`); overrides apply after every module catalog. The "Keycloak SSO" line renders only when the Keycloak module is installed (the login page receives a `keycloak_installed` prop). The `python` caption under the wordmark is hidden once `branding.appName` differs from the default `SimpleModule`.
+
 ## Inertia pages
 
 Auth flow:
 - `Users/Login.tsx`, `Users/Register.tsx`, `Users/ForgotPassword.tsx`, `Users/ResetPassword.tsx`, `Users/VerifyEmail.tsx`, `Users/AcceptInvite.tsx`, `Users/Profile.tsx`.
 
 Admin:
-- `Users/Users/Index.tsx`, `Users/Users/Invite.tsx`, `Users/Users/Edit.tsx`.
+- `Users/Users/Index.tsx` (list + Create button), `Users/Users/Invite.tsx`, `Users/Users/Create.tsx`, `Users/Users/Edit.tsx`.
 
-Components:
-- `Users/components/IndexFilters.tsx`, `Users/components/RolesTab.tsx`.
+Components (under `pages/Users/components/`):
+- `AccountStatusCard.tsx` — status block, including the **External · SSO** badge and the hidden-password-reset explanation for external users.
+- `DetailsCard.tsx` — edit email + full name.
+- `DangerZone.tsx` — delete-user action with confirmation.
 
 ## Notes
 
 - `cookie_secure` is automatically flipped to `False` in dev (`SM_ENVIRONMENT=development`) so login works over plain HTTP. Don't override it in non-dev environments.
-- `LoginRateLimiter` keys login attempts by `lowercased-email::client-ip`. Counters live in-process (no Redis), so a multi-worker deployment has independent counters per worker — swap for a Redis-backed store when running more than one worker.
+- `ThroughputLimiter` (register, forgot-password, accept-invite, verify-token, `/me/password`) counts in-process, so with N workers its budget is up to N times the configured one. Password-login lockout does not have that limit — see [Login lockout](#login-lockout).
 - The functional `lower(email)` index makes case-insensitive lookups fast on Postgres; on SQLite the lookup falls back to `LOWER(email) = ?` which still uses the regular index.

@@ -11,6 +11,7 @@ from fastapi_users.password import PasswordHelper
 from simple_module_core.dotenv import parse_dotenv
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from users.constants import (
     ADMIN_ROLE_DESCRIPTION,
@@ -71,26 +72,7 @@ async def create_admin(
         await db.execute(select(User).where(func.lower(User.email) == email.lower()))
     ).scalar_one_or_none()
 
-    # Look up by name first (works on both Postgres and SQLite regardless of UUID
-    # storage format), then fall back to id-based lookup in case name was changed.
-    admin_role = (
-        await db.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))
-    ).scalar_one_or_none()
-    if admin_role is None:
-        admin_role = (
-            await db.execute(select(Role).where(Role.id == ADMIN_ROLE_ID))
-        ).scalar_one_or_none()
-    if admin_role is None:
-        # The seed migration (e3ce9754e6dc) inserts this row, so in a real
-        # deployment we should never hit this branch. Kept as a safety net for
-        # tests (where `create_all` runs without data migrations) and for
-        # scenarios where someone ran `alembic downgrade` past the seed
-        # revision but not past the schema revision.
-        admin_role = Role(
-            id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION
-        )
-        db.add(admin_role)
-        await db.flush()
+    admin_role = await ensure_admin_role(db)
 
     hasher = PasswordHelper()
     if existing is None:
@@ -120,7 +102,8 @@ async def create_admin(
         existing_link = (
             await db.execute(
                 select(UserRole).where(
-                    UserRole.user_id == existing.id, UserRole.role_id == admin_role.id
+                    col(UserRole.user_id) == existing.id,
+                    col(UserRole.role_id) == admin_role.id,
                 )
             )
         ).scalar_one_or_none()
@@ -132,6 +115,49 @@ async def create_admin(
 
     logger.info(_EVT_NOOP, extra={"email": email, "id": str(existing.id)})
     return CreateAdminResult(user=existing, created=False)
+
+
+async def ensure_admin_role(db: AsyncSession) -> Role:
+    """Return the administrator role, preserving an existing name or seed ID."""
+    # Look up by name first (works on both Postgres and SQLite regardless of UUID
+    # storage format), then fall back to id-based lookup in case name was changed.
+    admin_role = (
+        await db.execute(select(Role).where(col(Role.name) == ADMIN_ROLE_NAME))
+    ).scalar_one_or_none()
+    if admin_role is None:
+        admin_role = (
+            await db.execute(select(Role).where(col(Role.id) == ADMIN_ROLE_ID))
+        ).scalar_one_or_none()
+    if admin_role is None:
+        # Schema-only installs do not run the host role seed migration.
+        admin_role = Role(
+            id=ADMIN_ROLE_ID, name=ADMIN_ROLE_NAME, description=ADMIN_ROLE_DESCRIPTION
+        )
+        db.add(admin_role)
+        await db.flush()
+
+    return admin_role
+
+
+async def ensure_user_role(db: AsyncSession) -> Role:
+    """The standard ``user`` Role row, created (and flushed) if it is missing.
+
+    Startup ensures it even in scaffolded hosts whose schema baseline omits
+    the host's data migration ``b5018b617142``. Bootstrap callers can also use
+    this before startup has run.
+    """
+    user_role = (
+        await db.execute(select(Role).where(col(Role.name) == USER_ROLE_NAME))
+    ).scalar_one_or_none()
+    if user_role is None:
+        user_role = (
+            await db.execute(select(Role).where(col(Role.id) == USER_ROLE_ID))
+        ).scalar_one_or_none()
+    if user_role is None:
+        user_role = Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description=USER_ROLE_DESCRIPTION)
+        db.add(user_role)
+        await db.flush()
+    return user_role
 
 
 async def create_standard_user(
@@ -153,18 +179,7 @@ async def create_standard_user(
         logger.info(_EVT_USER_NOOP, extra={"email": email, "id": str(existing.id)})
         return CreateAdminResult(user=existing, created=False)
 
-    user_role = (
-        await db.execute(select(Role).where(Role.name == USER_ROLE_NAME))
-    ).scalar_one_or_none()
-    if user_role is None:
-        user_role = (
-            await db.execute(select(Role).where(Role.id == USER_ROLE_ID))
-        ).scalar_one_or_none()
-    if user_role is None:
-        # Safety net — the seed migration normally inserts this row.
-        user_role = Role(id=USER_ROLE_ID, name=USER_ROLE_NAME, description=USER_ROLE_DESCRIPTION)
-        db.add(user_role)
-        await db.flush()
+    user_role = await ensure_user_role(db)
 
     user = User(
         email=email,
@@ -243,7 +258,13 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
             return
 
         try:
-            await create_admin(session, email=email, password=password)
+            result = await create_admin(session, email=email, password=password)
+            if result.created and os.environ.get("SM_USERS_BOOTSTRAP_PASSWORD_GENERATED") == "1":
+                logger.warning(
+                    "first-boot admin created; store this password securely: %s / %s",
+                    email,
+                    password,
+                )
             if user_email and user_password:
                 await create_standard_user(
                     session,

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import importlib.resources
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -21,8 +23,34 @@ from settings.constants import (
     MODULE_NAME,
     MODULE_PACKAGE,
     PERM_GROUP,
+    PERM_TENANT_EDIT,
+    PERM_VIEW,
     VIEW_PREFIX,
 )
+
+if TYPE_CHECKING:
+    from simple_module_core.invalidation import InvalidationBus
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+
+async def _resolve_setting_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name a setting row by its key — "users.smtp_host", not row 41.
+
+    The primary key is a surrogate integer that appears nowhere else in the
+    product; the key is what the reader searched for and what every other
+    screen calls the row. Ids that are not integers belong to some other id
+    space and are left unnamed, which falls back to showing the id.
+    """
+    from simple_module_db.stored_settings import Setting
+    from sqlalchemy import select
+
+    numeric = {int(raw): raw for raw in ids if raw.lstrip("-").isdigit()}
+    if not numeric:
+        return {}
+    rows = (
+        await db.execute(select(Setting.id, Setting.key).where(Setting.id.in_(list(numeric))))
+    ).all()
+    return {numeric.get(row_id, str(row_id)): key for row_id, key in rows}
 
 
 class SettingsModule(ModuleBase):
@@ -30,30 +58,56 @@ class SettingsModule(ModuleBase):
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:
+        from simple_module_core.module_settings import module_settings_registry
+
         from settings.contracts.registry import SettingsRegistry
-        from settings.module_registry import ModuleSettingsRegistry
         from settings.services import SettingsServices
         from settings.settings import SettingsSettings
 
+        # The framework owns the module-settings registry (#500); the admin
+        # screens read the same object through ``services.module_registry``.
         services = SettingsServices(
             settings=SettingsSettings(),
             registry=SettingsRegistry(),
-            module_registry=ModuleSettingsRegistry(),
+            module_registry=module_settings_registry(app),
         )
         setattr(app.state, MODULE_PACKAGE, services)
 
         # Self-register so the UI lists our own settings alongside other modules.
-        services.module_registry.register("settings", SettingsSettings)
+        services.module_registry.register(MODULE_PACKAGE, SettingsSettings)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from settings.invalidation import subscribe
+
+        self._refresh = subscribe(bus, app)
+
+    async def on_startup(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            self._refresh.start()
+
+    async def on_shutdown(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            await self._refresh.stop()
+
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from settings.errors import install_exception_handlers
+
+        install_exception_handlers(app)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from settings.endpoints.api import router as api
         from settings.endpoints.module_api import router as module_api
+        from settings.endpoints.tenant_api import router as tenant_api
         from settings.endpoints.views import router as views
 
         api_router.include_router(module_api)
+        # Before ``api``: its ``/tenant/{scope_id}/{key}`` would capture
+        # ``/tenant/current/{key}`` with ``scope_id="current"``.
+        api_router.include_router(tenant_api)
         api_router.include_router(api)
         view_router.include_router(views)
 
@@ -61,16 +115,45 @@ class SettingsModule(ModuleBase):
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
+                label_key="settings.nav.settings",
                 url=MENU_URL,
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 group="System",
+                group_key="ui.nav_groups.system",
+                # Mirrors the view router's guard, so the entry is not offered
+                # to accounts whose click would 403.
+                permissions=[PERM_VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(PERM_GROUP, list(ALL_PERMISSIONS))
+        from simple_module_core.tenancy import TenantRole, tenant_role
+
+        registry.add_group(
+            PERM_GROUP,
+            list(ALL_PERMISSIONS),
+            label_key=f"{LOCALE_NAMESPACE}.permission_group",
+        )
+        # Tenant owners and admins edit their own tenant's overridable keys
+        # (#382). The one permission for it — ``tenants`` no longer ships its
+        # own unused ``tenants.settings.manage``. Members get nothing here.
+        for role in (TenantRole.OWNER, TenantRole.ADMIN):
+            registry.map_role(tenant_role(role), [PERM_TENANT_EDIT])
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from simple_module_db.stored_settings import Setting
+
+        registry.register(
+            AuditLink.for_model(
+                Setting,
+                url_template=f"{VIEW_PREFIX}/{{id}}/edit",
+                label="Setting",
+                label_key="settings.audit.setting",
+                label_resolver=_resolve_setting_labels,
+            )
+        )
 
     def locale_dirs(self) -> dict[str, Path]:
         base = Path(str(importlib.resources.files(__package__) / "locales"))

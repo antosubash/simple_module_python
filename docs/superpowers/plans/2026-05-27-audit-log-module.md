@@ -265,14 +265,16 @@ def collect_audit_records(
                 continue
             val = getattr(obj, col, None)
             changes.append({"field": col, "new": _serialize(val)})
-        records.append(AuditRecord(
-            entity_type=type(obj).__name__,
-            entity_id=_entity_pk_str(obj),
-            action="created",
-            changes=changes,
-            user_id=user_id,
-            correlation_id=correlation_id,
-        ))
+        records.append(
+            AuditRecord(
+                entity_type=type(obj).__name__,
+                entity_id=_entity_pk_str(obj),
+                action="created",
+                changes=changes,
+                user_id=user_id,
+                correlation_id=correlation_id,
+            )
+        )
 
     for obj in list(session.dirty):
         if not session.is_modified(obj):
@@ -290,32 +292,38 @@ def collect_audit_records(
                 continue
             old_val = hist.deleted[0] if hist.deleted else None
             new_val = hist.added[0] if hist.added else None
-            changes.append({
-                "field": col,
-                "old": _serialize(old_val),
-                "new": _serialize(new_val),
-            })
+            changes.append(
+                {
+                    "field": col,
+                    "old": _serialize(old_val),
+                    "new": _serialize(new_val),
+                }
+            )
         if changes:
-            records.append(AuditRecord(
-                entity_type=type(obj).__name__,
-                entity_id=_entity_pk_str(obj),
-                action="updated",
-                changes=changes,
-                user_id=user_id,
-                correlation_id=correlation_id,
-            ))
+            records.append(
+                AuditRecord(
+                    entity_type=type(obj).__name__,
+                    entity_id=_entity_pk_str(obj),
+                    action="updated",
+                    changes=changes,
+                    user_id=user_id,
+                    correlation_id=correlation_id,
+                )
+            )
 
     for obj in list(session.deleted):
         if _is_excluded(obj):
             continue
-        records.append(AuditRecord(
-            entity_type=type(obj).__name__,
-            entity_id=_entity_pk_str(obj),
-            action="deleted",
-            changes=[],
-            user_id=user_id,
-            correlation_id=correlation_id,
-        ))
+        records.append(
+            AuditRecord(
+                entity_type=type(obj).__name__,
+                entity_id=_entity_pk_str(obj),
+                action="deleted",
+                changes=[],
+                user_id=user_id,
+                correlation_id=correlation_id,
+            )
+        )
 
     return records
 ```
@@ -429,6 +437,7 @@ In `framework/db/simple_module_db/session.py`, add the field to the dataclass:
 ```python
 from collections.abc import Callable
 
+
 @dataclass
 class DatabaseState:
     """Holds all database state for a single application instance."""
@@ -471,21 +480,21 @@ def register_listeners(db_state: DatabaseState) -> None:
 At the end of `_before_flush_listener` (after the deleted loop, around line 186), add:
 
 ```python
-    # Audit callback — collect diffs and delegate to the registered consumer
-    if _db_state is not None and _db_state.audit_callback is not None:
-        from simple_module_db.audit import collect_audit_records
+# Audit callback — collect diffs and delegate to the registered consumer
+if _db_state is not None and _db_state.audit_callback is not None:
+    from simple_module_db.audit import collect_audit_records
 
-        correlation_id_val: str | None = None
-        try:
-            from simple_module_hosting.logging import correlation_id as _cid_var
+    correlation_id_val: str | None = None
+    try:
+        from simple_module_hosting.logging import correlation_id as _cid_var
 
-            correlation_id_val = _cid_var.get("")  or None
-        except ImportError:
-            pass
+        correlation_id_val = _cid_var.get("") or None
+    except ImportError:
+        pass
 
-        records = collect_audit_records(session, user_id, correlation_id_val)
-        if records:
-            _db_state.audit_callback(session, records)
+    records = collect_audit_records(session, user_id, correlation_id_val)
+    if records:
+        _db_state.audit_callback(session, records)
 ```
 
 - [ ] **Step 3: Re-export AuditRecord from __init__.py**
@@ -761,9 +770,7 @@ class AuditEntry(Base, table=True):  # ty: ignore[unsupported-base]
     action: str = Field(max_length=ACTION_MAX_LENGTH)
     changes: dict | list = Field(default_factory=list, sa_column=Column(JSON))
     user_id: str | None = Field(default=None, max_length=USER_ID_MAX_LENGTH)
-    correlation_id: str | None = Field(
-        default=None, max_length=CORRELATION_ID_MAX_LENGTH
-    )
+    correlation_id: str | None = Field(default=None, max_length=CORRELATION_ID_MAX_LENGTH)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_type=DateTime(timezone=True),
@@ -945,11 +952,7 @@ class AuditLogService:
         )
 
     async def distinct_entity_types(self) -> list[str]:
-        stmt = (
-            select(AuditEntry.entity_type)
-            .distinct()
-            .order_by(AuditEntry.entity_type)
-        )
+        stmt = select(AuditEntry.entity_type).distinct().order_by(AuditEntry.entity_type)
         result = await self.db.execute(stmt)
         return list(result.scalars())
 ```
@@ -1804,9 +1807,7 @@ class TestAuditLogCapture:
         assert entry["entity_type"] == "Setting"
         assert any(c["field"] == "key" for c in entry["changes"])
 
-    async def test_update_entity_produces_diff(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_update_entity_produces_diff(self, authenticated_client: httpx.AsyncClient):
         """Updating a setting should record old/new values."""
         create_resp = await authenticated_client.post(
             "/api/settings/",
@@ -1863,9 +1864,7 @@ class TestAuditLogCapture:
         )
         assert resp.status_code == 200
         data = resp.json()
-        delete_entries = [
-            i for i in data["items"] if i["action"] in ("deleted", "soft_deleted")
-        ]
+        delete_entries = [i for i in data["items"] if i["action"] in ("deleted", "soft_deleted")]
         assert len(delete_entries) >= 1
 
 
@@ -1893,9 +1892,7 @@ class TestAuditLogAPI:
         assert data["page_size"] == 2
         assert len(data["items"]) <= 2
 
-    async def test_unauthenticated_returns_redirect(
-        self, client: httpx.AsyncClient
-    ):
+    async def test_unauthenticated_returns_redirect(self, client: httpx.AsyncClient):
         resp = await client.get("/api/audit_log/", follow_redirects=False)
         assert resp.status_code in (302, 303, 403)
 
@@ -1903,9 +1900,7 @@ class TestAuditLogAPI:
 class TestAuditLogRecursionGuard:
     """Verify that AuditEntry writes don't trigger more audit entries."""
 
-    async def test_no_infinite_recursion(
-        self, authenticated_client: httpx.AsyncClient
-    ):
+    async def test_no_infinite_recursion(self, authenticated_client: httpx.AsyncClient):
         """Creating a setting should not cause exponential audit entries."""
         await authenticated_client.post(
             "/api/settings/",

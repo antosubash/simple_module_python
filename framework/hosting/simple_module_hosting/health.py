@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Request
+from simple_module_core.app_state import get_migration_status
 from simple_module_core.health import HealthCheckResult, HealthRegistry, HealthStatus
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ _STATUS_SEVERITY = {
 
 @router.get("/health")
 async def health(request: Request) -> dict:
-    migration = getattr(request.app.state, "migration", None)
+    migration = get_migration_status(request.app)
     return {
         _KEY_STATUS: _STATUS_HEALTHY,
         _KEY_MIGRATION: migration,
@@ -44,7 +45,11 @@ async def liveness() -> dict:
 @router.get("/health/ready")
 async def readiness(request: Request) -> dict:
     registry: HealthRegistry = request.app.state.sm.health_registry
-    checks = registry.all_checks
+    # Probe-safe checks only. Readiness is polled on a timer, and a check that
+    # opens an SMTP session or hits S3 on that schedule gets rate-limited and
+    # makes this endpoint's latency someone else's problem. Those dependencies
+    # are not readiness signals anyway — the app serves pages without them.
+    checks = registry.probe_checks
 
     if not checks:
         return {_KEY_STATUS: _STATUS_HEALTHY, _KEY_CHECKS: {}}

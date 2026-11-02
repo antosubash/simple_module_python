@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
 
+from simple_module_core.deprecation import deprecate
 from simple_module_core.exceptions import FrameworkVersionError
 from simple_module_core.module import ModuleBase
 
@@ -26,6 +27,13 @@ registries, the event bus, ``create_module_base``, or the model mixins.
 # this constant on every call. The custom-version path below still parses
 # caller-supplied strings lazily.
 _FRAMEWORK_VERSION = Version(FRAMEWORK_API_VERSION)
+
+
+_UNVERSIONED_MODULE = deprecate(
+    "ModuleMeta.requires_framework=None compatibility bypass",
+    remove_in="0.1.0",
+    use="ModuleMeta(requires_framework=...) with an explicit compatible range",
+)
 
 
 def check_framework_compatibility(
@@ -48,6 +56,9 @@ def check_framework_compatibility(
     for mod in modules:
         spec_str = mod.meta.requires_framework
         if spec_str is None:
+            # Tracked for removal (``_UNVERSIONED_MODULE``) but not warned per
+            # module: every unversioned module, in-repo ones included, would
+            # warn on each boot.
             continue
         try:
             spec = SpecifierSet(spec_str)

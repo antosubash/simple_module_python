@@ -13,7 +13,11 @@ column errors at runtime. This file pins:
 from __future__ import annotations
 
 import pytest
-from simple_module_hosting.migrations import check_migrations, resolve_head_revision
+from simple_module_hosting.migrations import (
+    check_migrations,
+    resolve_head_revision,
+    resolve_head_revisions,
+)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -33,9 +37,15 @@ async def test_returns_no_migrations_sentinel_when_alembic_ini_absent(tmp_path):
 
 @pytest.mark.anyio
 async def test_db_at_head_returns_current_status():
-    """Stamp the in-memory DB at head and check_migrations should pass cleanly."""
-    head = resolve_head_revision()
-    if head is None:
+    """Stamp the in-memory DB at heads and check_migrations should pass cleanly.
+
+    Stamps *every* head, not one: each module's first migration carries its own
+    ``branch_labels``, so an upgraded database holds one ``alembic_version`` row
+    per branch. Stamping a single revision models a partially-migrated database,
+    which is exactly what the check is supposed to reject.
+    """
+    heads = resolve_head_revisions()
+    if not heads:
         pytest.skip("Repository alembic.ini not resolvable from cwd")
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -44,16 +54,18 @@ async def test_db_at_head_returns_current_status():
             await conn.execute(
                 text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
             )
-            await conn.execute(
-                text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
-                {"v": head},
-            )
+            for head in heads:
+                await conn.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                    {"v": head},
+                )
         result = await check_migrations(engine)
     finally:
         await engine.dispose()
 
-    assert result["current_revision"] == head
-    assert result["head_revision"] == head
+    expected = ", ".join(sorted(heads))
+    assert result["current_revision"] == expected
+    assert result["head_revision"] == expected
     assert result["is_current"] is True
 
 

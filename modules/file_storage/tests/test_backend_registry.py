@@ -35,11 +35,18 @@ class _DummyBackend:
 
         return empty()
 
+    async def get_range(  # pragma: no cover - unused
+        self, key: str, start: int, end: int
+    ) -> AsyncIterator[bytes]:
+        return await self.get(key)
+
     async def delete(self, key: str) -> None: ...
     async def exists(self, key: str) -> bool:
         return False
 
-    async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:  # pragma: no cover
+    async def presigned_get_url(
+        self, key: str, ttl_seconds: int, **_: str | None
+    ) -> str:  # pragma: no cover
         raise NotImplementedError
 
 

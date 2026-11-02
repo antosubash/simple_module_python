@@ -24,6 +24,9 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-playwright>=0.7.2",
+    # Without a floor uv backtracks playwright to 1.18 (2022) to dodge a pyee
+    # pin, which pytest-playwright cannot load (GH #445).
+    "playwright>=1.45",
     "ruff>=0.8",
     "ty>=0.0.29",
     # Provides the build_test_app / fake_event_bus fixtures (pytest11 plugin).

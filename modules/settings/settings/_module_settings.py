@@ -6,28 +6,34 @@ Each module stores a services dataclass on ``app.state.<package>`` whose
 
 from __future__ import annotations
 
-import re
+import os
 from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
+from simple_module_core.module_settings import get_module_settings_registry
 
-from settings.env_vars import env_prefix_for
-from settings.hydrate import value_type_for_field
-
-# We intentionally DON'T match the bare word "token" (would mask
-# `verification_token_lifetime_seconds` — just an int) or "key" alone (would
-# mask `s3_bucket_key_prefix`). Only fragments that actually indicate material.
-_SECRET_PATTERNS = re.compile(
-    r"(password|secret|api[_-]?key|private[_-]?key|token[_-]?secret)", re.I
+# Re-exported: callers reach for ``SECRET_MASK`` / ``is_secret_field`` here.
+from simple_module_core.secret_fields import (  # noqa: F401
+    _NEVER_SECRET_TYPES,
+    SECRET_MASK,
+    annotation_holds_secret,
+    conceals_secret,
+    embeds_credential,
+    is_named_secret,
+    is_secret_field,
+    mask,
 )
-SECRET_MASK = "••••••••"
+from simple_module_core.settings_hydrate import (
+    env_supplied_fields,
+    input_type_for_field,
+    value_type_for_field,
+)
 
-
-def is_secret_field(name: str) -> bool:
-    """True if a field name suggests it holds credential material."""
-    return bool(_SECRET_PATTERNS.search(name))
+from settings._field_meta import choices_for, env_readable_var, resolve_default
+from settings.env_vars import env_prefix_for
+from settings.service import SettingService
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +47,59 @@ class ModuleSettingField:
     type: str
     requires_restart: bool
     group: str | None
+    env_set: bool = False
+    """This field is genuinely env-readable *and* its env var is set.
+
+    Deliberately not "the ``SM_*`` label below is present in ``os.environ``".
+    The bundled module settings classes declare no ``env_prefix`` — they are
+    constructed from pydantic defaults and hydrated from the DB — so their
+    ``SM_*`` vars are never consulted. Reporting a leftover
+    ``SM_MAIL_SMTP_HOST`` as the live source would invert the very question
+    this screen answers. Classes that *do* declare one (the host's ``Settings``
+    with ``SM_``, and anything from the module scaffold) report ``env`` for
+    real, because for them pydantic really does read it.
+    """
+    db_override: bool = False
+    """A stored setting overrides this field."""
+    env_readable: bool = False
+    """The declaring class reads env at all, i.e. it declares an ``env_prefix``.
+
+    :attr:`env_set` collapses two very different answers into one ``False``:
+    "there is no env fallback for this field" and "there is one and nobody set
+    it". The Resolved value panel has to tell them apart, or it labels a row
+    "env fallback" for a class that will never look at the environment.
+    """
+    env_value: str | None = None
+    """The env var's current contents, masked for secrets, or ``None``.
+
+    Only populated when the field is genuinely env-readable *and* set — it is
+    the fallback the panel shows, not a second copy of the live value.
+    """
+    choices: list[str] | None = None
+    """Closed set of accepted values, or ``None`` when the field is free text."""
+    input_type: str = ""
+    """Editor control: ``type`` with an ``X | None`` unwrapped to ``X``."""
+    nullable: bool = False
+    """``None`` is a valid value; the editor sends it for an empty input."""
+
+    @property
+    def source(self) -> str:
+        """Where the live value came from: ``db``, ``env`` or ``default``.
+
+        Mirrors the precedence in ``hydrate_settings``: env → DB → default
+        (GH #486). A stored override for a field the environment sets is
+        ignored, so ``env`` wins even when ``db_override`` is true. ``env`` only
+        appears for settings classes that declare an ``env_prefix`` (or name
+        the field in ``env_seeded_fields``) — the same rule
+        ``hydrate.env_supplied_fields`` applies; see :attr:`env_set`. Showing
+        this is the difference between "why is this not taking effect" being a
+        five-minute question and an afternoon.
+        """
+        if self.env_set:
+            return "env"
+        if self.db_override:
+            return "db"
+        return "default"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +109,9 @@ class ModuleSettingsView:
     env_prefix: str
     class_name: str
     fields: list[ModuleSettingField]
-
-
-def _mask(value: Any) -> Any:
-    if value in (None, "", [], {}):
-        return value
-    return SECRET_MASK
+    manage_url: str | None = None
+    """The module's own management page. When set, the generic editor renders
+    a link there instead of a second editor for the same fields."""
 
 
 def _package_of(mod: Any) -> str:
@@ -77,62 +133,103 @@ def _extract_settings(app: FastAPI, package: str) -> BaseSettings | None:
     return inner if isinstance(inner, BaseSettings) else None
 
 
-def _resolve_default(info) -> Any:
-    """Return the effective default, handling ``default_factory`` fields.
-
-    Pydantic sets ``info.default`` to ``PydanticUndefined`` when
-    ``default_factory`` is used. We call the factory to get the concrete
-    default so the settings UI can serialize it.
-    """
-    from pydantic_core import PydanticUndefined
-
-    if info.default is not PydanticUndefined:
-        return info.default
-    if info.default_factory is not None:
-        return info.default_factory()
-    return None
-
-
-def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSettingField:
+def _field_view(
+    name: str,
+    settings: BaseSettings,
+    prefix: str,
+    overridden: frozenset[str] = frozenset(),
+    env_supplied: frozenset[str] | None = None,
+) -> ModuleSettingField:
     cls = type(settings)
+    if env_supplied is None:
+        env_supplied = env_supplied_fields(cls)
     info = cls.model_fields[name]
     raw_value = getattr(settings, name)
-    secret = is_secret_field(name)
+    value_type = value_type_for_field(cls, name)
+    input_type, nullable = input_type_for_field(cls, name)
+    named_secret = is_named_secret(name, value_type)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
-    default = _resolve_default(info)
+    default = resolve_default(info)
+    env_var = f"{prefix}{name.upper()}"
+    live_env_var = env_readable_var(settings, name)
+    # The same answer ``build_settings`` acts on (GH #486), so a value supplied
+    # by the class's ``.env``, a secrets file or an alias is labelled "env"
+    # here exactly when hydration lets it beat a stored override.
+    env_set = name in env_supplied
+    raw_env = os.environ.get(live_env_var) if env_set and live_env_var is not None else None
+
+    # Declared as ``SecretStr`` (also inside ``X | None`` or a container):
+    # masked whatever the field is called, since the store holds it in clear.
+    typed_secret = annotation_holds_secret(info.annotation)
+
+    def hidden(value: Any) -> bool:
+        return typed_secret or conceals_secret(name, value, value_type)
+
+    # ``is_secret`` drives the editor's input type and the "reveal" affordance,
+    # so it has to be true when *any* of the three readings is being hidden —
+    # otherwise the form offers to edit a value it is showing as dots.
+    secret = (
+        typed_secret
+        or named_secret
+        or any(embeds_credential(v) for v in (raw_value, default, raw_env))
+    )
+    group = extra.get("group")
     return ModuleSettingField(
         name=name,
-        env_var=f"{prefix}{name.upper()}",
-        value=_mask(raw_value) if secret else raw_value,
-        default=_mask(default) if secret else default,
+        env_var=env_var,
+        value=mask(raw_value) if hidden(raw_value) else raw_value,
+        default=mask(default) if hidden(default) else default,
         description=info.description or "",
         is_secret=secret,
-        type=value_type_for_field(cls, name),
+        type=value_type,
         requires_restart=bool(extra.get("requires_restart", False)),
-        group=extra.get("group"),
+        group=group if isinstance(group, str) else None,
+        env_set=env_set,
+        db_override=name in overridden,
+        env_readable=live_env_var is not None,
+        # Masked on the same rule as ``value`` and ``default``: a secret stays
+        # hidden, everything else is shown. Masking unconditionally turned the
+        # Resolved value panel's env row into a row of dots for every key.
+        env_value=(mask(raw_env) if hidden(raw_env) else raw_env) if raw_env is not None else None,
+        choices=choices_for(info),
+        input_type=input_type,
+        nullable=nullable,
     )
 
 
-def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
+def collect_module_settings(
+    app: FastAPI,
+    overrides: dict[str, frozenset[str]] | None = None,
+) -> list[ModuleSettingsView]:
     """Return a sorted, serializable view of every module's BaseSettings.
 
     Folds in both ``app.state.sm.modules`` (plugin modules) and additional
-    packages registered via ``app.state.settings.module_registry`` (e.g.
+    packages registered in the framework's module-settings registry (e.g.
     ``"host"``) that aren't backed by a ``ModuleBase`` instance.
+
+    ``overrides`` maps package -> field names carrying a stored override. It
+    is passed in rather than read here because fetching it is async and this
+    function is not; callers without it get ``db_override=False`` throughout.
     """
+    by_package = overrides or {}
     views: list[ModuleSettingsView] = []
     seen: set[str] = set()
+
+    registry = get_module_settings_registry(app)
+
+    def _manage_url(package: str) -> str | None:
+        return registry.manage_url(package) if registry is not None else None
 
     for mod in getattr(app.state.sm, "modules", ()):
         package = _package_of(mod)
         settings = _extract_settings(app, package)
         if settings is None:
             continue
-        views.append(_build_view(mod.meta.name, package, settings))
+        views.append(
+            _build_view(mod.meta.name, package, settings, by_package, _manage_url(package))
+        )
         seen.add(package)
 
-    settings_services = getattr(app.state, "settings", None)
-    registry = getattr(settings_services, "module_registry", None)
     if registry is not None:
         for package in registry.all_packages():
             if package in seen:
@@ -140,47 +237,47 @@ def collect_module_settings(app: FastAPI) -> list[ModuleSettingsView]:
             settings = _extract_settings(app, package)
             if settings is None:
                 continue
-            views.append(_build_view(package.title(), package, settings))
+            views.append(
+                _build_view(package.title(), package, settings, by_package, _manage_url(package))
+            )
             seen.add(package)
 
     views.sort(key=lambda v: v.module_name)
     return views
 
 
-def _build_view(module_name: str, package: str, settings: BaseSettings) -> ModuleSettingsView:
+def _build_view(
+    module_name: str,
+    package: str,
+    settings: BaseSettings,
+    overrides: dict[str, frozenset[str]] | None = None,
+    manage_url: str | None = None,
+) -> ModuleSettingsView:
     prefix = env_prefix_for(package)
-    fields = [_field_view(name, settings, prefix) for name in type(settings).model_fields]
+    overridden = (overrides or {}).get(package, frozenset())
+    from_env = env_supplied_fields(type(settings))
+    fields = [
+        _field_view(name, settings, prefix, overridden, from_env)
+        for name in type(settings).model_fields
+    ]
     return ModuleSettingsView(
         module_name=module_name,
         package=package,
         env_prefix=prefix,
         class_name=type(settings).__name__,
         fields=fields,
+        manage_url=manage_url,
     )
 
 
-def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
-    """Convert dataclass views to plain dicts for Inertia props."""
-    return [
-        {
-            "module_name": v.module_name,
-            "package": v.package,
-            "env_prefix": v.env_prefix,
-            "class_name": v.class_name,
-            "fields": [
-                {
-                    "name": f.name,
-                    "env_var": f.env_var,
-                    "value": f.value,
-                    "default": f.default,
-                    "description": f.description,
-                    "is_secret": f.is_secret,
-                    "type": f.type,
-                    "requires_restart": f.requires_restart,
-                    "group": f.group,
-                }
-                for f in v.fields
-            ],
-        }
-        for v in views
-    ]
+async def overrides_by_package(service: SettingService) -> dict[str, frozenset[str]]:
+    """Map package -> field names carrying a stored override.
+
+    Reads the SYSTEM scope once and buckets by key prefix. Packages with no
+    overrides are simply absent, which :func:`collect_module_settings` already
+    treats as "nothing overridden". Shared by both the Inertia view and the
+    JSON API so the two never drift on what "overridden" means.
+    """
+    from settings.store import SettingsStore
+
+    return await SettingsStore(service).all_override_fields()

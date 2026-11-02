@@ -13,19 +13,35 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from simple_module_db import current_tenant_id
-from starlette.datastructures import Headers, MutableHeaders
+from simple_module_core.app_state import get_principal_serializer
+from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from simple_module_hosting._inertia_shared import build_i18n_block, merge_shared_prop_providers
+from simple_module_hosting._csp_dynamic import DynamicCsp
+from simple_module_hosting._inertia_shared import (
+    build_i18n_block,
+    build_menu_translator,
+    default_home_url,
+    lazy_csrf_shared_prop,
+    merge_shared_prop_providers,
+)
 from simple_module_hosting._observability import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
 )
-from simple_module_hosting.permissions import expand_permissions, resolve_permissions
+from simple_module_hosting._spa_mount import native_prefixes
+from simple_module_hosting._tenant import (
+    TENANT_HEADER,
+    TenantMiddleware,
+    TenantResolution,
+    TenantResolver,
+)
+from simple_module_hosting.permissions import expand_permissions, resolve_request_permissions
+from simple_module_hosting.token_guard import is_token_principal
 
 if TYPE_CHECKING:
+    from simple_module_core.csp import CspSourceRegistry
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
 
@@ -58,6 +74,8 @@ __all__ = [
     "RequestLoggingMiddleware",
     "SecurityHeadersMiddleware",
     "TenantMiddleware",
+    "TenantResolution",
+    "TenantResolver",
 ]
 
 
@@ -70,7 +88,7 @@ class SecurityHeadersMiddleware:
     or behind plain-HTTP loopbacks where HSTS would lock users out).
     """
 
-    _DEFAULT_CSP = (
+    DEFAULT_CSP = (
         "default-src 'self'; "
         # Inertia embeds the initial page blob inline; Vite injects a React
         # Refresh shim at boot. Both require 'unsafe-inline' for scripts.
@@ -123,12 +141,20 @@ class SecurityHeadersMiddleware:
         self,
         app: ASGIApp,
         *,
-        content_security_policy: str | None = _DEFAULT_CSP,
+        content_security_policy: str | None = DEFAULT_CSP,
         strict_transport_security: str | None = _DEFAULT_HSTS,
+        csp_registry: CspSourceRegistry | None = None,
     ) -> None:
         self.app = app
         self.csp = content_security_policy
         self.hsts = strict_transport_security
+        # Providers (settings-driven origins, #434) are evaluated per response;
+        # with none, the precomputed string above is the whole story.
+        self._dynamic = (
+            DynamicCsp(content_security_policy, csp_registry)
+            if content_security_policy and csp_registry is not None and csp_registry.providers
+            else None
+        )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != _SCOPE_HTTP:
@@ -142,68 +168,20 @@ class SecurityHeadersMiddleware:
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
                 headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
-                if self.csp:
-                    headers[_HEADER_CSP] = self.csp
+                # A response may only *tighten* the app-wide policy: one that
+                # carries its own ``sandbox`` directive (file_storage serving
+                # user-uploaded bytes) keeps it. Any other response-supplied
+                # policy is overwritten, so a module cannot weaken the default.
+                own = headers.get(_HEADER_CSP) or ""
+                keeps_own = "sandbox" in {d.strip().split(" ")[0].lower() for d in own.split(";")}
+                if self.csp and not keeps_own:
+                    dyn = self._dynamic
+                    headers[_HEADER_CSP] = dyn.policy_for(scope.get("app")) if dyn else self.csp
                 if self.hsts:
                     headers[_HEADER_HSTS] = self.hsts
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
-
-
-TENANT_HEADER = "X-Tenant-ID"
-
-
-class TenantMiddleware:
-    """Extract tenant context from authenticated user or request header.
-
-    Sets the ``current_tenant_id`` context var so that DB queries on
-    :class:`~simple_module_db.mixins.MultiTenantMixin` models are
-    automatically filtered, and new objects get ``tenant_id`` populated.
-
-    Also stores the resolved value on ``request.state.tenant_id``.
-
-    Tenant is resolved from (in priority order):
-
-    1. Authenticated user's ``tenant_id`` attribute (from auth token claims).
-    2. The configured request header, if any — useful for API clients
-       and tests. Pass ``header=None`` (the default) to disable the
-       header source and force tenant resolution through the auth token
-       only. Pass the header name (e.g. ``"X-Tenant-ID"``) to enable.
-    """
-
-    def __init__(self, app: ASGIApp, *, header: str | None = None) -> None:
-        self.app = app
-        self.header = header
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != _SCOPE_HTTP:
-            await self.app(scope, receive, send)
-            return
-
-        request = Request(scope)
-        tenant_id: str | None = None
-
-        user = getattr(request.state, "user", None)
-        if user is not None:
-            tenant_id = getattr(user, "tenant_id", None)
-
-        if tenant_id is None and self.header:
-            header_value = Headers(scope=scope).get(self.header)
-            if header_value:
-                tenant_id = header_value
-
-        request.state.tenant_id = tenant_id
-
-        if tenant_id is not None:
-            token = current_tenant_id.set(tenant_id)
-            try:
-                await self.app(scope, receive, send)
-            finally:
-                current_tenant_id.reset(token)
-            return
-
-        await self.app(scope, receive, send)
 
 
 PrincipalSerializer = Callable[[Any], dict[str, Any]]
@@ -240,27 +218,35 @@ class InertiaLayoutDataMiddleware:
             return
 
         request = Request(scope)
+        # Resolve permissions once — roles plus module grant sources (GH #337) —
+        # and cache on request.state for RequiresPermission and the menu filter.
+        # May demote the principal (a credential its account no longer backs).
+        resolved = await resolve_request_permissions(request, self.permission_registry)
         user = getattr(request.state, "user", None)
+        if is_token_principal(user):
+            # An API token never legitimately renders a page, so the layout
+            # describes the anonymous visitor: no account, roles, permissions,
+            # menus or memberships on a 403 page or a public one (N2). The
+            # cached ``resolved`` set above still gates the token's API calls.
+            shared = await self._shared(request, scope, None, set())
+        else:
+            shared = await self._shared(request, scope, user, resolved)
+        request.state.inertia_shared = shared
+
+        await self.app(scope, receive, send)
+
+    async def _shared(self, request: Request, scope: Scope, user: Any, resolved: set[str]) -> dict:
+        """The shared props for *user* (``None``: the anonymous visitor)."""
         is_authenticated = user is not None
         roles = getattr(user, "roles", []) if user else []
-
-        # Resolve permissions once and cache on request.state for RequiresPermission
-        resolved = (
-            resolve_permissions(roles, role_map=self.permission_registry.role_map)
-            if is_authenticated
-            else set()
-        )
-        request.state.resolved_permissions = resolved
 
         # Expand wildcard to full list for frontend (no "*" leak)
         all_perms = self.permission_registry.all_permissions
         frontend_permissions = expand_permissions(resolved, all_perms) if is_authenticated else []
 
-        i18n_block = build_i18n_block(scope, request)
+        i18n_block = build_i18n_block(scope, request, is_authenticated=is_authenticated)
 
-        principal_serializer: PrincipalSerializer | None = getattr(
-            scope["app"].state, "principal_serializer", None
-        )
+        principal_serializer: PrincipalSerializer | None = get_principal_serializer(scope["app"])
         user_payload: dict[str, Any] | None = (
             principal_serializer(user) if user is not None and principal_serializer else None
         )
@@ -271,17 +257,29 @@ class InertiaLayoutDataMiddleware:
                 "isAuthenticated": is_authenticated,
                 "permissions": frontend_permissions,
             },
-            "menus": self.menu_registry.get_for_user(
+            "menus": await self.menu_registry.get_for_request(
+                request,
                 is_authenticated=is_authenticated,
                 roles=roles,
+                # Already expanded above (wildcards resolved), which is exactly
+                # what the menu filter needs to drop entries that would 403.
+                permissions=frontend_permissions,
+                translate=build_menu_translator(request),
             ),
             "i18n": i18n_block,
+            **lazy_csrf_shared_prop(request, is_authenticated=is_authenticated),
+            "nativePrefixes": native_prefixes(scope["app"]),
         }
 
         # Merge module-registered shared-prop providers (e.g. branding) — read off
-        # app.state without importing the plugin (SM009), defensively.
-        merge_shared_prop_providers(scope["app"], request, shared)
-
-        request.state.inertia_shared = shared
-
-        await self.app(scope, receive, send)
+        # app.state without importing the plugin (SM009), defensively. They read
+        # ``request.state.user`` themselves, so they see the same principal.
+        actual = getattr(request.state, "user", None)
+        request.state.user = user
+        try:
+            await merge_shared_prop_providers(scope["app"], request, shared)
+        finally:
+            request.state.user = actual
+        # After the providers, so a module's own value (users) wins.
+        shared.setdefault("homeUrl", default_home_url(scope["app"]))
+        return shared

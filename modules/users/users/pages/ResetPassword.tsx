@@ -1,105 +1,154 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
+import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
+import { useHomeUrl } from '@simple-module-py/ui/lib/home-url';
+import { CheckCircle2, TimerOff } from 'lucide-react';
 import { useState } from 'react';
+import { AuthStateCard } from '../auth_local/components/AuthStateCard';
+import { PasswordFields } from '../auth_local/components/PasswordFields';
+import { resetPasswordReason } from '../auth_local/resetPasswordError';
+import { api } from './api';
+import { signIn } from './signIn';
+
+const FORGOT_PATH = '/users/forgot-password';
 
 interface Props {
   token: string;
+  /** The address the token was issued for — signs the reset in when it lands. */
+  email: string | null;
+  /** True when a token was supplied and could not be read. */
+  expired: boolean;
+  reset_link_lifetime_minutes: number;
 }
 
-function ResetPassword() {
-  const { token: initialToken } = usePage<{ props: Props }>().props as unknown as Props;
-
-  const urlToken =
-    typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('token') ?? '')
-      : '';
-  const token = urlToken || initialToken;
+function ResetPassword({
+  token,
+  email,
+  expired,
+  reset_link_lifetime_minutes: lifetimeMinutes,
+}: Props) {
+  const homeUrl = useHomeUrl();
+  const { t } = useT();
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [mismatch, setMismatch] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  /** Sign in with the address the token named, so "Save and sign in" is one step.
+   *
+   * Never rejects: by the time this runs the password has already been
+   * changed, and a network error here must not be reported as a failed reset. */
+  const signedIn = async () => {
+    if (!email) return false;
+    return (await signIn(email, password)).status === 204;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setMismatch(true);
       return;
     }
+    setMismatch(false);
     setLoading(true);
-    fetch('/api/users/auth/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password }),
-    })
+    apiResult(api.POST('/api/users/auth/reset-password', { body: { token, password } }))
       .then(async (res) => {
-        if (res.status === 200 || res.status === 204) {
-          router.visit('/users/login');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          const detail =
-            typeof data?.detail === 'string'
-              ? data.detail
-              : 'Reset failed. The link may have expired.';
-          setError(detail);
+        if (res.status === NETWORK_FAILURE) {
+          setError(t(keys.users.common.error_try_again));
+          return;
         }
+        if (res.status !== 200 && res.status !== 204) {
+          const reason = res.status === 400 ? resetPasswordReason(res.error) : null;
+          setError(reason ?? res.detail ?? t(keys.users.reset_password.error_failed));
+          return;
+        }
+        if (await signedIn()) {
+          router.visit(homeUrl);
+          return;
+        }
+        // The password *was* saved — the reset returned 200. Reporting a
+        // generic failure here would send someone back to try the dead link
+        // again with the old password. Say what actually happened and hand
+        // them the sign-in page.
+        setSaved(true);
       })
-      .catch(() => setError('An error occurred. Please try again.'))
       .finally(() => setLoading(false));
   };
 
+  if (saved) {
+    return (
+      <AuthCardShell>
+        <Head title={t(keys.users.reset_password.head_title)} />
+        <AuthStateCard
+          icon={CheckCircle2}
+          tone="primary"
+          title={t(keys.users.reset_password.saved_title)}
+          description={t(keys.users.reset_password.saved_description)}
+        >
+          <Button asChild className="max-lg:min-h-11">
+            <a href={LOGIN_PATH}>{t(keys.users.common.sign_in)}</a>
+          </Button>
+        </AuthStateCard>
+      </AuthCardShell>
+    );
+  }
+
+  if (expired) {
+    return (
+      <AuthCardShell tone="destructive">
+        <Head title={t(keys.users.reset_password.head_title)} />
+        <AuthStateCard
+          icon={TimerOff}
+          tone="destructive"
+          title={t(keys.users.reset_password.expired_title)}
+          description={t(keys.users.reset_password.expired_body, { minutes: lifetimeMinutes })}
+        >
+          <Button asChild className="max-lg:min-h-11">
+            <a href={FORGOT_PATH}>{t(keys.users.reset_password.expired_action)}</a>
+          </Button>
+        </AuthStateCard>
+      </AuthCardShell>
+    );
+  }
+
   return (
     <AuthCardShell>
-      <Head title="Reset Password" />
-      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-        Reset password
+      <Head title={t(keys.users.reset_password.head_title)} />
+      <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-display">
+        {t(keys.users.reset_password.heading)}
       </h1>
-      <p className="mb-5 text-sm text-muted-foreground">
-        Choose a new password and you'll be redirected to log in.
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            New password
-          </Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="8+ characters"
-            required
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirm" className="text-sm font-medium text-muted-foreground">
-            Confirm password
-          </Label>
-          <Input
-            id="confirm"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            autoComplete="new-password"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <PasswordFields
+          password={password}
+          onPasswordChange={(next) => {
+            setPassword(next);
+            setMismatch(false);
+          }}
+          confirm={confirm}
+          onConfirmChange={(next) => {
+            setConfirm(next);
+            setMismatch(false);
+          }}
+          passwordLabel={t(keys.users.common.new_password)}
+          confirmLabel={t(keys.users.reset_password.confirm_label)}
+          mismatch={mismatch}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" size="lg" className="w-full" disabled={loading || !token}>
-          {loading ? 'Resetting…' : 'Reset password'}
+          {loading ? t(keys.users.reset_password.submitting) : t(keys.users.reset_password.submit)}
         </Button>
       </form>
       {!token && (
-        <p className="mt-3 text-sm text-destructive">
-          No reset token found. Please use the link from your email.
-        </p>
+        <p className="mt-3 text-sm text-destructive">{t(keys.users.reset_password.no_token)}</p>
       )}
     </AuthCardShell>
   );

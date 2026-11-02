@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import func
 from sqlmodel import Field, SQLModel
+
+from simple_module_db.types import AwareDateTime
 
 
 def _utcnow() -> datetime:
@@ -32,12 +34,12 @@ class AuditMixin(SQLModel):
 
     created_at: datetime = Field(
         default_factory=_utcnow,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
         sa_column_kwargs={"server_default": func.now()},
     )
     updated_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
         sa_column_kwargs={"onupdate": func.now()},
     )
     created_by: str | None = Field(default=None, max_length=255)
@@ -55,7 +57,7 @@ class SoftDeleteMixin(SQLModel):
     is_deleted: bool = Field(default=False)
     deleted_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     deleted_by: str | None = Field(default=None, max_length=255)
 
@@ -67,9 +69,9 @@ class MultiTenantMixin(SQLModel):
     inside a request scope without explicitly threading the tenant through —
     the ``_before_flush_listener`` in :mod:`simple_module_db.listeners`
     populates it from the ``current_tenant_id`` contextvar before the row
-    reaches the DB. The column itself is non-nullable, so a row inserted
-    outside any tenant context fails loudly at the DB rather than silently
-    leaking across tenants.
+    reaches the DB. The column itself is non-nullable. With no tenant bound,
+    strict mode (``multi_tenant`` on) raises ``MissingTenantError``; a
+    single-tenant install stamps ``DEFAULT_TENANT_ID`` instead (#380).
     """
 
     tenant_id: str | None = Field(

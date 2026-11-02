@@ -18,14 +18,14 @@ class TestUserContextFromUser:
             email="charlie@example.com",
             full_name="Charlie Brown",
             roles=[role_a, role_b],
-            tenant_id="tenant-42",
         )
         ctx = UserContext.from_user(fake_user)
         assert ctx.id == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         assert ctx.email == "charlie@example.com"
         assert ctx.name == "Charlie Brown"
         assert ctx.roles == ["admin", "editor"]
-        assert ctx.tenant_id == "tenant-42"
+        # The user row carries no tenant; the resolver supplies it per request.
+        assert ctx.tenant_id is None
 
     async def test_from_user_name_fallback_to_email(self):
         """When full_name is None, ctx.name falls back to the user's email."""
@@ -93,3 +93,69 @@ class TestUserContextDefaults:
     async def test_roles_default_is_empty_list(self):
         ctx = UserContext(id="1", email="a@b.com", name="A")
         assert ctx.roles == []
+
+    async def test_permissions_default_is_empty_list(self):
+        ctx = UserContext(id="1", email="a@b.com", name="A")
+        assert ctx.permissions == []
+
+    async def test_positional_construction_unchanged(self):
+        ctx = UserContext("1", "a@b.com", "A", ["admin"], "t1")
+        assert ctx.tenant_id == "t1"
+        assert ctx.permissions == []
+
+
+class TestUserContextPermissions:
+    async def test_session_round_trip_keeps_permissions(self):
+        ctx = UserContext(id="1", email="a@b.com", name="A", permissions=["x.read", "x.write"])
+        payload = ctx.to_session_dict()
+        assert payload["permissions"] == ["x.read", "x.write"]
+        assert UserContext.from_session_dict(payload) == ctx
+
+    async def test_legacy_cookie_without_permissions_key(self):
+        """A cookie written before the field existed still decodes."""
+        payload = {"id": "1", "email": "a@b.com", "name": "A", "roles": [], "tenant_id": None}
+        ctx = UserContext.from_session_dict(payload)
+        assert ctx is not None
+        assert ctx.permissions == []
+
+    async def test_null_permissions_decodes_empty(self):
+        payload = {"id": "1", "email": "a@b.com", "name": "A", "permissions": None}
+        ctx = UserContext.from_session_dict(payload)
+        assert ctx is not None
+        assert ctx.permissions == []
+
+    async def test_from_user_leaves_permissions_empty(self):
+        from types import SimpleNamespace
+
+        user = SimpleNamespace(id=1, email="a@b.com", full_name="A", roles=[])
+        assert UserContext.from_user(user).permissions == []
+
+    async def test_has_permission_exact_match(self):
+        ctx = UserContext(id="1", email="a@b.com", name="A", permissions=["x.read"])
+        assert ctx.has_permission("x.read") is True
+        assert ctx.has_permission("x.write") is False
+        assert ctx.has_permission("x") is False
+
+
+class TestUserContextTokenFields:
+    async def test_defaults_are_an_uncapped_session(self):
+        ctx = UserContext(id="1", email="a@b.com", name="A")
+        assert (ctx.auth_kind, ctx.scopes, ctx.is_scoped) == ("session", None, False)
+
+    async def test_legacy_cookie_decodes_as_uncapped_session(self):
+        """A cookie from before token principals must not become scoped."""
+        payload = {"id": "1", "email": "a@b.com", "name": "A", "roles": ["admin"]}
+        ctx = UserContext.from_session_dict(payload)
+        assert ctx is not None
+        assert (ctx.auth_kind, ctx.scopes) == ("session", None)
+
+    async def test_token_fields_round_trip_and_empty_scopes_stay_capped(self):
+        for scopes in (["x.read"], []):
+            ctx = UserContext(id="1", email="", name="A", auth_kind="pat", scopes=scopes)
+            back = UserContext.from_session_dict(ctx.to_session_dict())
+            assert back == ctx
+            assert back is not None and back.is_scoped
+
+    async def test_malformed_scopes_reject_the_payload(self):
+        payload = {"id": "1", "email": "a@b.com", "name": "A", "scopes": "x.read"}
+        assert UserContext.from_session_dict(payload) is None

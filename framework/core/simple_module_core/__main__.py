@@ -7,31 +7,50 @@ Usage::
 
 Exits with status 1 if any ERROR-level diagnostics are reported.
 
-i18n checks are included when ``SM_I18N_SUPPORTED_LOCALES`` is set in env
-(or ``.env``). Host-level ``host/locales/`` and shared ``packages/ui/locales/``
-are picked up relative to ``SM_PROJECT_ROOT`` (or the current working dir).
+i18n checks always run. ``SM_I18N_SUPPORTED_LOCALES`` (env or ``.env``)
+declares the locale set this install promises, which also enables SM013 for a
+namespace that never shipped one; with it unset, each namespace is checked
+against the locale files it actually has, so key drift between two shipped
+translations is still caught. Host-level ``host/locales/`` is picked up
+relative to the project root (``SM_PROJECT_ROOT``, else the directory of the
+discovered ``.env``, else the current working dir).
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sys
 from pathlib import Path
 
+from simple_module_core._data_doctor import data_compatibility_diagnostics
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
     print_diagnostics,
     run_diagnostics,
 )
-from simple_module_core.discovery import discover_modules, topological_sort
-from simple_module_core.dotenv import parse_dotenv
+from simple_module_core.diagnostics._dependencies import CODE as MISSING_DEPENDENCY_CODE
+from simple_module_core.diagnostics._i18n import unknown_overrides_for
+from simple_module_core.discovery import (
+    discover_modules,
+    resolve_auth_provider,
+    select_auth_provider,
+    topological_sort,
+)
+from simple_module_core.dotenv import find_env_file, parse_dotenv
 from simple_module_core.exceptions import InvalidModuleError
 
 
-def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
-    """Return ``(supported_locales, default_locale)`` or ``(None, None)`` if unset.
+def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:
+    """Return ``(supported_locales, default_locale)``.
+
+    ``supported_locales`` is ``None`` when ``SM_I18N_SUPPORTED_LOCALES`` is
+    unset or unparseable — the diagnostic then falls back to the locale files
+    each namespace ships rather than running no locale checks at all. The
+    default locale always has a value, because a parity comparison needs to
+    know which side is the source of truth.
 
     Reads env vars directly to avoid a dependency on ``simple_module_hosting``.
     Honors ``.env`` by merging it into ``os.environ`` if present (pydantic-
@@ -40,9 +59,10 @@ def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
     for key, value in parse_dotenv().items():
         os.environ.setdefault(key, value)
 
+    default = os.environ.get("SM_I18N_DEFAULT_LOCALE", "en")
     supported_raw = os.environ.get("SM_I18N_SUPPORTED_LOCALES")
     if not supported_raw:
-        return None, None
+        return None, default
 
     try:
         supported = json.loads(supported_raw)
@@ -51,22 +71,69 @@ def _load_i18n_settings_from_env() -> tuple[list[str], str] | tuple[None, None]:
         supported = [s.strip() for s in supported_raw.split(",") if s.strip()]
 
     if not isinstance(supported, list) or not supported:
-        return None, None
+        return None, default
 
-    default = os.environ.get("SM_I18N_DEFAULT_LOCALE", "en")
     return supported, default
 
 
+def _database_url() -> str:
+    """``SM_DATABASE_URL``, defaulting like ``Settings.database_url``."""
+    return os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+
+
+def _database_dialect() -> str:
+    """Dialect name of ``SM_DATABASE_URL`` (``.env`` merged by the i18n loader first).
+
+    Defaults to ``sqlite`` like ``Settings.database_url``. Reads the env var
+    directly for the same reason the i18n settings do: no hosting import.
+    """
+    url = _database_url()
+    return url.split(":", 1)[0].split("+", 1)[0]
+
+
+def _hosting_locales() -> Path | None:
+    """The framework's own ``hosting`` catalog (setup wizard), found without importing it.
+
+    The running app's ``build_i18n_registry`` always adds it, so doctor must
+    too, or every ``hosting.*`` host override reads as unknown (SM027). Core
+    may not import ``simple_module_hosting``: locate the package on disk.
+    """
+    try:
+        spec = importlib.util.find_spec("simple_module_hosting")
+    except (ImportError, ValueError):
+        return None
+    if spec is None or not spec.origin:
+        return None
+    locales = Path(spec.origin).resolve().parent / "locales"
+    return locales if locales.is_dir() else None
+
+
+def _hosting_ui_locales() -> Path | None:
+    """The shared ``ui`` catalog, which ships inside ``simple_module_hosting`` (#426)."""
+    hosting = _hosting_locales()
+    if hosting is None:
+        return None
+    ui = hosting.parent / "ui_locales"
+    return ui if ui.is_dir() else None
+
+
 def _discover_extra_locale_sources() -> list[tuple[str, str, Path]]:
-    """Return ``[(reporter, namespace, path), ...]`` for host + ui locale dirs."""
-    root = Path(os.environ.get("SM_PROJECT_ROOT") or Path.cwd())
+    """Return ``[(reporter, namespace, path), ...]`` for hosting + host + ui locale dirs."""
+    # Anchor on the same project root the `.env` was loaded from
+    # (`parse_dotenv` walks up from the cwd) — resolving against the bare cwd
+    # here would look for `host/locales` in the wrong directory whenever
+    # doctor runs from a subdirectory.
+    root = find_env_file().parent
     out: list[tuple[str, str, Path]] = []
+    hosting_locales = _hosting_locales()
+    if hosting_locales is not None:
+        out.append(("simple_module_hosting", "hosting", hosting_locales))
     host_locales = root / "host" / "locales"
     if host_locales.is_dir():
         out.append(("host", "host", host_locales))
-    ui_locales = root / "packages" / "ui" / "locales"
-    if ui_locales.is_dir():
-        out.append(("packages/ui", "ui", ui_locales))
+    ui_locales = _hosting_ui_locales()
+    if ui_locales is not None:
+        out.append(("simple_module_hosting/ui", "ui", ui_locales))
     return out
 
 
@@ -100,18 +167,33 @@ def main() -> int:
         print("No modules discovered. Is the project installed (`uv sync --all-packages`)?")
         return 0
 
+    # Mirror the host: only the configured auth provider is active, so doctor
+    # reports on the same module set the app actually boots with.
+    modules = select_auth_provider(modules, resolve_auth_provider())
+
     # Topological sort surfaces CircularDependencyError early.
     modules = topological_sort(modules)
 
     supported, default = _load_i18n_settings_from_env()
     extra = _discover_extra_locale_sources()
 
+    unknown_overrides, override_findings = unknown_overrides_for(modules, extra, supported, default)
+
     diagnostics = run_diagnostics(
         modules,
         i18n_supported_locales=supported,
         i18n_default_locale=default,
         i18n_extra_sources=extra,
+        i18n_unknown_overrides=unknown_overrides,
+        database_dialect=_database_dialect(),
     )
+    diagnostics.extend(override_findings)
+    diagnostics.extend(data_compatibility_diagnostics(modules, _database_url()))
+    # A missing dependency only warns at a dev boot, but production refuses
+    # to start with it (GH #501), so doctor reports it as what it will be.
+    for finding in diagnostics:
+        if finding.code == MISSING_DEPENDENCY_CODE:
+            finding.level = DiagnosticLevel.ERROR
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

@@ -1,4 +1,9 @@
 {
   "extends": "../../host/client_app/tsconfig.json",
-  "include": ["keycloak/**/*.ts", "keycloak/**/*.tsx"]
+  "include": ["keycloak/**/*.ts", "keycloak/**/*.tsx"],
+  // The parent's "exclude" is a relative glob resolved against the config file
+  // it was declared in (host/client_app), so it does not reach files under
+  // this module — override it here so a future keycloak/**/*.test.tsx is
+  // excluded from tsc the same way host/client_app's specs are.
+  "exclude": ["keycloak/**/*.test.ts", "keycloak/**/*.test.tsx"]
 }

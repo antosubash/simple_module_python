@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_hosting.manifest import (
+    _glob_pattern_for,
     collect_module_js_deps,
     read_module_package_json,
     repo_root_from_client_app,
@@ -163,3 +164,50 @@ def test_collect_module_js_deps_aggregates_across_layouts(fake_module_factory) -
     assert empty_cls.meta.name not in deps
     assert deps[wheel_cls.meta.name] == {"cmdk": "^1.0.0"}
     assert deps[source_cls.meta.name] == {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"}
+
+
+class TestPageGlobsExcludeTestFiles:
+    """A ``*.test.tsx`` beside a page is a test, not a page.
+
+    ``pages/**/*.tsx`` matched them, with two consequences: the resolver
+    registered a phantom page (``Error.test``), and Vite followed the import
+    into the production bundle — shipping the test file *and* dragging
+    ``@testing-library`` into a vendor chunk for every visitor to download.
+    """
+
+    def test_module_glob_excludes_test_files(self, tmp_path: Path) -> None:
+        pages = tmp_path / "modules" / "demo" / "demo" / "pages"
+        pages.mkdir(parents=True)
+        output = tmp_path / "host" / "client_app"
+        output.mkdir(parents=True)
+
+        patterns = _glob_pattern_for(pages, output)
+
+        assert isinstance(patterns, list), "must emit include + exclusions"
+        assert patterns[0].endswith("/pages/**/*.tsx")
+        assert any(p.startswith("!") and p.endswith("*.test.tsx") for p in patterns)
+        assert any(p.startswith("!") and p.endswith("*.spec.tsx") for p in patterns)
+
+    def test_module_glob_keeps_the_include_relative_to_the_output_file(
+        self, tmp_path: Path
+    ) -> None:
+        """The exclusions must be anchored the same way as the include, or Vite
+        matches them against a different base and silently keeps the test file."""
+        pages = tmp_path / "modules" / "demo" / "demo" / "pages"
+        pages.mkdir(parents=True)
+        output = tmp_path / "host" / "client_app"
+        output.mkdir(parents=True)
+
+        include, *excludes = _glob_pattern_for(pages, output)
+
+        assert include.startswith("../../modules/demo/demo/pages")
+        for pattern in excludes:
+            assert pattern[1:].startswith("../../modules/demo/demo/pages"), pattern
+
+
+def test_host_page_glob_excludes_test_files() -> None:
+    """The host's own glob lives in a checked-in .ts file, not the generator."""
+    pages_ts = Path(__file__).resolve().parents[3] / "host" / "client_app" / "pages.ts"
+    source = pages_ts.read_text(encoding="utf-8")
+    assert "'!./pages/**/*.test.tsx'" in source, source
+    assert "'!./pages/**/*.spec.tsx'" in source, source

@@ -1,7 +1,7 @@
 """Bump the version of every simple_module package in lockstep.
 
-Walks every framework/*/pyproject.toml, modules/*/pyproject.toml, and
-packages/*/package.json. Rewrites:
+Walks every framework/*/pyproject.toml, modules/*/pyproject.toml,
+modules/*/package.json and packages/*/package.json. Rewrites:
 
   * project.version
   * every simple_module_* entry in project.dependencies → "simple_module_*==<version>"
@@ -27,7 +27,7 @@ from pathlib import Path
 
 import tomlkit
 
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+([-.]?(a|b|rc|alpha|beta)\d*)?$")
+VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:[-.]?(a|b|rc|alpha|beta)(\d*))?")
 PY_PKG_PREFIX = "simple_module_"
 NPM_SCOPE_PREFIX = "@simple-module-py/"
 
@@ -66,6 +66,20 @@ def bump_python_package(pyproject: Path, new_version: str, *, check: bool = Fals
                     changed = True
                     deps[i] = want
 
+    # Extras (e.g. ``file_storage[tasks]``) pin lockstep siblings too; leaving
+    # them behind would make the published extra uninstallable after a bump.
+    extras = project.get("optional-dependencies")
+    if extras is not None:
+        for group in extras.values():
+            for i, entry in enumerate(group):
+                spec = str(entry)
+                name = _parse_requirement_name(spec)
+                if name.startswith(PY_PKG_PREFIX):
+                    want = f"{name}=={new_version}"
+                    if spec != want:
+                        changed = True
+                        group[i] = want
+
     if check:
         return not changed
     if changed:
@@ -74,6 +88,14 @@ def bump_python_package(pyproject: Path, new_version: str, *, check: bool = Fals
 
 
 def bump_npm_package(package_json: Path, new_version: str, *, check: bool = False) -> bool:
+    match = VERSION_RE.fullmatch(new_version)
+    if match is None:
+        raise ValueError(f"Invalid release version: {new_version!r}")
+    major, minor, patch, pre, number = match.groups()
+    new_version = ".".join(str(int(part)) for part in (major, minor, patch))
+    if pre:
+        label = {"a": "alpha", "b": "beta"}.get(pre, pre)
+        new_version += f"-{label}.{int(number or '0')}"
     data = json.loads(package_json.read_text(encoding="utf-8"))
     changed = False
 
@@ -86,7 +108,10 @@ def bump_npm_package(package_json: Path, new_version: str, *, check: bool = Fals
         if not deps:
             continue
         for name, current in list(deps.items()):
-            if name.startswith(NPM_SCOPE_PREFIX) and current != new_version:
+            # "*" is the workspace wildcard; only private (unpublished) module
+            # package.json files may keep it, a published one must be pinned.
+            keep = (new_version, "*") if data.get("private") else (new_version,)
+            if name.startswith(NPM_SCOPE_PREFIX) and current not in keep:
                 changed = True
                 deps[name] = new_version
 
@@ -106,11 +131,13 @@ def discover(root: Path) -> tuple[list[Path], list[Path]]:
                 if child.is_dir() and (child / "pyproject.toml").exists():
                     py.append(child / "pyproject.toml")
     npm: list[Path] = []
-    packages_dir = root / "packages"
-    if packages_dir.is_dir():
-        for child in sorted(packages_dir.iterdir()):
-            if child.is_dir() and (child / "package.json").exists():
-                npm.append(child / "package.json")
+    # Module package.json files version in lockstep with the Python packages (#510).
+    for base in ("modules", "packages"):
+        base_dir = root / base
+        if base_dir.is_dir():
+            for child in sorted(base_dir.iterdir()):
+                if child.is_dir() and (child / "package.json").exists():
+                    npm.append(child / "package.json")
     return py, npm
 
 
@@ -122,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
 
-    if not VERSION_RE.match(args.version):
+    if not VERSION_RE.fullmatch(args.version):
         print(f"ERROR: '{args.version}' is not a valid version.", file=sys.stderr)
         raise SystemExit(2)
 

@@ -15,6 +15,9 @@ beforeEach(() => {
   state.branding = undefined;
   document.documentElement.style.removeProperty('--primary');
   document.documentElement.style.removeProperty('--sidebar-primary');
+  document.documentElement.style.removeProperty('--color-primary-600');
+  document.documentElement.style.removeProperty('--primary-foreground');
+  document.documentElement.style.removeProperty('--sidebar-primary-foreground');
 });
 
 afterEach(() => cleanup());
@@ -25,6 +28,49 @@ describe('BrandingHead', () => {
     render(<BrandingHead />);
     expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#ff0000');
     expect(document.documentElement.style.getPropertyValue('--sidebar-primary')).toBe('#ff0000');
+  });
+
+  test('derives the full primary ramp so gradient tints follow the brand', () => {
+    state.branding = { appName: 'Acme', primaryColor: '#ff0000', logoUrl: null, faviconUrl: null };
+    render(<BrandingHead />);
+    // The badge gradient uses primary-600/800 — these must be re-themed too.
+    expect(document.documentElement.style.getPropertyValue('--color-primary-600')).toMatch(
+      /^oklch\(/,
+    );
+    expect(document.documentElement.style.getPropertyValue('--color-primary-800')).toMatch(
+      /^oklch\(/,
+    );
+  });
+
+  test('clears the derived ramp on unmount', () => {
+    state.branding = { appName: 'Acme', primaryColor: '#ff0000', logoUrl: null, faviconUrl: null };
+    const { unmount } = render(<BrandingHead />);
+    unmount();
+    expect(document.documentElement.style.getPropertyValue('--color-primary-600')).toBe('');
+  });
+
+  test('picks a dark foreground ink for a light brand and clears it on unmount (#420)', () => {
+    state.branding = { appName: 'Acme', primaryColor: '#62B8E2', logoUrl: null, faviconUrl: null };
+    const { unmount } = render(<BrandingHead />);
+    const style = document.documentElement.style;
+    expect(style.getPropertyValue('--primary-foreground')).toBe('oklch(0.2 0.02 250)');
+    expect(style.getPropertyValue('--sidebar-primary-foreground')).toBe('oklch(0.2 0.02 250)');
+    unmount();
+    expect(style.getPropertyValue('--primary-foreground')).toBe('');
+    expect(style.getPropertyValue('--sidebar-primary-foreground')).toBe('');
+  });
+
+  test('keeps the server-rendered theme-color meta in sync, restoring on unmount', () => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    meta.setAttribute('content', '#000000');
+    document.head.appendChild(meta);
+    state.branding = { appName: 'Acme', primaryColor: '#ff0000', logoUrl: null, faviconUrl: null };
+    const { unmount } = render(<BrandingHead />);
+    expect(meta.getAttribute('content')).toBe('#ff0000');
+    unmount();
+    expect(meta.getAttribute('content')).toBe('#000000');
+    meta.remove();
   });
 
   test('renders a favicon link when a faviconUrl is set', () => {

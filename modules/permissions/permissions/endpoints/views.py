@@ -5,23 +5,31 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Request
-from inertia import InertiaResponse
 from pydantic import ValidationError
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import (
     redirect_back_with_errors,
     validation_errors_to_dict,
 )
+from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from permissions.constants import PERM_MANAGE
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
-from permissions.deps import RequiresPermission, assigned_by, get_permission_service
+from permissions.deps import (
+    RequiresPermission,
+    assigned_by,
+    get_permission_service,
+)
 from permissions.service import PermissionService
+from permissions.write_safety import PermissionWriteRefused
 
 router = APIRouter()
 
-_ADMIN_URL = "/users/admin"
+_ADMIN_URL = "/admin/users/"
+# Form-error key the edit pages read to show why a save was refused (#687).
+_REFUSAL_FIELD = "permissions"
 
 
 @router.get("/", response_model=None)
@@ -40,12 +48,13 @@ async def browse() -> RedirectResponse:
 async def edit_role(
     role_id: uuid.UUID,
     inertia: InertiaDep,
+    translator: TranslatorDep,
     service: PermissionService = Depends(get_permission_service),
 ) -> InertiaResponse | RedirectResponse:
     assignment = await service.get_role_permissions(role_id)
     if assignment is None:
         return RedirectResponse(_ADMIN_URL, status_code=303)
-    groups = service.list_registered_groups()
+    groups = service.list_registered_groups(translator.t)
     return await inertia.render(
         "Permissions/RoleEdit",
         {
@@ -71,7 +80,10 @@ async def update_role(
         data = RolePermissionsUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
+    try:
+        await service.set_role_permissions(role_id, data.permissions, assigned_by(request))
+    except PermissionWriteRefused as exc:
+        return redirect_back_with_errors(request, {_REFUSAL_FIELD: exc.detail})
     return RedirectResponse(_ADMIN_URL, status_code=303)
 
 
@@ -86,12 +98,13 @@ async def update_role(
 async def edit_user(
     user_id: uuid.UUID,
     inertia: InertiaDep,
+    translator: TranslatorDep,
     service: PermissionService = Depends(get_permission_service),
 ) -> InertiaResponse | RedirectResponse:
     assignment = await service.get_user_permissions(user_id)
     if assignment is None:
         return RedirectResponse(_ADMIN_URL, status_code=303)
-    groups = service.list_registered_groups()
+    groups = service.list_registered_groups(translator.t)
     return await inertia.render(
         "Permissions/UserEdit",
         {
@@ -99,6 +112,7 @@ async def edit_user(
             "roles": assignment.roles,
             "direct": assignment.direct,
             "inherited": assignment.inherited,
+            "inherited_by": assignment.inherited_by,
             "groups": [g.model_dump(mode="json") for g in groups],
         },
     )
@@ -119,5 +133,8 @@ async def update_user(
         data = UserPermissionsUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
+    try:
+        await service.set_user_permissions(user_id, data.permissions, assigned_by(request))
+    except PermissionWriteRefused as exc:
+        return redirect_back_with_errors(request, {_REFUSAL_FIELD: exc.detail})
     return RedirectResponse(_ADMIN_URL, status_code=303)

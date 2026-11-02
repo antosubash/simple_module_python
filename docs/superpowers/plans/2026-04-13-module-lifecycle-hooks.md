@@ -144,10 +144,10 @@ from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegi
 
 Add to `__all__`:
 ```python
-    "HealthCheck",
-    "HealthCheckResult",
-    "HealthRegistry",
-    "HealthStatus",
+("HealthCheck",)
+("HealthCheckResult",)
+("HealthRegistry",)
+("HealthStatus",)
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
@@ -675,8 +675,12 @@ def _check_settings_registration(modules: list, app: FastAPI) -> None:
 
     # Snapshot known framework keys on app.state
     framework_keys = {
-        "menu_registry", "perm_registry", "ff_registry",
-        "event_bus", "health_registry", "settings",
+        "menu_registry",
+        "perm_registry",
+        "ff_registry",
+        "event_bus",
+        "health_registry",
+        "settings",
     }
     state_keys = {k for k in vars(app.state) if not k.startswith("_")}
     module_added_keys = state_keys - framework_keys
@@ -856,6 +860,7 @@ async def readiness(request: Request) -> dict:
 
     # Run all checks concurrently
     results: dict[str, HealthCheckResult] = {}
+
     async def _run_check(name: str, check_fn):
         try:
             return name, await check_fn()

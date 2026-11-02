@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Mapping
-from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
 
-from babel import Locale
+from simple_module_core._i18n_flatten import flatten_messages, read_catalog
+from simple_module_core._i18n_translator import Translator
+from simple_module_core.i18n_overrides import apply_overrides, load_overrides
+
+__all__ = ["PLURAL_CATEGORIES", "I18nRegistry", "Translator", "flatten_messages"]
 
 logger = logging.getLogger(__name__)
 
@@ -18,50 +19,6 @@ logger = logging.getLogger(__name__)
 #: as the exhaustive suffix set when tools (e.g. the frontend-types emitter)
 #: need to detect plural-variant keys.
 PLURAL_CATEGORIES: tuple[str, ...] = ("zero", "one", "two", "few", "many", "other")
-
-
-@lru_cache(maxsize=64)
-def _plural_rule(locale: str):  # type: ignore[no-untyped-def]
-    """Cached CLDR plural rule for a locale tag (e.g. 'en', 'ru', 'pt_BR')."""
-    return Locale.parse(locale).plural_form
-
-
-def _plural_form(locale: str, count: float) -> str:
-    """Return CLDR plural category ('one', 'few', 'many', 'other', ...).
-
-    Falls back to 'other' if the locale cannot be parsed by Babel.
-    """
-    try:
-        rule = _plural_rule(locale)
-    except Exception:
-        return "other"
-    return rule(count)
-
-
-def flatten_messages(
-    nested: dict[str, Any],
-    *,
-    prefix: str = "",
-) -> dict[str, str]:
-    """Flatten a nested dict of string leaves to dotted keys.
-
-    {"browse": {"title": "X"}} -> {"browse.title": "X"}
-
-    Raises ValueError if any leaf is not a string.
-    """
-    out: dict[str, str] = {}
-    for key, value in nested.items():
-        composed = f"{prefix}.{key}" if prefix else key
-        if isinstance(value, dict):
-            out.update(flatten_messages(value, prefix=composed))
-        elif isinstance(value, str):
-            out[composed] = value
-        else:
-            raise ValueError(
-                f"Locale value at '{composed}' must be string or nested dict, "
-                f"got {type(value).__name__}"
-            )
-    return out
 
 
 class I18nRegistry:
@@ -78,7 +35,7 @@ class I18nRegistry:
     def __init__(self, default_locale: str, supported_locales: list[str]) -> None:
         self.default_locale = default_locale
         self.supported_locales = list(supported_locales)
-        self._sources: list[tuple[str, Path]] = []
+        self._sources: list[tuple[str, Path, str]] = []
         self._messages: dict[str, dict[str, str]] = {}
         # Immutable views into ``_messages`` — handed out by ``messages()`` to
         # avoid a per-call dict copy. Rebuilt whenever ``load()`` runs.
@@ -88,15 +45,29 @@ class I18nRegistry:
         # avoids per-request dict copies that used to dominate allocations on the
         # Inertia render path.
         self._message_snapshots: dict[str, dict[str, str]] = {}
+        self._public_snapshots: dict[str, dict[str, str]] = {}
         self._available_locales: tuple[str, ...] = ()
         self._available_locales_list: list[str] = []
         self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
         self._empty_snapshot: dict[str, str] = {}
+        self._override_dirs: list[Path] = []
+        #: locale -> override keys that matched no catalog key (set by ``load()``).
+        self.unknown_override_keys: dict[str, list[str]] = {}
         self._loaded = False
 
-    def add_source(self, namespace: str, locale_dir: Path) -> None:
-        """Queue a module's locale directory for loading under a namespace."""
-        self._sources.append((namespace, Path(locale_dir)))
+    def add_overrides(self, overrides_dir: Path) -> None:
+        """Queue a host directory of ``<locale>.json`` overrides, applied last by ``load()``."""
+        self._override_dirs.append(Path(overrides_dir))
+
+    def add_source(self, namespace: str, locale_dir: Path, *, audience: str = "public") -> None:
+        """Queue a module's locale directory for loading under a namespace.
+
+        ``audience="admin"`` keeps the namespace out of the public snapshot
+        (:meth:`messages_snapshot` with ``include_admin=False``) so catalogs
+        for login-gated UI aren't shipped to anonymous visitors. Server-side
+        lookups (:meth:`messages`) always see every namespace.
+        """
+        self._sources.append((namespace, Path(locale_dir), audience))
 
     def load(self) -> None:
         """Read and flatten all registered JSON files.
@@ -105,8 +76,11 @@ class I18nRegistry:
         warning but do not raise. Malformed JSON raises ValueError.
         """
         self._messages = {locale: {} for locale in self.supported_locales}
+        public_messages: dict[str, dict[str, str]] = {
+            locale: {} for locale in self.supported_locales
+        }
 
-        for namespace, locale_dir in self._sources:
+        for namespace, locale_dir, audience in self._sources:
             for locale in self.supported_locales:
                 path = locale_dir / f"{locale}.json"
                 if not path.is_file():
@@ -116,14 +90,26 @@ class I18nRegistry:
                         path,
                     )
                     continue
-                try:
-                    raw = json.loads(path.read_text(encoding="utf-8"))
-                except json.JSONDecodeError as exc:
-                    raise ValueError(f"invalid JSON in {path}: {exc}") from exc
-                if not isinstance(raw, dict):
-                    raise ValueError(f"{path} must contain a JSON object at the top level")
-                flat = flatten_messages(raw, prefix=namespace)
+                flat = flatten_messages(read_catalog(path), prefix=namespace)
                 self._messages[locale].update(flat)
+                if audience != "admin":
+                    public_messages[locale].update(flat)
+
+        self.unknown_override_keys = {}
+        for overrides_dir in self._override_dirs:
+            for locale in self.supported_locales:
+                skipped = apply_overrides(
+                    load_overrides(overrides_dir, locale),
+                    self._messages[locale],
+                    public_messages[locale],
+                    default_messages=self._messages.get(self.default_locale),
+                    default_public=public_messages.get(self.default_locale),
+                )
+                if skipped:
+                    self.unknown_override_keys.setdefault(locale, []).extend(skipped)
+                    logger.warning(
+                        "Ignoring host overrides for unknown keys (%s): %s", locale, skipped
+                    )
 
         # Cache the derived views now that loading is complete. Downstream
         # (middleware, translator, switcher) reads these on every request.
@@ -131,8 +117,20 @@ class I18nRegistry:
             locale: MappingProxyType(msgs) for locale, msgs in self._messages.items()
         }
         # Plain-dict snapshots for serialization callers. ``dict(msgs)`` runs
-        # once here rather than on every Inertia render.
-        self._message_snapshots = {locale: dict(msgs) for locale, msgs in self._messages.items()}
+        # once here rather than on every Inertia render. The public variant
+        # (admin namespaces excluded) is what anonymous visitors receive.
+        #
+        # Each non-default locale layers over the default one, so a key it has
+        # not translated yet resolves to the default language instead of
+        # reaching the browser missing. The client cannot recover on its own:
+        # i18next is initialised with ``fallbackLng`` equal to the active
+        # locale, so an absent key renders as the raw dotted key — a partially
+        # translated locale would put "dashboard.home.health" on screen. The
+        # server-side ``Translator`` has always fallen back this way; this
+        # makes the payload behave the same, and makes partial translations a
+        # safe, incremental state to be in.
+        self._message_snapshots = self._layered_snapshots(self._messages)
+        self._public_snapshots = self._layered_snapshots(public_messages)
         self._available_locales = tuple(locale for locale, msgs in self._messages.items() if msgs)
         self._available_locales_list = list(self._available_locales)
         self._loaded = True
@@ -147,6 +145,16 @@ class I18nRegistry:
         if self._loaded:
             return self._available_locales_list
         return [locale for locale, msgs in self._messages.items() if msgs]
+
+    def _layered_snapshots(self, messages: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
+        """Snapshot per locale, each layered over the default locale's."""
+        base = messages.get(self.default_locale, {})
+        return {
+            locale: dict(msgs)
+            if locale == self.default_locale
+            else {**base, **msgs}  # translated entries win; the rest read as default
+            for locale, msgs in messages.items()
+        }
 
     def messages(self, locale: str) -> Mapping[str, str]:
         """Flat dotted-key map for the given locale. Empty mapping if unknown.
@@ -165,7 +173,7 @@ class I18nRegistry:
             return self._empty_view
         return MappingProxyType(raw)
 
-    def messages_snapshot(self, locale: str) -> dict[str, str]:
+    def messages_snapshot(self, locale: str, *, include_admin: bool = True) -> dict[str, str]:
         """Plain-dict snapshot for callers that JSON-serialize the result.
 
         Built once at :meth:`load` time and handed out by reference on every
@@ -173,86 +181,18 @@ class I18nRegistry:
         corrupts subsequent responses. Used by the Inertia shared-props builder
         where it sits on the request hot path; prior to this method,
         ``dict(messages(locale))`` per request was the top own-code allocator.
+
+        ``include_admin=False`` returns the variant without ``audience="admin"``
+        namespaces — what anonymous visitors are served.
         """
-        snapshot = self._message_snapshots.get(locale)
+        pool = self._message_snapshots if include_admin else self._public_snapshots
+        snapshot = pool.get(locale)
         if snapshot is not None:
             return snapshot
         # Fallback for tests that skip ``load()``: synthesize the snapshot on
-        # demand from whatever ``_messages`` holds.
+        # demand from whatever ``_messages`` holds (audience information only
+        # exists for sources that went through ``load()``).
         raw = self._messages.get(locale)
         if raw is None:
             return self._empty_snapshot
         return dict(raw)
-
-
-class _SafeFormatDict(dict):
-    """Dict that returns ``{key}`` for missing keys so str.format_map doesn't raise."""
-
-    def __missing__(self, key: str) -> str:
-        return "{" + key + "}"
-
-
-class Translator:
-    """Request-scoped translator bound to a specific locale.
-
-    Construct via::
-
-        Translator(registry, locale=request.state.locale, default_locale="en")
-
-    Resolution order for :meth:`t`:
-
-    1. Look up key in ``locale``; if missing, fall back to ``default_locale``.
-    2. If still missing, return the key itself (with a debug log).
-    3. Interpolate ``{name}``-style placeholders using supplied kwargs.
-       Missing placeholders are left as ``{name}`` (not raised).
-    """
-
-    def __init__(
-        self,
-        registry: I18nRegistry,
-        locale: str,
-        default_locale: str,
-    ) -> None:
-        self._registry = registry
-        self.locale = locale
-        self.default_locale = default_locale
-
-    def t(self, key: str, **params: Any) -> str:
-        """Translate ``key`` with optional interpolation and plural resolution.
-
-        When ``count`` is in params, look up ``<key>_<plural_form>`` using
-        Babel's CLDR plural rule for the active locale, falling back to
-        ``<key>_other`` and finally ``<key>``.
-        """
-        resolved_key = self._resolve_plural_key(key, params)
-        template = self._lookup(resolved_key)
-        if template is None and resolved_key != key:
-            template = self._lookup(key)
-        if template is None:
-            logger.debug("i18n: missing key '%s' in locale '%s'", key, self.locale)
-            return key
-        return template.format_map(_SafeFormatDict(params))
-
-    def _resolve_plural_key(self, key: str, params: dict[str, Any]) -> str:
-        count = params.get("count")
-        if count is None:
-            return key
-        form = _plural_form(self.locale, count)
-        # Prefer the exact form; fall back to _other if that form has no entry.
-        candidate = f"{key}_{form}"
-        if self._lookup(candidate) is not None:
-            return candidate
-        other = f"{key}_other"
-        if self._lookup(other) is not None:
-            return other
-        return key
-
-    def _lookup(self, key: str) -> str | None:
-        msgs = self._registry.messages(self.locale)
-        if key in msgs:
-            return msgs[key]
-        if self.locale != self.default_locale:
-            default = self._registry.messages(self.default_locale)
-            if key in default:
-                return default[key]
-        return None

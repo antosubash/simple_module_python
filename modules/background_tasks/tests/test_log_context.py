@@ -79,9 +79,9 @@ class TestLogContextFilter:
         with bind_task_context(task_id="t-1", task_name="reports.ingest", job_id=99):
             log_filter.filter(record)
 
-        assert record.task_id == "t-1"  # type: ignore[attr-defined]
-        assert record.task_name == "reports.ingest"  # type: ignore[attr-defined]
-        assert record.job_id == 99  # type: ignore[attr-defined]
+        assert record.task_id == "t-1"
+        assert record.task_name == "reports.ingest"
+        assert record.job_id == 99
 
     def test_no_op_when_unbound(self) -> None:
         log_filter = LogContextFilter()
@@ -93,12 +93,12 @@ class TestLogContextFilter:
     def test_does_not_overwrite_explicit_extra(self) -> None:
         log_filter = LogContextFilter()
         record = _make_record()
-        record.job_id = "from-extra"  # type: ignore[attr-defined]
+        record.job_id = "from-extra"
 
         with bind_task_context(job_id="from-context"):
             log_filter.filter(record)
 
-        assert record.job_id == "from-extra"  # type: ignore[attr-defined]
+        assert record.job_id == "from-extra"
 
 
 class TestInstallLogFilter:

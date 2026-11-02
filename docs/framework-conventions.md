@@ -20,7 +20,7 @@ modules/<name>/
     └── pages/                # *.tsx — auto-discovered by Vite
 ```
 
-Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates a working subset (`module.py`, `services.py`, `settings.py`, `endpoints/api.py`, an empty `pages/`, plus packaging files); add `models.py`, `deps.py`, `contracts/`, `endpoints/views.py`, and `locales/` as your module needs them. Then run `uv add ./modules/<name>` to register it on your app.
+Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates a working CRUD sample (`module.py`, `constants.py`, `models.py`, `contracts/`, `service.py`, `deps.py`, `settings.py`, `services.py`, `endpoints/{api,views}.py`, `pages/{Browse,Create,Edit}.tsx`, `locales/en.json`, plus packaging files and tests). `make new-module` uses the same templates for a module inside this repo. Then run `uv add ./modules/<name>` to register it on your app.
 
 ## ModuleMeta
 
@@ -29,10 +29,10 @@ Every `ModuleBase` subclass **must** declare a `meta` class attribute:
 ```python
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
-        name="Orders",                    # PascalCase, unique
-        route_prefix="/api/orders",       # mounted on the API router
-        view_prefix="/orders",            # mounted on the view router
-        depends_on=["Products"],          # strict load order
+        name="Orders",  # PascalCase, unique
+        route_prefix="/api/orders",  # mounted on the API router
+        view_prefix="/orders",  # mounted on the view router
+        depends_on=["Products"],  # strict load order
         version="1.0.0",
     )
 ```
@@ -54,6 +54,8 @@ The framework calls `discover_modules()` at app-build time. No manual wiring in 
 
 In production (`SM_ENVIRONMENT != development`) discovery runs in **strict mode**: any entry-point load failure or structural error (missing `meta`, wrong base class) raises `InvalidModuleError` at boot. In development, errors are logged and the module is skipped.
 
+Discovery is source-agnostic: a module installed from PyPI, a git repo (`smpy add git+…`), or a local path is found identically. Modules distributed via git release by tagging: repo-wide lockstep `vX.Y.Z` tags where the tag version equals every contained package's declared version. Hosts pin one ref per repo; `smpy update` moves all modules from the same repo together.
+
 ## Middleware pipeline
 
 Starlette's `add_middleware` is **LIFO** — the last middleware added is the first executed on a request. The framework installs middleware in this order inside `create_app`:
@@ -74,9 +76,18 @@ InertiaLayoutDataMiddleware
 **Execution order on a request:**
 
 ```
-CorrelationId → RequestLogging → SecurityHeaders → Session
-  → <modules> → Tenant → Locale → InertiaLayoutData → app
+(ProxyHeaders) → CorrelationId → RequestLogging → SecurityHeaders → Session
+  → <modules> → Tenant → Locale → InertiaLayoutData → CommitBeforeResponse → app
 ```
+
+`ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
+`ProxyHeadersMiddleware`). It sits outermost so the scheme/client corrected
+from `X-Forwarded-*` is visible to every downstream layer — request logs get
+the real client IP rather than the proxy's, and `request.url.scheme` reflects
+the proxy-terminated scheme.
+
+Inertia does not depend on it. The page url it ships is root-relative, as the
+protocol specifies, so it carries no scheme to disagree with the document's.
 
 ### Module-registered middleware ordering
 
@@ -86,12 +97,57 @@ If you need a specific relative order, express it with `ModuleMeta.depends_on`. 
 
 ## Settings
 
-Framework settings live on `Settings` (`simple_module_hosting.settings`), prefix `SM_`:
+Framework settings live on `Settings` (`simple_module_hosting.settings`), which
+is `HostSettings` + `BootstrapSettings`. Both read the `SM_` prefix, but they
+differ in where the *value* comes from.
+
+`BootstrapSettings` is env-only, because it cannot be anything else:
 
 ```
-SM_DATABASE_URL, SM_ENVIRONMENT, SM_SECRET_KEY, SM_VITE_DEV_URL,
-SM_DEBUG, SM_LOG_LEVEL, SM_LOG_FORMAT, SM_MULTI_TENANT, SM_TENANT_HEADER
+SM_DATABASE_URL   opens the database, so it cannot live in it
+SM_MODULES_ENABLED decides which modules load — including the settings module
+SM_ENVIRONMENT, SM_DEBUG, SM_VITE_DEV_URL   facts about the process
+SM_SECRET_KEY     optional; unset generates and stores one
 ```
+
+`HostSettings` is DB-backed, edited at `/admin/settings`, with the env var as
+an override:
+
+```
+SM_MULTI_TENANT, SM_TENANT_HEADER, SM_I18N_*, SM_MAINTENANCE_*,
+SM_LOG_LEVEL, SM_LOG_FORMAT, SM_TRUSTED_PROXY, SM_AUTH_PROVIDER,
+SM_AUTH_PUBLIC_PATHS, SM_DB_POOL_SIZE, SM_DB_MAX_OVERFLOW,
+SM_DB_POOL_PRE_PING, SM_DB_POOL_RECYCLE
+```
+
+Precedence is **env → DB → default**, and env must keep winning: a deployment
+that sets `SM_TRUSTED_PROXY` has to behave identically after an upgrade, and an
+inverted precedence would change that with nothing raising.
+
+### The two reads
+
+Settings are read twice per boot, and the first read is the one that is easy
+to forget.
+
+`create_app` consumes settings in Phase 1 (module discovery, auth-provider
+selection, the i18n registry) and again in Phase 8 (the middleware stack).
+Both happen before the lifespan opens the database, so lifespan hydration can
+only swap what a request handler reads later — it cannot rebuild a registry or
+a middleware stack that already exists. `_preapp_config.merge_host_settings`
+therefore does one short-lived read *before* Phase 1.
+
+A consequence worth stating plainly: **an entry point that builds its own
+`Settings()` and passes it to `create_app` skips that read entirely.**
+`host/main.py` calls `merge_host_settings()` for exactly this reason. Before
+that was fixed, `HostSettings` fields consumed at build time were silently
+inert — editing `i18n_default_locale` in the admin UI wrote a row nothing read
+back.
+
+The read is tolerant by design. An unreachable database, a database that has
+not been migrated, and an empty settings table all fall back to defaults
+rather than raising: each is an ordinary first-boot state, and each is what
+the setup wizard exists to repair. Failing the boot would make the wizard
+unreachable.
 
 ### Framework state
 
@@ -99,9 +155,13 @@ Framework singletons live on `app.state.sm`, a frozen `Services` dataclass popul
 once at boot. Consumers read `request.app.state.sm.<field>` — never raw `app.state`
 attributes for framework-owned state.
 
-Fields: `settings`, `db`, `event_bus`, `menu_registry`, `permissions`,
-`feature_flags`, `health_registry`, `public_routes`, `i18n_registry`,
-`inertia_config`, `modules`.
+Fields: `settings`, `db`, `event_bus`, `invalidation`, `menu_registry`, `permissions`,
+`feature_flags`, `health_registry`, `public_routes`, `setup_registry`,
+`design_packs`, `audit_links`, `i18n_registry`, `inertia_config`, `modules`.
+
+`invalidation` is the cross-process cache-invalidation bus — publish a per-process
+cache's staleness on it instead of dropping only this worker's entry. See
+[`docs/framework/invalidation.md`](framework/invalidation.md).
 
 Two attributes are intentionally kept outside `Services`:
 
@@ -138,19 +198,23 @@ from sqlmodel import Field
 
 Base = create_module_base("orders")
 
+
 class Order(Base, AuditMixin, table=True):
     __tablename__ = "orders_order"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
 
+
 # modules/orders/orders/contracts/schemas.py
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
+
 
 class OrderOut(SQLModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+
 
 class OrderCreate(SQLModel):
     name: str = Field(min_length=1, max_length=200)
@@ -166,22 +230,108 @@ Base = create_module_base("orders")
 
 `create_module_base` returns a SQLModel base bound to its own `MetaData`, but all modules share the host's single schema (same layout on Postgres and SQLite). Prefix `__tablename__` with the module name to avoid collisions (`orders_order`).
 
+### SQLite defaults
+
+`init_db` sets three PRAGMAs that the driver otherwise leaves at values which
+break promises the framework makes elsewhere (GH #339):
+
+| PRAGMA | Default here | Why |
+|---|---|---|
+| `journal_mode` | `WAL` (file DBs only) | Under the driver's `delete` journal a writer's commit waits for every reader. WAL removes reader-vs-writer blocking. `:memory:` has no journal file and is left alone. |
+| `busy_timeout` | `5000` ms | Explicit rather than inheriting the driver's undocumented 5 s, so contention is a tuned wait instead of an unexplained stall. Tune with `init_db(..., sqlite_busy_timeout_ms=…)`. |
+| `foreign_keys` | `ON` | SQLite ships with FK enforcement **off**, which makes `ondelete="RESTRICT"`/`CASCADE` a silent no-op and lets SQLite and Postgres disagree about a write that should have been refused. |
+
+Two consequences worth knowing when writing a module:
+
+- **Both sides of a foreign key must use the same column type.** Types that are
+  identical on Postgres can differ on SQLite — `sa.Uuid` stores the bare hex
+  while fastapi-users' `GUID` stores the dashed form, so an FK between them
+  never matches and any join across it returns nothing.
+- **Flush parents before children.** SQLAlchemy orders a flush by
+  `relationship()` edges, not by raw FK columns, so `add_all([parent, child])`
+  on a pair with no relationship can emit the child INSERT first. Add the
+  parent, `await session.flush()`, then add the child.
+
 ### Mixins
 
 - `AuditMixin` — `created_at`, `updated_at`, `created_by`, `updated_by` (auto-populated from the current user in listeners).
-- `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; `SELECT` auto-filters. Bypass with `stmt.execution_options(include_deleted=True)`.
-- `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT` auto-filters when `current_tenant_id` is set.
+- `SoftDeleteMixin` — `is_deleted`, `deleted_at`, `deleted_by`. `delete()` converts to soft-delete; reads auto-filter trashed rows wherever the table appears — joins, subqueries, counts, top-level Core statements (#332). Bypass the read filter with `stmt.execution_options(include_deleted=True)`; see **Trash vs purge** below for the write side.
+- `MultiTenantMixin` — `tenant_id`. Auto-populated on insert; `SELECT`, ORM `UPDATE` and `DELETE` are scoped to `current_tenant_id`. With `multi_tenant` on, a query with **no** tenant raises `TenantIsolationError` (fail closed) — cross-tenant code opts out with `all_tenants()` / `execution_options(all_tenants=True)`. See [multi-tenancy](/framework/multi-tenancy).
 - `VersionedMixin` — `version`, auto-incremented on update.
+
+### Trash vs purge
+
+`session.delete()` on a `SoftDeleteMixin` row is intercepted and rewritten into
+a soft delete — the row is stamped, not removed. Two ways to actually purge:
+
+```python
+# 1. Delete a row that is already trashed. The second delete goes through.
+await session.delete(already_trashed_row)
+
+# 2. Purge a live row in one step.
+from simple_module_db import hard_delete
+
+await hard_delete(session, row)
+```
+
+The "already trashed" test reads the value **loaded from the database**, not the
+current one, so setting `is_deleted = True` and deleting in the same flush still
+means trash — a caller asking for a soft delete in a slightly redundant way does
+not get the row torn out from under them.
+
+### Query filters and the shapes they cover
+
+The soft-delete and tenant filters are attached by a `do_orm_execute` listener
+(`simple_module_db.query_filter`). Loader criteria go on for *every* registered
+soft-deletable / tenant-scoped model, not only the entities a statement names,
+and Core tables — at any depth, including outer joins (predicates in `ON`),
+subqueries, CTEs and unions (GH #506) — get explicit predicates. All of these
+are filtered:
+
+```python
+select(Model)  # entity select
+select(func.count(Model.id))  # count naming the entity
+select(func.count()).select_from(Model)  # bare count
+select(func.count()).select_from(select(Model).subquery())
+select(func.count()).select_from(Model.__table__)  # pure Core
+select(A).outerjoin(B)  # B filtered in the ON clause
+select(func.count()).select_from(A.__table__.join(B.__table__, ...))  # Core inner join
+select(func.count()).select_from(A.__table__.outerjoin(B.__table__, ...))  # B in ON
+union(select(A.__table__.c.id), select(A.__table__.c.id))  # Core, nested
+```
+
+Before GH #332 only the first two were — the rest returned trashed rows, and on
+a multi-tenant host other tenants' rows.
 
 ### Session lifecycle (`get_db`)
 
 Each request opens one session:
 
-- Commit fires on success **only if** the session has pending writes (`has_writes` flag set by `after_flush` listener, or live `.new/.dirty/.deleted`).
+- Commit fires on success **only if** the session has pending writes (`has_writes` flag, or live `.new/.dirty/.deleted`). The flag is stamped by the `after_flush` listener for ORM work, and by a `do_orm_execute` listener for DML executed through the session — `session.execute(update(Model)...)`, `delete(...)`, `insert(...)` — which never runs the unit of work and so used to be rolled back silently (GH #336).
+- A write the ORM never sees at all — `session.execute(text("UPDATE ..."))`, or DML against a bare `Table` — still needs to say so:
+
+  ```python
+  from simple_module_db import mark_written
+
+  await session.execute(text("UPDATE orders_order SET ..."))
+  mark_written(session)
+  ```
 - Read-only requests exit via rollback — cheaper, and keeps the session out of write-side profiling.
 - Exceptions always rollback.
 
-Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the dependency commit.
+Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit. The injected
+`RequestSession` also provides `session.on_commit(callback)` for synchronous or
+asynchronous cache refreshes that must only observe durable state. Callbacks run
+after successful commit and are discarded on rollback or commit failure.
+
+The commit lands in `CommitBeforeResponseMiddleware`, which intercepts the ASGI
+`http.response.start` message — the last point still inside the request. That is
+what makes create-then-immediately-use work: FastAPI runs a `yield` dependency's
+exit code after the response has been delivered, so committing there let a
+follow-up request open a fresh session and 404 on a row that was already
+returned to the client (GH #257). `get_db` still finalizes in its own exit code
+when the middleware is absent, and the session is finalized exactly once either
+way.
 
 ## Inertia
 
@@ -211,6 +361,24 @@ Service code should not call `session.commit()` directly. Flush for intermediate
   Pick a band by audience, leave gaps of ~10 between siblings, and put module-specific user-dropdown items in the `900+` range (Profile=990, Logout=999).
 
   Sidebar items can also set `group="<Label>"` on the `MenuItem` to render under a group header. The frontend clusters consecutive items with the same group label and prints the label as a section heading; the group's position is set by the lowest-`order` item that joins it. Built-in groups are `Content`, `Administration`, and `System`. Items with no `group` (the default) render flat — Dashboard intentionally stays ungrouped above the headed groups.
+
+  **Dynamic menus.** Items that depend on the request (per-tenant entries, resources admins create at runtime) come from a provider registered in `register_menu_items`: `registry.add_provider(fn)`, where `fn(request)` returns an iterable of `MenuItem` (sync or async). Providers run per request inside `InertiaLayoutDataMiddleware`, after auth and `request.state.tenant_id` are resolved, and their items are role/permission-filtered, translated, sorted and grouped like static ones. A provider that raises is logged and contributes nothing. `registry.remove(predicate)` drops static items.
+
+  **Translating menu labels.** Set `label_key` (and `group_key`) alongside `label`/`group` to name a catalog entry:
+
+  ```python
+  MenuItem(
+      label="Users",  # fallback, still required
+      label_key="users.nav.users",  # module's own namespace
+      url="/admin/users/",
+      group="Access",
+      group_key="ui.nav_groups.access",  # shared vocabulary
+  )
+  ```
+
+  Menus are translated **on the server**, in `MenuRegistry.get_for_user(translate=…)`, so the Inertia payload carries finished text and every render site (sidebar, topbar, command palette) keeps reading `item.label`. Two consequences worth knowing: an admin-audience module's labels don't need to be in the anonymous catalog snapshot to render, and a key that resolves to nothing falls back to `label` — a missing translation degrades to English, never to a raw dotted key on screen. Both fields are optional, so modules written before them keep working unchanged.
+
+  Group headers are shared across modules, so they live in the `ui` namespace (`ui.nav_groups.access|appearance|content|system`) rather than each module inventing its own key — otherwise one module's "System" could translate differently from another's and split a single header in two. Those four are the whole vocabulary the bundled modules use; adding a fifth means adding the key to `simple_module_hosting/ui_locales/*.json` so every module can share it.
 - `i18n` — active locale and translation bundle.
 
 The framework does not know the shape of `auth.user`. The `auth` module registers a `principal_serializer: Callable[[UserContext], dict]` on `app.state.principal_serializer` during `register_settings(app)`; the middleware calls it with `request.state.user` to build the `auth.user` payload. Without a registered serializer, `auth.user` is `None` even when a user is authenticated.
@@ -222,9 +390,15 @@ Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it attaches the s
 Modules declare permissions in `register_permissions(registry)` grouped by a name prefix:
 
 ```python
-registry.add_group("Orders", [
-    "orders.view", "orders.create", "orders.edit", "orders.delete",
-])
+registry.add_group(
+    "Orders",
+    [
+        "orders.view",
+        "orders.create",
+        "orders.edit",
+        "orders.delete",
+    ],
+)
 ```
 
 Enforce with the `RequiresPermission` dependency:
@@ -283,6 +457,117 @@ every module's rules into one `PublicRouteRegistry` (plus host-level
 which `AuthMiddleware` consults on every request. See
 [`docs/framework/public-routes.md`](framework/public-routes.md) for match kinds
 and resolution order.
+
+### CSP sources (external assets)
+
+The host ships a strict Content-Security-Policy. A module whose frontend loads
+an asset from another origin — a font CDN, a tile server — declares it via
+`register_csp_sources`, and the host folds the origins into both the dev
+(Vite-widened) and production policies:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives are extendable (`style-src`, `font-src`, `img-src`,
+`connect-src`, …) — never `default-src`, `base-uri`, `form-action`, or
+`frame-ancestors`, which belong to the host operator. Sources are validated
+single tokens; an invalid declaration raises at boot.
+
+### CSRF (opt-in token check)
+
+The framework baseline is `SameSite=Lax` on the session cookie. Modules that
+want defence in depth opt into a session-bound token check per router:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+# expose the token to the frontend as a view prop:
+{"csrf_token": get_csrf_token(request)}
+```
+
+Callers echo the token back as `X-CSRF-Token` on `POST`/`PUT`/`PATCH`/`DELETE`;
+safe methods are never checked, and apps without `SessionMiddleware` (bare
+test apps) are exempt.
+
+Signing in through users (password, OAuth, invite acceptance or demo) clears
+and rebuilds the signed-cookie session, preserving only the pending login
+redirect and any key a module registered with
+`simple_module_hosting.session.preserve_across_sign_in(app, key)` (browser-bound
+gate state such as the site-lock unlock marker). Locale lives in a separate cookie. This discards the pre-login CSRF
+token and cached principal; the next Inertia render supplies a fresh
+`csrfToken` shared prop. Clients must read that prop again after sign-in.
+Keycloak sign-in retains the session and calls
+`rotate_csrf_token(request)` to discard its token (switching the active tenant
+keeps the same principal and the same token). Use this public helper for
+other principal changes that intentionally keep the session; clearing the
+session already rotates the token. A stale `X-CSRF-Token` receives `403`.
+
+### Error responses (HTML vs JSON)
+
+401, 403, 404, 419, 422, 429, 500 and 503 are content-negotiated. Requests
+under `/api/*` — the documented prefix for every module's JSON surface — or
+with an explicit `Accept: application/json` get a JSON body:
+
+```json
+{ "detail": "Permission required: pagebuilder.edit" }
+```
+
+Browser-shaped requests get the rendered Inertia error page, which carries
+the layout, i18n copy, and the request's correlation id. "Browser-shaped"
+means the request lists `text/html` in its Accept header without preferring
+JSON over it (q-values decide: `application/json, text/html;q=0.5` still
+gets JSON, and `text/html;q=0` rules html out) — navigations and Inertia
+visits qualify, and that wins even under `/api/*` (OAuth login links and
+file-download `<a>` hrefs are real navigations to API paths); a bare
+`fetch()` sends `Accept: */*` and gets JSON there. Module endpoint code doesn't opt in or
+out — raise `HTTPException` as usual and the handler picks the right shape.
+
+Each of those statuses has its own copy on the error page, so a 429 reads as
+"too many requests" rather than a bare "an unexpected error occurred". 401 and
+419 additionally offer **sign in** as the primary action, since that is the
+actual remedy — the URL comes from the auth provider via `app.state` rather
+than an import (framework code must not reach into modules, `SM009`), so an app
+with no provider installed simply gets no button.
+
+Headers the exception carries — `WWW-Authenticate` on a 401, `Retry-After` on a
+429 or 503 — are passed through to both the rendered page and the JSON
+fallback. Those statuses are the ones whose headers mean something, so moving
+them onto the page-rendering branch would otherwise have dropped them.
+
+### Design packs (site-wide look)
+
+A *design pack* is a stylesheet a module ships that restyles the public site by
+overriding the base design tokens beneath a `<value>-root` class. A module
+advertises the packs it provides via `register_design_packs`:
+
+```python
+def register_design_packs(self, registry):
+    registry.register(DesignPack(value="gca", label="Canopy Atlas"))
+```
+
+The host aggregates them into one `DesignPackRegistry` and publishes it at
+`app.state.design_packs` (also `app.state.sm.design_packs`). Branding reads it
+twice: its admin page builds the pack dropdown from it, and `PUT /api/branding/`
+rejects a slug no installed module registered.
+
+**Registering advertises the pack; it does not load the stylesheet.** The CSS
+still reaches the bundle through the host's `styles.css` importing it by package
+specifier. The registry exists so an administrator can't select a pack nothing
+provides — that would put a class on the document with no rules behind it and
+silently do nothing.
+
+Slugs must match `^[a-z0-9][a-z0-9-]*$` (they become a CSS class fragment) and
+are unique across modules — a collision raises at boot rather than letting
+whichever stylesheet loaded last win.
+
+The selected pack is a **branding setting**, not a per-page property: one site
+has one look. It reaches the frontend as `branding.designPack` in shared props,
+and applies to the public site only — putting the pack class on the admin would
+restyle the editor chrome along with it.
 
 ## Events
 
@@ -343,12 +628,13 @@ Modules ship translations as JSON under `<package>/locales/<lang>.json` and decl
 import importlib.resources
 from pathlib import Path
 
+
 class OrdersModule(ModuleBase):
     def locale_dirs(self) -> dict[str, Path]:
         return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
-Add this method (and a matching `locales/en.json`) yourself — the `smpy create-module` scaffold does not emit a `locales/` directory.
+The `smpy create-module` / `make new-module` scaffold emits this method and a starter `locales/en.json`; add it yourself only for a hand-rolled module.
 
 ### Key naming
 
@@ -367,7 +653,7 @@ t('orders.greeting', { name: user.name })       // frontend
 ```
 
 ```python
-t.t("orders.greeting", name=user.name)           # backend
+t.t("orders.greeting", name=user.name)  # backend
 ```
 
 Missing placeholders are left verbatim (`"Hello, {name}"`) rather than raising.
@@ -407,8 +693,37 @@ Do NOT declare `const schema = z.object({ ... t('...') })` at module scope — i
 ### Host and shared-package strings
 
 - Host strings (landing page, error page) live in `host/locales/` and are namespaced `host.*`.
-- Shared UI strings (`packages/ui/`) live in `packages/ui/locales/`, namespaced `ui.*`.
+- Shared UI strings (`packages/ui/`) live in `simple_module_hosting/ui_locales/`, namespaced `ui.*`.
 - Both are auto-discovered at boot alongside module contributions.
+
+### Strings the server composes
+
+Neither lint check can see a sentence built in Python. `scripts/check_untranslated_strings.mjs` parses `.tsx`; an f-string in a service reaches the page already rendered, and no catalog can translate it afterwards.
+
+So a payload field a page renders verbatim must carry *translated* text, not assembled text. Take the request's `Translator` (`TranslatorDep` in an endpoint, or pass it down) and emit a key plus its interpolation arguments:
+
+```python
+# no
+summary = f"Changed {', '.join(fields)} on {label}"
+# yes
+summary = t.t("users.recent_activity.summary.changed_fields", fields=", ".join(fields), label=label)
+```
+
+This is the same shape as menus (`MenuItem.label_key` resolved in `MenuRegistry.get_for_user(translate=…)`) and audit rows (`AuditLink.label_key`): a registration states a key, the request resolves it, and an unresolved key falls back to the English literal rather than putting a dotted key on screen.
+
+### One key, one placeholder
+
+A value that needs its own markup mid-sentence — a permission name in `<code>`, a count in `<b>` — still belongs to *one* catalog key. Splicing `…_prefix` + value + `…_suffix` hands a translator two fragments and no way to move the value, which is the first thing a different word order needs to do.
+
+`InterpolatedText` (`@simple-module-py/ui/components/InterpolatedText`) renders the whole sentence from one key and puts the markup at the placeholder:
+
+```tsx
+<InterpolatedText render={(slot) => t(keys.ui.error_page.forbidden_permission, { permission: slot })}>
+  <code>{requiredPermission}</code>
+</InterpolatedText>
+```
+
+The catalog entry is an ordinary `"Your role doesn't include {permission}. Ask an admin."`. A translation that drops the placeholder still shows the value (appended); one that repeats it keeps every word of the copy.
 
 ### Supported locales
 
@@ -435,3 +750,17 @@ The active locale lands on `request.state.locale`. The `<LocaleSwitcher />` comp
 ### Diagnostics
 
 App boot runs `I18nDiagnostics` against every module's declared locale dirs. See codes `SM013`–`SM016` in the table above. Warnings are printed in dev; errors fail the boot in production.
+
+`make doctor` runs the same checks, and it runs them whether or not `SM_I18N_SUPPORTED_LOCALES` is set. With the variable unset each namespace is checked against the locale files it actually ships: SM014/SM015 still hold every translation to the default catalog's key set, while SM013 stays quiet, since a locale nothing promised cannot be missing. Declaring the set turns SM013 back on — that is the check that reports a module which never shipped one of the locales the install claims to support.
+
+## Error handling policy
+
+Unexpected exceptions retained as fallbacks must log at WARNING or higher with
+a traceback (`exc_info=True`). Recurring request/transport failures warn on the
+first occurrence per process; menu providers warn once per provider per registry.
+Deliberate fail-open sites are audit identity inspection (`db/listeners.py`,
+omit the unavailable primary key), menu providers (`core/menu.py`, omit that
+provider's items), plural locale parsing (`core/_i18n_translator.py`, use `other`),
+and invalidation decoding (`core/invalidation.py`, drop the malformed message
+and keep listening). The migration re-check (`hosting/setup_gate.py`) fails
+closed: retain the incomplete boot snapshot and keep the setup gate active.

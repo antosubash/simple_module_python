@@ -41,6 +41,17 @@ class TestCreateHost:
         ]:
             assert (dest / relpath).exists(), f"missing: {relpath}"
 
+    async def test_pages_ts_excludes_colocated_test_files(self, tmp_path):
+        """Guards template drift from host/client_app/pages.ts: without these
+        negations a colocated test file ships to the production bundle."""
+        from simple_module_cli.scaffolding import create_host
+
+        dest = tmp_path / "demo"
+        create_host(dest, name="demo-host", modules=[])
+        pages_ts = (dest / "client_app" / "pages.ts").read_text(encoding="utf-8")
+        assert "'!./pages/**/*.test.tsx'" in pages_ts
+        assert "'!./pages/**/*.spec.tsx'" in pages_ts
+
     async def test_package_json_carries_host_name(self, tmp_path):
         """client_app/package.json has its `name` prefixed with the host name."""
         from simple_module_cli.scaffolding import create_host
@@ -149,6 +160,8 @@ class TestCreateHost:
         assert "build_module_metadata" in env_py
         assert "make_include_object" in env_py
         assert "for mod in modules:" not in env_py
+        # Parity with host/migrations/env.py: extensions are created before revisions.
+        assert env_py.count("ensure_db_extensions(") == 2
 
     async def test_main_py_loads_dotenv_before_settings(self, tmp_path):
         """Regression for #158: scaffolded main.py must populate ``os.environ``

@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
-from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.dotenv import env_str
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.dotenv import env_bool, env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.stored_settings import field_error
+
+DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 
-class KeycloakSettings(BaseSettings):
+class KeycloakSettings(DbBackedSettings):
     """Keycloak OIDC configuration."""
 
+    # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
+    # only source: omitting ``env_prefix`` would leave pydantic-settings
+    # reading each field from its bare name — GH #283.
     model_config = SettingsConfigDict(extra="ignore")
 
     server_url: str = env_str("SM_KEYCLOAK_SERVER_URL", "")
@@ -18,14 +26,33 @@ class KeycloakSettings(BaseSettings):
     client_id: str = env_str("SM_KEYCLOAK_CLIENT_ID", "")
     client_secret: str = env_str("SM_KEYCLOAK_CLIENT_SECRET", "")
 
+    # Off by default: the JWT ``tenant_id`` claim is only as trustworthy as the
+    # realm mapper that produces it. A mapper reading an attribute the user can
+    # edit lets them name their own tenant. Turn on only for a realm whose
+    # protocol mapper users cannot influence; the ``tenants`` module's
+    # resolver ignores the claim either way.
+    trust_tenant_claim: bool = env_bool("SM_KEYCLOAK_TRUST_TENANT_CLAIM", False)
+
     roles_claim_path: str = "realm_access.roles"
     admin_role: str = "admin"
-    login_redirect_url: str = "/dashboard/"
+    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
     jwks_cache_ttl_seconds: int = 3600
 
     role_mapping: dict[str, str] = Field(
         default_factory=lambda: {"admin": "admin", "user": "user"},
     )
+
+    @field_validator("login_redirect_url")
+    @classmethod
+    def _non_empty_redirect(cls, value: str) -> str:
+        """Blank is never a usable navigation target.
+
+        The callback puts this straight into a ``Location`` header, and an
+        admin can clear it in the generic module-settings editor. Normalising
+        on the class covers hydration and ``apply_changes_and_reload`` alike.
+        Users' provider has its own copy of this field and does the same.
+        """
+        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
 
     @model_validator(mode="after")
     def _check_required_in_production(self) -> KeycloakSettings:
@@ -34,16 +61,22 @@ class KeycloakSettings(BaseSettings):
         env = os.environ.get("SM_ENVIRONMENT", "development")
         if env in NON_PROD_ENVIRONMENTS:
             return self
-        missing = []
-        if not self.server_url:
-            missing.append("SM_KEYCLOAK_SERVER_URL")
-        if not self.realm:
-            missing.append("SM_KEYCLOAK_REALM")
-        if not self.client_id:
-            missing.append("SM_KEYCLOAK_CLIENT_ID")
-        if not self.client_secret:
-            missing.append("SM_KEYCLOAK_CLIENT_SECRET")
+        required = (
+            ("server_url", "SM_KEYCLOAK_SERVER_URL"),
+            ("realm", "SM_KEYCLOAK_REALM"),
+            ("client_id", "SM_KEYCLOAK_CLIENT_ID"),
+            ("client_secret", "SM_KEYCLOAK_CLIENT_SECRET"),
+        )
+        missing = [(field, var) for field, var in required if not getattr(self, field)]
         if missing:
-            msg = f"Keycloak settings required in production: {', '.join(missing)}"
-            raise ValueError(msg)
+            # Located on the first empty field so the form shows it there.
+            msg = f"Keycloak settings required in production: {', '.join(v for _, v in missing)}"
+            raise field_error(
+                type(self),
+                missing[0][0],
+                "keycloak_settings_required",
+                msg,
+                value="",
+                related=[field for field, _ in required],
+            )
         return self

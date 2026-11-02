@@ -33,6 +33,7 @@ New module `framework/core/simple_module_core/services.py` defines:
 ```python
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class Services:
     settings: Settings

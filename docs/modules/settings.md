@@ -4,8 +4,13 @@ A DB-backed key/value store with system / tenant / user precedence, plus a per-m
 
 Two distinct surfaces:
 
-1. **Generic key/value settings** — anything addressable by a string `key`. Useful for arbitrary config you don't want to wedge into a pydantic class. Edited at `/settings`.
-2. **Per-module pydantic settings** — each module registers a `BaseSettings` subclass via `register_module_settings`. Hydrated from the DB at boot, edited at `/settings/modules`, hot-swapped on save with a `SettingsReloaded` event so dependents (SMTP clients, Celery configs, …) can rebuild.
+1. **Generic key/value settings** — anything addressable by a string `key`. Useful for arbitrary config you don't want to wedge into a pydantic class. Edited at `/admin/settings/store`.
+2. **Per-module pydantic settings** — each module registers a `BaseSettings` subclass via `register_module_settings`. Hydrated from the DB at boot, edited at `/admin/settings/`, hot-swapped on save with a `SettingsReloaded` event so dependents (SMTP clients, Celery configs, …) can rebuild.
+
+Generic store mutations reject keys prefixed by a registered module package with
+HTTP 422 and a link to `/admin/settings/` (or its dedicated management
+page). Use the module editor/API for validation, environment pinning and reload;
+Browse autocomplete offers only declared generic keys (#690).
 
 ## ModuleMeta
 
@@ -13,24 +18,35 @@ Two distinct surfaces:
 |---|---|
 | `name` | `Settings` |
 | `route_prefix` | `/api/settings` |
-| `view_prefix` | `/settings` |
+| `view_prefix` | `/admin/settings` |
 | `depends_on` | _(none)_ |
 
 ## Public API for module authors
 
 ### Register module settings
 
-The pattern (pydantic `BaseSettings` subclass + `register_module_settings` in `register_settings`) is documented in [Per-module settings convention](/guide/configuration#per-module-settings-convention). What the settings module adds on top:
-
-- **DB hydration**: `app.state.<package>.settings` is replaced with a fresh instance built from DB overrides + pydantic defaults during the host's hydrate phase, before `on_startup` runs.
+The pattern (a `DbBackedSettings` subclass + `register_module_settings` from `simple_module_core.module_settings` in `register_settings`) is documented in [Settings & app.state](/framework/settings#module-settings). Registration and boot-time DB hydration belong to the framework since #500 and work with this module disabled. What the settings module adds on top:
 - **Env-var migration**: `smpy settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
-- **Admin editing**: registered fields appear at `/settings/modules/<package>` with type-aware inputs.
+- **Admin editing**: registered fields appear under that package at `/admin/settings/` with type-aware inputs.
 - **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
+
+### Read DB-backed settings outside the web process
+
+`DbBackedSettings` subclasses ignore the environment, and only the hosting lifespan hydrates `app.state.<package>.settings`. A Celery worker (or CLI script) never runs that lifespan, so a bare `FileStorageSettings()` there silently returns pydantic defaults. Hydrate synchronously instead:
+
+```python
+from simple_module_db.stored_settings import hydrate_settings_sync
+
+cfg = hydrate_settings_sync(FileStorageSettings, session, "file_storage")
+```
+
+`session` is a plain sync SQLAlchemy `Session`. Precedence matches the web process (SYSTEM-scope DB overrides over pydantic defaults, same `value_type` parsing, no env). Inside a Celery task prefer `background_tasks.settings_for(FileStorageSettings, "file_storage")`, which opens the worker's sync session and caches the result per process for 30 seconds (`ttl=` to change, `0` to always re-read).
 
 ### Read settings at request time (generic K/V)
 
 ```python
 from settings.contracts import SettingsDep
+
 
 @router.get("/check")
 async def check(settings: SettingsDep) -> dict:
@@ -56,6 +72,7 @@ async def check(settings: SettingsDep) -> dict:
 ```python
 from settings.contracts import SettingsRegistry, SettingDefinition
 
+
 class OrdersModule(ModuleBase):
     def register_settings(self, app):
         registry: SettingsRegistry = app.state.sm.settings_registry
@@ -70,11 +87,52 @@ class OrdersModule(ModuleBase):
 
 The browse UI uses these definitions to render meaningful empty states for unset keys.
 
+### Tenant-overridable keys
+
+A definition with `tenant_overridable=True` can be changed by a tenant for
+itself (#382). Tenant owners and admins hold `settings.tenant.edit` (mapped onto
+`tenant:owner` / `tenant:admin`; members get nothing) and write through
+`/api/settings/tenant/current/{key}`, which acts on `request.state.tenant_id`
+only — the tenant never comes from the URL. Keys without the flag answer 422
+there; a request acting for no tenant gets 403. The `tenants` module renders
+these keys at `/tenants/settings`.
+
+```python
+async def check_logo(request, tenant_id: str, value: str) -> None:
+    if value and not await tenant_owns_file(request.app, tenant_id, value):
+        raise LookupError("unknown file")  # -> 404; ValueError -> 422
+
+
+registry.add(
+    SettingDefinition(
+        key="orders.checkout_note",
+        tenant_overridable=True,
+        check=check_logo,
+    )
+)
+```
+
+`check` runs before **every** TENANT-scope write of the key — the self-service
+route and the platform routes alike, with the tenant being written (not the
+caller's). The declared `value_type` wins over the one a tenant sends. `upload_url` marks a file-id key (a logo): the tenant settings page offers an upload to that URL (POST, DELETE to clear) instead of a text box.
+
+Runtime reads need nothing new: `SettingsDep` is already bound to the active
+tenant, so `await settings.get(key)` resolves **tenant → system → default**.
+
+### Cache invalidation
+
+Every SYSTEM / TENANT write publishes on the `settings.values`
+[invalidation](/framework/invalidation) channel after commit, keyed per
+(tenant, key): `"<tenant_id>|<key>"`, or `"|<key>"` for a system write (every
+tenant inheriting it is affected). `settings.contracts.invalidation` builds and
+parses the key. Settings caches nothing itself; a module that caches a resolved
+per-tenant value subscribes and forgets.
+
 ## Routes
 
 ### Generic K/V API (`/api/settings/...`)
 
-All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`.
+All write endpoints require `settings.edit` / `settings.create` / `settings.delete`; reads need `settings.view`. These are platform-operator permissions: no tenant role holds them, and the holder may write generic keys at system scope or at any tenant's scope; registered module namespaces must use the module editor/API. A TENANT `scope_id` must name a real tenant when a tenant-owning module is installed (`simple_module_core.tenancy.tenant_exists`): 404 on the `/tenant/{scope_id}/…` GET/PUT, 422 for a `POST /` body. `DELETE` stays unvalidated so a deleted tenant's leftovers can be cleared. A key declaring `SettingDefinition.clear_via` (a file set through an upload route, which reaps the stored file) is protected inside `SettingService.delete` / `delete_scoped`, so it holds for every scope (SYSTEM, TENANT, USER) and every caller: a generic delete raises `ManagedKeyError`, which the API maps to 422 naming that route (`clear_via` may be a `{SettingScope: route}` mapping when system and tenant rows clear differently; the 422 names the route for the row's scope, via `clear_route`) and the Inertia store screen shows as a toast. Two deliberate ways through: the owner of the key passes `as_owner=True` after taking responsibility for the file (branding's tenant clear route reaps it), and a TENANT row whose tenant no longer exists may be cleared by a platform operator. The guard needs the registry, which `get_setting_service` supplies; a bare `SettingService(db)` guards nothing.
 
 | Method + path | Purpose |
 |---|---|
@@ -83,6 +141,8 @@ All write endpoints require `settings.edit` / `settings.create` / `settings.dele
 | `GET / PUT / DELETE /api/settings/system/{key}` | system-scope CRUD |
 | `GET / PUT / DELETE /api/settings/tenant/{scope_id}/{key}` | tenant-scope CRUD |
 | `GET / PUT / DELETE /api/settings/user/{scope_id}/{key}` | user-scope CRUD |
+| `GET /api/settings/tenant/current` | the active tenant's overridable keys: `inherited`, own `value`, `effective` (`settings.tenant.edit`) |
+| `GET / PUT / DELETE /api/settings/tenant/current/{key}` | the active tenant's override of an overridable key (`settings.tenant.edit`) |
 | `POST /api/settings/` | create with explicit `scope` + `scope_id` (`SettingCreate`) |
 | `GET / PUT / DELETE /api/settings/{setting_id}` | by-id CRUD |
 
@@ -98,19 +158,26 @@ All write endpoints require `settings.edit` / `settings.create` / `settings.dele
 
 | Method + path | Inertia component |
 |---|---|
-| `GET /settings/` | `Settings/Browse` |
-| `GET /settings/create` | `Settings/Create` |
-| `GET /settings/{setting_id}/edit` | `Settings/Edit` |
-| `GET /settings/modules` | `Settings/ModulesEdit` |
-| `POST` / `PUT` / `DELETE /settings/...` | form actions; redirect to `/settings` |
+| `GET /admin/settings/` | `Settings/Browse` |
+| `GET /admin/settings/create` | `Settings/Create` |
+| `GET /admin/settings/{setting_id}/edit` | `Settings/Edit` |
+| `GET /admin/settings/modules` | legacy redirect → `/admin/settings/` |
+| `POST` / `PUT` / `DELETE /admin/settings/...` | form actions; redirect to `/admin/settings` |
 
 ## Public contracts
 
 ```python
 from settings.contracts import (
-    SettingOut, SettingCreate, SettingUpdate, SettingUpsert,
-    SettingScope, SettingValueType,
-    SettingsAccessor, SettingsDep, SettingsRegistry, SettingDefinition,
+    SettingOut,
+    SettingCreate,
+    SettingUpdate,
+    SettingUpsert,
+    SettingScope,
+    SettingValueType,
+    SettingsAccessor,
+    SettingsDep,
+    SettingsRegistry,
+    SettingDefinition,
     SettingsReloaded,
 )
 ```
@@ -161,7 +228,7 @@ Unique constraint on `(scope, scope_id, key)`.
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Settings` | `/settings` | `settings` | `SIDEBAR` | `System` | `200` |
+| `Settings` | `/admin/settings/` | `settings` | `ADMIN_SIDEBAR` | `System` | `200` |
 
 ## Events
 

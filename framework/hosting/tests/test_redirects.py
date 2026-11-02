@@ -61,6 +61,8 @@ class TestSafeRefererBlocksHostedirects:
             "//evil.example/x",
             "//evil.example",
             r"\\evil.example/x",  # backslash-prefixed — some browsers normalize
+            "/\\evil.example",  # relative-looking, but browsers resolve it off-site
+            "/\\\\evil.example/x",
             "http://testserver.evil.example/",  # suffix-confusion
             "http://evil.example@testserver/",  # userinfo trick: host is "evil.example"
             "javascript:alert(1)",
@@ -127,3 +129,30 @@ class TestSafeRefererPathHandling:
     def test_empty_path_becomes_root(self) -> None:
         req = _make_request(referer="http://testserver")
         assert safe_referer_or_root(req) == "/"
+
+
+class TestDelegatesToSafeNext:
+    """``safe_referer_or_root`` funnels its result through ``safe_next``.
+
+    Two sanitisers for one job is how one of them ends up missing a case: the
+    inline rules here accepted ``/\\evil.example`` and CR/LF-carrying paths
+    that ``safe_next`` rejects, so the protection you got depended on which
+    helper the call site happened to import.
+    """
+
+    def test_backslash_prefixed_relative_target_is_rejected(self) -> None:
+        """``urlsplit`` reports no scheme and no netloc for this, so the
+        relative branch used to hand it straight back — and browsers resolve
+        it against ``evil.example``."""
+        req = _make_request(referer="/\\evil.example")
+        assert safe_referer_or_root(req) == "/"
+
+    def test_crlf_in_a_relative_target_is_rejected(self) -> None:
+        """Otherwise smuggled into the Location header."""
+        req = _make_request(referer="/ok\r\nLocation: https://evil.example")
+        assert safe_referer_or_root(req) == "/"
+
+    def test_ordinary_same_site_path_still_passes(self) -> None:
+        assert safe_referer_or_root(_make_request(referer="/admin/users/?page=2")) == (
+            "/admin/users/?page=2"
+        )

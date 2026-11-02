@@ -51,6 +51,16 @@ def test_issuer(oidc_client):
     assert oidc_client.issuer == "https://auth.example.com/realms/test"
 
 
+def test_logout_without_id_token_identifies_client(oidc_client):
+    from urllib.parse import parse_qs, urlsplit
+
+    url = oidc_client.build_logout_url("https://app.example.com/keycloak/logged-out")
+    assert parse_qs(urlsplit(url).query) == {
+        "client_id": ["my-app"],
+        "post_logout_redirect_uri": ["https://app.example.com/keycloak/logged-out"],
+    }
+
+
 async def test_exchange_code(oidc_client, httpx_mock):
     httpx_mock.add_response(
         url=oidc_client.token_endpoint,

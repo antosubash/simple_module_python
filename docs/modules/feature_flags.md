@@ -8,7 +8,7 @@ Runtime feature toggles. Modules register named flags with a default value; an a
 |---|---|
 | `name` | `FeatureFlags` |
 | `route_prefix` | `/api/feature_flags` |
-| `view_prefix` | `/feature_flags` |
+| `view_prefix` | `/admin/feature-flags` |
 | `depends_on` | _(none)_ |
 
 ## Registering a flag
@@ -17,6 +17,7 @@ Anywhere a module has access to `app.state.sm.feature_flags` (typically inside `
 
 ```python
 from simple_module_core.feature_flags import FeatureFlag
+
 
 class OrdersModule(ModuleBase):
     def register_feature_flags(self, registry):
@@ -29,12 +30,13 @@ class OrdersModule(ModuleBase):
         )
 ```
 
-Once registered, the flag shows up at `/feature_flags` in the admin UI. Unregistered names return 404 from the override endpoints — flags are explicit, not free-form keys.
+Once registered, the flag shows up at `/admin/feature-flags` in the admin UI. Unregistered names return 404 from the override endpoints — flags are explicit, not free-form keys.
 
 ## Reading a flag at request time
 
 ```python
 from feature_flags.deps import FeatureFlagRegistryDep
+
 
 @router.post("/checkout")
 async def checkout(
@@ -69,9 +71,9 @@ All require authentication. Read endpoints need `feature_flags.view`; write endp
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /feature_flags/` | `FeatureFlags/Browse` (optional `?tenant_id=...`) | `feature_flags.view` |
-| `POST /feature_flags/{name}/toggle` | _redirect_ | `feature_flags.manage` |
-| `POST /feature_flags/{name}/clear` | _redirect_ | `feature_flags.manage` |
+| `GET /admin/feature-flags/` | `FeatureFlags/Browse` (optional `?tenant_id=...`) | `feature_flags.view` |
+| `POST /admin/feature-flags/{name}/toggle` | _redirect_ | `feature_flags.manage` |
+| `POST /admin/feature-flags/{name}/clear` | _redirect_ | `feature_flags.manage` |
 
 ## Public contracts
 
@@ -111,7 +113,7 @@ Unique constraint on `(scope, scope_id, name)`. The `scope_id=""` (instead of `N
 
 | Label | URL | Icon | Section | Group | Order |
 |---|---|---|---|---|---|
-| `Feature Flags` | `/feature_flags` | `flag` | `SIDEBAR` | `Administration` | `110` |
+| `Feature Flags` | `/admin/feature-flags` | `flag` | `ADMIN_SIDEBAR` | `System` | `110` |
 
 ## Inertia pages
 
@@ -130,3 +132,10 @@ Top-level keys in `feature_flags/locales/en.json`:
 - The `FeatureFlagService` keeps the in-memory registry in sync after every DB mutation, so `is_enabled()` is always cheap.
 - Tenant-scope endpoints use a non-empty `scope_id`; the system scope uses `""`. Don't pass `None` — the unique index treats `NULL` as distinct on Postgres and you'll end up with duplicate rows.
 - The `Browse` page lists tenants that have any override attached, so you can jump from system view → a tenant view that actually has overrides without typing IDs.
+
+Tenant deletion durably removes persisted tenant overrides and clears the local
+registry through a `TenantDeleted` subscriber (#639, #698). Workers also forget
+the tenant on the existing `tenants.deleted` invalidation broadcast; system and
+other tenants' overrides are preserved, including overrides for unknown flags.
+The periodic override reload remains the fallback for missed broadcasts after
+durable cleanup completes.

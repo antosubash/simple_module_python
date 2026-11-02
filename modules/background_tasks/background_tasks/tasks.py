@@ -3,7 +3,10 @@
 - ``sweep_stuck_tasks`` flips ``running`` rows whose heartbeat has gone stale
   to ``stuck`` so the UI surfaces them and they become eligible for retry.
 - ``purge_old_executions`` deletes terminal rows older than the configured
-  retention so the history table stays bounded.
+  retention so the history table stays bounded, and delivered outbox rows
+  older than the same retention.
+- ``dispatch_outbox`` / ``sweep_outbox`` deliver durable events (GH #459); see
+  :mod:`.outbox_dispatch`.
 
 Both are driven by Celery beat; see :mod:`.celery_app`.
 """
@@ -11,24 +14,32 @@ Both are driven by Celery beat; see :mod:`.celery_app`.
 from __future__ import annotations
 
 import logging
-import os
+from collections import defaultdict
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from celery import shared_task
-from sqlalchemy import delete, update
+from celery import Task, shared_task
+from sqlalchemy import ColumnElement, and_, delete, or_, update
+from sqlmodel import col
 
 from background_tasks.constants import (
-    DEFAULT_RETENTION_DAYS,
-    DEFAULT_STUCK_AFTER_SECONDS,
     DEMO_ECHO_TASK,
+    INTERNAL_TASK_DISPATCH_OUTBOX,
     INTERNAL_TASK_PURGE_OLD,
+    INTERNAL_TASK_SWEEP_OUTBOX,
     INTERNAL_TASK_SWEEP_STUCK,
+    TASK_STUCK_AFTER_ATTR,
     TERMINAL_STATUSES,
+    OutboxStatus,
     TaskStatus,
 )
-from background_tasks.models import TaskExecution
+from background_tasks.log_purge import purge_log_records
+from background_tasks.models import OutboxMessage, TaskExecution
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.sync_db import sync_session
+from background_tasks.tracking import TrackingMode
+from background_tasks.worker_settings import load_runner_settings
 
 logger = logging.getLogger(__name__)
 
@@ -54,27 +65,66 @@ def demo_echo(message: str = "hello") -> dict[str, str]:
     return {"message": message, "at": datetime.now(UTC).isoformat()}
 
 
-@shared_task(name=INTERNAL_TASK_SWEEP_STUCK)
-def sweep_stuck_tasks() -> int:
+def stuck_thresholds(registry: Mapping[str, Any]) -> dict[str, int]:
+    """Per-task stuck thresholds declared on the tasks in *registry*.
+
+    A task opts in with ``@shared_task(name=..., stuck_after=seconds)``; Celery
+    copies the option onto the task class. Read from the registry of the
+    process running the sweep, which autodiscovers every module's tasks, so
+    the threshold lives next to the task and needs no column or migration.
+    """
+    found: dict[str, int] = {}
+    for name, task in registry.items():
+        value = getattr(task, TASK_STUCK_AFTER_ATTR, None)
+        if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
+            found[name] = max(1, int(value))
+    return found
+
+
+def _stale(now: datetime, stuck_after: int, overrides: dict[str, int]) -> ColumnElement[bool]:
+    """Rows whose heartbeat is older than their own task's threshold."""
+    clauses = [
+        and_(
+            TaskExecution.task_name.in_(names),
+            TaskExecution.heartbeat_at < now - timedelta(seconds=seconds),
+        )
+        for seconds, names in _group_by_threshold(overrides).items()
+    ]
+    default = TaskExecution.heartbeat_at < now - timedelta(seconds=stuck_after)
+    if overrides:
+        default = and_(TaskExecution.task_name.not_in(list(overrides)), default)
+    return or_(default, *clauses)
+
+
+def _group_by_threshold(overrides: dict[str, int]) -> dict[int, list[str]]:
+    groups: defaultdict[int, list[str]] = defaultdict(list)
+    for name, seconds in overrides.items():
+        groups[seconds].append(name)
+    return groups
+
+
+@shared_task(name=INTERNAL_TASK_SWEEP_STUCK, bind=True)
+def sweep_stuck_tasks(self: Task) -> int:
     """Flip ``running`` rows with stale heartbeats to ``stuck``.
+
+    "Stale" is per task: a task's own ``stuck_after`` (see
+    :func:`stuck_thresholds`) wins over the global setting. Long jobs should
+    also call :func:`background_tasks.heartbeat` as they go.
 
     Returns the number of rows flipped — handy for metrics/log scraping.
     """
-    # Avoid import-time coupling to settings (beat schedules this task
-    # before the worker has hydrated settings in some edge cases).
-    stuck_after = int(
-        os.environ.get("SM_BG_TASKS_STUCK_AFTER_SECONDS", DEFAULT_STUCK_AFTER_SECONDS)
-    )
-    cutoff = datetime.now(UTC) - timedelta(seconds=stuck_after)
+    stuck_after = load_runner_settings().stuck_after_seconds
+    now = datetime.now(UTC)
+    overrides = stuck_thresholds(self.app.tasks)
 
     with sync_session() as session:
         stmt = (
             update(TaskExecution)
             .where(
-                TaskExecution.status == TaskStatus.RUNNING,
-                TaskExecution.heartbeat_at < cutoff,
+                col(TaskExecution.status) == TaskStatus.RUNNING,
+                _stale(now, stuck_after, overrides),
             )
-            .values(status=TaskStatus.STUCK, finished_at=datetime.now(UTC))
+            .values(status=TaskStatus.STUCK, finished_at=now)
         )
         result = session.execute(stmt)
         count = result.rowcount or 0
@@ -85,9 +135,12 @@ def sweep_stuck_tasks() -> int:
 
 @shared_task(name=INTERNAL_TASK_PURGE_OLD)
 def purge_old_executions() -> int:
-    """Delete terminal rows older than the retention window."""
-    retention_days = int(os.environ.get("SM_BG_TASKS_RETENTION_DAYS", DEFAULT_RETENTION_DAYS))
-    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    """Delete terminal rows, delivered outbox rows and log lines past their retention."""
+    runner = load_runner_settings()
+    retention_days = runner.retention_days
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(days=retention_days)
+    log_cutoff = now - timedelta(days=runner.log_retention_days)
 
     with sync_session() as session:
         result = session.execute(
@@ -96,6 +149,13 @@ def purge_old_executions() -> int:
             .where(TaskExecution.finished_at < cutoff)
         )
         count = result.rowcount or 0
+        delivered = session.execute(
+            delete(OutboxMessage)
+            .where(col(OutboxMessage.status) == OutboxStatus.DELIVERED)
+            .where(OutboxMessage.delivered_at < cutoff)
+        )
+        count += delivered.rowcount or 0
+        count += purge_log_records(session, log_cutoff)
         if count:
             logger.info(
                 "purge_old_executions removed %d row(s) older than %d days",
@@ -103,3 +163,21 @@ def purge_old_executions() -> int:
                 retention_days,
             )
         return count
+
+
+@shared_task(name=INTERNAL_TASK_DISPATCH_OUTBOX)
+def dispatch_outbox(ids: list[str]) -> dict[str, int]:
+    """Deliver the outbox rows a just-committed transaction wrote."""
+    # Imported here: the dispatcher pulls in the async engine stack, which a
+    # worker only needs once it actually delivers an event.
+    from background_tasks.outbox_worker import run_dispatch
+
+    return run_dispatch(list(ids))
+
+
+@shared_task(name=INTERNAL_TASK_SWEEP_OUTBOX, sm_tracking=TrackingMode.FAILURES)
+def sweep_outbox() -> dict[str, int]:
+    """Deliver every due outbox row and reclaim expired leases (beat, every 30 s)."""
+    from background_tasks.outbox_worker import run_dispatch
+
+    return run_dispatch(None)

@@ -3,7 +3,7 @@
 Runtime configuration has **two** sources, in order of precedence:
 
 1. **Environment variables** (`SM_*`) — read at boot, before the DB connection is open. Use for bootstrap plumbing (DB URL, secret key, feature-flag overrides for tests).
-2. **DB-backed settings** — edited from `/settings/modules` at runtime. Use for everything else: SMTP creds, storage backends, module-specific toggles.
+2. **DB-backed settings** — edited from `/admin/settings/` at runtime. Use for everything else: SMTP creds, storage backends, module-specific toggles.
 
 Most deployments only need `SM_DATABASE_URL` and `SM_SECRET_KEY` in the environment — everything else is configurable from the admin UI.
 
@@ -13,17 +13,18 @@ Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hostin
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL. Postgres: `postgresql+asyncpg://…` |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL. Postgres: `postgresql+asyncpg://…` Relative sqlite paths resolve against the project root (the `.env` location), not the cwd. |
 | `SM_ENVIRONMENT` | `development` | Any value other than `development`, `test`, `testing` triggers strict discovery + placeholder-secret checks. |
 | `SM_SECRET_KEY` | `change-me-in-production` | **Must** be overridden in production — session cookie signing key. |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. Scaffolded apps derive the Vite dev server's port and origin from this same value, so it's the single knob for moving off 5050. |
 | `SM_DEBUG` | `false` | Enables debug mode (shows tracebacks in HTTP responses). |
 | `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
 | `SM_LOG_FORMAT` | `json` | `json` (structured) or `text`. |
 | `SM_MODULES_ENABLED` | unset (all enabled) | Comma-separated allow-list to disable modules without uninstalling them. |
 | `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of anonymous-access path prefixes — a host-level escape hatch. Modules should prefer the `register_public_routes` hook. |
+| `SM_REDIS_URL` | unset | Optional. Shared store for the rate limiter (and the background-tasks broker). Unset means per-worker in-process counters. See [request guards](../framework/request-guards.md). |
 
-Multi-tenancy (`multi_tenant`, `tenant_header`) and i18n (`i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`) are **DB-backed host settings** now, not env vars — edit them under `host` at `/settings/modules`. (`smpy new --tenancy` still writes `SM_MULTI_TENANT=true` into `.env.example` as a scaffold convenience, and tests can override these.)
+Request guards (`max_request_body_bytes`, `rate_limit_public`, `rate_limit_authenticated`) are DB-backed host settings read at boot; changing them needs a restart. Multi-tenancy (`multi_tenant`, `tenant_header`) and i18n (`i18n_default_locale`, `i18n_supported_locales`, `i18n_cookie_name`) are **DB-backed host settings** now, not env vars — edit them under `host` at `/admin/settings/`. (`smpy new --tenancy` still writes `SM_MULTI_TENANT=true` into `.env.example` as a scaffold convenience, and tests can override these.)
 
 ## Database bootstrap knobs
 
@@ -38,7 +39,7 @@ Only change if you know what you're doing — these must be set *before* the DB 
 
 ## Internationalization
 
-These are **DB-backed host settings** (under `host` in `/settings/modules`), not env vars.
+These are **DB-backed host settings** (under `host` in `/admin/settings/`), not env vars.
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -48,7 +49,7 @@ These are **DB-backed host settings** (under `host` in `/settings/modules`), not
 
 ## Users module
 
-Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy, mailer, SMTP creds, and base URL all moved to the DB-backed settings store — edit them under `users` at `/settings/modules`.
+Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`). Signup policy and base URL are DB-backed settings (edit them under `users` at `/admin/settings/`); the mailer and SMTP credentials live under `mail`.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -57,11 +58,11 @@ Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second, non-admin seed user. |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
 
-DB-backed users settings (defaults): `allow_signup=false`, `mailer=console` (or `smtp`), `base_url=http://localhost:8000`, and the `smtp_*` fields (`smtp_port=587`, `smtp_from=no-reply@localhost`, `smtp_tls=true`).
+DB-backed users settings (defaults): `allow_signup=false` and `base_url=http://localhost:8000`. Outgoing mail (SMTP host, credentials, sender address) is configured in the [`mail` module](/modules/mail), not under Users.
 
 ## Background tasks (Celery)
 
-The broker/result settings are DB-backed (under `background_tasks` in `/settings/modules`) with the defaults below. The generated `docker-compose.yml` sets `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` on the `worker` and `beat` containers so they reach the in-container `redis` service.
+The broker/result settings are DB-backed (under `background_tasks` in `/admin/settings/`) with the defaults below. The generated `docker-compose.yml` sets `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` on the `worker` and `beat` containers so they reach the in-container `redis` service.
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -78,36 +79,46 @@ uv run smpy settings import-from-env
 
 This is idempotent — it only seeds keys that don't have a DB override yet.
 
-From then on, edit at `/settings/modules` (requires the `settings.manage` permission). Changes apply immediately; no restart needed.
+From then on, edit at `/admin/settings/` (requires the `settings.manage` permission). Changes apply immediately; no restart needed.
 
 ## Per-module settings convention
 
-When you write your own module, declare settings as a `pydantic_settings.BaseSettings` subclass and store them on `app.state.<module_lower>` (the lowercase package name) inside `register_settings(app)`. Env-var prefix is `SM_<MODULE>_*`.
+When you write your own module, declare settings as a `DbBackedSettings` subclass (`simple_module_core.settings_base`; constructor + DB, no env source) and register it from `register_settings(app)` with `register_module_settings`, which mounts your services object on `app.state.<module_lower>` (the lowercase package name) and lets the host hydrate it from the database before `on_startup`.
 
 ```python
 # modules/orders/orders/settings.py
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
-class OrdersSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SM_ORDERS_", extra="ignore")
+
+class OrdersSettings(DbBackedSettings):
+    model_config = SettingsConfigDict(extra="ignore")
 
     max_items_per_order: int = 100
+
 
 # modules/orders/orders/services.py
 from dataclasses import dataclass
 from orders.settings import OrdersSettings
 
+
 @dataclass
 class OrdersServices:
     settings: OrdersSettings
 
+
 # modules/orders/orders/module.py
+from simple_module_core.module_settings import register_module_settings
+
+
 class OrdersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from orders.services import OrdersServices
         from orders.settings import OrdersSettings
 
-        app.state.orders = OrdersServices(settings=OrdersSettings())
+        register_module_settings(
+            app, "orders", OrdersSettings, lambda s: OrdersServices(settings=s)
+        )
 ```
 
 If you override `register_settings` but don't write to `app.state.<module_lower>`, diagnostic `SM012` warns in dev. See [Settings & app.state](/framework/settings) for details.

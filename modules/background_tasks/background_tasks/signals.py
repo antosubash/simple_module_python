@@ -19,100 +19,37 @@ directly.
 
 from __future__ import annotations
 
-import asyncio
-import logging
-from collections.abc import Callable
 from typing import Any
 
 from celery import signals
-from simple_module_core.events import EventBus
 
+from background_tasks._signal_bus import bind_event_bus, publish_from_signal, unbind_event_bus
 from background_tasks._signal_support import (
+    apply_signal,
     coerce_args_kwargs,
     jsonable_result,
     now_utc,
     render_traceback,
     task_id_from,
     task_name_of,
-    upsert_by_celery_id,
 )
-from background_tasks.constants import DEFAULT_QUEUE, TaskStatus
+from background_tasks.constants import (
+    DEFAULT_QUEUE,
+    TaskStatus,
+)
 from background_tasks.contracts.events import TaskFailed
 from background_tasks.log_context import signal_task_finished, signal_task_started
 from background_tasks.models import TaskExecution
-from background_tasks.sync_db import sync_session
-
-logger = logging.getLogger(__name__)
-
-
-_bus: EventBus | None = None
-_loop: asyncio.AbstractEventLoop | None = None
-
-
-def bind_event_bus(bus: EventBus, loop: asyncio.AbstractEventLoop) -> None:
-    """Bind an event bus + its running loop so signals can publish events.
-
-    Signals fire on the Celery sync thread; `run_coroutine_threadsafe`
-    bridges back to ``loop`` so handlers run on the API event loop
-    regardless of which thread triggered the signal.
-    """
-    global _bus, _loop
-    _bus = bus
-    _loop = loop
-
-
-def unbind_event_bus() -> None:
-    """Drop the bound bus — called from ``on_shutdown`` so tests stay isolated."""
-    global _bus, _loop
-    _bus = None
-    _loop = None
-
-
-def _publish_from_signal(event: Any) -> None:
-    """Dispatch ``event`` onto the bound bus without blocking the signal thread."""
-    if _bus is None or _loop is None:
-        return
-    try:
-        future = asyncio.run_coroutine_threadsafe(_bus.publish(event), _loop)
-    except RuntimeError:
-        # Loop has stopped (shutdown race). The DB row is already written.
-        logger.debug("Event bus loop is not running; skipping %s", type(event).__name__)
-        return
-    # Surface subscriber exceptions — run_coroutine_threadsafe otherwise only
-    # logs them when the Future is GC'd, which happens far from the failure.
-    future.add_done_callback(_log_publish_failure)
-
-
-def _log_publish_failure(future: asyncio.Future[Any]) -> None:
-    if future.cancelled():
-        return
-    exc = future.exception()
-    if exc is not None:
-        logger.error("Event publish raised: %s", exc, exc_info=exc)
-
-
-def _apply(
-    handler: str,
-    *,
-    celery_task_id: str | None,
-    defaults: dict[str, Any],
-    after: Callable[[TaskExecution], None] | None = None,
-) -> TaskExecution | None:
-    """Open a sync session, upsert by celery_task_id, log on failure.
-
-    Returns the upserted row (or ``None`` if the session raised) so callers
-    can read DB-assigned fields like ``id`` without a second round trip.
-    """
-    try:
-        with sync_session() as session:
-            row = upsert_by_celery_id(session, celery_task_id=celery_task_id, defaults=defaults)
-            if after is not None:
-                after(row)
-            return row
-    except Exception:
-        logger.exception("%s failed for task_id=%s", handler, celery_task_id)
-        return None
-
+from background_tasks.task_heartbeat import forget_heartbeat
+from background_tasks.tenant_context import (
+    message_tenant,
+    published_owner,
+    published_tenant,
+    release_tenant,
+    restore_tenant,
+    stamp_owner,
+    stamp_tenant,
+)
 
 # ── Enqueue ─────────────────────────────────────────────────────
 
@@ -126,6 +63,8 @@ def on_task_publish(
     **_kwargs: Any,
 ) -> None:
     """Record a row the moment a task is pushed onto the broker."""
+    stamp_tenant(headers)
+    stamp_owner(headers)
     task_id = (headers or {}).get("id")
     task_name = sender or (headers or {}).get("task") or "unknown"
 
@@ -136,17 +75,21 @@ def on_task_publish(
         args_in, kwargs_in = body[0], body[1]
     args, kwargs = coerce_args_kwargs(args_in, kwargs_in)
 
-    _apply(
+    defaults: dict[str, Any] = {
+        "task_name": task_name,
+        "status": TaskStatus.PENDING,
+        "queue": routing_key or DEFAULT_QUEUE,
+        "args": args,
+        "kwargs": kwargs,
+        "queued_at": now_utc(),
+    }
+    apply_signal(
         "on_task_publish",
+        headers=headers,
         celery_task_id=task_id,
-        defaults={
-            "task_name": task_name,
-            "status": TaskStatus.PENDING,
-            "queue": routing_key or DEFAULT_QUEUE,
-            "args": args,
-            "kwargs": kwargs,
-            "queued_at": now_utc(),
-        },
+        defaults=defaults,
+        tenant_id=published_tenant(headers),
+        owner_user_id=published_owner(headers),
     )
 
 
@@ -163,10 +106,11 @@ def on_task_prerun(
     **_k: Any,
 ) -> None:
     """Flip the row to ``running``, start the heartbeat, bind log context."""
+    restore_tenant(task_id=task_id, task=task or sender)
     args_n, kwargs_n = coerce_args_kwargs(args, kwargs)
     now = now_utc()
     name = task_name_of(sender, task)
-    _apply(
+    apply_signal(
         "on_task_prerun",
         celery_task_id=task_id,
         defaults={
@@ -177,6 +121,8 @@ def on_task_prerun(
             "started_at": now,
             "heartbeat_at": now,
         },
+        task=task or sender,
+        tenant_id=message_tenant(task=task or sender),
     )
     signal_task_started(task_id=task_id, task_name=name)
 
@@ -194,17 +140,23 @@ def on_task_postrun(
     ``task_retry`` which fire *before* postrun; postrun only refreshes the
     heartbeat so the sweep doesn't immediately flip a just-finished row.
     """
-    _apply(
-        "on_task_postrun",
-        celery_task_id=task_id,
-        defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
-    )
-    signal_task_finished(task_id=task_id)
+    try:
+        apply_signal(
+            "on_task_postrun",
+            celery_task_id=task_id,
+            defaults={"task_name": task_name_of(sender, task), "heartbeat_at": now_utc()},
+            task=task or sender,
+            tenant_id=message_tenant(task=task or sender),
+        )
+    finally:
+        release_tenant(task_id=task_id)
+        forget_heartbeat(task_id)
+        signal_task_finished(task_id=task_id)
 
 
 @signals.task_success.connect
 def on_task_success(sender: Any = None, result: Any = None, **_k: Any) -> None:
-    _apply(
+    apply_signal(
         "on_task_success",
         celery_task_id=task_id_from(sender=sender),
         defaults={
@@ -215,6 +167,8 @@ def on_task_success(sender: Any = None, result: Any = None, **_k: Any) -> None:
             "traceback": None,
             "exception_type": None,
         },
+        task=sender,
+        tenant_id=message_tenant(task=sender),
     )
 
 
@@ -229,7 +183,7 @@ def on_task_failure(
     task_name = task_name_of(sender)
     exception_type = type(exception).__name__ if exception is not None else None
 
-    row = _apply(
+    row = apply_signal(
         "on_task_failure",
         celery_task_id=task_id,
         defaults={
@@ -239,10 +193,12 @@ def on_task_failure(
             "exception_type": exception_type,
             "finished_at": now_utc(),
         },
+        task=sender,
+        tenant_id=message_tenant(task=sender),
     )
 
     if row is not None:
-        _publish_from_signal(
+        publish_from_signal(
             TaskFailed(
                 task_execution_id=row.id,
                 task_name=task_name,
@@ -264,7 +220,7 @@ def on_task_retry(
         if reason is not None:
             row.traceback = f"retry: {reason!r}"
 
-    _apply(
+    apply_signal(
         "on_task_retry",
         celery_task_id=task_id_from(request=request),
         defaults={
@@ -274,12 +230,15 @@ def on_task_retry(
             "heartbeat_at": now_utc(),
         },
         after=_stamp_reason,
+        task=sender,
+        request=request,
+        tenant_id=message_tenant(request=request),
     )
 
 
 @signals.task_revoked.connect
 def on_task_revoked(sender: Any = None, request: Any = None, **_k: Any) -> None:
-    _apply(
+    apply_signal(
         "on_task_revoked",
         celery_task_id=task_id_from(request=request),
         defaults={
@@ -287,4 +246,20 @@ def on_task_revoked(sender: Any = None, request: Any = None, **_k: Any) -> None:
             "status": TaskStatus.REVOKED,
             "finished_at": now_utc(),
         },
+        task=sender,
+        request=request,
+        tenant_id=message_tenant(request=request),
     )
+
+
+__all__ = [
+    "bind_event_bus",
+    "on_task_failure",
+    "on_task_postrun",
+    "on_task_prerun",
+    "on_task_publish",
+    "on_task_retry",
+    "on_task_revoked",
+    "on_task_success",
+    "unbind_event_bus",
+]

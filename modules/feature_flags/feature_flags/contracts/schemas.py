@@ -11,7 +11,7 @@ from sqlmodel import Field, SQLModel
 class FeatureFlagOverrideOut(SQLModel):
     """Stored override row as returned by the service/API."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: int
     scope: str

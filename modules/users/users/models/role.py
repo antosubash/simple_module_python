@@ -6,7 +6,9 @@
 import uuid
 
 from fastapi_users_db_sqlalchemy.generics import GUID
+from simple_module_core.tenancy import TENANT_ROLE_PREFIX
 from simple_module_db.mixins import AuditMixin
+from sqlalchemy.orm import validates
 from sqlmodel import Field, Relationship
 
 from users.models._base import Base
@@ -32,3 +34,17 @@ class Role(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         back_populates="roles",
         sa_relationship_kwargs={"lazy": "noload"},
     )
+
+    @validates("name")
+    def _reject_tenant_namespace(self, _key: str, value: str) -> str:
+        """``tenant:*`` is the synthetic per-tenant principal namespace (#377).
+
+        A platform ``Role`` row with that prefix would be indistinguishable from
+        the active tenant's membership role on a principal, so the name is
+        refused at the model, whichever path (service, CLI, seed) sets it.
+        """
+        if isinstance(value, str) and value.casefold().startswith(TENANT_ROLE_PREFIX):
+            raise ValueError(
+                f"Role names starting with {TENANT_ROLE_PREFIX!r} are reserved for tenant roles"
+            )
+        return value

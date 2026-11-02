@@ -1,0 +1,104 @@
+"""Schema construction for the plugin's app fixtures.
+
+Split out of :mod:`simple_module_test.fixtures` so that module declares
+fixtures and this one holds the machinery underneath them: importing every
+installed module's models, resolving the migration heads, creating the tables
+and stamping ``alembic_version`` so the boot-time migration check passes.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import importlib
+from functools import lru_cache
+
+from simple_module_core.discovery import discover_modules
+from simple_module_db.base import all_module_bases
+
+
+@lru_cache(maxsize=1)
+def _ensure_models_imported() -> list:
+    """Import all module models so all_module_bases is populated (cached)."""
+    import simple_module_db.leases  # framework-owned table (#539)
+    import simple_module_db.stored_settings  # noqa: F401  framework-owned table (#500)
+
+    for mod in discover_modules():
+        pkg = type(mod).__module__.split(".")[0]
+        with contextlib.suppress(ModuleNotFoundError):
+            importlib.import_module(f"{pkg}.models")
+    return list(all_module_bases)
+
+
+_heads_cache: tuple[str, ...] | None = None
+
+
+def _alembic_heads() -> tuple[str, ...]:
+    """Head revisions — cannot change within a pytest run, once found.
+
+    Only a non-empty result is cached. ``resolve_head_revisions`` returns ``()``
+    when ``alembic.ini`` is not found, which is what happens under a test that
+    points ``SM_PROJECT_ROOT`` at a tmp dir; caching that would leave every
+    later test in the worker unstamped while its app, resolving the real ini,
+    demands the heads ("Database is N revision(s) behind").
+
+    Plural: each module's first migration sets its own ``branch_labels``, so
+    the history has one head per module and a real upgraded database carries
+    an ``alembic_version`` row for each. Stamping only one leaves the rest
+    looking un-applied, which now reads as a behind-head schema and puts every
+    test app behind the setup gate.
+    """
+    global _heads_cache
+    from simple_module_hosting.migrations import resolve_head_revisions
+
+    if _heads_cache is None:
+        heads = resolve_head_revisions()
+        if not heads:
+            return heads
+        _heads_cache = heads
+    return _heads_cache
+
+
+async def _create_all_tables(engine) -> None:
+    """Create all module tables in a single connection.
+
+    Also stamps the alembic_version table at heads so the app's startup
+    migration check (``check_migrations``) treats the test DB as current.
+    Without the stamp the check would raise because ``create_all`` doesn't
+    touch alembic_version.
+    """
+    from sqlalchemy import text
+
+    from simple_module_test.database import prepare_schema_once
+
+    bases = _ensure_models_imported()
+    heads = _alembic_heads()
+
+    async def _build(engine) -> None:
+        async with engine.begin() as conn:
+
+            def _sync_create_all(sync_conn):
+                for base in bases:
+                    base.metadata.create_all(sync_conn)
+
+            await conn.run_sync(_sync_create_all)
+            # Part of the build, so a reused Postgres schema's fingerprint covers it.
+            if heads:
+                await conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS alembic_version "
+                        "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+                    )
+                )
+
+    tables = [table for base in bases for table in base.metadata.tables.values()]
+    # Postgres reuses the schema built for an earlier test, emptied of rows.
+    await prepare_schema_once(engine, tables, _build)
+
+    async with engine.begin() as conn:
+        if heads:
+            await conn.execute(text("DELETE FROM alembic_version"))
+            for head in heads:
+                await conn.execute(
+                    text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                    {"v": head},
+                )

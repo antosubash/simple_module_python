@@ -29,11 +29,12 @@ Minimal `main.py`:
 from simple_module_hosting import create_app
 from simple_module_hosting.settings import Settings
 
-settings = Settings()           # reads SM_* env vars
-app = create_app(settings)      # discovers + registers every installed module
+settings = Settings()  # reads SM_* env vars
+app = create_app(settings)  # discovers + registers every installed module
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 

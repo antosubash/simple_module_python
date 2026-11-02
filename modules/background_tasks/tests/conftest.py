@@ -2,13 +2,29 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from background_tasks import sync_db
+from background_tasks.constants import PERM_VIEW, TaskStatus
 from background_tasks.models import TaskExecution
+from sqlalchemy import select
+
+
+@pytest.fixture(autouse=True)
+def _no_worker_audit_sink(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Build worker engines without the installed audit sink (#498).
+
+    ``audit_log`` is installed in this workspace, so a worker engine would
+    write an ``AuditEntry`` for every ``TaskExecution`` — into the bare
+    per-test databases here, which have no audit table. The worker-audit
+    suite puts the real discovery back.
+    """
+    monkeypatch.setattr(sync_db, "discover_audit_callback", lambda: None)
 
 
 @pytest.fixture
@@ -49,3 +65,95 @@ def sync_sqlite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     yield db_file
 
     sync_db.dispose_sync_engine()
+
+
+@pytest.fixture
+def seed_execution(app):
+    """Insert one ``TaskExecution`` and hand it back.
+
+    A factory rather than a fixture value: nearly every test in the retry
+    suites needs several rows that differ in one field, and spelling the whole
+    constructor out each time buries the one thing the test is about.
+    """
+
+    async def _seed(
+        *,
+        task_name: str = "demo.task",
+        status: TaskStatus = TaskStatus.FAILED,
+        queue: str = "default",
+        queued_at: datetime | None = None,
+        tenant_id: str | None = None,
+        owner_user_id: str | None = None,
+        celery_task_id: str | None = None,
+        **fields: object,
+    ) -> TaskExecution:
+        row = TaskExecution(
+            celery_task_id=celery_task_id or str(uuid.uuid4()),
+            task_name=task_name,
+            status=status,
+            queue=queue,
+            args=[],
+            kwargs={},
+            queued_at=queued_at or datetime.now(UTC),
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            **fields,
+        )
+        async with app.state.sm.db.session_factory() as session:
+            session.add(row)
+            await session.commit()
+            await session.refresh(row)
+        return row
+
+    return _seed
+
+
+@pytest.fixture
+def execution_rows(app):
+    """Every ``TaskExecution`` currently in the database, read fresh."""
+
+    async def _rows() -> list[TaskExecution]:
+        async with app.state.sm.db.session_factory() as session:
+            return list((await session.execute(select(TaskExecution))).scalars())
+
+    return _rows
+
+
+@pytest.fixture
+def view_only(app) -> None:
+    """Downgrade the seeded admin to ``background_tasks.view`` for one test.
+
+    The admin role carries the wildcard, so nothing else in this suite can tell
+    a ``view`` gate from a ``manage`` gate — every endpoint would pass either
+    way. Pinning the registry's resolved role map is the smallest way to get a
+    principal genuinely allowed to read the executions table and genuinely not
+    allowed to sweep it.
+    """
+    app.state.sm.permissions._role_map_cache = {"admin": [PERM_VIEW]}
+
+
+# ── Durable outbox (GH #459) ────────────────────────────────────
+
+
+@pytest.fixture
+def outbox_rows(app):
+    """Every ``OutboxMessage`` currently in the database, read fresh."""
+    from background_tasks.models import OutboxMessage
+
+    async def _rows() -> list[OutboxMessage]:
+        async with app.state.sm.db.session_factory() as session:
+            return list((await session.execute(select(OutboxMessage))).scalars())
+
+    return _rows
+
+
+@pytest.fixture
+def effect_names(app):
+    """Task names of the ``TaskExecution`` rows test handlers write as their DB effect."""
+
+    async def _names() -> list[str]:
+        async with app.state.sm.db.session_factory() as session:
+            rows = (await session.execute(select(TaskExecution.task_name))).scalars()
+            return sorted(n for n in rows if n.startswith("effect:"))
+
+    return _names

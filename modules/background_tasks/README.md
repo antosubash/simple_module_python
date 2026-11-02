@@ -15,6 +15,8 @@ Requires a Redis broker. The broker / result-backend URLs are module settings (`
 - Zero-config task discovery — any installed module that ships a `tasks.py` has its tasks autodiscovered (`celery.autodiscover_tasks` imports `<package>.tasks` for every installed module). No per-module registration hook.
 - Admin UI at `/admin/background-tasks` — list recent runs, retry failed, inspect tracebacks (gated by the `background_tasks.view` permission).
 - `build_celery(settings)` factory in `background_tasks.celery_app`, plus `bind_task_context` / `get_log_context` / `install_log_filter` exported from the package root (import name `background_tasks`, distribution name `simple_module_background_tasks`).
+- `enqueue_after_commit(db, task, *args, **kwargs)` — publish a task only once the session's transaction commits, never on rollback.
+- `heartbeat()` — called from a long task body, keeps the stuck sweep from flagging it; `@shared_task(stuck_after=seconds)` sets a per-task stuck threshold. See the module docs for both.
 
 ## Usage
 
@@ -26,8 +28,7 @@ from celery import shared_task
 
 
 @shared_task(name="reports.generate")
-def generate_report(report_id: int) -> None:
-    ...
+def generate_report(report_id: int) -> None: ...
 ```
 
 Declaring `background_tasks` as a `depends_on` ensures the Celery app is built before your tasks run:
@@ -50,6 +51,27 @@ uv run celery -A scripts.run_worker:celery worker -l info
 uv run celery -A scripts.run_worker:celery beat   -l info
 ```
 
+## Routing, tuning and per-worker module subsets
+
+A module can ship a light `task_config.py` (`TASK_ROUTES`, `QUEUES`, optional
+`BEAT_SCHEDULE`) that is read without importing `tasks.py`. The
+`task_routes_override` setting re-routes tasks at runtime, and the Workers page
+lists the effective routes. Tuning settings (`visibility_timeout_seconds`,
+`worker_max_tasks_per_child`, `task_time_limit`, `worker_concurrency`, ...) and a
+raw `SM_BG_TASKS_CELERY_OVERRIDES` (env only, unsafe keys refused) default to Celery's own defaults.
+`SM_BG_TASKS_WORKER_QUEUES=gpu,default make worker` consumes only those queues
+and imports only the modules whose `QUEUES` overlap (see `SM_BG_TASKS_INCLUDE_MODULES` /
+`SM_BG_TASKS_EXCLUDE_MODULES`; env only, not DB settings). Full details in `docs/modules/background_tasks.md`.
+
+## Durable events
+
+This module is the transport behind `bus.publish_durable(event, db)`: the event
+is written to an outbox table in the caller's transaction and delivered by a
+worker to every `bus.subscribe_durable(...)` handler, at least once, with
+backoff, after the commit. Writes a handler makes through `ctx.db` land exactly
+once. Undelivered and dead rows are on `/admin/background-tasks/outbox`. Full
+details in `docs/modules/background_tasks.md` § Durable events.
+
 ## Worker log context
 
 Every worker log line automatically carries the Celery task identifiers
@@ -69,10 +91,11 @@ domain `job_id` that named a Celery task is the canonical example):
 from background_tasks import bind_task_context
 from celery import shared_task
 
+
 @shared_task
 def process_dataset(job_id: int) -> None:
     with bind_task_context(job_id=job_id):
-        logger.info("starting ingest")   # now carries job_id too
+        logger.info("starting ingest")  # now carries job_id too
 ```
 
 Bindings nest cleanly and restore on exit. structlog users can mount the

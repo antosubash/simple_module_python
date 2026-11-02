@@ -656,9 +656,7 @@ async def admin_create_user(
         ) from None
     except fa_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from None
-    await bus.publish(
-        UserCreated(user_id=user.id, email=user.email, created_by=created_by)
-    )
+    await bus.publish(UserCreated(user_id=user.id, email=user.email, created_by=created_by))
     return service.to_list_item(user)
 ```
 
@@ -712,9 +710,7 @@ async def test_update_details_changes_email_and_name(users_app):
     async with users_app.state.sm.db.session_factory() as session:
         user = await _make_user(session, email="old@example.com")
         svc = _build_service(session, users_app)
-        updated = await svc.update_details(
-            user.id, email="new@example.com", full_name="New Name"
-        )
+        updated = await svc.update_details(user.id, email="new@example.com", full_name="New Name")
         assert updated.email == "new@example.com"
         assert updated.full_name == "New Name"
 
@@ -739,9 +735,7 @@ async def test_update_details_same_email_is_allowed(users_app):
     async with users_app.state.sm.db.session_factory() as session:
         user = await _make_user(session, email="keep@example.com")
         svc = _build_service(session, users_app)
-        updated = await svc.update_details(
-            user.id, email="keep@example.com", full_name="Renamed"
-        )
+        updated = await svc.update_details(user.id, email="keep@example.com", full_name="Renamed")
         assert updated.email == "keep@example.com"
         assert updated.full_name == "Renamed"
 ```
@@ -1074,9 +1068,7 @@ class TestAdminDelete:
 
         async with users_app.state.sm.db.session_factory() as session:
             admin = (
-                await session.execute(
-                    select(User).where(User.email == "admin@example.com")
-                )
+                await session.execute(select(User).where(User.email == "admin@example.com"))
             ).scalar_one()
         resp = await admin_client.delete(f"/api/users/admin/{admin.id}")
         assert resp.status_code == 400

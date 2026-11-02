@@ -56,7 +56,7 @@ class AuthedUser(HttpUser):
     def users_list_view(self) -> None:
         page = random.randint(1, 50)
         self.client.get(
-            f"/users/admin?page={page}&per_page=20", headers=_INERTIA, name="/users/admin"
+            f"/admin/users/?page={page}&per_page=20", headers=_INERTIA, name="/admin/users/"
         )
 
     @task(8)

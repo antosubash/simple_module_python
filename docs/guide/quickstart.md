@@ -17,7 +17,7 @@ smpy new myapp --yes
 cd myapp
 ```
 
-`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade head` for you.
+`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade heads` for you.
 
 For an interactive run with prompts, drop the `--yes`. For a preset + extras: `smpy new myapp --preset standard --with background_tasks,file_storage --yes`.
 
@@ -32,7 +32,8 @@ The API and Vite dev servers start side by side. Visit:
 - `http://localhost:8000` — landing page
 - `http://localhost:8000/users/login` — sign-in screen
 - `http://localhost:8000/dashboard` — the authenticated home (log in first)
-- `http://localhost:8000/settings/modules` — the admin settings UI (log in first; only when the `settings` module is installed, e.g. the `full` preset or `--with settings`)
+- `http://localhost:8000/admin` — the admin section overview (log in as an admin; lists whichever admin screens are installed)
+- `http://localhost:8000/admin/settings/` — the admin settings UI (log in first; only when the `settings` module is installed, e.g. the `full` preset or `--with settings`)
 
 ## 4. Create an admin
 
@@ -60,7 +61,9 @@ This generates a publishable starter module at `modules/orders/` with:
 - `orders/settings.py` — the module's `pydantic_settings` settings class.
 - `orders/endpoints/api.py` — starter REST endpoints at `/api/orders`.
 - `orders/pages/` — empty page dir; add `.tsx` pages (and a `register_routes` view router) as you build views.
-- `tests/test_module.py` — pytest smoke test.
+- `tests/test_orders.py` — pytest smoke test. <!-- path-check: ignore --> Named after the package so a repo
+  with several modules doesn't collide at collection: without `tests/__init__.py`,
+  pytest derives the test module's name from the basename alone.
 
 You add the domain model (`models.py`), DTOs (`contracts/`), service, Inertia views, and pages yourself — the [first-module guide](/guide/first-module) walks through that.
 
@@ -73,7 +76,7 @@ make migration msg="add orders tables"
 make migrate
 ```
 
-`make migration` runs Alembic from the host directory (where `alembic.ini` lives). Autogenerate picks up the new `orders_*` tables and writes `host/migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision so you can later `alembic downgrade orders@base` to roll the module back in isolation.
+`make migration` runs Alembic from the host directory (where `alembic.ini` lives). Autogenerate picks up the new `orders_*` tables and writes `host/migrations/versions/XXXX_add_orders_tables.py`. Add `branch_labels = ("orders",)` to that revision to give it a named target. The label does not isolate the module: `alembic downgrade orders@base` rolls back the whole chain beneath it. See [Removing one module's schema](/database/migrations#removing-one-modules-schema).
 
 ## 7. Hit the module
 

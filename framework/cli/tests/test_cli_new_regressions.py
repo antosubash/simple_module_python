@@ -13,9 +13,9 @@ from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
 
-def test_sm_new_flat_pins_inertia_react_to_v2(tmp_path: Path) -> None:
+def test_sm_new_flat_pins_inertia_react_to_v3(tmp_path: Path) -> None:
     """Issue #128: flat scaffold's root package.json must peer-match
-    @simple-module-py/ui's ``@inertiajs/react: ^2.0.0`` peer dep."""
+    @simple-module-py/ui's ``@inertiajs/react: ^3.0.0`` peer dep."""
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
@@ -25,7 +25,7 @@ def test_sm_new_flat_pins_inertia_react_to_v2(tmp_path: Path) -> None:
     data = json.loads((target / "package.json").read_text())
     inertia = data.get("dependencies", {}).get("@inertiajs/react")
     assert inertia is not None
-    assert inertia.startswith("^2."), f"expected ^2.x, got {inertia!r}"
+    assert inertia.startswith("^3."), f"expected ^3.x, got {inertia!r}"
 
 
 def test_sm_new_sample_module_pins_match_framework_version(tmp_path: Path) -> None:
@@ -82,10 +82,11 @@ def test_sm_new_sample_module_seeds_static_dist_placeholder(tmp_path: Path) -> N
     assert static_dist.is_dir(), "static/dist/ must exist for hatch force-include"
 
 
-def test_sm_new_sample_module_does_not_declare_view_prefix(tmp_path: Path) -> None:
-    """Issue #138: fresh scaffold must not declare view_prefix so it boots
-    without an SM019 warning (view routes registered but no menu entry or
-    permissions)."""
+def test_sm_new_sample_module_views_carry_a_menu_item(tmp_path: Path) -> None:
+    """Issue #138: fresh scaffold must boot without an SM019 warning. The
+    template now ships a sample page + view routes, so the SM019-safe shape is
+    view_prefix *plus* a register_menu_items override (views reachable from the
+    sidebar), not the absence of view_prefix."""
     runner = CliRunner()
     target = tmp_path / "demo"
     runner.invoke(
@@ -93,7 +94,10 @@ def test_sm_new_sample_module_does_not_declare_view_prefix(tmp_path: Path) -> No
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     module_py = (target / "modules" / "hello" / "hello" / "module.py").read_text()
-    assert "view_prefix" not in module_py
+    constants = (target / "modules" / "hello" / "hello" / "constants.py").read_text()
+    assert "view_prefix=VIEW_PREFIX" in module_py
+    assert 'VIEW_PREFIX = "/hello"' in constants
+    assert "register_menu_items" in module_py
 
 
 def test_sm_new_registers_landing_route_at_root(tmp_path: Path) -> None:
@@ -209,6 +213,38 @@ def test_sm_new_rejects_mixed_separators(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
+def test_scaffold_adopts_every_locale_catalog_the_server_sends(tmp_path: Path) -> None:
+    """Issue #321: the scaffold gated ``updateI18n`` on a locale *change*, which
+    drops the catalog that arrives when the audience changes instead. Signing in
+    swaps the anonymous snapshot for one including admin-only modules at the same
+    locale, so every admin screen rendered raw keys ("dashboard.home.title")
+    until a hard refresh. A non-null ``messages`` payload is itself the server's
+    signal that the client needs it."""
+    from simple_module_cli.scaffolding import create_host
+
+    dest = tmp_path / "demo"
+    create_host(dest, name="demo-host", modules=["Dashboard", "Auth"])
+
+    app_tsx = (dest / "client_app" / "app.tsx").read_text()
+    assert "updateI18n" in app_tsx
+    assert "activeLocale" not in app_tsx, (
+        "the locale gate is back — a same-locale catalog would be dropped again"
+    )
+
+
+def test_sm_new_host_app_tsx_wires_theme_and_title(tmp_path: Path) -> None:
+    """Issue #429: the scaffolded app.tsx must init the theme and brand titles."""
+    from simple_module_cli.scaffolding import create_host
+
+    dest = tmp_path / "demo"
+    create_host(dest, name="demo-host", modules=["Dashboard", "Auth"])
+
+    app_tsx = (dest / "client_app" / "app.tsx").read_text()
+    assert "initTheme(" in app_tsx
+    assert "formatTitle" in app_tsx
+    assert "setTitleAppName" in app_tsx
+
+
 def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) -> None:
     """Issue #135: ``host/migrations/versions/`` ships empty, so a fresh
     ``make migrate`` is a no-op. The printed next-steps must therefore
@@ -224,49 +260,23 @@ def test_sm_new_no_install_next_steps_include_initial_migration(tmp_path: Path) 
     assert "make migrate" in result.output
 
 
-def test_bootstrap_initial_migration_runs_autogenerate_when_versions_empty(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Issue #135: the post-install hook must call ``alembic revision
-    --autogenerate`` when ``migrations/versions/`` holds only ``.gitkeep``."""
-    from simple_module_cli import new as new_mod
+def test_sm_new_flat_root_covers_client_app_build_deps(tmp_path: Path) -> None:
+    """Flat scaffolds have no npm workspaces, so ``client_app/package.json`` is
+    never installed and the root manifest is the only one npm reads. It must
+    therefore carry everything the client build imports — ``vite.config.ts``
+    pulls in ``@tailwindcss/vite``, so a root missing it failed ``vite build``
+    with ``Could not resolve '@tailwindcss/vite'``."""
+    runner = CliRunner()
+    target = tmp_path / "demo"
+    runner.invoke(
+        app,
+        ["new", "demo", "--yes", "--flat", "--no-install", "--dest", str(target)],
+    )
+    root = json.loads((target / "package.json").read_text())
+    client_app = json.loads((target / "client_app" / "package.json").read_text())
+    assert "workspaces" not in root, "flat mode must stay workspace-free"
 
-    host = tmp_path / "host"
-    (host / "migrations" / "versions").mkdir(parents=True)
-    (host / "migrations" / "versions" / ".gitkeep").touch()
-
-    calls: list[tuple[list[str], Path]] = []
-
-    def fake_run(cmd, *, cwd, check):
-        del check
-        calls.append((list(cmd), Path(cwd)))
-
-        class _Result:
-            returncode = 0
-
-        return _Result()
-
-    monkeypatch.setattr(new_mod.subprocess, "run", fake_run)
-    new_mod._bootstrap_initial_migration(host)
-    assert calls, "expected alembic autogenerate to run"
-    cmd, cwd = calls[0]
-    assert cmd[:5] == ["uv", "run", "alembic", "revision", "--autogenerate"]
-    assert cwd == host
-
-
-def test_bootstrap_initial_migration_skips_when_revision_exists(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """If the user has already run ``make migration``, don't clobber their
-    revision by autogenerating a second baseline."""
-    from simple_module_cli import new as new_mod
-
-    host = tmp_path / "host"
-    (host / "migrations" / "versions").mkdir(parents=True)
-    (host / "migrations" / "versions" / "0001_initial.py").write_text("# revision\n")
-
-    def fake_run(*_a, **_kw):  # pragma: no cover - must not be called
-        raise AssertionError("alembic should not be invoked when a revision exists")
-
-    monkeypatch.setattr(new_mod.subprocess, "run", fake_run)
-    new_mod._bootstrap_initial_migration(host)
+    installed = {**root.get("dependencies", {}), **root.get("devDependencies", {})}
+    required = {**client_app.get("dependencies", {}), **client_app.get("devDependencies", {})}
+    missing = sorted(set(required) - set(installed))
+    assert not missing, f"flat root package.json is missing client_app deps: {missing}"

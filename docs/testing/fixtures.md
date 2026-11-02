@@ -13,8 +13,23 @@ The `simple_module_test` plugin provides app-level fixtures that every test dire
 | `app` | function | `FastAPI` | Endpoint tests that don't need an HTTP client. |
 | `client` | function | `httpx.AsyncClient` | Anonymous HTTP calls to the app. |
 | `authenticated_client` | function | `httpx.AsyncClient` | Admin-scoped HTTP calls — carries a signed session cookie. |
+| `captured_mail` | function | `CapturedMail` | Asserting on outgoing mail: installs a recording sender (`.messages`, `.to(address)`) as the process mail sender. |
 
 All fixtures are **function-scoped** — each test gets its own. The SQLite database is in-memory; tearing down and re-creating is cheap.
+
+## Postgres
+
+Set `SM_TEST_DATABASE_URL` to an async Postgres URL to use Postgres instead of
+in-memory SQLite. `make test-py-pg` sets this from `SM_TEST_PG_URL` and runs
+4 workers by default. Under xdist each worker uses its own
+`<database>_gw<N>` database, creating it if needed (the role needs `CREATEDB`).
+`PYTEST_WORKERS=0 make test-py-pg` runs serially against the named database.
+
+Each test starts with empty tables. The schema is built once per process and
+rebuilt only when changed; Postgres fixtures do not create a separate database
+per test. Connections use `NullPool` because pytest-asyncio gives each test
+its own event loop. Use `-p no:anyio` when invoking pytest directly on Postgres;
+the Make target already includes it.
 
 ## `settings`
 
@@ -33,6 +48,7 @@ The workhorse. Creates a fresh in-memory DB, runs `CREATE TABLE` for every modul
 ```python
 from decimal import Decimal
 from orders.models import Order
+
 
 @pytest.mark.asyncio
 async def test_create_order(db_session):
@@ -108,13 +124,12 @@ The admin has `*` permission (via `DEFAULT_ROLE_PERMISSIONS["admin"]`), so it by
 @pytest.mark.asyncio
 async def test_non_admin_denied(client, db_session):
     from users.admin.service import UserService
+
     svc = UserService(db_session)
     await svc.create(email="u@e.com", password="x", roles=["viewer"])
     await db_session.commit()
 
-    login = await client.post(
-        "/users/login", data={"email": "u@e.com", "password": "x"}
-    )
+    login = await client.post("/users/login", data={"email": "u@e.com", "password": "x"})
     assert login.status_code in (200, 303)
 
     r = await client.post("/api/orders", json={...})
@@ -132,6 +147,7 @@ Adding your own fixtures at module level:
 import pytest
 from orders.service import OrderService
 
+
 @pytest.fixture
 def order_service(db_session):
     return OrderService(db_session)
@@ -147,14 +163,15 @@ FastAPI dependency overrides work as usual:
 @pytest.mark.asyncio
 async def test_with_mock_mailer(app, authenticated_client):
     from users.deps import _mailer
+
     captured = []
+
     def fake_mailer():
         return type("Mailer", (), {"send": lambda *a: captured.append(a)})()
+
     app.dependency_overrides[_mailer] = fake_mailer
 
-    await authenticated_client.post(
-        "/users/admin/invite", data={"email": "x@y.z"}
-    )
+    await authenticated_client.post("/api/users/admin/invite", json={"email": "x@y.z"})
     assert len(captured) == 1
 ```
 
@@ -166,6 +183,7 @@ Use `freezegun`:
 
 ```python
 from freezegun import freeze_time
+
 
 @pytest.mark.asyncio
 async def test_order_timestamps(db_session):
@@ -182,6 +200,8 @@ Don't rely on `datetime.now()` assertions with tolerance windows — they're fla
 
 For HTTP, SMTP, storage backends — mock at the boundary with `httpx_mock`, `aiosmtpd`, or a service-registered fake. **Don't** monkeypatch the module you're testing; its behavior is what's under test.
 
+For mail, request `captured_mail` instead of mocking SMTP: everything sent through `simple_module_core.mail` lands in `captured_mail.messages` as `MailMessage`s. `CapturedMail(delivers_email=False)` installed with `install_mail_sender` exercises the "share the link by hand" paths. The process sender is reset after every test, so one test's sender never reaches the next.
+
 Example with `httpx_mock`:
 
 ```python
@@ -197,15 +217,16 @@ async def test_webhook_delivery(httpx_mock, db_session):
 Standard pytest:
 
 ```python
-@pytest.mark.parametrize("status,expected", [
-    ("pending", 200),
-    ("shipped", 200),
-    ("invalid", 422),
-])
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        ("pending", 200),
+        ("shipped", 200),
+        ("invalid", 422),
+    ],
+)
 @pytest.mark.asyncio
 async def test_status_transitions(authenticated_client, status, expected):
-    r = await authenticated_client.patch(
-        "/api/orders/1", json={"status": status}
-    )
+    r = await authenticated_client.patch("/api/orders/1", json={"status": status})
     assert r.status_code == expected
 ```

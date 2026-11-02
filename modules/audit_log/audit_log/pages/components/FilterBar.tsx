@@ -9,63 +9,126 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
+import type React from 'react';
+import { DateRangeField } from './DateRangeField';
 
 export const ALL = '__all__';
-const ACTIONS = ['created', 'updated', 'deleted', 'soft_deleted'] as const;
+/** Exported so other panels (the empty-state filter summary) name the same
+ * set of actions instead of hand-copying it and risking drift. */
+export const ACTIONS = [
+  'created',
+  'updated',
+  'deleted',
+  'soft_deleted',
+  'bulk_inserted',
+  'bulk_updated',
+  'bulk_deleted',
+  'bulk_soft_deleted',
+  'bulk_restored',
+] as const;
+
+/** A filterable entity type: the class name the column stores, shown as the
+ * table name an operator recognises. Built server-side from the registry. */
+export interface EntityTypeOption {
+  value: string;
+  label: string;
+}
 
 export interface FilterState {
   entityType: string;
   action: string;
+  tenantId: string;
   userId: string;
   fromDate: string;
   toDate: string;
 }
 
+/** The filters the server actually queried with — not the unapplied form
+ * state above. Shared by Browse (which receives it as props) and BrowseEmpty
+ * (which summarizes it) so the two can't drift apart field-for-field. */
+export interface AppliedFilters {
+  entity_type: string | null;
+  action: string | null;
+  tenant_id: string | null;
+  user_id: string | null;
+  correlation_id: string | null;
+  from_date: string | null;
+  to_date: string | null;
+}
+
 interface FilterBarProps {
   state: FilterState;
-  entity_types: string[];
+  entity_types: EntityTypeOption[];
+  /** Tenant ids that have entries; the screen is platform-wide. */
+  tenant_ids: string[];
+  /** Filter value that selects entries with no tenant (platform actions). */
+  platform_tenant_value: string;
   onChange: (next: FilterState) => void;
   onSubmit: () => void;
   onClear: () => void;
 }
 
-export function FilterBar({ state, entity_types, onChange, onSubmit, onClear }: FilterBarProps) {
+/** Label above the control, per the deck — not beside it, and not a
+ * placeholder standing in for one. */
+function Field({
+  htmlFor,
+  label,
+  children,
+}: {
+  htmlFor: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={htmlFor} className="text-xs text-muted-foreground">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+export function FilterBar({
+  state,
+  entity_types,
+  tenant_ids,
+  platform_tenant_value,
+  onChange,
+  onSubmit,
+  onClear,
+}: FilterBarProps) {
   const { t } = useT();
   const set = (patch: Partial<FilterState>) => onChange({ ...state, ...patch });
 
   return (
     <Card className="mb-4 p-4">
       <form
-        className="flex flex-wrap items-end gap-3"
+        className="grid items-end gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit();
         }}
       >
-        <div className="min-w-[140px]">
-          <label htmlFor="audit-entity-type" className="block text-sm font-medium mb-1">
-            {t(keys.audit_log.filters.entity_type_label)}
-          </label>
+        <Field htmlFor="audit-entity-type" label={t(keys.audit_log.filters.entity_type_label)}>
           <Select value={state.entityType} onValueChange={(v) => set({ entityType: v })}>
-            <SelectTrigger id="audit-entity-type" size="sm" className="w-full">
+            <SelectTrigger id="audit-entity-type" className="w-full max-lg:min-h-11">
               <SelectValue placeholder={t(keys.audit_log.filters.entity_type_all)} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{t(keys.audit_log.filters.entity_type_all)}</SelectItem>
-              {entity_types.map((et) => (
-                <SelectItem key={et} value={et}>
-                  {et}
+              {entity_types.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="min-w-[130px]">
-          <label htmlFor="audit-action" className="block text-sm font-medium mb-1">
-            {t(keys.audit_log.filters.action_label)}
-          </label>
+        </Field>
+
+        <Field htmlFor="audit-action" label={t(keys.audit_log.filters.action_label)}>
           <Select value={state.action} onValueChange={(v) => set({ action: v })}>
-            <SelectTrigger id="audit-action" size="sm" className="w-full">
+            <SelectTrigger id="audit-action" className="w-full max-lg:min-h-11">
               <SelectValue placeholder={t(keys.audit_log.filters.action_all)} />
             </SelectTrigger>
             <SelectContent>
@@ -77,49 +140,58 @@ export function FilterBar({ state, entity_types, onChange, onSubmit, onClear }: 
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="min-w-[160px]">
-          <label htmlFor="audit-user-id" className="block text-sm font-medium mb-1">
-            {t(keys.audit_log.filters.user_label)}
-          </label>
+        </Field>
+
+        <Field htmlFor="audit-tenant" label={t(keys.audit_log.filters.tenant_label)}>
+          <Select value={state.tenantId} onValueChange={(v) => set({ tenantId: v })}>
+            <SelectTrigger id="audit-tenant" className="w-full max-lg:min-h-11">
+              <SelectValue placeholder={t(keys.audit_log.filters.tenant_all)} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t(keys.audit_log.filters.tenant_all)}</SelectItem>
+              <SelectItem value={platform_tenant_value}>
+                {t(keys.audit_log.filters.tenant_platform)}
+              </SelectItem>
+              {tenant_ids.map((id) => (
+                <SelectItem key={id} value={id}>
+                  {id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field htmlFor="audit-user-id" label={t(keys.audit_log.filters.user_label)}>
           <Input
             id="audit-user-id"
             value={state.userId}
             onChange={(e) => set({ userId: e.target.value })}
             placeholder={t(keys.audit_log.filters.user_placeholder)}
-            className="h-8 text-sm"
+            className="max-lg:min-h-11"
           />
-        </div>
-        <div className="min-w-[140px]">
-          <label htmlFor="audit-from-date" className="block text-sm font-medium mb-1">
-            {t(keys.audit_log.filters.from_date_label)}
-          </label>
-          <Input
-            id="audit-from-date"
-            type="datetime-local"
-            value={state.fromDate}
-            onChange={(e) => set({ fromDate: e.target.value })}
-            className="h-8 text-sm"
+        </Field>
+
+        <Field htmlFor="audit-date-range" label={t(keys.audit_log.filters.date_range_label)}>
+          <DateRangeField
+            id="audit-date-range"
+            value={{ from: state.fromDate, to: state.toDate }}
+            onChange={(range) => set({ fromDate: range.from, toDate: range.to })}
           />
+        </Field>
+
+        <div className="flex gap-2.5 sm:col-span-2 lg:col-span-1">
+          <Button type="submit" className="flex-1 max-lg:min-h-11 lg:flex-none">
+            {t(keys.audit_log.filters.apply)}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 max-lg:min-h-11 lg:flex-none"
+            onClick={onClear}
+          >
+            {t(keys.audit_log.filters.clear)}
+          </Button>
         </div>
-        <div className="min-w-[140px]">
-          <label htmlFor="audit-to-date" className="block text-sm font-medium mb-1">
-            {t(keys.audit_log.filters.to_date_label)}
-          </label>
-          <Input
-            id="audit-to-date"
-            type="datetime-local"
-            value={state.toDate}
-            onChange={(e) => set({ toDate: e.target.value })}
-            className="h-8 text-sm"
-          />
-        </div>
-        <Button type="submit" size="sm">
-          {t(keys.audit_log.filters.apply)}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-          {t(keys.audit_log.filters.clear)}
-        </Button>
       </form>
     </Card>
   );

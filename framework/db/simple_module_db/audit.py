@@ -83,6 +83,13 @@ def _excluded_fields(obj: object) -> frozenset[str]:
     return _EXCLUDED_MIXIN_FIELDS | per_model
 
 
+def format_pk(values: tuple | list) -> str:
+    """One primary-key rendering for ``entity_id``: bare value, or a tuple string."""
+    if len(values) == 1:
+        return str(values[0]) if values[0] is not None else ""
+    return str(tuple(values))
+
+
 def _entity_pk_str(obj: object) -> str:
     """Return the primary-key value(s) as a string."""
     inspector = sa_inspect(obj)
@@ -90,13 +97,8 @@ def _entity_pk_str(obj: object) -> str:
     if identity is None:
         # Pre-flush: fall back to the mapper-level key attrs
         mapper = inspector.mapper
-        vals = tuple(getattr(obj, col.key) for col in mapper.primary_key)
-        if len(vals) == 1:
-            return str(vals[0]) if vals[0] is not None else ""
-        return str(vals)
-    if len(identity) == 1:
-        return str(identity[0])
-    return str(identity)
+        return format_pk([getattr(obj, col.key) for col in mapper.primary_key])
+    return format_pk(identity)
 
 
 def _column_names(obj: object) -> list[str]:
@@ -112,6 +114,23 @@ def _serialize(value: Any) -> Any:
     if isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
+
+
+def _column_diffs(
+    obj: object, inspector: Any, excl: frozenset[str], pk_cols: set[str]
+) -> list[dict[str, Any]]:
+    """Old/new diffs for the changed, non-excluded, non-PK columns of *obj*."""
+    changes: list[dict[str, Any]] = []
+    for col_name in _column_names(obj):
+        if col_name in excl or col_name in pk_cols:
+            continue
+        hist = inspector.attrs[col_name].history
+        if not hist.has_changes():
+            continue
+        old_val = hist.deleted[0] if hist.deleted else None
+        new_val = hist.added[0] if hist.added else None
+        changes.append({"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)})
+    return changes
 
 
 # ---------------------------------------------------------------------------
@@ -153,21 +172,6 @@ def snapshot_changes(
         if _is_excluded(obj):
             continue
 
-        # Soft-delete listener moves objects from session.deleted → session.new
-        # with is_deleted=True.  Classify them as "soft_deleted", not "created".
-        if isinstance(obj, SoftDeleteMixin) and getattr(obj, "is_deleted", False):
-            pending.append(
-                _PendingChange(
-                    obj_ref=obj,
-                    entity_type=type(obj).__name__,
-                    action="soft_deleted",
-                    changes=[],
-                    user_id=user_id,
-                    correlation_id=correlation_id,
-                )
-            )
-            continue
-
         excl = _get_excluded(obj)
         pk_cols = _get_pk_cols(obj)
         changes: list[dict[str, Any]] = []
@@ -192,21 +196,26 @@ def snapshot_changes(
             continue
         if _is_excluded(obj):
             continue
-        excl = _get_excluded(obj)
-        pk_cols = _get_pk_cols(obj)
         inspector = sa_inspect(obj)
-        changes = []
-        for col_name in _column_names(obj):
-            if col_name in excl or col_name in pk_cols:
-                continue
-            hist = inspector.attrs[col_name].history
-            if not hist.has_changes():
-                continue
-            old_val = hist.deleted[0] if hist.deleted else None
-            new_val = hist.added[0] if hist.added else None
-            changes.append(
-                {"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)}
+        changes = _column_diffs(obj, inspector, _get_excluded(obj), _get_pk_cols(obj))
+        # The soft-delete listener re-adds persistent objects as dirty. Edits made in
+        # the same flush stay on the soft_deleted record.
+        if (
+            isinstance(obj, SoftDeleteMixin)
+            and obj.is_deleted
+            and inspector.attrs.is_deleted.history.has_changes()
+        ):
+            pending.append(
+                _PendingChange(
+                    obj_ref=obj,
+                    entity_type=type(obj).__name__,
+                    action="soft_deleted",
+                    changes=changes,
+                    user_id=user_id,
+                    correlation_id=correlation_id,
+                )
             )
+            continue
         if changes:
             pending.append(
                 _PendingChange(

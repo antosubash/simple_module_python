@@ -29,6 +29,14 @@ def test_settings_app_name_trimmed_and_required() -> None:
         BrandingSettings(app_name="x" * 61)
 
 
+def test_settings_app_name_rejects_control_chars() -> None:
+    # A CR/LF in the name would break email Subject headers downstream — it must
+    # be rejected at the source rather than passing a bare strip().
+    for bad in ("Acme\nCorp", "Acme\rCorp", "Acme\tInc"):
+        with pytest.raises(ValueError):
+            BrandingSettings(app_name=bad)
+
+
 def test_settings_primary_color_validation() -> None:
     assert BrandingSettings(primary_color="#1A7DD1").primary_color == "#1a7dd1"
     assert BrandingSettings(primary_color="").primary_color == ""
@@ -46,8 +54,19 @@ def test_branding_payload_unset() -> None:
     assert payload == {
         "appName": "SimpleModule",
         "primaryColor": None,
+        "designPack": None,
         "logoUrl": None,
+        # None = no dark variant uploaded; the frontend falls back to logoUrl.
+        "logoDarkUrl": None,
         "faviconUrl": None,
+        # None, not an empty dict — no message means render no bar at all.
+        "banner": None,
+        # None = the admin set no caption, so the frontend keeps the
+        # framework's own `© {year} · MIT`.
+        "footerText": None,
+        # None = the admin set no links, so the frontend keeps the framework's
+        # own BRAND_FOOTER_LINKS.
+        "footerLinks": None,
     }
 
 
@@ -61,19 +80,27 @@ def test_branding_payload_set() -> None:
     payload = branding_payload(s)
     assert payload["appName"] == "Acme"
     assert payload["primaryColor"] == "#ff0000"
-    assert payload["logoUrl"] == "/api/file-storage/files/abc-123/download"
-    assert payload["faviconUrl"] == "/api/file-storage/files/def-456/download"
+    # Branding's own anonymous route, not file_storage's permission-gated
+    # download — a logged-out visitor has to be able to load these. ``?v=`` is
+    # the stored file id, which changes on every replace, so caches self-bust.
+    assert payload["logoUrl"] == "/api/branding/logo?v=abc-123"
+    assert payload["faviconUrl"] == "/api/branding/favicon?v=def-456"
 
 
-def test_provider_returns_empty_when_state_absent() -> None:
+async def test_provider_returns_empty_when_state_absent() -> None:
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
-    assert branding_shared_props(request) == {}  # type: ignore[arg-type]
+    assert await branding_shared_props(request) == {}
 
 
-def test_provider_emits_branding_block() -> None:
+async def test_provider_emits_branding_block() -> None:
     state = SimpleNamespace(branding=SimpleNamespace(settings=BrandingSettings(app_name="Acme")))
-    request = SimpleNamespace(app=SimpleNamespace(state=state))
-    out = branding_shared_props(request)  # type: ignore[arg-type]
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=state),
+        state=SimpleNamespace(),
+        headers={"x-inertia": "true"},
+        url=SimpleNamespace(path="/"),
+    )
+    out = await branding_shared_props(request)
     assert out["branding"]["appName"] == "Acme"
 
 
@@ -86,6 +113,14 @@ async def test_get_branding_returns_defaults(authenticated_client: httpx.AsyncCl
     body = resp.json()
     assert body["app_name"] == "SimpleModule"
     assert body["logo_url"] is None
+
+
+@pytest.mark.parametrize("method", ["GET", "PUT"])
+async def test_footer_routes_are_not_part_of_branding(
+    authenticated_client: httpx.AsyncClient, method: str
+) -> None:
+    response = await authenticated_client.request(method, "/api/branding/footer", json={})
+    assert response.status_code == 404
 
 
 async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.AsyncClient) -> None:
@@ -108,6 +143,30 @@ async def test_update_persists_and_hot_swaps(app, authenticated_client: httpx.As
     assert again.json()["app_name"] == "Acme Corp"
 
 
+async def test_root_template_reflects_branding(
+    app, authenticated_client: httpx.AsyncClient
+) -> None:
+    """The pre-hydration HTML shell carries the branded title + theme-color.
+
+    The title carries an ``inertia`` attribute so the head manager replaces it
+    after hydration instead of appending a second one beside it — asserted on
+    the text rather than the exact markup so that attribute can change without
+    failing a branding test that is not about it.
+    """
+    # Default name before any change.
+    default_page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
+    assert default_page.status_code == 200, default_page.text
+    assert ">SimpleModule</title>" in default_page.text
+
+    await authenticated_client.put(
+        "/api/branding/",
+        json={"app_name": "Acme Corp", "primary_color": "#1A7DD1"},
+    )
+    page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
+    assert ">Acme Corp</title>" in page.text
+    assert '<meta name="theme-color" content="#1a7dd1" />' in page.text
+
+
 async def test_update_rejects_bad_hex(authenticated_client: httpx.AsyncClient) -> None:
     resp = await authenticated_client.put("/api/branding/", json={"primary_color": "nope"})
     assert resp.status_code == 422
@@ -116,6 +175,15 @@ async def test_update_rejects_bad_hex(authenticated_client: httpx.AsyncClient) -
 async def test_update_rejects_blank_app_name(authenticated_client: httpx.AsyncClient) -> None:
     # A whitespace-only name must be a clean 422, not a 500 from BrandingSettings.
     resp = await authenticated_client.put("/api/branding/", json={"app_name": "   "})
+    assert resp.status_code == 422
+
+
+async def test_update_rejects_control_char_app_name(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    # A newline must be a clean 422 — otherwise it would later break email
+    # Subject headers (it now flows into invite/verify/reset subjects).
+    resp = await authenticated_client.put("/api/branding/", json={"app_name": "Acme\nCorp"})
     assert resp.status_code == 422
 
 
@@ -132,17 +200,20 @@ async def test_logo_upload_sets_logo_url(
 ) -> None:
     fake_id = uuid.uuid4()
 
-    async def fake_upload(self, upload):
+    async def fake_upload(self, upload, *, platform: bool = False):
+        assert platform, "branding must act on platform-owned files"
         return SimpleNamespace(id=fake_id)
 
     monkeypatch.setattr("file_storage.service.FileStorageService.upload", fake_upload, raising=True)
 
     resp = await authenticated_client.post(
         "/api/branding/logo",
-        files={"file": ("logo.png", b"\x89PNG\r\n", "image/png")},
+        # A full 8-byte PNG signature: uploads are now magic-number checked, so
+        # a truncated stub would be rejected as content-type spoofing.
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["logo_url"] == f"/api/file-storage/files/{fake_id}/download"
+    assert resp.json()["logo_url"] == f"/api/branding/logo?v={fake_id}"
     assert app.state.branding.settings.logo_file_id == str(fake_id)
 
     # Clearing removes it.
@@ -152,7 +223,9 @@ async def test_logo_upload_sets_logo_url(
 
 
 async def test_manage_view_requires_auth(client: httpx.AsyncClient) -> None:
-    resp = await client.get("/branding", follow_redirects=False)
+    # The real view (``/branding`` is only a host-level legacy redirect, absent
+    # from this app — an unmatched path is a 404 for everyone since #473).
+    resp = await client.get("/admin/branding/", follow_redirects=False)
     assert resp.status_code in (302, 401, 403)
 
 

@@ -22,6 +22,20 @@ The default `pytest` invocation pins `-m 'not e2e and not perf'` (your app's `py
 | `npm test` (or `npx vitest run`) | Run every JS test (from the repo root). |
 | `npx vitest run <path>` | Single JS test file. |
 
+## Postgres suite
+
+`make test-py-pg` runs the Python suite on Postgres in parallel, with 4 workers
+by default (`PYTEST_WORKERS` overrides this; `0` runs serially). Set
+`SM_TEST_PG_URL` to a disposable test database URL; the default database is
+`sm_test`. Each xdist worker uses its own `<database>_gw<N>` database (for
+example, `sm_test_gw0`), created if needed; the role needs `CREATEDB` to create
+them. Serial runs use the named database itself.
+
+Tables are emptied between tests and the schema is rebuilt only when changed.
+The target sets `SM_TEST_DATABASE_URL` for the fixtures and disables AnyIO's
+pytest plugin with `-p no:anyio` so asyncpg connections stay on their event
+loop. See [Fixtures](./fixtures.md#postgres) for fixture behavior.
+
 ## Async mode
 
 The root `pyproject.toml` sets `asyncio_mode = "auto"`. Async tests don't need `@pytest.mark.asyncio` — any `async def test_*` is picked up automatically. You still need it on fixtures that are async generators.
@@ -40,7 +54,7 @@ tests/
 └── e2e/                       # Playwright tests (marked `e2e`)
 ```
 
-These directories are enumerated in `testpaths` in the root `pyproject.toml`. Any `conftest.py` under a subtree can add more fixtures; they cascade down but don't leak sideways. Keep module-specific fixtures in the module's `tests/conftest.py`.
+These directories are enumerated in `testpaths` in the root `pyproject.toml`. Any `conftest.py` under a subtree can add more fixtures; they cascade down but don't leak sideways. Keep module-specific fixtures in the module's `modules/<m>/tests/conftest.py`.
 
 ## What good tests look like
 

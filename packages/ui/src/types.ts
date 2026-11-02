@@ -6,11 +6,52 @@ export interface MenuItem {
   group?: string;
 }
 
+/**
+ * `true` when a menu entry must be submitted rather than navigated to (e.g.
+ * logout) — visiting it with a GET would silently do nothing. Shared so the
+ * declarative (`Link` method/as props) and imperative (`router.post`/
+ * `router.visit`) call sites stay in sync as the method matrix grows.
+ */
+export function isPostMenuItem(item: MenuItem): boolean {
+  return item.method === 'post';
+}
+
 export interface BrandingShared {
   appName: string;
   primaryColor: string | null;
+  // Slug of the site-wide design pack, or null for base tokens only. The
+  // public site wraps its document in `${designPack}-root`, which is the hook
+  // the owning module's stylesheet selects on.
+  designPack: string | null;
   logoUrl: string | null;
+  /**
+   * Logo variant for the app's always-dark surfaces (the sidebar and mobile
+   * bar), where a dark-ink primary logo would be invisible. `null` means none
+   * was uploaded — callers fall back to `logoUrl` via `darkSurfaceLogo`.
+   */
+  logoDarkUrl: string | null;
   faviconUrl: string | null;
+  /** Site-wide announcement, or `null` when no message is set. */
+  banner: { message: string; severity: string } | null;
+  /**
+   * Caption line set by an administrator, or `null` when unset — in which case
+   * the framework's own `© {year} {appName}` is shown.
+   */
+  footerText: string | null;
+  /**
+   * Footer links set by an administrator, or `null` when none are configured —
+   * in which case the framework's own `BRAND_FOOTER_LINKS` are shown. Set at
+   * `/admin/branding`; a deployment that never touches it keeps today's footer.
+   */
+  footerLinks: { label: string; href: string }[] | null;
+}
+
+export interface I18nSharedProps {
+  locale: string;
+  supportedLocales: string[];
+  // ``null`` on Inertia XHR visits where the backend skipped the messages
+  // payload because the client already has them from the initial page load.
+  messages: Record<string, string> | null;
 }
 
 export interface SharedProps {
@@ -25,7 +66,35 @@ export interface SharedProps {
     navbar: MenuItem[];
     userDropdown: MenuItem[];
   };
+  // The session's CSRF token, sent to signed-in sessions only (#504). The API
+  // client (`createApi`/`apiFetch`) echoes it as `X-CSRF-Token`.
+  csrfToken?: string;
+  // Injected by the users module's shared-props provider. Absent when no local
+  // auth provider is installed (e.g. a Keycloak-only deployment), which reads
+  // the same as "closed" — the host isn't the one taking signups.
+  signup?: { allowed: boolean };
+  // Where the app's "home" is (the users module's `login_redirect_url`). Layouts
+  // link their logo / back-to-app / dashboard entry here instead of hardcoding
+  // a module's URL. Absent without the users module; callers fall back to `/`.
+  homeUrl?: string;
+  // Also from the users module. `active` is true only for the shared demo
+  // account's own session — an operator signed in normally on a demo instance
+  // sees nothing. `readOnly` mirrors the `demo_read_only` setting that makes
+  // `DemoReadOnlyMiddleware` refuse the session's writes.
+  demo?: { active: boolean; readOnly: boolean };
   // Injected by the branding module's shared-props provider (optional: the
   // module may not be installed).
   branding?: BrandingShared;
+  // Set by `InertiaLayoutDataMiddleware` on every response; optional so a
+  // hand-built props object (tests, error pages) need not carry it.
+  i18n?: I18nSharedProps;
+}
+
+// Types `usePage().props` for the whole app: `usePage().props.auth` is a
+// `SharedProps['auth']` without a cast. A mapped copy (not `SharedProps`
+// itself) because Inertia requires an index signature on page props.
+declare module '@inertiajs/core' {
+  interface InertiaConfig {
+    sharedPageProps: { [K in keyof SharedProps]: SharedProps[K] };
+  }
 }

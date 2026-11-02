@@ -983,6 +983,7 @@ Open the file and scan for any `app.state.users_settings`, `app.state.mailer`, `
 
 ```python
 from users.services import UsersServices
+
 app.state.users = UsersServices(settings=...)
 ```
 
@@ -1272,7 +1273,7 @@ In `framework/hosting/simple_module_hosting/_inertia_setup.py` line 67, the assi
 Find the `Services(...)` construction block added in Task 2 Step 3; the line reads:
 
 ```python
-        inertia_config=app.state.inertia_config,
+inertia_config = (app.state.inertia_config,)
 ```
 
 Refactor the boot so `setup_inertia` returns the config rather than stashing it loose. In `_inertia_setup.py`, change the signature and return type:
@@ -1319,7 +1320,7 @@ In `app_builder.py`, update the caller:
 Then the `Services(...)` line becomes:
 
 ```python
-        inertia_config=inertia_config,
+inertia_config = (inertia_config,)
 ```
 
 (If `inertia_config` is `None`, the boot cannot proceed anyway — make this explicit. Add a guard before `Services(...)`:

@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_core"
-version = "0.0.20"
+version = "0.0.42"
 description = "Module-system primitives for the simple_module framework — ModuleBase, discovery, diagnostics, events"
 readme = "README.md"
 license = "MIT"
@@ -21,12 +21,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "babel>=2.14",
-    "fastapi>=0.115",
-    "packaging>=23.0",
-    "pydantic>=2.0",
-    "pydantic-settings>=2.0",
-    "pyee>=12.0",
+    "babel>=2.14,<3",
+    "fastapi>=0.140,<0.160",
+    "packaging>=23.0,<27",
+    "pydantic>=2.0,<3",
+    "pydantic-settings>=2.0,<3",
+    "pyee>=12.0,<15",
 ]
 
 [project.urls]

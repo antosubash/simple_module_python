@@ -1,0 +1,149 @@
+# tenants
+
+Organisations for [simple_module](https://github.com/antosubash/simple_module_python)
+SaaS installs: tenants, many-to-many memberships with per-tenant roles,
+email-bound invitations, and the tenant resolver that scopes every request.
+
+## Install
+
+```bash
+pip install simple_module_tenants
+```
+
+Add `simple_module_tenants` to your host's dependencies, then turn on
+`multi_tenant` (Settings screen, or `SM_MULTI_TENANT=true`) and restart.
+Without `multi_tenant` the module manages organisations but requests are not
+scoped to them.
+
+## What it does
+
+- **Resolution.** Registers `app.state.tenant_resolver`. The session stores
+  the user's chosen tenant; every request re-validates it against a
+  membership (cached per process, dropped across workers through
+  `InvalidationBus`). Suspended tenants resolve to nothing.
+- **Per-tenant roles.** A membership role (`owner`, `admin`, `member`) is added
+  to the principal as `tenant:<role>` for the active tenant only, so tenant
+  roles never reach platform permissions.
+- **Fail-closed handling.** With `multi_tenant` on, a tenant-scoped query
+  with no tenant raises `TenantIsolationError`; this module turns that into a
+  redirect to `/tenants` (pages) or a `403 tenant_required` (API).
+
+## Usage
+
+| Route | Permission | Purpose |
+|---|---|---|
+| `GET /tenants/` | signed in | My organisations: switch, create |
+| `GET /tenants/members` | `tenants.members.view` | Members and invitations of the active tenant |
+| `GET /tenants/settings` | `settings.tenant.edit` | The active tenant's overrides of `tenant_overridable` settings |
+| `GET /tenants/invitations/accept?token=` | signed in | Accept an invitation |
+| `GET /admin/tenants/` | `tenants.platform.view` | Platform list of all tenants |
+| `GET/POST /api/tenants/` | signed in | List mine / create |
+| `POST /api/tenants/{id}/switch` | member of `{id}` | Change the active tenant |
+| `/api/tenants/current/members[/{user_id}]` | `tenants.members.view` / `.manage` | List, change role, remove |
+| `DELETE /api/tenants/current/membership` | member | Leave (not the last owner) |
+| `/api/tenants/current/invitations[/{id}]` | `tenants.members.manage` | List, invite, revoke |
+| `POST /api/tenants/invitations/accept` | signed in as the invited email | Join |
+| `POST /api/tenants/admin/{id}/suspend` · `/reactivate` | `tenants.platform.manage` | Lifecycle |
+
+Tenant-level routes act on the *active* tenant (`/current`), never on an id
+from the URL.
+
+Organisation settings use `settings.tenant.edit`, which the `settings` module
+owns and maps onto owner and admin (#382); the page writes through
+`/api/settings/tenant/current/{key}`. The former `tenants.settings.manage`
+permission — declared, owner-only, and checked by nothing — is retired, so
+there is one permission for the one surface.
+
+Invitations are emailed through the [mail module](/modules/mail). With
+`background_tasks` installed, delivery uses the outbox and retries failures;
+otherwise it runs after the request commits. Set `public_base_url` for absolute
+accept links: relative links are not emailed. Nothing is queued unless the
+`mail` module is installed with a delivering backend (SMTP); with the console
+backend the invite form hands the link back instead. The UI shows the link and copy button either way,
+and says whether the link was emailed.
+
+An outbox-delivered invitation keeps its accept link, one-time token included,
+in the outbox row until the `background_tasks` retention purge. The token is
+single-use and expires with the invitation (`invitation_ttl_hours`), but treat
+outbox rows and database backups as holding live invitation links until then.
+
+## Configuration
+
+DB-backed (Settings screen):
+
+- `allow_self_service` (default on) — any signed-in user may create an
+  organisation.
+- `invitation_ttl_hours` (default 72).
+- `subdomain_base` (default empty) — with `example.com`, `acme.example.com`
+  resolves to the tenant whose slug is `acme`. Members get their role there;
+  anonymous visitors and signed-in non-members get the tenant on **public
+  routes only**; an unknown or suspended subdomain resolves to nothing.
+- `public_base_url` (default empty) — origin invitation links are built on.
+  Empty makes them root-relative: they are never built from the request's
+  `Host` header, because the same link travels in `InvitationCreated` for a
+  mailer to send.
+
+Management routes need both the permission and an owner/admin role *in the
+active tenant*: a platform-wide grant does not make a plain member of a tenant
+its manager (`403 tenant_manager_required`).
+
+## Billing seams
+
+The module ships no billing, but a billing module needs nothing more from it:
+
+- `app.state.tenants.entitlements` — replace the default `UnlimitedEntitlements`
+  with an `EntitlementProvider` (`limit(tenant_id, key)`,
+  `has_feature(tenant_id, key)`). The module enforces `tenants.seats` on new
+  members and invitations; `EntitlementExceededError` maps to HTTP 402.
+- `TenantService.set_status(tenant_id, TenantStatus.SUSPENDED | ACTIVE)` for
+  dunning.
+- Events, published after commit: `TenantCreated`, `TenantStatusChanged`,
+  `TenantDeleted` (`tenant_id`, `slug`, `name`; from
+  `TenantService.delete_tenant` — subscribe to clean up per-tenant state),
+  `MembershipAdded`, `MembershipRemoved`, `InvitationCreated`.
+
+### Usage metering
+
+`tenants.contracts` exports the runtime-checkable `UsageMeter` protocol and
+frozen value objects `UsageOutcome`, `UsageReservation`, and `UsageSummaryRow`.
+Consumers import these contracts instead of importing billing. A billing module
+installs its implementation during startup with `app.state.tenants.usage = provider`.
+`get_usage_meter(app)` returns that provider, or an `UnlimitedUsageMeter` when
+tenants state is absent. The tenants services container also defaults to this
+unlimited provider: every check and consumption is allowed with `limit=None`
+and `used=0`, reservations are issued, accounting operations do nothing, and
+summaries are empty. No billing storage or enforcement is included here.
+
+All protocol methods are async and use string tenant IDs and meter keys such as
+`"jobs.concurrent"`:
+
+- `check(tenant_id, meter, quantity=1)` inspects capacity without side effects.
+- `consume(tenant_id, meter, quantity=1, *, idempotency_key=None)` atomically
+  checks and increments usage. A rejection returns `allowed=False` and records
+  nothing; a successful outcome's `used` includes the consumed quantity.
+- `record(tenant_id, meter, quantity, *, idempotency_key=None)` unconditionally
+  records usage after the fact; `refund` has the same signature and returns usage.
+- `reserve(tenant_id, meter, quantity=1, *, ttl=None)` holds capacity and returns
+  a `UsageReservation`, or `None` if the limit would be exceeded. `ttl` is an
+  optional `timedelta`. Pass the reservation back to the same provider's
+  `commit(reservation)` to record it, or `release(reservation)` to return capacity.
+- `summary(tenant_id)` returns a sequence of `UsageSummaryRow` objects with
+  `meter`, `used`, `limit`, and `resets_at`.
+
+`UsageOutcome` carries `meter`, `allowed`, `limit`, `used`, `requested`, and
+`resets_at`. `remaining` is `None` for unlimited meters, otherwise
+`max(0, limit - used)`. Reset and expiry timestamps may be `None` when absent.
+Providers own persistence, period boundaries, idempotency and hold expiry.
+`UsageExceededError(outcome)` carries a denied outcome for implementers that
+choose to raise it and map it to HTTP 402; the protocol's `consume` returns a
+decision rather than requiring an exception.
+
+## Models
+
+`tenants_tenant` (id = the value stored in every `tenant_id`, slug, name,
+status), `tenants_membership` (unique `(tenant_id, user_id)`, role, email
+snapshot), `tenants_invitation` (email, role, SHA-256 of the token, expiry).
+None use `MultiTenantMixin`: they are the registry, and are scoped by hand in
+`TenantService`.
+
+See also [the design doc](https://github.com/antosubash/simple_module_python/blob/main/docs/plans/2026-09-27-saas-tenancy-design.md).

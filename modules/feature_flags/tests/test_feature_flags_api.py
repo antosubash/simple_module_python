@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 
 class TestFeatureFlagsAPI:
@@ -58,6 +59,7 @@ class TestFeatureFlagsAPI:
         assert "overridden" in body
 
 
+@pytest.mark.usefixtures("acme_tenant")
 class TestFeatureFlagsTenantAPI:
     async def test_set_tenant_override_creates_tenant_specific_row(
         self, authenticated_client: httpx.AsyncClient

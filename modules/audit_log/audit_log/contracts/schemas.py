@@ -10,7 +10,7 @@ from sqlmodel import SQLModel
 
 
 class AuditEntryRead(SQLModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     entity_type: str
@@ -19,6 +19,7 @@ class AuditEntryRead(SQLModel):
     changes: list[dict]
     user_id: str | None = None
     correlation_id: str | None = None
+    tenant_id: str | None = None
     created_at: datetime
 
 

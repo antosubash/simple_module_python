@@ -5,17 +5,16 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from contextvars import ContextVar
 from datetime import UTC, datetime
 
-correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
+from simple_module_core.correlation import correlation_id
 
 
 class _CorrelationIdFilter(logging.Filter):
     """Inject the current correlation ID into every log record."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        record.correlation_id = correlation_id.get("")  # type: ignore[attr-defined]
+        record.correlation_id = correlation_id.get("")
         return True
 
 

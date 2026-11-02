@@ -11,6 +11,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
+from simple_module_core.app_state import get_services
+from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,12 +20,30 @@ from settings.constants import MODULE_PACKAGE
 from settings.contracts.accessor import SettingsAccessor
 from settings.contracts.registry import SettingsRegistry
 from settings.service import SettingService
+from settings.tenant_scope import is_known_tenant, registry_of
 
 
 async def get_setting_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> SettingService:
-    return SettingService(db)
+    bus = getattr(get_services(request.app), "invalidation", None)
+
+    async def tenant_is_live(tenant_id: str) -> bool:
+        return await is_known_tenant(request, tenant_id)
+
+    return SettingService(
+        db, invalidation=bus, registry=registry_of(request), tenant_is_live=tenant_is_live
+    )
+
+
+async def get_generic_setting_service(
+    request: Request,
+    service: SettingService = Depends(get_setting_service),
+) -> SettingService:
+    """Raw store routes must send module configuration through its own editor."""
+    service.module_registry = get_module_settings_registry(request.app)
+    return service
 
 
 def get_settings_registry(request: Request) -> SettingsRegistry:

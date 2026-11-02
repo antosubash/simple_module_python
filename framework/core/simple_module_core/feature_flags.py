@@ -34,6 +34,8 @@ class FeatureFlagDefinition:
     name: str
     description: str = ""
     default_enabled: bool = False
+    description_key: str = ""
+    """Catalog key for ``description``; empty or unresolved keeps the literal."""
 
 
 class FeatureFlagRegistry:
@@ -68,6 +70,19 @@ class FeatureFlagRegistry:
             self._system_overrides.pop(name, None)
         else:
             self._tenant_overrides.pop((name, tenant_id), None)
+
+    def clear_tenant_overrides(self, tenant_id: str) -> None:
+        """Forget every override for a deleted tenant, including unknown flags."""
+        self._tenant_overrides = {
+            key: value for key, value in self._tenant_overrides.items() if key[1] != tenant_id
+        }
+
+    def replace_overrides(
+        self, system: dict[str, bool], tenants: dict[tuple[str, str], bool]
+    ) -> None:
+        """Replace a complete DB snapshot, removing overrides absent from it."""
+        self._system_overrides = dict(system)
+        self._tenant_overrides = dict(tenants)
 
     def tenant_override(self, name: str, tenant_id: str) -> bool | None:
         """Return the per-tenant override for ``(name, tenant_id)`` if set, else None."""

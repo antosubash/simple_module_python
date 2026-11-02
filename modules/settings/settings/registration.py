@@ -1,34 +1,17 @@
-"""Helper modules call from ``register_settings`` to install their BaseSettings.
+"""Deprecated: import from :mod:`simple_module_core.module_settings` (#500).
 
-Two things happen:
-1. A fresh ``BaseSettings`` (pydantic defaults only) is constructed.
-2. The class is recorded in ``app.state.settings.module_registry`` so the
-   hosting lifespan can hydrate it from the DB before module ``on_startup``
-   hooks run.
-
-The module's services dataclass is built from the default settings object and
-attached at ``app.state.<package>``.
+Kept as a re-export until 0.1.0; ``simple_module_core.deprecation`` enforces the date.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from simple_module_core.deprecation import deprecated_module
+from simple_module_core.module_settings import register_module_settings
 
-from fastapi import FastAPI
-from pydantic_settings import BaseSettings
+__all__ = ["register_module_settings"]
 
-from settings.constants import MODULE_PACKAGE
-
-
-def register_module_settings(
-    app: FastAPI,
-    package: str,
-    settings_cls: type[BaseSettings],
-    services_factory: Callable[[BaseSettings], Any],
-) -> None:
-    """Register a module's BaseSettings class and mount its services on app.state."""
-    registry = getattr(app.state, MODULE_PACKAGE).module_registry
-    registry.register(package, settings_cls)
-    defaults = settings_cls()
-    setattr(app.state, package, services_factory(defaults))
+deprecated_module(
+    "settings.registration",
+    remove_in="0.1.0",
+    use="simple_module_core.module_settings.register_module_settings",
+)

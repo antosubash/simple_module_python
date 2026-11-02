@@ -39,6 +39,24 @@ Hosts mount the bundle automatically at
 when it exists, an empty dict otherwise (so dev without a build step
 doesn't fail).
 
+## Styling (optional)
+
+This module can ship CSS that lands in the host's Tailwind build with no
+wiring on the host side. Create either file beside `pages/` and it is
+picked up automatically — the scaffold deliberately does not create them
+empty, since a file that is always imported but usually empty is noise:
+
+- `{{PACKAGE_NAME}}/theme.css` — `@theme` tokens, `@custom-variant`,
+  `@font-face`. Imported **unlayered**, because a `@theme` block inside a
+  cascade layer registers nothing.
+- `{{PACKAGE_NAME}}/styles.css` — component rules, keyframes, vendor CSS.
+  Imported into **`layer(components)`**, so these rules always lose to a
+  Tailwind utility and a consuming app can still override them.
+
+Putting a construct in the wrong file builds fine but cascades in a way you
+probably did not intend, so `make doctor` warns: `SM022` for `@theme` in
+`styles.css`, `SM023` for an unlayered rule in `theme.css`.
+
 ## Continuous integration
 
 Two workflows live under `.github/workflows/`:

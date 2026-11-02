@@ -81,7 +81,6 @@ async def test_authenticated_request_sets_user_context(db_state, mw_active_user)
     assert data["user"]["email"] == "middleware-test@example.com"
     assert data["user"]["name"] == "Middleware Tester"
     assert data["user"]["roles"] == ["admin"]
-    assert data["user"]["tenant_id"] == "acme"
 
 
 # ---------------------------------------------------------------------------

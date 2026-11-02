@@ -1,0 +1,185 @@
+"""Fixtures shared by the tests in this directory.
+
+These test files have no ``__init__.py`` (test basenames are globally unique
+instead), so a plain helper import across files is not available — a fixture is
+how the factory below gets shared.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+from urllib.error import HTTPError
+
+import pytest
+
+
+@pytest.fixture
+def fake_pypi():
+    """Return a factory building a `package-update` fetcher stub.
+
+    Takes `{dist_name: latest_version}` and answers only for those names;
+    anything else raises the 404 the real fetcher would see. Keeps the CLI
+    tests off the network.
+    """
+
+    def factory(versions: dict[str, str]):
+        def fetcher(url: str) -> dict:
+            name = url.rsplit("/json", 1)[0].rsplit("/", 1)[1]
+            if name not in versions:
+                raise HTTPError(url, 404, "not found", {}, None)
+            latest = versions[name]
+            return {"info": {"version": latest}, "releases": {latest: [{"yanked": False}]}}
+
+        return fetcher
+
+    return factory
+
+
+@pytest.fixture
+def write_pyproject():
+    """Return a factory writing a minimal pyproject with the given deps."""
+
+    def factory(path: Path, *deps: str) -> None:
+        body = "".join(f'    "{d}",\n' for d in deps)
+        path.write_text(
+            f'[project]\nname = "x"\nversion = "0"\ndependencies = [\n{body}]\n',
+            encoding="utf-8",
+        )
+
+    return factory
+
+
+@pytest.fixture
+def make_importable_module(tmp_path: Path):
+    """Return a factory creating a real importable package bound to a ModuleBase.
+
+    ``get_module_package_name`` derives the package from the class's
+    ``__module__``, and ``compute_module_assets`` then resolves that package via
+    ``importlib.resources.files``. So the package has to genuinely exist on
+    ``sys.path`` — a mock won't exercise the code path we care about.
+
+    Returns ``(module_instance, package_dir)``.
+    """
+    from simple_module_core import ModuleBase, ModuleMeta
+
+    def _make(pkg_name: str, klass_name: str, *, root: Path | None = None):
+        base = root or tmp_path
+        pkg = base / pkg_name
+        pkg.mkdir(parents=True, exist_ok=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        if str(base) not in sys.path:
+            sys.path.insert(0, str(base))
+        sys.modules.pop(pkg_name, None)
+
+        klass = type(
+            klass_name,
+            (ModuleBase,),
+            {"meta": ModuleMeta(name=klass_name), "__module__": f"{pkg_name}.module"},
+        )
+        return klass(), pkg
+
+    return _make
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+            "HOME": str(repo),
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+        },
+    )
+
+
+def _write_module_pkg(root: Path, dist_name: str, version: str, *, models: bool) -> None:
+    pkg = dist_name.replace("-", "_")
+    (root / pkg).mkdir(parents=True)
+    (root / pkg / "__init__.py").write_text("", encoding="utf-8")
+    (root / pkg / "module.py").write_text("class M:\n    pass\n", encoding="utf-8")
+    if models:
+        (root / pkg / "models.py").write_text("# tables\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "{dist_name}"\nversion = "{version}"\n'
+        f'dependencies = ["simple_module_core>=0.1,<1.0"]\n\n'
+        f"[project.entry-points.simple_module]\n"
+        f'{pkg} = "{pkg}.module:M"\n',
+        encoding="utf-8",
+    )
+
+
+@pytest.fixture
+def make_git_module_repo(tmp_path: Path):
+    """Factory: build a local git repo holding one or more module packages.
+
+    ``modules`` is a list of ``(dist_name, version, subdir_or_None,
+    ships_models)`` tuples; ``tags`` are created at HEAD. Returns the repo
+    path — use ``git+`` + ``.as_uri()`` to feed it to `smpy add` specs.
+    """
+
+    counter = {"n": 0}
+
+    def factory(
+        modules: list[tuple[str, str, str | None, bool]],
+        *,
+        tags: list[str] | None = None,
+        extra_pyproject_dirs: list[str] | None = None,
+    ) -> Path:
+        counter["n"] += 1
+        repo = tmp_path / f"repo{counter['n']}"
+        repo.mkdir()
+        for dist_name, version, subdir, models in modules:
+            root = repo / subdir if subdir else repo
+            root.mkdir(parents=True, exist_ok=True)
+            _write_module_pkg(root, dist_name, version, models=models)
+        for d in extra_pyproject_dirs or []:
+            (repo / d).mkdir(parents=True, exist_ok=True)
+            (repo / d / "pyproject.toml").write_text(
+                '[project]\nname = "not-a-module"\nversion = "0"\n', encoding="utf-8"
+            )
+        _git(repo, "init", "-q", "-b", "main")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-q", "-m", "init")
+        for tag in tags or []:
+            _git(repo, "tag", tag)
+        return repo
+
+    return factory
+
+
+@pytest.fixture
+def require_cli_asset():
+    """Keep optional local tooling from silently reducing CI coverage."""
+
+    def require(available: bool, message: str) -> None:
+        if available:
+            return
+        if os.environ.get("CI"):
+            pytest.fail(f"{message}. On CI this must fail rather than skip.")
+        pytest.skip(message)
+
+    return require
+
+
+@pytest.fixture
+def alembic_host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """A flat host: ``alembic.ini`` and one head, ``local``. Returns (host, versions)."""
+    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+    versions = tmp_path / "migrations/versions"
+    versions.mkdir(parents=True)
+    (tmp_path / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s/migrations\n")
+    (versions / "local.py").write_text(
+        "revision = 'local'\ndown_revision = None\nbranch_labels = None\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    return tmp_path, versions

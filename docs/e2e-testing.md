@@ -2,7 +2,7 @@
 
 Playwright-driven smoke tests live in [tests/e2e/](../tests/e2e/) — currently
 [`test_settings_ui.py`](../tests/e2e/test_settings_ui.py) (logs in, navigates to
-`/settings/modules`, toggles a module setting, and verifies the change
+`/admin/settings/`, toggles a module setting, and verifies the change
 hot-reloads into `app.state` without a server restart) and
 [`test_audit_log_ui.py`](../tests/e2e/test_audit_log_ui.py).
 

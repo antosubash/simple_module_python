@@ -8,6 +8,7 @@ Create Date: ${create_date}
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+import sqlmodel  # noqa: F401  (autogenerate may emit sqlmodel types)
 from alembic import op
 ${imports if imports else ""}
 

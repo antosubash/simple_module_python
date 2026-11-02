@@ -8,8 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
 from simple_module_core.events import EventBus
+from simple_module_db import RequestSession
+from simple_module_db.deps import get_db
+from simple_module_db.pagination import PageParams
+from simple_module_hosting.pagination import page_params
 from simple_module_hosting.permissions import RequiresPermission
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.admin.events import publish_admin_event
+from users.admin.links import admin_link_base
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import (
@@ -28,7 +35,15 @@ from users.contracts.schemas import (
     UserListItem,
 )
 from users.deps import get_event_bus, get_mailer, get_user_service
-from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
+from users.exceptions import (
+    EmailAlreadyExistsError,
+    ExternalUserNoPasswordError,
+    UserNotFoundError,
+)
+from users.invites.bulk import bulk_router
+from users.invites.resend import resend_router
+
+_DUPLICATE_EMAIL = "A user with this email already exists."
 
 admin_router = APIRouter(
     prefix="/admin",
@@ -36,11 +51,15 @@ admin_router = APIRouter(
     tags=["users-admin"],
 )
 
+# Bulk invite and resend live in their own modules (this file is near the
+# 300-line cap) but mount here so they inherit the users.manage guard above.
+admin_router.include_router(bulk_router)
+admin_router.include_router(resend_router)
+
 
 @admin_router.get("", response_model=list[UserListItem])
 async def admin_list_users(
-    page: int = 1,
-    per_page: int = 20,
+    params: PageParams = Depends(page_params(20)),
     q: str | None = None,
     status: str | None = None,
     role: str | None = None,
@@ -52,8 +71,8 @@ async def admin_list_users(
     """List all users (paginated, optional search and filters)."""
     _status, _verified, _sort, _order = sanitize_list_filters(status, verified, sort, order)
     items, _ = await service.list_users(
-        page=page,
-        per_page=per_page,
+        page=params.page,
+        per_page=params.per_page,
         search=q,
         status=_status,
         role_name=role or None,
@@ -75,20 +94,26 @@ async def admin_invite_user(
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
     mailer=Depends(get_mailer),
+    db: RequestSession = Depends(get_db),
 ):
     """Invite a new user by email, optionally assigning roles."""
     invited_by = getattr(request.state, "user", None)
     invited_by_name = invited_by.name if invited_by else "Administrator"
-    user, token = await service.invite(
-        data.email, data.full_name, data.role_names, invited_by=invited_by
-    )
-    await mailer.send_invite(user.email, token, invited_by_name)
-    await bus.publish(
+    try:
+        user, token = await service.invite(
+            data.email, data.full_name, data.role_names, invited_by=invited_by
+        )
+    except fa_exceptions.UserAlreadyExists:
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
+    db.on_commit(lambda: mailer.send_invite(user.email, token, invited_by_name))
+    await publish_admin_event(
+        bus,
         UserInvited(
             user_id=user.id,
             email=user.email,
             invited_by=(str(invited_by.id) if invited_by else None),
-        )
+        ),
+        db,
     )
     return service.to_list_item(user)
 
@@ -103,6 +128,7 @@ async def admin_create_user(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Create an active+verified user with an admin-set password."""
     creator = getattr(request.state, "user", None)
@@ -116,13 +142,12 @@ async def admin_create_user(
             created_by=created_by,
         )
     except fa_exceptions.UserAlreadyExists:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists.",
-        ) from None
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     except fa_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from None
-    await bus.publish(UserCreated(user_id=user.id, email=user.email, created_by=created_by))
+    await publish_admin_event(
+        bus, UserCreated(user_id=user.id, email=user.email, created_by=created_by), db
+    )
     return service.to_list_item(user)
 
 
@@ -138,10 +163,7 @@ async def admin_update_user(
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
     except EmailAlreadyExistsError:
-        raise HTTPException(
-            status_code=409,
-            detail="A user with this email already exists.",
-        ) from None
+        raise HTTPException(status_code=409, detail=_DUPLICATE_EMAIL) from None
     return service.to_list_item(user)
 
 
@@ -151,6 +173,7 @@ async def admin_delete_user(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Hard-delete a user. An admin cannot delete their own account."""
     actor = getattr(request.state, "user", None)
@@ -163,7 +186,7 @@ async def admin_delete_user(
         await service.delete_user(user_id)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    await bus.publish(UserDeleted(user_id=user_id))
+    await publish_admin_event(bus, UserDeleted(user_id=user_id), db)
     return Response(status_code=http_status.HTTP_204_NO_CONTENT)
 
 
@@ -172,13 +195,14 @@ async def admin_disable_user(
     user_id: uuid.UUID,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Disable a user account (sets is_active=False and disabled_at)."""
     try:
         user = await service.disable(user_id)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    await bus.publish(UserDisabled(user_id=user.id))
+    await publish_admin_event(bus, UserDisabled(user_id=user.id), db)
     return service.to_list_item(user)
 
 
@@ -195,6 +219,19 @@ async def admin_enable_user(
     return service.to_list_item(user)
 
 
+@admin_router.patch("/{user_id}/unlock", response_model=UserListItem)
+async def admin_unlock_user(
+    user_id: uuid.UUID,
+    service: UserService = Depends(get_user_service),
+):
+    """Lift a login lockout (GH #530) before its cooldown ends."""
+    try:
+        user = await service.unlock(user_id)
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found") from None
+    return service.to_list_item(user)
+
+
 @admin_router.put("/{user_id}/roles", response_model=UserListItem)
 async def admin_set_roles(
     user_id: uuid.UUID,
@@ -202,10 +239,13 @@ async def admin_set_roles(
     request: Request,
     bus: EventBus = Depends(get_event_bus),
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ):
     """Replace a user's role assignments."""
     assigned_by = getattr(request.state, "user", None)
     try:
+        previous = await service.get_with_roles(user_id)
+        previous_roles = {r.name for r in previous.roles} if previous else set()
         user = await service.set_roles(
             user_id,
             data.role_names,
@@ -213,8 +253,9 @@ async def admin_set_roles(
         )
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
-    for role in data.role_names:
-        await bus.publish(RoleAssigned(user_id=user.id, role_name=role))
+    for role in user.roles:
+        if role.name not in previous_roles:
+            await publish_admin_event(bus, RoleAssigned(user_id=user.id, role_name=role.name), db)
     return service.to_list_item(user)
 
 
@@ -238,9 +279,13 @@ async def admin_reset_password_link(
     service: UserService = Depends(get_user_service),
 ):
     """Generate a password-reset link for the given user (admin copy)."""
-    base_url = request.app.state.users.settings.base_url
     try:
-        link = await service.generate_reset_link(user_id, base_url)
+        link = await service.generate_reset_link(user_id, admin_link_base(request))
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found") from None
+    except ExternalUserNoPasswordError:
+        raise HTTPException(
+            status_code=409,
+            detail="External (SSO) users have no password to reset",
+        ) from None
     return PasswordResetLink(link=link)

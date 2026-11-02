@@ -10,6 +10,9 @@ data volumes) and **memray** (allocation profiling). Run it against a
 - `locustfile.py` — the `AuthedUser` browse scenario (weighted endpoint mix).
 - Auth: `scripts/loadtest_seed.py` mints a forged session cookie
   (`SM_LOADTEST_COOKIE`) so locust skips the login flow and its rate limiter.
+  It resolves host settings like the server: an explicit `SM_SECRET_KEY` wins,
+  otherwise it uses the generated key stored in the database. Run the script
+  with the same database and environment as the server.
 
 ## Prerequisites
 

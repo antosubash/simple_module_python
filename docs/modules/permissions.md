@@ -4,9 +4,9 @@ The permissions module decouples role-based and per-user permission grants from 
 
 - Two assignment tables (`permissions_role_permission`, `permissions_user_permission`).
 - An admin UI to edit them.
-- A `RequiresPermission` dependency that consults *both* roles and direct user grants.
+- A grant source that feeds direct user grants into the framework's permission resolution.
 
-The framework ships its own simpler `RequiresPermission` in `simple_module_hosting.permissions` that only checks roles; if you install the `permissions` module, prefer the one re-exported from `permissions.deps` because it also honours direct grants.
+There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. `permissions.deps.RequiresPermission` is the same class, kept so existing imports still work. Before GH #337 they were separate classes, and a direct grant took effect only on routes that imported the `permissions.deps` one.
 
 ## ModuleMeta
 
@@ -14,14 +14,29 @@ The framework ships its own simpler `RequiresPermission` in `simple_module_hosti
 |---|---|
 | `name` | `Permissions` |
 | `route_prefix` | `/api/permissions` |
-| `view_prefix` | `/permissions` |
+| `view_prefix` | `/admin/permissions` |
 | `depends_on` | `["Auth", "Users"]` |
+
+The user side of the screens (looking a user up, searching, their roles) goes
+through the [user directory](/framework/user-directory). The role pages read
+the `users` module's `Role` table (`users.contracts.roles`), which is why the
+module still depends on `Users`.
 
 ## Routes
 
 ### API
 
 All require authentication. Read endpoints need `permissions.view`; mutate endpoints need `permissions.manage`.
+
+**Behaviour change (#687):** `permissions.manage` alone does not allow escalation.
+Role and user updates refuse added keys the actor does not hold, using the same
+resolved permissions as authorization (roles, direct grants, other grant sources,
+and token scopes). User updates also refuse targets with permissions beyond the
+actor's, admin targets, or targets whose provider cannot report their roles.
+Unscoped admins are unrestricted. Refusals return HTTP 403 with a reason in
+`detail`, on both API and Inertia write routes. Existing role keys may be retained
+or removed without holding them; unregistered submitted keys are still ignored and
+stored grants for unavailable modules are preserved.
 
 | Method + path | Body / response | Permission |
 |---|---|---|
@@ -35,42 +50,58 @@ All require authentication. Read endpoints need `permissions.view`; mutate endpo
 
 | Method + path | Inertia component / behaviour | Permission |
 |---|---|---|
-| `GET /permissions/` | _redirect to_ `/users/admin` | _login_ |
-| `GET /permissions/roles/{role_id}/edit` | `Permissions/RoleEdit` | `permissions.manage` |
-| `PUT /permissions/roles/{role_id}` | form action; redirects | `permissions.manage` |
-| `GET /permissions/users/{user_id}/edit` | `Permissions/UserEdit` | `permissions.manage` |
-| `PUT /permissions/users/{user_id}` | form action; redirects | `permissions.manage` |
+| `GET /admin/permissions/` | _redirect to_ `/admin/users/` | _login_ |
+| `GET /admin/permissions/roles/{role_id}/edit` | `Permissions/RoleEdit` | `permissions.manage` |
+| `PUT /admin/permissions/roles/{role_id}` | form action; redirects | `permissions.manage` |
+| `GET /admin/permissions/users/{user_id}/edit` | `Permissions/UserEdit` | `permissions.manage` |
+| `PUT /admin/permissions/users/{user_id}` | form action; redirects | `permissions.manage` |
 
 ## Using `RequiresPermission`
 
 ```python
 from fastapi import APIRouter, Depends
-from permissions.deps import RequiresPermission
+from simple_module_hosting.permissions import RequiresPermission
 
 router = APIRouter()
+
 
 @router.delete(
     "/orders/{order_id}",
     dependencies=[Depends(RequiresPermission("orders.delete"))],
 )
-async def delete_order(order_id: int) -> None:
-    ...
+async def delete_order(order_id: int) -> None: ...
 ```
 
 `RequiresPermission(permission)` takes a **single** permission key and 403s unless the request's user holds it, considering:
 
-1. The keys assigned to any of the user's roles (read from the request-cached `resolved_permissions`).
-2. The keys assigned directly to the user (`permissions_user_permission`).
-3. The implicit `WILDCARD` grant — the `admin` role is synced to hold every permission key at startup, so admins pass any check.
+1. The keys assigned to any of the user's roles.
+2. The keys assigned directly to the user (`permissions_user_permission`), contributed by `permissions.grants.direct_grant_source` via `PermissionRegistry.add_grant_source`.
+3. The implicit `WILDCARD` grant. The `admin` role is synced to hold every permission key at startup, so admins pass any check.
 
-For something tied to *only* role membership (no direct grants), use `auth.deps.require_permission` instead — it's a hair cheaper.
+All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`. `auth.deps.require_permission(*keys)` reads the same set, with any-of semantics.
+
+### Caching and propagation
+
+The grant source runs on every authenticated request, so each process caches a user's direct grants for 30 seconds (`permissions.grants.GRANTS_TTL_SECONDS`). Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. `PermissionService.set_user_permissions` owns this callback, so service callers
+receive the same invalidation as endpoints (#687, #621); rollback publishes nothing.
+Pass `app` to the service for cross-worker delivery. Without an app, commit clears
+the local grant cache. The endpoint helper
+`permissions.deps.invalidate_grants_on_commit` is deprecated until 0.1.0; callers
+no longer need it. A service constructed without a `request` is a trusted
+in-process caller; pass the actor's request for delegated writes.
+The worker that made the change sees it on the next request. Other workers see it immediately when `background_tasks` provides a Redis transport, and otherwise within the TTL.
 
 ## Public contracts
 
 ```python
 from permissions.contracts.schemas import (
-    PermissionGroupOut, RoleOut, RolePermissionsOut, RolePermissionsUpdate,
-    UserOut, UserPermissionsOut, UserPermissionsUpdate,
+    PermissionGroupOut,
+    RoleOut,
+    RolePermissionsOut,
+    RolePermissionsUpdate,
+    UserOut,
+    UserPermissionsOut,
+    UserPermissionsUpdate,
 )
 ```
 

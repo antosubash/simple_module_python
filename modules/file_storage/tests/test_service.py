@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _upload(name: str, data: bytes, content_type: str = "application/octet-stream") -> UploadFile:
-    return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})  # type: ignore[arg-type]
+    return UploadFile(filename=name, file=BytesIO(data), headers={"content-type": content_type})
 
 
 def _settings(tmp_path, **overrides) -> FileStorageSettings:
@@ -86,7 +86,7 @@ async def test_upload_compensates_on_db_failure(tmp_path, db_session: AsyncSessi
     deleted_keys: list[str] = []
 
     class _RecordingBackend(FilesystemBackend):
-        async def delete(self, key: str) -> None:  # type: ignore[override]
+        async def delete(self, key: str) -> None:
             deleted_keys.append(key)
             await super().delete(key)
 
@@ -169,7 +169,8 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
 
     # Swap in a presigning backend; download should now redirect.
     class _PresigningBackend:
-        backend_id = "presign-test"
+        # Keep ownership the same while changing the download capability.
+        backend_id = backend.backend_id
         supports_presigned_url = True
 
         async def put(self, key, stream, **kwargs): ...
@@ -184,14 +185,19 @@ async def test_download_dispatches_on_backend_capability(tmp_path, db_session: A
         async def exists(self, key):
             return True
 
-        async def presigned_get_url(self, key, ttl_seconds):
+        async def presigned_get_url(self, key, ttl_seconds, **headers):
+            self.headers = headers
             return f"https://signed/{key}"
 
-    pb: StorageBackend = _PresigningBackend()  # type: ignore[assignment]
+    pb: StorageBackend = _PresigningBackend()
     svc.backend = pb
     download2 = await svc.download(out.id)
     assert isinstance(download2, RedirectDownload)
     assert download2.url.startswith("https://signed/")
+    # GH #489: the redirect must carry the original name, not the storage key.
+    assert pb.headers["content_disposition"].startswith("attachment; ")
+    assert out.filename in pb.headers["content_disposition"]
+    assert pb.headers["content_type"] == out.content_type
 
 
 async def _drain(stream: AsyncIterator[bytes]) -> bytes:

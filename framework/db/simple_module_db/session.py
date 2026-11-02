@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import sqlite3
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -13,7 +16,24 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import Session
 
+from simple_module_db.callbacks import OnCommitCallback, register_on_commit
+from simple_module_db.engine_options import connect_args as timeout_connect_args
 from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.tenancy import DEFAULT_TENANT_ID
+
+SESSION_FACTORY_KEY = "sm_session_factory"
+
+
+class RequestSession(AsyncSession):
+    """Async session with hooks for the request-owned transaction."""
+
+    def on_commit(self, callback: OnCommitCallback) -> None:
+        """Run ``callback`` after this request's next successful commit.
+
+        Callbacks may be synchronous or asynchronous. They are discarded when
+        the request rolls back or has no writes.
+        """
+        register_on_commit(self, callback)
 
 
 @dataclass
@@ -21,9 +41,20 @@ class DatabaseState:
     """Holds all database state for a single application instance."""
 
     engine: AsyncEngine
-    session_factory: async_sessionmaker[AsyncSession]
+    session_factory: async_sessionmaker[RequestSession]
     sync_session_class: type[Session] = field(repr=False, default=Session)
     audit_callback: Callable | None = field(default=None, repr=False)
+    # Strict bulk auditing (#557): a bool, or a zero-arg callable read per
+    # statement so a settings save applies without a restart. When true an
+    # ``execution_options(sm_audit=False)`` write to an audited model raises.
+    refuse_unaudited_dml: bool | Callable[[], bool] = field(default=False, repr=False)
+    # Fail closed: a query on a MultiTenantMixin model with no tenant context
+    # raises instead of reading every tenant. The host turns this on whenever
+    # it runs with ``multi_tenant``; see ``simple_module_db.tenancy``.
+    tenant_strict: bool = False
+    # Where a non-strict write with no tenant bound (or inside ``all_tenants()``)
+    # lands: the host's ``default_tenant``, else ``DEFAULT_TENANT_ID``.
+    default_tenant_id: str = DEFAULT_TENANT_ID
     _listeners_registered: bool = field(default=False, repr=False)
 
 
@@ -35,7 +66,14 @@ def init_db(
     max_overflow: int = 20,
     pool_pre_ping: bool = True,
     pool_recycle: int = 1800,
+    pool_timeout: int = 30,
+    connect_timeout: int = 10,
+    statement_timeout_ms: int = 0,
+    idle_in_tx_timeout_ms: int = 0,
     poolclass: type | None = None,
+    sqlite_wal: bool = True,
+    sqlite_busy_timeout_ms: int = 5000,
+    sqlite_foreign_keys: bool = True,
 ) -> DatabaseState:
     """Create an async engine and session factory.
 
@@ -45,11 +83,30 @@ def init_db(
     event loops don't outlive pooled connections; the pool-tuning kwargs
     are ignored in that case.
 
+    The ``sqlite_*`` arguments configure PRAGMAs that the driver otherwise
+    leaves at defaults that do not match the framework's promises (GH #339):
+
+    * ``sqlite_wal`` — WAL journalling, so a reader no longer blocks a writer.
+      Applied to **file** databases only: ``:memory:`` has no journal file, and
+      a shared-cache in-memory DB rejects the change. Persistent on the file and
+      idempotent, so re-opening an existing database is a no-op.
+    * ``sqlite_busy_timeout_ms`` — explicit rather than inheriting the driver's
+      undocumented 5 s, so lock contention is a tuned wait instead of an
+      unexplained multi-second stall.
+    * ``sqlite_foreign_keys`` — SQLite ships with FK enforcement **off**, which
+      silently makes ``ondelete="RESTRICT"``/``CASCADE`` a no-op and lets SQLite
+      and Postgres disagree about a delete that should have been refused.
+
     Returns a ``DatabaseState`` that should be stored on ``app.state.db``.
     """
     provider = detect_provider(database_url)
 
-    connect_args: dict = {}
+    connect_args = timeout_connect_args(
+        database_url,
+        connect_timeout=connect_timeout,
+        statement_timeout_ms=statement_timeout_ms,
+        idle_in_tx_timeout_ms=idle_in_tx_timeout_ms,
+    )
     engine_kwargs: dict = {"echo": echo, "connect_args": connect_args}
     if poolclass is not None:
         engine_kwargs["poolclass"] = poolclass
@@ -57,6 +114,7 @@ def init_db(
         connect_args["check_same_thread"] = False
     elif poolclass is None:
         engine_kwargs.update(
+            pool_timeout=pool_timeout,
             pool_size=pool_size,
             max_overflow=max_overflow,
             pool_pre_ping=pool_pre_ping,
@@ -64,14 +122,108 @@ def init_db(
         )
 
     engine = create_async_engine(database_url, **engine_kwargs)
+    if provider == DatabaseProvider.SQLITE:
+        _configure_sqlite(
+            engine,
+            database_url,
+            wal=sqlite_wal,
+            busy_timeout_ms=sqlite_busy_timeout_ms,
+            foreign_keys=sqlite_foreign_keys,
+        )
     # Scoped Session subclass so event listeners only fire for this engine's sessions
     scoped_session_class = type("ScopedSession", (Session,), {})
     session_factory = async_sessionmaker(
-        engine, expire_on_commit=False, sync_session_class=scoped_session_class
+        engine,
+        class_=RequestSession,
+        expire_on_commit=False,
+        sync_session_class=scoped_session_class,
     )
+
+    session_factory.configure(info={SESSION_FACTORY_KEY: session_factory})
 
     return DatabaseState(
         engine=engine,
         session_factory=session_factory,
         sync_session_class=scoped_session_class,
     )
+
+
+def _is_file_database(database_url: str) -> bool:
+    """Whether this SQLite URL points at a file rather than an in-memory DB."""
+    path = database_url.partition("://")[2].lstrip("/")
+    path = path.partition("?")[0]
+    return bool(path) and path != ":memory:"
+
+
+def _ensure_wal(cursor, timeout_ms: int = 5000) -> None:
+    """Switch the file to WAL unless it already is.
+
+    Switching needs an exclusive lock, and SQLite fails it with "database is
+    locked" at once, without waiting out ``busy_timeout``, when another
+    connection holds a lock. That happens when two connections open a fresh
+    file together. So read the mode first (WAL persists in the file, so later
+    connections skip the switch), and retry a lost switch until the winner has
+    finished or ``timeout_ms`` has passed. On aiosqlite the sleep blocks the
+    event loop, but only while a fresh file is being switched.
+    """
+    deadline = time.monotonic() + timeout_ms / 1000
+    while _journal_mode(cursor) != "wal":
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            return
+        except sqlite3.OperationalError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.02)
+
+
+def _journal_mode(cursor) -> str:
+    # The aiosqlite adapter's ``execute`` returns None, so fetch from the cursor.
+    cursor.execute("PRAGMA journal_mode")
+    return cursor.fetchone()[0].lower()
+
+
+def _configure_sqlite(
+    engine: AsyncEngine,
+    database_url: str,
+    *,
+    wal: bool,
+    busy_timeout_ms: int,
+    foreign_keys: bool,
+) -> None:
+    """Apply per-connection PRAGMAs to every SQLite connection this engine opens.
+
+    Registered on the *sync* engine's ``connect`` event — the async engine is a
+    facade, and ``connect`` fires on the DBAPI connection underneath it. All
+    three PRAGMAs must be re-issued per connection except ``journal_mode``,
+    which is a property of the file (see :func:`_ensure_wal`).
+
+    Also registers a ``savepoint`` listener that opens the transaction before an
+    outermost SAVEPOINT (pysqlite would otherwise let its RELEASE commit; GH #350).
+    """
+    apply_wal = wal and _is_file_database(database_url)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        try:
+            if foreign_keys:
+                cursor.execute("PRAGMA foreign_keys=ON")
+            if busy_timeout_ms is not None:
+                cursor.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
+            if apply_wal:
+                _ensure_wal(cursor, busy_timeout_ms or 0)
+        finally:
+            cursor.close()
+
+    @event.listens_for(engine.sync_engine, "savepoint")
+    def _begin_before_outermost_savepoint(conn, _name) -> None:
+        # pysqlite only emits BEGIN lazily before DML, so a SAVEPOINT that is
+        # the first statement would *start* the transaction and its RELEASE
+        # would COMMIT it, leaving the outer rollback nothing to undo (GH #350).
+        # Open the transaction ourselves, only in that case. SQLAlchemy's
+        # blanket recipe (isolation_level=None + BEGIN on every transaction)
+        # was rejected: it turns every read into a snapshot, so a later write
+        # fails with SQLITE_BUSY_SNAPSHOT, which ignores busy_timeout.
+        if not getattr(conn.connection.driver_connection, "in_transaction", False):
+            conn.exec_driver_sql("BEGIN")

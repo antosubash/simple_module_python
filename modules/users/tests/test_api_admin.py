@@ -72,6 +72,17 @@ class TestAdminList:
         assert "beta@example.com" not in emails
 
     @pytest.mark.anyio
+    async def test_list_search_matches_like_metacharacters_literally(self, admin_client, users_db):
+        """A literal "_" or "%" in the search must match as text, not wildcard."""
+        await _make_user(users_db, email="dana_x@example.com")
+        await _make_user(users_db, email="danaYx@example.com")
+
+        resp = await admin_client.get("/api/users/admin?q=dana_x")
+        assert resp.status_code == 200
+        emails = [u["email"] for u in resp.json()]
+        assert emails == ["dana_x@example.com"]
+
+    @pytest.mark.anyio
     async def test_list_pagination(self, admin_client, users_db):
         for i in range(5):
             await _make_user(users_db, email=f"page{i}@example.com")

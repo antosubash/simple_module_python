@@ -6,6 +6,16 @@ import uuid
 from dataclasses import dataclass
 
 from simple_module_core.events import Event
+from simple_module_core.user_events import UserDeleted
+
+__all__ = [
+    "RoleAssigned",
+    "UserCreated",
+    "UserDeleted",
+    "UserDisabled",
+    "UserInvited",
+    "UserRegistered",
+]
 
 
 @dataclass
@@ -26,11 +36,6 @@ class UserCreated(Event):
     user_id: uuid.UUID
     email: str
     created_by: str | None
-
-
-@dataclass
-class UserDeleted(Event):
-    user_id: uuid.UUID
 
 
 @dataclass

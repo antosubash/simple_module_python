@@ -11,28 +11,30 @@ from __future__ import annotations
 from urllib.parse import urlsplit
 
 from fastapi import Request
+from simple_module_core.redirect_safety import safe_next
 
 
 def safe_referer_or_root(request: Request) -> str:
     """Return the Referer iff it's same-origin; otherwise fall back to ``/``.
 
     Only honors references that (a) resolve to the same scheme+host as the
-    current request, or (b) are relative paths that don't try to escape to a
-    protocol-relative URL (``//evil.example``).
+    current request, or (b) are relative paths. Either way the result is run
+    through :func:`~simple_module_core.redirect_safety.safe_next`, which is the
+    single owner of what counts as a safe same-site target.
     """
     referer = request.headers.get("referer")
     if not referer:
         return "/"
 
-    # Protocol-relative URLs like "//evil.example/foo" resolve against the
-    # origin in browsers but leave the site — reject them.
-    if referer.startswith("//"):
-        return "/"
-
     parsed = urlsplit(referer)
-    # Relative path with no scheme+host → same-origin by construction.
+    # Relative reference (no scheme+host). ``safe_next`` owns the rules here —
+    # it rejects protocol-relative ("//host") and backslash-prefixed ("/\\host")
+    # targets, both of which browsers resolve off-site, plus anything carrying
+    # CR/LF that could be smuggled into the Location header. Delegated rather
+    # than restated so the two sanitisers cannot drift: a second copy that
+    # missed one of those cases is exactly how this becomes an open redirect.
     if not parsed.scheme and not parsed.netloc:
-        return referer if referer.startswith("/") else "/"
+        return safe_next(referer)
 
     # Absolute URL → must match the current request's origin.
     current = request.url
@@ -40,6 +42,6 @@ def safe_referer_or_root(request: Request) -> str:
         path = parsed.path or "/"
         if parsed.query:
             path = f"{path}?{parsed.query}"
-        return path
+        return safe_next(path)
 
     return "/"

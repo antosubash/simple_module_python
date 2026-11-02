@@ -1,10 +1,15 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { Input } from '@simple-module-py/ui/components/ui/input';
-import { Label } from '@simple-module-py/ui/components/ui/label';
 import { AuthCardShell } from '@simple-module-py/ui/layouts/AuthCardShell';
-import { AlertTriangle } from 'lucide-react';
+import { AuthSplitAside } from '@simple-module-py/ui/layouts/AuthSplitAside';
+import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
+import { type DemoAccount, DemoSignIn } from '../auth_local/components/DemoSignIn';
+import { LoginForm, type OAuthProvider } from '../auth_local/components/LoginForm';
+import { WaitingOnYou } from '../auth_local/components/WaitingOnYou';
+import { api } from './api';
+import { signIn } from './signIn';
 
 interface DevAccount {
   label: string;
@@ -12,61 +17,104 @@ interface DevAccount {
   password: string;
 }
 
-interface OAuthProvider {
-  name: string;
-  display_name: string;
+interface DemoSignInProps {
+  accounts: DemoAccount[];
+  read_only: boolean;
 }
 
 interface Props {
   allow_signup: boolean;
+  demo_signin: DemoSignInProps;
   dev_accounts: DevAccount[];
+  keycloak_installed?: boolean;
   login_redirect_url: string;
   oauth_providers: OAuthProvider[];
+  oauth_error?: string | null;
+  remember_me_days: number;
 }
 
-function Login() {
-  const { allow_signup, dev_accounts, login_redirect_url, oauth_providers } = usePage<{
-    props: Props;
-  }>().props as unknown as Props;
+function Login({
+  allow_signup,
+  demo_signin,
+  dev_accounts,
+  keycloak_installed,
+  login_redirect_url,
+  oauth_providers,
+  oauth_error,
+  remember_me_days,
+}: Props) {
+  const { t } = useT();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [remember, setRemember] = useState(false);
+  const oauthMessage =
+    oauth_error === 'account_not_verified'
+      ? t(keys.users.login.oauth_account_not_verified)
+      : oauth_error === 'signup_disabled'
+        ? t(keys.users.login.oauth_signup_disabled)
+        : oauth_error === 'signin_failed'
+          ? t(keys.users.login.oauth_signin_failed)
+          : null;
+  const [error, setError] = useState<string | null>(oauthMessage);
   const [needsVerification, setNeedsVerification] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [resendFailed, setResendFailed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [demoPendingRole, setDemoPendingRole] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
-  const nextUrl =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('next') || login_redirect_url
-      : login_redirect_url;
+  // Server-decided, deliberately. The post-login destination used to be read
+  // from `?next=` here, which let any crafted login link bounce the user to an
+  // arbitrary URL after signing in. AuthMiddleware now stashes the target in
+  // the session and the view sanitises it, so this prop is already safe.
+  const nextUrl = login_redirect_url;
 
   const submitLogin = (username: string, pwd: string) => {
     setError(null);
     setNeedsVerification(false);
     setLoading(true);
-    const body = new URLSearchParams({ username, password: pwd });
-    fetch('/api/users/auth/login', {
-      method: 'POST',
-      body,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
-      .then(async (res) => {
-        if (res.status === 204) {
+    signIn(username, pwd, remember)
+      .then((res) => {
+        if (res.status === NETWORK_FAILURE) {
+          setError(t(keys.users.common.error_try_again));
+        } else if (res.status === 204) {
           router.visit(nextUrl);
         } else if (res.status === 429) {
-          setError('Too many attempts. Please try again in a few minutes.');
+          setError(t(keys.users.login.error_rate_limited));
+        } else if (res.detail === 'LOGIN_USER_NOT_VERIFIED') {
+          setNeedsVerification(true);
         } else {
-          const data = await res.json().catch(() => ({}));
-          const detail = typeof data?.detail === 'string' ? data.detail : '';
-          if (detail === 'LOGIN_USER_NOT_VERIFIED') {
-            setNeedsVerification(true);
-          } else {
-            setError('Invalid email or password.');
-          }
+          setError(t(keys.users.login.error_invalid_credentials));
         }
       })
-      .catch(() => setError('An error occurred. Please try again.'))
       .finally(() => setLoading(false));
+  };
+
+  // No credentials in the body: the role in the path is all the server
+  // needs, so the page never holds a password it could leak into a bug
+  // report, a screenshot or the browser's autofill store.
+  const startDemo = (role: string) => {
+    setDemoError(null);
+    setError(null);
+    setDemoPendingRole(role);
+    apiResult(api.POST('/api/users/auth/demo/{role}', { params: { path: { role } } })).then(
+      (res) => {
+        if (res.status === 204) {
+          router.visit(nextUrl);
+          return;
+        }
+        if (res.status === NETWORK_FAILURE) {
+          setDemoError(t(keys.users.common.error_try_again));
+        } else {
+          // 404 is that account having been switched off since this page was
+          // rendered; 429 is its throughput budget. Neither is worth its own
+          // copy — both mean "not right now".
+          setDemoError(t(keys.users.login.demo_error));
+        }
+        setDemoPendingRole(null);
+      },
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,114 +123,73 @@ function Login() {
   };
 
   const handleResendVerification = () => {
-    fetch('/api/users/auth/request-verify-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    }).then(() => {
-      setError('Verification email resent. Please check your inbox.');
-      setNeedsVerification(false);
-    });
+    // Only claim it was sent when the server says so: this endpoint is behind
+    // the auth throughput limiter, and a 429 announced as "sent" leaves
+    // someone waiting for an email that was never queued.
+    setResendFailed(false);
+    apiResult(api.POST('/api/users/auth/request-verify-token', { body: { email } })).then((res) =>
+      res.ok ? setResent(true) : setResendFailed(true),
+    );
   };
 
+  const aside = (
+    <AuthSplitAside
+      heading={t(keys.users.login.aside_heading)}
+      body={t(keys.users.login.aside_body)}
+      checks={[
+        t(keys.users.login.aside_check_sessions),
+        // Advertises a module, so it renders only where that module exists.
+        ...(keycloak_installed ? [t(keys.users.login.aside_check_sso)] : []),
+      ]}
+    />
+  );
+
   return (
-    <AuthCardShell>
-      <Head title="Login" />
-      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight font-[var(--font-display)] text-foreground">
-        Welcome back
-      </h1>
-      <p className="mb-5 text-sm text-muted-foreground">Log in to your workspace.</p>
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
-            Email
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-            autoComplete="email"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between">
-            <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-              Password
-            </Label>
-            <a
-              href="/users/forgot-password"
-              className="text-xs font-semibold text-primary-700 hover:text-primary-800"
-            >
-              Forgot?
-            </a>
-          </div>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-        </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        {needsVerification && (
-          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <div>
-              <p className="font-semibold">Verify your email</p>
-              <button
-                type="button"
-                onClick={handleResendVerification}
-                className="mt-0.5 underline hover:no-underline"
-              >
-                Resend verification email
-              </button>
-            </div>
-          </div>
-        )}
-
-        <Button type="submit" size="lg" className="w-full" disabled={loading}>
-          {loading ? 'Signing in…' : 'Log in'}
-        </Button>
-      </form>
-
-      {allow_signup && (
-        <p className="mt-5 text-center text-xs text-muted-foreground">
-          Don't have an account?{' '}
-          <a
-            href="/users/register"
-            className="font-semibold text-primary-700 hover:text-primary-800"
-          >
-            Sign up
-          </a>
-        </p>
+    <AuthCardShell variant="split-dark" aside={aside}>
+      <Head title={t(keys.users.login.head_title)} />
+      {needsVerification ? (
+        <WaitingOnYou
+          email={email}
+          resent={resent}
+          failed={resendFailed}
+          onResend={handleResendVerification}
+          onBack={() => {
+            setNeedsVerification(false);
+            setResent(false);
+            setResendFailed(false);
+          }}
+        />
+      ) : (
+        <LoginForm
+          email={email}
+          onEmailChange={setEmail}
+          password={password}
+          onPasswordChange={setPassword}
+          remember={remember}
+          onRememberChange={setRemember}
+          rememberDays={remember_me_days}
+          error={error}
+          loading={loading}
+          onSubmit={handleSubmit}
+          allowSignup={allow_signup}
+          oauthProviders={oauth_providers ?? []}
+        />
       )}
 
-      {oauth_providers && oauth_providers.length > 0 && (
-        <div className="mt-5 border-t border-border pt-4">
-          <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
-            Or continue with
-          </p>
-          <div className="flex flex-col gap-2">
-            {oauth_providers.map((p) => (
-              <Button key={p.name} type="button" variant="outline" asChild disabled={loading}>
-                <a href={`/api/users/auth/${p.name}/login`}>{p.display_name}</a>
-              </Button>
-            ))}
-          </div>
-        </div>
+      {demo_signin?.accounts?.length > 0 && !needsVerification && (
+        <DemoSignIn
+          accounts={demo_signin.accounts}
+          readOnly={demo_signin.read_only}
+          pendingRole={demoPendingRole}
+          error={demoError}
+          onStart={startDemo}
+        />
       )}
 
-      {dev_accounts && dev_accounts.length > 0 && (
+      {dev_accounts && dev_accounts.length > 0 && !needsVerification && (
         <div className="mt-5 border-t border-border pt-4">
           <p className="mb-2 text-center font-mono text-[11px] text-muted-foreground">
-            Dev quick-login
+            {t(keys.users.login.dev_divider)}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {dev_accounts.map((acct) => (
@@ -191,7 +198,7 @@ function Login() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={loading}
+                disabled={loading || demoPendingRole !== null}
                 onClick={() => {
                   setEmail(acct.email);
                   setPassword(acct.password);

@@ -14,7 +14,11 @@ from permissions.contracts.schemas import (
     UserPermissionsOut,
     UserPermissionsUpdate,
 )
-from permissions.deps import RequiresPermission, assigned_by, get_permission_service
+from permissions.deps import (
+    RequiresPermission,
+    assigned_by,
+    get_permission_service,
+)
 from permissions.service import PermissionService
 
 router = APIRouter()

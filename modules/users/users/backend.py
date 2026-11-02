@@ -13,22 +13,39 @@ is pinned narrowly in pyproject.toml.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from fastapi import Depends
+from fastapi import Depends, Request, Response
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
-from fastapi_users.authentication.strategy.db import (
-    AccessTokenDatabase,
-    DatabaseStrategy,
-)
+from fastapi_users.authentication.strategy.db import AccessTokenDatabase
 
 from users.db_adapter import get_access_token_db
 from users.models import UserAccessToken
+from users.token_strategy import ExpiringDatabaseStrategy
 
 if TYPE_CHECKING:
     from users.settings import UsersSettings
 
-_TOKEN_LIFETIME_SECONDS = 60 * 60 * 24 * 14  # 14 days
+_TOKEN_LIFETIME_SECONDS = 60 * 60 * 24 * 30  # 30 days
+"""Oldest access-token row the query will even look at — the ceiling, not the norm.
+
+This is the *read* window, and there is only one of it: ``current_user``
+resolves its strategy from the shared backend, so it cannot vary per request.
+A remembered sign-in writes a row it needs for thirty days, and reading it back
+against a fourteen-day window would sign those people out halfway through the
+window the checkbox promised.
+
+What bounds an individual credential is its own ``UserAccessToken.expires_at``,
+stamped at mint time from whatever that sign-in actually asked for and enforced
+by :class:`~users.token_strategy.ExpiringDatabaseStrategy`. The cookie's
+``Max-Age`` is browser-enforced only, so it cannot be the bound: a cookie lifted
+off disk is replayed without one. Revocation depends on neither window — a
+``User.session_version`` bump strands sessions and tokens alike, the latter by
+the counter this strategy stamps onto each row.
+"""
+
+_DEFAULT_COOKIE_SECONDS = 60 * 60 * 24 * 14  # matches UsersSettings.cookie_max_age_seconds
+
 _AUTH_BACKEND_NAME = "cookie"
 
 
@@ -36,22 +53,74 @@ def build_cookie_transport(
     cookie_name: str,
     cookie_max_age_seconds: int,
     cookie_secure: bool,
-    cookie_samesite: str,
+    cookie_samesite: Literal["lax", "strict", "none"],
 ) -> CookieTransport:
     return CookieTransport(
         cookie_name=cookie_name,
         cookie_max_age=cookie_max_age_seconds,
         cookie_secure=cookie_secure,
         cookie_httponly=True,
-        cookie_samesite=cookie_samesite,  # type: ignore[arg-type]
+        cookie_samesite=cookie_samesite,
     )
 
 
+def build_strategy(
+    access_token_db: AccessTokenDatabase[UserAccessToken],
+    mint_lifetime_seconds: int,
+) -> ExpiringDatabaseStrategy:
+    """A strategy that mints rows lasting ``mint_lifetime_seconds``.
+
+    The read ceiling stays :data:`_TOKEN_LIFETIME_SECONDS` whatever this
+    sign-in asked for: one strategy reads back every row the deployment has
+    issued, and narrowing the ceiling to the current window would reject the
+    longer-lived rows a remembered sign-in wrote.
+    """
+    return ExpiringDatabaseStrategy(
+        access_token_db,
+        read_ceiling_seconds=_TOKEN_LIFETIME_SECONDS,
+        mint_lifetime_seconds=mint_lifetime_seconds,
+    )
+
+
+async def cookie_login_response(
+    access_token_db: AccessTokenDatabase[UserAccessToken],
+    user,
+    settings: UsersSettings,
+    window_seconds: int,
+) -> Response:
+    """Mint an access-token row for ``window_seconds`` and set it as the cookie.
+
+    The one place a sign-in for a non-default window builds its credential, so
+    the row's deadline and the cookie's attributes cannot drift between the
+    login that set it and the password change that reissues it. The shared
+    backend's transport and strategy carry one lifetime each, so this builds a
+    second pair rather than mutating singletons concurrent requests are reading.
+    Note ``write_token`` commits the session it was given.
+    """
+    transport = build_cookie_transport(
+        cookie_name=settings.cookie_name,
+        cookie_max_age_seconds=window_seconds,
+        cookie_secure=settings.cookie_secure,
+        cookie_samesite=settings.cookie_samesite,
+    )
+    token = await build_strategy(access_token_db, window_seconds).write_token(user)
+    return await transport.get_login_response(token)
+
+
 def get_database_strategy(
+    request: Request,
     access_token_db: AccessTokenDatabase[UserAccessToken] = Depends(get_access_token_db),
-    lifetime_seconds: int = _TOKEN_LIFETIME_SECONDS,
-) -> DatabaseStrategy:
-    return DatabaseStrategy(access_token_db, lifetime_seconds=lifetime_seconds)
+) -> ExpiringDatabaseStrategy:
+    """The DI-resolved strategy — mints for the ordinary cookie window.
+
+    ``request.app.state.users`` is absent until ``on_startup`` has run, which is
+    also true of every route that could reach this; the fallback keeps a
+    half-built app from raising an ``AttributeError`` instead of a clean 401.
+    """
+    users_state = getattr(request.app.state, "users", None)
+    settings = getattr(users_state, "settings", None)
+    window = getattr(settings, "cookie_max_age_seconds", None) or _DEFAULT_COOKIE_SECONDS
+    return build_strategy(access_token_db, window)
 
 
 def build_auth_backend(
@@ -82,4 +151,4 @@ def reconfigure_cookie_transport(
     transport.cookie_name = settings.cookie_name
     transport.cookie_max_age = settings.cookie_max_age_seconds
     transport.cookie_secure = settings.cookie_secure
-    transport.cookie_samesite = settings.cookie_samesite  # type: ignore[assignment]
+    transport.cookie_samesite = settings.cookie_samesite

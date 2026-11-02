@@ -37,6 +37,61 @@ def _imported_plugin_pkg(node: ast.AST, module_packages: dict[str, str]) -> str 
     return None
 
 
+def _importlib_aliases(tree: ast.AST) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "importlib" or alias.name.startswith("importlib."):
+                    aliases[alias.asname or "importlib"] = (
+                        alias.name if alias.asname else "importlib"
+                    )
+        elif (
+            isinstance(node, ast.ImportFrom)
+            and node.level == 0
+            and node.module in {"importlib", "importlib.util"}
+        ):
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return aliases
+
+
+def _dynamic_plugin_pkg(
+    node: ast.Call, module_packages: dict[str, str], aliases: dict[str, str]
+) -> str | None:
+    func = node.func
+    attributes: list[str] = []
+    while isinstance(func, ast.Attribute):
+        attributes.append(func.attr)
+        func = func.value
+    if not isinstance(func, ast.Name):
+        return None
+    qualified = ".".join([aliases.get(func.id, func.id), *reversed(attributes)])
+    if qualified not in {
+        "importlib.import_module",
+        "importlib.util.find_spec",
+        "__import__",
+    }:
+        return None
+    name = (
+        node.args[0]
+        if node.args
+        else next((kw.value for kw in node.keywords if kw.arg == "name"), None)
+    )
+    if isinstance(name, ast.JoinedStr):
+        # A dot must terminate the top segment before any computed value.
+        name = name.values[0] if name.values else None
+        if not isinstance(name, ast.Constant) or not isinstance(name.value, str):
+            return None
+        if "." not in name.value:
+            return None
+    if isinstance(name, ast.Constant) and isinstance(name.value, str):
+        top = name.value.split(".")[0]
+        if top in module_packages:
+            return top
+    return None
+
+
 def check_framework_module_coupling(modules: list[ModuleBase]) -> list[Diagnostic]:
     """The framework (core, hosting, db) must never import from a plugin module."""
     module_packages: dict[str, str] = {
@@ -63,8 +118,11 @@ def check_framework_module_coupling(modules: list[ModuleBase]) -> list[Diagnosti
                 tree = ast.parse(py_file.read_text(), filename=str(py_file))
             except SyntaxError:
                 continue
+            aliases = _importlib_aliases(tree)
             for node in ast.walk(tree):
                 imported_pkg = _imported_plugin_pkg(node, module_packages)
+                if isinstance(node, ast.Call):
+                    imported_pkg = _dynamic_plugin_pkg(node, module_packages, aliases)
                 if imported_pkg:
                     diags.append(
                         Diagnostic(
@@ -75,7 +133,7 @@ def check_framework_module_coupling(modules: list[ModuleBase]) -> list[Diagnosti
                                 f"from module package '{imported_pkg}'"
                             ),
                             module_name=module_packages[imported_pkg],
-                            file=str(py_file),
+                            file=f"{py_file}:{node.lineno}",
                             suggestion=(
                                 "Use a ModuleBase lifecycle hook "
                                 "(register_middleware, register_routes, etc.) "

@@ -17,25 +17,34 @@ from __future__ import annotations
 import importlib
 import logging
 from collections.abc import Callable, Sequence
-from enum import StrEnum
 from typing import Literal
 
-import sqlalchemy as sa
 from alembic.operations.ops import CreateIndexOp, CreateTableOp, DropIndexOp, DropTableOp
 from simple_module_core import ModuleBase
+from simple_module_core.diagnostics._expression_index import index_is_expression_based
 from simple_module_core.discovery import discover_modules, get_module_package_name
-from sqlalchemy import Column, Index, MetaData
+from sqlalchemy import Index, MetaData
 from sqlalchemy.schema import SchemaItem
 
+from simple_module_db._migration_render import render_item  # noqa: F401  (re-exported)
 from simple_module_db.base import all_module_bases
+from simple_module_db.extensions import (  # noqa: F401  (ensure_db_extensions re-exported)
+    ensure_db_extensions,
+)
+from simple_module_db.migration_portability import (
+    iter_ops_recursive,
+    rewrite_boolean_defaults,
+    warn_unverifiable_expression_indexes,
+)
 
 logger = logging.getLogger(__name__)
 
 # Matches alembic.context.configure's include_object signature exactly so
 # type-checkers accept the returned filter without casts or ignores.
-_SchemaItemType = Literal[
-    "schema", "table", "column", "index", "unique_constraint", "foreign_key_constraint"
-]
+_SchemaItemType = (
+    Literal["schema", "table", "column", "index", "unique_constraint", "foreign_key_constraint"]
+    | Literal["check_constraint"]
+)
 IncludeObjectFn = Callable[[SchemaItem, str | None, _SchemaItemType, bool, SchemaItem | None], bool]
 ProcessRevisionDirectivesFn = Callable[[object, object, list], None]
 
@@ -55,6 +64,10 @@ def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaDa
     """
     if modules is None:
         modules = discover_modules()
+    # Framework-owned tables, plugin or not: settings_setting (#500), sm_lease (#539).
+    import simple_module_db.leases
+    import simple_module_db.stored_settings  # noqa: F401
+
     for mod in modules:
         pkg = get_module_package_name(mod)
         try:
@@ -132,6 +145,18 @@ def make_process_revision_directives(
     not strictly required (dropping the table drops the index) but it keeps
     autogen output readable.
 
+    The injection is idempotent, and has to be: a dialect that *can* reflect
+    expression-based indexes (PostgreSQL) already emits the index itself, so
+    re-adding it unconditionally produced a migration with two identical
+    ``create_index`` calls that failed on first run with ``DuplicateTable``.
+    Any index already named in the op tree — at any nesting depth — is left
+    alone, which keeps this dialect-agnostic rather than special-casing SQLite.
+
+    It also rewrites ``0``/``1``/``false``/``true`` server defaults on Boolean
+    columns to ``sa.false()``/``sa.true()`` and, when running on SQLite, warns
+    that expression indexes cannot be verified (see
+    :mod:`simple_module_db.migration_portability`).
+
     Call as::
 
         context.configure(
@@ -142,32 +167,41 @@ def make_process_revision_directives(
     expression_indexes: dict[str, list[Index]] = {}
     for table in metadata.tables.values():
         for index in table.indexes:
-            if _index_is_expression_based(index):
+            if index_is_expression_based(index):
                 expression_indexes.setdefault(table.name, []).append(index)
 
     def process_revision_directives(context, revision, directives):
-        if not expression_indexes:
-            return
+        warn_unverifiable_expression_indexes(
+            getattr(getattr(context, "dialect", None), "name", None), metadata
+        )
         for script in directives:
             upgrade_ops = getattr(script, "upgrade_ops", None)
             if upgrade_ops is not None:
-                _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
+                rewrite_boolean_defaults(upgrade_ops)
+                if expression_indexes:
+                    _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
             downgrade_ops = getattr(script, "downgrade_ops", None)
             if downgrade_ops is not None:
-                _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
+                # A downgrade re-creates dropped tables/columns from reflected
+                # state, so it carries the same ``sa.text('0')`` Boolean defaults.
+                rewrite_boolean_defaults(downgrade_ops)
+                if expression_indexes:
+                    _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
 
     return process_revision_directives
 
 
-def _index_is_expression_based(index: Index) -> bool:
-    """An index is expression-based when any of its expressions is not a plain ``Column``."""
-    return any(not isinstance(expr, Column) for expr in index.expressions)
+def _existing_index_names(container, op_type) -> set[str | None]:
+    """Names of every ``op_type`` index op already present anywhere under ``container``."""
+    return {
+        getattr(op, "index_name", None)
+        for op in iter_ops_recursive(container)
+        if isinstance(op, op_type)
+    }
 
 
 def _inject_create_index_after_create_table(upgrade_ops, expression_indexes) -> None:
-    existing_index_names = {
-        getattr(op, "index_name", None) for op in upgrade_ops.ops if isinstance(op, CreateIndexOp)
-    }
+    existing_index_names = _existing_index_names(upgrade_ops, CreateIndexOp)
     new_ops: list = []
     for op in upgrade_ops.ops:
         new_ops.append(op)
@@ -188,9 +222,7 @@ def _inject_create_index_after_create_table(upgrade_ops, expression_indexes) -> 
 
 
 def _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes) -> None:
-    existing_drop_names = {
-        getattr(op, "index_name", None) for op in downgrade_ops.ops if isinstance(op, DropIndexOp)
-    }
+    existing_drop_names = _existing_index_names(downgrade_ops, DropIndexOp)
     new_ops: list = []
     for op in downgrade_ops.ops:
         if isinstance(op, DropTableOp):
@@ -201,48 +233,3 @@ def _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes) -> N
                 existing_drop_names.add(index.name)
         new_ops.append(op)
     downgrade_ops.ops = new_ops
-
-
-def render_item(type_, obj, autogen_context):
-    """Alembic ``render_item`` callback for SQLModel + extension types.
-
-    * Collapses SQLModel's ``AutoString`` to ``sa.String`` so migrations don't
-      need to ``import sqlmodel``.
-    * Renders Python ``StrEnum`` columns with ``values_callable`` so the
-      Postgres enum labels match the lowercase ``StrEnum`` values rather than
-      SQLAlchemy's default of using uppercase attribute names. This means raw
-      SQL like ``WHERE status = 'ready'`` actually works against the live DB.
-    * Adds the necessary imports for ``fastapi_users_db_sqlalchemy.generics``
-      and ``geoalchemy2`` types (rendered by their own classes elsewhere) so
-      the generated migration is importable.
-
-    Pass to :func:`alembic.context.configure` as ``render_item=render_item``.
-    """
-    if type_ != "type":
-        return False
-    cls_name = type(obj).__name__
-    cls_module = type(obj).__module__ or ""
-    imports = autogen_context.imports if autogen_context is not None else None
-
-    if cls_name == "AutoString":
-        length = getattr(obj, "length", None)
-        return f"sa.String(length={length})" if length is not None else "sa.String()"
-
-    if imports is not None and cls_module.startswith("fastapi_users_db_sqlalchemy"):
-        imports.add("import fastapi_users_db_sqlalchemy.generics")
-    if imports is not None and cls_module.startswith("geoalchemy2"):
-        imports.add("import geoalchemy2")
-
-    # Match by isinstance, not class-name string — a user-defined ``Enum``
-    # class elsewhere in the project would otherwise be matched here and
-    # render with ``values_callable`` against an unrelated ``enum_class``.
-    if isinstance(obj, sa.Enum):
-        python_type = getattr(obj, "enum_class", None)
-        if isinstance(python_type, type) and issubclass(python_type, StrEnum):
-            name = getattr(obj, "name", None) or python_type.__name__.lower()
-            members = ", ".join(repr(m.value) for m in python_type)
-            return (
-                f"sa.Enum({members}, name={name!r}, values_callable=lambda e: [m.value for m in e])"
-            )
-
-    return False  # let alembic use its default rendering

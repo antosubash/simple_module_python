@@ -1,54 +1,31 @@
-import { Link, usePage } from '@inertiajs/react';
-import { Avatar, AvatarFallback } from '@simple-module-py/ui/components/ui/avatar';
-import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@simple-module-py/ui/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@simple-module-py/ui/components/ui/tooltip';
-import { ChevronsUpDown } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
+import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
+import { TooltipProvider } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
+import { BrandingBanner } from '../components/BrandingBanner';
+import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
-import { BrandingMark } from '../components/BrandingMark';
-import { NavIcon } from '../components/NavIcon';
-import type { MenuItem, SharedProps } from '../types';
+import { DemoBanner } from '../components/DemoBanner';
+import { LocaleSwitcher, useHasMultipleLocales } from '../components/LocaleSwitcher';
+import { PageHeadingProvider, usePageSection } from '../components/page-heading';
+import { darkSurfaceLogo } from '../lib/brand';
+import { useHomeUrl } from '../lib/home-url';
+import type { MenuItem } from '../types';
+import { MobileBar } from './MobileBar';
+import { SidebarBrandRow } from './SidebarBrandRow';
+import { SidebarNav } from './SidebarNav';
+import { SidebarUserMenu } from './SidebarUserMenu';
+import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
+import { useDrawerA11y } from './useDrawerA11y';
 
-function groupMenuItems(items: MenuItem[]): { group: string; items: MenuItem[] }[] {
-  const groups: { group: string; items: MenuItem[] }[] = [];
-  const indexByGroup = new Map<string, number>();
-  for (const item of items) {
-    const key = item.group ?? '';
-    let idx = indexByGroup.get(key);
-    if (idx === undefined) {
-      idx = groups.length;
-      indexByGroup.set(key, idx);
-      groups.push({ group: key, items: [] });
-    }
-    groups[idx].items.push(item);
-  }
-  return groups;
-}
-
-interface SidebarTheme {
-  sidebarBg: string;
-  accentColor: string;
-  avatarBg: string;
-  hoverBg: string;
-  activeClass: string;
-  inactiveClass: string;
-  mutedTextClass: string;
-  mobileTitleLabel: string;
-}
+// A stable reference for "no items" — `menus?.[key] ?? []` would otherwise
+// mint a fresh empty array every render, and that array flows into
+// CommandPalette's `useMemo([navItems, accountItems])`, defeating it on every
+// render where a menu is absent instead of only when its contents change.
+const NO_ITEMS: MenuItem[] = [];
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -58,68 +35,100 @@ interface SidebarLayoutProps {
   footerNavSlot?: React.ReactNode;
 }
 
-export function SidebarLayout({
-  children,
-  menuKey,
-  theme,
-  headerSlot,
-  footerNavSlot,
-}: SidebarLayoutProps) {
-  const page = usePage<{ props: SharedProps }>();
-  const { auth, menus, branding } = page.props as unknown as SharedProps;
+/**
+ * Thin wrapper so the shell itself sits *inside* the heading provider — the
+ * sidebar reads the section a page declares, which it cannot do from the same
+ * component that renders the provider.
+ */
+export function SidebarLayout(props: SidebarLayoutProps) {
+  return (
+    <PageHeadingProvider>
+      <SidebarShell {...props} />
+    </PageHeadingProvider>
+  );
+}
+
+function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
+  const { t } = useT();
+  const page = usePage();
+  const { auth, menus, branding } = page.props;
+  const homeUrl = useHomeUrl();
   const currentUrl = page.url;
   const appName = branding?.appName ?? theme.mobileTitleLabel;
   const logoUrl = branding?.logoUrl ?? null;
+  const footerLinks = branding?.footerLinks;
+  // The sidebar and mobile bar are near-black whatever the theme, so they take
+  // the dark logo variant when one exists. The layout footer follows the theme,
+  // so it keeps the primary logo.
+  const darkLogoUrl = darkSurfaceLogo(branding);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const closeSidebar = () => setSidebarOpen(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const drawerRef = useRef<HTMLElement>(null);
+  useDrawerA11y(sidebarOpen, closeSidebar, drawerRef);
 
-  const menuItems = menus?.[menuKey] ?? [];
+  const menuItems = menus?.[menuKey] ?? NO_ITEMS;
+  // ⌘K reaches everything the viewer can open, not just the shell they are
+  // standing in. Both sidebars are already filtered by roles and permissions,
+  // so this widens reach without offering anything they cannot use — whereas
+  // indexing only `menuKey` made every admin screen unreachable from the app
+  // shell the moment they moved to their own sidebar.
+  // Keyed by url so a module that somehow contributes the same destination to
+  // both sections is listed once. MenuRegistry buckets each item into exactly
+  // one section, so this is a cheap invariant guard rather than a live case.
+  const paletteItems = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          [...(menus?.sidebar ?? NO_ITEMS), ...(menus?.adminSidebar ?? NO_ITEMS)].map(
+            (item) => [item.url, item] as const,
+          ),
+        ).values(),
+      ),
+    [menus?.sidebar, menus?.adminSidebar],
+  );
+  const declaredSection = usePageSection(currentUrl);
+  const hasLocaleChoice = useHasMultipleLocales();
+  // Same "which entry does this page belong to" resolution AppTopbar uses for
+  // the breadcrumb, so the sidebar highlight and the breadcrumb never disagree.
+  const active = activeSection(menuItems, currentUrl) ?? findSection(menuItems, declaredSection);
 
   return (
     <TooltipProvider>
       <BrandingHead />
-      <div className="min-h-screen bg-background">
-        {/* Mobile top bar */}
-        <div
-          className={`sticky top-0 z-40 flex h-14 items-center gap-3 ${theme.sidebarBg} px-4 lg:hidden`}
-        >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
-            className="text-sidebar-icon hover:text-white hover:bg-white/10"
-          >
-            <svg
-              aria-hidden="true"
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-              />
-            </svg>
-          </Button>
-          <Link href="/dashboard/" className="flex items-center gap-2">
-            <BrandingMark
-              appName={appName}
-              logoUrl={logoUrl}
-              accentColor={theme.accentColor}
-              size="sm"
-            />
-          </Link>
-        </div>
+      <BrandingBanner />
+      <DemoBanner />
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:ring-2 focus:ring-ring focus:outline-none"
+      >
+        {t(keys.ui.sidebar.skip_to_content)}
+      </a>
+      {/* --app-chrome-h names the height of the bar above the content — the
+          topbar on lg, the mobile bar below it, both mutually exclusive.
+          Both bars size themselves off this one variable (h-[var(--app-chrome-h)])
+          instead of a hardcoded `h-14`, so they cannot drift out of sync with
+          each other or with pages that subtract it to fill the viewport. */}
+      <div className="min-h-screen bg-background [--app-chrome-h:3.5rem]">
+        <MobileBar
+          theme={theme}
+          appName={appName}
+          currentUrl={currentUrl}
+          user={auth?.user}
+          onOpen={() => setSidebarOpen(true)}
+        />
 
         {/* Mobile overlay */}
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar"
+            // Out of the tab order deliberately: this backdrop is the
+            // click-outside affordance, and as a full-screen control it can
+            // show no meaningful focus ring. Keyboard users close the sidebar
+            // with the X button beside the logo, which is focusable and does
+            // carry a visible ring — so this is one less invisible tab stop,
+            // not a lost route out.
+            tabIndex={-1}
+            aria-label={t(keys.ui.sidebar.close)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden cursor-default"
             onClick={closeSidebar}
           />
@@ -127,162 +136,83 @@ export function SidebarLayout({
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 ${theme.sidebarBg} flex flex-col border-r border-white/[0.06] transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          ref={drawerRef}
+          // Only a dialog while the phone drawer is open; otherwise it is the
+          // plain desktop sidebar.
+          {...(sidebarOpen
+            ? { role: 'dialog', 'aria-modal': true, 'aria-label': t(keys.ui.sidebar.drawer) }
+            : {})}
+          className={`fixed inset-y-0 left-0 z-50 w-full sm:w-72 lg:w-64 ${theme.sidebarBg} flex flex-col border-r border-white/[0.06] transition-transform duration-200 ease-in-out lg:translate-x-0 lg:z-30 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
-          {/* Logo */}
-          <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-5 border-b border-white/[0.06]">
-            <Link href="/dashboard/" className="flex items-center gap-2.5 group">
-              <BrandingMark
-                appName={appName}
-                logoUrl={logoUrl}
-                accentColor={theme.accentColor}
-                size="md"
-              />
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={closeSidebar}
-              aria-label="Close sidebar"
-              className="lg:hidden text-sidebar-icon-muted hover:text-white hover:bg-white/10"
-            >
-              <svg
-                aria-hidden="true"
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </Button>
-          </div>
+          <SidebarBrandRow
+            theme={theme}
+            appName={appName}
+            logoUrl={darkLogoUrl}
+            homeUrl={homeUrl}
+            onClose={closeSidebar}
+          />
 
           {headerSlot}
 
-          {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 overflow-y-auto">
-            {groupMenuItems(menuItems).map((group, groupIndex) => (
-              <div
-                key={group.group || `__ungrouped_${groupIndex}`}
-                className={groupIndex === 0 ? 'space-y-0.5' : 'mt-4 space-y-0.5'}
-              >
-                {group.group && (
-                  <div
-                    className={`px-3 pb-1 text-xs font-semibold uppercase tracking-wider ${theme.mutedTextClass}`}
-                  >
-                    {group.group}
-                  </div>
-                )}
-                {group.items.map((item, index) => {
-                  const isActive = currentUrl.startsWith(item.url);
-                  return (
-                    <Tooltip key={item.url}>
-                      <TooltipTrigger asChild>
-                        <Link
-                          href={item.url}
-                          onClick={closeSidebar}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                            isActive ? theme.activeClass : theme.inactiveClass
-                          }`}
-                          style={{ animationDelay: `${index * 50}ms` }}
-                        >
-                          <NavIcon name={item.icon} />
-                          {item.label}
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="lg:hidden">
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            ))}
+          <SidebarNav
+            menuItems={menuItems}
+            adminItems={menus?.adminSidebar ?? NO_ITEMS}
+            active={active}
+            theme={theme}
+            showAdminLink={menuKey === 'sidebar'}
+            onNavigate={closeSidebar}
+          >
             {footerNavSlot}
-          </nav>
+          </SidebarNav>
+
+          {/* The topbar carries the locale on desktop; on a phone it belongs
+              here rather than in the bar, where the deck puts the page title
+              and the page's own action. A single-locale install gets nothing:
+              the topbar's inert pill exists to balance a row of controls, and
+              there is no such row here. */}
+          {hasLocaleChoice && (
+            <div className="border-t border-white/[0.06] px-3 py-2 lg:hidden">
+              <LocaleSwitcher className="w-full min-h-11 border-white/15 text-app-sidebar-text hover:bg-white/10 hover:text-white" />
+            </div>
+          )}
 
           {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
-          {auth?.user &&
-            (() => {
-              // UserContext.from_user defaults ``name`` to ``email`` when no
-              // full_name is set, so guard against rendering the email twice.
-              const hasDistinctName = auth.user.name && auth.user.name !== auth.user.email;
-              return (
-                <div className="px-3 py-3 border-t border-white/[0.06]">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className={`flex w-full items-center gap-3 px-2 py-2 rounded-lg text-left ${theme.hoverBg} transition-colors`}
-                      >
-                        <Avatar className="ring-2 ring-primary-500/20">
-                          <AvatarFallback className={`${theme.avatarBg} text-white text-xs`}>
-                            {(auth.user.name || auth.user.email)?.charAt(0)?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          {hasDistinctName ? (
-                            <>
-                              <p className="text-sm font-medium text-white truncate">
-                                {auth.user.name}
-                              </p>
-                              <p className={`text-xs truncate ${theme.mutedTextClass}`}>
-                                {auth.user.email}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-sm font-medium text-white truncate">
-                              {auth.user.email}
-                            </p>
-                          )}
-                        </div>
-                        <ChevronsUpDown
-                          className={`w-4 h-4 shrink-0 ${theme.mutedTextClass}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="top" align="start" className="w-56">
-                      <DropdownMenuLabel className="font-normal">
-                        {hasDistinctName ? (
-                          <>
-                            <p className="text-sm font-medium truncate">{auth.user.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {auth.user.email}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-sm font-medium truncate">{auth.user.email}</p>
-                        )}
-                      </DropdownMenuLabel>
-                      {menus?.userDropdown && menus.userDropdown.length > 0 && (
-                        <DropdownMenuSeparator />
-                      )}
-                      {menus?.userDropdown?.map((item) => (
-                        <DropdownMenuItem key={item.url} asChild onSelect={closeSidebar}>
-                          <Link
-                            href={item.url}
-                            method={item.method === 'post' ? 'post' : 'get'}
-                            as={item.method === 'post' ? 'button' : 'a'}
-                            className="flex w-full items-center gap-2"
-                          >
-                            <NavIcon name={item.icon} />
-                            {item.label}
-                          </Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              );
-            })()}
+          {auth?.user && (
+            <SidebarUserMenu
+              user={auth.user}
+              items={menus?.userDropdown ?? NO_ITEMS}
+              hoverBg={theme.hoverBg}
+              mutedTextClass={theme.mutedTextClass}
+              onNavigate={closeSidebar}
+            />
+          )}
         </aside>
 
         {/* Main content */}
-        <main className="min-h-screen lg:ml-64">{children}</main>
+        <main className="flex min-h-screen flex-col lg:ml-64">
+          <AppTopbar
+            navItems={paletteItems}
+            accountItems={menus?.userDropdown ?? NO_ITEMS}
+            currentUrl={currentUrl}
+            activeMenuItem={active}
+          />
+          <div id="main" tabIndex={-1} className="flex-1 outline-none">
+            {children}
+          </div>
+          <BrandingFooter
+            appName={appName}
+            logoUrl={logoUrl}
+            links={footerLinks}
+            footerText={branding?.footerText}
+            variant="app"
+          />
+        </main>
       </div>
+      {/* Mounted here, not in a concrete layout, so every sidebar shell (app and admin) can toast. */}
+      <Toaster richColors position="top-right" />
     </TooltipProvider>
   );
 }
+
+export type { SidebarTheme };
+export { DEFAULT_SIDEBAR_THEME };

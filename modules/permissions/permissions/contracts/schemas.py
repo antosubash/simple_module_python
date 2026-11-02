@@ -12,13 +12,17 @@ class PermissionGroupOut(SQLModel):
     """A named group of related permission keys (one per module)."""
 
     name: str
+    label: str = ""
+    """Display name in the request's locale; ``name`` when no translation exists."""
     permissions: list[str]
+    labels: dict[str, str] = Field(default_factory=dict)
+    """Human labels for keys a runtime permission source supplied one for."""
 
 
 class RoleOut(SQLModel):
     """A role as surfaced by the permissions admin UI."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     name: str
@@ -35,13 +39,13 @@ class RolePermissionsOut(SQLModel):
 class RolePermissionsUpdate(SQLModel):
     """Replace the full set of permission keys assigned to a role."""
 
-    permissions: list[str] = Field(default_factory=list)
+    permissions: list[str]
 
 
 class UserOut(SQLModel):
     """A user as surfaced by the permissions admin UI."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     email: str
@@ -57,6 +61,10 @@ class UserPermissionsOut(SQLModel):
     """Keys granted directly to this user."""
     inherited: list[str]
     """Keys the user holds via any of their roles (excluding duplicates of ``direct``)."""
+    inherited_by: dict[str, list[str]] = Field(default_factory=dict)
+    """Every role-granted key mapped to the roles granting it — including keys
+    that are also granted directly, so the UI can distinguish "role only" from
+    "role and direct". Naming the role is what makes the grant actionable."""
 
 
 class UserPermissionsUpdate(SQLModel):

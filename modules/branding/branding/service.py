@@ -8,32 +8,57 @@ and publishes ``SettingsReloaded``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from branding.constants import PACKAGE
+from branding.constants import FAVICON_URL, LOGO_DARK_URL, LOGO_URL, PACKAGE, TENANT_IMAGE_FIELDS
 from branding.contracts.schemas import BrandingOut
-from branding.shared_props import file_url
+from branding.reaper import schedule_reap
+from branding.shared_props import asset_url
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from file_storage.service import FileStorageService
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from branding.settings import BrandingSettings
+
+
+def to_out(settings: BrandingSettings) -> BrandingOut:
+    """The API view of one branding settings object (system or a tenant's)."""
+    return BrandingOut(
+        app_name=settings.app_name,
+        primary_color=settings.primary_color,
+        design_pack=settings.design_pack,
+        logo_url=asset_url(LOGO_URL, settings.logo_file_id),
+        logo_dark_url=asset_url(LOGO_DARK_URL, settings.logo_dark_file_id),
+        favicon_url=asset_url(FAVICON_URL, settings.favicon_file_id),
+        banner_message=settings.banner_message,
+        banner_severity=settings.banner_severity,
+        footer_text=settings.footer_text,
+        footer_links=list(settings.footer_links),
+    )
 
 
 class BrandingService:
     """Read/update the application's branding."""
 
-    def __init__(self, app: FastAPI, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        app: FastAPI,
+        db: AsyncSession,
+        storage: FileStorageService | None = None,
+    ) -> None:
         self.app = app
         self.db = db
+        # Optional so the published constructor stays backwards compatible.
+        # Without it a replaced image simply isn't reaped — the rebrand itself
+        # is unaffected. The module's own dependency always supplies one.
+        self.storage = storage
 
     def current(self) -> BrandingOut:
-        settings = self.app.state.branding.settings
-        return BrandingOut(
-            app_name=settings.app_name,
-            primary_color=settings.primary_color,
-            logo_url=file_url(settings.logo_file_id),
-            favicon_url=file_url(settings.favicon_file_id),
-        )
+        """The *system* branding — what platform admins edit here. A tenant's
+        effective theme is ``tenant_branding.resolve``."""
+        return to_out(self.app.state.branding.settings)
 
     async def apply(self, changes: dict[str, Any]) -> BrandingOut:
         """Persist and hot-swap the given field changes, then return current."""
@@ -43,19 +68,64 @@ class BrandingService:
         from settings.service import SettingService
         from settings.store import SettingsStore
 
-        store = SettingsStore(SettingService(self.db))
+        # With the bus, so the write publishes ``settings.values`` and other
+        # workers' merged tenant caches (which inherit system values) drop.
+        invalidation = getattr(self.app.state.sm, "invalidation", None)
+        store = SettingsStore(SettingService(self.db, invalidation=invalidation))
         bus = self.app.state.sm.event_bus
-        await apply_changes_and_reload(self.app, bus, store, package=PACKAGE, changes=changes)
-        return self.current()
+        validated = await apply_changes_and_reload(
+            self.app, bus, store, package=PACKAGE, changes=changes
+        )
+        # Registered for PACKAGE, so the validated object is BrandingSettings.
+        return to_out(cast("BrandingSettings", validated))
+
+    async def _swap_asset(self, field: str, file_id: str) -> BrandingOut:
+        """Point *field* at *file_id* ("" to clear) and reap what it replaced.
+
+        Every upload mints a new ``file_storage`` id, so the file we stop
+        referencing here would otherwise sit in the store forever. The reap is
+        queued for after the commit (:mod:`branding.reaper`): deleting the
+        bytes in the request would leave a rolled-back setting pointing at a
+        file that is gone. A file another system image field still references
+        (logo and dark logo sharing one upload) is kept.
+        """
+        # The pre-save value comes from the DB-backed settings, not app.state:
+        # the in-process object only changes after commit.
+        from settings.service import SettingService
+        from settings.store import SettingsStore
+        from simple_module_core.settings_hydrate import hydrate_settings
+
+        from branding.settings import BrandingSettings
+
+        before = await hydrate_settings(
+            BrandingSettings, SettingsStore(SettingService(self.db)), PACKAGE, lenient=True
+        )
+        previous = getattr(before, field, "")
+        out = await self.apply({field: file_id})
+        live = await hydrate_settings(
+            BrandingSettings, SettingsStore(SettingService(self.db)), PACKAGE, lenient=True
+        )
+        still_used = {getattr(live, name, "") for name in TENANT_IMAGE_FIELDS}
+        # No storage handed in (a hand-built service): nothing is reaped.
+        replaced = previous and previous != file_id and previous not in still_used
+        if replaced and self.storage is not None:
+            schedule_reap(self.app, self.db, previous, tenant_id=None)
+        return out
 
     async def set_logo(self, file_id: str) -> BrandingOut:
-        return await self.apply({"logo_file_id": file_id})
+        return await self._swap_asset("logo_file_id", file_id)
+
+    async def set_logo_dark(self, file_id: str) -> BrandingOut:
+        return await self._swap_asset("logo_dark_file_id", file_id)
+
+    async def clear_logo_dark(self) -> BrandingOut:
+        return await self._swap_asset("logo_dark_file_id", "")
 
     async def set_favicon(self, file_id: str) -> BrandingOut:
-        return await self.apply({"favicon_file_id": file_id})
+        return await self._swap_asset("favicon_file_id", file_id)
 
     async def clear_logo(self) -> BrandingOut:
-        return await self.apply({"logo_file_id": ""})
+        return await self._swap_asset("logo_file_id", "")
 
     async def clear_favicon(self) -> BrandingOut:
-        return await self.apply({"favicon_file_id": ""})
+        return await self._swap_asset("favicon_file_id", "")

@@ -24,7 +24,9 @@ class TestDashboardModuleRegistration:
         mod = DashboardModule()
         assert mod.meta.name == "Dashboard"
         assert mod.meta.route_prefix == "/api/dashboard"
-        assert "Users" in mod.meta.depends_on
+        # User counts come through the user directory (GH #501), so the
+        # dashboard runs under any auth provider.
+        assert "Users" not in mod.meta.depends_on
 
 
 # ── Stats function unit tests ────────────────────────────────────────
@@ -95,6 +97,78 @@ class TestDashboardStatsEndpoint:
         names = [m["name"] for m in modules]
         assert "Dashboard" in names
 
+    async def test_module_entries_carry_their_package_directory(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """The deck labels each tile with the package, not the display name.
+
+        ``AuditLog`` is what the module calls itself; ``audit_log`` is what it
+        is on disk and on PyPI, and that is the mono label in the frame.
+        """
+        resp = await authenticated_client.get(_STATS_URL)
+        modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
+        assert modules["Dashboard"]["package"] == "dashboard"
+        assert modules["Users"]["package"] == "users"
+
     async def test_stats_requires_authentication(self, client: httpx.AsyncClient):
         resp = await client.get(_STATS_URL, follow_redirects=False)
         assert resp.status_code in (302, 401, 403)
+
+    async def test_module_entries_carry_a_link_target(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """Tiles were inert; each one now needs its module's own screen."""
+        resp = await authenticated_client.get(_STATS_URL)
+        modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
+        assert modules["Dashboard"]["url"] == "/dashboard/"
+
+    async def test_partly_admin_modules_carry_their_admin_mount(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """Users serves sign-in at /users and management at /admin/users.
+
+        The tile's job is to open the management screen, which no longer lives
+        under the module's own ``view_prefix`` — without the second mount point
+        in the payload the tile falls through to the first menu entry under
+        ``/users`` (the viewer's own profile) and opens the wrong page.
+        """
+        resp = await authenticated_client.get(_STATS_URL)
+        modules = {m["name"]: m for m in resp.json()["system_info"]["modules"]}
+        assert modules["Users"]["url"] == "/users/"
+        assert modules["Users"]["admin_url"] == "/admin/users/"
+
+    async def test_modules_without_an_admin_mount_report_an_empty_admin_url(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        resp = await authenticated_client.get(_STATS_URL)
+        for mod in resp.json()["system_info"]["modules"]:
+            assert mod["admin_url"] == "" or mod["admin_url"].startswith("/"), mod
+
+    async def test_view_less_modules_get_an_empty_url(
+        self, authenticated_client: httpx.AsyncClient
+    ):
+        """A module with no view_prefix must not be linked to a route that 404s."""
+        resp = await authenticated_client.get(_STATS_URL)
+        for mod in resp.json()["system_info"]["modules"]:
+            assert mod["url"] == "" or mod["url"].startswith("/"), mod
+
+    async def test_root_mounted_module_gets_slash_url(
+        self, app, authenticated_client: httpx.AsyncClient, monkeypatch
+    ):
+        """#435: view_prefix "" with real view routes is `/`; without, still empty."""
+        sm = app.state.sm
+        name = sm.modules[0].meta.name
+        monkeypatch.setitem(sm.view_prefixes, name, "")
+        resp = await authenticated_client.get(_STATS_URL)
+        urls = {m["name"]: m["url"] for m in resp.json()["system_info"]["modules"]}
+        assert urls[name] == "/"
+        monkeypatch.delitem(sm.view_prefixes, name)
+        invalidate_stats_cache()
+        resp = await authenticated_client.get(_STATS_URL)
+        urls = {m["name"]: m["url"] for m in resp.json()["system_info"]["modules"]}
+        assert urls[name] == ""
+
+    async def test_every_module_entry_reports_health(self, authenticated_client: httpx.AsyncClient):
+        resp = await authenticated_client.get(_STATS_URL)
+        for mod in resp.json()["system_info"]["modules"]:
+            assert mod["health"] in ("", "healthy", "degraded", "unhealthy"), mod

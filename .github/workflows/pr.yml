@@ -3,23 +3,33 @@ name: PR
 on:
   pull_request:
     branches: [main]
+  # The release workflow runs this whole suite against the dispatched commit
+  # (#510), so a release can never ship code that did not pass `pr-checks`.
+  workflow_call:
 
 # Cancel in-progress runs when new commits are pushed to the same PR
 # so we never waste minutes on outdated code. On main (push), github.ref is
 # refs/heads/main — separate concurrency key from PR runs.
+# Reused via workflow_call by the release, so only pull_request runs may be
+# cancelled: two release dispatches on one ref must not cancel each other's checks.
 concurrency:
-  group: pr-${{ github.ref }}
-  cancel-in-progress: true
+  group: pr-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 env:
   NODE_VERSION: "24"
-  # Hash all workspace pyproject.toml files so cache invalidates when any
-  # member's deps change. uv.lock is gitignored, so this is the best key
-  # available; commit uv.lock to get true lockfile-based caching.
+  # Makefile `install-py` appends this: CI fails on a stale uv.lock instead of
+  # silently re-resolving.
+  UV_SYNC_FLAGS: --locked
+  # uv.lock is committed and CI syncs with --locked, so it is the primary cache
+  # key; the workspace pyproject.toml files are hashed too so a manifest edit
+  # that forgot to refresh the lock still busts the cache (and then fails
+  # `uv sync --locked`).
   UV_CACHE_GLOB: |
+    uv.lock
     pyproject.toml
     framework/*/pyproject.toml
     modules/*/pyproject.toml
@@ -29,21 +39,54 @@ jobs:
   python-lint:
     name: Python lint & format
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make ci-python-lint
+      # Package metadata, READMEs, release matrix, and the hand-maintained ty
+      # extra-paths / pytest testpaths lists (#520) must match what is on disk.
+      - run: make ci-check-metadata
+      - run: make ci-check-hardcoded-strings
+      - run: make ci-check-ci-parity
+      - run: make ci-check-locales
+      # Backticked repo paths in docs/, CLAUDE.md, README.md and skills must exist (#519).
+      - run: make ci-doc-paths
+      # Fixed sleeps in tests are timing bets; poll with simple_module_test.wait_for.
+      - run: make ci-check-test-sleeps
+      # `as unknown as` switches the type checker off; use typed page args / usePageProps.
+      - run: make ci-check-no-double-cast
+      # Requests go through the typed client (packages/ui/src/lib/api.ts), not raw fetch().
+      - run: make ci-check-no-raw-fetch
+      # The checked-in typed-key files must match what the installed modules'
+      # catalogs emit. Catches a catalog edit committed without regenerating, and
+      # (with the namespace guard in gen_i18n.py) a regeneration that dropped keys.
+      - run: make ci-i18n-fresh
+
+  docs-build:
+    name: Docs site build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: make ci-docs-build
 
   python-typecheck:
     name: Python typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -53,21 +96,58 @@ jobs:
   python-tests:
     name: Python tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The invalidation suite covers what a fake Redis client cannot — a real
+    # subscription, and two worker processes talking through one broker. The
+    # runner image does not ship redis-server, so the broker comes from a service
+    # container; SM_TEST_REDIS_URL points the ``redis_server`` fixture at it
+    # instead of having it start its own. Without this the fixture fails the job
+    # by design rather than skipping those tests silently.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SM_TEST_REDIS_URL: redis://127.0.0.1:6379/0
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
-      - run: make test-py
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
+      # Tee'd so the next step can put the totals line (count + wall time) on
+      # the run's summary page: a suite creeping back toward the serial ~24 min
+      # of #524 should be visible without opening the log.
+      - name: make test-py
+        shell: bash
+        run: |
+          set -o pipefail
+          make test-py 2>&1 | tee pytest.log
+      - name: Record suite time
+        if: always()
+        shell: bash
+        run: |
+          echo "### Python tests" >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^=+ .*(passed|failed|error).* in [0-9.]+s' pytest.log | tail -n 1 >> "$GITHUB_STEP_SUMMARY" || true
 
   js-tests:
     name: JS tests (Vitest)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -77,47 +157,55 @@ jobs:
   js-lint:
     name: JS lint & format
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: make install-js
       - run: make ci-js-lint
+      # Catches user-visible text rendered as a literal instead of t(keys.…).
+      # Shipping a locales/en.json never proved a page actually read it.
+      - run: make ci-check-untranslated
 
   js-typecheck:
     name: JS typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       # Need uv too — pages.ts imports ./modules.generated, which is
       # produced by `smpy gen-pages` from the installed Python modules.
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
       - run: make install-py
       - run: make install-js
-      - run: make gen-pages
+      # Committed pages/api.generated.ts must match the routes (#504); needs
+      # both the Python app (schema) and node_modules (openapi-typescript).
+      - run: make ci-api-types-fresh
       - run: make ci-js-typecheck
 
   js-build:
     name: JS build (Vite)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       # gen-pages needs the Python modules installed so Vite's import.meta.glob
       # sees every module's pages/ dir — which is how dep-scan failures surface.
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -125,10 +213,63 @@ jobs:
       - run: make install-js
       - run: make gen-pages
       - run: make build
+      # These drive a real gen-pages + vite build to prove module-shipped CSS
+      # and cross-module npm-name imports actually resolve. Missing build
+      # prerequisites fail on CI rather than silently skipping the guards.
+      - name: Module asset build guards
+        run: make ci-css-build
+
+  # Migrations are autogenerated on SQLite, which hides Postgres-only defects
+  # (integer defaults on boolean columns, undetected expression indexes, enum
+  # types surviving a downgrade). Only a real Postgres run catches them: apply
+  # everything, take it all back down, re-apply, then require zero drift. GH #342.
+  migrations-roundtrip-pg:
+    name: Migrations round trip (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sm_migrations_check
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SM_MIGRATIONS_PG_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/sm_migrations_check
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
+      - run: make install-py
+      - run: make migrations-roundtrip-pg
+
+  # The SM0xx diagnostics fail a production boot, so run them against a freshly
+  # migrated throwaway SQLite DB on every PR.
+  doctor:
+    name: Module diagnostics (make doctor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
+      - run: make install-py
+      - run: make ci-doctor
 
   e2e-smoke:
     name: E2E smoke (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       redis:
         image: redis:7-alpine
@@ -149,15 +290,24 @@ jobs:
       SM_USERS_BOOTSTRAP_PASSWORD: admin
       # Exclude Keycloak module — SM020 prevents both users and keycloak
       # from running simultaneously. E2E tests use the users module.
-      SM_MODULES_ENABLED: '["Auth","Users","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog"]'
+      # Branding is included so the admin section's "edited on its own page,
+      # never in the generic module editor" rule is actually exercised — the
+      # server-side half of that is a 409 guard, which is worth CI coverage.
+      SM_MODULES_ENABLED: '["Auth","Users","Mail","Dashboard","Permissions","Settings","BackgroundTasks","FileStorage","FeatureFlags","AuditLog","Branding"]'
+      # Every test signs in from scratch, all from 127.0.0.1: the login page,
+      # the login POST and the landing page are anonymous public-route hits,
+      # ~120 a minute for the whole suite — right at the default
+      # ``rate_limit_public`` of 120/minute, so a fast runner 429s whichever
+      # test logs in last. The limiter itself is covered by unit tests.
+      SM_RATE_LIMIT_PUBLIC: 1000/minute
       E2E_BASE_URL: http://localhost:8000
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -168,7 +318,7 @@ jobs:
       # the GH runner image since most libs are preinstalled.
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
@@ -202,19 +352,113 @@ jobs:
       - run: make test-e2e
       - name: Upload server logs on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-server-logs
           path: |
             api.log
             vite.log
 
+  # Guards the asset-delivery wins from docs/perf/2026-08-02-baseline.md:
+  # response compression (~70% of transfer) and chunk grouping (55 -> 13
+  # requests on cold load). Both are invisible to every other job — the app
+  # renders identically either way, just slower, so only a browser measuring
+  # the built bundle catches a regression.
+  #
+  # Runs against the PRODUCTION build deliberately: chunk groups only apply to
+  # `vite build`, and non-dev environments are what reference the built
+  # manifest. Asserts on structure (request count, compression ratio), never on
+  # milliseconds, so shared-runner noise cannot make it flaky.
+  #
+  # The other three guards (compression headers, canonical menu URLs, dialect
+  # branch selection) are plain pytest and already run in `python-tests`.
+  perf-guards:
+    name: Perf guards (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # SQLite keeps the job self-contained — these guards measure asset
+      # delivery, which does not depend on row volumes.
+      SM_DATABASE_URL: sqlite+aiosqlite:///./app.db
+      PERF_BASE_URL: http://localhost:8000
+      PERF_BUILD: ci-prod
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: make install
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+      - name: Install Playwright chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            uv run --project host playwright install-deps chromium
+          else
+            uv run --project host playwright install --with-deps chromium
+          fi
+      - run: make gen-pages
+      - run: make build
+      - run: uv run --project host alembic -c host/alembic.ini upgrade heads
+      # The production config lives on THIS step only, never job-wide. Under
+      # SM_ENVIRONMENT=production the simple_module_test pytest plugin fails to
+      # import — it builds BackgroundTasksSettings() eagerly and those reject a
+      # localhost broker — so exporting it job-wide stops pytest from starting
+      # at all. The server needs it; the test process must not see it.
+      - name: Start API
+        env:
+          # A non-dev environment is what makes the host serve the built
+          # manifest instead of pointing at the Vite dev server.
+          SM_ENVIRONMENT: production
+          SM_SECRET_KEY: ci-perf-secret-key-not-a-real-secret-000000000000
+          SM_USERS_RESET_PASSWORD_TOKEN_SECRET: ci-perf-reset-secret-000000000000000000
+          SM_USERS_VERIFICATION_TOKEN_SECRET: ci-perf-verify-secret-00000000000000000
+          SM_USERS_BOOTSTRAP_EMAIL: admin@example.com
+          SM_USERS_BOOTSTRAP_PASSWORD: admin
+          # Keycloak excluded (SM020: one auth provider). BackgroundTasks
+          # excluded because its DB-hydrated settings reject a localhost broker
+          # under SM_ENVIRONMENT=production.
+          SM_MODULES_ENABLED: '["Auth","Users","Mail","Dashboard","Permissions","Settings","FileStorage","FeatureFlags","AuditLog","Branding"]'
+        run: |
+          uv run --project host uvicorn host.main:app --port 8000 > api.log 2>&1 &
+          echo $! > api.pid
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8000/health > /dev/null && echo "api ready" && exit 0
+            sleep 1
+          done
+          echo "api did not come up in time"; cat api.log || true; exit 1
+      - name: Verify built assets are being served
+        run: |
+          # If this regresses to the Vite dev path the guards would measure the
+          # wrong bundle and pass vacuously.
+          curl -sf http://localhost:8000/users/login | grep -q '/static/dist/assets/' \
+            || { echo "server is not serving built assets"; exit 1; }
+      - run: uv run pytest -m "perf and e2e" tests/perf/test_page_load.py tests/perf/test_asset_integrity.py -v -s
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-guards-api-log
+          path: api.log
+
   file-size-check:
     name: File size (300-line cap)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -230,9 +474,10 @@ jobs:
   package-build:
     name: Package build (release dry-run)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
           cache-dependency-glob: ${{ env.UV_CACHE_GLOB }}
@@ -243,6 +488,7 @@ jobs:
   pr-checks:
     name: PR checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - python-lint
       - python-typecheck
@@ -251,9 +497,13 @@ jobs:
       - js-typecheck
       - js-tests
       - js-build
+      - migrations-roundtrip-pg
+      - doctor
       - e2e-smoke
+      - perf-guards
       - file-size-check
       - package-build
+      - docs-build
     if: always()
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

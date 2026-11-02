@@ -13,6 +13,7 @@ from sqlmodel import Field
 
 Base = create_module_base("orders")
 
+
 class Order(Base, AuditMixin, table=True):
     __tablename__ = "orders_order"
 
@@ -43,6 +44,7 @@ id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 ```python
 from sqlmodel import Field, Relationship
 
+
 class OrderLine(Base, table=True):
     __tablename__ = "orders_order_line"
 
@@ -66,12 +68,15 @@ from datetime import datetime
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
+
 class OrderCreate(SQLModel):
     customer_email: str = Field(min_length=1, max_length=200)
     total: Decimal = Field(ge=0)
 
+
 class OrderUpdate(SQLModel):
     status: str | None = Field(default=None, max_length=20)
+
 
 class OrderOut(SQLModel):
     model_config = ConfigDict(from_attributes=True)
@@ -130,6 +135,7 @@ class Order(Base, table=True):
     id: int | None = Field(default=None, primary_key=True)
     lines: list["OrderLine"] = Relationship(back_populates="order")
 
+
 class OrderLine(Base, table=True):
     id: int | None = Field(default=None, primary_key=True)
     order_id: int = Field(foreign_key="orders_order.id")
@@ -155,13 +161,16 @@ SQLModel declares fields with plain Python types (`str`, `int`) at class definit
 - `unsupported-operator`
 - `unknown-argument`
 - `no-matching-overload`
-- `invalid-argument-type`
 
 Do not re-enable these rules in module-local configs. Real bugs caused by wrong field access surface in the test suite — these rules produce only noise.
+
+In this repository `invalid-argument-type` and `invalid-assignment` stay **on** for shipped code (tests are exempt through `[[tool.ty.overrides]]`), because they catch real bugs. A query-building line that still trips them, such as `selectinload(User.roles)` or `model_config = ConfigDict(...)`, gets a line-level `# ty: ignore[<rule>]`. Apps scaffolded by `smpy new` ignore both rules globally, as before.
+
+Write suppressions as `# ty: ignore[<rule>]`. A mypy-style `# type: ignore[<code>]` is matched against ty's rule names, so it silences nothing.
 
 ## Next steps
 
 - [Per-module Base](/database/per-module-base) — how `create_module_base` and `build_module_metadata` work.
 - [Mixins](/database/mixins) — `AuditMixin`, `SoftDeleteMixin`, `MultiTenantMixin`, `VersionedMixin`.
 - [Session lifecycle](/database/sessions) — the `get_db` dependency and why you don't call `commit()`.
-- [Migrations](/database/migrations) — Alembic autogenerate and per-module branch labels.
+- [Migrations](/database/migrations) — Alembic autogenerate and branch labels (named revision targets).

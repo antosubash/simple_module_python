@@ -9,6 +9,7 @@ test suites — treat the fixture surface like a public API.
 from __future__ import annotations
 
 import contextlib
+import os
 
 import pytest
 
@@ -27,8 +28,49 @@ from simple_module_test.fixtures import (  # noqa: F401
     db_session,
     db_state,
     engine,
+    fresh_test_database,
+    pinned_auth_provider,
     settings,
+    setup_pending_app,
 )
+from simple_module_test.mail import captured_mail  # noqa: F401
+from simple_module_test.process_state import _reset_process_state  # noqa: F401
+from simple_module_test.redis_server import redis_server  # noqa: F401
+from simple_module_test.tenant_client import tenant_client  # noqa: F401
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "postgres: needs a PostgreSQL test database (SM_TEST_DATABASE_URL=postgresql+...)",
+    )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_load_initial_conftests(early_config, parser, args) -> None:
+    """Give each xdist worker its own Postgres database.
+
+    Every Postgres test drops and recreates ``public``. This runs before any
+    conftest is imported (``pytest_configure`` runs after), so a conftest or
+    test helper that reads the URL at import time already sees the worker's.
+    """
+    from simple_module_test.database import isolate_worker_database
+
+    isolate_worker_database()
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip ``@pytest.mark.postgres`` tests unless the test database is Postgres."""
+    from simple_module_test.database import database_is_postgres
+
+    if database_is_postgres():
+        return
+    skip = pytest.mark.skip(
+        reason="needs Postgres: set SM_TEST_DATABASE_URL=postgresql+asyncpg://..."
+    )
+    for item in items:
+        if "postgres" in item.keywords:
+            item.add_marker(skip)
 
 
 def _bootstrap_eager_celery() -> None:
@@ -38,7 +80,17 @@ def _bootstrap_eager_celery() -> None:
     so the host's ``build_celery`` call never runs and ``task.delay()``
     falls through to the broker. Skipped silently when ``background_tasks``
     isn't installed.
+
+    Also switches off the cross-worker invalidation transport. ``on_startup``
+    would otherwise open a Redis pub/sub listener per app fixture — against a
+    broker no test environment runs — leaving a reconnect loop in the
+    background of every suite. ``setdefault``, so a test that wants the transport
+    can set the variable and get it — though the tests that exercise the transport
+    build ``RedisInvalidationTransport`` directly instead, against either a fake
+    client (``test_bg_invalidation.py``) or a throwaway ``redis-server`` (the
+    ``redis_server`` fixture, used by ``test_bg_invalidation_redis.py``).
     """
+    os.environ.setdefault("SM_BG_TASKS_BROADCAST_INVALIDATIONS", "false")
     with contextlib.suppress(ImportError):
         from background_tasks.celery_app import build_celery
         from background_tasks.settings import BackgroundTasksSettings
@@ -47,6 +99,49 @@ def _bootstrap_eager_celery() -> None:
 
 
 _bootstrap_eager_celery()
+
+
+def _cheap_password_hashing() -> None:
+    """Make ``PasswordHelper()`` hash with minimal Argon2/bcrypt cost.
+
+    Every ``app`` fixture seeds an admin, and production-cost Argon2 is ~90ms
+    of CPU per hash — over a tenth of each app's setup, paid thousands of times
+    a run. The hashes stay real ``$argon2``/``$2b`` strings that verify and
+    upgrade through the same code paths; only their work factor drops, which is
+    a property of deployment rather than anything a test asserts.
+
+    Patched at import, not in a fixture: test modules build ``PasswordHelper()``
+    at module scope during collection, before any fixture runs. An explicit
+    ``password_hash=`` still wins. Skipped when ``fastapi_users`` is absent, or
+    when ``SM_TEST_REAL_PASSWORD_HASHING`` is set — the opt-out for a consumer
+    suite whose tests depend on production hash parameters.
+    """
+    if os.environ.get("SM_TEST_REAL_PASSWORD_HASHING"):
+        return
+    try:
+        from fastapi_users.password import PasswordHelper
+        from pwdlib import PasswordHash
+        from pwdlib.hashers.argon2 import Argon2Hasher
+        from pwdlib.hashers.bcrypt import BcryptHasher
+    except ImportError:
+        return
+
+    original_init = PasswordHelper.__init__
+
+    def _init(self, password_hash: PasswordHash | None = None) -> None:
+        if password_hash is None:
+            password_hash = PasswordHash(
+                (
+                    Argon2Hasher(time_cost=1, memory_cost=8, parallelism=1),
+                    BcryptHasher(rounds=4),
+                )
+            )
+        original_init(self, password_hash)
+
+    PasswordHelper.__init__ = _init
+
+
+_cheap_password_hashing()
 
 
 @pytest.fixture

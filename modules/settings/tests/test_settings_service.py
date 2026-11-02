@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from settings.constants import SYSTEM_SCOPE_ID
 from settings.contracts.schemas import (
     SettingCreate,
     SettingScope,
@@ -10,6 +9,7 @@ from settings.contracts.schemas import (
     SettingUpsert,
 )
 from settings.service import SettingService
+from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

@@ -5,22 +5,33 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from inertia import InertiaResponse
+from simple_module_db.deps import get_db
+from simple_module_db.pagination import PageParams, clamp_page
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import RedirectResponse
 
+from users.admin.recent_activity import recent_activity_for
 from users.admin.service import UserService
 from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.deps import get_user_service
 from users.exceptions import UserNotFoundError
+from users.mailer import mailer_delivers
 from users.roles_cache import get_roles_cache
 
 router = APIRouter()
 
 _PAGE_ADMIN_INDEX = "Users/Users/Index"
-_PAGE_ADMIN_INVITE = "Users/Users/Invite"
-_PAGE_ADMIN_CREATE = "Users/Users/Create"
+_PAGE_ADMIN_ADD = "Users/Users/AddPeople"
 _PAGE_ADMIN_EDIT = "Users/Users/Edit"
+
+_SECONDS_PER_DAY = 60 * 60 * 24
+_MAILER_SMTP = "smtp"
+_MAILER_CONSOLE = "console"
 
 
 async def _roles_payload(app) -> list[dict[str, str]]:
@@ -29,7 +40,7 @@ async def _roles_payload(app) -> list[dict[str, str]]:
 
 
 @router.get(
-    "/admin",
+    "/",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
@@ -37,8 +48,7 @@ async def admin_index(
     request: Request,
     inertia: InertiaDep,
     service: UserService = Depends(get_user_service),
-    page: int = 1,
-    per_page: int = 20,
+    params: PageParams = Depends(lenient_page_params(20)),
     q: str | None = None,
     status: str | None = None,
     role: str | None = None,
@@ -49,16 +59,28 @@ async def admin_index(
     clean_status, clean_verified, clean_sort, clean_order = sanitize_list_filters(
         status, verified, sort, order
     )
-    users, total = await service.list_users(
-        page=page,
-        per_page=per_page,
-        search=q,
-        status=clean_status,
-        role_name=role or None,
-        verified=clean_verified,
-        sort=clean_sort,
-        order=clean_order,
-    )
+    # ``lenient_page_params`` normalises (and tolerates garbage like ``?page=abc``),
+    # so the pagination prop echoes the values the query actually ran with
+    # instead of rendering page-1 rows labelled "Page 0".
+    page, per_page = params.page, params.per_page
+    filters = {
+        "per_page": per_page,
+        "search": q,
+        "status": clean_status,
+        "role_name": role or None,
+        "verified": clean_verified,
+        "sort": clean_sort,
+        "order": clean_order,
+    }
+    users, total = await service.list_users(page=page, **filters)
+    # A page requested past the end (a stale ?page= link, or the last row on
+    # that page just got deleted) must be clamped and re-queried — otherwise
+    # the client gets an empty `users` list with a nonzero `total`, which
+    # renders a blank table instead of the last real page.
+    clamped = clamp_page(page, total, per_page)
+    if clamped != page:
+        page = clamped
+        users, total = await service.list_users(page=page, **filters)
     roles = await service.list_roles()
     aggregates = await service.count_user_states()
     return await inertia.render(
@@ -81,41 +103,67 @@ async def admin_index(
 
 
 @router.get(
-    "/admin/invite",
+    "/add",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
-async def admin_invite_page(
+async def admin_add_people_page(
     request: Request,
     inertia: InertiaDep,
 ) -> InertiaResponse:
+    """One screen for both ways of adding people, chosen by a mode switch.
+
+    Create and invite were separate pages reached from separate buttons, which
+    made an admin decide between them before seeing what either involved. They
+    take almost the same inputs and differ in one respect — who sets the
+    password — so the choice belongs inside the form.
+    """
+    users_state = getattr(request.app.state, "users", None)
+    mailer = getattr(users_state, "mailer", None)
+    settings = getattr(users_state, "settings", None)
+    delivers = mailer_delivers(mailer)
     return await inertia.render(
-        _PAGE_ADMIN_INVITE,
+        _PAGE_ADMIN_ADD,
         {
             "roles": await _roles_payload(request.app),
+            # Drives the copy-link panel: when nothing can be delivered, the
+            # invite mode has to hand the link back instead.
+            "mailer_delivers": delivers,
+            # Named, not just "off": "Mailer is console" tells an admin which
+            # setting to go and change, which "mail is disabled" does not.
+            "mailer_name": _MAILER_SMTP if delivers else _MAILER_CONSOLE,
+            # The footer note states the expiry rather than hardcoding "7
+            # days", so shortening the lifetime cannot leave the page lying.
+            "invite_expiry_days": (
+                getattr(settings, "verification_token_lifetime_seconds", _SECONDS_PER_DAY)
+                // _SECONDS_PER_DAY
+            ),
         },
     )
 
 
 @router.get(
-    "/admin/create",
+    "/invite",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
-async def admin_create_page(
-    request: Request,
-    inertia: InertiaDep,
-) -> InertiaResponse:
-    return await inertia.render(
-        _PAGE_ADMIN_CREATE,
-        {
-            "roles": await _roles_payload(request.app),
-        },
-    )
+async def admin_invite_redirect() -> RedirectResponse:
+    """Old invite URL — the flow merged into /admin/users/add."""
+    return RedirectResponse("/admin/users/add?mode=invite", status_code=307)
 
 
 @router.get(
-    "/admin/{user_id}",
+    "/create",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+)
+async def admin_create_redirect() -> RedirectResponse:
+    """Old create URL — the flow merged into /admin/users/add."""
+    return RedirectResponse("/admin/users/add?mode=create", status_code=307)
+
+
+@router.get(
+    "/{user_id}",
     response_model=None,
     dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
 )
@@ -123,7 +171,9 @@ async def admin_edit_page(
     user_id: str,
     request: Request,
     inertia: InertiaDep,
+    t: TranslatorDep,
     service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
     try:
         uid = uuid.UUID(user_id)
@@ -140,5 +190,9 @@ async def admin_edit_page(
             "user": user_item.model_dump(mode="json"),
             "roles": await _roles_payload(request.app),
             "has_permissions_module": has_permissions,
+            # ``None`` when the audit_log module is not installed — the card
+            # is then absent rather than empty, which is the honest rendering
+            # of "this deployment does not record activity".
+            "recent_activity": await recent_activity_for(request, uid, db, t),
         },
     )

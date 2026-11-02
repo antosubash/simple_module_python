@@ -49,7 +49,6 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
                         "email": user.email,
                         "name": user.name,
                         "roles": user.roles,
-                        "tenant_id": user.tenant_id,
                     }
                     if user is not None
                     else None
@@ -61,7 +60,13 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
+    from simple_module_core.public_routes import PublicRouteRegistry
+    from users.module import UsersModule
     from users.provider import UsersAuthProvider
+
+    # The host fills this from every module's register_public_routes at boot.
+    app.state.public_routes = PublicRouteRegistry()
+    UsersModule().register_public_routes(app.state.public_routes)
 
     app.state.auth = AuthState(
         auth_provider=UsersAuthProvider(),
@@ -106,7 +111,6 @@ async def mw_active_user(db_session, _mw_seed_roles):
         is_superuser=False,
         is_verified=True,
         full_name="Middleware Tester",
-        tenant_id="acme",
     )
     link = UserRole(user_id=user_id, role_id=ADMIN_ROLE_ID)
     db_session.add_all([user, link])

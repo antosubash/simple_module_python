@@ -9,60 +9,137 @@ strings below match what ``pages/*.tsx`` declare.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
-from inertia import InertiaResponse
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
+from simple_module_db.pagination import clamp_page
+from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
+from simple_module_hosting.permissions import RequiresPermission
+from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
-from settings._module_settings import collect_module_settings, serialize
+from settings import browse_query, known_keys
+from settings._managed_keys import ManagedKeyError, ModuleKeyError
+from settings._module_settings import (
+    _package_of,
+    collect_module_settings,
+    overrides_by_package,
+)
+from settings._module_settings_props import serialize, testable_packages
 from settings.constants import (
+    DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
+    PERM_CREATE,
+    PERM_DELETE,
+    PERM_EDIT,
+    PERM_VIEW,
+    PROP_COUNTS,
     PROP_ERROR,
+    PROP_FILTERS,
+    PROP_KNOWN_KEYS,
     PROP_MODULES,
+    PROP_PAGINATION,
     PROP_SETTING,
     PROP_SETTINGS,
+    PROP_TESTABLE,
+    SCOPE_ALL,
     VIEW_CREATE_PATH,
     VIEW_EDIT_PATH,
     VIEW_MODULES_PATH,
+    VIEW_PREFIX,
+    VIEW_STORE_PATH,
 )
-from settings.contracts.schemas import SettingCreate, SettingUpdate
-from settings.deps import get_setting_service
+from settings.contracts.schemas import SettingUpdate
+from settings.deps import get_generic_setting_service
+from settings.endpoints._create_form import create_from_form
 from settings.service import SettingService
+from settings.tenant_scope import tenant_update_error
 
 _PAGE_BROWSE = "Settings/Browse"
 _PAGE_CREATE = "Settings/Create"
 _PAGE_EDIT = "Settings/Edit"
 _PAGE_MODULES_EDIT = "Settings/ModulesEdit"
 
-_REDIRECT_SETTINGS = "/settings"
+# Row-level actions return to the raw store they were performed in, not to
+# the module forms that now own the section root. Built from VIEW_PREFIX so
+# they follow the section if it moves again — spelled out, they silently sent
+# users to the pre-/admin paths after the move.
+_REDIRECT_SETTINGS = f"{VIEW_PREFIX}{VIEW_STORE_PATH}"
+_REDIRECT_MODULES = f"{VIEW_PREFIX}/"
 
-router = APIRouter()
+# Every screen in this section reads configuration: module field values,
+# their env var names, and now which of the two is in force. The matching JSON
+# API (``/api/settings/...``) has always required ``settings.view``, so leaving
+# these unguarded let any signed-in account read the same data by asking for
+# the page instead. Mutating routes add their own stricter guard on top.
+router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
 
 
-@router.get("/", response_model=None)
+@router.get(VIEW_STORE_PATH, response_model=None)
 async def browse(
     inertia: InertiaDep,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
+    scope: str = SCOPE_ALL,
+    q: str = "",
+    page: browse_query.PageParam = 1,
+    per_page: browse_query.PerPageParam = DEFAULT_PER_PAGE,
 ) -> InertiaResponse:
-    items = await service.list_all()
+    """The raw key/value store, filtered/searched/paged on the server.
+
+    Moved off the section root: it is a database view, and an admin who clicks
+    "Settings" is nearly always after a module's form, not a table of rows
+    keyed by dotted strings.
+
+    The filters reach us from urls people edit and bookmark, so nothing here
+    422s a link that used to work: an unusable ``scope`` falls back to the
+    ``all`` tab, and the two page params carry a validator that substitutes
+    their default instead of rejecting the request. ``browse_query.parse``
+    then clamps, so the ``filters``/``pagination`` props can echo exactly what
+    the query ran with.
+    """
+    query = browse_query.parse(scope, q, page, per_page)
+    items, total = await service.list_filtered(
+        query.scope_filter, query.q, query.page, query.per_page
+    )
+    # A page past the end (stale ?page= link, or the last row on it was just
+    # deleted) is clamped and re-queried — otherwise the client gets an empty
+    # list with a nonzero total and renders a blank table.
+    number = clamp_page(query.page, total, query.per_page)
+    if number != query.page:
+        items, total = await service.list_filtered(
+            query.scope_filter, query.q, number, query.per_page
+        )
+
     return await inertia.render(
         _PAGE_BROWSE,
-        {PROP_SETTINGS: [item.model_dump(mode="json") for item in items]},
+        {
+            PROP_SETTINGS: [item.model_dump(mode="json") for item in items],
+            PROP_PAGINATION: {"page": number, "per_page": query.per_page, "total": total},
+            PROP_COUNTS: await service.count_by_scope(query.q),
+            PROP_FILTERS: {"scope": query.scope, "q": query.q},
+        },
     )
 
 
+@router.get(VIEW_MODULES_PATH, response_model=None)
+async def modules_redirect() -> RedirectResponse:
+    """The per-module forms moved to the section root; keep old links alive."""
+    return RedirectResponse(_REDIRECT_MODULES, status_code=308)
+
+
 @router.get(VIEW_CREATE_PATH, response_model=None)
-async def create_view(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(_PAGE_CREATE)
+async def create_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    return await inertia.render(_PAGE_CREATE, {PROP_KNOWN_KEYS: known_keys.build(request.app)})
 
 
 @router.get(VIEW_EDIT_PATH, response_model=None)
 async def edit_view(
     setting_id: int,
     inertia: InertiaDep,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> InertiaResponse:
     item = await service.get_by_id(setting_id)
     if item is None:
@@ -73,52 +150,136 @@ async def edit_view(
 # ── Form actions (POST/PUT/DELETE → redirect) ─────────────────
 
 
-@router.post("/", response_model=None)
+# Posts to the store collection, which is where the rows live now that the
+# section root renders the module forms.
+@router.post(
+    VIEW_STORE_PATH,
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_CREATE))],
+)
 async def create_action(
     request: Request,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> RedirectResponse:
-    body = await request.json()
-    try:
-        data = SettingCreate(**body)
-    except ValidationError as exc:
-        return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.create(data)
-    return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
+    return await create_from_form(request, service, _REDIRECT_SETTINGS)
 
 
-@router.put("/{setting_id}", response_model=None)
+@router.put(
+    "/{setting_id}",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_EDIT))],
+)
 async def update_action(
     setting_id: int,
     request: Request,
-    service: SettingService = Depends(get_setting_service),
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> RedirectResponse:
     body = await request.json()
     try:
         data = SettingUpdate(**body)
     except ValidationError as exc:
         return redirect_back_with_errors(request, validation_errors_to_dict(exc))
-    await service.update(setting_id, data)
+    if error := await tenant_update_error(request, await service.get_by_id(setting_id), data.value):
+        return redirect_back_with_errors(request, {"value": error})
+    try:
+        await service.update(setting_id, data)
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"value": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
-@router.delete("/{setting_id}", response_model=None)
+@router.delete(
+    "/{setting_id}",
+    response_model=None,
+    dependencies=[Depends(RequiresPermission(PERM_DELETE))],
+)
 async def delete_action(
     setting_id: int,
-    service: SettingService = Depends(get_setting_service),
+    request: Request,
+    t: TranslatorDep,
+    service: SettingService = Depends(get_generic_setting_service),
 ) -> RedirectResponse:
-    await service.delete(setting_id)
+    try:
+        await service.delete(setting_id)
+    except ManagedKeyError as exc:
+        # Shown by the page as a toast; a bare row delete would orphan the file.
+        message = t.t(
+            "settings.browse.delete_managed_error", setting=exc.key, clear_via=exc.clear_via
+        )
+        return redirect_back_with_errors(request, {"delete": message})
+    except ModuleKeyError as exc:
+        return redirect_back_with_errors(request, {"delete": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
 
-@router.get(VIEW_MODULES_PATH, response_model=None)
-async def modules_view(request: Request, inertia: InertiaDep) -> InertiaResponse:
+@router.get("/", response_model=None)
+async def modules_view(
+    request: Request,
+    inertia: InertiaDep,
+    service: SettingService = Depends(get_generic_setting_service),
+) -> InertiaResponse:
     """Read-only view of every module's pydantic ``BaseSettings`` instance.
 
     Auto-discovered from ``app.state.sm.modules``; secrets are masked server-side.
+    Each field also reports where its live value came from — a stored override,
+    an ``SM_*`` env var, or the field default — so a setting that "isn't taking
+    effect" explains itself.
     """
-    views = collect_module_settings(request.app)
+    overrides = await overrides_by_package(service)
+    views = collect_module_settings(request.app, overrides)
     return await inertia.render(
         _PAGE_MODULES_EDIT,
-        {PROP_MODULES: serialize(views)},
+        {
+            PROP_MODULES: serialize(views),
+            # Which packages can be connection-tested, so the page only offers
+            # the button where something is actually reachable.
+            PROP_TESTABLE: testable_packages(request.app),
+        },
     )
+
+
+@router.post(
+    "/test-connection/{package}",
+    response_model=None,
+    # Guarded, unlike the read-only view routes around it: this one makes the
+    # server open outbound connections on demand (SMTP AUTH, S3) and hands the
+    # raw failure text — hostnames, bucket names, auth errors — back to the
+    # caller. Only someone allowed to change these settings should be able to.
+    dependencies=[Depends(RequiresPermission(PERM_EDIT))],
+)
+async def test_connection(package: str, request: Request) -> dict:
+    """Run one module's health checks now and report each result.
+
+    Returns 200 with per-check results even when a check fails: an admin
+    testing a connection expects to read the failure, not to get an error
+    status with the reason buried.
+    """
+    modules = getattr(request.app.state.sm, "modules", ())
+    owner = next((m for m in modules if _package_of(m) == package), None)
+    if owner is None:
+        raise HTTPException(status_code=404, detail=f"Unknown module package: {package}")
+
+    checks = [
+        c for c in request.app.state.sm.health_registry.all_checks if c.module == owner.meta.name
+    ]
+    if not checks:
+        raise HTTPException(status_code=404, detail=f"{owner.meta.name} has no connection to test")
+
+    # Run independently of one another — a module can register several checks
+    # (e.g. SMTP + primary storage + backup storage), and sequentially awaiting
+    # each one would block the request for the sum of their latencies instead
+    # of the slowest one, the same reasoning dashboard.stats._run_health_checks
+    # already applies to probe checks.
+    async def _run_one(check) -> dict:
+        try:
+            outcome = await check.check()
+            return {
+                "name": check.name,
+                "status": outcome.status.value,
+                "detail": outcome.detail or "",
+            }
+        except Exception as exc:
+            return {"name": check.name, "status": "unhealthy", "detail": str(exc)}
+
+    results = await asyncio.gather(*[_run_one(c) for c in checks])
+    return {"module": owner.meta.name, "checks": results}

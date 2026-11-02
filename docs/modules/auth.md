@@ -28,10 +28,11 @@ from auth.contracts import UserContext, AuthProvider
 | `name` | `str` | display name — `full_name or email` of the user |
 | `roles` | `list[str]` | role names, e.g. `["admin"]` |
 | `tenant_id` | `str \| None` | only set when multi-tenant |
+| `permissions` | `list[str]` | keys the principal carries itself (token scope / IdP claim), merged into the role-derived set by the resolver with `*` dropped; empty from `from_user`. Frozen in the session cookie like `roles` — revocable grants belong in a [grant source](/framework/permissions) |
 
-Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `from_user(user)` builds a context from a duck-typed user object (`.id`, `.email`, `.full_name`, `.roles[*].name`, `.tenant_id`); `to_session_dict()` / `from_session_dict()` (de)serialise it into the signed session cookie.
+Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `has_permission(key)` (exact match against `permissions` only — gate routes with `require_permission`, which also folds in roles and grant sources); `from_user(user)` builds a context from a duck-typed user object (`.id`, `.email`, `.full_name`, `.roles[*].name`, `.tenant_id`); `to_session_dict()` / `from_session_dict()` (de)serialise it into the signed session cookie (a cookie without `permissions` decodes to `[]`).
 
-`AuthProvider` is the `Protocol` an auth-provider module implements (`resolve_user`, `get_login_url`, `get_logout_url`, `get_public_paths`, `is_bearer_request`) — see [Pluggable auth](#pluggable-auth) below.
+`AuthProvider` is the `Protocol` an auth-provider module implements (`resolve_user`, `get_login_url`, `get_logout_url`, `is_bearer_request`) — see [Pluggable auth](#pluggable-auth) below.
 
 ## Dependencies for endpoints
 
@@ -53,9 +54,11 @@ from auth.deps import CurrentUser, require_permission
 
 router = APIRouter()
 
+
 @router.get("/me")
 async def me(user: CurrentUser) -> dict:
     return {"email": user.email, "roles": user.roles}
+
 
 @router.delete(
     "/orders/{order_id}",
@@ -66,13 +69,13 @@ async def delete_order(order_id: int, user: CurrentUser) -> None:
     ...
 ```
 
-For permission checks that need to honour **direct user grants** (not just role-derived perms), use [`RequiresPermission` from the permissions module](/modules/permissions#using-requirespermission) instead.
+`require_permission` passes when the user holds *any* of the listed keys. It reads the same per-request permission set as `simple_module_hosting.permissions.RequiresPermission`, which covers roles from the registry's role map plus every grant source (direct user grants, when the [permissions module](/modules/permissions#using-requirespermission) is installed).
 
 ## Pluggable auth
 
 `AuthModule.register_settings` puts an empty `AuthState` on `app.state.auth` (holding `auth_provider` and `principal_resolvers`), and `register_middleware` installs `AuthMiddleware`. On each HTTP request the middleware:
 
-1. Skips authentication for public paths — framework defaults (`/health`, `/static/`, `/api/docs`, `/api/redoc`, `/openapi.json`, `/i18n/`, and the exact path `/`), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch), and the provider's own `get_public_paths()` (prefix-only, kept for back-compat).
+1. Skips authentication for public paths — framework defaults (`/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, and the exact path `/`), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch), and, until 0.1.0, a third-party provider's deprecated `get_public_paths()` (prefix-only).
 2. Calls `provider.resolve_user(request)` (the `AuthProvider` registered by `users` or `keycloak`).
 3. On a miss, walks the **principal-resolver chain** (`app.state.auth.principal_resolvers`) in order — async callables `(Request) -> UserContext | None` for extra credential sources (PAT bearer tokens, API keys). The first non-`None` wins; each is wrapped in `try/except` so a raising resolver is treated as no-match.
 4. If still unauthenticated and the path isn't public: returns `401` JSON for `/api/*` or bearer requests, otherwise stashes `next` in the session and redirects to `provider.get_login_url(request)`.

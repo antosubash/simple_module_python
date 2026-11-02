@@ -9,52 +9,127 @@ Before serving traffic:
 - [ ] `SM_ENVIRONMENT` set to something other than `development`/`testing` (those two are the only values treated as non-prod).
 - [ ] `SM_SECRET_KEY` is a strong random value (not the default).
 - [ ] `SM_DATABASE_URL` points at Postgres (`postgresql+asyncpg://`), not SQLite.
-- [ ] `alembic upgrade head` run against the production DB.
+- [ ] `alembic upgrade heads` run against the production DB.
+- [ ] Frontend built (`npm run build` → `static/dist/`) and bundled into the image — outside `development`/`testing`, the app renders assets from the Vite manifest, not a dev server (see [Static assets](#static-assets)).
 - [ ] App boot in a non-development `SM_ENVIRONMENT` starts clean. Module discovery runs strict (missing/invalid `meta` and entry-point failures raise), and the migration check (SM010) aborts boot — so a successful start covers those. The full page/locale/auth-provider diagnostic suite only runs in development, so do a clean dev boot before shipping (see [diagnostic codes](/reference/diagnostic-codes)).
 - [ ] Admin bootstrap complete — an admin user exists and can log in.
 - [ ] Reverse proxy forwards `X-Forwarded-Proto`/`X-Forwarded-For`; configured with `--proxy-headers`.
-- [ ] HTTPS in front of the app (the session cookie is `HttpOnly`/`SameSite=Lax` but not `Secure` by default — terminate TLS at the proxy).
+- [ ] HTTPS in front of the app. Outside `development`/`testing` the session cookie is `Secure`, so a browser reaching the app over plain HTTP never sends it back and sign-in fails (see [Session cookie](#session-cookie)). Behind a TLS terminator, set `SM_TRUSTED_PROXY` too.
 - [ ] Log destination configured (`SM_LOG_FORMAT=json` + log shipping).
 
 ## Build
 
-Typical Docker build for an app scaffolded by `smpy new`:
+### This repo's own app
 
-```dockerfile
-FROM python:3.12-slim AS builder
-WORKDIR /app
-COPY pyproject.toml uv.lock ./
-RUN pip install uv && uv sync --frozen --no-dev
-COPY . .
-RUN uv run python -m compileall .
+The framework repo ships a default image at the root — `./Dockerfile` — that
+builds the reference app (host + every bundled module) and serves it with
+uvicorn. It is standalone: SQLite under `/app/data`, no Postgres and no Redis
+needed to boot.
 
-# Build the frontend
-FROM node:20-slim AS frontend
-WORKDIR /app/client_app
-COPY client_app/package.json client_app/package-lock.json ./
-RUN npm ci
-COPY client_app .
-RUN npm run build
-
-FROM python:3.12-slim
-WORKDIR /app
-COPY --from=builder /app /app
-# Vite builds to ../static/dist relative to client_app, i.e. /app/static/dist
-COPY --from=frontend /app/static/dist /app/static/dist
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+```bash
+make docker-app             # build ./Dockerfile and run it on :8000
+make docker-compose-app     # same image via the `app` service in docker-compose.yml
 ```
 
-Tune worker count with `--workers N` for multi-CPU boxes, or run behind a process manager like Gunicorn with Uvicorn workers. A single worker is CPU-bound (one process, the GIL) — multiple workers scale read throughput roughly linearly on a multi-core box.
+`docker/entrypoint.sh` runs `alembic upgrade heads` and fills in any unset
+production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
+`SM_USERS_VERIFICATION_TOKEN_SECRET`) with an ephemeral random value so a bare
+`docker run` boots — set them yourself for anything that must survive a
+restart. It also seeds `admin@example.com` with a randomly generated password
+logged by the users module only when the first admin is created, unless
+`SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` say otherwise. Store generated credentials securely and restrict access to logs.
+The seed only lands while the users table is empty, so it never overwrites an
+existing account; credentials generated on later starts do not reset passwords.
+An explicit `changeme` password is refused in production. The checklist above still applies: that image is a demo/local
+target, not a production deployment (SQLite, ephemeral secrets).
+
+That image carries no Celery: the build passes
+`--no-install-package simple-module-background-tasks`, so the module has no
+entry point to discover and the web process needs no broker at all. Background
+jobs are the `worker` / `beat` services in `docker-compose.yml`
+(`docker/worker.Dockerfile`), which is where a second process and a Redis
+belong. Drop that flag and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` to
+put tasks back in the web image.
+
+### Scaffolded apps
+
+**Every `smpy new` scaffold ships its own Docker assets** — you don't write these by hand:
+
+| Path | What it is |
+|---|---|
+| `docker/host.Dockerfile` | Multi-stage app image (also used for the Celery worker/beat services) |
+| `docker-compose.yml` | Stack matched to your `--db` choice, plus `redis`/`worker`/`beat` when `background_tasks` is installed |
+| `.dockerignore` | Keeps `node_modules`, caches and local state out of the build context |
+| `make docker-build` / `docker-up` / `docker-down` | Build, run and stop the stack |
+
+```bash
+make docker-up   # builds the image, applies migrations, serves on :8000
+```
+
+The compose file pins `SM_ENVIRONMENT=production` for the app service — a container has no Vite dev server, so development mode would emit asset tags pointing at nothing.
+
+::: warning `SM_ENVIRONMENT=production` doesn't make the default stack production-ready
+A default (SQLite) scaffold's compose file also pins `SM_DATABASE_URL=sqlite+aiosqlite:////app/data/app.db`, which fails the second item in the checklist above. That stack is for local and demo runs — a real deployment wants a `--db postgres` scaffold.
+
+The reason it isn't just a URL swap: a migration history is **dialect-frozen at autogenerate time** (`sa.false()` renders as `DEFAULT 0` under SQLite, which Postgres rejects), so containers must run the same dialect the migrations were generated against. Moving an existing SQLite scaffold to Postgres means regenerating migrations against Postgres, not editing one env var.
+:::
+
+### Additional worker images
+
+Put heavy Python dependencies in a module's optional extra (for example,
+`[project.optional-dependencies]` with `gdal = ["GDAL"]`). Enable that extra
+only in a dedicated worker image so the web image stays small:
+
+```bash
+smpy docker add-worker geo --queues geo --modules geo.tasks \
+  --apt libgdal-dev --extras gdal
+```
+
+Run this in the project root with an existing `worker` service. It writes
+`docker/worker-geo.Dockerfile` and `compose.worker-geo.yml`, then adds a marked
+`include:` entry to `compose.yml` (or the scaffold's `docker-compose.yml`). The
+Python-only image installs apt packages in both build and runtime stages and
+inherits the existing worker's database, broker, volumes, and dependencies.
+Repeat `--apt` and `--extras` for additional packages and extras; `--queues`
+and `--modules` take comma-separated lists. `--base` selects a compatible
+Debian-based Python image (default `python:3.12-slim-bookworm`). The healthcheck
+pings this worker through Celery. Use `--force` to regenerate an existing
+worker's files; repeated runs never duplicate its include entry.
+
+### Why the image has one builder stage
+
+The obvious split — a Python stage and a Node stage — **cannot work here**. The Vite build imports `modules.generated.{ts,css}`, which `gen-pages` emits by inspecting the *installed Python modules*. A Node-only stage has no venv and no entry points, so it can't generate those files and the frontend build fails for any app with module pages.
+
+So `docker/host.Dockerfile` keeps uv and Node in one builder stage and orders the work:
+
+1. `uv sync --all-packages --no-dev` (deps first, then the real source, for layer caching)
+2. `gen-pages` — writes the page manifest and generated module imports
+3. `npm run build` — the production bundle
+4. `uv sync` once more, so hatch `force-include` picks up freshly built module `static/dist` output
+
+The runtime stage is `python:3.12-slim-bookworm`, runs as a non-root `app` user (uid 10001), and carries a `HEALTHCHECK` against `/health`.
+
+If you build your own image instead, keep that ordering — skipping `gen-pages` before the Vite build is the single most common way to get a container that builds cleanly and then serves a blank page.
+
+### Sizing the web process
+
+The shipped `CMD` runs a single Uvicorn worker. Tune worker count with `--workers N` for multi-CPU boxes, or run behind a process manager like Gunicorn with Uvicorn workers. A single worker is CPU-bound (one process, the GIL) — multiple workers scale read throughput roughly linearly on a multi-core box.
 
 **Size the DB pool to the worker count.** Each worker keeps its own connection pool of up to `SM_DB_POOL_SIZE + SM_DB_MAX_OVERFLOW` (default `10 + 20 = 30`) connections, so the deployment's ceiling is `workers × (pool_size + max_overflow)`. Keep that under the database's `max_connections` (Postgres default `100`) or workers will throw `asyncpg.TooManyConnectionsError: sorry, too many clients already` under load. For example, 4 workers want roughly `SM_DB_POOL_SIZE=5`, `SM_DB_MAX_OVERFLOW=10` (≤ 60 connections). For larger fleets, put PgBouncer in front instead of growing every pool.
 
+### Migrations on container start
+
+The shipped `CMD` runs `alembic upgrade heads && uvicorn …`. Note **`heads` (plural)**: a history that carries per-module `branch_labels` can end up with several heads, and `upgrade head` (singular) errors out when it does.
+
+That default is right for a single container. Once you run more than one replica, move migrations to a one-shot job instead — see [Running migrations on deploy](#running-migrations-on-deploy).
+
 ## Running migrations on deploy
 
-Don't migrate from inside the web container's startup hook — that way lies races when scaling up. Run it as a **one-shot job** before rolling the web tier:
+Once you run more than one replica, drop the `alembic upgrade heads` from the container's start command — concurrent replicas racing the same migration is exactly the failure it causes. Run it as a **one-shot job** before rolling the web tier instead:
 
 ```bash
 # one-shot container — run from the host project (default workspace scaffold)
-cd host && uv run alembic upgrade head
+cd host && uv run alembic upgrade heads
 
 # then roll web tier
 kubectl rollout restart deployment/web
@@ -88,7 +163,20 @@ Not built in. The framework doesn't expose Prometheus metrics out of the box. If
 
 ## Session cookie
 
-`SessionMiddleware` uses `SM_SECRET_KEY` for signing. Starlette's defaults apply: `HttpOnly` + `SameSite=Lax`, but **not** `Secure` (the framework adds the middleware with only `secret_key`, so the cookie isn't restricted to HTTPS — rely on your TLS-terminating proxy). Rotate the secret by:
+`SessionMiddleware` uses `SM_SECRET_KEY` for signing. The cookie is `HttpOnly` + `SameSite=Lax`, and `Secure` everywhere except `SM_ENVIRONMENT=development`/`testing`, so it never travels over plain HTTP — not even on the first request before HSTS is cached. CSRF defence rests on `SameSite=Lax`, which is why this matters.
+
+The flag is the `session_cookie_secure` host setting (`SM_SESSION_COOKIE_SECURE`, or the settings editor; restart to apply). Unset means "on outside development/testing":
+
+| Deployment | What to set |
+|---|---|
+| TLS terminated at a reverse proxy, app speaks plain HTTP to the proxy | Leave it unset. The browser sees HTTPS, which is all `Secure` needs. Set `SM_TRUSTED_PROXY` so the app also sees `https` as the scheme (OAuth callback urls, the locale cookie's `secure` flag, request logs). |
+| HTTPS end to end | Leave it unset. |
+| Browsers reach the app over plain HTTP on purpose (an internal network with no TLS) | `SM_SESSION_COOKIE_SECURE=false` — otherwise the browser drops the cookie and every sign-in bounces back to the login page. |
+| Local development (`make dev`, e2e) over `http://localhost` | Nothing: development and testing default to off. |
+
+**Symptom of a mismatch:** sign-in "succeeds" but every page bounces back to the login screen, and nothing fails in the request logs. The browser received a `Secure` cookie over `http://` and never sends it back. To make this visible, the app logs one `WARNING` per process (logger `simple_module_hosting.session`) the first time a request reaches it over `http` for a non-loopback host while the cookie is `Secure`. The warning names both fixes: `SM_TRUSTED_PROXY` if a TLS proxy sits in front and the app is not trusting its `X-Forwarded-Proto`, or `SM_SESSION_COOKIE_SECURE=false` if browsers really do use plain HTTP. `localhost`, `*.localhost` and loopback IPs never trigger it, because browsers keep `Secure` cookies on those.
+
+Rotate the secret by:
 
 1. Deploying with a new `SM_SECRET_KEY`.
 2. Expected behavior: existing sessions become invalid. Users sign back in.
@@ -141,10 +229,44 @@ location /static/ {
 
 Vite emits filenames with content hashes, so long cache TTLs are safe.
 
+### Production rendering & cache headers
+
+Outside `development`/`testing` (i.e. any other `SM_ENVIRONMENT`), the app serves the built frontend instead of the Vite dev server:
+
+- **Manifest-based Inertia rendering.** In dev/testing the page loads `main.tsx` from the Vite dev server; otherwise the app reads the built Vite manifest and emits content-hashed `<script>`/`<link>` tags. At boot it normalises the raw Vite manifest (`static/dist/.vite/manifest.json`) into `static/dist/.vite/inertia-manifest.json`, re-keying the entry chunk to the path fastapi-inertia expects. If the build directory is read-only (e.g. an immutable container layer) it writes that normalised copy to a temp file instead. If **no** built manifest is found it logs a warning and leaves assets unconfigured rather than crashing — so a missing `npm run build` surfaces as broken asset URLs, not a boot failure. Build the frontend before serving production traffic.
+- **Immutable cache headers, even through Uvicorn.** The app mounts `static/` with a `StaticFiles` subclass that sets `Cache-Control: public, max-age=31536000, immutable` on anything under `/static/dist/assets/` (Vite content-hashes those filenames, so the bytes for a URL never change). Non-hashed paths keep the default `ETag`/`Last-Modified`. Fronting `/static/` with nginx (above) is still recommended for throughput, but the immutable headers are correct even when assets are served straight from the app.
+
+## Maintenance mode
+
+Serve everyone but admins a 503 page while you do something disruptive — a long migration, a data backfill, a cutover.
+
+Flip `maintenance_mode` on `HostSettings` at `/admin/settings/` under the host section. `maintenance_message` is an optional operator note shown on the page; leave it empty for generic translated copy.
+
+It is a DB-backed flag rather than an env var **on purpose**: turning maintenance on must not require a redeploy, which is exactly the moment you least want one. It also means the switch takes effect on every worker immediately, with no rollout.
+
+What stays reachable while the gate is closed:
+
+| Still served | Why |
+|---|---|
+| Admins, everywhere | Someone has to reach the settings screen to switch it back off. |
+| The auth provider's own routes | An admin who was signed *out* when the switch flipped must still be able to sign in. |
+| `/health*` | So orchestrators don't kill the pod mid-maintenance. |
+| `/static/`, `/i18n/` | Or the 503 page renders unstyled and untranslated. |
+| Module `register_public_routes` rules | Branding's logo/favicon keep the page on-brand; deliberately-public webhooks and STAC/OGC reads keep working. Method-aware, so a GET-only public rule does not let a POST through. |
+
+Everything else gets a 503 carrying `Retry-After: 3600`. The window is a guess by construction — the switch has no end time — but a client that backs off for an hour beats one that hammers.
+
+Two behaviours worth knowing before you rely on it:
+
+- **It fails open.** If the host settings can't be read, traffic passes through. A configuration gap taking the site down is the exact failure this feature would otherwise cause.
+- **It is not a security boundary.** It gates on the admin check and the public-route rules, nothing more. Use it to keep users out of a half-migrated app, not to protect anything.
+
+The 503 renders as a real maintenance page rather than the generic "service unavailable" incident copy, because the middleware marks the request as a planned outage. That distinction matters most when you set no message — which is the case where the page has nothing else to say.
+
 ## Zero-downtime deploys
 
 1. Build new image.
-2. Run `alembic upgrade head` as a one-shot job.
+2. Run `alembic upgrade heads` as a one-shot job.
 3. `kubectl rollout restart deployment/web` (rolling).
 4. Watch logs for `SM010` (would mean step 2 failed silently).
 5. Rollback path: `kubectl rollout undo`; old pods come back up against the new DB. **Make sure** your migrations are backward-compatible for at least one release cycle (expand/contract pattern — see below).

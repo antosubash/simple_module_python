@@ -8,6 +8,10 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
+from simple_module_core.public_routes import PublicRouteRegistry
+
+from keycloak.constants import PUBLIC_PATH_PREFIXES
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -21,20 +25,16 @@ class KeycloakModule(ModuleBase):
         name="Keycloak",
         route_prefix="/api/keycloak",
         view_prefix="/keycloak",
-        depends_on=[_MODULE_DEPENDENCY_AUTH, _MODULE_DEPENDENCY_SETTINGS],
+        depends_on=[_MODULE_DEPENDENCY_AUTH],
+        # Ordering only: settings registration is the framework's (#500).
+        optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-        import importlib
-
         from keycloak.provider import KeycloakAuthProvider
         from keycloak.settings import KeycloakSettings
         from keycloak.state import KeycloakState
-
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
 
         register_module_settings(
             app,
@@ -43,12 +43,26 @@ class KeycloakModule(ModuleBase):
             lambda s: KeycloakState(settings=s),
         )
 
-        app.state.auth.auth_provider = KeycloakAuthProvider(app.state.keycloak.settings)
+        app.state.auth.auth_provider = KeycloakAuthProvider(
+            app.state.keycloak.settings, state=app.state.keycloak
+        )
+
+        # Other modules read accounts through the directory (GH #501).
+        from simple_module_core.user_directory import set_user_directory
+
+        from keycloak.directory import KeycloakDirectory
+
+        set_user_directory(app, KeycloakDirectory())
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        for prefix in PUBLIC_PATH_PREFIXES:
+            registry.add_prefix(prefix)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
                 label="Logout",
+                label_key="keycloak.nav.logout",
                 url="/keycloak/logout",
                 icon="log-out",
                 order=999,

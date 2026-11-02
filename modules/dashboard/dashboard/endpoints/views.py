@@ -6,19 +6,40 @@ The public landing page at ``/`` is owned by the host, not this module.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
-from inertia import InertiaResponse
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from simple_module_core.permissions import grants, is_admin_principal
 from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.permissions import resolved_permissions_for
+from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import RedirectResponse
 
+from dashboard.constants import PERM_VIEW
 from dashboard.stats import fetch_dashboard_stats
 
 router = APIRouter()
 
+
+async def _require_admin(request: Request) -> None:
+    """Doctor exposes migration status, module list and system info — admin
+    only. The ``/admin`` prefix is a URL convention, not a permission, so this
+    is the guard that actually keeps a non-admin, signed-in user out."""
+    user = getattr(request.state, "user", None)
+    if user is None or not is_admin_principal(user):
+        raise HTTPException(status_code=403, detail="Administrator access required")
+
+
+# Doctor is an operator tool, not part of the dashboard proper — it is
+# mounted at /admin/doctor via register_admin_routes.
+admin_router = APIRouter(dependencies=[Depends(_require_admin)])
+
 _PAGE_HOME = "Dashboard/Home"
 _PAGE_DOCTOR = "Dashboard/Doctor"
+_DOCTOR_URL = "/admin/doctor/"
 
 
 @router.get("/", response_model=None)
@@ -28,29 +49,41 @@ async def dashboard(
     t: TranslatorDep,
     db: AsyncSession = Depends(get_db),
 ) -> InertiaResponse:
-    """Authenticated dashboard — requires login (enforced by AuthMiddleware)."""
-    stats = await fetch_dashboard_stats(db, request.app)
-    return await inertia.render(
-        _PAGE_HOME,
-        {
-            "welcome": t.t("dashboard.home.welcome_message"),
-            **stats,
-        },
-    )
+    """Authenticated dashboard — requires login (enforced by AuthMiddleware).
+
+    This is every signed-in user's post-login landing page, so the route stays
+    open; only the platform-wide stats are gated on ``dashboard.view``. A viewer
+    without it gets the welcome and no numbers (``can_view_stats`` false).
+    """
+    props: dict = {"welcome": t.t("dashboard.home.welcome_message")}
+    can_view = grants(resolved_permissions_for(request), PERM_VIEW)
+    props["can_view_stats"] = can_view
+    if can_view:
+        props.update(await fetch_dashboard_stats(db, request.app))
+    return await inertia.render(_PAGE_HOME, props)
 
 
-@router.get("/doctor", response_model=None)
-async def doctor(
-    request: Request,
-    inertia: InertiaDep,
-    db: AsyncSession = Depends(get_db),
-) -> InertiaResponse:
-    """`make doctor` mirror — static checks, modules, dev server, env."""
-    stats = await fetch_dashboard_stats(db, request.app)
-    return await inertia.render(
-        _PAGE_DOCTOR,
-        {
-            "module_count": stats["module_count"],
-            "system_info": stats["system_info"],
-        },
+@admin_router.get("/", response_model=None)
+async def doctor(request: Request, inertia: InertiaDep) -> InertiaResponse:
+    """`make doctor` mirror — checks, migrations, dev server, all live."""
+    from dashboard.doctor import doctor_props
+
+    # doctor_props walks the alembic script directory and every module's pages
+    # dir, so it is blocking filesystem work: keep it off the event loop rather
+    # than stalling every other coroutine on this worker for its duration.
+    props = await asyncio.to_thread(
+        doctor_props, request, module_count=len(request.app.state.sm.modules)
     )
+    return await inertia.render(_PAGE_DOCTOR, props)
+
+
+@admin_router.post("/rerun", response_model=None)
+async def rerun_diagnostics(request: Request) -> RedirectResponse:
+    """Re-run the checks and come back to the page.
+
+    A POST because it does work, and a redirect because Inertia needs a page
+    response to land on. Outside development the run is a no-op — the holder
+    reports the checks as unsupported and the screen keeps saying so.
+    """
+    await asyncio.to_thread(request.app.state.sm.diagnostics.rerun)
+    return RedirectResponse(_DOCTOR_URL, status_code=303)

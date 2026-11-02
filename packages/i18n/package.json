@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/i18n",
-  "version": "0.0.20",
+  "version": "0.0.42",
   "description": "i18next + react-i18next glue for simple_module apps \u2014 hooks, namespace conventions, locale wiring",
   "keywords": [
     "simple-module",
@@ -38,10 +38,10 @@
     "react": "^19.0.0"
   },
   "dependencies": {
-    "i18next": "^23.15.0",
-    "react-i18next": "^15.1.0"
+    "i18next": "^26.5.5",
+    "react-i18next": "^17.0.13"
   },
   "devDependencies": {
-    "@simple-module-py/tsconfig": "0.0.20"
+    "@simple-module-py/tsconfig": "0.0.42"
   }
 }

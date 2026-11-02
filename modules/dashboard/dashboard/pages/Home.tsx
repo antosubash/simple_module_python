@@ -1,16 +1,26 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
-import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
+import { usePageProps } from '@simple-module-py/ui/hooks/usePageProps';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Activity, Box, Stethoscope, Users } from 'lucide-react';
-import { DemoPlaceholders } from './components/DemoPlaceholders';
+import { type ModuleHealth, ModuleTile } from './components/ModuleTile';
+import { moduleTargetResolver } from './components/module-target';
 
 interface SystemModule {
   name: string;
+  /** Package directory (`audit_log`) — the deck's tile label. */
+  package: string;
   status: 'loaded';
+  /** The module's own screen, or '' when it ships no views. */
+  url: string;
+  /** Second mount point for a module that is only partly administrative
+   * (`ModuleMeta.admin_view_prefix`), or '' when it declares none. */
+  admin_url: string;
+  /** Worst health status across the module's checks; '' when it registers none. */
+  health: ModuleHealth;
 }
 
 interface HealthCheck {
@@ -25,86 +35,161 @@ interface SystemInfo {
 }
 
 interface Props {
-  total_users: number;
-  active_users_7d: number;
+  welcome: string;
+  /** False for a viewer without `dashboard.view`: the stats props are absent. */
+  can_view_stats: boolean;
+  /** User counts come from the auth provider's directory; `null` means it
+   * cannot say (no provider, or Keycloak for the monthly figure), and the
+   * tile is hidden rather than showing a zero that would be a guess. */
+  total_users: number | null;
+  active_users_7d: number | null;
+  users_created_this_month: number | null;
   module_count: number;
   system_info: SystemInfo;
 }
 
-function Home() {
-  const props = usePage<{ props: Props }>().props as unknown as Props;
+function Home(props: Props) {
+  const { menus } = usePageProps();
   const { t } = useT();
 
-  const unhealthy = props.system_info.health_checks.filter((c) => c.status !== 'healthy').length;
+  // The stats span every tenant and need `dashboard.view`; anyone else lands
+  // here after login too, so they get the welcome and no numbers.
+  if (!props.can_view_stats) {
+    return (
+      <>
+        <Head title={t(keys.dashboard.home.title)} />
+        <PageShell title={t(keys.dashboard.home.title)}>
+          <Card className="border-border">
+            <CardContent className="pt-5">
+              <p>{props.welcome}</p>
+            </CardContent>
+          </Card>
+        </PageShell>
+      </>
+    );
+  }
+
+  const { health_checks: healthChecks } = props.system_info;
+  const unhealthy = healthChecks.filter((c) => c.status !== 'healthy').length;
+  const moduleTarget = moduleTargetResolver(menus, props.system_info.modules);
+
+  // The third segment of the deck's system meta line. "All checks healthy" is
+  // only true when there are checks — a module set that registers none is a
+  // different statement, and saying "healthy" there would be a guess.
+  const healthSummary =
+    healthChecks.length === 0
+      ? t(keys.dashboard.home.system_health_none)
+      : unhealthy === 0
+        ? t(keys.dashboard.home.system_health_ok)
+        : t(keys.dashboard.home.system_health_alert, { count: unhealthy });
+
+  const statusLabels: Record<ModuleHealth, string> = {
+    '': t(keys.dashboard.home.tile.loaded_no_checks),
+    healthy: t(keys.dashboard.home.tile.loaded_healthy),
+    degraded: t(keys.dashboard.home.tile.loaded_degraded),
+    unhealthy: t(keys.dashboard.home.tile.loaded_unhealthy),
+  };
 
   return (
     <>
-      <Head title="Dashboard" />
+      <Head title={t(keys.dashboard.home.title)} />
       <PageShell
         title={t(keys.dashboard.home.title)}
         description={t(keys.dashboard.home.description)}
       >
-        <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
-          <StatCard
-            label={t(keys.dashboard.home.stats.total_users)}
-            value={props.total_users}
-            icon={Users}
-          />
-          <StatCard
-            label={t(keys.dashboard.home.stats.active_users)}
-            value={props.active_users_7d}
-            icon={Activity}
-            delta="↑ 7d"
-          />
+        <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {props.total_users !== null && (
+            <StatCard
+              label={t(keys.dashboard.home.stats.total_users)}
+              value={props.total_users}
+              icon={Users}
+              delta={
+                props.users_created_this_month === null
+                  ? undefined
+                  : t(keys.dashboard.home.stats.total_users_delta, {
+                      count: props.users_created_this_month,
+                    })
+              }
+              deltaTone="secondary"
+            />
+          )}
+          {props.active_users_7d !== null && (
+            <StatCard
+              label={t(keys.dashboard.home.stats.active_users)}
+              value={props.active_users_7d}
+              icon={Activity}
+              delta={t(keys.dashboard.home.stats.active_users_delta)}
+            />
+          )}
           <StatCard
             label={t(keys.dashboard.home.stats.modules)}
             value={props.module_count}
             icon={Box}
+            delta={t(keys.dashboard.home.stats.modules_delta)}
+            deltaTone="secondary"
           />
           <StatCard
-            label="Health"
-            value={unhealthy === 0 ? 'OK' : `${unhealthy} alert`}
+            label={t(keys.dashboard.home.stats.health)}
+            value={
+              unhealthy === 0
+                ? t(keys.dashboard.home.health_ok)
+                : t(keys.dashboard.home.health_alert, { count: unhealthy })
+            }
             icon={Stethoscope}
-            delta={unhealthy === 0 ? 'all good' : 'see Doctor'}
+            delta={
+              unhealthy === 0
+                ? t(keys.dashboard.home.health_all_good)
+                : t(keys.dashboard.home.health_see_doctor)
+            }
             deltaTone={unhealthy === 0 ? 'success' : 'warning'}
           />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <Card className="border-border lg:col-span-2">
-            <CardContent className="pt-5">
-              <SectionTitle
-                as="h2"
-                right={
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    Python {props.system_info.python_version} · {props.module_count} modules
-                  </span>
-                }
-              >
-                System
-              </SectionTitle>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {props.system_info.modules.map((m) => (
-                  <div
+        {/* The deck's System card runs to the bottom of the viewport rather
+            than stopping under the last tile row. A min-height, not a fixed
+            one, so a long module list still grows instead of scrolling
+            inside the card. */}
+        <Card className="flex flex-col border-border lg:min-h-[calc(100vh-var(--app-chrome-h)-22rem)]">
+          <CardContent className="flex flex-1 flex-col pt-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold font-display">
+                {t(keys.dashboard.home.system_info_title)}
+              </h2>
+              <span className="font-mono text-xs text-muted-foreground">
+                {t(keys.dashboard.home.system_meta, {
+                  version: props.system_info.python_version,
+                  count: props.module_count,
+                  health: healthSummary,
+                })}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {props.system_info.modules.map((m) => {
+                const target = moduleTarget(m.url, m.admin_url);
+                return (
+                  <ModuleTile
                     key={m.name}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
-                  >
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-                      <Box className="h-3.5 w-3.5" aria-hidden="true" />
-                    </span>
-                    <span className="font-mono text-xs text-foreground truncate">{m.name}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {import.meta.env.DEV && <DemoPlaceholders totalUsers={props.total_users} />}
-        </div>
+                    name={m.package}
+                    displayName={m.name}
+                    url={target}
+                    health={m.health}
+                    reachable={!!target}
+                    statusLabel={statusLabels[m.health]}
+                    actionLabel={
+                      target
+                        ? t(keys.dashboard.home.tile.open)
+                        : t(keys.dashboard.home.tile.no_view)
+                    }
+                  />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </PageShell>
     </>
   );
 }
 
-Home.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Home.layout = [AuthenticatedLayout];
 export default Home;

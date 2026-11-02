@@ -8,12 +8,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.body_limits import BodyLimitRegistry
+from simple_module_core.cors import CorsPolicyRegistry
+from simple_module_core.csp import CspSourceRegistry
+from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.tenancy import TenantRole, tenant_role
 
 from file_storage import constants
+from file_storage.audit_labels import _resolve_file_labels
+from file_storage.body_limits import register_upload_body_limits
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -26,25 +37,19 @@ class FileStorageModule(ModuleBase):
         name=constants.MODULE_PASCAL,
         route_prefix=constants.ROUTE_PREFIX_API,
         view_prefix=constants.ROUTE_PREFIX_VIEW,
-        # Needs Settings to run first so register_module_settings can reach
-        # app.state.settings.module_registry during register_settings.
-        depends_on=[constants._MODULE_SETTINGS],
+        # Kept after Settings so the module order is unchanged; registering
+        # settings no longer needs it (the framework owns the registry, #500).
+        # Task/checksum integration also needs BackgroundTasks loaded first when present.
+        optional_depends_on=[constants._MODULE_SETTINGS, constants._MODULE_BACKGROUND_TASKS],
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        import importlib
-
         from file_storage.services import FileStorageServices
         from file_storage.settings import FileStorageSettings
 
-        # SM009 is AST-based: a static `from settings.registration import ...`
-        # from a module helper is fine (plugin→plugin), but we resolve via
-        # importlib here to match the convention used framework-side and to
-        # keep the dependency direction one-way explicit.
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
-
+        # The CORS toggle is evaluated per request and the hook gets no ``app``.
+        self._app = app
         register_module_settings(
             app,
             "file_storage",
@@ -52,12 +57,78 @@ class FileStorageModule(ModuleBase):
             lambda s: FileStorageServices(settings=s),
         )
 
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+        from file_storage.tenant_deletion import register_tenant_deletion
+
+        register_tenant_deletion(bus, app)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from file_storage.tenant_cache import register_tenant_cache
+
+        register_tenant_cache(bus, app)
+
+    def register_exception_handlers(self, app: FastAPI) -> None:
+        from file_storage.errors import install_exception_handlers
+
+        install_exception_handlers(app)
+
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from file_storage.endpoints.api import router as api
+        from file_storage.endpoints.public import router as public
+        from file_storage.endpoints.uploads import router as uploads
         from file_storage.endpoints.views import router as views
 
         api_router.include_router(api)
+        api_router.include_router(uploads)
+        api_router.include_router(public)
         view_router.include_router(views)
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        """Let anyone GET a file its owner marked public (#353).
+
+        GET-only and anchored to ``/public/{id}[/{name}|/thumbnail]``, so
+        uploads, deletes and the authenticated download keep requiring a
+        session. The handler itself still refuses anything not ``public``.
+        """
+        from file_storage.constants import PUBLIC_FILES_RATE
+        from file_storage.cookieless import PUBLIC_PATH_PATTERN
+
+        # Its own, wider bucket: one public page can embed dozens of images and
+        # thumbnails, which would exhaust the shared anonymous default.
+        registry.add_regex(PUBLIC_PATH_PATTERN, methods={"GET"}, rate=PUBLIC_FILES_RATE)
+
+    def register_cors_policies(self, registry: CorsPolicyRegistry) -> None:
+        """Let any origin read public files, without credentials (#527)."""
+        from file_storage.cors import register_public_files_cors
+
+        register_public_files_cors(registry, lambda: getattr(self, "_app", None))
+
+    def register_middleware(self, app: FastAPI) -> None:
+        """Serve public files without a session cookie or ``Vary: Cookie``."""
+        from file_storage.cookieless import CookielessPublicFilesMiddleware
+
+        app.add_middleware(CookielessPublicFilesMiddleware)
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        """Name file rows in the audit log, and tag them with their table.
+
+        No ``url_template``: a stored file has no page of its own — the browse
+        screen is a list, not a record — so the audit cell shows the filename
+        unlinked beside a copyable id. Registering anyway is the point: without
+        it every upload reads as ``StoredFile`` plus a uuid, and the reader has
+        to go and look up which file that was.
+        """
+        from file_storage.models import StoredFile
+
+        registry.register(
+            AuditLink.for_model(
+                StoredFile,
+                url_template="",
+                label="File",
+                label_key=f"{constants.LOCALE_NAMESPACE}.audit.file",
+                label_resolver=_resolve_file_labels,
+            )
+        )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
@@ -68,34 +139,53 @@ class FileStorageModule(ModuleBase):
                 constants.Permission.DELETE,
                 constants.Permission.MANAGE,
             ],
+            label_key=f"{constants.LOCALE_NAMESPACE}.permission_group",
         )
-        registry.map_role(
-            constants.USER_ROLE,
-            [
-                constants.Permission.UPLOAD,
-                constants.Permission.DOWNLOAD,
-                constants.Permission.DELETE,
-            ],
-        )
+        read_write = [constants.Permission.UPLOAD, constants.Permission.DOWNLOAD]
+        # Deleting is an organisation-admin act (#383). The platform ``user``
+        # role used to carry it too, which — every account holds ``user`` —
+        # would hand it straight back to each tenant member.
+        registry.map_role(constants.USER_ROLE, read_write)
+        registry.map_role(tenant_role(TenantRole.MEMBER), read_write)
+        # ``manage`` widens every route from "files I uploaded" to "every file
+        # in the active tenant" (#544): organisation admins and owners curate
+        # their members' uploads. Platform admins hold it through ``*``.
+        for role in (TenantRole.ADMIN, TenantRole.OWNER):
+            registry.map_role(
+                tenant_role(role),
+                [*read_write, constants.Permission.DELETE, constants.Permission.MANAGE],
+            )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
                 label=constants.MODULE_DISPLAY_NAME,
-                url=constants.ROUTE_PREFIX_VIEW,
+                label_key="file_storage.nav.files",
+                url=f"{constants.ROUTE_PREFIX_VIEW}/",
                 icon=constants.MENU_ICON,
                 order=constants.MENU_ORDER,
                 section=MenuSection.SIDEBAR,
-                roles=list(constants.MENU_ROLES),
+                permissions=[constants.Permission.DOWNLOAD],
                 group="Content",
+                group_key="ui.nav_groups.content",
             )
         )
+
+    def register_body_limits(self, registry: BodyLimitRegistry) -> None:
+        register_upload_body_limits(registry)
+
+    def register_csp_sources(self, registry: CspSourceRegistry) -> None:
+        """Let the browser PUT multipart parts straight to the S3 endpoint."""
+        from file_storage.csp import connect_src_provider
+
+        registry.add_provider(connect_src_provider)
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         registry.add(
             FeatureFlagDefinition(
                 name=constants.FeatureFlag.PUBLIC_UPLOADS,
                 description="Allow unauthenticated uploads (future).",
+                description_key=f"{constants.LOCALE_NAMESPACE}.feature_flags.public_uploads",
                 default_enabled=False,
             )
         )
@@ -112,7 +202,15 @@ class FileStorageModule(ModuleBase):
         picked up — constructing in ``register_settings`` would bake in
         the pydantic defaults instead of the DB overrides.
         """
+        from file_storage.aggregates import register_invalidation
         from file_storage.backends import build_backend
+
+        # With multi_tenant off the install is the only tenant, so ordinary
+        # users keep deleting their files. With it on every tenant member also
+        # holds ``user``, so the grant stays on the organisation-admin roles.
+        # Done here because register_permissions cannot see the settings.
+        if not getattr(app.state.sm.settings, "multi_tenant", False):
+            app.state.sm.permissions.map_role(constants.USER_ROLE, [constants.Permission.DELETE])
 
         services = app.state.file_storage
         settings = services.settings
@@ -128,3 +226,27 @@ class FileStorageModule(ModuleBase):
                 settings.s3_region,
                 settings.s3_endpoint_url or "(default)",
             )
+
+        # Wire the browse screen's cached bucket totals to this app's sessions,
+        # so any commit that wrote a file row drops them. Registered here rather
+        # than in ``register_settings`` because ``app.state.sm.db`` is opened by
+        # the lifespan, which has not run at registration time.
+        register_invalidation(app.state.sm.db, services.aggregates)
+
+        # Registered here, not in register_health_checks: the backend does not
+        # exist until this hook builds it, and the check must follow later
+        # settings changes rather than pinning the boot-time instance.
+        from simple_module_core.health import HealthCheck
+
+        from file_storage.health import CHECK_BACKEND, build_backend_check
+
+        app.state.sm.health_registry.add(
+            HealthCheck(
+                name=CHECK_BACKEND,
+                check=build_backend_check(app),
+                module=self.meta.name,
+                # On demand only: an S3 request per readiness probe is billed
+                # traffic and ties probe latency to the provider.
+                probe=False,
+            )
+        )

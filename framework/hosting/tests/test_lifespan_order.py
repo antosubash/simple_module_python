@@ -30,10 +30,10 @@ class _TrackingModule(ModuleBase):
     the dependency graph; the hook bodies stay on the base.
     """
 
-    async def on_startup(self, app: FastAPI) -> None:  # type: ignore[override]
+    async def on_startup(self, app: FastAPI) -> None:
         _calls.append(f"start:{self.meta.name}")
 
-    async def on_shutdown(self, app: FastAPI) -> None:  # type: ignore[override]
+    async def on_shutdown(self, app: FastAPI) -> None:
         _calls.append(f"stop:{self.meta.name}")
 
 
@@ -65,7 +65,9 @@ async def test_lifespan_startup_forward_shutdown_reverse(monkeypatch) -> None:
 
     with (
         patch("simple_module_hosting.app_builder.discover_modules", return_value=instances),
-        patch("simple_module_hosting.app_builder.check_migrations", _no_migration_check),
+        # Lives in _lifespan, not app_builder: the startup/shutdown sequence
+        # was split out so app_builder stays focused on wiring.
+        patch("simple_module_hosting._lifespan.migration_status", _no_migration_check),
     ):
         settings = Settings(
             database_url="sqlite+aiosqlite:///:memory:",

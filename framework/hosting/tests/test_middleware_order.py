@@ -2,12 +2,71 @@
 
 CLAUDE.md spells out the pipeline:
 
-    CorrelationId → RequestLogging → Security → Session → <module>
-                  → Tenant (opt-in) → Locale → InertiaLayoutData → app
+    (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
+    CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session → <module>
+                  → Tenant (opt-in) → Locale → InertiaLayoutData
+                  → InertiaCache → RateLimit → Setup → Maintenance
+                  → CommitBeforeResponse → app
+
+Setup runs before Maintenance: an install that has never been set up has
+nothing meaningful to put into maintenance mode, so the setup redirect wins.
+It is inside InertiaCache for the same reason Maintenance is — it
+short-circuits, and its redirect must not be stored by any cache.
+
+InertiaCache sits directly inside InertiaLayoutData, the middleware that puts
+this user's auth block, permissions and menus into every Inertia payload. Being
+inside it means its send-wrapper sees the response before anything else can
+read the headers, and pairing the two keeps "what makes the payload per-user"
+and "what stops the payload being cached" from drifting apart.
+
+Maintenance sits inside InertiaCache rather than outside it. Its 503 is an
+Inertia payload carrying the same per-user auth block and menus, and it is
+produced by short-circuiting — so if it sat outside, that payload would never
+pass through the cache guard and would ship storable, which is the exact bug
+InertiaCache exists to prevent.
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
-every log line carries its id. Order matters and a swap is the kind of
+every log line carries its id. SiteLock must precede AuthMiddleware: it gates
+anonymous visitors itself, and if Auth ran first they would be redirected to
+the login page — revealing that a login form exists on a site that is meant
+to be fully hidden. That inversion breaks the feature without failing any
+site_lock unit test, which is why the order is pinned here.
+
+DemoReadOnlyMiddleware is outermost of the module middlewares — ``users``
+sorts last, so it wraps SiteLock and Auth. That is where it wants to be: it
+refuses a demo session's writes before any handler, middleware side-effect or
+DB session runs, and it reads the demo marker straight off the session rather
+than ``request.state.user``, so it needs nothing Auth provides. It also
+cannot hide SiteLock from an anonymous visitor, because acquiring a demo
+session means POSTing to the demo endpoint, which SiteLock blocks first.
+
+CookielessPublicFilesMiddleware (``file_storage``) keeps the session cookie and
+``Vary: Cookie`` off anonymous public-file reads. Its place among the module
+middlewares does not matter: it clears the session's accessed/modified flags as
+the response starts, so reads by Auth or SiteLock further out are forgotten too.
+
+Maintenance sits after InertiaLayoutData because its 503 page renders
+through Inertia and needs the shared props (auth, menus, i18n) — placed any
+further out it would render bare, with no layout and untranslated copy. It is
+also after Auth, which is what tells it whether the caller is an admin allowed
+to pass through and switch it back off.
+
+CommitBeforeResponse is innermost so its send-wrapper is the first to see
+``http.response.start`` — that is what makes the request's DB work commit
+before any byte reaches the client (GH #257). Anything added inside it would
+run after the commit.
+
+GZip sits inside the observability pair so
+those still see every request, but outside everything that produces a body
+— including the /static mount, which is where compression pays off most.
+BodyLimit sits just inside RequestLogging (a 413 is still logged) and outside
+GZip and every module, so an oversized body is refused before anything reads
+it. RateLimit sits inside InertiaCache, after auth and locale/layout data: it
+must know whether the caller is signed in, and its 429 page renders through
+Inertia with the shared props.
+
+Order matters and a swap is the kind of
 regression that breaks production without breaking any happy-path test.
 ``app.user_middleware`` lists middlewares in execution order (Starlette
 LIFOs ``add_middleware`` calls, FastAPI surfaces them already reversed).
@@ -22,22 +81,44 @@ from simple_module_hosting.settings import Settings
 _EXPECTED_MULTI_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "CorsMiddleware",
+    "BodyLimitMiddleware",
+    "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "DemoReadOnlyMiddleware",
+    "SiteLockMiddleware",
+    "CookielessPublicFilesMiddleware",
     "AuthMiddleware",
     "TenantMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
+    "InertiaCacheMiddleware",
+    "RateLimitMiddleware",
+    "SetupMiddleware",
+    "MaintenanceMiddleware",
+    "CommitBeforeResponseMiddleware",
 )
 
 _EXPECTED_SINGLE_TENANT = (
     "CorrelationIdMiddleware",
     "RequestLoggingMiddleware",
+    "CorsMiddleware",
+    "BodyLimitMiddleware",
+    "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "DemoReadOnlyMiddleware",
+    "SiteLockMiddleware",
+    "CookielessPublicFilesMiddleware",
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
+    "InertiaCacheMiddleware",
+    "RateLimitMiddleware",
+    "SetupMiddleware",
+    "MaintenanceMiddleware",
+    "CommitBeforeResponseMiddleware",
 )
 
 

@@ -5,13 +5,21 @@ Standard mixins in `simple_module_db.mixins`. Compose as many as you need alongs
 ```python
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import (
-    AuditMixin, SoftDeleteMixin, MultiTenantMixin, VersionedMixin,
+    AuditMixin,
+    SoftDeleteMixin,
+    MultiTenantMixin,
+    VersionedMixin,
 )
 
 Base = create_module_base("orders")
 
+
 class Order(
-    Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, VersionedMixin,
+    Base,
+    AuditMixin,
+    SoftDeleteMixin,
+    MultiTenantMixin,
+    VersionedMixin,
     table=True,
 ):
     __tablename__ = "orders_order"
@@ -65,9 +73,8 @@ If you genuinely need to remove the row, call the underlying SQLAlchemy DELETE �
 
 ```python
 from sqlmodel import delete
-await session.exec(
-    delete(Order).where(Order.id == order_id)
-)
+
+await session.exec(delete(Order).where(Order.id == order_id))
 ```
 
 Use sparingly — audit trails and downstream systems may depend on historical rows.
@@ -86,9 +93,20 @@ When `SM_MULTI_TENANT=true` and a request has an active tenant, the `do_orm_exec
 
 INSERTs populate `tenant_id` from the `current_tenant_id` contextvar. Creating a row for a different tenant than the active one — or changing `tenant_id` on an existing row — raises `TenantIsolationError`.
 
+`insert(Model).from_select(...)` and Core table targets follow the same rules:
+when the target column list omits `tenant_id`, the guard adds it and a constant
+tenant projection without changing the source's tenant/soft-delete filters.
+An explicit `tenant_id` projection must be a bound literal matching the active
+tenant (including execution-time parameter overrides). Other SQL expressions
+cannot be validated and raise `TenantIsolationError`; omit the tenant column
+for automatic stamping, or use an explicit `all_tenants` bypass for deliberate
+cross-tenant copies. Strict mode requires a tenant even if the source reads no
+tenant tables and explicitly supplies `tenant_id` (#693).
+
 ### Bypass
 
-A row inserted outside any tenant context (no active `current_tenant_id`) is stamped `None` and, because the column is non-nullable, fails at the DB rather than silently leaking. There is no per-statement `skip_tenant_filter` option or `no_tenant()` helper today; cross-tenant admin operations run outside a tenant-scoped request (e.g. a CLI or background worker where `current_tenant_id` is unset).
+Without an active tenant, strict mode raises `TenantIsolationError`; non-strict
+inserts use the install's fallback tenant (`default_tenant` or `"default"`). There is no per-statement `skip_tenant_filter` option; cross-tenant work uses `all_tenants()` (see [multi-tenancy](../framework/multi-tenancy.md)). `no_tenant()` is the opposite: it forces the unscoped state, where strict mode fails closed.
 
 ## `VersionedMixin`
 
@@ -118,9 +136,9 @@ Order matters only for MRO of columns that share names; the mixins here don't ov
 ```python
 class Order(
     Base,
-    AuditMixin,          # created/updated timestamps + author
-    SoftDeleteMixin,     # is_deleted flag + auto-filter
-    MultiTenantMixin,    # tenant_id + auto-filter
+    AuditMixin,  # created/updated timestamps + author
+    SoftDeleteMixin,  # is_deleted flag + auto-filter
+    MultiTenantMixin,  # tenant_id + auto-filter
     table=True,
 ):
     __tablename__ = "orders_order"

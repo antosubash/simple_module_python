@@ -1,6 +1,8 @@
 """SimpleModule Hosting - App builder, module loader, middleware pipeline."""
 
+from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting.app_builder import create_app
+from simple_module_hosting.errors import render_error_page
 from simple_module_hosting.logging import correlation_id, setup_logging
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.shared_props import (
@@ -13,6 +15,8 @@ __all__ = [
     "SharedPropsProvider",
     "correlation_id",
     "create_app",
+    "merge_host_settings",
     "register_inertia_shared_provider",
+    "render_error_page",
     "setup_logging",
 ]

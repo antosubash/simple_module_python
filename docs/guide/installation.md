@@ -58,7 +58,7 @@ smpy new myapp --preset standard --with background_tasks,file_storage
 
 Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`, and `file_storage` pulls in `settings`. The `settings` module ships only in the `full` preset (or when added explicitly with `--with settings`).
 
-After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade head` for you (skip with `--no-install` if you'd rather drive that yourself).
+After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade heads` for you (skip with `--no-install` if you'd rather drive that yourself).
 
 ## Boot it
 
@@ -76,7 +76,7 @@ Hit `http://localhost:8000`. You should see the landing page.
 
 ## Database choice
 
-`smpy new` writes a `.env.example`. The default is SQLite (zero setup):
+`smpy new` writes a committed `.env.example` (placeholders only) and a gitignored `.env` holding the generated secrets. The default is SQLite (zero setup):
 
 ```bash
 SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
@@ -85,17 +85,20 @@ SM_DATABASE_URL=sqlite+aiosqlite:///./app.db
 For Postgres, scaffold with `--db postgres` (or pick Postgres in the wizard) and `smpy new` writes a matching `SM_DATABASE_URL`:
 
 ```bash
-SM_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/myapp
+POSTGRES_PASSWORD=<generated>
+SM_DATABASE_URL=postgresql+asyncpg://postgres:<generated>@localhost:5432/my_app
 ```
 
-A `docker-compose.yml` is only generated when you include the `background_tasks` module; it brings up `postgres` (db `simple_module`, user `sm`/`sm`) on `:5432`, `redis` on `:6379`, and the `host`/`worker`/`beat` services:
+The database name is the snake_case app name. `POSTGRES_PASSWORD` is shared with the compose `postgres` service below. Compose interpolates it unencoded into the container's `SM_DATABASE_URL`, so it must be URL-safe (letters, digits, `-`, `_`, `.`, `~`); `make docker-up` refuses to start otherwise. The generated value always is.
+
+Every scaffold ships a `docker-compose.yml` that matches your `--db` choice (a migration history is dialect-frozen at autogenerate time, so containers must run the same database the migrations were generated against). With `--db postgres` it brings up `postgres` (db named after your app, user `postgres`, password from `POSTGRES_PASSWORD` in `.env`) on `127.0.0.1:5432` and the `app` service; the default SQLite scaffold runs the `app` container alone with the database on a named volume. Including the `background_tasks` module adds `redis` on `127.0.0.1:6379` plus `worker`/`beat` services that reuse the app image. With `--db postgres`, the container also doubles as a local dev database:
 
 ```bash
 docker compose up -d postgres
 make migrate
 ```
 
-Without `background_tasks`, bring your own Postgres (or stay on the default SQLite). See [Configuration](/guide/configuration) for the full list of env vars.
+Or run the whole stack in containers — `make docker-up` builds the image (`docker/host.Dockerfile`), applies migrations on start, and serves on `:8000` with `SM_ENVIRONMENT=production`. See [Configuration](/guide/configuration) for the full list of env vars.
 
 ## Create the first admin
 
@@ -138,7 +141,42 @@ When new releases of `simple_module_*` ship to PyPI, bump every dep in lockstep:
 smpy package-update
 ```
 
-Pass `--dry-run` first to preview the diff.
+Pass `--dry-run` first to preview the diff. The command scans the root and uv
+workspace members: project dependencies, every optional-dependency extra and
+every dependency group, including workspace roots with only dev groups.
+Include-group objects and workspace/local uv sources are left alone; source
+names are normalized and member sources override root sources.
+
+It also scans each root/member `package.json` and `client_app/package.json`, in
+`dependencies`, `devDependencies`, `optionalDependencies` and `peerDependencies`.
+`@simple-module-py/*` pins follow the selected `simple_module_core` PyPI version
+in lockstep, preserving exact, `^` or `~` style and never downgrading. The npm
+registry must contain that exact version; unavailable releases, incompatible
+version spellings, unsupported ranges and workspace/file/git/alias references
+are reported as skips, and so is every npm pin when the run leaves the Python
+`simple_module_core` pin alone (an upper bound or a local source), so npm never
+runs ahead of Python. `--include-pre` also applies to core target selection.
+
+All manifests are parsed and changes planned before any writes. Dry runs write
+nothing; JSON indentation and trailing-newline style are preserved. Writes to
+multiple files are not atomic against filesystem errors. Lockfiles are left
+alone: run the reported `uv sync` and `npm install` commands afterwards.
+
+Each constraint keeps the operator you wrote — `==0.0.32` becomes `==0.0.33`,
+`>=0.0.32` becomes `>=0.0.33` — so bumping versions never changes your pinning
+policy. That matters because the published module wheels pin their framework
+deps exactly: a host loosened to `>=` hands the effective version to whichever
+wheel pins hardest, rather than deciding it itself.
+
+Two consequences worth knowing:
+
+- A dependency whose upper bound excludes the latest release (`>=0.1,<1.0`
+  when 2.0.0 is out) is reported and left alone, rather than having its ceiling
+  silently dropped.
+- A dependency with no constraint at all has no pin style to preserve, so it
+  gets `>=<latest>`.
+
+Pass `--loosen` to rewrite every Python constraint to `>=<latest>` instead.
 
 ## Troubleshooting
 
@@ -146,7 +184,7 @@ Pass `--dry-run` first to preview the diff.
 Run `uv tool update-shell` (or restart your shell) so the tool's bin dir is on PATH.
 
 **Port already in use.**
-Free `:8000` and `:5050` before the next `make dev`. On Linux/macOS: `lsof -ti:8000,5050 | xargs kill -9`.
+Run `make kill` to free the app's API and Vite ports (`:8000` and the port in `SM_VITE_DEV_URL`, default `:5050`) before the next `make dev`. It only touches those ports, never other apps' servers. To run two apps side by side, give each its own `API_PORT` (`make dev API_PORT=8010`) and `SM_VITE_DEV_URL`.
 
 **Alembic complains about a revision mismatch.**
 The DB is ahead of or behind the migration files. For a dev DB: `rm app.db && make migrate`. For Postgres: `docker compose down -v && docker compose up -d postgres && make migrate`.

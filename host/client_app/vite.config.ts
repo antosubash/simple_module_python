@@ -4,53 +4,26 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig, type Plugin } from 'vite';
+import { compressAssets } from './compress-assets.ts';
+import { loadModuleAssets } from './module-assets.ts';
 
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = path.resolve(import.meta.dirname, '../..');
 
 // ANALYZE=1 npm run build emits host/static/dist/stats.html — a sunburst of
 // every chunk and its constituent modules. Open it to chase bundle bloat.
 const analyzeBundle = process.env.ANALYZE === '1';
 
-// Load the module pages manifest written by the Python host at boot.
-// Each entry points at an absolute pages/ directory — typically inside a
-// pip-installed module wheel under .venv/.../site-packages/. From each
-// pages dir we derive three things:
-//   1. The parent directory, for server.fs.allow (so Vite can serve the
-//      files from outside the workspace root).
-//   2. The module's package.json. Two install modes ship it in different
-//      places: wheels embed it next to the Python package (one level up
-//      from pages/, force-included by Hatch), while editable/workspace
-//      installs leave it at the source-tree module root (two levels up).
-//      We accept either. Its `dependencies` + `peerDependencies` declare
-//      every bare specifier the module's pages can import.
-//   3. A glob pattern for optimizeDeps.entries, so Vite's dependency
-//      scanner walks the pages and discovers their imports.
-const manifestPath = path.resolve(__dirname, 'modules.manifest.json');
-const moduleFsAllow: string[] = [];
-const moduleOptimizeEntries: string[] = [];
-const modulePkgJsonPaths: string[] = [];
-const modulePagesPrefixes: string[] = [];
-let manifest: Record<string, string> = {};
-try {
-  manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-} catch {
-  // Manifest absent (smpy gen-pages hasn't run yet) — proceed with empty set.
-}
-for (const pagesDir of Object.values(manifest)) {
-  const pkgDir = path.dirname(pagesDir);
-  moduleFsAllow.push(pkgDir);
-  moduleOptimizeEntries.push(path.join(pagesDir, '**/*.tsx'));
-  modulePagesPrefixes.push(pagesDir + path.sep);
-  for (const candidate of [
-    path.join(pkgDir, 'package.json'),
-    path.join(path.dirname(pkgDir), 'package.json'),
-  ]) {
-    if (fs.existsSync(candidate)) {
-      modulePkgJsonPaths.push(candidate);
-      break;
-    }
-  }
-}
+// Everything the installed modules contribute to this build — fs.allow entries,
+// dep-scan globs, package.json paths, and the `#module/<pkg>` + npm-name
+// aliases. See ./module-assets.ts for why each exists.
+const {
+  fsAllow: moduleFsAllow,
+  optimizeEntries: moduleOptimizeEntries,
+  pkgJsonPaths: modulePkgJsonPaths,
+  pagesPrefixes: modulePagesPrefixes,
+  aliases: moduleAliases,
+  npmNames: moduleNpmNames,
+} = loadModuleAssets(import.meta.dirname);
 
 // Gather every bare specifier a module's pages might import. We include
 // both `dependencies` (deps the module ships its own copy of) and
@@ -70,7 +43,12 @@ function collectModuleDecls(): string[] {
     }
     for (const block of [pkg.dependencies, pkg.peerDependencies]) {
       for (const dep of Object.keys(block ?? {})) {
-        if (!dep.startsWith('@types/')) decls.add(dep);
+        if (dep.startsWith('@types/')) continue;
+        // A sibling module declared as a dep/peer dep is not a node_modules
+        // package — it is aliased to a source directory above. Pre-bundling
+        // it would point the optimizer at raw .tsx with no entry point.
+        if (moduleNpmNames.has(dep)) continue;
+        decls.add(dep);
       }
     }
   }
@@ -121,15 +99,31 @@ function moduleBareImportResolver(): Plugin {
 const moduleDecls = collectModuleDecls();
 const fakeWorkspaceImporter = path.join(projectRoot, 'package.json');
 
-export default defineConfig({
+// Chunks smaller than this get merged into their importer. See build.rollupOptions.
+const MIN_CHUNK_BYTES = 20_000;
+
+export default defineConfig(({ command }) => ({
+  // Built chunks record their lazy-import dependencies as base-relative paths
+  // ("assets/Browse-x.js"), and Vite's __vitePreload helper prefixes them with
+  // `base`. The host serves the build under /static/dist/, so the default base
+  // of "/" made every preload request /assets/... — which the SPA fallback
+  // answered with HTML, producing a 404 plus a MIME-type console error on
+  // every lazy page load. The page still worked, because the *actual* dynamic
+  // import uses a relative "./" specifier; only the preloads were wasted.
+  //
+  // Build only: in dev the host points <script> straight at
+  // ${SM_VITE_DEV_URL}/main.tsx, and a base here would move the dev server's
+  // served paths out from under it.
+  base: command === 'build' ? '/static/dist/' : '/',
   plugins: [
     moduleBareImportResolver(),
     react(),
     tailwindcss(),
+    compressAssets(),
     ...(analyzeBundle
       ? [
           visualizer({
-            filename: path.resolve(__dirname, '../static/dist/stats.html'),
+            filename: path.resolve(import.meta.dirname, '../static/dist/stats.html'),
             template: 'sunburst',
             gzipSize: true,
             brotliSize: true,
@@ -144,6 +138,9 @@ export default defineConfig({
   // feed Vite the per-module tsconfigs.
   resolve: {
     tsconfigPaths: true,
+    // `#module/<pkg>` -> that module's package directory. Optional sugar for
+    // hand-written imports; modules.generated.css does not rely on it.
+    alias: moduleAliases,
     // Force every importer (host, workspace module, wheel-installed module)
     // to resolve to one React copy — without it, plugin-react's Fast
     // Refresh preamble check fires in a realm where its global was never
@@ -173,12 +170,50 @@ export default defineConfig({
       },
     },
   },
-  root: __dirname,
+  root: import.meta.dirname,
   build: {
     outDir: '../static/dist',
     manifest: true,
     rollupOptions: {
-      input: path.resolve(__dirname, 'main.tsx'),
+      input: path.resolve(import.meta.dirname, 'main.tsx'),
+      output: {
+        // Default splitting produced 40 chunks under 2 KB holding 32 KB
+        // between them — 40 HTTP requests for a rounding error of code. The
+        // server speaks HTTP/1.1, so the browser opens ~6 connections and
+        // those 40 requests cost ~7 serial round trips; at 40 ms latency
+        // that is ~280 ms of pure waiting before first paint.
+        //
+        // Merging anything below this threshold into its importer trades a
+        // little duplicated code for far fewer round trips. Keep it well
+        // under the size of a real page chunk so route-level code splitting
+        // still works and pages stay lazily loaded.
+        //
+        // Vite 8 bundles with Rolldown, so this is `advancedChunks` rather
+        // than Rollup's `experimentalMinChunkSize` (which type-errors here —
+        // the option does not exist on Rolldown's OutputOptions). Rolldown
+        // ignores minSize unless groups are declared.
+        //
+        // React is split from the rest of vendor deliberately: it changes only
+        // on a dependency bump, so a normal deploy leaves it cached while the
+        // app chunks re-download.
+        advancedChunks: {
+          minSize: MIN_CHUNK_BYTES,
+          groups: [
+            {
+              name: 'react-vendor',
+              test: /node_modules\/(react|react-dom|scheduler)\//,
+              priority: 100,
+            },
+            { name: 'vendor', test: /node_modules\//, priority: 50 },
+            {
+              name: 'ui',
+              test: /packages\/ui\/src\//,
+              priority: 10,
+              minShareCount: 2,
+            },
+          ],
+        },
+      },
     },
   },
   server: {
@@ -192,4 +227,4 @@ export default defineConfig({
       allow: [projectRoot, ...moduleFsAllow],
     },
   },
-});
+}));

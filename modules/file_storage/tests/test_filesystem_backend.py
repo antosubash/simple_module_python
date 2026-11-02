@@ -65,3 +65,28 @@ async def test_two_char_shard_layout(tmp_path):
     await backend.put("ab/file.bin", _bytes_stream(b"x"), content_type="text/plain", size=1)
     # Stored at <root>/ab/ab/file.bin (2-char shard prefix from key[:2])
     assert (tmp_path / "ab" / "ab" / "file.bin").exists()
+
+
+async def _drain(stream: AsyncIterator[bytes]) -> list[bytes]:
+    return [chunk async for chunk in stream]
+
+
+async def test_get_range_is_inclusive_and_chunked(tmp_path):
+    from file_storage import constants
+
+    backend = FilesystemBackend(root=tmp_path)
+    data = bytes(range(256)) * 1000
+    await backend.put("ab/big", _bytes_stream(data), content_type="x/y", size=len(data))
+
+    assert b"".join(await _drain(await backend.get_range("ab/big", 0, 16383))) == data[:16384]
+    assert b"".join(await _drain(await backend.get_range("ab/big", 7, 7))) == data[7:8]
+    chunks = await _drain(await backend.get_range("ab/big", 1000, 200_000))
+    assert b"".join(chunks) == data[1000:200_001]
+    assert len(chunks) > 1
+    assert max(map(len, chunks)) <= constants.DEFAULT_CHUNK_SIZE
+
+
+async def test_get_range_missing_raises_not_found(tmp_path):
+    backend = FilesystemBackend(root=tmp_path)
+    with pytest.raises(StorageNotFoundError):
+        await backend.get_range("missing/key", 0, 1)

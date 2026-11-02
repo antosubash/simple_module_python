@@ -32,26 +32,40 @@ def test_recipe_writes_run_worker_script(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "run_worker.py"
     assert script.is_file()
     text = script.read_text()
-    assert "from background_tasks.celery_app import build_celery" in text
-    assert "celery = build_celery(BackgroundTasksSettings())" in text
+    # GH #490: the shared runner, which hydrates DB-backed settings — not a
+    # local copy built from the environment alone.
+    assert "from background_tasks.runner import build_runner_celery" in text
+    assert "celery = build_runner_celery(" in text
+    assert "BackgroundTasksSettings()" not in text
 
 
-def test_recipe_writes_compose_with_redis_worker_beat(tmp_path: Path) -> None:
+def test_scaffolded_worker_matches_the_repo_worker() -> None:
+    """Two copies of the worker bootstrap drifted once (GH #490); keep them one."""
+    from simple_module_cli import recipes
+
+    root = Path(__file__).resolve().parents[3]
+    template = Path(recipes.__file__).parent / "templates/host/_optional/background_tasks"
+    assert (template / "run_worker.py").read_text() == (
+        root / "scripts" / "run_worker.py"
+    ).read_text()
+
+
+def test_recipe_leaves_docker_assets_to_the_scaffold(tmp_path: Path) -> None:
+    # Compose + Dockerfile are default scaffold output (docker_assets.py);
+    # the recipe must not write or clobber them.
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(tmp_path, _ctx())
-    compose = (tmp_path / "docker-compose.yml").read_text()
-    assert "redis:" in compose
-    assert "worker:" in compose
-    assert "beat:" in compose
-    assert "scripts.run_worker:celery" in compose
+    assert not (tmp_path / "docker-compose.yml").exists()
+    assert not (tmp_path / "docker").exists()
 
 
-def test_recipe_writes_worker_dockerfile(tmp_path: Path) -> None:
+def test_recipe_tolerates_pre_existing_compose(tmp_path: Path) -> None:
+    # docker_assets.py runs after recipes in create_app_project, but the
+    # recipe API is also public — a compose file on disk is not an error.
     _scaffold_minimal_host(tmp_path)
+    (tmp_path / "docker-compose.yml").write_text("services: {}\n")
     BackgroundTasksRecipe().apply(tmp_path, _ctx())
-    dockerfile = (tmp_path / "docker" / "worker.Dockerfile").read_text()
-    assert "FROM python:3.12-slim" in dockerfile
-    assert "scripts.run_worker:celery" in dockerfile
+    assert (tmp_path / "scripts" / "run_worker.py").is_file()
 
 
 def test_recipe_appends_makefile_targets(tmp_path: Path) -> None:

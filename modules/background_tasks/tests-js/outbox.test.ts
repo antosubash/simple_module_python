@@ -1,0 +1,50 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+import { toast } from 'sonner';
+import {
+  discardOutboxMessage,
+  retryOutboxMessage,
+  shortName,
+} from '../background_tasks/pages/outbox';
+import { requestsOf, stubFetch } from './stub-fetch';
+
+describe('outbox actions', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('retries with a POST to the row', async () => {
+    const fetchMock = stubFetch(200, { id: 'm1', status: 'pending' });
+    expect(await retryOutboxMessage('m1')).toBe(true);
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/outbox/m1/retry',
+      method: 'POST',
+    });
+  });
+
+  it('discards with a DELETE and accepts 204', async () => {
+    const fetchMock = stubFetch(204);
+    expect(await discardOutboxMessage('m1')).toBe(true);
+    expect(requestsOf(fetchMock)).toContainEqual({
+      url: '/api/background_tasks/admin/outbox/m1',
+      method: 'DELETE',
+    });
+  });
+
+  it('shows a translated conflict message, never the server English', async () => {
+    stubFetch(409, { detail: 'Only dead messages can be retried' });
+    expect(await retryOutboxMessage('m1')).toBe(false);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).not.toHaveBeenCalledWith('Only dead messages can be retried');
+  });
+});
+
+describe('shortName', () => {
+  it('keeps the class name of a dotted event key', () => {
+    expect(shortName('orders.contracts.events.OrderPlaced')).toBe('OrderPlaced');
+    expect(shortName('Plain')).toBe('Plain');
+  });
+});

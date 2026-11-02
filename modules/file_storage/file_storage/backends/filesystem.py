@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import os
+import uuid
 from collections.abc import AsyncIterator
+from datetime import datetime
 from pathlib import Path
 
 import aiofiles
 
 from file_storage import constants
 from file_storage.backends import register_backend
+from file_storage.backends.filesystem_multipart import FilesystemMultipartMixin
 from file_storage.contracts.service import (
     NotSupportedError,
     StorageBackendError,
@@ -17,7 +23,7 @@ from file_storage.contracts.service import (
 from file_storage.settings import FileStorageSettings
 
 
-class FilesystemBackend:
+class FilesystemBackend(FilesystemMultipartMixin):
     """Stores objects on the local filesystem under ``root``.
 
     Keys are sharded by their first two characters to keep any single
@@ -49,33 +55,89 @@ class FilesystemBackend:
     ) -> None:
         path = self._resolve(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(path, "wb") as fh:
-            async for chunk in stream:
-                await fh.write(chunk)
+        # Write beside the target and rename into place: a concurrent ``get`` (a
+        # thumbnail cache hit mid-generation) must never see a half-written
+        # object, and a crash must not leave a truncated one behind.
+        tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            async with aiofiles.open(tmp, "wb") as fh:
+                async for chunk in stream:
+                    await fh.write(chunk)
+            tmp.replace(path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink(missing_ok=True)
+            raise
 
-    async def get(self, key: str) -> AsyncIterator[bytes]:
+    def _existing(self, key: str) -> Path:
         path = self._resolve(key)
         if not path.exists():
             raise StorageNotFoundError(key)
-        return _stream_file(path)
+        return path
+
+    async def get(self, key: str) -> AsyncIterator[bytes]:
+        return _stream_file(self._existing(key))
+
+    async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
+        return _stream_file(self._existing(key), start=start, length=end - start + 1)
 
     async def delete(self, key: str) -> None:
         path = self._resolve(key)
         path.unlink(missing_ok=True)
 
+    async def list_stale_objects(self, cutoff: datetime) -> AsyncIterator[str]:
+        """Yield keys last modified before the reconciliation cutoff."""
+        keys = await asyncio.to_thread(self._collect_stale_objects, cutoff.timestamp())
+        for key in keys:
+            yield key
+
+    def _collect_stale_objects(self, cutoff_ts: float) -> list[str]:
+        keys = []
+        for directory, dirs, files in os.walk(self.root):
+            if Path(directory) == self.root:
+                dirs[:] = [name for name in dirs if name != constants.FS_MULTIPART_DIR]
+            for name in files:
+                path = Path(directory) / name
+                relative = path.relative_to(self.root)
+                # Preserve the previous shard/key-directory/file glob depth.
+                if len(relative.parts) < 3:
+                    continue
+                # Another delete (including this sweep) may have removed a variant.
+                with contextlib.suppress(FileNotFoundError):
+                    if path.is_file() and path.stat().st_mtime < cutoff_ts:
+                        keys.append(relative.as_posix().split("/", 1)[1])
+        return keys
+
     async def exists(self, key: str) -> bool:
         return self._resolve(key).exists()
 
-    async def presigned_get_url(self, key: str, ttl_seconds: int) -> str:
+    async def presigned_get_url(
+        self,
+        key: str,
+        ttl_seconds: int,
+        *,
+        content_disposition: str | None = None,
+        content_type: str | None = None,
+    ) -> str:
         raise NotSupportedError("Filesystem backend cannot mint presigned URLs.")
 
 
-async def _stream_file(path: Path) -> AsyncIterator[bytes]:
+async def _stream_file(
+    path: Path, *, start: int = 0, length: int | None = None
+) -> AsyncIterator[bytes]:
+    """Yield ``length`` bytes from ``start`` (to EOF when ``None``), chunk by chunk."""
+    remaining = length
     async with aiofiles.open(path, "rb") as fh:
-        while True:
-            chunk = await fh.read(constants.DEFAULT_CHUNK_SIZE)
+        await fh.seek(start)
+        while remaining is None or remaining > 0:
+            size = constants.DEFAULT_CHUNK_SIZE
+            if remaining is not None:
+                size = min(size, remaining)
+            chunk = await fh.read(size)
             if not chunk:
                 break
+            if remaining is not None:
+                remaining -= len(chunk)
             yield chunk
 
 

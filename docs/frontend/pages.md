@@ -90,8 +90,8 @@ export default function Browse({ orders }: BrowseProps) {
 ```
 
 - `export default` is **required** — Inertia's resolver expects a default export.
-- Props are passed from the server; type them explicitly.
-- Use `useT()` from `@simple-module-py/i18n` for translations and `usePage()` (with the `SharedProps` type from `@simple-module-py/ui`) for `auth` / `menus`.
+- Props are passed from the server; type them as the component's argument (`function Browse({ items }: Props)`).
+- Use `useT()` from `@simple-module-py/i18n` for translations. `usePage().props.auth` / `.menus` are already typed (shared props); a component that also needs the page's own props calls `usePageProps<Props>()` from `@simple-module-py/ui`.
 
 ## Subdirectories
 
@@ -132,6 +132,40 @@ Browse.layout = (page: ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedL
 ```
 
 The second form re-uses the layout instance across navigations — good for layouts with expensive setup or local state you want preserved.
+
+### Which layout
+
+| Layout | For |
+|---|---|
+| `PublicLayout` | Anonymous pages — landing, marketing, authored content. |
+| `AuthenticatedLayout` | Signed-in application screens. |
+| `AdminLayout` | Screens in the admin section under `/admin`. |
+
+`AdminLayout` renders the admin sidebar (`MenuSection.ADMIN_SIDEBAR`) with its own darker theme and a badge linking back to `/admin`. Pick it for a page whose URL is under `/admin` and whose menu entry registers into `ADMIN_SIDEBAR` — those three move together, and changing one leaves a page whose sidebar no longer lists it.
+
+### The app chrome
+
+Both signed-in layouts sit under a topbar carrying a breadcrumb, search, the ⌘K command palette and the locale switcher. Pages get all of it with no per-page wiring:
+
+- **The breadcrumb** takes its section from the menu registry and its leaf from the page's own `PageShell title`, reported up through context. No route table to drift.
+- **The ⌘K palette** indexes both the app and admin sidebars, deduped by url. Both are filtered by roles and permissions server-side, so it can never offer a destination that would 403.
+- **The sidebar active state** compares paths segment-wise, so `/users` cannot claim `/users-archive`.
+
+Chrome height is published as the `--app-chrome-h` CSS custom property. A full-height pane should size against that rather than hardcoding a pixel value — the topbar and the mobile bar are mutually exclusive and both feed it.
+
+### `PageShell` props
+
+| Prop | Purpose |
+|---|---|
+| `title` | Page heading, and the breadcrumb leaf. |
+| `description` | Optional sub-heading. |
+| `actions` | Right-aligned header controls. |
+| `maxWidth` | `'screen-xl'` (default) or `'full'`. |
+| `section` | The sidebar section this page belongs to — see below. |
+
+`section` is only needed when a page's own path sits **outside** the section it belongs to; otherwise the section is matched from the url and setting it is redundant. The permissions screens are the worked example: they live under `/admin/permissions/` but are reached from — and belong to — Users, so without it nothing highlights in the sidebar and the crumb has no parent.
+
+It is resolved against the **visible** menu, so a page never offers a parent crumb the viewer would be refused at. Leave it unset for a page reachable by people who may not have the parent entry at all — Profile is deliberately section-less for that reason.
 
 ## Shared components
 

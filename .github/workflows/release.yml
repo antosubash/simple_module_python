@@ -12,6 +12,15 @@ on:
         description: "Explicit version override (e.g., 1.2.3)"
         required: false
         type: string
+      pending_publishers:
+        description: "Comma-separated simple_module_* names you confirm have PyPI pending publishers"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -27,12 +36,15 @@ jobs:
   # framework/core/pyproject.toml by the chosen level.
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.compute.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Verify release source
+        run: bash scripts/check_release_ref.sh
       - id: compute
         shell: bash
         run: |
@@ -62,26 +74,58 @@ jobs:
           echo "version=${ver}" >> "$GITHUB_OUTPUT"
           echo "Resolved version: ${ver}"
 
+  # The full PR suite (the `pr-checks` aggregate) runs against the dispatched
+  # commit; `build` needs it, so nothing is built or published from a red commit.
+  # Reusable workflow calls cannot set timeout-minutes; pr.yml bounds each job.
+  checks:
+    needs: [resolve]
+    uses: ./.github/workflows/pr.yml
+
+  # Public PyPI metadata cannot verify publisher configuration. Block absent
+  # projects unless the operator confirms their pending publishers.
+  preflight:
+    needs: [resolve]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Check PyPI projects
+        env:
+          PENDING_PUBLISHERS: ${{ inputs.pending_publishers }}
+        run: >-
+          uv run --no-project --with tomlkit python -m scripts.release_preflight
+          --pending-publishers "$PENDING_PUBLISHERS"
+
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
   # The commit + tag only hit origin in `finalize`, after publishes succeed,
   # so a failed build never leaves an orphan tag to clean up.
   build:
-    needs: resolve
+    needs: [resolve, checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Bump all package versions (working tree only)
-        run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
-      - name: Regenerate npm lockfile
-        run: npm install --package-lock-only
+      - uses: ./.github/actions/bump-version
+        with:
+          version: ${{ needs.resolve.outputs.version }}
+      # `checks` ran at the pre-bump version; a deprecation whose remove_in is
+      # this release must block it, so re-run the expiry gate post-bump.
+      - name: Deprecation expiry gate (post-bump)
+        run: |
+          uv sync --all-packages
+          uv run pytest host/tests/test_deprecation_expiry.py -q -p no:cacheprovider -n 0
       - name: Build Python wheels + sdists
         run: uv build --all-packages --out-dir dist-py
       - name: Pack npm tarballs
@@ -90,20 +134,33 @@ jobs:
           for pkg in packages/*/; do
             npm pack "$pkg" --pack-destination dist-npm
           done
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-py
           path: dist-py/
           retention-days: 14
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-npm
           path: dist-npm/
           retention-days: 14
 
-  publish-pypi:
-    needs: build
+  # Re-check after the build/checks, immediately before allowing either registry.
+  release-guard:
+    needs: [build, preflight]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify release source
+        run: bash scripts/check_release_ref.sh
+
+  publish-pypi:
+    needs: [build, preflight, release-guard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write  # mint OIDC token for PyPI Trusted Publishing
     strategy:
@@ -114,20 +171,29 @@ jobs:
           - simple_module_core
           - simple_module_db
           - simple_module_hosting
+          - simple_module_inertia
           - simple_module_test
+          - simple_module_api_tokens
+          - simple_module_audit_log
           - simple_module_auth
           - simple_module_background_tasks
+          - simple_module_branding
           - simple_module_dashboard
           - simple_module_feature_flags
           - simple_module_file_storage
+          - simple_module_keycloak
+          - simple_module_mail
           - simple_module_permissions
           - simple_module_settings
+          - simple_module_site_lock
+          - simple_module_tenants
           - simple_module_users
+          - simple_module_sharing
     environment:
       name: pypi
       url: https://pypi.org/project/${{ matrix.package }}/
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist-py
           path: dist-py/
@@ -147,10 +213,12 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: to-publish
+          skip-existing: true
 
   publish-npm:
-    needs: build
+    needs: [build, preflight, release-guard]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read    # explicit so future cache:/checkout: steps don't 403
       id-token: write   # mint OIDC token for npm Trusted Publishing
@@ -160,11 +228,11 @@ jobs:
         package: [ui, i18n, tsconfig]
     environment: npm
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist-npm
           path: dist-npm/
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: 'https://registry.npmjs.org'
@@ -188,30 +256,42 @@ jobs:
             echo "::error::refusing to publish ${files[0]}: package name is '$name', expected '$expected'"
             exit 1
           fi
+          version=$(tar -xzOf "${files[0]}" package/package.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          status=$(curl --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' \
+            "https://registry.npmjs.org/@simple-module-py%2F${{ matrix.package }}/${version}")
+          case "$status" in
+            200) echo "${name}@${version} already exists; skipping"; exit 0 ;;
+            404) ;;  # Only a missing exact version is safe to publish.
+            *) echo "::error::npm registry returned HTTP ${status} for ${name}@${version}"; exit 1 ;;
+          esac
           # Prefix with ./ so npm treats the arg as a file path, not a
           # GitHub `user/repo` shorthand (which it does for any bare
           # single-slash arg, even when the tarball exists on disk).
-          npm publish --access public "./${files[0]}"
+          tag=latest
+          if [[ "$version" == *-* ]]; then tag=next; fi
+          npm publish --access public "./${files[0]}" --tag "$tag"
 
   # Only after every publish succeeded do we commit the version bump + tag.
   finalize:
     needs: [resolve, publish-pypi, publish-npm]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Re-apply version bump
-        run: uv run python scripts/bump_version.py "${{ needs.resolve.outputs.version }}"
-      - name: Regenerate npm lockfile
-        run: npm install --package-lock-only
+      - uses: ./.github/actions/bump-version
+        with:
+          version: ${{ needs.resolve.outputs.version }}
+          cut-changelog: "true"
       - name: Commit, tag, push
         env:
           VERSION: ${{ needs.resolve.outputs.version }}
@@ -221,14 +301,26 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "release: v${VERSION}"
-            git push origin HEAD:main
           else
             echo "working tree clean — packages already published at this version, tagging HEAD"
           fi
+          # Tag the commit the packages were built from, before folding in any
+          # PR merged mid-release: a rebase would tag code that was never published.
           git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge --no-edit origin/main
+          # A concurrent merge or rejected tag must not leave only one ref updated.
+          git push --atomic origin HEAD:main "refs/tags/v${VERSION}"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.resolve.outputs.version }}
-        run: gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+        run: |
+          # Notes come from the dated CHANGELOG section cut above; fall back to
+          # generated notes only when that section is empty.
+          uv run python scripts/cut_changelog.py "${VERSION}" --notes > release-notes.md
+          if [ -s release-notes.md ]; then
+            gh release create "v${VERSION}" --title "v${VERSION}" --notes-file release-notes.md
+          else
+            gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          fi

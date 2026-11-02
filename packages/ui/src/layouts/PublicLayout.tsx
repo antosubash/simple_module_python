@@ -1,23 +1,39 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { BrandingBanner } from '../components/BrandingBanner';
+import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
-import type { SharedProps } from '../types';
+import { usePageProps } from '../hooks/usePageProps';
+import { LOGIN_PATH } from '../lib/auth-routes';
+import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/brand';
+import { useHomeUrl } from '../lib/home-url';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
-  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { t } = useT();
+  const { auth, branding } = usePageProps();
+  const homeUrl = useHomeUrl();
   const [menuOpen, setMenuOpen] = useState(false);
-  const appName = branding?.appName ?? 'simple_module';
+  const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
   const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
+  // One button, two states. The nav used to fan out over `signup.allowed`
+  // into Log in / Sign up / Open Dashboard, which advertised an account on a
+  // closed instance and made the public entry point look like a decision.
+  // A visitor either has a session or does not; nothing else belongs here.
+  const entry = auth?.isAuthenticated
+    ? { href: homeUrl, labelKey: keys.ui.public_nav.open_dashboard }
+    : { href: LOGIN_PATH, labelKey: keys.ui.public_nav.sign_in };
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <BrandingHead />
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150">
+      <BrandingBanner />
+      <nav className="sticky top-0 z-50 border-b border-border bg-background">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-8 sm:py-3.5">
           <div className="flex items-center justify-between">
             <Link href="/" className="group flex items-center gap-2.5">
@@ -28,59 +44,48 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                   className="h-8 w-8 rounded-lg object-contain shadow-md transition-transform group-hover:scale-105"
                 />
               ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105">
-                  <span className="font-bold text-white text-sm font-[var(--font-display)]">
-                    {brandInitial}
-                  </span>
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg ${BRAND_ACCENT} shadow-md shadow-primary-600/30 transition-transform group-hover:scale-105`}
+                >
+                  <span className="font-bold text-white text-sm font-display">{brandInitial}</span>
                 </div>
               )}
-              <span className="text-[15px] font-bold tracking-tight font-[var(--font-display)]">
-                {appName}
-              </span>
+              <span className="text-[15px] font-bold tracking-tight font-display">{appName}</span>
             </Link>
 
             <div className="hidden items-center gap-4 sm:flex">
               <a
-                href="https://github.com/antosubash/simple_module_python#readme"
+                href={`${BRAND_REPO_URL}#readme`}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                Docs
+                {t(keys.ui.public_nav.docs)}
               </a>
               <a
-                href="https://github.com/antosubash/simple_module_python/tree/main/modules"
+                href={`${BRAND_REPO_URL}/tree/main/modules`}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                Modules
+                {t(keys.ui.public_nav.modules)}
               </a>
               <a
-                href="https://github.com/antosubash/simple_module_python"
+                href={BRAND_REPO_URL}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                GitHub
+                {t(keys.ui.public_nav.github)}
               </a>
               <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
               <LocaleSwitcher />
-              {auth?.isAuthenticated ? (
-                <Button asChild size="sm">
-                  <a href="/dashboard/">Open Dashboard</a>
-                </Button>
-              ) : (
-                <>
-                  <Button asChild variant="ghost" size="sm">
-                    <a href="/auth/login">Log in</a>
-                  </Button>
-                  <Button asChild size="sm">
-                    <a href="/auth/login">Sign up</a>
-                  </Button>
-                </>
-              )}
+              <Button asChild variant="outline" size="sm">
+                <a href={entry.href}>{t(entry.labelKey)}</a>
+              </Button>
             </div>
 
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
-              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:hidden"
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              className="flex min-h-11 min-w-11 -mr-2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:hidden"
+              aria-label={
+                menuOpen ? t(keys.ui.public_nav.close_menu) : t(keys.ui.public_nav.open_menu)
+              }
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -88,20 +93,9 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
           {menuOpen && (
             <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:hidden">
-              {auth?.isAuthenticated ? (
-                <Button asChild className="w-full">
-                  <a href="/dashboard/">Open Dashboard</a>
-                </Button>
-              ) : (
-                <>
-                  <Button asChild className="w-full">
-                    <a href="/auth/login">Sign up</a>
-                  </Button>
-                  <Button asChild variant="outline" className="w-full">
-                    <a href="/auth/login">Log in</a>
-                  </Button>
-                </>
-              )}
+              <Button asChild variant="outline" className="w-full min-h-11">
+                <a href={entry.href}>{t(entry.labelKey)}</a>
+              </Button>
             </div>
           )}
         </div>
@@ -109,38 +103,13 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border bg-background py-6 px-4 sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary-600 to-primary-800">
-              <span className="font-bold text-white text-[10px] font-[var(--font-display)]">S</span>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              simple_module_python · MIT
-            </span>
-          </div>
-          <div className="flex gap-5 text-xs text-muted-foreground">
-            <a
-              href="https://github.com/antosubash/simple_module_python#readme"
-              className="hover:text-foreground transition-colors"
-            >
-              Docs
-            </a>
-            <a
-              href="https://github.com/antosubash/simple_module_python/releases"
-              className="hover:text-foreground transition-colors"
-            >
-              Changelog
-            </a>
-            <a
-              href="https://github.com/antosubash/simple_module_python"
-              className="hover:text-foreground transition-colors"
-            >
-              GitHub
-            </a>
-          </div>
-        </div>
-      </footer>
+      <BrandingFooter
+        appName={appName}
+        logoUrl={logoUrl}
+        links={branding?.footerLinks}
+        footerText={branding?.footerText}
+        variant="public"
+      />
     </div>
   );
 }

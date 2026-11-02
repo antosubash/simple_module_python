@@ -11,7 +11,9 @@ from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 from permissions.module import PermissionsModule
 from permissions.service import PermissionService
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_db.transaction import finalize_session
 from sqlalchemy.ext.asyncio import AsyncSession
+from users.directory import UsersDirectory
 
 # ── register_permissions hook ──────────────────────────────────
 
@@ -75,21 +77,21 @@ class TestRoleService:
     async def test_list_registered_groups(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         names = {g.name for g in svc.list_registered_groups()}
         assert {"Products", PERMISSION_GROUP} <= names
 
     async def test_get_role_permissions_not_found(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         assert await svc.get_role_permissions(uuid.uuid4()) is None
 
     async def test_set_and_get_role_permissions(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         role_id = await _seed_role(db_session)
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
 
         updated = await svc.set_role_permissions(role_id, ["products.view", "products.create"])
         assert updated is not None
@@ -103,7 +105,7 @@ class TestRoleService:
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         role_id = await _seed_role(db_session)
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         updated = await svc.set_role_permissions(role_id, ["products.view", "bogus.key"])
         assert updated is not None
         assert updated.permissions == ["products.view"]
@@ -112,7 +114,7 @@ class TestRoleService:
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         role_id = await _seed_role(db_session)
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         await svc.set_role_permissions(role_id, ["products.view", "products.create"])
         await svc.set_role_permissions(role_id, ["products.view"])
         fetched = await svc.get_role_permissions(role_id)
@@ -123,15 +125,16 @@ class TestRoleService:
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         role_id = await _seed_role(db_session)
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         await svc.set_role_permissions(role_id, ["products.view"])
+        await finalize_session(db_session)
         assert "products.view" in registry.role_map.get("user", [])
 
     async def test_load_all_into_registry(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         role_id = await _seed_role(db_session)
-        await PermissionService(db_session, registry).set_role_permissions(
+        await PermissionService(db_session, registry, UsersDirectory()).set_role_permissions(
             role_id, ["products.view"]
         )
         fresh = PermissionRegistry()
@@ -144,14 +147,14 @@ class TestUserService:
     async def test_get_user_permissions_not_found(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         assert await svc.get_user_permissions(uuid.uuid4()) is None
 
     async def test_set_and_get_user_permissions(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         user_id = await _seed_user(db_session)
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
 
         updated = await svc.set_user_permissions(user_id, ["products.view"])
         assert updated is not None
@@ -166,7 +169,7 @@ class TestUserService:
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
         user_id = await _seed_user(db_session)
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         updated = await svc.set_user_permissions(user_id, ["products.view", "bogus"])
         assert updated is not None
         assert updated.direct == ["products.view"]
@@ -176,7 +179,7 @@ class TestUserService:
     ):
         role_id = await _seed_role(db_session)
         user_id = await _seed_user(db_session, roles=[role_id])
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
 
         await svc.set_role_permissions(role_id, ["products.view"])
         await svc.set_user_permissions(user_id, ["products.view", "products.create"])
@@ -194,18 +197,19 @@ class TestUserService:
     ):
         role_id = await _seed_role(db_session)
         user_id = await _seed_user(db_session, roles=[role_id])
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
 
         await svc.set_role_permissions(role_id, ["products.view"])
         await svc.set_user_permissions(user_id, ["products.create"])
 
+        await finalize_session(db_session)
         effective = await svc.resolve_effective_permissions(user_id)
         assert effective == {"products.view", "products.create"}
 
     async def test_resolve_effective_permissions_missing_user(
         self, db_session: AsyncSession, registry: PermissionRegistry
     ):
-        svc = PermissionService(db_session, registry)
+        svc = PermissionService(db_session, registry, UsersDirectory())
         assert await svc.resolve_effective_permissions(uuid.uuid4()) == set()
 
 

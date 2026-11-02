@@ -6,7 +6,8 @@
 myapp/
 ├── pyproject.toml             # uv workspace root (members: host, modules/*) — not itself installed
 ├── package.json               # npm workspace root (host/client_app, modules/*)
-├── .env.example               # default env vars; copy to .env
+├── .env.example               # committed template, no secrets
+├── .env                       # generated secrets (gitignored)
 ├── Makefile                   # thin wrapper: install / dev / migrate / build / gen-pages
 ├── README.md
 │
@@ -35,7 +36,7 @@ myapp/
         └── … (see "Anatomy of a module" below)
 ```
 
-`smpy new --flat` skips the workspace wrapper and the sample `hello` module, emitting a single-host layout (`main.py`, `client_app/`, `migrations/` at the top level) — use it when the app only consumes published modules and never authors its own. `smpy new --preset minimal` ships fewer pre-installed modules. A `docker-compose.yml` is added only when the `background_tasks` module is included.
+`smpy new --flat` skips the workspace wrapper and the sample `hello` module, emitting a single-host layout (`main.py`, `client_app/`, `migrations/` at the top level) — use it when the app only consumes published modules and never authors its own. `smpy new --preset minimal` ships fewer pre-installed modules. Every scaffold also ships Docker assets by default: a `docker/host.Dockerfile`, a `docker-compose.yml` matched to your `--db` choice (`app` on a SQLite volume, or `postgres` + `app`; plus `redis`/`worker`/`beat` when `background_tasks` is included), a `.dockerignore`, and `make docker-up` / `docker-build` / `docker-down` targets.
 
 ## Bundled modules
 
@@ -101,7 +102,7 @@ Never hand-edit the `.generated.*` files — they are overwritten on the next `m
 
 ## Where things intentionally *don't* live
 
-- **No per-module `migrations/` folder.** All migrations live in `host/migrations/versions/`. Autogenerate discovers every installed module's metadata via `build_module_metadata()` in `host/migrations/env.py`. Each module's first migration sets a `branch_labels` marker to enable `alembic downgrade <module>@base`.
+- **No per-module `migrations/` folder.** All migrations live in `host/migrations/versions/`. Autogenerate discovers every installed module's metadata via `build_module_metadata()` in `host/migrations/env.py`. Each module's first migration sets a `branch_labels` marker, a named target for that revision (it does not make `alembic downgrade <module>@base` a per-module rollback; see [Migrations](/database/migrations)).
 - **No host-level `api/` folder.** REST endpoints are attached by each module via `register_routes(api_router, view_router)`. `/api/*` is the union of every module's API router.
 - **No `schemas/` top-level folder.** DTOs live inside the owning module's `contracts/` so other modules import them by name — the reverse of a monolith's "shared schemas" directory.
 

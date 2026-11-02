@@ -9,7 +9,7 @@ A pluggable **OIDC auth provider** backed by Keycloak. Install it *instead of* [
 | `name` | `Keycloak` |
 | `route_prefix` | `/api/keycloak` |
 | `view_prefix` | `/keycloak` |
-| `depends_on` | `["Auth", "Settings"]` |
+| `depends_on` | `["Auth"]` (optional: `["Settings"]`) |
 
 The module sets the class flag `_is_auth_provider = True`, which is what the auth-provider diagnostics count (see [below](#auth-provider-diagnostics)).
 
@@ -21,10 +21,10 @@ The module sets the class flag `_is_auth_provider = True`, which is what the aut
 @runtime_checkable
 class AuthProvider(Protocol):
     name: str
+
     async def resolve_user(self, request: Request) -> UserContext | None: ...
     def get_login_url(self, request: Request, next_url: str | None = None) -> str: ...
     def get_logout_url(self, request: Request) -> str: ...
-    def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]: ...
     def is_bearer_request(self, request: Request) -> bool: ...
 ```
 
@@ -36,11 +36,13 @@ The provider-agnostic `AuthMiddleware` (in `auth`) runs on every request and:
 
 1. Calls `provider.resolve_user(request)`. The Keycloak provider:
    - If there's an `Authorization: Bearer <token>` header, validates the JWT against the cached JWKS and maps claims → `UserContext`.
-   - Otherwise rehydrates `UserContext.from_session_dict(...)` from the browser session cookie (populated by the OIDC callback).
+   - Otherwise rehydrates `UserContext.from_session_dict(...)` from the browser session cookie (populated by the OIDC callback). At access-token expiry, a stored refresh token renews the session server-side with a five-second token-endpoint timeout. The new access token is validated through the JWKS cache, and its claims replace the cached roles and deadline before the request continues. Demoted users lose their old privileges and disabled users lose access at the next access-token expiry. A refused refresh (for example `invalid_grant`), or an expired session without a refresh token, clears authentication and requires sign-in; a network error or 5xx only signs that request out and keeps the session so the next request retries. Refresh runs at most once per request and never for bearer credentials. Parallel requests that cross the deadline may each refresh: with Keycloak's default (refresh tokens reusable) that is harmless, but a realm with **Revoke Refresh Token** enabled should set *Refresh Token Max Reuse* to at least 1, otherwise the losing request gets `invalid_grant` and signs the user out. Sessions created before refresh-token renewal shipped sign in once after upgrading. Ordinary requests do not slide the deadline.
 2. If the provider returns `None`, it falls through to the registered **principal resolvers** (`app.state.auth.principal_resolvers`), trying each until one matches.
 3. If still unresolved and the path isn't public: `/api/*` and bearer requests get a `401` JSON; browser requests are redirected to `provider.get_login_url(...)` (`/keycloak/login`), with the original URL stashed in the session as `next`.
 
-`get_public_paths()` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
+The browser session uses a signed, **unencrypted** cookie, so the refresh token is Fernet-encrypted (key derived with HKDF from `secret_key`) before it is stored; a rotated key or a tampered value counts as no refresh token and requires sign-in. To stay below the roughly 4 KB browser limit with a refresh token and role claims, the ID token is validated at sign-in but never stored. Logout first ends the SSO session back-channel (POST to the end-session endpoint with the client credentials and the refresh token; failures are logged and never block the redirect), then redirects with `client_id` instead of `id_token_hint`.
+
+`KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
 
 ## Bearer-token validation
 
@@ -55,9 +57,9 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 | Method + path | What |
 |---|---|
 | `GET /keycloak/login` | Inertia `Keycloak/Login` page (auto-redirects to the IdP). |
-| `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout (`post_logout_redirect_uri` back to `/keycloak/login`, with `id_token_hint`). |
+| `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout with `client_id` and `post_logout_redirect_uri` back to `/keycloak/logged-out`. |
 | `GET /api/keycloak/auth/login` | Builds the authorization URL (random `state` + `nonce` stored in session) and 302s to Keycloak. |
-| `GET /api/keycloak/auth/callback` | Verifies `state`, exchanges the `code` for tokens, validates the access token, upserts the user cache, writes `UserContext` + the id token to the session, then redirects to `next` (or `login_redirect_url`). |
+| `GET /api/keycloak/auth/callback` | Verifies `state`, exchanges the `code` for tokens, validates both tokens and checks the ID token nonce and matching subject. Upserts the user cache, replaces the session (preserving registered browser gate keys), writes `UserContext`, the refresh token (if returned) and access-token expiry, then redirects to the safe `next` (or `login_redirect_url`). |
 
 ## Settings
 
@@ -69,6 +71,7 @@ DB-backed via `register_module_settings("keycloak", KeycloakSettings, ...)`; boo
 | `realm` | `SM_KEYCLOAK_REALM` | `""` | realm name |
 | `client_id` | `SM_KEYCLOAK_CLIENT_ID` | `""` | also the expected JWT audience |
 | `client_secret` | `SM_KEYCLOAK_CLIENT_SECRET` | `""` | confidential-client secret |
+| `trust_tenant_claim` | `SM_KEYCLOAK_TRUST_TENANT_CLAIM` | `false` | see [Tenant claim](#tenant-claim) |
 | `roles_claim_path` | — | `"realm_access.roles"` | dotted path to the roles array in the token |
 | `admin_role` | — | `"admin"` | |
 | `login_redirect_url` | — | `"/dashboard/"` | post-login landing |
@@ -77,9 +80,19 @@ DB-backed via `register_module_settings("keycloak", KeycloakSettings, ...)`; boo
 
 `server_url`, `realm`, `client_id`, and `client_secret` are **required in production** — `KeycloakSettings` raises at boot if any is missing outside a non-prod environment. They may be left blank in development and filled in later through the settings admin UI.
 
+### Tenant claim
+
+By default the token's `tenant_id` claim is **ignored**: `UserContext.tenant_id` stays `None` and, with `multi_tenant` on and no tenant resolver, tenant-scoped queries fail closed. The claim is only as trustworthy as the realm mapper behind it: a mapper that reads a user-editable attribute lets a user pick their tenant.
+
+Set `trust_tenant_claim` (`SM_KEYCLOAK_TRUST_TENANT_CLAIM=true`) only when the realm alone controls the claim (a hardcoded or admin-only protocol mapper) and the [`tenants`](/modules/tenants) module is not installed. When `tenants` is installed its resolver decides the active tenant from `tenants_membership` on every request and the claim never wins, whether or not this setting is on, so realms may stop issuing it.
+
+The setting is read on every request, not only at sign-in: turning it off drops the tenant from sessions that already exist, without anyone signing out. A trusted claim must also be a well-formed tenant id (letters, digits, `_ . : -`, at most 50 characters); anything else is ignored and logged.
+
+Keycloak registers no setup steps: its local `users` table is legitimately empty, so a first-run wizard keyed on a superuser count would lock the install out. A Keycloak-only install creates its first organisation from `/tenants` after the first login.
+
 ### Role mapping
 
-`role_mapping` translates Keycloak realm roles (read from `roles_claim_path`) into the framework's role names. Roles the user has that aren't in the mapping are dropped, so only explicitly mapped roles reach the `UserContext`.
+`role_mapping` translates Keycloak realm roles (read from `roles_claim_path`) into the framework's role names. Roles the user has that aren't in the mapping are dropped, so only explicitly mapped roles reach the `UserContext`. A mapping onto a tenant role (`tenant:owner`, `tenant:admin`, `tenant:member`) is ignored, with a warning logged once per role: those roles come only from the `tenants` module, for the active tenant.
 
 ## Models
 
@@ -92,6 +105,17 @@ DB-backed via `register_module_settings("keycloak", KeycloakSettings, ...)`; boo
 | `email` | `str` | from the token |
 | `full_name` | `str \| None` | from `preferred_username` |
 | `last_login_at` | `datetime \| None` | refreshed on each resolve |
+
+The cache backs this module's [user directory](/framework/user-directory)
+(`keycloak.directory.KeycloakDirectory`, installed in `register_settings`), so
+the audit log, dashboard, file storage and the permissions grants screen name
+and count Keycloak users. It knows only users who have signed in at least once;
+roles are `None` (they live in the IdP) and `created_this_month` is `None`.
+`permissions` (role pages) still needs the `users` tables and declares
+`depends_on=["Users"]`, so leave it out of a Keycloak install
+(`SM_MODULES_ENABLED`). `api_tokens` only orders after `Users`: under Keycloak
+its service keys work and personal tokens are refused (the owner's roles live
+in the IdP).
 
 ## Menu
 

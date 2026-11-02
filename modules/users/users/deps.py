@@ -15,8 +15,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, Request
+from auth.deps import CurrentUser
+from fastapi import Depends, HTTPException, Request
 from fastapi_users import FastAPIUsers
+from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.events import EventBus
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,23 +50,41 @@ current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
-def get_mailer(request: Request):
+async def get_current_local_user(
+    principal: CurrentUser,
+    user_manager: UserManager = Depends(get_user_manager),
+) -> User:
+    """Load the local account authenticated by the session or bearer provider."""
+    try:
+        user = await user_manager.get(user_manager.parse_id(principal.id))
+    except (fu_exceptions.UserNotExists, fu_exceptions.InvalidID):
+        raise HTTPException(status_code=401, detail="Not authenticated") from None
+    if not user.is_active or user.disabled_at is not None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+async def get_mailer(request: Request):
     """Return the mailer from app.state.users (built in UsersModule.on_startup)."""
     return request.app.state.users.mailer
 
 
-def get_event_bus(request: Request) -> EventBus:
+async def get_event_bus(request: Request) -> EventBus:
     """Return the event bus from app.state.sm."""
     return request.app.state.sm.event_bus
 
 
 async def get_user_service(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user_manager: UserManager = Depends(get_user_manager),
 ) -> UserService:
     from users.admin.service import UserService
 
-    return UserService(db, user_manager)
+    actor = getattr(request.state, "user", None)
+    if actor is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return UserService(db, user_manager, request.app, actor=actor, request=request)
 
 
 __all__ = [
@@ -75,6 +95,7 @@ __all__ = [
     "current_superuser",
     "fastapi_users",
     "get_access_token_db",
+    "get_current_local_user",
     "get_event_bus",
     "get_mailer",
     "get_user_db",

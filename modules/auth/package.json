@@ -1,16 +1,15 @@
 {
   "name": "@simple-module-py/auth",
-  "version": "0.1.0",
+  "version": "0.0.42",
   "private": true,
   "description": "Frontend assets for the Auth module",
   "peerDependencies": {
+    "@inertiajs/react": "^3.9.1",
+    "@simple-module-py/ui": "*",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@inertiajs/react": "^2.0.0",
-    "@simple-module-py/ui": "*"
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@simple-module-py/tsconfig": "*"
-  },
-  "dependencies": {}
+  }
 }

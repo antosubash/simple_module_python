@@ -114,3 +114,111 @@ class TestMenuRegistryAdvanced:
         result = reg.get_for_user(is_authenticated=True)
         groups = [i["group"] for i in result["sidebar"]]
         assert groups == ["Administration", "System"]
+
+
+class TestPermissionFiltering:
+    """An entry that 403s on click is worse than no entry at all.
+
+    Roles alone could not express this: hard-coding ``roles=["admin"]`` hides
+    the screen from a custom role that legitimately holds the permission, while
+    still showing it to admin-adjacent roles that cannot open it.
+    """
+
+    async def test_entry_hidden_without_the_permission(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        result = reg.get_for_user(is_authenticated=True, permissions=["users.manage"])
+        assert result["sidebar"] == []
+
+    async def test_entry_shown_with_the_permission(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        result = reg.get_for_user(is_authenticated=True, permissions=["settings.view"])
+        assert [i["label"] for i in result["sidebar"]] == ["Settings"]
+
+    async def test_permission_granted_by_a_custom_role_is_enough(self):
+        """No role check involved — holding the key is what matters."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        result = reg.get_for_user(
+            is_authenticated=True, roles=["auditor"], permissions=["settings.view"]
+        )
+        assert len(result["sidebar"]) == 1
+
+    async def test_all_declared_permissions_are_required(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="X", url="/x", permissions=["a.view", "a.manage"]))
+        assert reg.get_for_user(is_authenticated=True, permissions=["a.view"])["sidebar"] == []
+        both = reg.get_for_user(is_authenticated=True, permissions=["a.view", "a.manage"])
+        assert len(both["sidebar"]) == 1
+
+    async def test_no_declared_permissions_means_no_check(self):
+        """Existing entries must keep working without opting in."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Home", url="/"))
+        assert len(reg.get_for_user(is_authenticated=True, permissions=[])["sidebar"]) == 1
+
+    async def test_omitting_permissions_entirely_hides_gated_entries(self):
+        """A caller that passes no permissions holds none — fail closed."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Settings", url="/settings/", permissions=["settings.view"]))
+        assert reg.get_for_user(is_authenticated=True)["sidebar"] == []
+
+
+_CATALOG = {
+    "users.nav.users": "Usuarios",
+    "ui.nav_groups.administration": "Administración",
+}
+
+
+class TestMenuLabelTranslation:
+    """Label/group keys resolve server-side so every render site stays dumb."""
+
+    def _translate(self, key: str) -> str:
+        # Mirrors Translator.t(), which echoes the key back when it is missing.
+        return _CATALOG.get(key, key)
+
+    async def test_keys_are_translated(self):
+        reg = MenuRegistry()
+        reg.add(
+            MenuItem(
+                label="Users",
+                url="/users/admin",
+                label_key="users.nav.users",
+                group="Administration",
+                group_key="ui.nav_groups.administration",
+            )
+        )
+        item = reg.get_for_user(is_authenticated=True, translate=self._translate)["sidebar"][0]
+        assert item["label"] == "Usuarios"
+        assert item["group"] == "Administración"
+
+    async def test_missing_key_falls_back_to_the_literal_label(self):
+        """An unresolved key must not put a raw dotted key on screen."""
+        reg = MenuRegistry()
+        reg.add(
+            MenuItem(
+                label="Reports",
+                url="/reports",
+                label_key="reports.nav.absent",
+                group="Ops",
+                group_key="ui.nav_groups.absent",
+            )
+        )
+        item = reg.get_for_user(is_authenticated=True, translate=self._translate)["sidebar"][0]
+        assert item["label"] == "Reports"
+        assert item["group"] == "Ops"
+
+    async def test_items_without_keys_ship_their_literal_label(self):
+        """Third-party modules predating label_key keep working unchanged."""
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Legacy", url="/legacy", group="Tools"))
+        item = reg.get_for_user(is_authenticated=True, translate=self._translate)["sidebar"][0]
+        assert item["label"] == "Legacy"
+        assert item["group"] == "Tools"
+
+    async def test_no_translator_ships_literal_labels(self):
+        reg = MenuRegistry()
+        reg.add(MenuItem(label="Users", url="/users/admin", label_key="users.nav.users"))
+        item = reg.get_for_user(is_authenticated=True)["sidebar"][0]
+        assert item["label"] == "Users"

@@ -1,141 +1,116 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@simple-module-py/ui/components/ui/card';
+import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
-import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
+import { type ApiResult, apiFetch, apiResult } from '@simple-module-py/ui/lib/api';
 import type { SharedProps } from '@simple-module-py/ui/types';
-import { type ChangeEvent, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { BannerField, type BannerSeverity } from '../components/BannerField';
+import { ColorField } from '../components/ColorField';
+import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
+import { type BrandingForm, countBrandingChanges } from '../components/dirty';
+import { FooterField } from '../components/FooterField';
+import { isValidColor, normalizeHex } from '../components/hex';
+import { ImageDropzones, type ImageKind } from '../components/ImageDropzones';
+import { PresetField, type PresetOption } from '../components/PresetField';
+import { PreviewTabs } from '../components/PreviewTabs';
+import { api } from './api';
 
-const DEFAULT_SWATCH = '#10b981';
-type ImageKind = 'logo' | 'favicon';
+/** Matches `BUILTIN_PRESETS[0]` in `branding/presets.py`. */
+const DEFAULT_SWATCH = '#0f766e';
+/** Mirrors `DEFAULT_APP_NAME` in `branding/settings.py`. */
+const DEFAULT_APP_NAME = 'SimpleModule';
+/** Mirrors `MAX_APP_NAME_LEN` in `branding/constants.py`. */
+const MAX_APP_NAME = 60;
 
-async function readError(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    return typeof body?.detail === 'string' ? body.detail : res.statusText;
-  } catch {
-    return res.statusText;
-  }
-}
+// ``designPacks`` and ``presets`` are page props, not shared ones: the
+// choices depend on which modules the host has installed, so only the view
+// can supply them.
+type ManageProps = SharedProps & {
+  designPacks?: DesignPackOption[];
+  presets?: PresetOption[];
+};
 
-function ImageField({
-  label,
-  help,
-  url,
-  onUpload,
-  onRemove,
-  disabled,
-}: {
-  label: string;
-  help: string;
-  url: string | null;
-  onUpload: (file: File) => void;
-  onRemove: () => void;
-  disabled: boolean;
-}) {
+function Manage(page: ManageProps) {
   const { t } = useT();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-          {url ? (
-            <img src={url} alt={label} className="h-full w-full object-contain" />
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = '';
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => inputRef.current?.click()}
-          >
-            {url ? t(keys.branding.manage.replace_button) : t(keys.branding.manage.upload_button)}
-          </Button>
-          {url && (
-            <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onRemove}>
-              {t(keys.branding.manage.remove_button)}
-            </Button>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">{help}</p>
-    </div>
-  );
-}
-
-function Manage() {
-  const { t } = useT();
-  const { auth, branding } = usePage<{ props: SharedProps }>().props as unknown as SharedProps;
+  const { auth, branding } = page;
   const canManage = auth?.permissions?.includes('branding.manage');
 
-  const [appName, setAppName] = useState(branding?.appName ?? '');
-  const [color, setColor] = useState(branding?.primaryColor ?? '');
-  const [busy, setBusy] = useState(false);
+  // What the server currently holds. Recomputed whenever an Inertia visit
+  // brings fresh props, which is how the dirty count falls back to zero after
+  // a successful publish without any explicit reset.
+  const baseline = useMemo<BrandingForm>(
+    () => ({
+      appName: branding?.appName ?? '',
+      color: branding?.primaryColor ?? '',
+      designPack: branding?.designPack ?? '',
+      bannerMessage: branding?.banner?.message ?? '',
+      bannerSeverity: (branding?.banner?.severity as BannerSeverity) ?? 'info',
+      footerText: branding?.footerText ?? '',
+      footerLinks: branding?.footerLinks ?? [],
+    }),
+    [branding],
+  );
 
-  async function run(work: () => Promise<Response>, errorMsg: string) {
+  const [form, setForm] = useState<BrandingForm>(baseline);
+  const [busy, setBusy] = useState(false);
+  const changes = countBrandingChanges(form, baseline);
+  const locked = !canManage || busy;
+  const colorValid = isValidColor(form.color);
+  const accent = normalizeHex(form.color) ?? DEFAULT_SWATCH;
+
+  const set = (patch: Partial<BrandingForm>) => setForm((current) => ({ ...current, ...patch }));
+
+  async function run(work: () => Promise<ApiResult<unknown>>, errorMsg: string) {
     setBusy(true);
-    try {
-      const res = await work();
-      if (!res.ok) throw new Error(await readError(res));
-      toast.success(t(keys.branding.manage.saved_toast));
-      router.reload();
-    } catch (err) {
-      toast.error(`${errorMsg}: ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
+    const result = await work();
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.detail ? `${errorMsg}: ${result.detail}` : errorMsg);
+      return;
     }
+    toast.success(t(keys.branding.manage.saved_toast));
+    router.reload();
   }
 
-  const saveText = () =>
+  const publish = () =>
     run(
       () =>
-        fetch('/api/branding/', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ app_name: appName, primary_color: color }),
-        }),
+        apiResult(
+          api.PUT('/api/branding/', {
+            body: {
+              app_name: form.appName,
+              primary_color: normalizeHex(form.color) ?? '',
+              design_pack: form.designPack,
+              banner_message: form.bannerMessage,
+              banner_severity: form.bannerSeverity,
+              footer_text: form.footerText,
+              footer_links: form.footerLinks,
+            },
+          }),
+        ),
       t(keys.branding.manage.error_toast),
     );
 
+  // The image routes take the kind as a path segment and the upload is
+  // multipart, so they go through the untyped twin.
   const uploadImage = (kind: ImageKind, file: File) => {
-    const form = new FormData();
-    form.append('file', file);
+    const body = new FormData();
+    body.append('file', file);
     return run(
-      () => fetch(`/api/branding/${kind}`, { method: 'POST', body: form }),
+      () => apiFetch(`/api/branding/${kind}`, { method: 'POST', body }),
       t(keys.branding.manage.upload_error_toast),
     );
   };
 
   const removeImage = (kind: ImageKind) =>
     run(
-      () => fetch(`/api/branding/${kind}`, { method: 'DELETE' }),
+      () => apiFetch(`/api/branding/${kind}`, { method: 'DELETE' }),
       t(keys.branding.manage.error_toast),
     );
 
@@ -145,117 +120,130 @@ function Manage() {
       <PageShell
         title={t(keys.branding.manage.title)}
         description={t(keys.branding.manage.description)}
+        actions={
+          <>
+            {changes > 0 && (
+              <span className="text-[13px] text-amber-700">
+                {t(keys.branding.manage.unsaved_changes, { count: changes })}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="max-lg:min-h-11"
+              disabled={locked || changes === 0}
+              onClick={() => setForm(baseline)}
+            >
+              {t(keys.branding.manage.discard)}
+            </Button>
+            {/* Nothing staged, nothing to publish: images upload on pick, so
+                with a zero change count this button would PUT the values the
+                server already holds and report success for doing nothing. */}
+            <Button
+              size="sm"
+              className="max-lg:min-h-11"
+              disabled={locked || changes === 0 || !colorValid}
+              onClick={publish}
+            >
+              {busy ? t(keys.branding.manage.publishing) : t(keys.branding.manage.publish)}
+            </Button>
+          </>
+        }
       >
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>{t(keys.branding.manage.title)}</CardTitle>
-              <CardDescription>{t(keys.branding.manage.description)}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="app_name">{t(keys.branding.manage.app_name_label)}</Label>
-                <Input
-                  id="app_name"
-                  value={appName}
-                  maxLength={60}
-                  disabled={!canManage || busy}
-                  onChange={(e) => setAppName(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t(keys.branding.manage.app_name_help)}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="primary_color">{t(keys.branding.manage.primary_color_label)}</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    aria-label={t(keys.branding.manage.primary_color_label)}
-                    value={color || DEFAULT_SWATCH}
-                    disabled={!canManage || busy}
-                    onChange={(e) => setColor(e.target.value)}
-                    className="h-9 w-12 cursor-pointer rounded border bg-transparent"
-                  />
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+          <Card className="border-border">
+            <CardContent className="flex flex-col gap-4 pt-5">
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label
+                    htmlFor="app_name"
+                    className="text-[12.5px] font-medium text-muted-foreground"
+                  >
+                    {t(keys.branding.manage.app_name_label)}
+                  </Label>
                   <Input
-                    id="primary_color"
-                    value={color}
-                    placeholder={DEFAULT_SWATCH}
-                    disabled={!canManage || busy}
-                    onChange={(e) => setColor(e.target.value)}
-                    className="max-w-40 font-mono"
+                    id="app_name"
+                    value={form.appName}
+                    maxLength={MAX_APP_NAME}
+                    disabled={locked}
+                    onChange={(e) => set({ appName: e.target.value })}
                   />
-                  {color && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => setColor('')}
-                    >
-                      {t(keys.branding.manage.remove_button)}
-                    </Button>
-                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t(keys.branding.manage.primary_color_help)}
-                </p>
+                <ColorField
+                  value={form.color}
+                  fallback={DEFAULT_SWATCH}
+                  disabled={locked}
+                  onChange={(color) => set({ color })}
+                />
               </div>
 
-              <ImageField
-                label={t(keys.branding.manage.logo_label)}
-                help={t(keys.branding.manage.logo_help)}
-                url={branding?.logoUrl ?? null}
-                onUpload={(file) => uploadImage('logo', file)}
-                onRemove={() => removeImage('logo')}
-                disabled={!canManage || busy}
-              />
-              <ImageField
-                label={t(keys.branding.manage.favicon_label)}
-                help={t(keys.branding.manage.favicon_help)}
-                url={branding?.faviconUrl ?? null}
-                onUpload={(file) => uploadImage('favicon', file)}
-                onRemove={() => removeImage('favicon')}
-                disabled={!canManage || busy}
+              {/* The *effective* colour, not the stored one: with nothing set
+                  the site already renders emerald, and a preset row where no
+                  chip is active claims the opposite. */}
+              <PresetField
+                options={page.presets ?? []}
+                activeColor={accent}
+                onSelect={(swatch) => set({ color: swatch })}
+                disabled={locked}
               />
 
-              <Button type="button" disabled={!canManage || busy} onClick={saveText}>
-                {busy ? t(keys.branding.manage.saving) : t(keys.branding.manage.save_button)}
-              </Button>
-            </CardContent>
-          </Card>
+              <BannerField
+                message={form.bannerMessage}
+                severity={form.bannerSeverity}
+                onMessageChange={(bannerMessage) => set({ bannerMessage })}
+                onSeverityChange={(bannerSeverity) => set({ bannerSeverity })}
+                disabled={locked}
+              />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t(keys.branding.manage.preview_title)}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3 rounded-lg border p-4">
-                <div
-                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg text-white"
-                  style={{ backgroundColor: color || DEFAULT_SWATCH }}
-                >
-                  {branding?.logoUrl ? (
-                    <img
-                      src={branding.logoUrl}
-                      alt={appName}
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <span className="font-bold">{(appName.trim()[0] ?? 'S').toUpperCase()}</span>
-                  )}
-                </div>
-                <span className="font-semibold">{appName || 'SimpleModule'}</span>
+              <ImageDropzones
+                logoUrl={branding?.logoUrl ?? null}
+                logoDarkUrl={branding?.logoDarkUrl ?? null}
+                faviconUrl={branding?.faviconUrl ?? null}
+                onUpload={uploadImage}
+                onRemove={removeImage}
+                disabled={locked}
+              />
+
+              <FooterField
+                text={form.footerText}
+                onTextChange={(footerText) => set({ footerText })}
+                links={form.footerLinks}
+                onChange={(footerLinks) => set({ footerLinks })}
+                disabled={locked}
+              />
+
+              <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3.5">
+                <span className="text-[12.5px] text-muted-foreground">
+                  {t(keys.branding.manage.publish_note)}
+                </span>
+                <DesignPackField
+                  options={page.designPacks ?? []}
+                  value={form.designPack}
+                  onChange={(designPack) => set({ designPack })}
+                  disabled={locked}
+                />
               </div>
             </CardContent>
           </Card>
+
+          <PreviewTabs
+            brand={{
+              appName: form.appName || DEFAULT_APP_NAME,
+              accent,
+              logoUrl: branding?.logoUrl ?? null,
+              logoDarkUrl: branding?.logoDarkUrl ?? null,
+              bannerMessage: form.bannerMessage,
+              footerText: form.footerText,
+              footerLinks: form.footerLinks,
+              menuLabels: (page.menus?.sidebar ?? []).map((item) => item.label),
+            }}
+          />
         </div>
       </PageShell>
     </>
   );
 }
 
-Manage.layout = (page: React.ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
+Manage.layout = [AdminLayout];
 
 export default Manage;

@@ -502,18 +502,14 @@ Add a new test class at the bottom of `test_api_admin.py`:
 class TestAdminResetPasswordLink:
     @pytest.mark.anyio
     async def test_nonexistent_returns_404(self, admin_client):
-        resp = await admin_client.post(
-            f"/api/users/admin/{uuid.uuid4()}/reset-password-link"
-        )
+        resp = await admin_client.post(f"/api/users/admin/{uuid.uuid4()}/reset-password-link")
         assert resp.status_code == 404
         assert resp.json()["detail"] == "User not found"
 
     @pytest.mark.anyio
     async def test_returns_link(self, admin_client, users_db):
         user = await _make_user(users_db, email="linktarget@example.com")
-        resp = await admin_client.post(
-            f"/api/users/admin/{user.id}/reset-password-link"
-        )
+        resp = await admin_client.post(f"/api/users/admin/{user.id}/reset-password-link")
         assert resp.status_code == 200
         body = resp.json()
         assert body["link"].startswith("http://testserver/users/reset-password?token=")

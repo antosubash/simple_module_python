@@ -4,17 +4,22 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
+from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 
 from background_tasks.constants import (
-    _MODULE_USERS,
+    _MODULE_SETTINGS,
     API_PREFIX,
+    LOGS_MENU_ICON,
+    LOGS_MENU_LABEL,
     MENU_ICON,
     MENU_LABEL,
     MENU_ORDER,
@@ -28,9 +33,39 @@ from background_tasks.constants import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_execution_labels(db: AsyncSession, ids: list[str]) -> dict[str, str]:
+    """Name an execution row by the task it ran.
+
+    An execution id is a uuid nobody recognises; "files.generate_thumbnail" is
+    the name the whole rest of the module — tiles, filters, detail title —
+    already uses for the same row.
+    """
+    from sqlalchemy import select
+
+    from background_tasks.models import TaskExecution
+
+    parsed: dict[uuid.UUID, str] = {}
+    for raw in ids:
+        try:
+            parsed[uuid.UUID(raw)] = raw
+        except (ValueError, AttributeError, TypeError):
+            continue
+    if not parsed:
+        return {}
+    rows = (
+        await db.execute(
+            select(TaskExecution.id, TaskExecution.task_name).where(
+                TaskExecution.id.in_(list(parsed))
+            )
+        )
+    ).all()
+    return {parsed.get(row_id, str(row_id)): name for row_id, name in rows}
 
 
 class BackgroundTasksModule(ModuleBase):
@@ -40,22 +75,13 @@ class BackgroundTasksModule(ModuleBase):
         name=MODULE_DISPLAY_NAME,
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
-        depends_on=[_MODULE_USERS],
+        optional_depends_on=[_MODULE_SETTINGS],
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        import importlib
-
         from background_tasks.services import BackgroundTasksServices
         from background_tasks.settings import BackgroundTasksSettings
-
-        # SM009 is AST-based: a static `from settings.registration import ...`
-        # from a module helper is fine (plugin→plugin), but we resolve via
-        # importlib here to match the convention used framework-side and to
-        # keep the dependency direction one-way explicit.
-        register_module_settings = importlib.import_module(
-            "settings.registration"
-        ).register_module_settings
 
         register_module_settings(
             app,
@@ -65,26 +91,71 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(PERM_GROUP, [PERM_VIEW, PERM_MANAGE])
+        registry.add_group(
+            PERM_GROUP,
+            [PERM_VIEW, PERM_MANAGE],
+            label_key="background_tasks.permission_group",
+        )
+
+    def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+        from simple_module_core.audit_links import AuditLink
+
+        from background_tasks.models import TaskExecution
+
+        registry.register(
+            AuditLink.for_model(
+                TaskExecution,
+                url_template=f"{VIEW_PREFIX}/{{id}}",
+                label="Task execution",
+                label_key="background_tasks.audit.task_execution",
+                label_resolver=_resolve_execution_labels,
+            )
+        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
-                url=VIEW_PREFIX,
+                label_key="background_tasks.nav.background_tasks",
+                url=f"{VIEW_PREFIX}/",
                 icon=MENU_ICON,
                 order=MENU_ORDER,
-                section=MenuSection.SIDEBAR,
+                section=MenuSection.ADMIN_SIDEBAR,
                 roles=["admin"],
-                group="Administration",
+                group="System",
+                group_key="ui.nav_groups.system",
+            )
+        )
+        registry.add(
+            MenuItem(
+                label=LOGS_MENU_LABEL,
+                label_key="background_tasks.nav.logs",
+                url=f"{VIEW_PREFIX}/logs",
+                icon=LOGS_MENU_ICON,
+                order=MENU_ORDER + 1,
+                section=MenuSection.ADMIN_SIDEBAR,
+                roles=["admin"],
+                group="System",
+                group_key="ui.nav_groups.system",
             )
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from background_tasks.endpoints.api_admin import router as api_admin
+        from background_tasks.endpoints.api_status import router as api_status
+        from background_tasks.endpoints.logs_api import router as logs_api
+        from background_tasks.endpoints.logs_views import router as logs_views
+        from background_tasks.endpoints.outbox_api import router as outbox_api
+        from background_tasks.endpoints.outbox_views import router as outbox_views
         from background_tasks.endpoints.views import router as views
 
         api_router.include_router(api_admin)
+        api_router.include_router(api_status)
+        api_router.include_router(outbox_api)
+        api_router.include_router(logs_api)
+        # Before ``views``: its ``/{execution_id}`` would otherwise swallow ``/outbox``.
+        view_router.include_router(outbox_views)
+        view_router.include_router(logs_views)
         view_router.include_router(views)
 
     def locale_dirs(self) -> dict[str, Path]:
@@ -93,37 +164,17 @@ class BackgroundTasksModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the Celery app, install signal handlers, hand-off to worker."""
-        import asyncio
+        from background_tasks._lifecycle import startup
 
-        from background_tasks.celery_app import build_celery
-        from background_tasks.signals import bind_event_bus
-        from background_tasks.sync_db import set_database_url
-
-        services = app.state.background_tasks
-        # Pin the sync engine to the same URL the host's async settings
-        # resolved — pydantic-settings reads ``.env`` but never propagates
-        # to ``os.environ``, so signals would otherwise fall back to the
-        # SQLite default and silently drop ``TaskExecution`` rows.
-        set_database_url(app.state.sm.settings.database_url)
-        # build_celery imports `signals` for side effects and runs
-        # `autodiscover_tasks` across every installed module.
-        services.celery = build_celery(services.settings)
-        # Let signal handlers hop onto the API loop to publish events.
-        # In a standalone worker process this bind never runs, so signals
-        # stay a silent no-op — that's the documented cross-process limit.
-        bind_event_bus(app.state.sm.event_bus, asyncio.get_running_loop())
-        logger.info(
-            "BackgroundTasks: Celery app ready (broker=%s, queue=%s)",
-            services.settings.broker_url,
-            services.settings.task_default_queue,
-        )
+        await startup(app, self.meta.name)
 
     async def on_shutdown(self, app: FastAPI) -> None:
-        from background_tasks.signals import unbind_event_bus
-        from background_tasks.sync_db import dispose_sync_engine
+        from background_tasks._lifecycle import shutdown
 
-        services = app.state.background_tasks
-        if services.celery is not None:
-            services.celery.close()
-        unbind_event_bus()
-        dispose_sync_engine()
+        await shutdown(app)
+
+    @staticmethod
+    async def _start_invalidation_transport(app: FastAPI) -> None:
+        from background_tasks._lifecycle import start_invalidation_transport
+
+        await start_invalidation_transport(app)

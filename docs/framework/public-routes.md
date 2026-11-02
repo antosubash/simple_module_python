@@ -9,7 +9,7 @@ inbound webhook, a status page) declare those routes through the
 into one `PublicRouteRegistry` at boot, and the middleware consults it on every
 request.
 
-This is the supported alternative to the legacy `AuthProvider.get_public_paths`
+This is the supported replacement for the deprecated `AuthProvider.get_public_paths`
 contract, which is **prefix-only and method-agnostic** — it cannot express
 "expose `GET /api/gis/datasets/{id}/tilejson` but keep `PATCH …/visibility`
 authenticated" because read and write routes share a prefix.
@@ -18,6 +18,7 @@ authenticated" because read and write routes share a prefix.
 
 ```python
 from simple_module_core import ModuleBase, ModuleMeta, PublicRouteRegistry
+
 
 class GisModule(ModuleBase):
     meta = ModuleMeta(name="Gis", route_prefix="/api/gis")
@@ -52,6 +53,19 @@ verb matches.
 `registry.add(route_or_pattern, *, methods=, kind=)` is the general form;
 pass a prebuilt `PublicRoute` or a string.
 
+## Rate limiting anonymous callers
+
+Every anonymous request that matches a public rule is rate-limited per client
+IP by the host (`rate_limit_public`, `120/minute` by default). A rule can carry
+its own budget, or opt out:
+
+```python
+registry.add_regex(r"/api/gis/datasets/[^/]+/tilejson$", methods={"GET"}, rate="600/minute")
+registry.add_prefix("/api/gis/stac", rate="off")
+```
+
+See [request-guards.md](request-guards.md).
+
 ## Why method-awareness matters
 
 `/api/gis/datasets/{id}/` carries both reads and mutations:
@@ -69,15 +83,30 @@ to anonymous callers.
 For each request, `AuthMiddleware` treats the path as public if **any** of:
 
 1. **Framework defaults** — `/health`, `/static/`, `/api/docs`, `/api/redoc`,
-   `/openapi.json`, `/i18n/`, the root `/`.
+   `/api/openapi.json` (only when served), `/i18n/`, the root `/`.
 2. **`app.state.public_routes`** — the `PublicRouteRegistry` (module hooks +
    `SM_AUTH_PUBLIC_PATHS`). Method-aware.
-3. **`provider.get_public_paths()`** — the auth provider's own login / register
-   routes (legacy, prefix-only). Kept for back-compat.
+3. **`provider.get_public_paths()`** — *deprecated* (removed in 0.1.0). A
+   third-party provider that still implements it is honoured, with one
+   `DeprecationWarning`; `users` and `keycloak` register their login routes in
+   the registry instead. The maintenance gate consults the registry the same way.
 
 A public path still resolves the user when a valid session is present (so a
 public landing page can show "Open Dashboard" to a logged-in visitor) — it just
 never *redirects* an anonymous caller away.
+
+## Unknown paths
+
+A path that matches **no route** is not gated: an anonymous visitor gets the
+same 404 a signed-in user does (the Inertia Error page, or JSON for `/api/*`),
+and nothing is stored as the post-login target. Only when the path isn't public
+and nobody is signed in does `AuthMiddleware` probe the app's router. A path
+counts as existing — and is gated exactly as before — if any route matches it
+fully, matches it under another method (the `405` case), or matches it only
+through the `redirect_slashes` toggle (`/admin/users/` → `/admin/users`). A
+probe that errors fails closed (gated). The 404 reveals only that the path does
+not exist, which the public 404s (an unknown `/p/{slug}`) already reveal. An
+anonymous 404 counts as an anonymous-allowed request for `rate_limit_public`.
 
 ## Host-level escape hatch
 

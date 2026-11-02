@@ -9,25 +9,34 @@ from __future__ import annotations
 
 import importlib.resources
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.public_routes import PublicRouteRegistry
 
 from branding import constants
+from branding.constants import MENU_URL
+
+if TYPE_CHECKING:
+    from simple_module_core.invalidation import InvalidationBus
 
 
 class BrandingModule(ModuleBase):
     meta = ModuleMeta(
         name="Branding",
-        route_prefix="/api/branding",
-        view_prefix="/branding",
+        route_prefix=constants.ROUTE_PREFIX,
+        view_prefix=constants.VIEW_PREFIX,
         depends_on=[constants._MODULE_SETTINGS, constants._MODULE_FILE_STORAGE],
+        # Branding's public contribution (site name, colors, design pack) rides
+        # the shared-props provider, not i18n keys — the catalog is admin forms.
+        i18n_audience="admin",
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from settings.registration import register_module_settings
+        from simple_module_core.module_settings import register_module_settings
 
         from branding.services import BrandingServices
         from branding.settings import BrandingSettings
@@ -37,32 +46,68 @@ class BrandingModule(ModuleBase):
             constants.PACKAGE,
             BrandingSettings,
             lambda s: BrandingServices(settings=s),
+            # Branding ships its own management page; the generic module-settings
+            # editor links there instead of double-editing the same fields.
+            manage_url=MENU_URL,
         )
+        # Tenants may override a subset for themselves (#373), through
+        # settings' tenant surface; resolved per request by tenant_branding.
+        from branding.tenant_definitions import register_tenant_definitions
+
+        register_tenant_definitions(app)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from branding.tenant_branding import subscribe
+
+        subscribe(bus, app)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
             "Branding",
             [constants.PERM_VIEW, constants.PERM_MANAGE],
+            label_key="branding.permission_group",
         )
+
+    def register_public_routes(self, registry: PublicRouteRegistry) -> None:
+        """Let a logged-out visitor fetch the logo and favicon.
+
+        Guests meet the brand on the sign-in page, the public landing page and
+        every ``<link rel="icon">``, so these two GETs must not 401. The rules
+        are ``exact`` + GET-only, so uploading and clearing the same paths stay
+        behind ``branding.manage``.
+        """
+        for path in (constants.LOGO_URL, constants.LOGO_DARK_URL, constants.FAVICON_URL):
+            registry.add(path, methods=["GET"], kind="exact")
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
                 label="Branding",
-                url="/branding",
+                label_key="branding.nav.branding",
+                url=MENU_URL,
                 icon="palette",
-                order=115,
-                section=MenuSection.SIDEBAR,
-                group="Administration",
-                roles=["admin"],
+                # Between Access (100) and System (110) so the admin sidebar
+                # reads Access → Appearance → System.
+                order=105,
+                section=MenuSection.ADMIN_SIDEBAR,
+                group="Appearance",
+                group_key="ui.nav_groups.appearance",
+                permissions=[constants.PERM_VIEW],
             )
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from branding.endpoints.api import router as api
+        from branding.endpoints.assets import router as assets
+        from branding.endpoints.tenant_api import router as tenant_api
         from branding.endpoints.views import router as views
 
         api_router.include_router(api)
+        # Tenant owners/admins upload their organisation's own images (#373).
+        api_router.include_router(tenant_api)
+        # Anonymous logo/favicon routes — a guest sees them on the sign-in and
+        # public pages, so they carry no permission dependency.
+        api_router.include_router(assets)
         view_router.include_router(views)
 
     async def on_startup(self, app: FastAPI) -> None:

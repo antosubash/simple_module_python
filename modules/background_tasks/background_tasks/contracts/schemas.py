@@ -6,22 +6,31 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from sqlmodel import SQLModel
 
 from background_tasks.constants import TaskStatus
 
 
 class TaskExecutionListItem(SQLModel):
-    """Compact row for the admin listing table."""
+    """Compact row for the admin listing table.
 
-    model_config = ConfigDict(from_attributes=True)
+    Carries ``args``/``kwargs`` even though the table never renders them: the
+    retry confirm opens straight from a row and has to show the payload it is
+    about to re-enqueue. Re-running a bad payload just fails the same way, so
+    the operator needs to read it *before* confirming, not on a second page.
+    """
+
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     celery_task_id: str | None = None
     task_name: str
     status: TaskStatus
     queue: str
+    tenant_id: str | None = None
+    args: list[Any] = []
+    kwargs: dict[str, Any] = {}
     retries: int
     worker: str | None = None
     queued_at: datetime | None = None
@@ -30,17 +39,28 @@ class TaskExecutionListItem(SQLModel):
     exception_type: str | None = None
     retried_from_id: uuid.UUID | None = None
 
+    @field_validator("args", mode="before")
+    @classmethod
+    def _args_none(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def _kwargs_none(cls, v: Any) -> Any:
+        return {} if v is None else v
+
 
 class TaskExecutionDetail(SQLModel):
     """Full row for the detail page (adds args/kwargs/result/traceback)."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
 
     id: uuid.UUID
     celery_task_id: str | None = None
     task_name: str
     status: TaskStatus
     queue: str
+    tenant_id: str | None = None
     args: list[Any] = []
     kwargs: dict[str, Any] = {}
     result: dict[str, Any] | None = None
@@ -49,6 +69,45 @@ class TaskExecutionDetail(SQLModel):
     worker: str | None = None
     retries: int = 0
     retried_from_id: uuid.UUID | None = None
+    owner_user_id: str | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
+    progress_phase: str | None = None
+    queued_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+
+    @field_validator("args", mode="before")
+    @classmethod
+    def _args_none(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def _kwargs_none(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
+class TaskStatusDTO(SQLModel):
+    """What the owner of a task may see of it (#536).
+
+    Deliberately narrower than :class:`TaskExecutionDetail`: no args, kwargs,
+    result or traceback, and the error is the exception's *type name* only —
+    a message or traceback can carry other users' data or server internals.
+    """
+
+    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
+
+    celery_task_id: str
+    task_name: str
+    status: TaskStatus
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
+    progress_phase: str | None = None
+    exception_type: str | None = None
     queued_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -64,6 +123,23 @@ class TaskExecutionListResponse(SQLModel):
     per_page: int
     status: TaskStatus | None = None
     task_name: str | None = None
+    queue: str | None = None
+
+
+class RetryFailedResult(SQLModel):
+    """What a bulk retry actually did.
+
+    The caller cannot compute either number: the endpoint decides which rows
+    count as retryable and caps how many it will take in one pass, so both have
+    to come back from the action rather than be inferred from what the screen
+    was showing.
+    """
+
+    queued: int
+    # Eligible rows the batch cap left behind. Non-zero means "press it again";
+    # the UI says so rather than leaving the operator to wonder why the backlog
+    # only half moved.
+    remaining: int = 0
 
 
 class WorkerInfo(SQLModel):
@@ -76,6 +152,10 @@ class WorkerInfo(SQLModel):
     pool_size: int | None = None
     total_processed: int | None = None
     software: str | None = None
+    # Seconds since this worker process started, as it reports them. ``None``
+    # for a worker that never answered ``stats()`` — an offline worker has no
+    # uptime to claim, and zero would read as "just restarted".
+    uptime_seconds: float | None = None
 
 
 class WorkerSnapshot(SQLModel):

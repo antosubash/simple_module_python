@@ -1,13 +1,21 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
   "files": {
     "includes": [
       "host/client_app/**",
       "packages/**",
       "modules/*/*/pages/**",
-      "modules/*/*/components/**",
+      "modules/*/*/**/components/**",
+      "modules/*/tests-js/**",
+      "framework/hosting/simple_module_hosting/setup_wizard/**",
+      "framework/hosting/tsconfig.json",
+      "!.claude",
+      "!**/*.md",
       "!host/client_app/modules.generated.ts",
-      "!host/client_app/modules.manifest.json"
+      "!**/*.generated.ts",
+      "!host/client_app/modules.manifest.json",
+      "!host/client_app/modules.generated.css",
+      "!host/client_app/modules.assets.json"
     ],
     "ignoreUnknown": true
   },
@@ -19,7 +27,7 @@
   },
   "linter": {
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   },
   "overrides": [
@@ -39,6 +47,9 @@
           },
           "security": {
             "noDangerouslySetInnerHtml": "off"
+          },
+          "correctness": {
+            "noComponentHookFactories": "off"
           }
         }
       }

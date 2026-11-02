@@ -9,6 +9,9 @@ build/
 .env
 
 # Built frontend assets — shipped inside the wheel via force-include but
-# NOT source-controlled. Re-run `npm run build` (or `vite build`) before
-# `uv build` to repopulate.
+# NOT source-controlled. Re-run `smpy module build` before `uv build` to
+# repopulate.
 */static/dist/
+
+# smpy module verify/build cache (throwaway scaffolded host)
+.smpy/

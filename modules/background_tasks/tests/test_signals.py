@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from background_tasks import signals as bg_signals
+from background_tasks import _signal_bus as bg_signals_bus
 from background_tasks import sync_db
 from background_tasks._signal_support import upsert_by_celery_id
 from background_tasks.constants import TaskStatus
@@ -238,7 +238,7 @@ class TestTaskFailedEvent:
     def test_no_op_when_bus_unbound(self, sync_sqlite: Path):
         """Without a bound bus (the standalone-worker case) the signal must
         still record the failure row and not raise."""
-        assert bg_signals._bus is None
+        assert bg_signals_bus._bus is None
         task_id = str(uuid.uuid4())
         on_task_publish(
             sender="demo.boom",

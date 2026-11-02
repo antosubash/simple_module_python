@@ -113,9 +113,7 @@ def test_catalog_keys_match_entry_names() -> None:
 def test_every_requires_value_is_a_known_catalog_key() -> None:
     for entry in CATALOG.values():
         for required in entry.requires:
-            assert required in CATALOG, (
-                f"{entry.name} requires unknown module {required!r}"
-            )
+            assert required in CATALOG, f"{entry.name} requires unknown module {required!r}"
 
 
 def test_presets_only_reference_known_modules() -> None:
@@ -224,23 +222,40 @@ class ModuleEntry:
 # Keys are snake_case; values mirror each module's real
 # ``ModuleMeta.depends_on`` (transcribed to catalog keys).
 CATALOG: dict[str, ModuleEntry] = {
-    "auth":             ModuleEntry("auth",             "simple_module_auth",             "Auth"),
-    "users":            ModuleEntry("users",            "simple_module_users",            "Users",            requires=("auth",)),
-    "permissions":      ModuleEntry("permissions",      "simple_module_permissions",      "Permissions",      requires=("auth", "users")),
-    "products":         ModuleEntry("products",         "simple_module_products",         "Products"),
-    "dashboard":        ModuleEntry("dashboard",        "simple_module_dashboard",        "Dashboard",        requires=("users", "products")),
-    "settings":         ModuleEntry("settings",         "simple_module_settings",         "Settings"),
-    "feature_flags":    ModuleEntry("feature_flags",    "simple_module_feature_flags",    "Feature Flags"),
-    "file_storage":     ModuleEntry("file_storage",     "simple_module_file_storage",     "File Storage",     requires=("settings",)),
-    "background_tasks": ModuleEntry("background_tasks", "simple_module_background_tasks", "Background Tasks", requires=("users",), recipe="background_tasks"),
-    "datasets":         ModuleEntry("datasets",         "simple_module_datasets",         "Datasets",         requires=("file_storage", "background_tasks")),
+    "auth": ModuleEntry("auth", "simple_module_auth", "Auth"),
+    "users": ModuleEntry("users", "simple_module_users", "Users", requires=("auth",)),
+    "permissions": ModuleEntry(
+        "permissions", "simple_module_permissions", "Permissions", requires=("auth", "users")
+    ),
+    "products": ModuleEntry("products", "simple_module_products", "Products"),
+    "dashboard": ModuleEntry(
+        "dashboard", "simple_module_dashboard", "Dashboard", requires=("users", "products")
+    ),
+    "settings": ModuleEntry("settings", "simple_module_settings", "Settings"),
+    "feature_flags": ModuleEntry("feature_flags", "simple_module_feature_flags", "Feature Flags"),
+    "file_storage": ModuleEntry(
+        "file_storage", "simple_module_file_storage", "File Storage", requires=("settings",)
+    ),
+    "background_tasks": ModuleEntry(
+        "background_tasks",
+        "simple_module_background_tasks",
+        "Background Tasks",
+        requires=("users",),
+        recipe="background_tasks",
+    ),
+    "datasets": ModuleEntry(
+        "datasets",
+        "simple_module_datasets",
+        "Datasets",
+        requires=("file_storage", "background_tasks"),
+    ),
 }
 
 
 PRESETS: dict[str, tuple[str, ...]] = {
-    "minimal":  ("users",),
+    "minimal": ("users",),
     "standard": ("users", "dashboard", "permissions"),
-    "full":     tuple(CATALOG),
+    "full": tuple(CATALOG),
 }
 
 
@@ -254,9 +269,7 @@ def expand_deps(selected: Iterable[str]) -> tuple[list[str], list[tuple[str, str
     for name in selected_list:
         if name not in CATALOG:
             available = ", ".join(sorted(CATALOG))
-            raise KeyError(
-                f"unknown module: {name!r}; available: {available}"
-            )
+            raise KeyError(f"unknown module: {name!r}; available: {available}")
 
     explicit = set(selected_list)
     resolved: list[str] = []
@@ -444,7 +457,8 @@ def run_wizard(*, default_db: str, default_tenancy: bool) -> tuple[str, bool, li
 
     if preset_name == "custom":
         picked = [
-            name for name in CATALOG
+            name
+            for name in CATALOG
             if click.confirm(f"Include {CATALOG[name].display}?", default=False)
         ]
     else:
@@ -702,7 +716,8 @@ def test_background_tasks_recipe_registered() -> None:
 def test_recipe_writes_run_worker_script(tmp_path: Path) -> None:
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(
-        tmp_path, ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",))
+        tmp_path,
+        ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",)),
     )
     script = tmp_path / "scripts" / "run_worker.py"
     assert script.is_file()
@@ -714,7 +729,8 @@ def test_recipe_writes_run_worker_script(tmp_path: Path) -> None:
 def test_recipe_writes_compose_with_redis_worker_beat(tmp_path: Path) -> None:
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(
-        tmp_path, ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",))
+        tmp_path,
+        ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",)),
     )
     compose = (tmp_path / "docker-compose.yml").read_text()
     assert "redis:" in compose
@@ -726,7 +742,8 @@ def test_recipe_writes_compose_with_redis_worker_beat(tmp_path: Path) -> None:
 def test_recipe_writes_worker_dockerfile(tmp_path: Path) -> None:
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(
-        tmp_path, ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",))
+        tmp_path,
+        ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",)),
     )
     dockerfile = (tmp_path / "docker" / "worker.Dockerfile").read_text()
     assert "FROM python:3.12-slim" in dockerfile
@@ -736,7 +753,8 @@ def test_recipe_writes_worker_dockerfile(tmp_path: Path) -> None:
 def test_recipe_appends_makefile_targets(tmp_path: Path) -> None:
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(
-        tmp_path, ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",))
+        tmp_path,
+        ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",)),
     )
     makefile = (tmp_path / "Makefile").read_text()
     assert "worker:" in makefile
@@ -747,7 +765,8 @@ def test_recipe_appends_makefile_targets(tmp_path: Path) -> None:
 def test_recipe_sets_broker_url_env_var(tmp_path: Path) -> None:
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(
-        tmp_path, ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",))
+        tmp_path,
+        ScaffoldCtx(name="demo", db="sqlite", tenancy=False, selected=("background_tasks",)),
     )
     env_text = (tmp_path / ".env.example").read_text()
     assert "SM_BG_TASKS_BROKER_URL=redis://redis:6379/0" in env_text
@@ -923,7 +942,9 @@ def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
     from simple_module_hosting.scaffolding import create_app_project
 
     target = tmp_path / "demo"
-    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=["users", "background_tasks"])
+    create_app_project(
+        target, name="demo", db="sqlite", tenancy=False, selected=["users", "background_tasks"]
+    )
 
     pyproject = (target / "pyproject.toml").read_text()
     # background_tasks selected -> dep listed
@@ -938,7 +959,9 @@ def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> 
     from simple_module_hosting.scaffolding import create_app_project
 
     target = tmp_path / "demo"
-    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=["background_tasks"])
+    create_app_project(
+        target, name="demo", db="sqlite", tenancy=False, selected=["background_tasks"]
+    )
 
     assert (target / "scripts" / "run_worker.py").is_file()
     assert (target / "docker-compose.yml").is_file()
@@ -1089,12 +1112,16 @@ def test_sm_new_with_explicit_with_flag(tmp_path: Path) -> None:
     result = runner.invoke(
         main,
         [
-            "new", "demo",
+            "new",
+            "demo",
             "--yes",
-            "--preset", "minimal",
-            "--with", "background_tasks",
+            "--preset",
+            "minimal",
+            "--with",
+            "background_tasks",
             "--no-install",
-            "--dest", str(target),
+            "--dest",
+            str(target),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -1302,6 +1329,7 @@ In `framework/hosting/simple_module_hosting/cli/__init__.py`:
 
 ```python
 from .new import new_project as _new_project
+
 main.add_command(_new_project)
 ```
 

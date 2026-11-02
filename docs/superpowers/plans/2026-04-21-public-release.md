@@ -294,6 +294,7 @@ Before touching package metadata, build the scripts that enforce the metadata ru
 
 ```python
 """Shared fixtures for the release-scripts test suite."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -339,6 +340,7 @@ git commit -m "test: add scripts/tests package for release-script unit tests"
 
 ```python
 """Tests for scripts/check_metadata.py."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -562,6 +564,7 @@ Rules:
 
 Exit code 0 on success, 1 on any violation. Prints violations to stderr.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -602,9 +605,7 @@ def check_python_package(pyproject: Path) -> list[str]:
 
     urls = project.get("urls", {})
     if str(urls.get("Repository", "")) != CANONICAL_REPO:
-        errors.append(
-            f"{rel}: project.urls.Repository must equal '{CANONICAL_REPO}'"
-        )
+        errors.append(f"{rel}: project.urls.Repository must equal '{CANONICAL_REPO}'")
 
     return errors
 
@@ -723,6 +724,7 @@ git commit -m "feat(scripts): add check_metadata.py lint for all 17 packages"
 
 ```python
 """Tests for scripts/check_readmes.py."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -795,6 +797,7 @@ Rules for every package directory (under framework/*, modules/*, packages/*):
 
 Exit 0 if all pass, 1 otherwise.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -1567,6 +1570,7 @@ class OrdersModule(ModuleBase):
 
     def register_routes(self, api_router, view_router):
         from .endpoints import api, views
+
         api_router.include_router(api.router)
         view_router.include_router(views.router)
 ```
@@ -1701,11 +1705,12 @@ Minimal `main.py`:
 from simple_module_hosting import create_app
 from simple_module_hosting.settings import Settings
 
-settings = Settings()           # reads SM_* env vars
-app = create_app(settings)      # discovers + registers every installed module
+settings = Settings()  # reads SM_* env vars
+app = create_app(settings)  # discovers + registers every installed module
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 
@@ -1903,7 +1908,8 @@ SM_USERS_BOOTSTRAP_PASSWORD=change-me
 Program:
 
 ```python
-from users.deps import CurrentUser    # type: ignore[import-not-found]
+from users.deps import CurrentUser  # type: ignore[import-not-found]
+
 
 @router.get("/profile")
 async def profile(user: CurrentUser):
@@ -2027,7 +2033,7 @@ Guard a route:
 
 ```python
 from fastapi import APIRouter, Depends
-from permissions.deps import HasPermission   # type: ignore[import-not-found]
+from permissions.deps import HasPermission  # type: ignore[import-not-found]
 
 router = APIRouter()
 
@@ -2083,12 +2089,11 @@ Declare a task in a module:
 
 ```python
 # modules/reports/reports/tasks.py
-from background_tasks import celery_app   # type: ignore[import-not-found]
+from background_tasks import celery_app  # type: ignore[import-not-found]
 
 
 @celery_app.task(name="reports.generate")
-def generate_report(report_id: int) -> None:
-    ...
+def generate_report(report_id: int) -> None: ...
 ```
 
 Register it:
@@ -2161,7 +2166,8 @@ pip install "simple-module-file-storage[s3]"
 From another module:
 
 ```python
-from file_storage.service import FileStorageService   # type: ignore[import-not-found]
+from file_storage.service import FileStorageService  # type: ignore[import-not-found]
+
 
 async def attach_receipt(
     svc: FileStorageService = Depends(FileStorageService),
@@ -2285,7 +2291,7 @@ pip install simple-module-feature-flags
 Gate a route:
 
 ```python
-from feature_flags import is_enabled   # type: ignore[import-not-found]
+from feature_flags import is_enabled  # type: ignore[import-not-found]
 from fastapi import APIRouter, Depends, HTTPException
 
 router = APIRouter()
@@ -2670,6 +2676,7 @@ git commit -m "docs: fix residual README issues flagged by check_readmes" || ech
 
 ```python
 """Tests for scripts/bump_version.py."""
+
 from __future__ import annotations
 
 import json
@@ -2745,9 +2752,7 @@ NPM_SAMPLE = {
 
 
 def test_npm_bump_updates_version_and_inter_pkg(tmp_pkg_dir: Path, writer) -> None:
-    p = writer(
-        tmp_pkg_dir / "package.json", json.dumps(NPM_SAMPLE, indent=2) + "\n"
-    )
+    p = writer(tmp_pkg_dir / "package.json", json.dumps(NPM_SAMPLE, indent=2) + "\n")
     bump_npm_package(p, "0.0.2")
     data = json.loads(p.read_text())
     assert data["version"] == "0.0.2"
@@ -2758,6 +2763,7 @@ def test_npm_bump_updates_version_and_inter_pkg(tmp_pkg_dir: Path, writer) -> No
 
 
 # -------- main() orchestration --------
+
 
 def _fake_repo(tmp_path: Path, writer) -> Path:
     writer(
@@ -2781,10 +2787,7 @@ def test_main_bumps_all(tmp_path: Path, monkeypatch, writer) -> None:
     assert main(["0.0.2"]) == 0
     assert 'version = "0.0.2"' in (tmp_path / "framework/core/pyproject.toml").read_text()
     assert 'version = "0.0.2"' in (tmp_path / "framework/db/pyproject.toml").read_text()
-    assert (
-        '"simple-module-core==0.0.2"'
-        in (tmp_path / "framework/db/pyproject.toml").read_text()
-    )
+    assert '"simple-module-core==0.0.2"' in (tmp_path / "framework/db/pyproject.toml").read_text()
     data = json.loads((tmp_path / "packages/ui/package.json").read_text())
     assert data["version"] == "0.0.2"
 
@@ -2838,6 +2841,7 @@ Usage:
   python scripts/bump_version.py 0.0.2
   python scripts/bump_version.py 0.0.2 --check
 """
+
 from __future__ import annotations
 
 import argparse
@@ -2972,7 +2976,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.dry_run:
-        print(f"(dry-run) Would bump {len(py_files)} python + {len(npm_files)} npm packages to {args.version}.")
+        print(
+            f"(dry-run) Would bump {len(py_files)} python + {len(npm_files)} npm packages to {args.version}."
+        )
         return 0
 
     print(f"Bumped {len(py_files)} python + {len(npm_files)} npm packages to {args.version}.")
@@ -3026,6 +3032,7 @@ This phase extends the existing `simple_module_hosting.cli` with a new `new` sub
 
 ```python
 """Tests for the `smpy new` / `simple-module new` CLI subcommand."""
+
 from __future__ import annotations
 
 import json
@@ -3177,9 +3184,7 @@ def create_app_project(
     exact framework versions against PyPI/npm 0.0.x.
     """
     if target.exists() and any(target.iterdir()):
-        raise FileExistsError(
-            f"Refusing to scaffold into non-empty directory: {target}"
-        )
+        raise FileExistsError(f"Refusing to scaffold into non-empty directory: {target}")
 
     _create_host(target, name=name, modules=["users", "dashboard", "permissions"])
 
@@ -3329,8 +3334,11 @@ def new_project(
     ):
         result = subprocess.run(cmd, cwd=target, check=False)
         if result.returncode != 0:
-            click.echo(f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
-                       f"finish setup manually.", err=True)
+            click.echo(
+                f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
+                f"finish setup manually.",
+                err=True,
+            )
             return
 
     # Try Alembic upgrade — best-effort.

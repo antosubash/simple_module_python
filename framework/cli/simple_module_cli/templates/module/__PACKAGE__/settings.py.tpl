@@ -1,14 +1,17 @@
-"""{{MODULE_NAME}} module settings.
+"""{{MODULE_NAME}} module settings (DB-backed).
 
-Per-module env-var prefix is ``SM_{{PACKAGE_NAME_UPPER}}_*``. Add fields here
-as the module grows; the framework wires them onto
-``app.state.{{PACKAGE_NAME}}`` via ``register_settings``.
+Values come from the pydantic defaults below at boot, then get hydrated from
+the settings table by the hosting lifespan before module ``on_startup`` runs
+(``register_module_settings`` in ``module.py`` records the class).
+``DbBackedSettings`` reads no environment variables: the DB is the only
+source. Add fields here as the module grows.
 """
 
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+from simple_module_core.settings_base import DbBackedSettings
 
 
-class {{MODULE_NAME}}Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SM_{{PACKAGE_NAME_UPPER}}_", extra="ignore")
+class {{MODULE_NAME}}Settings(DbBackedSettings):
+    model_config = SettingsConfigDict(extra="ignore")

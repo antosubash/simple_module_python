@@ -7,7 +7,7 @@ status pages) contribute exemptions here via
 collects them into one registry at boot and the middleware consults it on every
 request.
 
-Unlike the legacy ``AuthProvider.get_public_paths`` contract — a flat tuple of
+Unlike the deprecated ``AuthProvider.get_public_paths`` contract — a flat tuple of
 prefixes matched with ``str.startswith`` — a :class:`PublicRoute` is
 **method-aware** and supports prefix / exact / suffix / regex matching. That
 lets a module expose ``GET /api/gis/datasets/{id}/tilejson`` while leaving
@@ -18,6 +18,9 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+
+from simple_module_core.deprecation import deprecate
+from simple_module_core.rate_limit import parse_rate
 
 _MatchKind = str  # one of: "prefix" | "exact" | "suffix" | "regex"
 _VALID_KINDS = ("prefix", "exact", "suffix", "regex")
@@ -34,9 +37,12 @@ class PublicRoute:
         kind: How ``pattern`` is interpreted — ``"prefix"`` (default, matches
             any path that starts with it), ``"exact"``, ``"suffix"``, or
             ``"regex"`` (anchored at the start of the path via ``re.match``).
+        rate: Optional per-rule rate limit for anonymous callers, e.g.
+            ``"60/minute"``. ``None`` uses the host default; ``"off"`` exempts
+            the rule from rate limiting. Validated at construction.
     """
 
-    __slots__ = ("_regex", "kind", "methods", "pattern")
+    __slots__ = ("_regex", "kind", "methods", "pattern", "rate", "rate_spec")
 
     def __init__(
         self,
@@ -44,6 +50,7 @@ class PublicRoute:
         *,
         methods: Iterable[str] | None = None,
         kind: _MatchKind = "prefix",
+        rate: str | None = None,
     ) -> None:
         if kind not in _VALID_KINDS:
             raise ValueError(f"Unknown match kind {kind!r}; expected one of {_VALID_KINDS}")
@@ -52,6 +59,9 @@ class PublicRoute:
             None if methods is None else frozenset(m.upper() for m in methods)
         )
         self.kind = kind
+        # Parsed here so a bad value fails at registration, not on the first request.
+        self.rate_spec = parse_rate(rate)
+        self.rate = rate
         self._regex = re.compile(pattern) if kind == "regex" else None
 
     def matches(self, method: str, path: str) -> bool:
@@ -89,6 +99,7 @@ class PublicRouteRegistry:
         *,
         methods: Iterable[str] | None = None,
         kind: _MatchKind = "prefix",
+        rate: str | None = None,
     ) -> None:
         """Register a rule — either a prebuilt :class:`PublicRoute` or a pattern.
 
@@ -98,27 +109,51 @@ class PublicRouteRegistry:
         if isinstance(route, PublicRoute):
             self._routes.append(route)
         else:
-            self._routes.append(PublicRoute(route, methods=methods, kind=kind))
+            self._routes.append(PublicRoute(route, methods=methods, kind=kind, rate=rate))
 
-    def add_prefix(self, prefix: str, *, methods: Iterable[str] | None = None) -> None:
+    def add_prefix(
+        self, prefix: str, *, methods: Iterable[str] | None = None, rate: str | None = None
+    ) -> None:
         """Exempt any path starting with *prefix*."""
-        self._routes.append(PublicRoute(prefix, methods=methods, kind="prefix"))
+        self._routes.append(PublicRoute(prefix, methods=methods, kind="prefix", rate=rate))
 
-    def add_exact(self, path: str, *, methods: Iterable[str] | None = None) -> None:
+    def add_exact(
+        self, path: str, *, methods: Iterable[str] | None = None, rate: str | None = None
+    ) -> None:
         """Exempt exactly *path*."""
-        self._routes.append(PublicRoute(path, methods=methods, kind="exact"))
+        self._routes.append(PublicRoute(path, methods=methods, kind="exact", rate=rate))
 
-    def add_suffix(self, suffix: str, *, methods: Iterable[str] | None = None) -> None:
+    def add_suffix(
+        self, suffix: str, *, methods: Iterable[str] | None = None, rate: str | None = None
+    ) -> None:
         """Exempt any path ending with *suffix*."""
-        self._routes.append(PublicRoute(suffix, methods=methods, kind="suffix"))
+        self._routes.append(PublicRoute(suffix, methods=methods, kind="suffix", rate=rate))
 
-    def add_regex(self, pattern: str, *, methods: Iterable[str] | None = None) -> None:
+    def add_regex(
+        self, pattern: str, *, methods: Iterable[str] | None = None, rate: str | None = None
+    ) -> None:
         """Exempt any path whose start matches *pattern* (``re.match`` semantics)."""
-        self._routes.append(PublicRoute(pattern, methods=methods, kind="regex"))
+        self._routes.append(PublicRoute(pattern, methods=methods, kind="regex", rate=rate))
 
     def matches(self, method: str, path: str) -> bool:
         """Return ``True`` if any registered rule exempts *method* + *path*."""
         return any(route.matches(method, path) for route in self._routes)
+
+    def match(self, method: str, path: str) -> PublicRoute | None:
+        """The rule that governs *method* + *path*, if any.
+
+        A rule carrying its own ``rate=`` beats an overlapping one without, so a
+        broad rule registered earlier cannot silently shadow a narrower rate
+        override; among equals the first registered wins.
+        """
+        first = None
+        for route in self._routes:
+            if not route.matches(method, path):
+                continue
+            if route.rate is not None:
+                return route
+            first = first or route
+        return first
 
     @property
     def routes(self) -> list[PublicRoute]:
@@ -126,4 +161,28 @@ class PublicRouteRegistry:
         return list(self._routes)
 
 
-__all__ = ["PublicRoute", "PublicRouteRegistry"]
+_LEGACY_GET_PUBLIC_PATHS = deprecate(
+    "AuthProvider.get_public_paths",
+    remove_in="0.1.0",
+    use="ModuleBase.register_public_routes (method-aware PublicRouteRegistry)",
+)
+_warned_providers: set[type] = set()
+
+
+def legacy_provider_public_paths(provider: object) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """``(prefixes, exact)`` from a provider's deprecated ``get_public_paths()``.
+
+    Providers that dropped the method (users, keycloak) yield nothing. A provider
+    that still implements it keeps working until 0.1.0, with one
+    ``DeprecationWarning`` per provider class.
+    """
+    getter = getattr(provider, "get_public_paths", None)
+    if getter is None:
+        return (), ()
+    if type(provider) not in _warned_providers:
+        _warned_providers.add(type(provider))
+        _LEGACY_GET_PUBLIC_PATHS.warn(stacklevel=2)
+    return getter()
+
+
+__all__ = ["PublicRoute", "PublicRouteRegistry", "legacy_provider_public_paths"]

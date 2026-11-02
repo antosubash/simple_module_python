@@ -6,7 +6,8 @@ import uuid
 from datetime import UTC, datetime
 
 from simple_module_db.base import create_module_base
-from sqlalchemy import JSON, DateTime, Index, func
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import JSON, Index, func
 from sqlmodel import Column, Field
 
 from audit_log.constants import (
@@ -16,6 +17,7 @@ from audit_log.constants import (
     ENTITY_TYPE_MAX_LENGTH,
     MODULE_PACKAGE,
     TABLE_AUDIT_ENTRY,
+    TENANT_ID_MAX_LENGTH,
     USER_ID_MAX_LENGTH,
 )
 
@@ -31,6 +33,7 @@ class AuditEntry(Base, table=True):  # ty: ignore[unsupported-base]
         Index("ix_audit_entry_entity_id", "entity_id"),
         Index("ix_audit_entry_user_id", "user_id"),
         Index("ix_audit_entry_created_at", "created_at"),
+        Index("ix_audit_entry_tenant_created", "tenant_id", "created_at"),
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -40,8 +43,12 @@ class AuditEntry(Base, table=True):  # ty: ignore[unsupported-base]
     changes: dict | list = Field(default_factory=list, sa_column=Column(JSON))
     user_id: str | None = Field(default=None, max_length=USER_ID_MAX_LENGTH)
     correlation_id: str | None = Field(default=None, max_length=CORRELATION_ID_MAX_LENGTH)
+    # Not MultiTenantMixin on purpose: platform writes have no tenant and strict
+    # mode would raise inside the flush. NULL means a platform action; the admin
+    # screens read across tenants and filter on this column.
+    tenant_id: str | None = Field(default=None, max_length=TENANT_ID_MAX_LENGTH, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
         sa_column_kwargs={"server_default": func.now()},
     )

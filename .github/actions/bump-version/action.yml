@@ -1,0 +1,31 @@
+name: Bump package versions
+description: >-
+  Lockstep version bump shared by the release `build` and `finalize` jobs (#510):
+  every pyproject.toml and package.json, then both lockfiles. Requires uv and Node
+  to be set up already.
+inputs:
+  version:
+    description: Release version (X.Y.Z)
+    required: true
+  cut-changelog:
+    description: Roll CHANGELOG.md `[Unreleased]` into a dated section
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Bump all package versions (working tree only)
+      shell: bash
+      run: uv run python scripts/bump_version.py "${{ inputs.version }}"
+    # Workspace members are pinned in uv.lock (version + ==pins); PR CI runs
+    # `uv sync --locked`, so a bump that skips this breaks every PR after it.
+    - name: Regenerate uv lockfile
+      shell: bash
+      run: uv lock
+    - name: Regenerate npm lockfile
+      shell: bash
+      run: npm install --package-lock-only
+    - name: Cut CHANGELOG section
+      if: inputs.cut-changelog == 'true'
+      shell: bash
+      run: uv run python scripts/cut_changelog.py "${{ inputs.version }}"

@@ -9,35 +9,54 @@ from __future__ import annotations
 
 import logging
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
+from simple_module_core.discovery import discover_modules
 from simple_module_db import (
     build_module_metadata,
+    ensure_db_extensions,
     make_include_object,
     make_process_revision_directives,
     render_item,
 )
 from simple_module_hosting.settings import Settings
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import make_url
 
 logger = logging.getLogger("alembic.env")
 
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Not the default disable_existing_loggers=True: the setup wizard runs this
+    # in-process, and that default would silence every app logger until restart.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = build_module_metadata()
 include_object = make_include_object(target_metadata)
-# Re-emit expression-based indexes (e.g. ``lower(email)``) that autogenerate
-# silently drops under SQLite. See ``make_process_revision_directives`` docstring.
+# Re-emit expression-based indexes that autogenerate drops under SQLite, rewrite
+# Boolean 0/1 server defaults to sa.false()/sa.true(), and warn that SQLite cannot
+# verify expression indexes (GH #342) — see make_process_revision_directives.
 process_revision_directives = make_process_revision_directives(target_metadata)
 
 
 def _get_url() -> str:
-    """Read database URL from settings, convert async to sync driver."""
+    """Read database URL from settings, convert async to sync driver.
+
+    The resolved URL is logged so the target is never a guess. ``.env``
+    discovery walks up from the cwd and relative sqlite paths are anchored to
+    the project root, so a wrong cwd no longer silently redirects the schema —
+    but migrating the wrong database is quiet enough when it does happen
+    (a stray app.db, nothing else) that printing the target, password masked,
+    is worth the one line.
+    """
     settings = Settings()
-    return settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    url = settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    logger.info(
+        "Migrating %s (cwd=%s)", make_url(url).render_as_string(hide_password=True), Path.cwd()
+    )
+    return url
 
 
 def run_migrations_offline() -> None:
@@ -53,6 +72,8 @@ def run_migrations_offline() -> None:
         process_revision_directives=process_revision_directives,
     )
 
+    # Emit CREATE EXTENSION for what modules declare (ModuleBase.db_extensions).
+    ensure_db_extensions(None, discover_modules())
     with context.begin_transaction():
         context.run_migrations()
 
@@ -76,6 +97,11 @@ def run_migrations_online() -> None:
             render_item=render_item,
             process_revision_directives=process_revision_directives,
         )
+
+        # Extensions first, in their own committed transaction, so revisions
+        # that use their types find them installed (ModuleBase.db_extensions).
+        ensure_db_extensions(connection, discover_modules())
+        connection.commit()
 
         with context.begin_transaction():
             context.run_migrations()

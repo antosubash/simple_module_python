@@ -1,0 +1,29 @@
+{
+  "name": "@simple-module-py/{{MODULE_SLUG}}",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend assets for the {{MODULE_NAME}} module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@inertiajs/react": "^3.7.0",
+    "@simple-module-py/ui": "*"
+  },
+  "devDependencies": {
+    "@inertiajs/react": "^3.7.0",
+    "@simple-module-py/i18n": "{{FRAMEWORK_VERSION}}",
+    "@simple-module-py/tsconfig": "{{FRAMEWORK_VERSION}}",
+    "@simple-module-py/ui": "{{FRAMEWORK_VERSION}}",
+    "@types/node": "^26.5.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  },
+  "dependencies": {}
+}

@@ -1,11 +1,20 @@
 {
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    // vite.config.ts imports ./compress-assets.ts with an explicit extension so
+    // Vite's native (Node type-stripping) config loader can resolve it — that
+    // loader does no extension guessing. Legal here because base.json sets noEmit.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./*"],
       "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  // Vitest specs are excluded from tsc, matching packages/ui/tsconfig.json.
+  // They rely on @testing-library/jest-dom's matcher augmentation, which is
+  // registered through vitest.setup.ts rather than the compiler's `types`, so
+  // a plain `tsc -p` here reports every `toBeInTheDocument` as missing. Vitest
+  // still type-strips and runs them; `make test-js` is their gate.
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"]
 }

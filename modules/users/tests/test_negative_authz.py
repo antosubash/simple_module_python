@@ -17,7 +17,10 @@ import uuid
 
 import pytest
 
-_FAKE_ID = uuid.uuid4()
+# Fixed, not ``uuid4()``: the id lands in the parametrize ids, and pytest-xdist
+# refuses to run when its workers collect differently-named tests. The request
+# must be refused before any lookup, so which id it names does not matter.
+_FAKE_ID = uuid.UUID("00000000-0000-4000-8000-000000000000")
 _PROTECTED_ENDPOINTS: tuple[tuple[str, str, dict | None], ...] = (
     # users — admin sub-router
     ("GET", "/api/users/admin", None),

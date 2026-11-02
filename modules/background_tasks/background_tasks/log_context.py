@@ -10,7 +10,7 @@ Celery signals plus arbitrary domain identifiers via
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from types import MappingProxyType
@@ -46,7 +46,7 @@ def get_log_context() -> dict[str, Any]:
 
 
 @contextmanager
-def bind_task_context(**identifiers: Any) -> Iterator[None]:
+def bind_task_context(**identifiers: Any) -> Generator[None]:
     """Layer ``identifiers`` onto the current task's log context.
 
     Nests cleanly. Raises ``ValueError`` if any key collides with a

@@ -1,0 +1,55 @@
+{
+  "admin": {
+    "title": "Administration",
+    "description": "Benutzer, Zugriff, Darstellung und Systemeinstellungen verwalten.",
+    "empty": "Für Ihr Konto sind keine Administrationswerkzeuge verfügbar.",
+    "overview": "Übersicht"
+  },
+  "landing": {
+    "badge": "✦ FastAPI + Inertia als Komplettpaket",
+    "hero_title_line1": "Modulare Python-Apps,",
+    "hero_title_line2": "aus einem Baukasten",
+    "hero_subtitle": "Jede Funktion ist ein eigenständiges Modul mit eigenen Routen, Migrationen, Berechtigungen und Inertia-Ansichten. Fügen Sie es hinzu, und der Host bindet es beim Start ein.",
+    "cta_dashboard": "Dashboard öffnen",
+    "cta_get_started": "Projekt erstellen",
+    "cta_docs": "Dokumentation lesen",
+    "features": {
+      "module_system_title": "Modulsystem",
+      "module_system_description": "Legen Sie ein Paket in modules/ ab. Seine URLs, Migrationen und Menüeinträge werden automatisch registriert.",
+      "auth_title": "Authentifizierung inklusive",
+      "auth_description": "E-Mail- und Cookie-Sitzungen, Einladungen, Passwortzurücksetzung und optionales Keycloak SSO sind sofort verfügbar.",
+      "schema_title": "Schema zuerst",
+      "schema_description": "Jedes Modul deklariert seine Modelle, Routen und Berechtigungen zentral. Der Host liest diese Deklaration beim Start.",
+      "inertia_title": "Inertia-Ansichten",
+      "inertia_description": "React-Seiten direkt aus Python-Views. Keine separate API-Schicht, die synchron gehalten werden muss.",
+      "diagnostics_title": "Diagnose",
+      "diagnostics_description": "Jedes Modul kann Zustandsprüfungen registrieren. make doctor und die Doctor-Seite zeigen alle Ergebnisse.",
+      "devtools_title": "Entwicklungswerkzeuge",
+      "devtools_description": "make new-module erstellt ein funktionsfähiges Modul mit Tests und Seitengerüst."
+    },
+    "head_title": "Willkommen",
+    "copy_command": "Befehl kopieren",
+    "command_copied": "Kopiert",
+    "how_it_works_eyebrow": "So funktioniert es",
+    "how_it_works_heading": "Ein Prozess · viele Module · alles verbunden.",
+    "quickstart_eyebrow": "Schnellstart",
+    "quickstart_heading": "Funktionsfähige App in fünf Befehlen.",
+    "quickstart_body_prefix": "Starten Sie auf",
+    "quickstart_body_suffix": "mit bereits eingebundenen Benutzern, Dashboard und Berechtigungen. Melden Sie sich mit dem bei der Einrichtung erstellten Administratorkonto an.",
+    "module_users_description": "E-Mail- und Cookie-Sitzungen über fastapi-users",
+    "module_dashboard_description": "Startseite für angemeldete Benutzer mit Modulkacheln",
+    "module_permissions_description": "Berechtigungsregister pro Modul",
+    "cta_heading": "Läuft die App bereits?",
+    "cta_github": "GitHub →",
+    "copy_label": "Kopieren",
+    "terminal_helper": "Für den lokalen Betrieb ist kein Konto nötig. Die Anmeldung wird nur für die gehostete Administrationsoberfläche benötigt.",
+    "cta_body": "Öffnen Sie die Administrationsoberfläche, um Benutzer, Module und Hintergrundaufgaben zu verwalten.",
+    "cta_sign_in": "An der Administrationsoberfläche anmelden",
+    "copied_label": "✓ Kopiert"
+  },
+  "offline": {
+    "title": "Sie sind offline",
+    "description": "Änderungen werden möglicherweise erst gespeichert, wenn die Verbindung wiederhergestellt ist.",
+    "restored": "Wieder online"
+  }
+}

@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
-from simple_module_core.i18n import flatten_messages
+from simple_module_core.i18n import I18nRegistry, flatten_messages
+from simple_module_core.i18n_overrides import load_overrides
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
@@ -25,19 +26,28 @@ class I18nDiagnostics:
 
     def __init__(
         self,
-        supported_locales: list[str],
+        supported_locales: list[str] | None,
         default_locale: str,
         extra_sources: list[tuple[str, str, Path]] | None = None,
     ) -> None:
         """Build the diagnostic.
 
+        ``supported_locales`` is the set of locales this install promises to
+        ship. ``None`` means *nobody declared one* — each namespace is then
+        checked against the locale files it actually has on disk. SM013 is
+        skipped in that mode (a locale nothing promised cannot be missing),
+        but SM014/SM015 still hold every shipped translation to the default
+        locale's key set. Without this, an install that never set
+        ``SM_I18N_SUPPORTED_LOCALES`` ran no locale checks at all and drift
+        accumulated with nothing to flag it.
+
         ``extra_sources`` is an optional list of ``(reporter_name, namespace,
         locale_dir)`` triples for locale directories that aren't owned by any
         ``ModuleBase`` instance — notably the host's ``host/locales/`` and
-        the shared ``packages/ui/locales/``. ``reporter_name`` is used as the
+        the shared ``simple_module_hosting/ui_locales/``. ``reporter_name`` is used as the
         ``module_name`` field on findings for display purposes.
         """
-        self.supported_locales = list(supported_locales)
+        self.supported_locales = None if supported_locales is None else list(supported_locales)
         self.default_locale = default_locale
         self.extra_sources = list(extra_sources or [])
 
@@ -55,10 +65,14 @@ class I18nDiagnostics:
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
         per_locale_keys: dict[str, set[str]] = {}
+        declared = self.supported_locales is not None
+        locales = self.supported_locales if declared else self._locales_on_disk(locale_dir)
 
-        for locale in self.supported_locales:
+        for locale in locales or ():
             path = locale_dir / f"{locale}.json"
             if not path.is_file():
+                if not declared:
+                    continue
                 findings.append(
                     Diagnostic(
                         level=DiagnosticLevel.WARNING,
@@ -119,3 +133,89 @@ class I18nDiagnostics:
                     )
                 )
         return findings
+
+    @staticmethod
+    def _locales_on_disk(locale_dir: Path) -> list[str]:
+        """Locale tags a directory actually ships, from its ``<tag>.json`` files.
+
+        The default locale sorts first only by accident of the alphabet, which
+        does not matter: the parity comparison below looks it up by name.
+        """
+        if not locale_dir.is_dir():
+            return []
+        return sorted(path.stem for path in locale_dir.glob("*.json"))
+
+
+def check_unknown_overrides(unknown: dict[str, list[str]]) -> list[Diagnostic]:
+    """SM027: host locale overrides naming keys no catalog defines (skipped)."""
+    return [
+        Diagnostic(
+            level=DiagnosticLevel.WARNING,
+            code="SM027",
+            message=(
+                f"Host locale override ({locale}) names keys no catalog defines "
+                f"(skipped): {', '.join(keys)}"
+            ),
+            module_name="host",
+            suggestion="Overrides replace an existing key by its full dotted path; fix the typo.",
+        )
+        for locale, keys in sorted(unknown.items())
+    ]
+
+
+def unknown_overrides_for(
+    modules: list[ModuleBase],
+    extra_sources: list[tuple[str, str, Path]],
+    supported_locales: list[str] | None,
+    default_locale: str,
+) -> tuple[dict[str, list[str]], list[Diagnostic]]:
+    """Load the catalogs like the host does; return unknown override keys and findings.
+
+    Lets ``make doctor`` report SM027 without booting the app. Overrides live
+    in ``overrides/`` beside the ``host`` source's locale directory. A malformed
+    overrides file is reported as SM016 rather than raised (the running app
+    still refuses to boot on it).
+    """
+    host_dirs = [d for _, ns, d in extra_sources if ns == "host" and (d / "overrides").is_dir()]
+    if not host_dirs:
+        return {}, []
+    overrides_dir = host_dirs[0] / "overrides"
+    locales = list(supported_locales or [])
+    if not locales:
+        locales = sorted({default_locale, *(p.stem for p in overrides_dir.glob("*.json"))})
+    malformed = _malformed_overrides(overrides_dir, locales)
+    if malformed:
+        return {}, malformed
+    registry = I18nRegistry(default_locale=default_locale, supported_locales=locales)
+    for mod in modules:
+        for namespace, locale_dir in mod.locale_dirs().items():
+            registry.add_source(namespace, locale_dir)
+    for _, namespace, locale_dir in extra_sources:
+        registry.add_source(namespace, locale_dir)
+    registry.add_overrides(overrides_dir)
+    try:
+        registry.load()
+    except ValueError:
+        # A malformed module or host catalog: I18nDiagnostics reports it as SM016.
+        return {}, []
+    return registry.unknown_override_keys, []
+
+
+def _malformed_overrides(overrides_dir: Path, locales: list[str]) -> list[Diagnostic]:
+    """SM016 for each ``<locale>.json`` override file that does not parse."""
+    findings: list[Diagnostic] = []
+    for locale in locales:
+        path = overrides_dir / f"{locale}.json"
+        try:
+            load_overrides(overrides_dir, locale)
+        except ValueError as exc:
+            findings.append(
+                Diagnostic(
+                    level=DiagnosticLevel.ERROR,
+                    code="SM016",
+                    message=f"Invalid host locale overrides ({locale}): {exc}",
+                    module_name="host",
+                    file=str(path),
+                )
+            )
+    return findings

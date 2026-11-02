@@ -12,11 +12,12 @@ SQLModel's metaclass).
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import DateTime, Index, text
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import Index, false, text
 from sqlmodel import Field, Relationship
 
 from users.models._base import Base
@@ -40,22 +41,64 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
         primary_key=True,
     )
     email: str = Field(max_length=320, unique=True, index=True)
-    hashed_password: str = Field(max_length=1024)
+    # Nullable: external (SSO) users have NO local password. fastapi-users sets
+    # this for password accounts; the OAuth path leaves it ``None`` (see
+    # ``UserManager.on_after_register``).
+    hashed_password: str | None = Field(default=None, max_length=1024)
     is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
     is_verified: bool = Field(default=False)
+    # True for users provisioned via an external IdP (Microsoft/Entra, Google,
+    # GitHub, generic OIDC). They authenticate only through SSO; password login
+    # and password reset are refused. Roles are still assigned locally.
+    is_external: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": false()},
+    )
 
     full_name: str | None = Field(default=None, max_length=255)
-    tenant_id: str | None = Field(default=None, max_length=50, index=True)
     disabled_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     last_login_at: datetime | None = Field(
         default=None,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
         index=True,
     )
+    # Set when an admin created this account on someone's behalf; ``None`` for
+    # a self-signup. Both shapes are otherwise identical rows
+    # (``is_active and not is_verified``), and they call for opposite actions —
+    # resend the invite, versus wait for a person who already has the mail — so
+    # the distinction has to be stored rather than guessed. Also dates the
+    # invite, which is what makes "expires in 5d" derivable from the token
+    # lifetime.
+    invited_at: datetime | None = Field(
+        default=None,
+        sa_type=AwareDateTime(),
+    )
+    # Bumped by "sign out everywhere". Browser auth is a signed cookie, not a
+    # server-side session store, so there is no row to delete for a device that
+    # is no longer in the owner's hands; every session stamps this value at
+    # login and the auth provider refuses any that no longer matches.
+    session_version: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
+    # Login lockout (GH #530). One atomic UPDATE per failed password login bumps
+    # the count, restarting it once ``last_failed_login_at`` is older than the
+    # window; reaching the threshold stamps ``locked_until`` through the ORM so
+    # the lock is audited. See ``users.auth_local.lockout``.
+    failed_login_count: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
+    last_failed_login_at: datetime | None = Field(default=None, sa_type=AwareDateTime())
+    locked_until: datetime | None = Field(default=None, sa_type=AwareDateTime())
+
+    # Every wrong password writes these two; auditing them would bury the
+    # lock and unlock entries that matter under one entry per failed attempt.
+    __audit_exclude_fields__: ClassVar[set[str]] = {"failed_login_count", "last_failed_login_at"}
 
     roles: list["Role"] = Relationship(
         link_model=UserRole,

@@ -61,6 +61,67 @@ class TestListExecutions:
         names = [i["task_name"] for i in resp.json()["items"]]
         assert names == ["demo.bad"]
 
+    async def test_search_matches_like_metacharacters_literally(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """A literal "_" or "%" in the search must match as text, not wildcard."""
+        await _seed_failed(app, task_name="cleanup_old")
+        await _seed_failed(app, task_name="cleanupXold")
+
+        resp = await authenticated_client.get(
+            f"{ADMIN_BASE}/executions", params={"task_name": "cleanup_old"}
+        )
+        assert resp.status_code == 200
+        assert [i["task_name"] for i in resp.json()["items"]] == ["cleanup_old"]
+
+    async def test_the_search_is_spelled_q_like_the_page_and_the_sweep(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """One filter name across all three surfaces.
+
+        The page and ``retry-failed`` both take the search as ``q``; this
+        endpoint took it as ``task_name``, so a URL copied off the screen
+        listed everything and quietly looked like a filter that matched.
+        """
+        await _seed_failed(app, task_name="files.thumbnail")
+        await _seed_failed(app, task_name="users.invite")
+
+        resp = await authenticated_client.get(f"{ADMIN_BASE}/executions", params={"q": "files."})
+        assert resp.status_code == 200
+        assert [i["task_name"] for i in resp.json()["items"]] == ["files.thumbnail"]
+
+    async def test_the_old_task_name_spelling_still_filters(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """Deprecated, not removed — an existing API caller keeps working."""
+        await _seed_failed(app, task_name="files.thumbnail")
+        await _seed_failed(app, task_name="users.invite")
+
+        resp = await authenticated_client.get(
+            f"{ADMIN_BASE}/executions", params={"task_name": "users."}
+        )
+        assert resp.status_code == 200
+        assert [i["task_name"] for i in resp.json()["items"]] == ["users.invite"]
+
+    async def test_page_past_the_end_clamps_instead_of_reporting_zero(
+        self, app, authenticated_client: httpx.AsyncClient
+    ):
+        """A stale bookmark or a manually-edited ?page= must not look empty.
+
+        The listing's total rides along on a window-function column that only
+        comes back on a row that's actually returned, so a page past the last
+        one — for example after rows were retried away — could previously
+        report ``total=0`` even though matching rows exist on an earlier page.
+        """
+        await _seed_failed(app, task_name="demo.a")
+
+        resp = await authenticated_client.get(f"{ADMIN_BASE}/executions", params={"page": 9})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["page"] == 1
+        assert [i["task_name"] for i in body["items"]] == ["demo.a"]
+
 
 class TestGetExecution:
     async def test_returns_detail(self, app, authenticated_client: httpx.AsyncClient):

@@ -11,7 +11,7 @@ It's intentionally simple — a place for new installs to land that proves the p
 | `name` | `Dashboard` |
 | `route_prefix` | `/api/dashboard` |
 | `view_prefix` | `/dashboard` |
-| `depends_on` | `["Users"]` |
+| `depends_on` | `[]` |
 
 ## Routes
 
@@ -19,13 +19,27 @@ It's intentionally simple — a place for new installs to land that proves the p
 
 | Method + path | Inertia component | Permission |
 |---|---|---|
-| `GET /dashboard/` | `Dashboard/Home` | authenticated user (any role) |
+| `GET /dashboard/` | `Dashboard/Home` | authenticated user (any role); the stats need `dashboard.view` |
+| `GET /admin/doctor/` | `Dashboard/Doctor` | `admin` role |
+
+`/admin/doctor/` is a browser mirror of `make doctor` — it shows the same module list, static checks, dev-server and environment info from the stats payload. It is served from the module's `admin_view_prefix` (`/admin/doctor`) rather than its `view_prefix`, because dashboard owns both a public-facing screen and an admin one and a module gets only one view router.
+
+The route is guarded by an admin dependency, and its menu entry carries the matching `roles=["admin"]` — both, deliberately. The guard alone would leave the entry visible to every signed-in account and 403 on click; the menu gate alone would leave the page reachable by URL.
 
 ### API
 
 | Method + path | Returns | Permission |
 |---|---|---|
-| `GET /api/dashboard/stats` | `dict` (see below) | authenticated user (any role) |
+| `GET /api/dashboard/stats` | `dict` (see below) | `dashboard.view` |
+
+The stats count the whole install (`User` is not tenant-scoped), so they sit
+behind `dashboard.view`. `admin` holds it through `*`; it is mapped to no
+other role, in single- and multi-tenant installs alike — with self sign-up on,
+any registered account holds `user`, and the numbers (user counts, installed
+modules, system info) are administrative (#464). Ordinary users therefore see
+only the welcome on `/dashboard/` — which stays every account's post-login
+landing page and sidebar entry — and the API answers 403. Grant it to a role in
+the role editor to change that.
 
 `/api/dashboard/stats` is what the page itself calls; you can hit it from your own UI or scripts. Response shape:
 
@@ -33,6 +47,7 @@ It's intentionally simple — a place for new installs to land that proves the p
 {
   "total_users": 12,
   "active_users_7d": 3,
+  "users_created_this_month": 2,
   "module_count": 8,
   "system_info": {
     "python_version": "3.12.4",
@@ -42,21 +57,25 @@ It's intentionally simple — a place for new installs to land that proves the p
 }
 ```
 
+The three user figures come from the app's [user directory](/framework/user-directory) (`stats()`), so they count whichever auth provider holds the accounts. A figure the provider cannot give is `null` and its tile is hidden: under `keycloak` `users_created_this_month` is `null` (the cache only learns of a user at first sign-in), and with no auth provider all three are.
+
 The result is cached process-wide for 30 seconds. If you mutate something that should change the numbers (e.g. seed users from a script), call `dashboard.stats.invalidate_stats_cache()` to clear it on the next call.
 
 ## Menu
 
-| Label | URL | Icon | Section | Order |
-|---|---|---|---|---|
-| `Dashboard` | `/dashboard/` | `home` | `SIDEBAR` | `10` |
+| Label | URL | Icon | Section | Group | Order | Roles |
+|---|---|---|---|---|---|---|
+| `Dashboard` | `/dashboard/` | `home` | `SIDEBAR` | — | `10` | — |
+| `Doctor` | `/admin/doctor/` | `stethoscope` | `ADMIN_SIDEBAR` | `System` | `220` | `admin` |
 
 ## Permissions
 
-_(none registered)_ — the page is gated by authentication only, via the `users` module's `AuthMiddleware`.
+`dashboard.view` (group `Dashboard`) — the platform-wide stats, on `/api/dashboard/stats` and the `/dashboard/` page. Held by `admin` only by default. `/dashboard/` itself is gated by authentication only, via the `users` module's `AuthMiddleware`. `/admin/doctor/` is gated by the `admin` role rather than a registered permission.
 
 ## Inertia pages
 
 - `Dashboard/Home.tsx` — single page rendering the stats card, system info card, and welcome card. Kept simple on purpose so it's a useful starting template for a custom landing page.
+- `Dashboard/Doctor.tsx` — the `make doctor` mirror (module list, static checks, dev-server + environment info).
 
 ## Locales
 

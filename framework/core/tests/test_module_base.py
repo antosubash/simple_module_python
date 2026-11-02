@@ -35,7 +35,7 @@ class TestModuleMeta:
     async def test_frozen(self):
         meta = ModuleMeta(name="Frozen")
         with pytest.raises(AttributeError):
-            meta.name = "Changed"  # type: ignore[misc]
+            meta.name = "Changed"
 
 
 class DummyModule(ModuleBase):
@@ -55,7 +55,7 @@ class TestModuleBase:
 
     async def test_register_routes_override(self):
         mod = DummyModule()
-        mod.register_routes(None, None)  # type: ignore[arg-type]
+        mod.register_routes(None, None)
         assert mod.routes_registered is True
 
     async def test_default_noop_methods(self):
@@ -124,6 +124,28 @@ class TestModuleNewHooks:
         assert reg.matches("GET", "/api/with-public/stac/collections")
         assert reg.matches("GET", "/api/with-public/datasets/9/tilejson")
         assert not reg.matches("PATCH", "/api/with-public/datasets/9/tilejson")
+
+    async def test_register_design_packs_default_noop(self):
+        from simple_module_core.design_packs import DesignPackRegistry
+
+        mod = DummyModule()
+        reg = DesignPackRegistry()
+        mod.register_design_packs(reg)
+        assert reg.all() == []
+
+    async def test_register_design_packs_override(self):
+        from simple_module_core.design_packs import DesignPack, DesignPackRegistry
+
+        class ModWithPack(ModuleBase):
+            meta = ModuleMeta(name="WithPack")
+
+            def register_design_packs(self, registry):
+                registry.register(DesignPack(value="with-pack", label="With Pack"))
+
+        reg = DesignPackRegistry()
+        ModWithPack().register_design_packs(reg)
+        assert reg.has("with-pack")
+        assert [p.label for p in reg.all()] == ["With Pack"]
 
 
 class TestModuleAssetHooks:

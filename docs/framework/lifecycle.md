@@ -2,7 +2,9 @@
 
 `ModuleBase` defines a set of lifecycle hooks. All are no-ops by default — override the ones you need.
 
-At boot, for each module (in topological order), the framework calls them in this sequence:
+At boot, the framework calls hooks in this sequence. Each phase visits modules
+in topological order: settings first for all modules, then registrations per
+module, then exception handlers, middleware and routes.
 
 ```
 register_settings
@@ -10,11 +12,22 @@ register_menu_items
 register_permissions
 register_feature_flags
 register_event_handlers
+register_invalidations
 register_health_checks
 register_public_routes
+register_body_limits
+register_cors_policies
+register_rate_limits
+register_setup_steps
+register_csp_sources
+register_design_packs
+register_audit_links
+register_resource_types
 register_exception_handlers
 register_middleware
 register_routes
+register_admin_routes       (only when meta.admin_view_prefix is set)
+-- check_data_compatibility (async, before module settings hydration)
 -- on_startup (async, after middleware is installed)
 ```
 
@@ -40,14 +53,16 @@ Add entries to the global `MenuRegistry`. Items are grouped by `MenuSection` and
 
 ```python
 def register_menu_items(self, registry: MenuRegistry) -> None:
-    registry.add(MenuItem(
-        section=MenuSection.SIDEBAR,
-        label="orders.menu.orders",     # i18n key, resolved client-side
-        url="/orders",
-        icon="package",
-        roles=["admin"],                # empty = all authenticated users
-        order=20,
-    ))
+    registry.add(
+        MenuItem(
+            section=MenuSection.SIDEBAR,
+            label="orders.menu.orders",  # i18n key, resolved client-side
+            url="/orders",
+            icon="package",
+            roles=["admin"],  # empty = all authenticated users
+            order=20,
+        )
+    )
 ```
 
 `roles` filters the item to users holding at least one of the listed roles (empty list = visible to all authenticated users); `requires_auth` (default `True`) hides it from anonymous visitors. `order` is a stable sort key (lower = earlier).
@@ -60,23 +75,31 @@ Declare permission strings your module enforces. Grouped by a display name for t
 
 ```python
 def register_permissions(self, registry: PermissionRegistry) -> None:
-    registry.add_group("Orders", [
-        "orders.view", "orders.create", "orders.edit", "orders.delete",
-    ])
+    registry.add_group(
+        "Orders",
+        [
+            "orders.view",
+            "orders.create",
+            "orders.edit",
+            "orders.delete",
+        ],
+    )
 ```
 
-Permissions become available in the role admin UI (`/settings/permissions`). See [Permissions](/framework/permissions).
+Permissions become available in the role admin UI (`/admin/users/` (Roles tab)). See [Permissions](/framework/permissions).
 
 ## `register_feature_flags(registry)`
 
-Declare feature flags with defaults. The admin can toggle them at `/settings/feature-flags`.
+Declare feature flags with defaults. The admin can toggle them at `/admin/feature-flags/`.
 
 ```python
 def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
-    registry.add(FeatureFlagDefinition(
-        name="orders.new_checkout",
-        default_enabled=False,
-    ))
+    registry.add(
+        FeatureFlagDefinition(
+            name="orders.new_checkout",
+            default_enabled=False,
+        )
+    )
 ```
 
 Query from code:
@@ -87,20 +110,36 @@ if flags.is_enabled("orders.new_checkout", tenant_id=request.state.tenant_id):
     ...
 ```
 
-## `register_event_handlers(bus)`
+## `register_event_handlers(bus, app=None)`
 
 Subscribe to events on the in-process `EventBus`. Handlers can be sync or async; the bus awaits async ones.
 
 ```python
-def register_event_handlers(self, bus: EventBus) -> None:
+def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
     from orders.contracts.events import OrderPlaced
+
     bus.subscribe(OrderPlaced, self._on_order_placed)
 
-async def _on_order_placed(self, event: OrderPlaced) -> None:
-    ...
+
+async def _on_order_placed(self, event: OrderPlaced) -> None: ...
 ```
 
 Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
+
+`app` is optional. Take it when a handler needs `app.state.sm.db.session_factory` to persist on the framework's engine rather than building its own. The framework inspects your signature and calls the one-argument form `(self, bus)` when that is what you declared, so modules written before `app` existed keep working unchanged.
+
+## `register_invalidations(bus, app)`
+
+Subscribe this module's per-process caches to the `InvalidationBus`, so another worker's write drops this worker's entry:
+
+```python
+def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+    bus.subscribe("orders.totals", lambda inv: _TOTALS.pop(inv.key, None))
+```
+
+Handlers may be sync or async, and may only **forget** — the bus carries no delivery guarantee, so a handler that wrote to the database would do it an unknowable number of times. Publishing needs no hook: reach the same bus at `request.app.state.sm.invalidation` from a `db.on_commit` callback.
+
+Whether an invalidation reaches other processes depends on a transport being installed (`background_tasks` installs a Redis one), so every cache keeps its TTL as a floor. See [Cache invalidation](/framework/invalidation).
 
 ## `register_health_checks(registry)`
 
@@ -110,11 +149,96 @@ Register named async checks. They're surfaced at `/health/ready`:
 def register_health_checks(self, registry: HealthRegistry) -> None:
     registry.add(HealthCheck(name="orders.db", check=self._check_db))
 
-async def _check_db(self) -> HealthCheckResult:
-    ...
+
+async def _check_db(self) -> HealthCheckResult: ...
 ```
 
 Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently and reports the worst status (a raising check counts as `UNHEALTHY`).
+
+## `register_body_limits(registry)`
+
+Raise (or lower) the request-body ceiling for specific routes — the host
+refuses any body over `max_request_body_bytes` (10 MiB by default) with a 413
+before the route runs. A multipart upload endpoint declares what it needs:
+
+```python
+def register_body_limits(self, registry) -> None:
+    registry.add_exact("/api/media/upload", 200 * 1024 * 1024, methods={"POST"})
+```
+
+See [request-guards.md](request-guards.md).
+
+## `register_rate_limits(registry)`
+
+Per-route rate limits for anonymous and signed-in requests, keyed by user, IP
+or tenant: `registry.add_prefix("/api/x/", RateLimitRule("10/minute", key="user"))`.
+See [request-guards.md](request-guards.md).
+
+## `register_setup_steps(registry)`
+
+Called after `register_rate_limits` and before `register_csp_sources`. Declare
+what an install still needs before it is usable:
+
+```python
+from simple_module_core import SetupRegistry, SetupStep
+
+
+def register_setup_steps(self, registry: SetupRegistry) -> None:
+    registry.add(
+        SetupStep(
+            id="orders.catalog",
+            title="Prepare the order catalog",
+            title_key="orders.setup.catalog.title",
+            is_complete=self._has_catalog,
+            order=30,
+        )
+    )
+
+
+async def _has_catalog(self, app: FastAPI) -> bool:
+    return await app.state.orders.catalog_is_ready()
+```
+
+While any required step is incomplete, `SetupMiddleware` redirects to the
+wizard at `/setup`. A step can provide a `SetupAction` to complete it in the
+browser; its action runs only while that step is pending. Without an action,
+the step must be completed out of band. Registering nothing opts out of the
+gate. See [First-run setup steps](../module-authoring.md#first-run-setup-steps)
+for action fields, translations and concurrency rules.
+
+## `register_csp_sources(registry)`
+
+Whitelist external origins your frontend loads assets from — a font CDN, a
+tile server, an analytics endpoint. The host ships a strict
+Content-Security-Policy; without a declaration the browser blocks the request.
+
+```python
+def register_csp_sources(self, registry) -> None:
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives (`style-src`, `font-src`, `img-src`, `connect-src`, …)
+can be extended — never `default-src`, `base-uri`, `form-action`, or
+`frame-ancestors`, which belong to the host operator. Each source must be a
+single origin/scheme token; invalid declarations raise at boot. The origins
+land in both the development (Vite-widened) and production policies.
+
+The hook runs before DB-backed settings are hydrated, so an origin that comes
+from a setting can't be a static `add()`. Register a provider instead — it is
+called on every response with the app and returns `(directive, source)` pairs:
+
+```python
+def register_csp_sources(self, registry) -> None:
+    registry.add_provider(lambda app: [("img-src", app.state.maps.settings.tile_origin)])
+```
+
+Providers must be synchronous and read only in-memory state
+(`app.state.<pkg>.settings`), never the database. Their pairs go through the
+same validation as `add()`; a provider that raises, or an invalid pair, is
+logged once and dropped — the static policy still applies. The finished policy
+is cached by the pairs returned, so a settings edit takes effect on the next
+response. With no providers the header is the precomputed boot-time string.
 
 ## `register_exception_handlers(app)`
 
@@ -124,9 +248,8 @@ Register FastAPI exception handlers scoped to your module's exceptions:
 def register_exception_handlers(self, app: FastAPI) -> None:
     app.add_exception_handler(OrderNotFound, self._handle_not_found)
 
-async def _handle_not_found(
-    self, request: Request, exc: OrderNotFound
-) -> Response:
+
+async def _handle_not_found(self, request: Request, exc: OrderNotFound) -> Response:
     return JSONResponse({"detail": str(exc)}, status_code=404)
 ```
 
@@ -148,9 +271,7 @@ When two modules at the same dependency tier both add middleware, the module tha
 Mount your API and Inertia view routers onto the two framework-provided routers.
 
 ```python
-def register_routes(
-    self, api_router: APIRouter, view_router: APIRouter
-) -> None:
+def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
     from orders.endpoints.api import router as api
     from orders.endpoints.views import router as views
 
@@ -163,6 +284,84 @@ def register_routes(
 
 The framework **auto-applies** `ModuleMeta.route_prefix` / `view_prefix` — `create_app` constructs each router already prefixed (`APIRouter(prefix=module.meta.route_prefix)`), so your `include_router` calls usually pass no further prefix (add one only for a sub-grouping *inside* the module's own prefix).
 
+## `register_admin_routes(admin_router)`
+
+A **second** view router, for modules that serve both public and admin pages and so cannot express both under one `view_prefix`. Called only when `ModuleMeta.admin_view_prefix` is set; the router arrives pre-built with that prefix.
+
+```python
+meta = ModuleMeta(
+    name="Users",
+    view_prefix="/users",  # sign-in, self-service
+    admin_view_prefix="/admin/users",  # management CRUD
+)
+
+
+def register_admin_routes(self, admin_router: APIRouter) -> None:
+    from users.admin.views import router as admin_views
+
+    admin_router.include_router(admin_views)
+```
+
+A module gets exactly one view router, which is fine for a pure-admin module — it just points `view_prefix` at `/admin/...` and needs none of this. The second router exists for the cases where that doesn't work: `users` keeps `/users/login` public while its CRUD lives at `/admin/users`, and `dashboard` keeps `/dashboard/` while Doctor lives at `/admin/doctor`.
+
+Both the field and the hook are additive and default to no-op, so a module written before they existed is unaffected.
+
+> Putting a screen in the admin section means moving **three** things together: the URL (here), the menu registration (`MenuSection.ADMIN_SIDEBAR` in `register_menu_items`), and the layout the page renders in (`AdminLayout`). Change one and you get a page whose sidebar no longer lists it — a failure nothing about the diff makes obvious.
+
+## `register_audit_links(registry)`
+
+Teach the audit log how to link an entry back to the entity it describes, so a row reads as a link to the record rather than a bare type name.
+
+```python
+def register_audit_links(self, registry: AuditLinkRegistry) -> None:
+    from users.models import User
+
+    registry.register(
+        AuditLink.for_model(
+            User,  # fills entity_type=User.__name__ (NOT __tablename__) and table_name
+            url_template="/admin/users/{id}",
+            label="User",
+            label_key="users.audit.user",
+        )
+    )
+```
+
+`entity_type` matches `AuditEntry.entity_type`, which `snapshot_changes` writes as `type(obj).__name__`. Keying it off `__tablename__` (`"users_user"`) produces a link that never matches — and nothing errors: an unmatched lookup falls back to rendering `entity_type` as a plain label, so the row still shows text while silently never becoming a link. `AuditLink.for_model(Model, ...)` fills `entity_type` from `Model.__name__` and `table_name` from `Model.__tablename__`, so a rename or a table-name mix-up is impossible; the plain `AuditLink(...)` constructor stays available for links without a model class.
+
+`url_template` must contain the literal `{id}` placeholder, substituted with the entity id. A template without it raises at boot rather than pointing every row at the same page.
+
+`label_key` translates the label the same way `MenuItem.label_key` does, falling back to `label` when the key resolves to nothing. Rows are rendered server-side, so the audit view translates these before they reach the page.
+
+`label_resolver` names individual rows — a batch callable taking the request session and every id of that type on the page, returning `{id: display name}`. Only the owning module knows that a `Setting` is named by its key and a `User` by `full_name or email`, and without one the reader gets a bare primary key.
+
+`label_permission` gates that name. **Set it whenever naming the row discloses something the module gates elsewhere.** The name travels inside the audit payload, so no downstream route ever gets the chance to refuse it — a reader holding `audit_log.view` and nothing else would otherwise read the display name (and, for accounts with an outstanding invite, the email) of every account that has ever been edited. `users` therefore declares `users.manage`. Readers without it still see the entry, the action and the id; they just do not get the name. Leaving it empty — the default — says the name is safe for anyone who may read the trail at all, which is true of setting keys, filenames and task names.
+
+A link is a route, not an authorisation: apart from `label_permission`, the registry does not check that the row still exists or that the reader may open it. A link to a deleted record lands on the target screen's own 404, and permissions are enforced by the target route as usual.
+
+## `register_resource_types(registry)`
+
+Declare a resource type whose rows carry object-level access (owner, shares,
+public), so cross-cutting code such as the `sharing` module can find its
+policy and load a row by id. See [Resource-scoped access](./resource-access.md).
+
+```python
+def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
+    registry.register(
+        ResourceType(name="notes.note", policy=NOTE_POLICY, select_by_id=select_by_id(Note))
+    )
+```
+
+## `check_data_compatibility(db)`
+
+This async read-only hook returns a sequence of `DataCompatibilityIssue` frozen
+dataclasses (`upgrade_id`, `message`, `severity="warning"|"error"`), empty by default.
+Use stable semantic ids and inspect actual schema/data state so hosts with
+independently ported revisions pass. Checks run before module DB-settings
+hydration and `on_startup`; errors refuse boot outside development. A never-
+migrated first run defers checks until migrations have been applied. Doctor
+reports the same issues as `SM033`. Checks must never clear credentials or apply
+migrations; see [Migrations](../database/migrations.md).
+
 ## `on_startup()` / `on_shutdown()`
 
 Async lifespan hooks that run after all modules are registered.
@@ -170,6 +369,7 @@ Async lifespan hooks that run after all modules are registered.
 ```python
 async def on_startup(self, app: FastAPI) -> None:
     await self._worker_pool.start()
+
 
 async def on_shutdown(self, app: FastAPI) -> None:
     await self._worker_pool.stop()
@@ -202,11 +402,21 @@ class OrdersModule(ModuleBase):
     def register_permissions(self, registry): ...
     def register_feature_flags(self, registry): ...
     def register_event_handlers(self, bus, app=None): ...
+    def register_invalidations(self, bus, app): ...
     def register_health_checks(self, registry): ...
     def register_public_routes(self, registry): ...
+    def register_body_limits(self, registry): ...
+    def register_cors_policies(self, registry): ...
+    def register_rate_limits(self, registry): ...
+    def register_setup_steps(self, registry): ...
+    def register_csp_sources(self, registry): ...
+    def register_design_packs(self, registry): ...
+    def register_audit_links(self, registry): ...
+    def register_resource_types(self, registry): ...
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
     def register_routes(self, api_router, view_router): ...
+    def register_admin_routes(self, admin_router): ...
 
     async def on_startup(self, app): ...
     async def on_shutdown(self, app): ...

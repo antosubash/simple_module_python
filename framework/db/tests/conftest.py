@@ -5,21 +5,34 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
-from _models import _TenantBase
-from simple_module_db.listeners import register_listeners
-from simple_module_db.session import init_db
+from _bulk_audit_support import audited_engine
+from _models import _tenant_session, _TenantBase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.fixture
 async def tenant_session() -> AsyncGenerator[AsyncSession, None]:
     """Session backed by in-memory SQLite with tenant listeners registered."""
-    db_state = init_db("sqlite+aiosqlite:///:memory:")
-    try:
-        register_listeners(db_state)
-        async with db_state.engine.begin() as conn:
-            await conn.run_sync(_TenantBase.metadata.create_all)
-        async with db_state.session_factory() as session:
-            yield session
-    finally:
-        await db_state.engine.dispose()
+    async for session in _tenant_session(_TenantBase.metadata, strict=False):
+        yield session
+
+
+@pytest.fixture
+async def strict_session() -> AsyncGenerator[AsyncSession, None]:
+    """Like ``tenant_session``, with fail-closed isolation (``multi_tenant`` on)."""
+    async for session in _tenant_session(_TenantBase.metadata, strict=True):
+        yield session
+
+
+@pytest.fixture
+async def acme_default_session() -> AsyncGenerator[AsyncSession, None]:
+    """Single-tenant install with ``default_tenant="acme"``."""
+    async for session in _tenant_session(_TenantBase.metadata, strict=False, default_tenant="acme"):
+        yield session
+
+
+@pytest.fixture
+async def audited():
+    """``(state, session, recorder)``: an engine whose audit sink records (#557)."""
+    async for value in audited_engine():
+        yield value

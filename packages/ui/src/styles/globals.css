@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -27,7 +28,8 @@
   --color-landing-bg: oklch(0.13 0.02 250);
   --color-dark-text: oklch(0.9 0.005 250);
   --color-dark-text-muted: oklch(0.6 0.01 250);
-  --color-dark-text-subtle: oklch(0.45 0.01 250);
+  /* 5.5:1 on the auth aside (#03080f), above AA's 4.5 (#414). */
+  --color-dark-text-subtle: oklch(0.62 0.01 250);
   --color-dark-border: oklch(0.35 0.01 250);
   --color-dark-border-hover: oklch(0.5 0.01 250);
 
@@ -35,18 +37,12 @@
   --color-app-sidebar: oklch(0.16 0.02 250);
   --color-app-sidebar-hover: oklch(0.22 0.02 250);
   --color-app-sidebar-text: oklch(0.88 0.005 250);
-  --color-app-sidebar-text-muted: oklch(0.55 0.01 250);
+  /* 5.33:1 on the sidebar; 4.75:1 on account-row hover (#670). */
+  --color-app-sidebar-text-muted: oklch(0.62 0.01 250);
 
   /* Sidebar icon/text tones */
   --color-sidebar-icon: oklch(0.75 0.005 250);
   --color-sidebar-icon-muted: oklch(0.55 0.005 250);
-
-  /* Admin sidebar — deep cool red-tinted */
-  --color-admin-bg: oklch(0.13 0.02 350);
-  --color-admin-hover: oklch(0.19 0.02 350);
-  --color-admin-text: oklch(0.65 0.01 350);
-  --color-admin-text-muted: oklch(0.5 0.01 350);
-  --color-admin-text-subtle: oklch(0.55 0.01 350);
 
   /* Stat card accents — Amber */
   --color-emerald-border: oklch(0.85 0.06 85);
@@ -226,6 +222,14 @@
 
 /* ── Base Styles ────────────────────────────────────────────── */
 @layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

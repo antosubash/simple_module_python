@@ -48,10 +48,12 @@ import {
   Menu,
   MessageSquare,
   Package,
+  Palette,
   Pencil,
   Plus,
   RefreshCw,
   Save,
+  ScrollText,
   Search,
   Send,
   Server,
@@ -63,6 +65,7 @@ import {
   ShoppingCart,
   Sparkles,
   Star,
+  Stethoscope,
   Tag,
   Terminal,
   Trash,
@@ -123,10 +126,12 @@ const ICON_MAP = {
   menu: Menu,
   'message-square': MessageSquare,
   package: Package,
+  palette: Palette,
   pencil: Pencil,
   plus: Plus,
   'refresh-cw': RefreshCw,
   save: Save,
+  'scroll-text': ScrollText,
   search: Search,
   send: Send,
   server: Server,
@@ -138,6 +143,7 @@ const ICON_MAP = {
   'shopping-cart': ShoppingCart,
   sparkles: Sparkles,
   star: Star,
+  stethoscope: Stethoscope,
   tag: Tag,
   terminal: Terminal,
   trash: Trash,
@@ -150,10 +156,15 @@ const ICON_MAP = {
 
 export type NavIconName = keyof typeof ICON_MAP;
 
-export function NavIcon({ name }: { name: string }) {
+/**
+ * `className` replaces the default box so a caller can hide the icon at a
+ * breakpoint — the phone drawer drops icons entirely, and a row that reserved
+ * their space would keep the indent without the glyph.
+ */
+export function NavIcon({ name, className = 'w-5 h-5' }: { name: string; className?: string }) {
   if (!(name in ICON_MAP)) {
-    return <span aria-hidden="true" className="w-5 h-5" />;
+    return <span aria-hidden="true" className={className} />;
   }
   const Icon = ICON_MAP[name as NavIconName];
-  return <Icon aria-hidden="true" className="w-5 h-5" strokeWidth={1.5} />;
+  return <Icon aria-hidden="true" className={className} strokeWidth={1.5} />;
 }

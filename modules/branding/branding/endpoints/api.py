@@ -2,30 +2,46 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from file_storage.deps import get_file_storage_service
 from file_storage.service import FileStorageService
+from simple_module_core.app_state import get_design_packs
 from simple_module_hosting.permissions import RequiresPermission
 
 from branding import constants
 from branding.contracts.schemas import BrandingOut, BrandingUpdate
 from branding.deps import BrandingServiceDep
+from branding.images import store_image, validate_image
+from branding.presets import find_preset
 
 router = APIRouter()
+
+# Branding images are uploaded with ``platform=True``: they are the install's,
+# not the uploading admin's active organisation's, and the anonymous asset
+# routes must find them with no tenant bound (see ``file_storage.scope``).
 
 _MANAGE = Depends(RequiresPermission(constants.PERM_MANAGE))
 
 
-def _validate_image(file: UploadFile) -> None:
-    if file.content_type not in constants.ALLOWED_IMAGE_TYPES:
+def _validate_design_pack(request: Request, changes: dict) -> None:
+    """Reject a pack slug no installed module registered.
+
+    Clearing (``""``) is always allowed. Accepting an unknown slug would put
+    ``"<slug>-root"`` on the public document with no stylesheet behind it: the
+    site would look unchanged and nothing in the UI would explain why.
+
+    The registry lives on ``app.state`` rather than in the DTO because only the
+    running app knows which modules are installed. A host older than the
+    registry has no packs to offer, so every non-empty slug is unknown there.
+    """
+    pack = changes.get("design_pack")
+    if not pack:
+        return
+    registry = get_design_packs(request.app)
+    if registry is None or not registry.has(pack):
         raise HTTPException(
-            status_code=415,
-            detail=f"Unsupported image type {file.content_type!r}.",
-        )
-    if file.size is not None and file.size > constants.MAX_IMAGE_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Image exceeds {constants.MAX_IMAGE_BYTES} bytes.",
+            status_code=422,
+            detail=f"Unknown design pack {pack!r} — no installed module provides it.",
         )
 
 
@@ -35,10 +51,13 @@ async def get_branding(service: BrandingServiceDep) -> BrandingOut:
 
 
 @router.put("/", response_model=BrandingOut, dependencies=[_MANAGE])
-async def update_branding(data: BrandingUpdate, service: BrandingServiceDep) -> BrandingOut:
+async def update_branding(
+    request: Request, data: BrandingUpdate, service: BrandingServiceDep
+) -> BrandingOut:
     changes = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
     if not changes:
         return service.current()
+    _validate_design_pack(request, changes)
     return await service.apply(changes)
 
 
@@ -48,9 +67,38 @@ async def upload_logo(
     file: UploadFile,
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
-    _validate_image(file)
-    stored = await storage.upload(file)
+    await validate_image(file)
+    stored = await store_image(storage, file, platform=True)
     return await service.set_logo(str(stored.id))
+
+
+@router.post(constants.PATH_PRESET, response_model=BrandingOut, dependencies=[_MANAGE])
+async def apply_preset(request: Request, key: str, service: BrandingServiceDep) -> BrandingOut:
+    """Apply a named look, leaving app name, images and banner untouched."""
+    preset = find_preset(key)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown branding preset {key!r}.")
+    changes = dict(preset.values)
+    # A preset could name a pack no installed module provides; run the same
+    # check a manual update gets rather than trusting the built-in list.
+    _validate_design_pack(request, changes)
+    return await service.apply(changes)
+
+
+@router.post(constants.PATH_LOGO_DARK, response_model=BrandingOut, dependencies=[_MANAGE])
+async def upload_logo_dark(
+    service: BrandingServiceDep,
+    file: UploadFile,
+    storage: FileStorageService = Depends(get_file_storage_service),
+) -> BrandingOut:
+    await validate_image(file)
+    stored = await store_image(storage, file, platform=True)
+    return await service.set_logo_dark(str(stored.id))
+
+
+@router.delete(constants.PATH_LOGO_DARK, response_model=BrandingOut, dependencies=[_MANAGE])
+async def clear_logo_dark(service: BrandingServiceDep) -> BrandingOut:
+    return await service.clear_logo_dark()
 
 
 @router.post("/favicon", response_model=BrandingOut, dependencies=[_MANAGE])
@@ -59,8 +107,8 @@ async def upload_favicon(
     file: UploadFile,
     storage: FileStorageService = Depends(get_file_storage_service),
 ) -> BrandingOut:
-    _validate_image(file)
-    stored = await storage.upload(file)
+    await validate_image(file)
+    stored = await store_image(storage, file, platform=True)
     return await service.set_favicon(str(stored.id))
 
 

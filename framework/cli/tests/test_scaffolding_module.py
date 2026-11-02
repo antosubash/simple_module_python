@@ -19,7 +19,7 @@ class TestCreateModule:
             "my_feature/module.py",
             "my_feature/endpoints/__init__.py",
             "my_feature/endpoints/api.py",
-            "tests/test_module.py",
+            "tests/test_my_feature.py",
             ".gitignore",
             "README.md",
         ]:
@@ -29,6 +29,37 @@ class TestCreateModule:
         # `--import-mode=importlib`, having one in two modules makes
         # pytest try to register `tests.conftest` as a plugin twice.
         assert not (dest / "tests" / "__init__.py").exists()
+
+    async def test_generated_test_uses_effective_route_paths(self, tmp_path):
+        """#431: app.routes hides lazily-included routers on FastAPI >= 0.137."""
+        from simple_module_cli.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        text = (dest / "tests" / "test_my_feature.py").read_text()
+        assert "effective_route_paths(app)" in text
+        assert "app.routes" not in text.replace("``app.routes``", "")
+
+    async def test_test_file_basename_is_unique_per_module(self, tmp_path):
+        """Two modules in one workspace must not ship same-named test files.
+
+        Without `tests/__init__.py`, pytest's default `prepend` import mode
+        derives a test module's name from its basename alone. Two modules both
+        shipping `tests/test_module.py` therefore collide at collection with
+        "import file mismatch", and a root-level `pytest` — which is what the
+        scaffold's own `make test` runs — reports errors instead of tests.
+        """
+        from simple_module_cli.scaffolding import create_module
+
+        alpha = create_module(tmp_path / "alpha", name="Alpha")
+        beta = create_module(tmp_path / "beta", name="Beta")
+
+        alpha_tests = [p.name for p in (alpha / "tests").glob("test_*.py")]
+        beta_tests = [p.name for p in (beta / "tests").glob("test_*.py")]
+
+        assert alpha_tests == ["test_alpha.py"]
+        assert beta_tests == ["test_beta.py"]
+        assert not set(alpha_tests) & set(beta_tests)
 
     async def test_pyproject_declares_entry_point_and_deps(self, tmp_path):
         """pyproject.toml sets the entry_point and pins the framework API range."""
@@ -197,26 +228,30 @@ class TestCreateModule:
             assert "jobs" in parsed, f"{wf} has no jobs: key"
 
     async def test_scaffold_has_pages_dir(self, tmp_path):
-        """Gap 2b: modules intended to ship TSX pages get a pages/ dir from day one."""
+        """Gap 2b: modules ship a pages/ dir with a working sample page from day one."""
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-widget"
         create_module(dest, name="Widget")
         pages_dir = dest / "widget" / "pages"
         assert pages_dir.is_dir()
-        assert (pages_dir / ".gitkeep").is_file()
+        assert (pages_dir / "Browse.tsx").is_file()
 
-    async def test_pyproject_force_includes_static_dist(self, tmp_path):
-        """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel."""
+    async def test_pyproject_ships_static_dist_when_present(self, tmp_path):
+        """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel.
+
+        Declared via hatch ``artifacts`` (not force-include): the built JS is
+        gitignored so it needs an explicit directive, but the directory must be
+        allowed to not exist yet — force-include fails the editable build on a
+        fresh scaffold/clone, which broke `uv sync` before any bundle is built.
+        """
         from simple_module_cli.scaffolding import create_module
 
         dest = tmp_path / "simple-module-widget"
         create_module(dest, name="Widget")
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
 
-        # The built JS is normally gitignored, but hatch needs an explicit
-        # directive to copy it into the wheel at build time.
-        assert "force-include" in pyproject
+        assert 'artifacts = ["widget/static/dist/"]' in pyproject
         assert "widget/static/dist" in pyproject
 
     async def test_module_py_mounts_static_dist_conditionally(self, tmp_path):

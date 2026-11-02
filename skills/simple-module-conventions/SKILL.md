@@ -17,12 +17,14 @@ from simple_module_db.base import create_module_base
 
 Base = create_module_base("orders")
 
-class Order(Base, AuditMixin, table=True):           # table
+
+class Order(Base, AuditMixin, table=True):  # table
     __tablename__ = "orders_order"
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
 
-class OrderOut(SQLModel):                            # DTO — plain SQLModel, no table=True
+
+class OrderOut(SQLModel):  # DTO — plain SQLModel, no table=True
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
@@ -34,17 +36,23 @@ Forbidden in module code: `pydantic.BaseModel` for DTOs, and SQLAlchemy `Declara
 
 Treat 300 lines as the design pressure on every `.py`, `.ts`, and `.tsx` file (the reference codebase enforces this in CI). When you approach it, **split by responsibility** — don't golf comments and blank lines to squeeze under.
 
-### 3. Per-module settings: `SM_<MODULE>_*` on `app.state.<module>`
+### 3. Per-module settings: `register_module_settings` → `app.state.<module>`
 
 ```python
+from simple_module_core.module_settings import register_module_settings
+
+
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.settings import UsersSettings    # reads SM_USERS_* env
+        from users.settings import UsersSettings  # a DbBackedSettings subclass
         from users.state import UsersState
-        app.state.users = UsersState(settings=UsersSettings())
+
+        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 ```
 
-- Env-var prefix is **always** `SM_<MODULE_UPPER>_*`. Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
+- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env.
+- Import from the framework, not the plugin: `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers). `settings.registration` / `settings.module_registry` / `settings.hydrate` are deprecated re-exports.
+- Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.
 - If you override `register_settings` and don't add anything to `app.state.<module>`, `SM012` fires at dev boot.
 
@@ -73,9 +81,19 @@ export function useProductSchema() {
 
 **Why:** `t()` resolves once when the schema is constructed. Module-scope construction = first-render-locale-only forever, no matter what the user switches to.
 
-### 6. CSRF: rely on `SameSite=Lax`, don't add a token header
+### 6. CSRF: `SameSite=Lax` is the baseline; opt in for defence in depth
 
-There is no CSRF token middleware. Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated. Page-side `fetch()` calls don't need a token header.
+Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated — plain Inertia forms need nothing extra. A module that wants a real token check on its JSON mutations uses the framework primitive instead of rolling its own:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+```
+
+Signed-in sessions receive the token as the `csrfToken` shared prop, and the module's typed client (`pages/api.ts`: `createApi<paths>()` from `@simple-module-py/ui/lib/api`) echoes it as `X-CSRF-Token` on unsafe same-origin calls — page code adds nothing. Call `/api/*` from pages through that client (types from `smpy openapi gen-types`), not raw `fetch()`; `apiFetch` covers routes outside the module's schema.
+
+Safe methods are never checked, and bare test apps without `SessionMiddleware` are exempt.
 
 ### 7. Don't call `session.commit()` in service code
 
@@ -89,7 +107,30 @@ Locale-related diagnostics: SM013 (missing file), SM014 (missing keys vs default
 
 ### 9. Don't re-enable the silenced ty rules
 
-Projects using the `ty` type checker should globally suppress `unresolved-attribute`, `unsupported-operator`, `unknown-argument`, `no-matching-overload`, and `invalid-argument-type` in `pyproject.toml`. SQLModel runtime-instruments fields as SQLAlchemy attributes, so the type checker can't see what's there. Real bugs surface in tests.
+Projects using the `ty` type checker should globally suppress `unresolved-attribute`, `unsupported-operator`, `unknown-argument`, `no-matching-overload`, `invalid-argument-type`, and `invalid-assignment` in `pyproject.toml`. SQLModel runtime-instruments fields as SQLAlchemy attributes, so the type checker can't see what's there (and `model_config = ConfigDict(...)` clashes with ty's internal `SQLModelConfig` type, which `invalid-assignment` covers). Real bugs surface in tests. Line-level suppressions use ty's rule names, `# ty: ignore[<rule>]`; a mypy-style `# type: ignore[arg-type]` silences nothing under ty.
+
+### 10. Declare external asset origins with `register_csp_sources`
+
+The host CSP blocks any origin you don't declare — a font CDN or tile server your pages load from will silently fail in every host. Declare it in the hook: `registry.add("style-src", "https://rsms.me")`. Fetch directives only (never `default-src` / `base-uri` / `form-action` / `frame-ancestors`); single-token sources, validated at boot.
+
+### 11. Send mail through `simple_module_core.mail`, never SMTP directly
+
+Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()` (request code) or `await resolve_mail_sender(db)` (durable handlers, which run in the outbox worker without an app). With no transport installed both return a logging sender, so never guard on "is mail configured"; read `sender.delivers_email` when a screen must hand the link back instead. The `mail` module owns SMTP and its settings. In tests, request the `captured_mail` fixture.
+
+### 12. Read users through the user directory, never `users.models`
+
+Which module holds the accounts depends on the auth provider (`users` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+
+### 13. Raise domain exceptions from services
+
+Define a per-module base error in `<module>/exceptions.py` or `errors.py` and
+subclass it for business failures. Services must not raise `HTTPException`:
+CLI commands, tasks and durable handlers need transport-independent failures.
+Follow `file_storage`: map errors in endpoints or install HTTP handlers through
+`register_exception_handlers(app)`. Preserve status codes, exact JSON bodies,
+headers and translation keys when migrating; translate at the request boundary.
+Endpoint-level `HTTPException` for pure request validation is fine. Inertia
+forms may catch domain errors to report field errors or redirect.
 
 ## Related skills
 

@@ -36,7 +36,10 @@ RUN uv sync --all-packages --frozen --no-dev
 
 # Drop privileges. uv writes to /app/.venv so it needs write access until
 # sync completes; chown after install to keep the build step rootful.
-RUN useradd --system --uid 10001 --home /app --shell /usr/sbin/nologin worker \
+# Default ./uploads lives on the shared data volume, as in the app image (#689).
+RUN mkdir -p /app/data/uploads \
+    && ln -s /app/data/uploads /app/uploads \
+    && useradd --system --uid 10001 --home /app --shell /usr/sbin/nologin worker \
     && chown -R worker:worker /app
 USER worker
 

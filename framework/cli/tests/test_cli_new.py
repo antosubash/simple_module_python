@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from simple_module_cli._env import env_values
+from simple_module_cli._local_env import write_local_env
 from simple_module_cli.cli import app
 from typer.testing import CliRunner
 
@@ -57,18 +59,43 @@ def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path
         )
 
 
-def test_sm_new_writes_generated_secret_key(tmp_path: Path) -> None:
+_SECRET_KEYS = (
+    "SM_SECRET_KEY",
+    "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+    "SM_USERS_VERIFICATION_TOKEN_SECRET",
+)
+
+
+def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> None:
+    # GH #441: the committed .env.example must not carry real secrets. The
+    # users token secrets are needed because UsersSettings refuses its
+    # placeholders in production, the mode the compose containers boot in.
     runner = CliRunner()
     target = tmp_path / "my-app"
     runner.invoke(
         app,
         ["new", "my-app", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
-    env_text = (target / ".env.example").read_text()
-    assert "SM_SECRET_KEY=" in env_text
-    assert "CHANGE-ME" not in env_text
-    secret_line = next(ln for ln in env_text.splitlines() if ln.startswith("SM_SECRET_KEY="))
-    assert len(secret_line.split("=", 1)[1]) >= 20
+    env = env_values((target / ".env").read_text())
+    example_text = (target / ".env.example").read_text()
+    example = env_values((target / ".env.example").read_text())
+    for key in _SECRET_KEYS:
+        assert len(env[key]) >= 20
+        assert env[key] not in example_text
+        assert key not in example
+        assert f"# {key}=" in example_text
+    assert ".env" in (target / ".gitignore").read_text().splitlines()
+    # Non-secret settings stay in step between the two files.
+    assert env["SM_DATABASE_URL"] == example["SM_DATABASE_URL"]
+
+
+def test_sm_new_keeps_an_existing_env(tmp_path: Path) -> None:
+    (tmp_path / ".env.example").write_text("A=1\nSM_SECRET_KEY=\n")
+    (tmp_path / ".env").write_text("SM_SECRET_KEY=mine\n")
+    write_local_env(tmp_path, secret_keys=["SM_SECRET_KEY", "OTHER"])
+    env = env_values((tmp_path / ".env").read_text())
+    assert env["SM_SECRET_KEY"] == "mine"
+    assert len(env["OTHER"]) >= 20
 
 
 def test_create_app_project_with_selected_kwarg(tmp_path: Path) -> None:
@@ -104,7 +131,8 @@ def test_create_app_project_runs_recipe_for_background_tasks(tmp_path: Path) -> 
     assert (target / "scripts" / "run_worker.py").is_file()
     assert (target / "docker-compose.yml").is_file()
     assert (target / "docker" / "host.Dockerfile").is_file()
-    assert (target / "docker" / "worker.Dockerfile").is_file()
+    # worker/beat reuse the app image — no separate worker Dockerfile.
+    assert not (target / "docker" / "worker.Dockerfile").exists()
     makefile_text = (target / "Makefile").read_text()
     assert "worker:" in makefile_text
 
@@ -198,7 +226,7 @@ def test_sm_new_interactive_full_preset(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         ["new", "demo", "--no-install", "--dest", str(target)],
-        input="\n".join(["", "", "3", ""]) + "\n",
+        input="\n".join(["", "", "3", "", ""]) + "\n",
     )
     assert result.exit_code == 0, result.output
     assert (target / "docker-compose.yml").is_file()
@@ -216,3 +244,27 @@ def test_sm_new_refuses_to_overwrite(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "exists" in result.output.lower() or "exists" in (result.stderr or "").lower()
+
+
+def test_write_local_env_fills_placeholder_on_last_line_without_newline(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("A=1\n# SM_SECRET_KEY=")
+    write_local_env(tmp_path, secret_keys=["SM_SECRET_KEY"])
+    env = env_values((tmp_path / ".env").read_text())
+    assert len(env["SM_SECRET_KEY"]) >= 20
+
+
+def test_write_local_env_keeps_existing_postgres_password_and_url_together(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".env").write_text("POSTGRES_PASSWORD=kept\n")
+    write_local_env(
+        tmp_path,
+        secret_keys=[],
+        overrides={"POSTGRES_PASSWORD": "new", "SM_DATABASE_URL": "postgresql://postgres:new@x/db"},
+    )
+    assert env_values((tmp_path / ".env").read_text()) == {"POSTGRES_PASSWORD": "kept"}
+
+
+def test_env_values_ignores_indented_comments_and_strips_key_spacing() -> None:
+    text = "  # SM_SECRET_KEY=nope\nA = 1\n# B=2\nC=3\n"
+    assert env_values(text) == {"A": " 1", "C": "3"}

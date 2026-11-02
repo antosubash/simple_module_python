@@ -1,3 +1,7 @@
+# VCS — nothing in the build reads git metadata (every package version is
+# static), and .git is the single biggest thing in the context.
+.git/
+
 # Python / uv
 __pycache__/
 *.py[cod]
@@ -18,17 +22,44 @@ host/client_app/dist/
 packages/*/dist/
 .npm/
 
+# Built frontend — the image runs its own `npm run build`, and a stale local
+# bundle would shadow it (same host/static/dist path).
+host/static/dist/
+
 # Editors / OS
 .vscode/
 .idea/
 .DS_Store
 
 # Secrets / local data
-.env
+# Anywhere in the context, not just the root. `credentials*` stays root-only:
+# recursive, it would also drop source modules such as users/credentials.py.
+**/.env*
+!**/.env.example
+**/*.pem
+**/*.key
+credentials*
+**/credentials*.json
+**/secrets/
 *.db
 *.sqlite
 .memray/
+uploads/
+var/
 
-# Tests / docs not needed at runtime
+# Agent + tooling scratch. `.claude/worktrees/` holds full checkouts of this
+# repo, so leaving it in would multiply the build context by every worktree.
+.claude/
+.worktrees/
+.emdash/
+.qa/
+.verify/
+.playwright-mcp/
+.playwright-cli/
+.benchmarks/
+qa-shots/
+
+# Tests / docs / sample data not needed at runtime
 tests/e2e/
 docs/
+dataset/

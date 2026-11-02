@@ -62,7 +62,7 @@ def create_module_base(module_name: str) -> type[SQLModel]:
         },
     )
 
-    ModuleBase.__module_name__ = module_name  # type: ignore[attr-defined]
+    ModuleBase.__module_name__ = module_name
 
     _base_cache[module_name] = ModuleBase
     _register_base(ModuleBase)

@@ -9,10 +9,12 @@ MODULE_PACKAGE: Final = "audit_log"
 LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 
 API_PREFIX: Final = "/api/audit_log"
-VIEW_PREFIX: Final = "/audit_log"
+VIEW_PREFIX: Final = "/admin/audit-log"
 
-MENU_LABEL: Final = "Audit Log"
-MENU_URL: Final = VIEW_PREFIX
+MENU_LABEL: Final = "Audit log"
+# Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
+# linking to the bare prefix costs a 307 round trip on every navigation.
+MENU_URL: Final = f"{VIEW_PREFIX}/"
 MENU_ICON: Final = "scroll-text"
 MENU_ORDER: Final = 210
 
@@ -26,7 +28,23 @@ ACTION_CREATED: Final = "created"
 ACTION_UPDATED: Final = "updated"
 ACTION_DELETED: Final = "deleted"
 ACTION_SOFT_DELETED: Final = "soft_deleted"
-ALL_ACTIONS: Final = (ACTION_CREATED, ACTION_UPDATED, ACTION_DELETED, ACTION_SOFT_DELETED)
+# Statement DML (#557); the names match ``simple_module_db.bulk_audit``.
+ACTION_BULK_INSERTED: Final = "bulk_inserted"
+ACTION_BULK_UPDATED: Final = "bulk_updated"
+ACTION_BULK_DELETED: Final = "bulk_deleted"
+ACTION_BULK_SOFT_DELETED: Final = "bulk_soft_deleted"
+ACTION_BULK_RESTORED: Final = "bulk_restored"
+ALL_ACTIONS: Final = (
+    ACTION_CREATED,
+    ACTION_UPDATED,
+    ACTION_DELETED,
+    ACTION_SOFT_DELETED,
+    ACTION_BULK_INSERTED,
+    ACTION_BULK_UPDATED,
+    ACTION_BULK_DELETED,
+    ACTION_BULK_SOFT_DELETED,
+    ACTION_BULK_RESTORED,
+)
 
 ENTITY_TYPE_MAX_LENGTH: Final = 255
 ENTITY_ID_MAX_LENGTH: Final = 255
@@ -36,7 +54,15 @@ CORRELATION_ID_MAX_LENGTH: Final = 255
 
 DEFAULT_PAGE_SIZE: Final = 50
 MAX_PAGE_SIZE: Final = 200
+# Upper bound on ``page``: keeps OFFSET inside a 64-bit int (a ?page= of 10**20
+# overflowed the driver and returned 500). Anything past the end is clamped to
+# the last page by the view.
+MAX_PAGE: Final = 1_000_000
 
 PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
 
 STATUS_OK: Final = 200
+
+TENANT_ID_MAX_LENGTH = 50
+# Filter value meaning "entries with no tenant" (platform actions).
+PLATFORM_TENANT_FILTER = "__platform__"

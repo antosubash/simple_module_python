@@ -14,70 +14,132 @@ Both files are consumed by ``@simple-module-py/i18n``:
 from __future__ import annotations
 
 import logging
+from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from simple_module_core import ModuleBase
 from simple_module_core.i18n import PLURAL_CATEGORIES, I18nRegistry
 
+from simple_module_hosting._i18n_build import build_i18n_registry
+from simple_module_hosting._i18n_target import read_resource_keys, resolve_i18n_types_dir
 from simple_module_hosting.manifest import _write_if_changed
 from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
 
 
-def build_i18n_registry(
+def emit_frontend_types_for_modules(
     settings: Settings,
-    modules: list[ModuleBase],
+    installed_modules: list[ModuleBase],
     project_root: Path,
-) -> tuple[I18nRegistry, list[tuple[str, str, Path]]]:
-    """Construct the i18n registry from module + host + UI sources.
+    *,
+    strict: bool = False,
+    allow_removals: bool = False,
+) -> None:
+    """Emit the TS key union covering every *installed* module.
 
-    Returns ``(registry, extra_sources)`` where ``extra_sources`` is the list
-    of ``(reporter_name, namespace, dir)`` triples the diagnostic runner
-    needs to validate non-module locale directories.
+    Deliberately not the booted module list. ``make lint`` runs
+    ``tsc -p modules/<name>`` for each module in the workspace, including the
+    auth provider this host did not activate; those pages still call
+    ``t(keys.<namespace>…)``, so their keys must be in the union even though
+    the module is inert here. The runtime registry stays filtered — an
+    inactive module's strings are typed, never served.
     """
-    registry = I18nRegistry(
-        default_locale=settings.i18n_default_locale,
-        supported_locales=settings.i18n_supported_locales,
-    )
-    extra_sources: list[tuple[str, str, Path]] = []
-
-    for mod in modules:
-        for namespace, locale_dir in mod.locale_dirs().items():
-            registry.add_source(namespace, locale_dir)
-
-    host_locales = project_root / "host" / "locales"
-    if host_locales.is_dir():
-        registry.add_source("host", host_locales)
-        extra_sources.append(("host", "host", host_locales))
-
-    ui_locales = project_root / "packages" / "ui" / "locales"
-    if ui_locales.is_dir():
-        registry.add_source("ui", ui_locales)
-        extra_sources.append(("packages/ui", "ui", ui_locales))
-
-    registry.load()
-    return registry, extra_sources
+    registry, _ = build_i18n_registry(settings, installed_modules, project_root)
+    emit_frontend_types(registry, project_root, strict=strict, allow_removals=allow_removals)
 
 
-def emit_frontend_types(registry: I18nRegistry, project_root: Path) -> None:
+def emit_frontend_types(
+    registry: I18nRegistry,
+    project_root: Path,
+    *,
+    strict: bool = False,
+    allow_removals: bool = False,
+) -> None:
     """Write the TS augmentation files into @simple-module-py/i18n if present.
 
     Logs but does not raise on failure — stale types are preferable to a
     broken boot. Dev-loop only; callers should gate on ``is_development``.
+
+    ``strict=True`` re-raises instead, for a tool whose whole job is this
+    regeneration (``make gen-i18n``). There a swallowed failure only defers the
+    error to a ``tsc`` run several steps removed from the cause. Under strict a
+    missing package directory is an error too, where on the boot path it is the
+    normal shape of a wheel-installed app that ships no i18n workspace.
+
+    The checked-in files are shared by everyone, so a regeneration from a venv
+    missing a module (``uv sync --all-packages`` not run) would silently delete
+    that module's whole namespace (GH #329). When the new emission would drop a
+    namespace the existing file has, ``strict`` raises
+    :class:`NamespaceRemovalError` and the boot path logs a warning and writes
+    nothing, so a dev server never crashes over it. ``allow_removals=True``
+    skips the check, for a namespace that was deleted on purpose or a
+    deliberate ``SM_MODULES_ENABLED`` subset.
     """
+    pkg_src, published = resolve_i18n_types_dir(project_root)
+    if pkg_src is None:
+        if strict:
+            raise FileNotFoundError(
+                f"no @simple-module-py/i18n found for {project_root} (packages/i18n/src or "
+                "node_modules/@simple-module-py/i18n/src) — run `npm install` first"
+            )
+        return
+    resources_path = pkg_src / "generated-resources.ts"
+    # In the monorepo the checked-in file is ours, so a vanished namespace is a
+    # mistake to guard against. A published package's file is the framework's
+    # full catalog: this app has fewer modules by design, so those keys are
+    # carried over instead of treated as removals.
+    extra_keys: frozenset[str] = frozenset()
+    if published:
+        extra_keys = read_resource_keys(resources_path)
+    elif not allow_removals:
+        dropped = find_dropped_namespaces(
+            resources_path, registry.messages(registry.default_locale)
+        )
+        if dropped:
+            error = NamespaceRemovalError(dropped)
+            if strict:
+                raise error
+            logger.warning("%s Not writing the generated i18n files.", error)
+            return
     try:
-        pkg_src = project_root / "packages" / "i18n" / "src"
-        if pkg_src.is_dir():
-            write_generated_resources(registry, pkg_src)
+        write_generated_resources(registry, pkg_src, extra_keys=extra_keys)
     except Exception:
+        if strict:
+            raise
         logger.exception("Failed to write generated-resources.ts — frontend types will be stale")
+
+
+class NamespaceRemovalError(RuntimeError):
+    """Regenerating would delete whole key namespaces from the checked-in files."""
+
+    def __init__(self, dropped: dict[str, int]) -> None:
+        self.dropped = dropped
+        detail = ", ".join(f"'{ns}.*' ({n} keys)" for ns, n in sorted(dropped.items()))
+        super().__init__(
+            f"regenerating would drop {detail} — the module(s) are not installed in "
+            "this environment. Run `uv sync --all-packages` first, or pass "
+            "--allow-removals (`make gen-i18n ARGS=--allow-removals`) if the module was "
+            "genuinely deleted."
+        )
+
+
+def find_dropped_namespaces(resources_path: Path, new_messages: Any) -> dict[str, int]:
+    """Top-level namespaces in the existing resources file absent from ``new_messages``.
+
+    Returns ``{namespace: existing key count}``. Empty when the file is absent
+    or unreadable (nothing to lose).
+    """
+    old = Counter(key.split(".", 1)[0] for key in read_resource_keys(resources_path))
+    new = {key.split(".", 1)[0] for key in new_messages}
+    return {ns: n for ns, n in old.items() if ns not in new}
 
 
 _RESOURCES_HEADER = (
     "// AUTO-GENERATED by simple_module_hosting.i18n_manifest — do not edit by hand.\n"
-    "// Regenerate by booting the host in development mode."
+    "// Regenerate by booting the host in development mode or `make gen-i18n`."
 )
 
 _KEYS_HEADER = _RESOURCES_HEADER
@@ -85,18 +147,21 @@ _KEYS_HEADER = _RESOURCES_HEADER
 _PLURAL_SUFFIXES: tuple[str, ...] = tuple(f"_{c}" for c in PLURAL_CATEGORIES)
 
 
-def write_generated_resources(registry: I18nRegistry, output_dir: Path) -> Path:
+def write_generated_resources(
+    registry: I18nRegistry, output_dir: Path, *, extra_keys: Iterable[str] = ()
+) -> Path:
     """Write both ``generated-resources.ts`` and ``keys.generated.ts``.
 
     Returns the path of the resources file. Both files skip the disk write
     when content matches what's already on disk (to avoid bumping mtimes
-    that would trigger spurious Vite HMR).
+    that would trigger spurious Vite HMR). ``extra_keys`` are unioned into the
+    registry's keys (the published package's catalog, for a scaffolded app).
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     messages = registry.messages(registry.default_locale)
-    keys = sorted(messages.keys())
+    keys = sorted({*messages.keys(), *extra_keys})
 
     resources_path = output_dir / "generated-resources.ts"
     if _write_if_changed(resources_path, _render_resources(keys)):

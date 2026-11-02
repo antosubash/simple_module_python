@@ -121,6 +121,26 @@ class TestLoginPage:
         )
         assert resp.json()["props"]["login_redirect_url"] == "/dashboard/"
 
+    @pytest.mark.anyio
+    async def test_login_redirect_url_falls_back_when_setting_is_blanked(self, anon_client):
+        """An admin can blank the DB-backed setting via the generic module
+        editor — no consumer may then receive "".
+
+        Normalisation lives on the settings class (unit-tested in
+        test_settings.py), so it applies wherever the value is constructed.
+        Assigning the attribute here would bypass pydantic and test nothing,
+        so this goes through the real path.
+        """
+        from users.settings import UsersSettings
+
+        app = anon_client._transport.app
+        app.state.users.settings = UsersSettings(login_redirect_url="")
+        resp = await anon_client.get(
+            "/users/login",
+            headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        )
+        assert resp.json()["props"]["login_redirect_url"] == "/dashboard/"
+
 
 class TestRegisterPage:
     @pytest.mark.anyio
@@ -177,19 +197,19 @@ class TestAdminIndexPage:
     @pytest.mark.anyio
     async def test_admin_without_auth_is_redirected(self, anon_client):
         """Unauthenticated access to the admin page redirects to /users/login."""
-        resp = await anon_client.get("/users/admin", follow_redirects=False)
+        resp = await anon_client.get("/admin/users", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers["location"].endswith("/users/login")
 
     @pytest.mark.anyio
     async def test_admin_with_admin_session_returns_200(self, admin_client):
-        resp = await admin_client.get("/users/admin")
+        resp = await admin_client.get("/admin/users/")
         assert resp.status_code == 200
 
     @pytest.mark.anyio
     async def test_admin_inertia_component_is_users_index(self, admin_client):
         resp = await admin_client.get(
-            "/users/admin",
+            "/admin/users/",
             headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
         )
         assert resp.status_code == 200
@@ -200,26 +220,26 @@ class TestAdminIndexPage:
 class TestAdminEditPage:
     @pytest.mark.anyio
     async def test_invalid_uuid_returns_404(self, admin_client):
-        resp = await admin_client.get("/users/admin/not-a-uuid")
+        resp = await admin_client.get("/admin/users/not-a-uuid")
         assert resp.status_code == 404
 
     @pytest.mark.anyio
     async def test_unknown_uuid_returns_404(self, admin_client):
         missing_id = str(uuid.uuid4())
-        resp = await admin_client.get(f"/users/admin/{missing_id}")
+        resp = await admin_client.get(f"/admin/users/{missing_id}")
         assert resp.status_code == 404
 
     @pytest.mark.anyio
     async def test_existing_user_returns_200(self, admin_client, users_db):
         user = await _make_verified_user(users_db, email="edit_target@example.com")
-        resp = await admin_client.get(f"/users/admin/{user.id}")
+        resp = await admin_client.get(f"/admin/users/{user.id}")
         assert resp.status_code == 200
 
     @pytest.mark.anyio
     async def test_existing_user_inertia_component(self, admin_client, users_db):
         user = await _make_verified_user(users_db, email="edit_target2@example.com")
         resp = await admin_client.get(
-            f"/users/admin/{user.id}",
+            f"/admin/users/{user.id}",
             headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
         )
         assert resp.status_code == 200
@@ -232,7 +252,7 @@ async def test_admin_edit_page_unknown_user_returns_404(admin_client):
     import uuid
 
     resp = await admin_client.get(
-        f"/users/admin/{uuid.uuid4()}",
+        f"/admin/users/{uuid.uuid4()}",
         follow_redirects=False,
     )
     assert resp.status_code == 404

@@ -25,7 +25,8 @@ from datetime import datetime
 from fastapi_users_db_sqlalchemy.generics import GUID, now_utc
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
-from sqlalchemy import DateTime, Index
+from simple_module_db.types import AwareDateTime
+from sqlalchemy import Index
 from sqlmodel import Field
 
 # Provider is auto-detected from SM_DATABASE_URL (falls back to SQLite).
@@ -43,7 +44,7 @@ class RolePermission(Base, AuditMixin, table=True):  # ty: ignore[unsupported-ba
     permission_key: str = Field(max_length=128, primary_key=True)
     assigned_at: datetime = Field(
         default_factory=now_utc,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     assigned_by: str | None = Field(default=None, max_length=255)
 
@@ -62,7 +63,7 @@ class UserPermission(Base, AuditMixin, table=True):  # ty: ignore[unsupported-ba
     permission_key: str = Field(max_length=128, primary_key=True)
     assigned_at: datetime = Field(
         default_factory=now_utc,
-        sa_type=DateTime(timezone=True),
+        sa_type=AwareDateTime(),
     )
     assigned_by: str | None = Field(default=None, max_length=255)
 

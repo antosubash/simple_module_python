@@ -3,31 +3,243 @@
 Registered under ``package="host"`` so the UI shows them alongside module
 settings. The hosting layer still reads these directly from
 ``app.state.host.settings``.
+
+These are read twice per boot. ``_preapp_config.merge_host_settings`` reads
+them before ``create_app`` builds anything, because the module list, the i18n
+registry and the middleware stack are all constructed from settings and cannot
+be rebuilt later. The lifespan then hydrates again so runtime edits land on
+``app.state``. Precedence is env → DB → the defaults declared here.
 """
 
 from __future__ import annotations
 
-from pydantic import model_validator
+from typing import Literal
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+
+from simple_module_hosting import _host_settings_support as v
+from simple_module_hosting._api_version import default_api_version as _default_api_version
+from simple_module_hosting._host_settings_support import (
+    _RESTART_API,
+    _RESTART_AUTH,
+    _RESTART_CORS,
+    _RESTART_DB,
+    _RESTART_GUARD,
+    _RESTART_I18N,
+    _RESTART_LOGGING,
+    _RESTART_SECURITY,
+    _RESTART_TENANCY,
+)
 
 
 class HostSettings(BaseSettings):
     """DB-backed host configuration — defaults live here, overrides in DB."""
 
-    model_config = SettingsConfigDict(extra="ignore")
+    # env_prefix matters even though the combined ``Settings`` supplies its
+    # own: without it a bare ``HostSettings()`` would read unprefixed names
+    # from the environment, and ``LOG_LEVEL`` in particular is a common var
+    # that has nothing to do with this app.
+    model_config = SettingsConfigDict(env_prefix="SM_", extra="ignore")
 
-    multi_tenant: bool = False
-    tenant_header: str = ""
+    multi_tenant: bool = Field(default=False, json_schema_extra=_RESTART_TENANCY)
+    tenant_header: str = Field(default="", json_schema_extra=_RESTART_TENANCY)
+    default_tenant: str = Field(default="", json_schema_extra=_RESTART_TENANCY)
+    """Single-tenant hosts (``multi_tenant`` off): the tenant every request acts
+    as, so a module's ``MultiTenantMixin`` tables work without a tenant
+    resolver. Ignored when ``multi_tenant`` is on — a multi-tenant install
+    never falls back to a shared tenant. Jobs and CLI commands use
+    ``tenant_context(settings.default_tenant)``."""
 
-    i18n_default_locale: str = "en"
-    i18n_supported_locales: list[str] = ["en"]
-    i18n_cookie_name: str = "locale"
+    maintenance_mode: bool = False
+    """Serve everyone but admins a 503 page.
+
+    DB-backed rather than an env var on purpose: flipping it must not need a
+    redeploy, which is exactly when you want it.
+    """
+    maintenance_message: str = ""
+    """Optional operator note shown on the maintenance page. Empty = use the
+    generic translated copy."""
+
+    i18n_default_locale: str = Field(default="en", json_schema_extra=_RESTART_I18N)
+    i18n_supported_locales: list[str] = Field(default=["en"], json_schema_extra=_RESTART_I18N)
+    i18n_cookie_name: str = Field(default="locale", json_schema_extra=_RESTART_I18N)
+
+    public_base_url: str = ""
+    """The site's public origin, e.g. ``https://example.org``, used to build the
+    canonical and ``og:url`` in the server-rendered ``<head>``. Never derived
+    from the request ``Host`` (spoofable): while blank, relative canonical /
+    image URLs are omitted rather than guessed. Read per request, so an edit
+    applies without a restart."""
+
+    log_level: str = Field(default="INFO", json_schema_extra=_RESTART_LOGGING)
+    log_format: Literal["json", "text"] = Field(default="json", json_schema_extra=_RESTART_LOGGING)
+
+    # Trust the X-Forwarded-* headers from a fronting reverse proxy. Unset by
+    # default (no proxy trusted). Set to ``*`` to trust any peer (correct when
+    # the container is only reachable through a single proxy), or a comma-
+    # separated list of proxy IPs / CIDRs. Drives uvicorn's
+    # ProxyHeadersMiddleware so request.url.scheme reflects X-Forwarded-Proto
+    # and request logs record the real client IP rather than the proxy's.
+    # Recommended behind a TLS-terminating proxy, not required for
+    # Inertia: the page url is root-relative, so pushState can't see a
+    # cross-scheme url regardless (it used to throw a SecurityError on every
+    # page — GH #223). Still required for anything else that reads
+    # request.url.scheme or calls request.url_for(...) to build an absolute
+    # url, e.g. OAuth's callback_url and the locale cookie's `secure` flag —
+    # left unset behind such a proxy, an OAuth redirect_uri ships as http://
+    # and most providers reject it.
+    trusted_proxy: str | None = Field(default=None, json_schema_extra=_RESTART_GUARD)
+
+    session_cookie_secure: bool | None = Field(default=None, json_schema_extra=_RESTART_SECURITY)
+    """Mark the session cookie ``Secure`` (sent over HTTPS only).
+
+    Unset (the default) means on outside development and testing, off in
+    them, so ``make dev`` keeps working over plain ``http://localhost``. Behind
+    a TLS-terminating proxy leave it on: the browser sees HTTPS, which is all
+    the flag needs. Only an install that serves browsers plain HTTP on purpose
+    should turn it off — otherwise the cookie is never sent back and sign-in
+    silently fails. See ``session_cookie_is_secure``.
+    """
+
+    auth_provider: str = Field(default=DEFAULT_AUTH_PROVIDER, json_schema_extra=_RESTART_AUTH)
+    """Which auth provider module to activate.
+
+    ``users`` and ``keycloak`` both provide authentication and only one may be
+    active at a time. When both are installed this picks the winner; the other
+    is skipped at discovery. Ignored when only one is installed.
+
+    Consumed in Phase 1 of ``create_app``, which is why the pre-app read has
+    to happen before it — a DB value set here would otherwise be ignored until
+    the process restarted with a matching env var.
+    """
+
+    auth_public_paths: list[str] = Field(default=[], json_schema_extra=_RESTART_AUTH)
+    """Host-level anonymous-access path prefixes.
+
+    An escape hatch for exposing a route without a session when no module owns
+    it. Each entry is treated as a prefix rule and seeded into the
+    ``PublicRouteRegistry`` at boot. Modules should prefer the
+    ``register_public_routes`` hook, which is method-aware.
+    """
+
+    native_link_prefixes: list[str] = Field(default=[], json_schema_extra={"group": "Routing"})
+    """URL prefixes whose links the Inertia client must leave to the browser
+    (a full navigation), e.g. ``["/docs/"]``. Added to the prefixes of mounted
+    legacy SPAs and sent as the ``nativePrefixes`` shared prop. Read per request."""
+
+    max_request_body_bytes: int = Field(default=10 * 1024 * 1024, json_schema_extra=_RESTART_GUARD)
+    """Global request-body ceiling in bytes; larger bodies get a 413 before any
+    route runs. ``0`` disables the guard. Modules override it per path with
+    ``register_body_limits``."""
+
+    rate_limit_public: str = Field(default="120/minute", json_schema_extra=_RESTART_GUARD)
+    """Per-client-IP limit for *anonymous* requests to routes the public-route
+    registry exempts from auth, e.g. ``"120/minute"``. Blank / ``off``
+    disables. A public rule may override it with its own ``rate=``."""
+
+    rate_limit_authenticated: str = Field(default="", json_schema_extra=_RESTART_GUARD)
+    """Opt-in per-IP limit for signed-in traffic, same syntax. Blank (default)
+    leaves authenticated requests unlimited."""
+
+    forwarded_host_allowlist: list[str] = Field(default=[], json_schema_extra=_RESTART_GUARD)
+    """Hosts a trusted proxy may substitute through ``X-Forwarded-Host``: an exact
+    host or ``*.example.com``, each with an optional port. Empty (default) ignores
+    the header. Only honoured together with ``trusted_proxy``."""
+
+    cors_allow_origins: list[str] = Field(default=[], json_schema_extra=_RESTART_CORS)
+    """Origins allowed to call ``/api/`` cross-origin. Empty (default) installs no
+    host API policy. ``*`` is refused while ``cors_allow_credentials`` is on."""
+    cors_allow_credentials: bool = Field(default=True, json_schema_extra=_RESTART_CORS)
+    cors_allow_methods: list[str] = Field(
+        default=["GET", "POST", "PUT", "PATCH", "DELETE"], json_schema_extra=_RESTART_CORS
+    )
+    cors_allow_headers: list[str] = Field(
+        default=["Authorization", "Content-Type", "X-CSRF-Token"], json_schema_extra=_RESTART_CORS
+    )
+    cors_expose_headers: list[str] = Field(default=[], json_schema_extra=_RESTART_CORS)
+    cors_max_age: int = Field(default=600, ge=0, json_schema_extra=_RESTART_CORS)
+
+    api_title: str = Field(default="SimpleModule", json_schema_extra=_RESTART_API)
+    """``info.title`` of the OpenAPI document (built once at boot)."""
+    api_version: str = Field(default_factory=_default_api_version, json_schema_extra=_RESTART_API)
+    """``info.version`` of the OpenAPI document; defaults to the host distribution's version."""
+    api_description: str = Field(default="", json_schema_extra=_RESTART_API)
+    openapi_public: bool = Field(default=False, json_schema_extra=_RESTART_API)
+    """Serve ``/api/openapi.json`` outside development, anonymously. Off by default:
+    the schema lists every endpoint, so exposing it is an operator decision."""
+
+    db_pool_size: int = Field(default=10, json_schema_extra=_RESTART_DB)
+    db_max_overflow: int = Field(default=20, json_schema_extra=_RESTART_DB)
+    db_pool_pre_ping: bool = Field(default=True, json_schema_extra=_RESTART_DB)
+    db_pool_recycle: int = Field(default=1800, json_schema_extra=_RESTART_DB)
+    db_pool_timeout: int = Field(default=30, ge=1, json_schema_extra=_RESTART_DB)
+    """Seconds a request waits for a pooled connection before failing."""
+    db_connect_timeout: int = Field(default=10, ge=1, json_schema_extra=_RESTART_DB)
+    """Seconds to wait for a new connection to open (Postgres drivers only)."""
+    db_statement_timeout_ms: int = Field(default=0, ge=0, json_schema_extra=_RESTART_DB)
+    """Postgres ``statement_timeout`` in milliseconds; ``0`` disables."""
+    db_idle_in_tx_timeout_ms: int = Field(default=0, ge=0, json_schema_extra=_RESTART_DB)
+    """Postgres ``idle_in_transaction_session_timeout`` in ms; ``0`` disables."""
+
+    @field_validator("public_base_url", mode="after")
+    @classmethod
+    def _check_public_base_url(cls, value: str) -> str:
+        return v.check_public_base_url(value)
+
+    @field_validator("rate_limit_public", "rate_limit_authenticated", mode="after")
+    @classmethod
+    def _check_rate(cls, value: str) -> str:
+        return v.check_rate(value)
+
+    @field_validator("native_link_prefixes", mode="after")
+    @classmethod
+    def _check_native_prefixes(cls, value: list[str]) -> list[str]:
+        return v.check_native_prefixes(value)
+
+    @field_validator("max_request_body_bytes", mode="after")
+    @classmethod
+    def _check_body_bytes(cls, value: int) -> int:
+        return v.check_body_bytes(value)
+
+    @field_validator("auth_provider", mode="after")
+    @classmethod
+    def _normalize_auth_provider(cls, value: str) -> str:
+        """Strip whitespace; treat blank as unset.
+
+        ``SM_AUTH_PROVIDER=`` in a ``.env`` yields ``''``, which matches no
+        installed provider and would mount all of them. The out-of-process
+        readers (``make doctor``, ``gen-pages``) go through
+        ``resolve_auth_provider``, which already falls back on blank — without
+        this they and the host would disagree about the active provider.
+        """
+        return v.normalize_auth_provider(value)
+
+    @field_validator("trusted_proxy", mode="after")
+    @classmethod
+    def _normalize_trusted_proxy(cls, value: str | None) -> str | None:
+        """Strip surrounding whitespace; treat blank as unset.
+
+        Guards against a stray space silently defeating the feature: uvicorn
+        decides ``*``-trust by comparing the *raw* string to ``"*"`` before it
+        strips, so ``"* "`` would be parsed as a literal host that matches no
+        client — re-introducing GH #223 with no error. Blank → ``None`` so the
+        middleware isn't installed at all.
+        """
+        return v.normalize_trusted_proxy(value)
+
+    @field_validator("default_tenant", mode="after")
+    @classmethod
+    def _check_default_tenant(cls, value: str) -> str:
+        return v.check_default_tenant(value)
+
+    @model_validator(mode="after")
+    def _check_cors_wildcard(self) -> HostSettings:
+        v.check_cors_wildcard(self)
+        return self
 
     @model_validator(mode="after")
     def _check_default_locale_supported(self) -> HostSettings:
-        if self.i18n_default_locale not in self.i18n_supported_locales:
-            raise ValueError(
-                f"i18n_default_locale '{self.i18n_default_locale}' is not in "
-                f"i18n_supported_locales {self.i18n_supported_locales}"
-            )
+        v.check_default_locale_supported(self)
         return self

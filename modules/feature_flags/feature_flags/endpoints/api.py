@@ -12,7 +12,11 @@ from feature_flags.constants import (
     SCOPE_TENANT,
 )
 from feature_flags.contracts.schemas import FeatureFlagView, ToggleRequest
-from feature_flags.deps import FeatureFlagRegistryDep, FeatureFlagServiceDep
+from feature_flags.deps import (
+    FeatureFlagRegistryDep,
+    FeatureFlagServiceDep,
+    require_known_tenant,
+)
 
 router = APIRouter()
 
@@ -66,6 +70,8 @@ async def set_override(
     await service.set_override(name, body.enabled, registry=registry)
     view = service.build_view(registry, name)
     assert view is not None  # _ensure_registered already proved it exists
+    view.enabled = body.enabled
+    view.overridden = True
     return view
 
 
@@ -87,7 +93,10 @@ async def clear_override(
 @router.get(
     "/tenant/{tenant_id}",
     response_model=list[FeatureFlagView],
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW))],
+    dependencies=[
+        Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW)),
+        Depends(require_known_tenant),
+    ],
 )
 async def list_flags_for_tenant(
     tenant_id: str,
@@ -100,7 +109,10 @@ async def list_flags_for_tenant(
 @router.put(
     "/tenant/{tenant_id}/{name}",
     response_model=FeatureFlagView,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[
+        Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE)),
+        Depends(require_known_tenant),
+    ],
 )
 async def set_tenant_override(
     tenant_id: str,
@@ -115,9 +127,13 @@ async def set_tenant_override(
     )
     view = service.build_view(registry, name, tenant_id=tenant_id)
     assert view is not None  # _ensure_registered already proved it exists
+    view.enabled = body.enabled
+    view.overridden = True
     return view
 
 
+# Clearing is not validated: an override left behind for a tenant that has
+# since gone must stay removable.
 @router.delete(
     "/tenant/{tenant_id}/{name}",
     status_code=204,

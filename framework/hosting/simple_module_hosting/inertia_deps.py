@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
-from inertia import Inertia
+from simple_module_inertia import Inertia
+
+from simple_module_hosting.token_guard import GATE_PAGE, mark_token_gate
 
 
 async def get_inertia(request: Request) -> Inertia:
@@ -23,5 +25,9 @@ async def get_inertia(request: Request) -> Inertia:
 
     return inertia
 
+
+# A route rendering a page refuses API tokens even behind a permission gate
+# (``token_guard``): its props are a second, unscoped read API.
+mark_token_gate(get_inertia, GATE_PAGE)
 
 InertiaDep = Annotated[Inertia, Depends(get_inertia)]

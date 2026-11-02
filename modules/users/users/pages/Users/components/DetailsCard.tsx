@@ -1,79 +1,92 @@
+import { Link } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
-import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { Label } from '@simple-module-py/ui/components/ui/label';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { type Role, RolePicker } from './RolePicker';
 
 interface Props {
-  user: { id: string; email: string; full_name: string | null };
+  email: string;
+  fullName: string;
+  onEmailChange: (value: string) => void;
+  onFullNameChange: (value: string) => void;
+  roles: Role[];
+  selectedRoles: string[];
+  onToggleRole: (roleName: string) => void;
+  userId: string;
+  hasPermissionsModule: boolean;
+  error?: string | null;
 }
 
-export function DetailsCard({ user }: Props) {
-  const [email, setEmail] = useState(user.email);
-  const [fullName, setFullName] = useState(user.full_name ?? '');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSave = () => {
-    setSaving(true);
-    setError(null);
-    fetch(`/api/users/admin/${user.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, full_name: fullName || null }),
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          toast.success('Details updated');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          setError(typeof data?.detail === 'string' ? data.detail : 'Failed to update details');
-        }
-      })
-      .catch(() => setError('An error occurred'))
-      .finally(() => setSaving(false));
-  };
-
+/**
+ * Who this person is and what they can do — name, email and roles together.
+ *
+ * Roles used to be a card of their own, which read as a separate thing to
+ * save even though the page has one Save button covering both. They are an
+ * attribute of the account like the name is, so they live beside it.
+ */
+export function DetailsCard({
+  email,
+  fullName,
+  onEmailChange,
+  onFullNameChange,
+  roles,
+  selectedRoles,
+  onToggleRole,
+  userId,
+  hasPermissionsModule,
+  error,
+}: Props) {
+  const { t } = useT();
   return (
-    <Card className="border-border lg:col-span-2">
+    <Card className="border-border">
       <CardContent className="pt-5">
-        <SectionTitle
-          right={
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save details'}
-            </Button>
-          }
-        >
-          Details
-        </SectionTitle>
+        <SectionTitle>{t(keys.users.details_card.title)}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="edit-email" className="text-sm font-medium text-muted-foreground">
-              Email
-            </Label>
-            <Input
-              id="edit-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="edit-full-name" className="text-sm font-medium text-muted-foreground">
-              Full name
+              {t(keys.users.common.full_name)}
             </Label>
             <Input
               id="edit-full-name"
               type="text"
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Jane Doe"
+              onChange={(e) => onFullNameChange(e.target.value)}
+              placeholder={t(keys.users.details_card.name_placeholder)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-email" className="text-sm font-medium text-muted-foreground">
+              {t(keys.users.common.email)}
+            </Label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={email}
+              onChange={(e) => onEmailChange(e.target.value)}
+              autoComplete="off"
             />
           </div>
         </div>
+
+        <div className="mt-4 space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              {t(keys.users.common.roles)}
+            </span>
+            {hasPermissionsModule && (
+              <Link
+                href={`/admin/permissions/users/${userId}/edit`}
+                className="text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-400"
+              >
+                {t(keys.users.roles_card.manage_permissions)}
+              </Link>
+            )}
+          </div>
+          <RolePicker roles={roles} selected={selectedRoles} onToggle={onToggleRole} label="" />
+        </div>
+
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       </CardContent>
     </Card>

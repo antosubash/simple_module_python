@@ -1,7 +1,8 @@
 # Module authoring guide
 
 This is the reference for authoring a module that is installable from PyPI
-and assembled into a host by the `smpy create-host` scaffold. It describes the
+**or any git repo** and assembled into a host by the `smpy create-host`
+scaffold. It describes the
 contract a module must follow, the env-var conventions, the migration
 workflow the host developer uses, and the API-version / semver rules.
 
@@ -34,6 +35,43 @@ nested per-module one never runs, and `publish.yml` would be a publish footgun.
 Pass `--standalone` to force the workflows for a module destined for its own
 repo. See GH #210.
 
+## Distributing via git
+
+A module does not need PyPI. Any git repo whose package declares
+`[project.entry-points.simple_module]` is installable:
+
+```bash
+smpy add git+https://github.com/you/your-module@v1.2.0
+```
+
+This writes a normal named dependency plus a `[tool.uv.sources]` redirect
+into the host's `pyproject.toml`, runs `uv sync`, regenerates the module
+pages manifest, and verifies the entry point. `uv.lock` pins the exact
+commit SHA, so builds stay reproducible.
+
+**Release tags.** Tag releases `vX.Y.Z` where the version matches the
+package's `pyproject.toml` — the tag is the release. `smpy update` finds the
+newest tag satisfying the host's declared range and rewrites the pin.
+Branch pins (`@main`) are dev-mode: they re-lock to the newest SHA on
+update and are labeled as such.
+
+**Multi-module repos.** A repo may carry several modules (the `modules/*`
+monorepo layout). `smpy add git+URL` without `#subdirectory` scans the repo
+and offers a picker (`--module a,b` / `--all` non-interactively). All
+modules installed from one repo share one pinned ref, and `smpy update`
+moves them together — tag the repo as a unit.
+
+**What the repo must contain.** The scaffold from `smpy create-module
+--standalone` is already correct: the entry point, `package.json` and
+`pages/` force-included into the wheel, and a `v*`-triggered publish
+workflow (optional for git-only distribution). Frontend assets need no npm
+publishing — the host aliases the module's npm name onto its installed
+package directory.
+
+**Private repos.** Authentication is git's job: SSH keys, credential
+helpers, or tokens in CI. If `git clone` works in your shell, `smpy add`
+and `uv sync` work too.
+
 ### Service types: concrete class, not Protocol
 
 Export the concrete service class from `<module>.service` and have consumers
@@ -46,6 +84,40 @@ interchangeable implementations that an operator can swap at runtime. The
 canonical example is `file_storage.StorageBackend`: it has a registry, two
 shipped implementations (`FilesystemBackend`, `S3Backend`), and tests that
 mock against the Protocol. If none of those apply to your module, skip it.
+
+### Service errors: domain exceptions
+
+Services raise domain exceptions derived from a per-module base error in
+`<module>/exceptions.py` or `errors.py`; they must not raise `HTTPException`.
+Keep the failure and its context independent of HTTP so CLI commands, tasks
+and durable handlers can reuse the same business logic.
+
+Follow `file_storage`: implement the HTTP mapping in the endpoint layer or
+install handlers from `register_exception_handlers(app)`. Preserve each
+endpoint's status, JSON body, headers and translation keys when migrating an
+existing service. Translate messages at the request boundary. Endpoint-level
+`HTTPException` remains appropriate for pure request validation. Inertia forms
+may catch domain errors to report field errors or redirect instead.
+
+For a custom exception handler that needs the standard error response, import
+the public `render_error_page` from `simple_module_hosting` (#684):
+
+```python
+from simple_module_hosting import render_error_page
+
+
+async def handle_module_error(request, exc):
+    return await render_error_page(request, exc.status_code, detail=str(exc))
+```
+
+Its stable signature is
+`render_error_page(request, status_code, detail, headers=None, *, required_permission=None)`.
+It uses the framework's content negotiation: API clients receive
+`{"detail": detail}`, while browser navigations and Inertia visits receive the
+standard `Error` page with shared layout props. Both retain the status and
+supplied headers (for example, `Retry-After`). `required_permission` optionally
+names a missing permission on a 403 page. Rendering failures fall back to JSON.
+Modules need no imports from private hosting modules.
 
 ### Minimal `pyproject.toml`
 
@@ -69,16 +141,59 @@ my_module = "my_module.module:MyModule"
 ```python
 from simple_module_core import ModuleBase, ModuleMeta
 
+
 class MyModule(ModuleBase):
     meta = ModuleMeta(
         name="MyModule",
         route_prefix="/api/my-module",
         view_prefix="/my-module",
-        depends_on=[],                   # other module names
-        version="0.1.0",                 # your module's semver
-        requires_framework=">=1.0,<2.0", # framework API range
+        depends_on=[],  # other module names
+        version="0.1.0",  # your module's semver
+        requires_framework=">=1.0,<2.0",  # framework API range
     )
 ```
+
+### Administrative screens
+
+Admin pages belong under `/admin/*`, in `MenuSection.ADMIN_SIDEBAR`, rendered
+by `AdminLayout`. Do all three or none — `SidebarLayout` renders whichever
+menu its `menuKey` names, so a page still on `AuthenticatedLayout` after its
+menu entry moved shows a sidebar that no longer lists it.
+
+If your module is administrative end to end, that is just a prefix:
+
+```python
+class MyModule(ModuleBase):
+    meta = ModuleMeta(name="MyModule", view_prefix="/admin/my-module")
+```
+
+If it serves both public and admin pages — as `users` does, with sign-in at
+`/users/login` and management at `/admin/users` — one `view_prefix` cannot
+express both. Declare a second mount point and fill it from
+`register_admin_routes`:
+
+```python
+class MyModule(ModuleBase):
+    meta = ModuleMeta(
+        name="MyModule",
+        view_prefix="/my-module",  # public pages
+        admin_view_prefix="/admin/my-module",  # admin pages
+    )
+
+    def register_admin_routes(self, admin_router: APIRouter) -> None:
+        from my_module.admin.views import router as admin_views
+
+        admin_router.include_router(admin_views)
+```
+
+The prefix is a URL convention, not a permission: nothing under `/admin` is
+gated automatically. Guard these routes with the same dependencies you would
+use anywhere else, and give the menu item a matching `permissions=` so it is
+not offered to accounts whose click would 403.
+
+Point the menu item at the canonical path — the trailing-slash form when the
+index is registered at `"/"`. Linking to the bare prefix costs a 307 on every
+navigation, which `test_menu_urls_are_canonical` will fail you for.
 
 ## API stability contract
 
@@ -130,6 +245,7 @@ FLAG_BULK_IMPORT = FeatureFlagDefinition(
 from simple_module_core import FeatureFlagRegistry, ModuleBase
 
 from my_module.constants import FLAG_BULK_IMPORT
+
 
 class MyModule(ModuleBase):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
@@ -198,7 +314,7 @@ installed or a module's models change:
 pip install simple_module_my_module
 alembic revision --autogenerate -m "add my-module"
 # review the generated file
-alembic upgrade head
+alembic upgrade heads
 ```
 
 The host's `env.py` (scaffolded from the framework's template) calls:
@@ -206,8 +322,8 @@ The host's `env.py` (scaffolded from the framework's template) calls:
 ```python
 from simple_module_db import build_module_metadata, make_include_object
 
-target_metadata = build_module_metadata()      # every installed module
-include_object  = make_include_object(target_metadata)
+target_metadata = build_module_metadata()  # every installed module
+include_object = make_include_object(target_metadata)
 ```
 
 `build_module_metadata()` imports each installed module's `<pkg>.models`
@@ -220,6 +336,67 @@ that allowlists only tables owned by installed modules. Any host-defined
 table (e.g. a user table the host dev added directly) is preserved
 untouched by autogenerate.
 
+### Reviewing a revision autogenerated on SQLite
+
+`make migration` runs against whatever `SM_DATABASE_URL` points at, which is
+SQLite by default. SQLite is forgiving, so a revision generated there can fail
+on PostgreSQL while `alembic check` and the boot check report clean. Review each
+generated file against this checklist before treating it as portable
+([GH #342](https://github.com/antosubash/simple_module_python/issues/342)):
+
+1. **Boolean defaults.** A Boolean `server_default` must be `sa.false()` /
+   `sa.true()`, never `sa.text('0')` / `sa.text('1')` — PostgreSQL rejects an
+   integer default on a boolean column (`DatatypeMismatch`). The framework's
+   `render_item` and `process_revision_directives` hooks (already wired in the
+   scaffolded `env.py`) rewrite these for you; check any revision written
+   without them, and always write `server_default=sa.false()` on the model.
+2. **Expression indexes.** SQLite cannot reflect `Index(..., text("lower(email)"))`,
+   so autogenerate skips it and `alembic check` cannot see it. Autogenerate on
+   SQLite logs a banner naming every expression index in your models, and
+   `make doctor` reports `SM026`. Add each one to a revision by hand
+   (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
+   confirm with the PostgreSQL round trip below. The warning is deliberately not
+   an error: it fires on every autogenerate, including unrelated revisions, and
+   the Postgres round trip is the actual gate.
+3. **Enum types on downgrade.** `op.drop_table` leaves the PostgreSQL
+   `CREATE TYPE` behind, so `downgrade` then `upgrade` fails with
+   `DuplicateObject`. Autogenerate never emits the drop. Finish `downgrade()`
+   with the helper, which is a no-op off PostgreSQL:
+
+   ```python
+   from simple_module_db import drop_enums_if_postgres
+
+
+   def downgrade() -> None:
+       op.drop_table("orders_order")
+       drop_enums_if_postgres(op, "orders_status")
+   ```
+
+4. **`SAEnum` server defaults use the member name.** For
+   `sa.Enum(Status)` the stored label is the member *name*
+   (`server_default="PUBLISH"`), not its value (`"publish"`). SQLite accepts
+   either; PostgreSQL rejects the value with `invalid input value for enum`.
+   (A `StrEnum` rendered with `values_callable`, which is what `render_item`
+   emits, stores the *value* — match the default to whichever the column uses.)
+
+Prove it on PostgreSQL before merging. Create a disposable database once
+(`createdb sm_migrations_check` on the shared dev Postgres), then:
+
+```bash
+make migrations-roundtrip-pg   # upgrade heads, downgrade base, upgrade heads, alembic check
+```
+
+CI runs the same target on a Postgres service (`migrations-roundtrip-pg` job in
+`pr.yml`), so a revision that only works on SQLite fails the PR.
+
+### Postgres extensions and column types
+
+A module that stores `ltree` paths or `tsvector` documents overrides
+`db_extensions()` (`return ["ltree"]`) and declares columns with
+`simple_module_db.types.LTree` / `TSVector`. The host's `env.py` creates the
+extensions before any revision runs, and the types fall back to `TEXT` on
+SQLite. See [Extensions and column types](/database/extensions).
+
 ### Multi-module branches
 
 Each module's first revision should set a `branch_labels` tuple matching
@@ -230,8 +407,23 @@ the module name:
 branch_labels = ("my_module",)
 ```
 
-This lets operators roll back a single module's schema with
-`alembic downgrade my_module@base` without touching other modules.
+The label gives the revision a stable, readable name you can target
+(`alembic downgrade my_module@<rev>`, `alembic upgrade my_module@head`), and
+it is what the Doctor's migration list shows as the owning module. It does
+**not** isolate the module's history. `alembic revision --autogenerate` sets
+`down_revision` to the current head, so every module's first revision chains
+linearly off the previous one, and a label on a revision that has a
+`down_revision` does not make it a separate branch. `<label>@base` resolves to
+the base of the *chain*, so `alembic downgrade my_module@base` rolls back every
+revision beneath it, other modules' included.
+
+To remove one module's schema safely:
+
+- If the module's revisions are the latest in the chain (no other module has
+  added a revision above them), downgrade to the `down_revision` of the
+  module's *first* revision: `alembic downgrade <that down_revision id>`.
+- Otherwise write a dedicated migration that drops that module's tables (and
+  their dependents), so history stays linear and other modules are untouched.
 
 ## Frontend assets
 
@@ -241,16 +433,27 @@ Modules may ship TSX pages in `my_module/pages/*.tsx`. On host boot (and on
 - `client_app/modules.manifest.json` — machine-readable paths
 - `client_app/modules.generated.ts` — per-module `import.meta.glob`
   calls with absolute paths resolved via `importlib.resources`
+- `client_app/modules.generated.css` — Tailwind `@source` entries, plus an
+  `@import` per module-shipped stylesheet (see [Styling](#styling))
+- `client_app/modules.assets.json` — the per-module asset record that
+  `vite.config.ts` builds its `server.fs.allow` entries (and the optional
+  `#module/<pkg>` aliases) from
 
 Vite's `server.fs.allow` is extended to cover each installed module's
 package root, so pages shipped inside a wheel work for the dev server and
 production build alike.
 
-For production builds, ship a pre-bundled `my_module/static/dist/` inside
-the wheel and expose it via `ModuleBase.static_mounts()`:
+**Inertia pages never need pre-bundling.** The consuming host's Vite build
+compiles `pages/*.tsx` straight out of the installed wheel (via
+`modules.generated.ts` + `server.fs.allow`). `static/dist/` +
+`static_mounts()` exist only for assets *outside* that pipeline — vendor JS,
+standalone widgets, images. Build them with `smpy module build` (see
+[Developing out-of-tree](#developing-out-of-tree)) and expose them via
+`ModuleBase.static_mounts()`:
 
 ```python
 from importlib.resources import files
+
 
 class MyModule(ModuleBase):
     def static_mounts(self):
@@ -259,6 +462,367 @@ class MyModule(ModuleBase):
 ```
 
 The host mounts each entry as `StaticFiles` during boot.
+
+### Importing another module's TS/TSX
+
+Use the sibling's **npm package name** — the `name` in its `package.json`:
+
+```tsx
+import { BlockRegistry } from '@simple-module-py/pagebuilder/components/blockRegistry';
+```
+
+The host builds that alias from `modules.assets.json` and points it at the
+sibling's **Python package directory** (`my_module/`). So everything after the
+package name is a path *inside* that package — `components/…`, `pages/…`,
+mirroring the layout in [Anatomy of a module package](#anatomy-of-a-module-package).
+
+That anchor is forced rather than chosen, and it is worth understanding because
+the obvious alternative silently half-works:
+
+| | wheel install | workspace / editable |
+|---|---|---|
+| Python package | `site-packages/foo/` | `modules/foo/foo/` |
+| `package.json` | `site-packages/foo/package.json` | `modules/foo/package.json` |
+| module root | **does not exist** | `modules/foo/` |
+
+A wheel ships `site-packages/foo/**` and nothing above it — Hatch force-includes
+the module-root `package.json` *into* the package. The source-tree module root
+therefore does not survive installation, and the Python package directory is the
+only anchor both layouts share.
+
+This means the shape npm gives you for a workspace member is the wrong one:
+
+```tsx
+// ✅ same file in both layouts
+import x from '@simple-module-py/foo/components/Widget';
+
+// ❌ workspace-only. npm symlinks @simple-module-py/foo -> modules/foo/, so
+//    this happens to resolve in a checkout and breaks once foo is wheel-installed.
+import x from '@simple-module-py/foo/foo/components/Widget';
+```
+
+Declare the sibling in your `package.json` `peerDependencies` so the dependency
+is explicit. Nothing pre-bundles it — it resolves to source, not to a
+node_modules package.
+
+Note this is the one part of module frontend wiring that *does* depend on the
+host's `vite.config.ts`, because the import lives in your source rather than in
+a generated file. Apps scaffolded before this shipped need the alias block added
+— see the CHANGELOG entry for the diff.
+
+## Styling
+
+A module may ship two optional stylesheets beside its `pages/` directory.
+Both are auto-detected exactly the way `pages/` is — there is no hook to
+override and nothing to register:
+
+```
+my_module/
+├── module.py
+├── theme.css     # optional — @theme tokens, @custom-variant, @font-face
+├── styles.css    # optional — component rules, keyframes, vendor CSS
+└── pages/
+```
+
+`smpy host gen-pages` emits an `@import` for each into
+`client_app/modules.generated.css`:
+
+```css
+@import "/abs/path/to/site-packages/my_module/theme.css";
+@import "/abs/path/to/site-packages/my_module/styles.css" layer(components);
+```
+
+**Nothing needs to be added to the host's `styles.css` by hand, and nothing
+needs to be added to its `vite.config.ts` either.** The paths are absolute —
+resolved through `importlib.resources`, exactly like the `@source` entries in
+the same file — so they resolve identically whether the module is a workspace
+member or installed from a wheel, under any host config.
+
+That last part is load-bearing. `modules.generated.css` is regenerated from
+whatever Python packages are installed, but `vite.config.ts` is *scaffold
+output*: written into an app once and then owned and edited there. The two are
+versioned independently, so anything the generated file emits must resolve
+without host cooperation. Emitting a `#module/<pkg>` alias specifier instead
+broke exactly this way — upgrading the Python packages alone made the build
+fail on a specifier the app had never written ([#253]).
+
+[#253]: https://github.com/antosubash/simple_module_python/issues/253
+
+Imports are emitted in module discovery order, which is topological by
+`ModuleMeta.depends_on`. A module that depends on another can therefore
+override its dependency's styles.
+
+### Which file does what
+
+The split is not cosmetic — it is what makes the cascade rules structural
+rather than merely documented.
+
+| | `theme.css` | `styles.css` |
+|---|---|---|
+| Imported | unlayered | `layer(components)` |
+| For | `@theme`, `@custom-variant`, `@utility`, `@font-face`, `:root` tokens | component rules, keyframes, vendor CSS |
+| Beats a Tailwind utility? | yes | no |
+
+Tailwind v4 expands `@import "tailwindcss"` into
+`@layer theme, base, components, utilities`, and **unlayered CSS beats every
+layered rule**. So a module shipping a bare `.card { padding: 0 }` unlayered
+would silently override `p-4` on that element. But `@theme` blocks *must* be
+unlayered to register design tokens at all — a `@theme` inside a layer is
+inert. One file cannot satisfy both constraints, so each file gets one job.
+
+`make doctor` catches the two ways to get this wrong: **SM022** flags
+`@theme`/`@custom-variant`/`@utility` sitting in `styles.css` (where they do
+nothing), and **SM023** flags an unlayered rule in `theme.css` (where it
+outranks every utility). Both are warnings — the CSS is legal either way, it
+just cascades in a way you probably did not intend.
+
+### Cascade order
+
+```
+design-system @theme  <  module theme.css  <  app @theme overrides
+```
+
+A module normally *adds* tokens (`--color-map-water`); when it deliberately
+redefines a design-system token it wins, and the consuming app still has the
+final word from its own `@theme` block below the generated import.
+
+### Packaging
+
+**No packaging change is required.** The module wheel template already
+declares `[tool.hatch.build.targets.wheel] packages = ["my_module"]`, and
+Hatch includes every file under the package directory — `.css` along with
+`.tsx`. Only two extras need declaring: `package.json` lives *outside* the
+package dir (a `force-include` maps it in), and `static/dist` is gitignored
+(an `artifacts` entry ships it when present without failing the build when
+it isn't).
+
+## External asset origins (CSP)
+
+The host ships a strict Content-Security-Policy. If your pages load anything
+from another origin — a font CDN, a tile server, a third-party API — declare
+it, or the browser blocks the request and your feature silently breaks in
+every host:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add("style-src", "https://rsms.me")
+    registry.add("font-src", "https://rsms.me")
+```
+
+Only fetch directives can be extended; each source must be a single
+origin/scheme token, validated at boot.
+
+An origin that comes from a DB-backed setting (a configurable tile server)
+can't be added at boot — the hook runs before settings hydrate. Register a
+provider, evaluated per response:
+
+```python
+def register_csp_sources(self, registry):
+    registry.add_provider(lambda app: [("img-src", app.state.maps.settings.tile_origin)])
+```
+
+Providers must be synchronous and read in-memory state only
+(`app.state.<pkg>.settings`); a raising provider or an invalid pair is logged
+once and dropped, leaving the static policy in force. Sources must be
+printable ASCII, as CSP's own grammar requires, so an internationalised domain
+is written in its punycode form (`https://xn--exmple-cua.com`). See
+[docs/framework/lifecycle.md](framework/lifecycle.md#register_csp_sourcesregistry).
+
+## First-run setup steps
+
+A module can declare what an install still needs before it is usable. While
+any required step reports incomplete, `SetupMiddleware` redirects every
+request to the wizard at `/setup`. The wizard ships with
+`simple_module_hosting`: `create_app` mounts its routes and `smpy gen-pages`
+registers its page (`Setup/Wizard`), so a host needs no code of its own for it.
+
+```python
+from simple_module_core import SetupAction, SetupField, SetupRegistry, SetupStep
+
+
+async def has_administrator(app) -> bool:
+    async with app.state.sm.db.session_factory() as session:
+        ...  # return True once satisfied
+
+
+async def create_administrator(request, data: dict) -> dict:
+    ...  # validate `data`, lock, re-check, create; raise HTTPException to refuse
+    return {"created": True}
+
+
+class MyModule(ModuleBase):
+    def register_setup_steps(self, registry: SetupRegistry) -> None:
+        registry.add(
+            SetupStep(
+                id="mymodule.administrator",
+                title="Create an administrator",
+                title_key="mymodule.setup.administrator.title",
+                description="An account that can sign in and manage this install.",
+                is_complete=has_administrator,
+                order=30,
+                action=SetupAction(
+                    handler=create_administrator,
+                    fields=[
+                        SetupField(name="email", label="Email", type="email"),
+                        SetupField(name="password", label="Password", type="password"),
+                    ],
+                    submit_label="Create administrator",
+                ),
+            )
+        )
+```
+
+The wizard lists every registered step and, for each pending step with an
+`action`, renders `fields` as a form. Submitting it POSTs the values as JSON to
+`/setup/steps/<step id>`, which calls `handler(request, data)` and returns its
+dict. Titles, descriptions, field labels and the submit label reach the page as
+backend data, so give each a `*_key` into your module's catalog; an unresolved
+key falls back to the literal. A step with no `action` can only be completed
+out of band (a CLI command, an environment variable); the host logs each such
+required step at boot so an operator facing a form-less wizard can find out why.
+
+A few things are worth knowing before you add one.
+
+**Registering nothing is a valid answer, and it is how a module opts out.** The
+`users` module contributes the "an administrator exists" step; `keycloak`
+deliberately does not, because an install using an external identity provider
+has a legitimately empty local users table and a host-level superuser count
+would hold it behind the wizard forever.
+
+**An action runs only while its own step is pending.** The wizard answers 404
+once setup is complete, and 409 for a step that is already done even while
+other steps keep the wizard open. "Setup mode" alone is not a safe gate: the
+host always registers `host.migrations`, so an install whose schema falls
+behind head re-enters setup mode with its administrators intact. Every
+`/setup` mutation also carries the session's CSRF token
+(`simple_module_hosting.csrf`); the wizard page sends it for you.
+
+**An action that creates something unique must re-check under a lock.** The
+step check runs before your handler and outside its transaction, so two
+concurrent requests can both pass it. `users.setup_action` shows the pattern:
+take a database lock (`pg_advisory_xact_lock` on Postgres, a no-op `UPDATE`
+that claims SQLite's write lock), re-check the predicate, then insert, all in
+one transaction.
+
+**A step whose predicate raises counts as complete.** Failing closed on a
+transient database error would open an anonymous admin-creation form on a
+live install — that is failing *open* on security, so the framework fails the
+other way.
+
+**Completion is recomputed per request, not latched.** An install that loses
+its administrators can be recovered through the browser rather than needing
+shell access to the container.
+
+Set `required=False` for a step that should appear in the wizard without
+holding the install closed. `order` controls display order (lower first).
+
+## CSRF on mutation endpoints
+
+The framework's baseline CSRF defence is `SameSite=Lax` on the session
+cookie — plain Inertia forms need nothing extra. For defence in depth on a
+module's JSON mutation surface, opt into the framework's session-bound token
+check instead of rolling your own:
+
+```python
+from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+
+router = APIRouter(dependencies=[Depends(RequiresCsrf())])
+
+# expose the token to your pages as a view prop:
+await inertia.render("MyModule/Page", {"csrf_token": get_csrf_token(request)})
+```
+
+Frontend callers echo the token back as `X-CSRF-Token` on
+`POST`/`PUT`/`PATCH`/`DELETE`. Safe methods are never checked, and bare test
+apps without `SessionMiddleware` are exempt, so unit tests need no ceremony.
+
+## Prop types (Inertia v3)
+
+The adapter is the in-repo `simple_module_inertia` package, which speaks the
+Inertia v3 protocol. Import `InertiaResponse` and the prop wrappers from it.
+Wrap a value, a callable, or an awaitable; the adapter decides when to resolve
+it, and the wrappers compose (`merge(defer(load_feed), match_on="id")`):
+
+```python
+from simple_module_inertia import always, defer, merge, once, optional, scroll
+
+await inertia.render(
+    "Feed/Index",
+    {
+        "posts": scroll(
+            load_page, page_name="page", current_page=1, previous_page=None, next_page=2
+        ),
+        "notices": merge(load_notices, match_on="id"),
+        "plans": once(load_plans, expires_at=None),
+        "analytics": defer(load_analytics, group="sidebar"),
+        "stats": optional(load_stats),  # only on partial reloads that ask for it
+        "flash": always(get_flash),  # on every response, even partial ones
+    },
+)
+```
+
+`once(loader, key="feature-flags")` announces its cache entry under the custom
+key, defaulting to the prop name when no key is given. Clients send that key in
+`X-Inertia-Except-Once-Props` to skip both the loader and the returned prop on
+full and partial requests (#694).
+
+`errors` is always present in props (it is the protocol's always-prop) and is
+filled from validation failures flashed by the previous request. A page `url`
+is always root-relative, and a prop that cannot be serialised raises
+`PropEncodingError` naming its path (`props.user.avatar`) rather than a bare
+`TypeError`.
+
+## Developing out-of-tree
+
+A module in its own repo has no host around it — these are the three
+commands that close the gap. All of them run from the module repo root.
+
+### Type-checking
+
+`smpy create-module` scaffolds a `package.json` whose devDependencies pin
+`@simple-module-py/ui`, `@simple-module-py/tsconfig` and
+`@simple-module-py/i18n` to the framework version that created the module
+(all three are published to npm in lockstep with the PyPI packages), and a
+`tsconfig.json` that resolves `@simple-module-py/ui/*` from your own
+`node_modules`. So:
+
+```bash
+npm install          # once; commit package-lock.json and use `npm ci` in CI
+npm run typecheck    # tsc --noEmit over your pages
+```
+
+### `smpy module verify` — does my frontend actually build?
+
+`tsc` alone cannot tell you whether your pages and `theme.css`/`styles.css`
+survive a real host build (Vite import resolution, Tailwind scanning, the
+`gen-pages` CSS emission). `verify` answers that by scaffolding a
+throwaway host into `.smpy/verify-host/` (cached, gitignored), installing
+your module into it as an editable path dependency, and running the host's
+real `gen-pages` + `npm run build`:
+
+```bash
+uv run smpy module verify          # warm re-runs reuse the cached host
+uv run smpy module verify --fresh  # nuke and rebuild the cached host
+```
+
+The scaffolded CI workflow runs it on every push. The verify host pins the
+framework version you develop against, so a green verify ≈ your module
+building inside a freshly scaffolded host of that version. It needs `uv`,
+`npm`, and network access to PyPI + npm on first run.
+
+### `smpy module build` — static_mounts() assets
+
+If (and only if) your module ships assets outside the Inertia page pipeline,
+put an entry file at `<pkg>/assets_src/index.ts` and run:
+
+```bash
+uv run smpy module build
+```
+
+It bundles `assets_src/` into `<pkg>/static/dist/` (IIFE, via the verify
+host's Vite toolchain — your repo needs no bundler devDependency). The
+scaffolded `pyproject.toml` already ships `static/dist` in the wheel via a
+hatch `artifacts` entry; the command warns if that entry has been removed.
 
 ## Templates
 
@@ -298,6 +862,7 @@ Example test:
 
 ```python
 from my_feature.module import MyFeatureModule
+
 
 async def test_api_emits_event(build_test_app, fake_event_bus):
     app = build_test_app(MyFeatureModule)

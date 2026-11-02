@@ -33,7 +33,7 @@ class TestModulePagesManifest:
         assert "Headless" not in result
 
     async def test_write_manifest_emits_json_and_ts(self, tmp_path):
-        """write_module_pages_manifest emits the JSON manifest, TS glob, and Tailwind CSS files."""
+        """write_module_pages_manifest emits the JSON manifest, TS glob, CSS and assets files."""
         import json
 
         from simple_module_core import discover_modules
@@ -45,10 +45,17 @@ class TestModulePagesManifest:
         manifest = tmp_path / "modules.manifest.json"
         generated = tmp_path / "modules.generated.ts"
         css = tmp_path / "modules.generated.css"
+        assets = tmp_path / "modules.assets.json"
         assert manifest.is_file()
         assert generated.is_file()
         assert css.is_file()
-        assert written == {"manifest": manifest, "generated": generated, "css": css}
+        assert assets.is_file()
+        assert written == {
+            "manifest": manifest,
+            "generated": generated,
+            "css": css,
+            "assets": assets,
+        }
 
         data = json.loads(manifest.read_text(encoding="utf-8"))
         assert "Dashboard" in data

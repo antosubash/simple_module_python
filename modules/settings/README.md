@@ -26,7 +26,7 @@ class OrdersModule(ModuleBase):
     meta = ModuleMeta(name="orders")
 
     def register_settings(self, app: FastAPI) -> None:
-        from settings.registration import register_module_settings
+        from simple_module_core.module_settings import register_module_settings
         from orders.settings import OrdersSettings
         from orders.services import OrdersServices
 
@@ -35,7 +35,7 @@ class OrdersModule(ModuleBase):
         )
 ```
 
-That surfaces the module's settings fields under `/settings/modules`, hydrated from the DB store at startup. The settings class is a `pydantic_settings.BaseSettings` with the module's `SM_<PREFIX>_*` env-var defaults.
+That surfaces the module's settings fields under `/admin/settings/`, hydrated from the DB store at startup. The settings class is normally a `simple_module_core.settings_base.DbBackedSettings` (DB is the only source). Registration and hydration live in the framework (#500); this module adds the admin editor, hot reload and the key/value API. `settings.registration`, `settings.module_registry` and `settings.hydrate` are deprecated re-exports.
 
 ## Depends on
 

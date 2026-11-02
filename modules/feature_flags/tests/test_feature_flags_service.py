@@ -5,6 +5,7 @@ from __future__ import annotations
 from feature_flags.constants import SCOPE_TENANT
 from feature_flags.service import FeatureFlagService
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
+from simple_module_db.transaction import finalize_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -25,6 +26,7 @@ class TestFeatureFlagServiceSystem:
         assert result.name == "beta_ui"
         assert result.scope == "system"
         assert result.enabled is True
+        await finalize_session(db_session)
         assert reg.is_enabled("beta_ui") is True
 
     async def test_set_override_twice_updates_in_place(self, db_session: AsyncSession):
@@ -37,6 +39,7 @@ class TestFeatureFlagServiceSystem:
         rows = await svc.list_overrides()
         assert len(rows) == 1
         assert rows[0].enabled is False
+        await finalize_session(db_session)
         assert reg.is_enabled("beta_ui") is False
 
     async def test_clear_override_removes_row_and_reverts_registry(self, db_session: AsyncSession):
@@ -48,6 +51,7 @@ class TestFeatureFlagServiceSystem:
 
         assert cleared is True
         assert await svc.list_overrides() == []
+        await finalize_session(db_session)
         assert reg.is_enabled("beta_ui") is False  # back to default
 
     async def test_clear_override_unknown_flag_is_noop(self, db_session: AsyncSession):
@@ -62,6 +66,7 @@ class TestFeatureFlagServiceSystem:
         )
         await svc.set_override("a.flag", True, registry=reg)
 
+        await finalize_session(db_session)
         views = await svc.list_flags(reg)
 
         by_name = {v.name: v for v in views}
@@ -82,6 +87,7 @@ class TestFeatureFlagServiceSystem:
         await svc.set_override("legacy", True, registry=reg_old)
 
         reg_new = _registry_with(("current", "", False))
+        await finalize_session(db_session)
         views = await svc.list_flags(reg_new)
 
         assert [v.name for v in views] == ["current"]
@@ -98,6 +104,7 @@ class TestFeatureFlagServiceTenant:
         rows = await svc.list_overrides()
         assert len(rows) == 2
         # tenant row beats system for that tenant
+        await finalize_session(db_session)
         assert reg.is_enabled("beta_ui", tenant_id="acme") is False
         # other tenants fall back to system
         assert reg.is_enabled("beta_ui", tenant_id="other") is True
@@ -115,6 +122,7 @@ class TestFeatureFlagServiceTenant:
         )
 
         assert cleared is True
+        await finalize_session(db_session)
         assert reg.is_enabled("beta_ui", tenant_id="acme") is False
         assert reg.is_enabled("beta_ui", tenant_id="globex") is True
 
@@ -124,6 +132,7 @@ class TestFeatureFlagServiceTenant:
         await svc.set_override("beta_ui", True, registry=reg)  # system on
         await svc.set_override("beta_ui", False, registry=reg, scope=SCOPE_TENANT, scope_id="acme")
 
+        await finalize_session(db_session)
         views = await svc.list_flags(reg, tenant_id="acme")
 
         view = next(v for v in views if v.name == "beta_ui")
@@ -138,6 +147,7 @@ class TestFeatureFlagServiceTenant:
         reg = _registry_with(("beta_ui", "", False))
         await svc.set_override("beta_ui", True, registry=reg)  # system on
 
+        await finalize_session(db_session)
         views = await svc.list_flags(reg, tenant_id="acme")
 
         view = next(v for v in views if v.name == "beta_ui")

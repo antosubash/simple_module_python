@@ -14,6 +14,18 @@ PORT=${PORT:-8000}
 PROFILE=${PROFILE:-.memray/loadtest.bin}
 LOCUSTFILE=${LOCUSTFILE:-tests/loadtest/locustfile.py}
 
+# Refuse an occupied port before seeding or driving an unrelated server.
+python3 - "$PORT" <<'PY'
+import socket
+import sys
+
+with socket.socket() as sock:
+    # Match uvicorn: leftover TIME_WAIT from a previous run is not "occupied".
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", int(sys.argv[1])))
+PY
+command -v setsid > /dev/null
+
 # Default locust scenario — override by passing any locust flags as arguments.
 if [ "$#" -eq 0 ]; then
   set -- -u 20 -r 5 -t 30s
@@ -32,50 +44,53 @@ fi
 echo "[loadtest-memray] starting uvicorn under memray → $PROFILE"
 # --force overwrites any previous profile; --follow-fork picks up any children
 # uvicorn might spawn (none in single-worker mode, but harmless).
-uv run memray run --force --follow-fork -o "$PROFILE" \
+setsid uv run memray run --force --follow-fork -o "$PROFILE" \
   -m uvicorn host.main:app --host 127.0.0.1 --port "$PORT" --log-level warning &
 SERVER_PID=$!
 
-# Signal the memray wrapper AND any descendants. uv + memray spawn uvicorn as
-# a grandchild, so signaling just $SERVER_PID leaves uvicorn attached to the
-# port. `pkill -P` walks one level of children; we also hit whatever is bound
-# to the port as a belt-and-braces final check.
+# setsid gives the wrapper and its descendants a process group owned by this run.
 _signal_tree() {
   local sig=$1
-  kill "-$sig" "$SERVER_PID" 2>/dev/null || true
-  pkill "-$sig" -P "$SERVER_PID" 2>/dev/null || true
+  kill "-$sig" -- "-$SERVER_PID" 2>/dev/null || true
 }
 
 cleanup() {
-  if kill -0 "$SERVER_PID" 2>/dev/null; then
+  if kill -0 -- "-$SERVER_PID" 2>/dev/null; then
     echo "[loadtest-memray] stopping uvicorn (pid $SERVER_PID)"
     _signal_tree INT
     # Give memray a moment to flush the profile; escalate if it lingers.
     for _ in $(seq 1 20); do
-      kill -0 "$SERVER_PID" 2>/dev/null || break
+      kill -0 -- "-$SERVER_PID" 2>/dev/null || break
       sleep 0.25
     done
-    if kill -0 "$SERVER_PID" 2>/dev/null; then
+    if kill -0 -- "-$SERVER_PID" 2>/dev/null; then
       _signal_tree TERM
-      wait "$SERVER_PID" 2>/dev/null || true
+      for _ in $(seq 1 20); do
+        kill -0 -- "-$SERVER_PID" 2>/dev/null || break
+        sleep 0.25
+      done
+      _signal_tree KILL
     fi
   fi
-  # Last-ditch: anything still bound to the port is ours to reap.
-  if command -v lsof > /dev/null 2>&1; then
-    lsof -ti tcp:"$PORT" 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-  fi
+  wait "$SERVER_PID" 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Wait for /health/live — fail loudly if the server doesn't come up.
 echo "[loadtest-memray] waiting for $HOST/health/live"
 for _ in $(seq 1 60); do
-  if curl -sf "$HOST/health/live" > /dev/null 2>&1; then
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "[loadtest-memray] server exited before becoming healthy" >&2
+    exit 1
+  fi
+  if curl -sf --max-time 2 "$HOST/health/live" > /dev/null 2>&1; then
     break
   fi
   sleep 0.5
 done
-if ! curl -sf "$HOST/health/live" > /dev/null 2>&1; then
+if ! curl -sf --max-time 2 "$HOST/health/live" > /dev/null 2>&1; then
   echo "[loadtest-memray] server did not become healthy in 30s" >&2
   exit 1
 fi

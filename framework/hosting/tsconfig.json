@@ -1,0 +1,12 @@
+{
+  // Type-checks the pages simple_module_hosting ships itself (the /setup
+  // wizard). They are bundled by each host's Vite build from the installed
+  // wheel, so nothing else in the repo would compile them.
+  "extends": "@simple-module-py/tsconfig/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": ["simple_module_hosting/**/*.ts", "simple_module_hosting/**/*.tsx"]
+}

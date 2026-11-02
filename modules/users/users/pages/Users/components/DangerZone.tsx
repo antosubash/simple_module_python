@@ -1,21 +1,14 @@
 import { router } from '@inertiajs/react';
-import { SectionTitle } from '@simple-module-py/ui/components/SectionTitle';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@simple-module-py/ui/components/ui/alert-dialog';
+import { keys, useT } from '@simple-module-py/i18n';
+import { ConfirmActionDialog } from '@simple-module-py/ui/components/ConfirmActionDialog';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { Trash2 } from 'lucide-react';
+import { apiResult } from '@simple-module-py/ui/lib/api';
+import { Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { api } from '../../api';
+import { adminFailureMessage } from '../../failureMessage';
 
 interface Props {
   userId: string;
@@ -23,63 +16,100 @@ interface Props {
   isSelf: boolean;
 }
 
+/**
+ * Deleting the account.
+ *
+ * Red-tinted rather than merely red-bordered, and an outline button rather
+ * than a filled one: the card is the warning, and a solid destructive button
+ * inside a solid destructive panel is the loudest thing on a page whose point
+ * is that you should not click it by accident.
+ *
+ * The confirm asks for the address to be typed out. Reading it back is what
+ * catches "wrong person"; a second click never would.
+ */
 export function DangerZone({ userId, email, isSelf }: Props) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = () => {
     setDeleting(true);
-    fetch(`/api/users/admin/${userId}`, { method: 'DELETE' })
-      .then(async (res) => {
-        if (res.ok) {
-          toast.success('User deleted');
-          router.visit('/users/admin');
-          return; // navigating away — leave `deleting` set
-        }
-        const data = await res.json().catch(() => ({}));
-        toast.error(typeof data?.detail === 'string' ? data.detail : 'Failed to delete user');
-        setDeleting(false);
-      })
-      .catch(() => {
-        toast.error('An error occurred');
-        setDeleting(false);
-      });
+    apiResult(
+      api.DELETE('/api/users/admin/{user_id}', { params: { path: { user_id: userId } } }),
+    ).then((res) => {
+      if (res.ok) {
+        toast.success(t(keys.users.danger_zone.toast_deleted));
+        router.visit('/admin/users/');
+        return; // navigating away — leave `deleting` set
+      }
+      toast.error(
+        adminFailureMessage(
+          res,
+          t(keys.users.danger_zone.toast_failed),
+          t(keys.users.common.error_occurred),
+          t,
+        ),
+      );
+      setDeleting(false);
+      setOpen(false);
+    });
   };
 
   return (
-    <Card className="border-destructive/40 lg:col-span-2">
-      <CardContent className="pt-5">
-        <SectionTitle>Danger zone</SectionTitle>
-        {isSelf ? (
-          <p className="text-sm text-muted-foreground">You cannot delete your own account.</p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-muted-foreground">
-              Permanently delete this user. This cannot be undone.
+    // `self-start`: in a grid row beside the Details card this stretched to
+    // its neighbour's height, leaving the delete button floating in a tall
+    // red panel the deck draws as a compact one.
+    <Card className="self-start border-red-500/40 bg-red-500/5">
+      <CardContent className="flex flex-col gap-2.5 pt-5">
+        <h2 className="text-[15px] font-bold text-red-600 font-display dark:text-red-400">
+          {t(keys.users.danger_zone.title)}
+        </h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {t(keys.users.danger_zone.description)}
+        </p>
+        <div className="mt-auto pt-2">
+          {/* Disabled rather than hidden for your own account: the copy above
+              says deletion is blocked there, and a button that simply is not
+              on the page leaves that sentence unexplained. */}
+          <Button
+            variant="outline"
+            disabled={isSelf || deleting}
+            onClick={() => setOpen(true)}
+            className="gap-1.5 border-red-500 text-red-600 hover:bg-red-500/10 hover:text-red-700 max-lg:min-h-11 dark:text-red-400 dark:hover:text-red-300"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+            {deleting
+              ? t(keys.users.danger_zone.deleting)
+              : t(keys.users.danger_zone.delete_button)}
+          </Button>
+          {isSelf && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t(keys.users.danger_zone.self_note)}
             </p>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {deleting ? 'Deleting…' : 'Delete user'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {email}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This permanently removes the account and all of its access. This action cannot
-                    be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
+
+      <ConfirmActionDialog
+        // Pinned while the request is in flight: the Radix action closes on
+        // click, and the dialog vanishing mid-delete looks like it worked.
+        open={open || deleting}
+        onOpenChange={(next) => !deleting && setOpen(next)}
+        // The deck's confirm tile is a warning triangle, not a bin: the
+        // dialog is the moment to stop, and the bin is on the button below.
+        icon={TriangleAlert}
+        title={t(keys.users.danger_zone.confirm_title, { email })}
+        description={t(keys.users.danger_zone.confirm_body)}
+        confirmLabel={t(keys.users.danger_zone.delete_button)}
+        cancelLabel={t(keys.users.common.cancel)}
+        confirmText={{
+          expected: email,
+          label: t(keys.users.danger_zone.confirm_prompt),
+          placeholder: email,
+        }}
+        busy={deleting}
+        onConfirm={handleDelete}
+      />
     </Card>
   );
 }

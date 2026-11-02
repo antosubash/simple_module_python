@@ -83,16 +83,14 @@ Order is roughly "safest, smallest" first so the branch stays green after each c
    ```
    with:
    ```python
-   _PROJECT_ROOT = Path(
-       os.environ.get("SM_PROJECT_ROOT")
-       or Path(__file__).resolve().parents[3]
-   )
+   _PROJECT_ROOT = Path(os.environ.get("SM_PROJECT_ROOT") or Path(__file__).resolve().parents[3])
    ```
    Add `import os` if missing.
 2. In `host/main.py`, before `create_app(...)`:
    ```python
    import os
    from pathlib import Path
+
    os.environ.setdefault("SM_PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))
    ```
 3. Add a test that sets `SM_PROJECT_ROOT` to a tmp_path and asserts `app_builder` resolves static / templates under it (use `monkeypatch.setenv` + import reload or, cleaner, refactor the fallback into a helper and test the helper directly).
@@ -170,6 +168,7 @@ Order is roughly "safest, smallest" first so the branch stays green after each c
 
    router = APIRouter()
 
+
    @router.get("/", response_model=None)
    async def landing(inertia: InertiaDep) -> InertiaResponse:
        return await inertia.render("Landing")
@@ -198,7 +197,7 @@ Order is roughly "safest, smallest" first so the branch stays green after each c
 1. In `Settings`, add:
    ```python
    multi_tenant: bool = False
-   tenant_header: str = ""   # empty disables header-based tenant resolution
+   tenant_header: str = ""  # empty disables header-based tenant resolution
    ```
 2. In `TenantMiddleware.__init__`, accept `header: str | None = None`; skip the header lookup path when `header` is None or empty.
 3. In `app_builder.create_app`, replace the unconditional `app.add_middleware(TenantMiddleware)` with:

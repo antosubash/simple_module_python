@@ -7,14 +7,24 @@ These helpers are intentionally side-effect-free except for the DB write in
 
 from __future__ import annotations
 
+import logging
 import traceback as tb_mod
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from celery import current_app
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlmodel import col
 
 from background_tasks.models import TaskExecution
+from background_tasks.sync_db import sync_session
+from background_tasks.task_resource import message_resource
+from background_tasks.tenant_context import message_owner
+from background_tasks.tracking import records_signal, tracking_mode
+
+logger = logging.getLogger(__name__)
 
 
 def now_utc() -> datetime:
@@ -47,7 +57,7 @@ def upsert_by_celery_id(
     """
     row: TaskExecution | None = None
     if celery_task_id:
-        stmt = select(TaskExecution).where(TaskExecution.celery_task_id == celery_task_id)
+        stmt = select(TaskExecution).where(col(TaskExecution.celery_task_id) == celery_task_id)
         row = session.execute(stmt).scalar_one_or_none()
     if row is None:
         row = TaskExecution(celery_task_id=celery_task_id, **defaults)
@@ -103,3 +113,62 @@ def render_traceback(einfo: Any, exception: BaseException | None) -> str | None:
     if exception is not None:
         return "".join(tb_mod.format_exception(type(exception), exception, exception.__traceback__))
     return None
+
+
+def apply_signal(
+    handler: str,
+    *,
+    celery_task_id: str | None,
+    defaults: dict[str, Any],
+    after: Callable[[TaskExecution], None] | None = None,
+    tenant_id: str | None = None,
+    owner_user_id: str | None = None,
+    task: Any = None,
+    request: Any = None,
+    headers: dict | None = None,
+) -> TaskExecution | None:
+    """Open a sync session, upsert by celery_task_id, log on failure.
+
+    Returns the upserted row (or ``None`` if the session raised) so callers
+    can read DB-assigned fields like ``id`` without a second round trip.
+
+    ``tenant_id`` and ``owner_user_id`` (the message's) are written only when
+    known, so a signal whose message carries neither never blanks a row already
+    stamped.
+
+    The task's tracking mode (:mod:`.tracking`) decides first whether this
+    signal is recorded at all. When it is, the row also takes args, kwargs,
+    queue, owner and resource from the message when ``defaults`` lack them, so
+    a worker can create the row itself when the publisher never did.
+    """
+    name = defaults.get("task_name", "")
+    mode = tracking_mode(task=task, request=request, headers=headers, name=name)
+    app = getattr(task, "app", None) or current_app
+    if not records_signal(mode, handler, defaults.get("status"), app=app):
+        return None
+    request = request if request is not None else getattr(task, "request", None)
+    if request is not None:
+        metadata = {}
+        if getattr(request, "args", None) is not None:
+            metadata["args"] = list(request.args)
+        if getattr(request, "kwargs", None) is not None:
+            metadata["kwargs"] = dict(request.kwargs)
+        delivery = getattr(request, "delivery_info", None) or {}
+        if delivery.get("routing_key"):
+            metadata["queue"] = delivery["routing_key"]
+        defaults = {**metadata, **defaults}
+        owner_user_id = owner_user_id or message_owner(request=request)
+    defaults = {**message_resource(headers=headers, request=request), **defaults}
+    if tenant_id:
+        defaults = {**defaults, "tenant_id": tenant_id}
+    if owner_user_id:
+        defaults = {**defaults, "owner_user_id": owner_user_id}
+    try:
+        with sync_session() as session:
+            row = upsert_by_celery_id(session, celery_task_id=celery_task_id, defaults=defaults)
+            if after is not None:
+                after(row)
+            return row
+    except Exception:
+        logger.exception("%s failed for task_id=%s", handler, celery_task_id)
+        return None

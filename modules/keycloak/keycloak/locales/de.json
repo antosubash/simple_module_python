@@ -1,0 +1,25 @@
+{
+  "login": {
+    "redirecting": "Weiterleitung zu Ihrem Identitätsanbieter",
+    "title": "Anmeldung läuft",
+    "body_prefix": "Weiterleitung zu",
+    "body_suffix": ". Nach der Anmeldung kehren Sie direkt zurück.",
+    "body_generic": "Weiterleitung zu Ihrem Identitätsanbieter. Nach der Anmeldung kehren Sie direkt zurück.",
+    "manual": "Keine Weiterleitung? Manuell fortfahren",
+    "progress_label": "Weiterleitung"
+  },
+  "logout": {
+    "title": "Sie sind abgemeldet",
+    "message": "Ihre App-Sitzung und Ihre Keycloak-Sitzung wurden beendet. Schließen Sie auf einem gemeinsam genutzten Computer zur Sicherheit den Browser.",
+    "sign_in_again": "Erneut anmelden",
+    "back_to_site": "Zurück zur Website"
+  },
+  "errors": {
+    "callback_failed": "Authentifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "invalid_state": "Ungültiger Authentifizierungsstatus. Bitte versuchen Sie es erneut.",
+    "token_validation_failed": "Tokenvalidierung fehlgeschlagen."
+  },
+  "nav": {
+    "logout": "Abmelden"
+  }
+}

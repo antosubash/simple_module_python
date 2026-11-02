@@ -23,6 +23,7 @@ All fixtures below are auto-registered via the `pytest11` entry point — instal
 - `app` — a `create_app(settings)` instance with `lifespan` started and stopped.
 - `client` — an `httpx.AsyncClient` bound to the test app.
 - `authenticated_client` — same but with an admin user seeded and a forged session cookie attached. **Requires the `users` module** to be installed (it seeds the admin via `users.bootstrap`); apps scaffolded by `smpy` include it.
+- `tenant_client` — factory: `async with tenant_client("member") as (client, tenant_id, user_id)` signs in a fresh user who is an `owner` / `admin` / `member` (default `owner`) of a new tenant — or of `tenant_id=` when given — with that tenant active. **Requires the `users` and `tenants` modules.**
 
 ## Usage
 

@@ -2,6 +2,8 @@
 
 Built-in commands:
   smpy new
+  smpy add
+  smpy update
   smpy create-host
   smpy create-module
   smpy skills add / list / update
@@ -12,19 +14,27 @@ group are mounted as named subgroups (e.g. ``smpy host gen-pages``).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
+from simple_module_cli.docker_cmd import docker_app
+from simple_module_cli.migrations_cmd import migrations_app
+from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
+from simple_module_cli.openapi_cmd import openapi_app
 from simple_module_cli.package_update import package_update
 from simple_module_cli.plugins import discover_and_mount
 from simple_module_cli.scaffolding import create_host as _create_host
 from simple_module_cli.scaffolding import create_module as _create_module
 from simple_module_cli.scaffolding import is_inside_existing_repo, resolve_framework_version
 from simple_module_cli.skills_cmd import app as skills_app
+from simple_module_cli.update_cmd import update_modules
+from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
 
 app = typer.Typer(
     help="SimpleModule developer CLI.",
@@ -33,8 +43,29 @@ app = typer.Typer(
 )
 
 app.command("new")(new_project)
+app.command("add")(add_module)
+app.command("update")(update_modules)
 app.command("package-update")(package_update)
+app.add_typer(docker_app, name="docker")
 app.add_typer(skills_app, name="skills")
+app.add_typer(module_app, name="module")
+app.add_typer(openapi_app, name="openapi")
+app.add_typer(migrations_app, name="migrations")
+
+
+@app.command("doctor")
+def doctor() -> None:
+    """Check installed modules and their database compatibility."""
+    try:
+        from simple_module_core.__main__ import main as run_doctor
+    except ImportError:
+        # The CLI installs on its own (to scaffold); doctor needs a project's framework.
+        typer.echo(
+            "ERROR: smpy doctor needs simple_module_core; run it inside a project.", err=True
+        )
+        raise typer.Exit(1) from None
+
+    raise typer.Exit(run_doctor())
 
 
 @app.command("create-host")
@@ -51,6 +82,14 @@ def create_host(
             help="Comma-separated module names to declare as deps (e.g. Auth,Dashboard).",
         ),
     ] = "",
+    git_module: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--git-module",
+            help="git+URL[@ref][#subdirectory=dir] module source; repeatable. "
+            "Multi-module repos need an explicit #subdirectory here.",
+        ),
+    ] = None,
 ) -> None:
     """Scaffold a new SimpleModule host project at ./<NAME>."""
     target = dest or Path.cwd() / name
@@ -71,6 +110,10 @@ def create_host(
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
+    # create-host is non-interactive: multi-module repos need #subdirectory.
+    for spec in git_module or []:
+        run_add(spec, pyproject=target / "pyproject.toml", no_sync=True, assume_yes=True)
+
     typer.echo(f"Created host '{name}' at {target}")
     if selected:
         typer.echo(f"Declared modules: {', '.join(selected)}")
@@ -81,6 +124,27 @@ def create_host(
     typer.echo('  alembic revision --autogenerate -m "initial schema"')
     typer.echo("  alembic upgrade heads")
     typer.echo("  python main.py")
+
+
+def _echo_workspace_hint(target: Path) -> None:
+    """Tell the user how to wire a workspace-member module into the host (GH #442)."""
+    root = find_workspace_root(target.parent)
+    if root is None:
+        return
+    host = root / "host"
+    if not (host / "pyproject.toml").is_file() or not is_workspace_member(host, target):
+        return
+    rel = os.path.relpath(target.resolve(), host.resolve())
+    if not rel.startswith("."):
+        rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
+    host_arg = os.path.relpath(host.resolve(), Path.cwd())
+    if host_arg.startswith(".."):
+        host_arg = str(host.resolve())
+    typer.echo(
+        f"\nThis module is a uv workspace member. Wire it into the host with:\n"
+        f"  smpy add {rel} --path {host_arg}"
+        "   # adds it as { workspace = true }"
+    )
 
 
 @app.command("create-module")
@@ -104,10 +168,11 @@ def create_module(
     slug = to_kebab_case(name)
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
-    # An in-repo module (the documented modules/* layout) gets no .github/: those
-    # nested workflows never run and publish.yml is a PyPI footgun. --standalone
-    # forces them for a module that lives in its own repo. See GH #210.
-    include_ci = standalone or not is_inside_existing_repo(target)
+    # An in-repo module (the documented modules/* layout) gets no .github/ and
+    # keeps the workspace JS configs: nested workflows never run and publish.yml
+    # is a PyPI footgun. --standalone forces the standalone layout for a module
+    # that lives in its own repo. See GH #210.
+    standalone_mode = standalone or not is_inside_existing_repo(target)
     try:
         # Pin framework deps to the installed framework version so the module
         # resolves against the app that created it (the template's >=1.0,<2.0
@@ -116,22 +181,31 @@ def create_module(
             target,
             name=name,
             framework_version=resolve_framework_version(),
-            include_ci=include_ci,
+            standalone=standalone_mode,
         )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"Created module 'simple_module_{package}' at {target}")
-    if not include_ci:
+    if not standalone_mode:
         typer.echo(
             "Skipped .github/ workflows: this module is inside an existing repo, "
             "where nested workflows never run. Use --standalone to emit them."
         )
+    _echo_workspace_hint(target)
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     typer.echo("  uv sync --extra dev")
     typer.echo("  uv run pytest")
+    typer.echo("  npm install")
+    typer.echo("  npm run typecheck")
+    typer.echo("  uv run smpy module verify")
+    typer.echo(
+        "\nThe pages ship sample API types (pages/api.generated.ts). Once the host serves "
+        "the module, refresh them after any endpoint change:\n"
+        f"  uv run smpy openapi gen-types --module {package}"
+    )
 
 
 discover_and_mount(app)

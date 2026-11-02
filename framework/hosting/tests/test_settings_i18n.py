@@ -21,6 +21,9 @@ def test_default_locale_in_supported_list_passes() -> None:
 def test_default_settings_are_valid(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     # Built-in defaults must pass the validator (en in [en]). Isolate from any
     # local .env and SM_* env vars so the test reflects pure built-in defaults.
+    # Settings discovers the .env via find_env_file, so the chdir alone isn't
+    # enough when SM_PROJECT_ROOT is exported in the developer's shell.
+    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
     monkeypatch.chdir(tmp_path)
     import os
 

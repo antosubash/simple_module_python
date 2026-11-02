@@ -85,9 +85,9 @@ def verify_token_secret() -> str:
 def mint_verify_token(user_id: str, email: str, secret: str) -> str:
     """Mint a fastapi-users verification/invite token locally.
 
-    The token shape mirrors what ``UserManager.generate_verification_token``
-    produces, so the server's ``/api/users/auth/accept-invite`` endpoint
-    accepts it without modification.
+    The token shape mirrors what ``UserManager.mint_invite_token`` produces, so
+    the server's ``/api/users/auth/accept-invite`` endpoint accepts it without
+    modification.
 
     Audience: ``"fastapi-users:verify"`` — same as the invite flow.
     Lifetime: 3600 seconds (sufficient for a test run).

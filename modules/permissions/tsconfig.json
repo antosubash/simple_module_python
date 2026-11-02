@@ -1,11 +1,10 @@
 {
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./permissions/*"],
       "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["permissions/**/*.ts", "permissions/**/*.tsx"]
+  "include": ["permissions/**/*.ts", "permissions/**/*.tsx", "tests-js/**/*.ts", "tests-js/**/*.tsx"]
 }

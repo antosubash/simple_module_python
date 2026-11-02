@@ -1,19 +1,25 @@
 # Bundled modules
 
-simple_module_python ships with ten first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
+simple_module_python ships with sixteen first-party modules. Each is a regular Python package — same shape as a module you'd write yourself — registered through the `simple_module` entry point and discovered at boot. They are independent: install only what you need.
 
 | Module | Depends on | What it provides |
 |---|---|---|
 | [`auth`](/modules/auth) | — | Tiny public surface (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) other modules import, plus the provider-agnostic `AuthMiddleware` and principal-resolver chain. The actual login/session logic lives in an auth-provider module (`users` or `keycloak`). |
 | [`users`](/modules/users) | `auth` | Email + password auth, OAuth/OIDC (Google, GitHub, Microsoft/Entra ID, generic OIDC), sessions, roles, invites, password reset, email verification, admin UI, mailer backends, `smpy users create-admin`. |
 | [`keycloak`](/modules/keycloak) | `auth`, `settings` | Alternative auth provider: Keycloak OIDC single sign-on. |
+| [`api_tokens`](/modules/api_tokens) | `auth`, `users`, `settings` | Personal access tokens and service API keys: hashed at rest, scope-capped on every request, revocable on the next request; self-service page and admin screen. |
 | [`permissions`](/modules/permissions) | `auth`, `users` | Role / direct-grant assignment store + admin UI; `RequiresPermission` dependency that honours both forms. |
 | [`settings`](/modules/settings) | — | DB-backed key/value store with system / tenant / user precedence; per-module pydantic settings registration; hot reload; `smpy settings` CLI. |
 | [`feature_flags`](/modules/feature_flags) | — | Runtime feature toggles with system + tenant overrides. |
 | [`file_storage`](/modules/file_storage) | `settings` | Pluggable file storage (filesystem, S3-compatible) with upload validation, presigned URLs, browse/download/delete UI. |
+| [`branding`](/modules/branding) | `settings`, `file_storage` | White-labelling — app name, logo (plus a dark-background variant), favicon, primary colour, design pack and announcement banner, pushed to every page via Inertia shared props. Serves the logo and favicon from anonymous routes so guests see the brand too. |
 | [`background_tasks`](/modules/background_tasks) | `users` | Celery + Redis workers, persistent task history, retry, stuck-task sweep, live worker dashboard. |
 | [`audit_log`](/modules/audit_log) | `users` | Automatic field-level audit trail for SQLModel entities, with an admin UI to browse change history. |
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
+| [`tenants`](/modules/tenants) | `auth`, `settings` | SaaS organisations: tenants, many-to-many memberships with per-tenant roles, invitations, the membership-validated tenant resolver, and the entitlement/lifecycle seams billing plugs into. |
+| [`site_lock`](/modules/site_lock) | `settings`, `auth` | Optional site-wide shared-password gate for staging / pre-launch sites. Off by default. |
+| [`mail`](/modules/mail) | `settings` | Outgoing mail transport: SMTP (aiosmtplib) or a logging console backend, DB-backed settings, live reload, `mail.mailer` connection check. Other modules send through `simple_module_core.mail`. |
+| [`sharing`](/modules/sharing) | — | Optional generic share table for [resource-scoped access](/framework/resource-access): grant a user `view` / `edit` on one row of another module, with expiry; grant/revoke API and an admin page. |
 
 ## How modules are wired in
 

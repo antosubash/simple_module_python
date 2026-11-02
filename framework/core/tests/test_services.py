@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_core.services import Services
+from simple_module_core.services import DiagnosticsState, Services
 
 
 class TestServices:
@@ -11,13 +11,13 @@ class TestServices:
         """Mutation after construction must raise — singletons don't change at runtime."""
         s = _make_services()
         with pytest.raises((AttributeError, TypeError)):
-            s.settings = None  # type: ignore[misc,assignment]
+            s.settings = None
 
     async def test_services_has_slots(self) -> None:
         """Slotted dataclass prevents silent attribute additions (the original bloat pattern)."""
         s = _make_services()
         with pytest.raises((AttributeError, TypeError)):
-            s.rogue_new_attribute = 42  # type: ignore[attr-defined]
+            s.rogue_new_attribute = 42
 
     async def test_services_round_trip_field_access(self) -> None:
         """Every declared field must be readable after construction."""
@@ -30,9 +30,14 @@ class TestServices:
         assert s.feature_flags is _SENTINEL_FLAGS
         assert s.health_registry is _SENTINEL_HEALTH
         assert s.public_routes is _SENTINEL_PUBLIC_ROUTES
+        assert s.design_packs is _SENTINEL_DESIGN_PACKS
+        assert s.audit_links is _SENTINEL_AUDIT_LINKS
         assert s.i18n_registry is _SENTINEL_I18N
         assert s.inertia_config is _SENTINEL_INERTIA
         assert s.modules == ()
+        # Defaulted, and the one member built to be mutated after boot.
+        assert isinstance(s.diagnostics, DiagnosticsState)
+        assert s.diagnostics.supported is False
 
 
 _SENTINEL_SETTINGS = object()
@@ -43,6 +48,9 @@ _SENTINEL_PERMS = object()
 _SENTINEL_FLAGS = object()
 _SENTINEL_HEALTH = object()
 _SENTINEL_PUBLIC_ROUTES = object()
+_SENTINEL_SETUP = object()
+_SENTINEL_DESIGN_PACKS = object()
+_SENTINEL_AUDIT_LINKS = object()
 _SENTINEL_I18N = object()
 _SENTINEL_INERTIA = object()
 
@@ -50,15 +58,18 @@ _SENTINEL_INERTIA = object()
 def _make_services() -> Services:
     """Construct a Services instance with sentinel values for structural tests."""
     return Services(
-        settings=_SENTINEL_SETTINGS,  # type: ignore[arg-type]
-        db=_SENTINEL_DB,  # type: ignore[arg-type]
-        event_bus=_SENTINEL_EVENT_BUS,  # type: ignore[arg-type]
-        menu_registry=_SENTINEL_MENU,  # type: ignore[arg-type]
-        permissions=_SENTINEL_PERMS,  # type: ignore[arg-type]
-        feature_flags=_SENTINEL_FLAGS,  # type: ignore[arg-type]
-        health_registry=_SENTINEL_HEALTH,  # type: ignore[arg-type]
-        public_routes=_SENTINEL_PUBLIC_ROUTES,  # type: ignore[arg-type]
-        i18n_registry=_SENTINEL_I18N,  # type: ignore[arg-type]
-        inertia_config=_SENTINEL_INERTIA,  # type: ignore[arg-type]
+        settings=_SENTINEL_SETTINGS,
+        db=_SENTINEL_DB,
+        event_bus=_SENTINEL_EVENT_BUS,
+        menu_registry=_SENTINEL_MENU,
+        permissions=_SENTINEL_PERMS,
+        feature_flags=_SENTINEL_FLAGS,
+        health_registry=_SENTINEL_HEALTH,
+        public_routes=_SENTINEL_PUBLIC_ROUTES,
+        setup_registry=_SENTINEL_SETUP,
+        design_packs=_SENTINEL_DESIGN_PACKS,
+        audit_links=_SENTINEL_AUDIT_LINKS,
+        i18n_registry=_SENTINEL_I18N,
+        inertia_config=_SENTINEL_INERTIA,
         modules=(),
     )

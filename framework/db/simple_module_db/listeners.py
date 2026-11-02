@@ -3,34 +3,50 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
+from simple_module_core.correlation import correlation_id
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
+from sqlalchemy.orm import Session
 
-from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.bulk_audit import audit_statement
+from simple_module_db.flush_guard import guard_flush
+from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
+from simple_module_db.query_filter import bind_engine_policy, engine_policy, filter_statements
 from simple_module_db.session import DatabaseState
+from simple_module_db.writes import (
+    _HARD_DELETE_KEY,
+    SESSION_HAS_WRITES_KEY,
+    _is_purge,
+    _mark_dml_written,
+    _mark_session_written,
+    hard_delete,
+    mark_written,
+)
+
+# Re-exported: ``transaction`` and published modules import these from here.
+__all__ = [
+    "SESSION_HAS_WRITES_KEY",
+    "TenantIsolationError",
+    "current_tenant_id",
+    "current_user_id",
+    "hard_delete",
+    "mark_written",
+    "register_listeners",
+]
+
+# Re-exported: callers import these from here since before tenancy.py existed.
+from simple_module_db.tenancy import TenantIsolationError, current_tenant_id
 
 logger = logging.getLogger(__name__)
+_entity_pk_failure_warned = False
 _db_logger = logging.getLogger("simple_module.db")
 
 # Set by auth middleware on each request
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
-
-# Set by tenant middleware on each request
-current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
-
-
-class TenantIsolationError(Exception):
-    """Raised when a multi-tenancy isolation constraint is violated."""
-
-
-# Key on ``Session.info`` stamped by the after_flush listener so
-# ``get_db`` can distinguish read-only requests from write requests after
-# flush has cleared ``session.new/.dirty/.deleted``.
-SESSION_HAS_WRITES_KEY = "has_writes"
 
 # Key on ``Session.info`` for pending audit snapshots produced in before_flush
 # and consumed in after_flush_postexec (when DB-assigned PKs are populated).
@@ -42,13 +58,13 @@ _EVENT_ENTITY_UPDATED = "db.entity.updated"
 _EVENT_ENTITY_SOFT_DELETED = "db.entity.soft_deleted"
 _EVENT_ENTITY_DELETED = "db.entity.deleted"
 
-_db_state: DatabaseState | None = None
-
 # DB operation strings used in log extra dicts
 _OP_CREATE = "create"
 _OP_UPDATE = "update"
 _OP_SOFT_DELETE = "soft_delete"
 _OP_DELETE = "delete"
+
+_LISTENERS_ATTACHED = "_sm_entity_listeners_attached"
 
 
 def _entity_label(obj: object) -> str:
@@ -67,18 +83,11 @@ def _entity_pk(obj: object) -> object:
             return identity[0]
         return identity
     except Exception:
+        global _entity_pk_failure_warned
+        if not _entity_pk_failure_warned:
+            _entity_pk_failure_warned = True
+            logger.warning("Audit identity inspection failed; omitting primary key", exc_info=True)
         return None
-
-
-def _mark_session_written(session: Session, flush_context: object) -> None:
-    """Flag the session as having performed write work.
-
-    ``get_db`` reads this flag to decide between commit and rollback at
-    request end. Checking ``session.new/.dirty/.deleted`` directly after
-    a flush is useless — flush empties those sets — so we stash a tag on
-    ``session.info`` that survives the rest of the request.
-    """
-    session.info[SESSION_HAS_WRITES_KEY] = True
 
 
 def register_listeners(db_state: DatabaseState) -> None:
@@ -91,15 +100,52 @@ def register_listeners(db_state: DatabaseState) -> None:
         logger.debug("Listeners already registered, skipping")
         return
 
-    global _db_state
-    _db_state = db_state
-
-    event.listen(db_state.sync_session_class, "before_flush", _before_flush_listener)
-    event.listen(db_state.sync_session_class, "after_flush", _mark_session_written)
-    event.listen(db_state.sync_session_class, "after_flush_postexec", _after_flush_audit)
-    event.listen(db_state.sync_session_class, "do_orm_execute", _filter_select_statements)
+    # Strict mode and the audit sink are read from db_state at flush/query
+    # time, per engine — never from a process global, so two apps in one
+    # process cannot see each other's audit callback (#498).
+    bind_engine_policy(db_state.engine.sync_engine, db_state)
+    attach_session_listeners(db_state.sync_session_class)
     db_state._listeners_registered = True
     logger.info("Registered SQLAlchemy entity listeners")
+
+
+def attach_session_listeners(session_class: type[Session]) -> None:
+    """Attach the entity listeners to a session class; idempotent.
+
+    For a process with no ``DatabaseState`` (the Celery worker's sync engine),
+    call this and ``bind_engine_policy(engine, EngineTenancy(...))``; pass
+    ``audit_callback`` there to audit that engine's writes.
+
+    Idempotence is a marker in the ``__dict__`` of the class or a base, not
+    ``event.contains``: SQLAlchemy keys its event registry on ``id(target)``,
+    so a fresh session class that reuses a garbage-collected one's id reads as
+    already wired and would silently get no tenant, soft-delete or write
+    listeners at all. A subclass of a wired class is skipped because SQLAlchemy
+    propagates class-level session listeners to subclasses (even ones defined
+    later); wiring it again would fire every listener twice.
+    """
+    if any(base.__dict__.get(_LISTENERS_ATTACHED) for base in session_class.__mro__):
+        return
+    for name, fn in (
+        ("before_flush", _before_flush_listener),
+        ("after_flush", _mark_session_written),
+        ("after_flush_postexec", _after_flush_audit),
+        ("do_orm_execute", _mark_dml_written),
+        ("do_orm_execute", filter_statements),
+        # Last: it reads the statement after tenant scoping and guards, and
+        # runs it itself (``invoke_statement``) between prefetch and record.
+        ("do_orm_execute", audit_statement),
+    ):
+        event.listen(session_class, name, fn)
+    setattr(session_class, _LISTENERS_ATTACHED, True)
+
+
+def _log_entity_change(obj: object, event_name: str, *, extra: dict[str, object]) -> None:
+    # Models flagged ``__audit_exclude__`` (telemetry such as retained logs) are
+    # not logged either: the log record would be retained and written again.
+    if getattr(obj, "__audit_exclude__", False) is True:
+        return
+    _db_logger.info(event_name, extra=extra)
 
 
 def _before_flush_listener(
@@ -107,8 +153,8 @@ def _before_flush_listener(
     flush_context: object,
     instances: object,
 ) -> None:
+    guard_flush(session)
     user_id = current_user_id.get()
-    tenant_id = current_tenant_id.get()
     now = datetime.now(UTC)
 
     for obj in session.new:
@@ -118,17 +164,8 @@ def _before_flush_listener(
             if obj.updated_by is None:
                 obj.updated_by = user_id
 
-        # Auto-populate tenant_id; reject cross-tenant creation
-        if isinstance(obj, MultiTenantMixin):
-            if obj.tenant_id is None and tenant_id is not None:
-                obj.tenant_id = tenant_id
-            elif tenant_id is not None and obj.tenant_id != tenant_id:
-                raise TenantIsolationError(
-                    f"Cannot create object for tenant '{obj.tenant_id}' "
-                    f"in context of tenant '{tenant_id}'"
-                )
-
-        _db_logger.info(
+        _log_entity_change(
+            obj,
             _EVENT_ENTITY_CREATED,
             extra={
                 "operation": _OP_CREATE,
@@ -148,13 +185,8 @@ def _before_flush_listener(
         if isinstance(obj, VersionedMixin):
             obj.version += 1
 
-        # Prevent tenant_id from being changed on existing objects
-        if isinstance(obj, MultiTenantMixin) and tenant_id is not None:
-            hist = sa_inspect(obj).attrs.tenant_id.history
-            if hist.has_changes():
-                raise TenantIsolationError("Cannot change tenant_id of an existing object")
-
-        _db_logger.info(
+        _log_entity_change(
+            obj,
             _EVENT_ENTITY_UPDATED,
             extra={
                 "operation": _OP_UPDATE,
@@ -165,8 +197,9 @@ def _before_flush_listener(
         )
 
     # Deleted objects — convert to soft delete if applicable
+    hard_delete_ids = session.info.pop(_HARD_DELETE_KEY, frozenset())
     for obj in list(session.deleted):
-        if isinstance(obj, SoftDeleteMixin):
+        if isinstance(obj, SoftDeleteMixin) and not _is_purge(obj, hard_delete_ids):
             # Cancel the hard delete
             session.expunge(obj)
             # Merge back as modified with soft-delete fields set
@@ -175,7 +208,8 @@ def _before_flush_listener(
             obj.deleted_by = user_id
             session.add(obj)
 
-            _db_logger.info(
+            _log_entity_change(
+                obj,
                 _EVENT_ENTITY_SOFT_DELETED,
                 extra={
                     "operation": _OP_SOFT_DELETE,
@@ -198,20 +232,19 @@ def _before_flush_listener(
     # Audit phase 1: snapshot diffs while attribute history is still available.
     # entity_id resolution is deferred to after_flush_postexec because
     # DB-assigned integer PKs aren't populated until the INSERT executes.
-    if _db_state is not None and _db_state.audit_callback is not None:
+    if _audit_callback(session) is not None:
         from simple_module_db.audit import snapshot_changes
 
-        correlation_id_val: str | None = None
-        try:
-            from simple_module_hosting.logging import correlation_id as _cid_var
-
-            correlation_id_val = _cid_var.get("") or None
-        except ImportError:
-            pass
-
+        correlation_id_val = correlation_id.get("") or None
         pending = snapshot_changes(session, user_id, correlation_id_val)
         if pending:
             session.info[_AUDIT_PENDING_KEY] = pending
+
+
+def _audit_callback(session: Session) -> Callable[[Session, list], None] | None:
+    """The audit sink bound to this session's engine (``DatabaseState`` or
+    ``EngineTenancy``), or ``None`` when that engine is not audited."""
+    return getattr(engine_policy(session), "audit_callback", None)
 
 
 def _after_flush_audit(session: Session, flush_context: object) -> None:
@@ -223,7 +256,8 @@ def _after_flush_audit(session: Session, flush_context: object) -> None:
     autoflush). The recursion guard relies on AuditEntry having
     ``__audit_exclude__ = True`` so its own flush produces no pending records.
     """
-    if _db_state is None or _db_state.audit_callback is None:
+    callback = _audit_callback(session)
+    if callback is None:
         return
     pending = session.info.pop(_AUDIT_PENDING_KEY, None)
     if not pending:
@@ -232,48 +266,4 @@ def _after_flush_audit(session: Session, flush_context: object) -> None:
 
     records = finalize_records(pending)
     if records:
-        _db_state.audit_callback(session, records)
-
-
-# Cache ``(is_soft_delete, is_multi_tenant)`` flags per mapper class so the
-# ``do_orm_execute`` hot path skips redundant ``issubclass`` work on every query.
-_mixin_flags_cache: dict[type, tuple[bool, bool]] = {}
-
-
-def _filter_select_statements(execute_state: ORMExecuteState) -> None:
-    """Attach per-mapper ``with_loader_criteria`` for soft-delete and tenant isolation.
-
-    The criteria are attached per concrete mapper because SQLModel mixins
-    expose Pydantic ``FieldInfo`` (not SQLAlchemy ``InstrumentedAttribute``)
-    at the mixin-class level, which breaks the lambda form of
-    ``with_loader_criteria`` that was used before the SQLModel migration.
-
-    Soft-delete bypass: ``stmt.execution_options(include_deleted=True)``.
-    """
-    if not execute_state.is_select:
-        return
-
-    skip_soft_delete = execute_state.execution_options.get("include_deleted", False)
-    tenant_id = current_tenant_id.get()
-    if skip_soft_delete and tenant_id is None:
-        return
-
-    options = []
-    for mapper in execute_state.all_mappers:
-        cls = mapper.class_
-        flags = _mixin_flags_cache.get(cls)
-        if flags is None:
-            flags = (issubclass(cls, SoftDeleteMixin), issubclass(cls, MultiTenantMixin))
-            _mixin_flags_cache[cls] = flags
-        is_soft_delete, is_multi_tenant = flags
-        if is_soft_delete and not skip_soft_delete:
-            options.append(
-                with_loader_criteria(cls, cls.is_deleted.is_(False), include_aliases=True)
-            )
-        if is_multi_tenant and tenant_id is not None:
-            options.append(
-                with_loader_criteria(cls, cls.tenant_id == tenant_id, include_aliases=True)
-            )
-
-    if options:
-        execute_state.statement = execute_state.statement.options(*options)
+        callback(session, records)

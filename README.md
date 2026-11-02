@@ -45,7 +45,72 @@ make migrate
 make dev
 ```
 
-Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/dashboard/doctor` is the admin-only "smpy doctor" panel (static checks, migrations, dev server, modules).
+Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/admin/doctor/` is the admin-only "smpy doctor" panel (static checks, migrations, dev server, modules).
+
+## Run it in Docker
+
+The repo ships a default image (`./Dockerfile`) that builds the host plus every
+bundled module — Python workspace, `gen-pages`, and the production Vite bundle —
+and serves it with uvicorn. It is standalone: SQLite lives inside the container
+under `/app/data`, so no Postgres and no Redis are needed to boot.
+
+```bash
+make docker-app        # build ./Dockerfile, then run it on http://localhost:8000
+```
+
+Both run targets take `SM_APP_PORT=8010` when a `make dev` already holds
+8000.
+
+or without make:
+
+```bash
+docker build -t simple-module-python .
+docker run --rm -p 8000:8000 -v simple-module-python-data:/app/data simple-module-python
+```
+
+**Logging in.** With no `SM_USERS_BOOTSTRAP_PASSWORD` set, the container seeds
+`admin@example.com` with a randomly generated password. The users module logs it
+once when the first admin is created:
+
+```
+first-boot admin created; store this password securely: admin@example.com / <generated password>
+```
+
+Read it with `docker logs`. Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BOOTSTRAP_PASSWORD=…`
+to seed your own instead; an explicit `changeme` is refused because the image runs
+with `SM_ENVIRONMENT=production`. The seed only applies while the users table is
+empty, so on a reused volume the existing password still stands and no credentials
+are logged — reset it with
+`smpy users create-admin --email … --password … --force`.
+
+`make docker-compose-app` (or `docker compose up --build app`) runs the same
+image through compose with a named volume — independent of the shared
+dev-services stack that `worker`/`beat` use.
+
+What the entrypoint does before uvicorn binds: applies `alembic upgrade heads`
+(a fresh volume has no tables, and production fails boot on `SM010` when the DB
+is behind head), and generates an ephemeral `SM_SECRET_KEY` when none is set —
+enough to boot and log in, but sessions die on restart, so set one for anything
+real.
+
+The image runs with `SM_ENVIRONMENT=production` because it serves the built
+bundle rather than a Vite dev server. Useful overrides:
+
+| Variable | Image default | Why you'd change it |
+|---|---|---|
+| `SM_SECRET_KEY` | generated per start | Persist sessions across restarts |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:////app/data/app.db` | Point at Postgres |
+| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | `admin@example.com` / generated and logged | Seed a first admin with a password you chose |
+| `SM_TRUSTED_PROXY` | unset | Set to `*` behind a reverse proxy, so logs record the visitor's IP and not the proxy's |
+
+**No background tasks.** The image skips installing the Celery module
+(`uv sync … --no-install-package simple-module-background-tasks`), so nothing in
+it wants a broker — a queue means a second process and a Redis, which is the
+opposite of a standalone image. `docker-compose.yml`'s `worker` / `beat`
+services cover that path: they build `docker/worker.Dockerfile` against the
+shared `../dev-services` Postgres + Redis on the external `devnet` network. To
+run tasks from the web process instead, drop the `--no-install-package` flag
+from the Dockerfile and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND`.
 
 ## Create a new module
 
@@ -86,7 +151,7 @@ packages/
   ui/          # shared shadcn/ui components, layouts, and design-system primitives
   i18n/        # generated i18n keys + translation runtime
 scripts/
-  new_module.py  # module scaffolder (called by `make new-module`)
+  new_module.py  # thin wrapper over the CLI scaffolder (`make new-module`)
 docs/
   plans/                      # design + implementation plans
   framework-conventions.md    # invariants for module authors
@@ -105,11 +170,12 @@ docs/
 | `make migration msg="..."` | Autogenerate a new migration |
 | `make new-module name=<name>` | Scaffold a new module |
 | `make kill` | Stop any running dev servers (ports 8000, 5050, 5173) |
+| `make docker-build` / `docker-app` | Build the default app image / run it standalone on port 8000 |
 | `make docker-up` / `docker-down` | `docker-up` brings up the shared dev-services stack (Postgres/Redis/MinIO); `docker-down` stops only this repo's worker/beat (SQLite needs no Docker) |
 
 ## Configuration
 
-Local deployments only need one env var — everything else has sensible defaults and is managed in the admin UI at `/settings/modules`.
+Local deployments only need one env var — everything else has sensible defaults and is managed in the admin UI at `/admin/settings/`.
 
 | Variable | Default | Required |
 |---|---|---|
@@ -117,6 +183,7 @@ Local deployments only need one env var — everything else has sensible default
 | `SM_ENVIRONMENT` | `development` | No — any value other than `development`, `test`, `testing` triggers strict discovery and placeholder-secret checks |
 | `SM_SECRET_KEY` | `change-me-in-production` | No in dev; **must** be overridden in production |
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — Vite HMR origin |
+| `SM_AUTH_PROVIDER` | `users` | No — `users` or `keycloak`. Only read when both are installed; see [Auth providers](#auth-providers-users-or-keycloak) |
 
 Power users can still override the following bootstrap knobs via env if needed: `SM_DB_POOL_SIZE`, `SM_DB_MAX_OVERFLOW`, `SM_DB_POOL_PRE_PING`, `SM_DB_POOL_RECYCLE`, `SM_DEBUG`, `SM_LOG_LEVEL`, `SM_LOG_FORMAT`, `SM_MODULES_ENABLED`. These are needed before the DB connection is open.
 
@@ -156,9 +223,50 @@ The frontend uses an emerald + teal design system mirrored as Tailwind 4 tokens.
 - Reach for `StatCard` / `SectionTitle` / `FilterPills` before rolling new layouts.
 - Use lucide-react icons (already a dependency) and the existing `Badge` / `Button` variants — emerald primary for the main CTA, outline / ghost for secondary actions.
 
-The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/components/UserRow.tsx` and `modules/dashboard/dashboard/pages/components/doctor-data.ts` for the pattern.
+The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/admin/components/UserRow.tsx` and `modules/dashboard/dashboard/pages/components/doctor/report.ts` for the pattern.
 
 ## User management
+
+### Auth providers: users **or** keycloak, never both
+
+This repo ships two authentication providers, and **exactly one can be active at a time**:
+
+| Module | What it does |
+|---|---|
+| `users` (default) | Local accounts — password login, invites, signup, roles, an admin UI |
+| `keycloak` | Delegates authentication to a Keycloak realm over OIDC |
+
+Both claim the same slot (`app.state.auth.auth_provider`), so running them together
+is a misconfiguration, not a supported combination. Installing both and activating
+neither is reported as `SM020` (error — fails boot); installing neither is `SM021`.
+
+`uv sync --all-packages` installs *every* workspace member, so a dev clone has both
+packages on disk. The host therefore activates one and skips the other rather than
+failing on `SM020`, and **`users` is the default** — `keycloak` is installed but inert
+until you ask for it. To switch:
+
+```bash
+# .env
+SM_AUTH_PROVIDER=keycloak
+```
+
+Then re-run `make gen-pages` so the frontend manifest picks up the active provider's
+pages (`make dev` does this for you), and configure the realm under
+`/admin/settings/`. Switching back is the same knob set to `users`.
+
+Two caveats when running Keycloak:
+
+- `dashboard`, `permissions`, `audit_log`, and `background_tasks` declare a
+  dependency on the `Users` **module** and import from the `users` package, so
+  `simple_module_users` still has to be installed even though it is inactive. A
+  host that wants Keycloak *and* none of the local-account machinery should leave
+  those modules out of its own dependency list.
+- The local-account flows (`/users/login`, invites, signup, the sections below)
+  belong to the `users` module and are gone while Keycloak is active — Keycloak's
+  realm owns login, logout, and user administration instead.
+
+Only one provider is ever discovered, so nothing here changes if you install just one
+of the two: a host that ships only `keycloak` keeps it regardless of `SM_AUTH_PROVIDER`.
 
 ### Creating the first admin
 
@@ -179,7 +287,7 @@ The auto-bootstrap is idempotent — it only creates the user if the `users_user
 
 ### Inviting users
 
-1. Log in as admin and navigate to `/users/admin/invite`.
+1. Log in as admin and navigate to `/admin/users/add`.
 2. Fill in the invitee's email and optionally a full name and role(s). Click **Send invite**.
 3. With the default `console` mailer, the invite link is logged to stdout (`tail -f` the server log). Copy the link and send it to the user. With `smtp`, the email is delivered automatically.
 4. The invitee opens the link (`/users/invite/accept?token=…`), sets a password, and is immediately logged in.
@@ -190,15 +298,10 @@ Set `SM_USERS_ALLOW_SIGNUP=true` and restart the server. The `/users/register` p
 
 ### Switching to SMTP
 
+Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Users only needs its public link base:
+
 ```
-SM_USERS_MAILER=smtp
 SM_USERS_BASE_URL=https://your-domain.com
-SM_USERS_SMTP_HOST=smtp.example.com
-SM_USERS_SMTP_PORT=587
-SM_USERS_SMTP_USERNAME=no-reply@example.com
-SM_USERS_SMTP_PASSWORD=secret
-SM_USERS_SMTP_FROM=no-reply@example.com
-SM_USERS_SMTP_TLS=true
 ```
 
 ## Architecture

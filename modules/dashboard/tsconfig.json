@@ -1,11 +1,10 @@
 {
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./dashboard/*"],
       "@simple-module-py/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["dashboard/**/*.ts", "dashboard/**/*.tsx"]
+  "include": ["dashboard/**/*.ts", "dashboard/**/*.tsx", "tests-js/**/*.ts", "tests-js/**/*.tsx"]
 }

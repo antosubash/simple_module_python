@@ -1,37 +1,55 @@
 {
+  "admin": {
+    "title": "Administración",
+    "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
+    "empty": "No hay herramientas de administración disponibles para tu cuenta.",
+    "overview": "Resumen"
+  },
   "landing": {
-    "badge": "v0.1 · Python 3.12 · experimental",
-    "hero_title_line1": "Monolitos modulares para Python —",
-    "hero_title_line2": "sin el código repetitivo.",
-    "hero_subtitle": "Cada función incluye sus propias tablas SQLModel, endpoints FastAPI y páginas React. Los módulos plugin se componen al iniciar — sin coste de microservicios, sin pegamento de cliente API.",
+    "badge": "✦ Plantilla FastAPI + Inertia con todo incluido",
+    "hero_title_line1": "Aplicaciones Python modulares,",
+    "hero_title_line2": "ensambladas, no pegadas",
+    "hero_subtitle": "Cada función es un módulo autónomo con sus propias rutas, migraciones, permisos y vistas Inertia. Añade uno y el host lo conecta al arrancar.",
     "cta_dashboard": "Abrir panel",
-    "cta_get_started": "Empieza tu proyecto",
+    "cta_get_started": "Genera un proyecto",
     "cta_docs": "Lee los docs",
     "features": {
-      "module_system_title": "Descubierto al iniciar",
-      "module_system_description": "Los entry points de Python registran cada subclase de ModuleBase. Sin reflexión, sin cableado manual.",
+      "module_system_title": "Sistema de módulos",
+      "module_system_description": "Coloca un paquete en modules/ y sus URLs, migraciones y entradas de menú se registran solas.",
       "auth_title": "Autenticación incluida",
-      "auth_description": "Email + sesiones por cookie vía fastapi-users. Roles y permisos se registran con el módulo.",
-      "schema_title": "Esquema por módulo",
-      "schema_description": "PostgreSQL → un esquema por módulo. SQLite → tablas con prefijo. Cada módulo posee sus datos.",
-      "inertia_title": "Inertia + React",
-      "inertia_description": "Páginas Browse / Create / Edit incluidas en cada módulo. Vite HMR para el frontend, FastAPI async para el backend.",
-      "diagnostics_title": "make doctor",
-      "diagnostics_description": "El analizador estático detecta páginas huérfanas, acoplamiento del framework y desviaciones de migración antes del arranque.",
-      "devtools_title": "SQLModel async",
-      "devtools_description": "SQLAlchemy async + Pydantic + Alembic. Genera migraciones por módulo."
-    }
+      "auth_description": "Sesiones por email y cookie, invitaciones, restablecimiento de contraseña y SSO opcional con Keycloak, listos de serie.",
+      "schema_title": "Esquema primero",
+      "schema_description": "Cada módulo declara sus modelos, rutas y permisos en un solo sitio; el host lee esa declaración al arrancar.",
+      "inertia_title": "Vistas Inertia",
+      "inertia_description": "Páginas React servidas directamente desde vistas Python. Sin una capa de API aparte que mantener sincronizada.",
+      "diagnostics_title": "Diagnósticos",
+      "diagnostics_description": "Cada módulo puede registrar comprobaciones de estado; make doctor y la pantalla Doctor informan de todas ellas.",
+      "devtools_title": "Herramientas de desarrollo",
+      "devtools_description": "make new-module genera un módulo funcional, con tests y una página de ejemplo incluidos."
+    },
+    "head_title": "Bienvenido",
+    "copy_command": "Copiar comando",
+    "command_copied": "Copiado",
+    "how_it_works_eyebrow": "Cómo funciona",
+    "how_it_works_heading": "Un proceso · muchos módulos · sin pegamento.",
+    "quickstart_eyebrow": "Inicio rápido",
+    "quickstart_heading": "Una app funcionando en cinco comandos.",
+    "quickstart_body_prefix": "Abre",
+    "quickstart_body_suffix": "con usuarios, panel y permisos ya configurados. Inicia sesión con la cuenta de administrador que crees y continúa desde ahí.",
+    "module_users_description": "Email + sesiones por cookie vía fastapi-users",
+    "module_dashboard_description": "Inicio autenticado con tarjetas de módulos",
+    "module_permissions_description": "Registro de permisos por módulo",
+    "cta_heading": "¿Ya lo tienes en marcha?",
+    "cta_github": "GitHub →",
+    "copy_label": "Copiar",
+    "copied_label": "✓ Copiado",
+    "terminal_helper": "No necesitas cuenta para ejecutarlo en local. El inicio de sesión es solo para la interfaz de administración alojada.",
+    "cta_body": "Abre la interfaz de administración para gestionar usuarios, módulos y tareas en segundo plano.",
+    "cta_sign_in": "Inicia sesión en la interfaz de administración"
   },
-  "error": {
-    "generic_title": "Error",
-    "generic_description": "Ocurrió un error inesperado.",
-    "forbidden_title": "Prohibido",
-    "forbidden_description": "No tienes permiso para acceder a esta página.",
-    "not_found_title": "Página no encontrada",
-    "not_found_description": "La página que buscas no existe o ha sido movida.",
-    "server_error_title": "Error del servidor",
-    "server_error_description": "Algo salió mal de nuestro lado. Por favor, inténtalo de nuevo más tarde.",
-    "go_home": "Ir al inicio",
-    "go_back": "Volver"
+  "offline": {
+    "title": "Sin conexión",
+    "description": "Es posible que los cambios no se guarden hasta que se restablezca la conexión.",
+    "restored": "Conexión restablecida"
   }
 }

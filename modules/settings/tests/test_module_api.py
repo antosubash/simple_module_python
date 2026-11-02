@@ -33,6 +33,31 @@ async def test_put_validation_error_surfaces_422(authenticated_client, app):
 
 
 @pytest.mark.asyncio
+async def test_put_rejects_and_does_not_persist_unbounded_background_task_values(
+    authenticated_client, app
+):
+    from settings.service import SettingService
+    from settings.store import SettingsStore
+
+    original = app.state.background_tasks.settings
+    resp = await authenticated_client.put(
+        "/api/settings/modules/background_tasks",
+        json={"retention_days": -5, "max_retries": 999_999_999},
+    )
+
+    assert resp.status_code == 422
+    assert {error["loc"][-1] for error in resp.json()["detail"]} == {
+        "retention_days",
+        "max_retries",
+    }
+    assert app.state.background_tasks.settings is original
+    # The app's own DB: ``db_session`` is a separate engine and reads ``{}``
+    # whether or not the bad values were written.
+    async with app.state.sm.db.session_factory() as db:
+        assert await SettingsStore(SettingService(db)).get_overrides("background_tasks") == {}
+
+
+@pytest.mark.asyncio
 async def test_delete_field_resets_to_default(authenticated_client, app):
     await authenticated_client.put("/api/settings/modules/host", json={"multi_tenant": True})
     assert app.state.host.settings.multi_tenant is True
