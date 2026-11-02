@@ -43,7 +43,13 @@ SM_OIDC_PROVIDER=generic
 SM_OIDC_DISCOVERY_URL=https://<server>/realms/<realm>/.well-known/openid-configuration
 SM_OIDC_CLIENT_ID=<confidential-client-id>
 SM_OIDC_CLIENT_SECRET=<client-secret>
+SM_OIDC_ROLES_CLAIM_PATH=realm_access.roles
 ```
+
+`SM_OIDC_ROLES_CLAIM_PATH` seeds the roles path, so the first Keycloak admin is
+mapped to `admin` on their first sign-in. Without it nobody holds `admin`, and
+the Settings UI that edits the path needs one. A value saved in the UI later
+wins over the variable.
 
 Here `<app>` includes the application's scheme and host, and `<server>` is the
 Keycloak server (including any deployment prefix). Discovery is exactly
@@ -55,7 +61,6 @@ the Settings UI is enabled:
 
 ```json
 {
-  "roles_claim_path": "realm_access.roles",
   "role_mapping": {"admin": "admin", "user": "user"}
 }
 ```
@@ -122,7 +127,7 @@ ignored. Host selection `SM_AUTH_PROVIDER=oidc` is a separate host setting.
 | `username_claim` | — | `preferred_username` | Display name first choice. |
 | `email_claim` | — | `email` | Display email. Generic literal `email_verified=true` alone supplies verification proof. |
 | `name_claim` | — | `name` | Fallback display name. |
-| `roles_claim_path` | — | preset | Generic empty; Entra `roles`; dotted path to a list. |
+| `roles_claim_path` | `SM_OIDC_ROLES_CLAIM_PATH` | preset | Generic empty; Entra `roles`; dotted path to a list. |
 | `login_redirect_url` | — | `/dashboard/` | Local destination after login when no safe saved deep link exists; blanks normalize to default. |
 | `jwks_cache_ttl_seconds` | — | `3600` | Nonnegative signing-key cache TTL. Restart required. Last-good keys survive outages; unknown keys share a 30-second fetch cooldown. |
 | `role_mapping` | — | `{"admin":"admin","user":"user"}` | External roles to application roles. Unmapped roles and mapped `tenant:*` roles are discarded. |

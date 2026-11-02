@@ -102,3 +102,18 @@ def test_restart_fields_marked():
         extra = fields[name].json_schema_extra
         assert isinstance(extra, dict)
         assert extra["requires_restart"] is True
+
+
+def test_roles_claim_path_is_seeded_from_env_for_the_first_admin():
+    # Read at import time like the other bootstrap fields, so check it in a
+    # fresh interpreter rather than reloading the module under test.
+    import os
+    import subprocess
+    import sys
+
+    code = "from oidc.settings import OidcSettings; print(OidcSettings().roles_claim_path)"
+    env = {**os.environ, "SM_OIDC_ROLES_CLAIM_PATH": "realm_access.roles"}
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip() == "realm_access.roles"

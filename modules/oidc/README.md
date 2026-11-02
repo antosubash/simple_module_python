@@ -57,7 +57,12 @@ SM_OIDC_PROVIDER=generic
 SM_OIDC_DISCOVERY_URL=https://<server>/realms/<realm>/.well-known/openid-configuration
 SM_OIDC_CLIENT_ID=<confidential-client-id>
 SM_OIDC_CLIENT_SECRET=<client-secret>
+SM_OIDC_ROLES_CLAIM_PATH=realm_access.roles
 ```
+
+`SM_OIDC_ROLES_CLAIM_PATH` seeds the roles path so the first Keycloak admin is
+mapped to `admin` on first sign-in (the Settings UI that edits it needs an
+admin). A value saved in the UI later wins.
 
 Here `<app>` includes the application's scheme and host, and `<server>` is the
 Keycloak server (including any deployment prefix). Discovery is exactly
@@ -69,7 +74,6 @@ the Settings UI is enabled:
 
 ```json
 {
-  "roles_claim_path": "realm_access.roles",
   "role_mapping": {"admin": "admin", "user": "user"}
 }
 ```

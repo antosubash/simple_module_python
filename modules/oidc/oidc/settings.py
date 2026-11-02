@@ -60,7 +60,9 @@ class OidcSettings(DbBackedSettings):
     username_claim: str = _UNSET
     email_claim: str = _UNSET
     name_claim: str = _UNSET
-    roles_claim_path: str = _UNSET
+    # Env-seedable: the first admin can only sign in once roles are mapped, and
+    # the Settings UI that edits this needs an admin. A stored value still wins.
+    roles_claim_path: str = env_str("SM_OIDC_ROLES_CLAIM_PATH", _UNSET)
 
     login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
     jwks_cache_ttl_seconds: int = Field(
