@@ -23,7 +23,6 @@ dependencies = [
     "simple_module_core==0.0.42",
     "simple_module_db==0.0.42",
     "simple_module_hosting==0.0.42",
-    "simple_module_settings==0.0.42",
     "simple_module_auth==0.0.42",
     "PyJWT[crypto]>=2.8,<3",
     "cryptography>=42",
@@ -51,5 +50,4 @@ packages = ["oidc"]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }
 simple_module_hosting = { workspace = true }
-simple_module_settings = { workspace = true }
 simple_module_auth = { workspace = true }

@@ -65,12 +65,12 @@ async def test_audience_is_per_call(signed):
     cache, sign = signed
     assert await cache.validate_jwt(sign(), audience="api") is None
     assert await cache.validate_jwt(sign({"aud": "api"}), audience="api") is not None
-    assert (
-        await cache.validate_jwt(
-            sign({"aud": ["app", "api"], "azp": "app"}), audience="app", trusted_audiences={"api"}
-        )
-        is not None
-    )
+
+
+async def test_api_token_azp_is_the_calling_client(signed):
+    cache, sign = signed
+    token = sign({"aud": "api", "azp": "some-spa"})
+    assert await cache.validate_jwt(token, audience="api") is not None
 
 
 async def test_wrong_signature_rejected(signed):

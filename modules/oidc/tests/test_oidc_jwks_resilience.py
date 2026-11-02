@@ -1,22 +1,13 @@
 """OIDC key rotation and bounded single-flight fetches."""
 
 import asyncio
-import json
 import time
 from types import SimpleNamespace
 
 import httpx
-import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
-from jwt.algorithms import RSAAlgorithm
 from oidc.jwks import JWKSCache
-
-
-@pytest.fixture
-def rsa_keys():
-    private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    return private, private.public_key()
+from oidc_flow_helpers import make_jwks_response, sign_token
 
 
 @pytest.fixture
@@ -30,16 +21,6 @@ def valid_payload():
     }
 
 
-def _make_jwks_response(public, kid="test-key-1"):
-    key = json.loads(RSAAlgorithm.to_jwk(public))
-    key.update(kid=kid, use="sig")
-    return {"keys": [key]}
-
-
-def _sign_token(private, claims, kid="test-key-1"):
-    return jwt.encode(claims, private, algorithm="RS256", headers={"kid": kid})
-
-
 async def test_jwks_cache_refetches_on_unknown_kid(
     rsa_keys, valid_payload, httpx_mock, monkeypatch
 ):
@@ -47,17 +28,17 @@ async def test_jwks_cache_refetches_on_unknown_kid(
     private_key, public_key = rsa_keys
     now = 10_000.0
     monkeypatch.setattr("oidc.jwks.time", SimpleNamespace(monotonic=lambda: now))
-    httpx_mock.add_response(json=_make_jwks_response(public_key))
-    httpx_mock.add_response(json=_make_jwks_response(public_key, kid="rotated-key"))
+    httpx_mock.add_response(json=make_jwks_response(public_key))
+    httpx_mock.add_response(json=make_jwks_response(public_key, kid="rotated-key"))
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
         issuer="https://auth.example.com/realms/test",
         audience="my-client",
     )
-    assert await cache.validate_jwt(_sign_token(private_key, valid_payload)) is not None
+    assert await cache.validate_jwt(sign_token(private_key, valid_payload)) is not None
 
     now += 31
-    token = _sign_token(private_key, valid_payload, kid="rotated-key")
+    token = sign_token(private_key, valid_payload, kid="rotated-key")
     claims = await cache.validate_jwt(token)
     assert claims is not None
     assert claims["sub"] == "user-123"
@@ -76,7 +57,7 @@ async def test_jwks_random_kids_throttle_fetch_attempts(
     if outage:
         httpx_mock.add_exception(httpx.ConnectError("IdP unavailable"), is_reusable=True)
     else:
-        httpx_mock.add_response(json=_make_jwks_response(public_key), is_reusable=True)
+        httpx_mock.add_response(json=make_jwks_response(public_key), is_reusable=True)
     cache = JWKSCache(
         jwks_url="https://auth.example.com/jwks",
         ttl_seconds=ttl,
@@ -86,7 +67,7 @@ async def test_jwks_random_kids_throttle_fetch_attempts(
 
     for index in range(5):
         now += 1
-        token = _sign_token(private_key, valid_payload, kid=f"unknown-{index}")
+        token = sign_token(private_key, valid_payload, kid=f"unknown-{index}")
         assert await cache.validate_jwt(token) is None
     assert len(httpx_mock.get_requests()) == 1
 
@@ -94,7 +75,7 @@ async def test_jwks_random_kids_throttle_fetch_attempts(
     assert await cache.validate_jwt(token) is None
     assert len(httpx_mock.get_requests()) == 2
     if not outage:
-        assert await cache.validate_jwt(_sign_token(private_key, valid_payload)) is not None
+        assert await cache.validate_jwt(sign_token(private_key, valid_payload)) is not None
 
 
 @pytest.mark.parametrize("outage", [False, True])
@@ -111,7 +92,7 @@ async def test_jwks_concurrent_unknown_kids_share_fetch(
         await release.wait()
         if outage:
             raise httpx.ConnectError("IdP unavailable")
-        return httpx.Response(200, json=_make_jwks_response(public_key))
+        return httpx.Response(200, json=make_jwks_response(public_key))
 
     httpx_mock.add_callback(respond, is_reusable=True)
     cache = JWKSCache(
@@ -119,7 +100,7 @@ async def test_jwks_concurrent_unknown_kids_share_fetch(
         issuer="https://auth.example.com/realms/test",
         audience="my-client",
     )
-    tokens = [_sign_token(private_key, valid_payload, kid=f"unknown-{i}") for i in range(5)]
+    tokens = [sign_token(private_key, valid_payload, kid=f"unknown-{i}") for i in range(5)]
     tasks = [asyncio.create_task(cache.validate_jwt(token)) for token in tokens]
     try:
         await asyncio.wait_for(started.wait(), timeout=5)
@@ -139,12 +120,12 @@ async def test_last_good_keys_survive_malformed_metadata(
     private, public = rsa_keys
     now = 10000
     monkeypatch.setattr("oidc.jwks.time", SimpleNamespace(monotonic=lambda: now))
-    httpx_mock.add_response(json=_make_jwks_response(public))
+    httpx_mock.add_response(json=make_jwks_response(public))
     httpx_mock.add_response(json=bad)
     cache = JWKSCache(
         "https://idp/keys", ttl_seconds=0, issuer=valid_payload["iss"], audience="my-client"
     )
-    token = _sign_token(private, valid_payload)
+    token = sign_token(private, valid_payload)
     assert await cache.validate_jwt(token)
     now += 31
     assert await cache.validate_jwt(token)
@@ -164,16 +145,16 @@ async def test_last_good_keys_survive_malformed_metadata(
 )
 async def test_incompatible_keys_rejected(rsa_keys, valid_payload, httpx_mock, changes):
     private, public = rsa_keys
-    doc = _make_jwks_response(public)
+    doc = make_jwks_response(public)
     doc["keys"][0].update(changes)
     httpx_mock.add_response(json=doc)
     cache = JWKSCache("https://idp/keys", issuer=valid_payload["iss"], audience="my-client")
-    assert await cache.validate_jwt(_sign_token(private, valid_payload)) is None
+    assert await cache.validate_jwt(sign_token(private, valid_payload)) is None
 
 
 async def test_entra_template_key_issuer_is_bound_to_concrete_tenant(rsa_keys, httpx_mock):
     private, public = rsa_keys
-    doc = _make_jwks_response(public)
+    doc = make_jwks_response(public)
     doc["keys"][0]["issuer"] = "https://login.microsoftonline.com/{tenantid}/v2.0"
     httpx_mock.add_response(json=doc)
     cache = JWKSCache(
@@ -186,7 +167,7 @@ async def test_entra_template_key_issuer_is_bound_to_concrete_tenant(rsa_keys, h
         "exp": int(time.time()) + 300,
         "iat": int(time.time()),
     }
-    assert await cache.validate_jwt(_sign_token(private, claims)) is not None
+    assert await cache.validate_jwt(sign_token(private, claims)) is not None
 
 
 async def test_last_good_keys_survive_network_failure(
@@ -195,12 +176,12 @@ async def test_last_good_keys_survive_network_failure(
     private, public = rsa_keys
     now = 10000
     monkeypatch.setattr("oidc.jwks.time", SimpleNamespace(monotonic=lambda: now))
-    httpx_mock.add_response(json=_make_jwks_response(public))
+    httpx_mock.add_response(json=make_jwks_response(public))
     httpx_mock.add_response(status_code=503)
     cache = JWKSCache(
         "https://idp/keys", ttl_seconds=0, issuer=valid_payload["iss"], audience="my-client"
     )
-    token = _sign_token(private, valid_payload)
+    token = sign_token(private, valid_payload)
     assert await cache.validate_jwt(token)
     now += 31
     assert await cache.validate_jwt(token)

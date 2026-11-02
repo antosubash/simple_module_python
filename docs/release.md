@@ -275,6 +275,7 @@ Trusted Publishing is tied to the GitHub repo, not any personal account — so b
 | PyPI | `simple_module_file_storage` | [modules/file_storage/](../modules/file_storage/) |
 | PyPI | `simple_module_keycloak` | [modules/keycloak/](../modules/keycloak/) |
 | PyPI | `simple_module_mail` | [modules/mail/](../modules/mail/) |
+| PyPI | `simple_module_oidc` | [modules/oidc/](../modules/oidc/) |
 | PyPI | `simple_module_permissions` | [modules/permissions/](../modules/permissions/) |
 | PyPI | `simple_module_settings` | [modules/settings/](../modules/settings/) |
 | PyPI | `simple_module_sharing` | [modules/sharing/](../modules/sharing/) |

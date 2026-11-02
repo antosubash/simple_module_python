@@ -19,26 +19,16 @@ from oidc.constants import (
     SESSION_USER_KEY,
     SESSION_VERIFIER_KEY,
 )
-from oidc.tokens import SESSION_REFRESH_TOKEN_KEY, seal_refresh_token
+from oidc.runtime import require_client
+from oidc.tokens import store_refresh_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["oidc-auth"])
 
 
-async def _require_client(request: Request):
-    if request.app.state.oidc.client is None:
-        from oidc.runtime import initialize
-
-        await initialize(request.app)
-    client = request.app.state.oidc.client
-    if client is None:
-        raise HTTPException(status_code=503, detail="OIDC provider not configured")
-    return client
-
-
 @router.get("/login", name="oidc_auth_login")
 async def oidc_login(request: Request):
-    client = await _require_client(request)
+    client = await require_client(request)
     nonce = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)
     url, state = client.build_authorization_url(
@@ -71,7 +61,7 @@ async def oidc_callback(request: Request):
         raise HTTPException(status_code=400, detail="Missing OIDC nonce")
     if not isinstance(verifier, str) or not verifier:
         raise HTTPException(status_code=400, detail="Missing PKCE verifier")
-    client = await _require_client(request)
+    client = await require_client(request)
     try:
         tokens = await client.exchange_code(
             code=code,
@@ -120,7 +110,5 @@ async def oidc_callback(request: Request):
     request.session[SESSION_IDENTITY_KEY] = list(identity)
     request.session[SESSION_EXPIRES_AT_KEY] = expires_at
     if tokens.get("refresh_token"):
-        request.session[SESSION_REFRESH_TOKEN_KEY] = seal_refresh_token(
-            request.app, tokens["refresh_token"]
-        )
+        store_refresh_token(request.app, request.session, tokens["refresh_token"])
     return RedirectResponse(next_url, status_code=303)

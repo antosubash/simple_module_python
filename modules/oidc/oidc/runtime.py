@@ -2,6 +2,8 @@
 
 import logging
 
+from fastapi import HTTPException, Request
+
 from oidc.client import OIDCClient
 from oidc.discovery import fetch_metadata
 from oidc.jwks import JWKSCache
@@ -49,3 +51,13 @@ async def initialize(app) -> bool:
         state.metadata, state.jwks_cache, state.client = metadata, cache, client
         app.state.auth.auth_provider.jwks_cache = cache
         return True
+
+
+async def require_client(request: Request) -> OIDCClient:
+    """The configured client, initialising lazily; 503 when the provider is unavailable."""
+    if request.app.state.oidc.client is None:
+        await initialize(request.app)
+    client = request.app.state.oidc.client
+    if client is None:
+        raise HTTPException(status_code=503, detail="OIDC provider not configured")
+    return client

@@ -49,7 +49,6 @@ class JWKSCache:
         token: str,
         *,
         audience: str | None = None,
-        trusted_audiences: set[str] | None = None,
     ) -> dict[str, Any] | None:
         """Decode and validate a JWT. Returns claims dict or None."""
         try:
@@ -65,11 +64,9 @@ class JWKSCache:
         if key is None:
             return None
 
-        return self._decode(token, key, audience or self._audience, trusted_audiences or set())
+        return self._decode(token, key, audience or self._audience)
 
-    def _decode(
-        self, token: str, key: Any, audience: str, trusted_audiences: set[str]
-    ) -> dict[str, Any] | None:
+    def _decode(self, token: str, key: Any, audience: str) -> dict[str, Any] | None:
         try:
             claims = jwt.decode(
                 token,
@@ -89,10 +86,17 @@ class JWKSCache:
                 not isinstance(a, str) or not a for a in audiences
             ):
                 return None
-            if set(audiences) - {audience} - trusted_audiences:
+            if set(audiences) - {audience}:
                 return None
+            # ``azp`` names the client a token was issued to. For this client's
+            # ID token that is us; for an API access token it is the *calling*
+            # client (Entra v2 always sets it), which is never ours to pin.
             azp = claims.get("azp")
-            if (len(audiences) > 1 or azp is not None) and azp != self._audience:
+            if (
+                audience == self._audience
+                and (len(audiences) > 1 or azp is not None)
+                and azp != self._audience
+            ):
                 return None
             return claims
         except jwt.PyJWTError:

@@ -208,3 +208,41 @@ async def test_refresh_sealing_is_provider_scoped(refresh_session):
     sealed = request.session["oidc_refresh_token"]
     assert open_refresh_token(request.app, sealed) == "refresh-old"
     assert open_keycloak_token(request.app, sealed) is None
+
+
+async def test_transient_failure_backs_off_before_calling_the_idp_again(
+    refresh_session, httpx_mock, monkeypatch
+):
+    provider, request = refresh_session
+    httpx_mock.add_response(status_code=503)
+    assert await provider.resolve_user(request) is None
+    assert request.session["oidc_refresh_retry_at"] == 1030
+    # A later request inside the back-off window makes no token call at all
+    # (httpx_mock would fail on an unexpected request).
+    request.state.oidc_refresh_attempted = False
+    monkeypatch.setattr("time.time", lambda: 1029)
+    assert await provider.resolve_user(request) is None
+    assert len(httpx_mock.get_requests()) == 1
+    # After it, the retry goes out and success clears the marker.
+    monkeypatch.setattr("time.time", lambda: 1031)
+    httpx_mock.add_response(
+        url="https://idp.test/token", method="POST", json={"id_token": "id-new"}
+    )
+    request.state.oidc_refresh_attempted = False
+    assert await provider.resolve_user(request) is not None
+    assert "oidc_refresh_retry_at" not in request.session
+
+
+async def test_refresh_token_too_large_for_the_cookie_is_not_stored(refresh_session, httpx_mock):
+    provider, request = refresh_session
+    httpx_mock.add_response(
+        url="https://idp.test/token",
+        method="POST",
+        json={"id_token": "id-new", "refresh_token": "r" * 3000},
+    )
+    principal = await provider.resolve_user(request)
+    # Renewed for this ID token's lifetime; without a refresh token the session
+    # ends at that expiry instead of overflowing the browser's cookie limit.
+    assert principal is not None
+    assert request.session["expires_at"] == 1300
+    assert "oidc_refresh_token" not in request.session

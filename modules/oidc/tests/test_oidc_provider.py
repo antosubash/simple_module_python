@@ -99,3 +99,11 @@ def test_claims_to_user_context_generic_sub_and_name():
     ctx = provider._claims_to_user_context(claims, cache_id="cache-3")
     assert ctx.name == "Generic User"
     assert ctx.roles == []
+
+
+@pytest.mark.parametrize("email", [None, 7, ["a@b"]])
+def test_non_string_claims_do_not_break_the_context(provider, email):
+    ctx = provider._claims_to_user_context(
+        {"email": email, "preferred_username": 5, "name": "Alice"}, cache_id="id-1"
+    )
+    assert (ctx.email, ctx.name) == ("", "Alice")

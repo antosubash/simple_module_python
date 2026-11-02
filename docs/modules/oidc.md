@@ -7,7 +7,7 @@ Only one auth provider may be active; select it with `SM_AUTH_PROVIDER=oidc`.
 
 ## Install and activate
 
-Add `simple_module_oidc==0.0.42` to your host dependencies (and a workspace source
+Add `simple_module_oidc` to your host dependencies (and a workspace source
 when developing in this repository), then sync your environment. Keep `Auth`
 enabled. `Settings` is optional: its UI edits DB-backed policy, but framework
 settings hydration works without it. Exclude modules that require `Users` when
@@ -30,10 +30,15 @@ Create an OpenID Connect client in the Keycloak realm:
 - Set the valid redirect URI to `<app>/api/oidc/auth/callback`.
 - Set the valid post-logout redirect URI to `<app>/oidc/logged-out`.
 - Require PKCE with code challenge method **S256**.
-- Ensure the realm role mapper includes `realm_access.roles` in ID tokens.
-  Assign the intended realm roles to users and include the roles client scope
-  in the client's default scopes. Set the username mapper to include
-  `preferred_username` in ID tokens.
+- Add realm roles to the **ID token**. Keycloak 26 puts `realm_access.roles`
+  only in the access token by default, and this module reads roles from the ID
+  token. Under Client scopes -> `roles` -> Mappers -> `realm roles`, turn on
+  **Add to ID token** (token claim name `realm_access.roles`, multivalued), or
+  add a **User Realm Role** mapper with those settings to the client's
+  dedicated scope. Then assign the intended realm roles (for example `admin`)
+  to users.
+- Keep the default `profile` and `email` client scopes: they supply
+  `preferred_username`, `name`, `email` and `email_verified` in the ID token.
 
 Use the realm's discovery document and the client's credentials:
 
@@ -106,10 +111,10 @@ are display data and do not attest verified mailbox ownership.
 
 ## Configuration reference
 
-All rows name fields of `OidcSettings`, stored as `oidc.<field>`. The five
-`SM_OIDC_*` variables below seed bootstrap defaults; explicit DB values can
-override them. Only process wiring and secrets have these bootstrap variables;
-**— means no environment variable**, not an undocumented `SM_OIDC_*` spelling.
+All rows name fields of `OidcSettings`, stored as `oidc.<field>`. The six
+`SM_OIDC_*` variables below seed bootstrap defaults (process wiring, secrets
+and the first admin's roles path); explicit DB values can
+override them. **— means no environment variable**, not an undocumented `SM_OIDC_*` spelling.
 Bare environment variables and old claim-mapping environment variables are
 ignored. Host selection `SM_AUTH_PROVIDER=oidc` is a separate host setting.
 
@@ -156,8 +161,9 @@ never selects an application tenant.
 ## Sessions, logout and limits
 
 JWT validation requires RS256, signature, exact issuer, subject, audience,
-expiry and issued-at. A supplied `azp` must name the expected client and is
-required for multiple audiences; untrusted additional audiences are rejected.
+expiry and issued-at. For the browser ID token a supplied `azp` must name this
+client and is required for multiple audiences; additional audiences are rejected.
+An API access token's `azp` is the calling client and is not pinned.
 Discovery validates URLs and issuer, requires HTTPS outside development, and
 permits legitimate endpoints on different hosts. Discovery failure refuses boot
 outside development; development retries lazily at login.

@@ -34,7 +34,8 @@ class Preset:
 
 PRESETS: dict[str, Preset] = {
     # Microsoft Entra ID (Azure AD), v2.0 endpoints. Single-tenant: the tenant
-    # GUID (or a verified domain) goes in ``tenant_id``. App roles arrive in the
+    # GUID goes in ``tenant_id`` (a domain name would not match the GUID issuer
+    # the discovery document reports). App roles arrive in the
     # ``roles`` claim; ``oid`` is the stable per-tenant user object id.
     "entra": Preset(
         name="entra",

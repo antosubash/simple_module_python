@@ -109,7 +109,7 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
         mapped = [mapping[r] for r in (roles_raw or []) if isinstance(r, str) and r in mapping]
         return UserContext(
             id=cache_id,
-            email=claims.get(s.email_claim if s else "email", ""),
+            email=self._email(claims) or "",
             email_verified=bool(
                 (not s or s.provider != "entra") and claims.get("email_verified") is True
             ),
@@ -118,13 +118,21 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
             tenant_id=self._trusted_tenant(claims.get("tenant_id")),
         )
 
+    def _email(self, claims: dict[str, Any]) -> str | None:
+        """The configured email claim, or ``None`` when absent or not a string."""
+        value = claims.get(self._settings.email_claim if self._settings else "email")
+        return value if isinstance(value, str) else None
+
     def _display_name(self, claims: dict[str, Any]) -> str:
         s = self._settings
-        return (
-            claims.get(s.username_claim if s else "preferred_username")
-            or claims.get(s.name_claim if s else "name")
-            or ""
-        )
+        for name in (
+            s.username_claim if s else "preferred_username",
+            s.name_claim if s else "name",
+        ):
+            value = claims.get(name)
+            if isinstance(value, str) and value:
+                return value
+        return ""
 
     def _subject(self, claims: dict[str, Any]) -> str:
         key = self._settings.uid_claim if self._settings else "sub"

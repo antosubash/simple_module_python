@@ -4,6 +4,7 @@ import json
 
 import httpx
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 from oidc.settings import OidcSettings
 from oidc_flow_helpers import _AUDIENCE, _KID, _PRIVATE_KEY
@@ -111,3 +112,9 @@ async def flow_client(oidc_app):
         transport=httpx.ASGITransport(app=oidc_app), base_url="http://testserver"
     ) as client:
         yield client
+
+
+@pytest.fixture
+def rsa_keys():
+    private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return private, private.public_key()

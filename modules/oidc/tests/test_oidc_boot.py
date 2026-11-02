@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from oidc.endpoints.api import _require_client
 from oidc.module import OidcModule
 from oidc.provider import OidcAuthProvider
+from oidc.runtime import require_client
 from oidc.settings import OidcSettings
 from oidc.state import OidcState
 from starlette.requests import Request
@@ -50,7 +50,7 @@ async def test_development_retries_lazily_and_single_flight(httpx_mock):
         }
     )
     request = Request({"type": "http", "app": app})
-    clients = await asyncio.gather(*[_require_client(request) for _ in range(5)])
+    clients = await asyncio.gather(*[require_client(request) for _ in range(5)])
     assert all(client is clients[0] for client in clients)
     assert len(httpx_mock.get_requests()) == 2
 

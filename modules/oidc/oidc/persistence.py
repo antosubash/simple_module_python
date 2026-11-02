@@ -25,6 +25,7 @@ class CachePersistence:
 
             issuer, subject = self._identity(claims)
             now = datetime.now(UTC)
+            email = self._email(claims)
             async with independent_session(request.app) as db:
                 stmt = select(OidcUserCache).where(
                     col(OidcUserCache.issuer) == issuer, col(OidcUserCache.subject) == subject
@@ -36,9 +37,7 @@ class CachePersistence:
                             row = OidcUserCache(
                                 issuer=issuer,
                                 subject=subject,
-                                email=claims.get(self._settings.email_claim, "")
-                                if self._settings
-                                else claims.get("email", ""),
+                                email=email or "",
                                 full_name=self._display_name(claims),
                                 last_login_at=now,
                             )
@@ -48,9 +47,8 @@ class CachePersistence:
                         # Another request inserted this sub after our SELECT.
                         row = (await db.execute(stmt)).scalar_one()
 
-                row.email = claims.get(
-                    self._settings.email_claim if self._settings else "email", row.email
-                )
+                if email is not None:
+                    row.email = email  # an absent claim keeps the last known address
                 row.full_name = self._display_name(claims)
                 if not throttle_login:
                     row.last_login_at = now

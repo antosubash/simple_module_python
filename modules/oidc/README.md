@@ -22,7 +22,7 @@ can be active):
 
 ```toml
 dependencies = [
-    "simple_module_oidc==0.0.42",
+    "simple_module_oidc",
 ]
 ```
 
@@ -44,10 +44,15 @@ Create an OpenID Connect client in the Keycloak realm:
 - Set the valid redirect URI to `<app>/api/oidc/auth/callback`.
 - Set the valid post-logout redirect URI to `<app>/oidc/logged-out`.
 - Require PKCE with code challenge method **S256**.
-- Ensure the realm role mapper includes `realm_access.roles` in ID tokens.
-  Assign the intended realm roles to users and include the roles client scope
-  in the client's default scopes. Set the username mapper to include
-  `preferred_username` in ID tokens.
+- Add realm roles to the **ID token**. Keycloak 26 puts `realm_access.roles`
+  only in the access token by default, and this module reads roles from the ID
+  token. Under Client scopes -> `roles` -> Mappers -> `realm roles`, turn on
+  **Add to ID token** (token claim name `realm_access.roles`, multivalued), or
+  add a **User Realm Role** mapper with those settings to the client's
+  dedicated scope. Then assign the intended realm roles (for example `admin`)
+  to users.
+- Keep the default `profile` and `email` client scopes: they supply
+  `preferred_username`, `name`, `email` and `email_verified` in the ID token.
 
 Use the realm's discovery document and the client's credentials:
 
@@ -129,8 +134,9 @@ SM_OIDC_CLIENT_SECRET=<client-secret>
 | `SM_OIDC_TENANT_ID` | — | Used by templated presets (Entra) to derive the discovery URL. |
 | `SM_OIDC_CLIENT_ID` | — | OAuth client id. |
 | `SM_OIDC_CLIENT_SECRET` | — | OAuth client secret. |
+| `SM_OIDC_ROLES_CLAIM_PATH` | preset | Seeds `roles_claim_path`, so the first admin can sign in before the Settings UI is reachable. |
 
-Only the five environment variables above bootstrap process wiring and secrets.
+Only the six environment variables above bootstrap process wiring, secrets and the first admin's roles path.
 These variables seed defaults; explicit DB values can override them.
 All other settings are DB-backed; bare environment names and the old claim
 mapping environment variables are ignored. Provider, discovery, tenant, client
@@ -160,9 +166,8 @@ development retries lazily on login.
 
 Authorization uses code flow with S256 PKCE, state and constant-time nonce
 validation. JWTs require `iss`, `sub`, `aud`, `exp` and `iat`, RS256 and the
-expected audience. Additional audiences are rejected unless explicitly trusted by
-the validator, and a supplied `azp` must name the client (required with multiple
-audiences). The returned access token is unused, so `at_hash` is intentionally
+expected audience. Additional audiences are rejected, and a supplied `azp` on a browser ID token must name this client (required with multiple
+audiences); an API access token's `azp` is the calling client and is not pinned. The returned access token is unused, so `at_hash` is intentionally
 not checked.
 
 Sign-in replaces user-bound session state and rotates CSRF. The cookie never
