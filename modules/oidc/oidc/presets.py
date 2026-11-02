@@ -42,6 +42,7 @@ PRESETS: dict[str, Preset] = {
             "https://login.microsoftonline.com/{tenant_id}/v2.0/.well-known/openid-configuration"
         ),
         uid_claim="oid",
+        scope="openid email profile offline_access",
         roles_claim_path="roles",
     ),
     # Any OIDC-compliant provider (Auth0, Okta, Zitadel, Authentik, Keycloak, ...)
@@ -51,5 +52,7 @@ PRESETS: dict[str, Preset] = {
 
 
 def get_preset(name: str) -> Preset:
-    """Return the named preset, falling back to ``generic`` for unknown names."""
-    return PRESETS.get(name, PRESETS["generic"])
+    """Return a supported preset; typos must not silently change security policy."""
+    if name not in PRESETS:
+        raise ValueError(f"Unknown OIDC preset: {name}")
+    return PRESETS[name]

@@ -42,6 +42,7 @@ def valid_payload():
     now = int(time.time())
     return {
         "oid": "user-123",
+        "sub": "pairwise-123",
         "email": "test@example.com",
         "preferred_username": "testuser",
         "iss": "https://login.microsoftonline.com/tid/v2.0",

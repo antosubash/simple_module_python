@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
 from oidc.settings import OidcSettings
+from pydantic import ValidationError
 
 
 def test_entra_preset_derives_discovery_url_and_claims():
@@ -18,7 +20,7 @@ def test_entra_preset_derives_discovery_url_and_claims():
     )
     assert s.uid_claim == "oid"
     assert s.roles_claim_path == "roles"
-    assert s.scope == "openid email profile"
+    assert s.scope == "openid email profile offline_access"
 
 
 def test_explicit_discovery_url_wins_over_tenant():
@@ -56,23 +58,45 @@ def test_explicit_claim_overrides_preset():
     assert s.roles_claim_path == "resource_access.my-app.roles"
 
 
-def test_unknown_provider_falls_back_to_generic():
-    s = OidcSettings(
-        provider="does-not-exist",
-        discovery_url="https://issuer/.well-known/openid-configuration",
-        client_id="my-app",
-        client_secret="secret",
-    )
-    assert s.uid_claim == "sub"
+def test_unknown_provider_rejected():
+    with pytest.raises(ValidationError, match="Unknown OIDC preset"):
+        OidcSettings(provider="does-not-exist")
 
 
-def test_jwt_audience_falls_back_to_client_id():
-    s = OidcSettings(provider="generic", client_id="my-app", client_secret="secret")
-    assert s.jwt_audience == "my-app"
-    s2 = OidcSettings(
-        provider="generic",
-        client_id="my-app",
-        client_secret="secret",
-        audience="api://my-app",
-    )
-    assert s2.jwt_audience == "api://my-app"
+@pytest.mark.parametrize("tenant", ["common", "organizations", "consumers", "COMMON"])
+def test_entra_single_tenant_only(tenant):
+    with pytest.raises(ValidationError, match="single-tenant"):
+        OidcSettings(provider="entra", tenant_id=tenant)
+
+
+def test_bare_environment_cannot_override_db_policy(monkeypatch):
+    monkeypatch.setenv("UID_CLAIM", "attacker")
+    monkeypatch.setenv("SM_OIDC_UID_CLAIM", "attacker")
+    assert OidcSettings().uid_claim == "sub"
+
+
+def test_redirect_and_bearer_defaults():
+    settings = OidcSettings(client_id="app", login_redirect_url="  ")
+    assert settings.login_redirect_url == "/dashboard/"
+    assert settings.api_audience == ""
+    assert settings.trust_tenant_claim is False
+
+
+def test_production_missing_fields_have_field_location(monkeypatch):
+    monkeypatch.setenv("SM_ENVIRONMENT", "production")
+    with pytest.raises(ValidationError) as exc:
+        OidcSettings(discovery_url="", client_id="", client_secret="")
+    assert exc.value.errors()[0]["loc"] == ("discovery_url",)
+
+
+def test_restart_fields_marked():
+    fields = OidcSettings.model_fields
+    for name in (
+        "provider",
+        "discovery_url",
+        "tenant_id",
+        "client_id",
+        "client_secret",
+        "jwks_cache_ttl_seconds",
+    ):
+        assert fields[name].json_schema_extra["requires_restart"] is True

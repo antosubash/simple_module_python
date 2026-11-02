@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 import jwt
 from jwt.algorithms import RSAAlgorithm
 
 logger = logging.getLogger(__name__)
+_MIN_REFETCH_INTERVAL_SECONDS = 30
 
 
 class JWKSCache:
-    """Caches a provider's public signing keys and validates JWTs.
+    """Caches OIDC's public signing keys and validates JWTs.
 
-    On validation failure with cached keys, refetches JWKS once before
-    rejecting -- this handles signing-key rotation gracefully.
+    Unknown keys trigger a refresh, with a per-cache cooldown and lock to
+    bound unauthenticated fetches while still discovering key rotation.
     """
 
     def __init__(
@@ -38,77 +41,113 @@ class JWKSCache:
         self._audience = audience
         self._keys: dict[str, Any] = {}
         self._fetched_at: float = 0
+        self._last_fetch_attempt: float | None = None
+        self._fetch_lock = asyncio.Lock()
 
-    async def validate_jwt(self, token: str) -> dict[str, Any] | None:
+    async def validate_jwt(
+        self,
+        token: str,
+        *,
+        audience: str | None = None,
+        trusted_audiences: set[str] | None = None,
+    ) -> dict[str, Any] | None:
         """Decode and validate a JWT. Returns claims dict or None."""
         try:
             unverified = jwt.get_unverified_header(token)
-        except jwt.exceptions.DecodeError:
+        except jwt.PyJWTError:
             return None
 
         kid = unverified.get("kid")
-        if kid is None:
+        if not isinstance(kid, str) or not kid:
             return None
 
         key = await self._get_key(kid)
         if key is None:
             return None
 
-        return self._decode(token, key)
+        return self._decode(token, key, audience or self._audience, trusted_audiences or set())
 
-    def _decode(self, token: str, key: Any) -> dict[str, Any] | None:
+    def _decode(
+        self, token: str, key: Any, audience: str, trusted_audiences: set[str]
+    ) -> dict[str, Any] | None:
         try:
-            return jwt.decode(
+            claims = jwt.decode(
                 token,
                 key,
                 algorithms=["RS256"],
                 issuer=self._issuer,
-                audience=self._audience,
+                audience=audience,
+                options={"require": ["iss", "sub", "aud", "exp", "iat"]},
             )
-        except (
-            jwt.ExpiredSignatureError,
-            jwt.InvalidIssuerError,
-            jwt.InvalidAudienceError,
-        ):
-            return None
+            if not isinstance(claims["sub"], str) or not claims["sub"].strip():
+                return None
+            if any(type(claims[k]) is not int for k in ("exp", "iat")):
+                return None
+            audiences = claims["aud"]
+            audiences = [audiences] if isinstance(audiences, str) else audiences
+            if not isinstance(audiences, list) or any(
+                not isinstance(a, str) or not a for a in audiences
+            ):
+                return None
+            if set(audiences) - {audience} - trusted_audiences:
+                return None
+            azp = claims.get("azp")
+            if (len(audiences) > 1 or azp is not None) and azp != self._audience:
+                return None
+            return claims
         except jwt.PyJWTError:
-            logger.exception("JWT validation failed")
+            logger.debug("OIDC JWT validation failed")
             return None
 
     async def _get_key(self, kid: str) -> Any | None:
         if self._is_stale() or kid not in self._keys:
-            await self._fetch_keys()
-
-        if kid in self._keys:
-            return self._keys[kid]
-
-        await self._fetch_keys(force=True)
+            async with self._fetch_lock:
+                await self._fetch_keys()
         return self._keys.get(kid)
 
     def _is_stale(self) -> bool:
         return time.monotonic() - self._fetched_at > self._ttl
 
-    async def _fetch_keys(self, *, force: bool = False) -> None:
-        if not force and not self._is_stale():
+    async def _fetch_keys(self) -> None:
+        now = time.monotonic()
+        if (
+            self._last_fetch_attempt is not None
+            and now - self._last_fetch_attempt < _MIN_REFETCH_INTERVAL_SECONDS
+        ):
             return
+        # Failed attempts must also cool down; keep the last good keys on failure.
+        self._last_fetch_attempt = now
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(self._jwks_url, timeout=10)
                 resp.raise_for_status()
                 jwks_data = resp.json()
         except Exception:
-            logger.exception("Failed to fetch JWKS from %s", self._jwks_url)
+            logger.warning("Failed to fetch OIDC JWKS")
             return
 
         new_keys: dict[str, Any] = {}
-        for key_data in jwks_data.get("keys", []):
-            if not self._is_rsa_signing_key(key_data):
+        if not isinstance(jwks_data, dict) or not isinstance(jwks_data.get("keys"), list):
+            return
+        for key_data in jwks_data["keys"]:
+            if not isinstance(key_data, dict) or not self._is_rsa_signing_key(key_data):
                 continue
-            kid = key_data["kid"]
-            try:
-                new_keys[kid] = RSAAlgorithm.from_jwk(key_data)
-            except Exception:
-                logger.warning("Failed to parse JWK kid=%s", kid)
+            key_issuer = key_data.get("issuer", self._issuer)
+            if isinstance(key_issuer, str):
+                # Entra may template its JWK issuer even on tenant-specific discovery.
+                tenant = urlsplit(self._issuer).path.strip("/").split("/")[0]
+                key_issuer = key_issuer.replace("{tenantid}", tenant)
+            if key_issuer != self._issuer:
+                continue
+            kid = key_data.get("kid")
+            if kid:
+                try:
+                    public_key = RSAAlgorithm.from_jwk(key_data)
+                    new_keys[kid] = public_key
+                except Exception:
+                    logger.warning("Failed to parse JWK kid=%s", kid)
+        if not new_keys:
+            return
         self._keys = new_keys
         self._fetched_at = time.monotonic()
 
@@ -116,10 +155,17 @@ class JWKSCache:
     def _is_rsa_signing_key(key_data: dict[str, Any]) -> bool:
         """Accept RSA signing keys. ``alg``/``use`` are optional in JWKS — Entra
         omits ``alg`` — so only reject when a present value is incompatible."""
-        if not key_data.get("kid") or key_data.get("kty") != "RSA":
+        if (
+            not isinstance(key_data.get("kid"), str)
+            or not key_data["kid"]
+            or key_data.get("kty") != "RSA"
+        ):
             return False
         alg = key_data.get("alg")
         if alg and alg != "RS256":
             return False
         use = key_data.get("use")
-        return not (use and use != "sig")
+        if use and use != "sig":
+            return False
+        operations = key_data.get("key_ops")
+        return operations is None or (isinstance(operations, list) and "verify" in operations)

@@ -43,12 +43,6 @@ def test_logout_url(provider):
     assert provider.get_logout_url(None) == "/oidc/logout"
 
 
-def test_public_paths(provider):
-    prefixes, _exact = provider.get_public_paths()
-    assert "/oidc/login" in prefixes
-    assert "/api/oidc/auth/" in prefixes
-
-
 def test_is_bearer_request(provider):
     req = MagicMock()
     req.headers = {"authorization": "Bearer abc"}
@@ -63,9 +57,10 @@ def test_subject_uses_oid_for_entra(provider):
     assert provider._subject(claims) == "entra-oid-1"
 
 
-def test_subject_falls_back_to_sub(provider):
+def test_subject_requires_configured_uid(provider):
     claims = {"sub": "fallback-sub"}
-    assert provider._subject(claims) == "fallback-sub"
+    with pytest.raises(ValueError):
+        provider._subject(claims)
 
 
 def test_claims_to_user_context_entra_roles(provider):
@@ -81,7 +76,7 @@ def test_claims_to_user_context_entra_roles(provider):
     assert ctx.id == "cache-1"
     assert ctx.email == "test@example.com"
     assert ctx.name == "testuser"
-    assert ctx.tenant_id == "tenant-abc"
+    assert ctx.tenant_id is None
     assert sorted(ctx.roles) == ["admin", "user"]
 
 

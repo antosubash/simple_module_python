@@ -12,7 +12,7 @@ fill those in for you.
 
 It auto-registers as the application's auth provider. Browser users are
 redirected to the IdP's hosted login; mobile/API clients send a bearer token
-which is validated against the provider's JWKS.
+which is validated against the provider's JWKS when `api_audience` is configured.
 
 ## Install
 
@@ -40,7 +40,7 @@ Set the `entra` preset and your single-tenant registration details:
 
 ```bash
 SM_OIDC_PROVIDER=entra
-SM_OIDC_TENANT_ID=<your-tenant-guid>     # or a verified domain
+SM_OIDC_TENANT_ID=<your-tenant-guid>
 SM_OIDC_CLIENT_ID=<app-registration-client-id>
 SM_OIDC_CLIENT_SECRET=<client-secret>
 ```
@@ -53,7 +53,7 @@ https://<your-host>/api/oidc/auth/callback
 
 The `entra` preset derives the discovery URL
 (`https://login.microsoftonline.com/{tenant_id}/v2.0/.well-known/openid-configuration`),
-validates the **id_token**, keys the user cache on the stable **`oid`** claim, and
+validates the **id_token**, keys the user cache on **(issuer, `oid`)**, and
 maps Entra **app roles** (the `roles` claim) to framework permissions via
 `role_mapping` (default: `admin` and `user` map 1:1). Assign app roles in
 *Entra → App registrations → App roles* and *Enterprise applications → Users and groups*.
@@ -78,16 +78,56 @@ SM_OIDC_CLIENT_SECRET=<client-secret>
 | `SM_OIDC_TENANT_ID` | — | Used by templated presets (Entra) to derive the discovery URL. |
 | `SM_OIDC_CLIENT_ID` | — | OAuth client id. |
 | `SM_OIDC_CLIENT_SECRET` | — | OAuth client secret. |
-| `SM_OIDC_AUDIENCE` | `client_id` | JWT audience to validate against. |
-| `SM_OIDC_SCOPE` | preset | OAuth scope string. |
-| `SM_OIDC_UID_CLAIM` | preset (`oid` for Entra, else `sub`) | Stable subject claim. |
-| `SM_OIDC_USERNAME_CLAIM` | `preferred_username` | Display-name source. |
-| `SM_OIDC_EMAIL_CLAIM` | `email` | Email claim. |
-| `SM_OIDC_NAME_CLAIM` | `name` | Fallback display name. |
-| `SM_OIDC_ROLES_CLAIM_PATH` | preset (`roles` for Entra) | Dotted path to a roles list (e.g. `realm_access.roles`). |
 
-`login_redirect_url`, `jwks_cache_ttl_seconds`, and `role_mapping` are configurable
-via the settings admin UI after first boot.
+Only the five environment variables above bootstrap process wiring and secrets.
+All other settings are DB-backed; bare environment names and the old claim
+mapping environment variables are ignored. Provider, discovery, tenant, client
+credentials and JWKS cache TTL changes require a restart. Claim and role mapping
+and tenant-claim trust read the live settings state.
+
+| DB setting | Default | Behaviour |
+|---|---|---|
+| `api_audience` | empty | Bearer authentication disabled until configured; ID tokens always use `client_id`. |
+| `trust_tenant_claim` | false | Opt in only to a trusted, validated `tenant_id` claim. Entra `tid` never selects an application tenant. Membership resolution stays authoritative. |
+| `scope` | preset | Entra requests `openid email profile offline_access`. |
+| `uid_claim` | `oid` for Entra, otherwise `sub` | Required identity claim; there is no fallback. Identities use unique (issuer, subject) UUID mappings. |
+| `username_claim` / `name_claim` | `preferred_username` / `name` | Display name with fallback. |
+| `email_claim` | `email` | Display email; only generic OIDC literal `email_verified=true` attests ownership. Entra never attests it. |
+| `roles_claim_path` | `roles` for Entra, otherwise empty | Dotted claim path to role list. |
+| `role_mapping` | admin/user map to themselves | External roles to application roles; `tenant:*` roles are filtered on login and restored sessions. |
+| `login_redirect_url` | `/dashboard/` | Blank values normalize to the default. Saved deep links must be local paths. |
+| `jwks_cache_ttl_seconds` | 3600 | Last-good signing keys retained on outage; unknown keys share a 30-second fetch cooldown. |
+
+## Login, sessions and logout
+
+Entra supports a single tenant GUID. `common`, `organizations` and `consumers`
+are rejected. Unknown presets are validation errors. Discovery requires an issuer
+matching the configured discovery URL and HTTPS outside development; different
+endpoint hosts are supported. Discovery failure refuses boot outside development;
+development retries lazily on login.
+
+Authorization uses code flow with S256 PKCE, state and constant-time nonce
+validation. JWTs require `iss`, `sub`, `aud`, `exp` and `iat`, RS256 and the
+expected audience. Additional audiences are rejected unless explicitly trusted by
+the validator, and a supplied `azp` must name the client (required with multiple
+audiences). The returned access token is unused, so `at_hash` is intentionally
+not checked.
+
+Sign-in replaces user-bound session state and rotates CSRF. The cookie never
+stores the ID token; it stores the ID-token expiry and an encrypted refresh token
+when supplied. Expired or unbounded sessions renew using a fresh ID token, with
+the same issuer and configured subject required. Definitive refresh rejection
+clears authentication; transport failures, 5xx and retryable 4xx preserve the
+expired session for another attempt, while this request stays unauthenticated.
+
+Logout always clears local state. The optional discovered logout endpoint gets
+`client_id` and `post_logout_redirect_uri`, without `id_token_hint`. Register
+`https://<your-host>/oidc/logged-out` as the post-logout URI. Providers requiring
+an ID-token hint may show a confirmation prompt or leave their SSO session active;
+the local signed-out page never automatically signs in.
+
+The host migration `c9d2e4f6a810` (`oidc@head`, #192) creates the identity cache.
+Apply host migrations with `upgrade heads` before deployment.
 
 ## Activation
 

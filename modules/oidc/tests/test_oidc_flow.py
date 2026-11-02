@@ -10,81 +10,9 @@ are all exercised for real.
 
 from __future__ import annotations
 
-import time
 from urllib.parse import parse_qs, urlparse
 
-import httpx
-import jwt
-import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
-from oidc.client import OIDCClient
-from oidc.jwks import JWKSCache
-from oidc.provider import OidcAuthProvider
-from oidc.settings import OidcSettings
-
-_KID = "test-key-1"
-_ISSUER = "https://login.microsoftonline.com/test-tenant/v2.0"
-_AUDIENCE = "my-app"
-_PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-
-def _sign_id_token(*, nonce: str, **overrides) -> str:
-    now = int(time.time())
-    claims = {
-        "iss": _ISSUER,
-        "aud": _AUDIENCE,
-        "exp": now + 3600,
-        "iat": now,
-        "oid": "entra-oid-123",
-        "email": "alice@example.com",
-        "preferred_username": "alice",
-        "tid": "test-tenant",
-        "roles": ["admin"],
-        "nonce": nonce,
-    }
-    claims.update(overrides)
-    return jwt.encode(claims, _PRIVATE_KEY, algorithm="RS256", headers={"kid": _KID})
-
-
-@pytest.fixture
-async def oidc_app(app):
-    """Reuse the shared app but make OIDC the active, fully-wired provider."""
-    settings = OidcSettings(
-        provider="entra",
-        tenant_id="test-tenant",
-        client_id=_AUDIENCE,
-        client_secret="secret",
-    )
-    provider = OidcAuthProvider(settings)
-
-    jwks = JWKSCache(jwks_url="https://idp/jwks", issuer=_ISSUER, audience=_AUDIENCE)
-    # Inject the signing key directly and mark the cache fresh so validate_jwt
-    # never hits the network.
-    jwks._keys = {_KID: _PRIVATE_KEY.public_key()}
-    jwks._ttl = 10_000
-    jwks._fetched_at = time.monotonic()
-    provider.jwks_cache = jwks
-
-    client = OIDCClient(
-        authorization_endpoint="https://idp/authorize",
-        token_endpoint="https://idp/token",
-        end_session_endpoint="https://idp/logout",
-        client_id=_AUDIENCE,
-        client_secret="secret",
-    )
-
-    app.state.auth.auth_provider = provider
-    app.state.oidc.settings = settings
-    app.state.oidc.client = client
-    app.state.oidc.jwks_cache = jwks
-    return app
-
-
-@pytest.fixture
-async def flow_client(oidc_app):
-    transport = httpx.ASGITransport(app=oidc_app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-        yield c
+from oidc_flow_helpers import _AUDIENCE, _sign_id_token
 
 
 async def _begin_login(flow_client) -> tuple[str, str, str]:
@@ -114,11 +42,11 @@ async def test_login_redirect_uri_targets_oidc_callback(flow_client):
     assert urlparse(redirect_uri).path == "/api/oidc/auth/callback"
 
 
-async def test_happy_path_creates_session_and_user_cache(oidc_app, flow_client):
+async def test_happy_path_creates_session_and_user_cache(oidc_app, flow_client, httpx_mock):
     state, nonce, _ = await _begin_login(flow_client)
 
     token = _sign_id_token(nonce=nonce)
-    oidc_app.state.oidc.client.exchange_code = _stub_exchange(token)
+    httpx_mock.add_response(url="https://idp/token", json={"id_token": token})
 
     resp = await flow_client.get(f"/api/oidc/auth/callback?code=abc&state={state}")
     assert resp.status_code == 303
@@ -135,7 +63,7 @@ async def test_happy_path_creates_session_and_user_cache(oidc_app, flow_client):
     assert rows[0].email == "alice@example.com"
 
 
-async def test_repeat_login_reuses_stable_id(oidc_app, flow_client):
+async def test_repeat_login_reuses_stable_id(oidc_app, flow_client, httpx_mock):
     """Two logins for the same subject must map to ONE persisted row / stable id."""
     from oidc.models import OidcUserCache
     from sqlalchemy import select
@@ -143,7 +71,9 @@ async def test_repeat_login_reuses_stable_id(oidc_app, flow_client):
     ids = []
     for _ in range(2):
         state, nonce, _ = await _begin_login(flow_client)
-        oidc_app.state.oidc.client.exchange_code = _stub_exchange(_sign_id_token(nonce=nonce))
+        httpx_mock.add_response(
+            url="https://idp/token", json={"id_token": _sign_id_token(nonce=nonce)}
+        )
         resp = await flow_client.get(f"/api/oidc/auth/callback?code=abc&state={state}")
         assert resp.status_code == 303
         async with oidc_app.state.sm.db.session_factory() as db:
@@ -153,12 +83,12 @@ async def test_repeat_login_reuses_stable_id(oidc_app, flow_client):
     assert ids[0] == ids[1]
 
 
-async def test_callback_rejects_nonce_mismatch(oidc_app, flow_client):
+async def test_callback_rejects_nonce_mismatch(oidc_app, flow_client, httpx_mock):
     """A replayed id_token whose nonce does not match the session must be rejected."""
     state, _nonce, _ = await _begin_login(flow_client)
 
     token = _sign_id_token(nonce="attacker-controlled-different-nonce")
-    oidc_app.state.oidc.client.exchange_code = _stub_exchange(token)
+    httpx_mock.add_response(url="https://idp/token", json={"id_token": token})
 
     resp = await flow_client.get(f"/api/oidc/auth/callback?code=abc&state={state}")
     assert resp.status_code == 401
@@ -170,18 +100,34 @@ async def test_callback_rejects_state_mismatch(flow_client):
     assert resp.status_code == 400
 
 
-async def test_callback_rejects_token_with_wrong_audience(oidc_app, flow_client):
+async def test_callback_rejects_token_with_wrong_audience(oidc_app, flow_client, httpx_mock):
     state, nonce, _ = await _begin_login(flow_client)
 
     token = _sign_id_token(nonce=nonce, aud="some-other-app")
-    oidc_app.state.oidc.client.exchange_code = _stub_exchange(token)
+    httpx_mock.add_response(url="https://idp/token", json={"id_token": token})
 
     resp = await flow_client.get(f"/api/oidc/auth/callback?code=abc&state={state}")
     assert resp.status_code == 401
 
 
-def _stub_exchange(id_token: str):
-    async def _exchange(*, code: str, redirect_uri: str) -> dict:
-        return {"id_token": id_token, "access_token": "stub", "token_type": "Bearer"}
+async def test_http_pkce_verifier_matches_authorization_challenge(flow_client, httpx_mock):
+    import base64
+    import hashlib
 
-    return _exchange
+    response = await flow_client.get("/api/oidc/auth/login")
+    query = parse_qs(urlparse(response.headers["location"]).query)
+    httpx_mock.add_response(
+        url="https://idp/token", json={"id_token": _sign_id_token(nonce=query["nonce"][0])}
+    )
+    response = await flow_client.get(
+        "/api/oidc/auth/callback", params={"code": "abc", "state": query["state"][0]}
+    )
+    assert response.status_code == 303, response.text
+    sent = parse_qs(httpx_mock.get_request(url="https://idp/token").content.decode())
+    verifier = sent["code_verifier"][0]
+    assert 43 <= len(verifier) <= 128
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    )
+    assert query["code_challenge"] == [challenge]
+    assert query["code_challenge_method"] == ["S256"]

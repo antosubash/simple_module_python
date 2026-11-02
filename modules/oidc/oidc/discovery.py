@@ -1,20 +1,30 @@
-"""OIDC discovery -- fetch and parse ``.well-known/openid-configuration``.
-
-Resolved once at startup; the returned endpoints drive the OIDC client and the
-JWKS validator, so per-provider URL templates are never hardcoded.
-"""
+"""Validated OIDC discovery metadata; endpoint hosts may legitimately differ."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import httpx
 
 
+def _validate_url(value: object, *, development: bool) -> str:
+    if not isinstance(value, str) or not value or any(c.isspace() for c in value):
+        raise ValueError("OIDC metadata URL must be a non-empty URL")
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme not in ({"https", "http"} if development else {"https"})
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        raise ValueError("OIDC metadata requires HTTPS URLs without credentials or fragments")
+    return value
+
+
 @dataclass(frozen=True)
 class OidcMetadata:
-    """The subset of OIDC provider metadata this module relies on."""
-
     issuer: str
     authorization_endpoint: str
     token_endpoint: str
@@ -22,28 +32,41 @@ class OidcMetadata:
     end_session_endpoint: str = ""
 
     @classmethod
-    def from_document(cls, doc: dict) -> OidcMetadata:
-        """Build metadata from a parsed discovery document.
-
-        Raises ``ValueError`` if a required endpoint is absent.
-        """
+    def from_document(
+        cls, doc: dict, *, expected_issuer: str | None = None, development: bool = False
+    ) -> OidcMetadata:
+        if not isinstance(doc, dict):
+            raise ValueError("OIDC discovery document must be an object")
         required = ("issuer", "authorization_endpoint", "token_endpoint", "jwks_uri")
-        missing = [k for k in required if not doc.get(k)]
+        missing = [key for key in required if not doc.get(key)]
         if missing:
-            msg = f"OIDC discovery document missing required fields: {', '.join(missing)}"
-            raise ValueError(msg)
-        return cls(
-            issuer=doc["issuer"],
-            authorization_endpoint=doc["authorization_endpoint"],
-            token_endpoint=doc["token_endpoint"],
-            jwks_uri=doc["jwks_uri"],
-            end_session_endpoint=doc.get("end_session_endpoint", ""),
-        )
+            raise ValueError(
+                f"OIDC discovery document missing required fields: {', '.join(missing)}"
+            )
+        values = {key: _validate_url(doc[key], development=development) for key in required}
+        issuer = urlsplit(values["issuer"])
+        if issuer.query or "{" in values["issuer"] or "}" in values["issuer"]:
+            raise ValueError("OIDC issuer must be concrete and have no query")
+        # Compared without one trailing slash: issuers such as Auth0's end in
+        # "/" while the discovery URL is built without it. Tokens are still
+        # validated against the issuer exactly as the document states it.
+        if expected_issuer is not None and values["issuer"].rstrip("/") != expected_issuer.rstrip(
+            "/"
+        ):
+            raise ValueError("OIDC discovery issuer does not match configured issuer")
+        logout = doc.get("end_session_endpoint", "")
+        if logout != "":
+            logout = _validate_url(logout, development=development)
+        return cls(**values, end_session_endpoint=logout)
 
 
-async def fetch_metadata(discovery_url: str) -> OidcMetadata:
-    """Fetch and parse the provider's OIDC discovery document."""
+async def fetch_metadata(
+    discovery_url: str, *, expected_issuer: str | None = None, development: bool = False
+) -> OidcMetadata:
+    _validate_url(discovery_url, development=development)
     async with httpx.AsyncClient() as client:
         resp = await client.get(discovery_url, timeout=10)
         resp.raise_for_status()
-        return OidcMetadata.from_document(resp.json())
+        return OidcMetadata.from_document(
+            resp.json(), expected_issuer=expected_issuer, development=development
+        )

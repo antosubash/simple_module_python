@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import os
 
-from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.stored_settings import field_error
 
+from oidc.constants import DEFAULT_LOGIN_REDIRECT_URL
 from oidc.presets import get_preset
 
 # Sentinel for "unset by the user" so the preset can supply a default while still
@@ -21,47 +25,67 @@ from oidc.presets import get_preset
 _UNSET = "__unset__"
 
 
-class OidcSettings(BaseSettings):
+class OidcSettings(DbBackedSettings):
     """Generic OIDC configuration with per-provider presets."""
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    provider: str = env_str("SM_OIDC_PROVIDER", "generic")
+    provider: str = Field(
+        default=env_str("SM_OIDC_PROVIDER", "generic"), json_schema_extra={"requires_restart": True}
+    )
 
     # Endpoint discovery. ``discovery_url`` wins; otherwise the preset derives it
     # from ``tenant_id`` (Entra). The well-known doc supplies all endpoints + issuer.
-    discovery_url: str = env_str("SM_OIDC_DISCOVERY_URL", "")
-    tenant_id: str = env_str("SM_OIDC_TENANT_ID", "")
+    discovery_url: str = Field(
+        default=env_str("SM_OIDC_DISCOVERY_URL", ""), json_schema_extra={"requires_restart": True}
+    )
+    tenant_id: str = Field(
+        default=env_str("SM_OIDC_TENANT_ID", ""), json_schema_extra={"requires_restart": True}
+    )
 
-    client_id: str = env_str("SM_OIDC_CLIENT_ID", "")
-    client_secret: str = env_str("SM_OIDC_CLIENT_SECRET", "")
+    client_id: str = Field(
+        default=env_str("SM_OIDC_CLIENT_ID", ""), json_schema_extra={"requires_restart": True}
+    )
+    client_secret: str = Field(
+        default=env_str("SM_OIDC_CLIENT_SECRET", ""), json_schema_extra={"requires_restart": True}
+    )
 
-    # Audience for JWT validation. Empty ⇒ falls back to ``client_id``.
-    audience: str = env_str("SM_OIDC_AUDIENCE", "")
+    # Bearer authentication is opt-in; browser ID tokens always use client_id.
+    api_audience: str = ""
+    trust_tenant_claim: bool = False
 
     # Claim mapping. ``_UNSET`` defaults are replaced by the preset's value.
-    scope: str = env_str("SM_OIDC_SCOPE", _UNSET)
-    uid_claim: str = env_str("SM_OIDC_UID_CLAIM", _UNSET)
-    username_claim: str = env_str("SM_OIDC_USERNAME_CLAIM", _UNSET)
-    email_claim: str = env_str("SM_OIDC_EMAIL_CLAIM", _UNSET)
-    name_claim: str = env_str("SM_OIDC_NAME_CLAIM", _UNSET)
-    roles_claim_path: str = env_str("SM_OIDC_ROLES_CLAIM_PATH", _UNSET)
+    scope: str = _UNSET
+    uid_claim: str = _UNSET
+    username_claim: str = _UNSET
+    email_claim: str = _UNSET
+    name_claim: str = _UNSET
+    roles_claim_path: str = _UNSET
 
-    login_redirect_url: str = "/dashboard/"
-    jwks_cache_ttl_seconds: int = 3600
+    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
+    jwks_cache_ttl_seconds: int = Field(
+        default=3600, ge=0, json_schema_extra={"requires_restart": True}
+    )
 
     role_mapping: dict[str, str] = Field(
         default_factory=lambda: {"admin": "admin", "user": "user"},
     )
 
-    @property
-    def jwt_audience(self) -> str:
-        """Audience to validate tokens against (explicit override or client_id)."""
-        return self.audience or self.client_id
+    @field_validator("login_redirect_url")
+    @classmethod
+    def _non_empty_redirect(cls, value: str) -> str:
+        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
 
     @model_validator(mode="after")
     def _apply_preset(self) -> OidcSettings:
         preset = get_preset(self.provider)
+        if self.provider == "entra":
+            from urllib.parse import urlsplit
+
+            forbidden = {"common", "organizations", "consumers"}
+            segments = urlsplit(self.discovery_url).path.lower().split("/")
+            if self.tenant_id.strip().lower() in forbidden or forbidden.intersection(segments):
+                raise ValueError("Entra supports single-tenant configuration only")
         if self.uid_claim == _UNSET:
             self.uid_claim = preset.uid_claim
         if self.username_claim == _UNSET:
@@ -83,14 +107,15 @@ class OidcSettings(BaseSettings):
         env = os.environ.get("SM_ENVIRONMENT", "development")
         if env in NON_PROD_ENVIRONMENTS:
             return self
-        missing = []
-        if not self.discovery_url:
-            missing.append("SM_OIDC_DISCOVERY_URL (or SM_OIDC_TENANT_ID for a templated preset)")
-        if not self.client_id:
-            missing.append("SM_OIDC_CLIENT_ID")
-        if not self.client_secret:
-            missing.append("SM_OIDC_CLIENT_SECRET")
+        required = ("discovery_url", "client_id", "client_secret")
+        missing = [field for field in required if not getattr(self, field)]
         if missing:
-            msg = f"OIDC settings required in production: {', '.join(missing)}"
-            raise ValueError(msg)
+            raise field_error(
+                type(self),
+                missing[0],
+                "oidc_settings_required",
+                f"OIDC settings required in production: {', '.join(missing)}",
+                value="",
+                related=list(required),
+            )
         return self

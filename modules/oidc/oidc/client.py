@@ -6,6 +6,8 @@ document, so this client is provider-agnostic.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import secrets
 from typing import Any
 from urllib.parse import urlencode
@@ -40,6 +42,8 @@ class OIDCClient:
         redirect_uri: str,
         nonce: str,
         scope: str = "openid email profile",
+        *,
+        code_verifier: str,
     ) -> tuple[str, str]:
         state = secrets.token_urlsafe(32)
         params = {
@@ -49,14 +53,23 @@ class OIDCClient:
             "scope": scope,
             "state": state,
             "nonce": nonce,
+            "code_challenge_method": "S256",
+            "code_challenge": base64.urlsafe_b64encode(
+                hashlib.sha256(code_verifier.encode("ascii")).digest()
+            )
+            .rstrip(b"=")
+            .decode("ascii"),
         }
         url = f"{self._authorization_endpoint}?{urlencode(params)}"
         return url, state
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any]:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, *, code_verifier: str
+    ) -> dict[str, Any]:
         data = {
             "grant_type": "authorization_code",
             "code": code,
+            "code_verifier": code_verifier,
             "redirect_uri": redirect_uri,
             "client_id": self._client_id,
             "client_secret": self._client_secret,
@@ -69,13 +82,28 @@ class OIDCClient:
     def build_logout_url(
         self,
         post_logout_redirect_uri: str,
-        id_token_hint: str | None = None,
     ) -> str:
         """End-session URL. Falls back to the local redirect if the provider
         does not advertise an ``end_session_endpoint``."""
         if not self._end_session_endpoint:
             return post_logout_redirect_uri
-        params: dict[str, str] = {"post_logout_redirect_uri": post_logout_redirect_uri}
-        if id_token_hint:
-            params["id_token_hint"] = id_token_hint
+        params = {
+            "post_logout_redirect_uri": post_logout_redirect_uri,
+            "client_id": self._client_id,
+        }
         return f"{self._end_session_endpoint}?{urlencode(params)}"
+
+    async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                self._token_endpoint,
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "client_id": self._client_id,
+                    "client_secret": self._client_secret,
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            return resp.json()

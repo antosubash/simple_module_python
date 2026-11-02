@@ -1,24 +1,35 @@
-"""OIDC API endpoints — login redirect, callback."""
+"""OIDC login transaction: PKCE, nonce, session rotation and bounded authority."""
 
 from __future__ import annotations
 
 import logging
 import secrets
+import time
 
 from fastapi import APIRouter, HTTPException, Request
+from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_hosting.csrf import rotate_csrf_token
+from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
+
+from oidc.constants import (
+    SESSION_IDENTITY_KEY,
+    SESSION_NONCE_KEY,
+    SESSION_STATE_KEY,
+    SESSION_USER_KEY,
+    SESSION_VERIFIER_KEY,
+)
+from oidc.tokens import SESSION_REFRESH_TOKEN_KEY, seal_refresh_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["oidc-auth"])
 
-_SESSION_OIDC_STATE = "oidc_state"
-_SESSION_OIDC_NONCE = "oidc_nonce"
-_SESSION_USER_CTX = "user_ctx"
-_SESSION_ID_TOKEN = "oidc_id_token"
-_SESSION_NEXT = "next"
 
+async def _require_client(request: Request):
+    if request.app.state.oidc.client is None:
+        from oidc.runtime import initialize
 
-def _require_client(request: Request):
+        await initialize(request.app)
     client = request.app.state.oidc.client
     if client is None:
         raise HTTPException(status_code=503, detail="OIDC provider not configured")
@@ -27,17 +38,18 @@ def _require_client(request: Request):
 
 @router.get("/login", name="oidc_auth_login")
 async def oidc_login(request: Request):
-    client = _require_client(request)
-    s = request.app.state.oidc.settings
-    callback_url = str(request.url_for("oidc_auth_callback"))
+    client = await _require_client(request)
     nonce = secrets.token_urlsafe(32)
+    verifier = secrets.token_urlsafe(64)
     url, state = client.build_authorization_url(
-        redirect_uri=callback_url,
+        redirect_uri=str(request.url_for("oidc_auth_callback")),
         nonce=nonce,
-        scope=s.scope,
+        scope=request.app.state.oidc.settings.scope,
+        code_verifier=verifier,
     )
-    request.session[_SESSION_OIDC_STATE] = state
-    request.session[_SESSION_OIDC_NONCE] = nonce
+    request.session[SESSION_STATE_KEY] = state
+    request.session[SESSION_NONCE_KEY] = nonce
+    request.session[SESSION_VERIFIER_KEY] = verifier
     return RedirectResponse(url, status_code=302)
 
 
@@ -45,44 +57,70 @@ async def oidc_login(request: Request):
 async def oidc_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-
-    expected_state = request.session.pop(_SESSION_OIDC_STATE, None)
-    expected_nonce = request.session.pop(_SESSION_OIDC_NONCE, None)
-
-    if not code or not state or state != expected_state:
+    expected_state = request.session.pop(SESSION_STATE_KEY, None)
+    expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
+    verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
+    if (
+        not code
+        or not state
+        or not isinstance(expected_state, str)
+        or not secrets.compare_digest(state.encode(), expected_state.encode())
+    ):
         raise HTTPException(status_code=400, detail="Invalid OIDC state")
-
-    client = _require_client(request)
-    callback_url = str(request.url_for("oidc_auth_callback"))
-
+    if not isinstance(expected_nonce, str) or not expected_nonce:
+        raise HTTPException(status_code=400, detail="Missing OIDC nonce")
+    if not isinstance(verifier, str) or not verifier:
+        raise HTTPException(status_code=400, detail="Missing PKCE verifier")
+    client = await _require_client(request)
     try:
-        tokens = await client.exchange_code(code=code, redirect_uri=callback_url)
+        tokens = await client.exchange_code(
+            code=code,
+            redirect_uri=str(request.url_for("oidc_auth_callback")),
+            code_verifier=verifier,
+        )
     except Exception:
-        logger.exception("Token exchange failed")
+        logger.warning("OIDC token exchange failed")
         raise HTTPException(status_code=502, detail="Token exchange failed") from None
-
-    id_token = tokens.get("id_token", "")
-
-    # Validate the id_token: aud == client_id across all OIDC providers, and the
-    # reliable identity source for Entra (its access tokens aren't app-validatable).
-    jwks_cache = request.app.state.oidc.jwks_cache
-    claims = await jwks_cache.validate_jwt(id_token) if jwks_cache else None
-    if claims is None:
-        raise HTTPException(status_code=401, detail="Token validation failed")
-
-    # Bind the id_token to this login: the nonce we sent in the authorize
-    # request must come back in the validated token (OIDC Core 3.1.3.7 §11).
-    # Without this an attacker could replay/inject a separately-obtained token.
-    if not expected_nonce or claims.get("nonce") != expected_nonce:
-        raise HTTPException(status_code=401, detail="OIDC nonce mismatch")
-
-    provider = request.app.state.auth.auth_provider
-    cache_id = await provider._upsert_user_cache(request, claims)
-    user_ctx = provider._claims_to_user_context(claims, cache_id=cache_id)
-
-    request.session[_SESSION_USER_CTX] = user_ctx.to_session_dict()
-    request.session[_SESSION_ID_TOKEN] = id_token
-
     s = request.app.state.oidc.settings
-    next_url = request.session.pop(_SESSION_NEXT, None) or s.login_redirect_url
+    cache = request.app.state.oidc.jwks_cache
+    claims = (
+        await cache.validate_jwt(tokens.get("id_token", ""), audience=s.client_id)
+        if cache
+        else None
+    )
+    nonce = claims.get("nonce") if claims else None
+    if not isinstance(nonce, str) or not secrets.compare_digest(
+        nonce.encode(), expected_nonce.encode()
+    ):
+        raise HTTPException(status_code=401, detail="ID token validation failed")
+    expires_at = claims.get("exp")
+    if type(expires_at) is not int or expires_at <= time.time():
+        raise HTTPException(status_code=401, detail="Invalid ID token expiry")
+    provider = request.app.state.auth.auth_provider
+    try:
+        identity = provider._identity(claims)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Missing OIDC identity") from None
+    cache_id = await provider._upsert_user_cache(request, claims)
+    if cache_id is None:
+        raise HTTPException(status_code=503, detail="OIDC identity unavailable")
+    user_ctx = provider._claims_to_user_context(claims, cache_id=cache_id)
+    next_url = (
+        safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None)) or s.login_redirect_url
+    )
+    preserved = {
+        key: request.session[key]
+        for key in sign_in_preserved_keys(request.app)
+        if key in request.session
+    }
+    request.session.clear()
+    request.session.update(preserved)
+    rotate_csrf_token(request)
+    request.session[SESSION_USER_KEY] = user_ctx.to_session_dict()
+    request.session[SESSION_IDENTITY_KEY] = list(identity)
+    request.session[SESSION_EXPIRES_AT_KEY] = expires_at
+    if tokens.get("refresh_token"):
+        request.session[SESSION_REFRESH_TOKEN_KEY] = seal_refresh_token(
+            request.app, tokens["refresh_token"]
+        )
     return RedirectResponse(next_url, status_code=303)

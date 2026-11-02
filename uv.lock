@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -24,6 +24,7 @@ members = [
     "simple-module-inertia",
     "simple-module-keycloak",
     "simple-module-mail",
+    "simple-module-oidc",
     "simple-module-permissions",
     "simple-module-python",
     "simple-module-settings",
@@ -3462,6 +3463,31 @@ dependencies = [
 requires-dist = [
     { name = "aiosmtplib", specifier = ">=3.0,<6" },
     { name = "simple-module-core", editable = "framework/core" },
+    { name = "simple-module-settings", editable = "modules/settings" },
+]
+
+[[package]]
+name = "simple-module-oidc"
+version = "0.0.17"
+source = { editable = "modules/oidc" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "simple-module-auth" },
+    { name = "simple-module-core" },
+    { name = "simple-module-db" },
+    { name = "simple-module-hosting" },
+    { name = "simple-module-settings" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8" },
+    { name = "simple-module-auth", editable = "modules/auth" },
+    { name = "simple-module-core", editable = "framework/core" },
+    { name = "simple-module-db", editable = "framework/db" },
+    { name = "simple-module-hosting", editable = "framework/hosting" },
     { name = "simple-module-settings", editable = "modules/settings" },
 ]
 

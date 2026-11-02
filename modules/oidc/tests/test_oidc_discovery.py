@@ -40,3 +40,38 @@ async def test_fetch_metadata(httpx_mock):
     httpx_mock.add_response(url=url, json=_ENTRA_DOC)
     meta = await fetch_metadata(url)
     assert meta.token_endpoint == _ENTRA_DOC["token_endpoint"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        42,
+        [],
+        "http://idp/keys",
+        "javascript:alert(1)",
+        "https://u:p@idp/keys",
+        "https://idp/keys#frag",
+    ],
+)
+def test_metadata_rejects_invalid_endpoint(value):
+    with pytest.raises(ValueError):
+        OidcMetadata.from_document({**_ENTRA_DOC, "jwks_uri": value})
+
+
+def test_metadata_checks_expected_issuer():
+    with pytest.raises(ValueError, match="issuer"):
+        OidcMetadata.from_document(_ENTRA_DOC, expected_issuer="https://other")
+
+
+def test_metadata_issuer_tolerates_one_trailing_slash():
+    # Auth0 publishes "https://tenant.auth0.com/"; the discovery URL has no slash.
+    doc = {**_ENTRA_DOC, "issuer": "https://tenant.example.com/"}
+    metadata = OidcMetadata.from_document(doc, expected_issuer="https://tenant.example.com")
+    assert metadata.issuer == "https://tenant.example.com/"
+
+
+def test_metadata_allows_local_http_only_in_development():
+    doc = {k: "http://localhost/" + k for k in _ENTRA_DOC}
+    assert OidcMetadata.from_document(doc, development=True).jwks_uri.startswith("http:")
+    with pytest.raises(ValueError):
+        OidcMetadata.from_document(doc)
