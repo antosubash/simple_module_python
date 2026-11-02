@@ -6,7 +6,7 @@ import httpx
 import pytest
 from jwt.algorithms import RSAAlgorithm
 from oidc.settings import OidcSettings
-from oidc_flow_helpers import _AUDIENCE, _ISSUER, _KID, _PRIVATE_KEY
+from oidc_flow_helpers import _AUDIENCE, _KID, _PRIVATE_KEY
 from simple_module_core.discovery import discover_modules
 from simple_module_db.base import all_module_bases
 from simple_module_hosting.app_builder import create_app
@@ -16,7 +16,7 @@ from sqlalchemy import text
 
 
 @pytest.fixture
-async def oidc_app(httpx_mock):
+async def oidc_app(httpx_mock, request):
     # Explicitly boot without Settings UI or Users-dependent modules.
     modules = [
         m.meta.name
@@ -62,12 +62,28 @@ async def oidc_app(httpx_mock):
             await conn.execute(text("INSERT INTO alembic_version VALUES (:v)"), {"v": head})
 
     # Settings hydration restores defaults; supply DB-backed values before startup.
-    oidc_settings = OidcSettings(
-        provider="entra",
-        tenant_id="test-tenant",
-        client_id=_AUDIENCE,
-        client_secret="secret",
-        api_audience="api",
+    config = {
+        "provider": "entra",
+        "tenant_id": "test-tenant",
+        "client_id": _AUDIENCE,
+        "client_secret": "secret",
+        "api_audience": "api",
+    }
+    config.update(getattr(request, "param", {}))
+    oidc_settings = OidcSettings(**config)
+    issuer = oidc_settings.discovery_url.split("/.well-known/", 1)[0]
+    endpoint_base = (
+        f"{issuer}/protocol/openid-connect"
+        if oidc_settings.provider == "generic"
+        else "https://idp"
+    )
+    authorization_url = (
+        f"{endpoint_base}/auth"
+        if oidc_settings.provider == "generic"
+        else f"{endpoint_base}/authorize"
+    )
+    keys_url = (
+        f"{endpoint_base}/certs" if oidc_settings.provider == "generic" else "https://idp/keys"
     )
     from simple_module_db.stored_settings import Setting
 
@@ -79,19 +95,17 @@ async def oidc_app(httpx_mock):
     httpx_mock.add_response(
         url=oidc_settings.discovery_url,
         json={
-            "issuer": _ISSUER,
-            "authorization_endpoint": "https://idp/authorize",
-            "token_endpoint": "https://idp/token",
-            "jwks_uri": "https://idp/keys",
-            "end_session_endpoint": "https://idp/logout",
+            "issuer": issuer,
+            "authorization_endpoint": authorization_url,
+            "token_endpoint": f"{endpoint_base}/token",
+            "jwks_uri": keys_url,
+            "end_session_endpoint": f"{endpoint_base}/logout",
         },
         is_reusable=True,
     )
     jwk = json.loads(RSAAlgorithm.to_jwk(_PRIVATE_KEY.public_key()))
     jwk.update(kid=_KID, use="sig")
-    httpx_mock.add_response(
-        url="https://idp/keys", json={"keys": [jwk]}, is_reusable=True, is_optional=True
-    )
+    httpx_mock.add_response(url=keys_url, json={"keys": [jwk]}, is_reusable=True, is_optional=True)
     async with app.router.lifespan_context(app):
         yield app
 

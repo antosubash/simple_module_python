@@ -14,6 +14,20 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- Generic OIDC auth provider with Keycloak discovery and single-tenant Entra
+  presets, configurable claims/roles, cached user directory, English/German UI,
+  and opt-in bearer `api_audience` (#192). Migration `c9d2e4f6a810` creates the
+  identity cache on the new independent `oidc` branch (`upgrade heads`).
+  **Behaviour:** Entra identities use issuer + `oid`; `tid` never selects an app
+  tenant, tenant-claim trust defaults off and memberships alone grant tenant roles.
+  Login uses S256 PKCE and bounded sessions with encrypted refresh tokens;
+  providers omitting `id_token` on refresh sign users out at expiry. Logout clears
+  local state and optionally redirects to the IdP without `id_token_hint`, so
+  remote SSO logout depends on the provider. The unused access token's `at_hash`
+  is not checked. Entra tenant-independent discovery is unsupported; discovery
+  failure refuses boot outside development.
+
 ## [0.0.42] — 2026-10-31
 
 ### Added

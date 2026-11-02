@@ -3468,9 +3468,10 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-oidc"
-version = "0.0.17"
+version = "0.0.42"
 source = { editable = "modules/oidc" }
 dependencies = [
+    { name = "cryptography" },
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "simple-module-auth" },
@@ -3482,8 +3483,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8" },
+    { name = "cryptography", specifier = ">=42" },
+    { name = "httpx", specifier = ">=0.27,<0.29" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8,<3" },
     { name = "simple-module-auth", editable = "modules/auth" },
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },

@@ -6,6 +6,7 @@ simple_module_python ships with sixteen first-party modules. Each is a regular P
 |---|---|---|
 | [`auth`](/modules/auth) | — | Tiny public surface (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) other modules import, plus the provider-agnostic `AuthMiddleware` and principal-resolver chain. The actual login/session logic lives in an auth-provider module (`users` or `keycloak`). |
 | [`users`](/modules/users) | `auth` | Email + password auth, OAuth/OIDC (Google, GitHub, Microsoft/Entra ID, generic OIDC), sessions, roles, invites, password reset, email verification, admin UI, mailer backends, `smpy users create-admin`. |
+| [`oidc`](/modules/oidc) | `auth` (`settings` optional) | Generic OIDC provider: Keycloak via discovery, single-tenant Entra and configurable claims. |
 | [`keycloak`](/modules/keycloak) | `auth`, `settings` | Alternative auth provider: Keycloak OIDC single sign-on. |
 | [`api_tokens`](/modules/api_tokens) | `auth`, `users`, `settings` | Personal access tokens and service API keys: hashed at rest, scope-capped on every request, revocable on the next request; self-service page and admin screen. |
 | [`permissions`](/modules/permissions) | `auth`, `users` | Role / direct-grant assignment store + admin UI; `RequiresPermission` dependency that honours both forms. |

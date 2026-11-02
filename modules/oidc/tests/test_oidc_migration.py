@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import IntegrityError
 
 
 def _migration():
@@ -37,7 +38,7 @@ def test_oidc_migration_roundtrip():
                 "VALUES ('2', 'https://two', 'user', '')"
             )
         )
-        with pytest.raises(sa.exc.IntegrityError):
+        with pytest.raises(IntegrityError):
             conn.execute(
                 sa.text(
                     "INSERT INTO oidc_user_cache (id, issuer, subject, email) "

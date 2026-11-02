@@ -1,0 +1,20 @@
+{
+  "login": {
+    "redirecting": "Weiterleitung zum Identitätsanbieter…",
+    "title": "Anmelden",
+    "manual": "Keine Weiterleitung? Manuell fortfahren"
+  },
+  "logout": {
+    "title": "Abgemeldet",
+    "message": "Sie wurden erfolgreich von dieser App abgemeldet.",
+    "sign_in_again": "Erneut anmelden"
+  },
+  "errors": {
+    "callback_failed": "Authentifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "invalid_state": "Ungültiger Authentifizierungsstatus. Bitte versuchen Sie es erneut.",
+    "token_validation_failed": "Tokenvalidierung fehlgeschlagen."
+  },
+  "nav": {
+    "logout": "Abmelden"
+  }
+}

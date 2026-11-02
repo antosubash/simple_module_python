@@ -1,15 +1,20 @@
 {
   "login": {
-    "redirecting": "Redirecting to identity provider…",
-    "title": "Sign In"
+    "redirecting": "Redirecting to identity provider\u2026",
+    "title": "Sign In",
+    "manual": "Not redirected? Continue manually"
   },
   "logout": {
     "title": "Signed Out",
-    "message": "You have been signed out successfully."
+    "message": "You have been signed out successfully.",
+    "sign_in_again": "Sign in again"
   },
   "errors": {
     "callback_failed": "Authentication failed. Please try again.",
     "invalid_state": "Invalid authentication state. Please try again.",
     "token_validation_failed": "Token validation failed."
+  },
+  "nav": {
+    "logout": "Logout"
   }
 }

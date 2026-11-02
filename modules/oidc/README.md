@@ -22,7 +22,7 @@ can be active):
 
 ```toml
 dependencies = [
-    "simple_module_oidc==0.0.17",
+    "simple_module_oidc==0.0.42",
 ]
 ```
 
@@ -30,15 +30,61 @@ Run `uv sync --all-packages` to install.
 
 ## Usage
 
-Pick a provider preset and supply its credentials via environment variables (or
-configure them through the settings admin UI after first boot). The module then
-auto-registers as the application's auth provider — see the preset sections below.
+Select `SM_AUTH_PROVIDER=oidc` explicitly. Keep `Auth` enabled; `Settings` UI
+is optional. Exclude Users-dependent modules when selecting this provider.
+
+## Keycloak through the generic preset
+
+This is the primary worked example. The dedicated `keycloak` module is an
+alternative; this configuration uses `oidc` throughout.
+
+Create an OpenID Connect client in the Keycloak realm:
+
+- Enable client authentication (a confidential client) and the standard flow.
+- Set the valid redirect URI to `<app>/api/oidc/auth/callback`.
+- Set the valid post-logout redirect URI to `<app>/oidc/logged-out`.
+- Require PKCE with code challenge method **S256**.
+- Ensure the realm role mapper includes `realm_access.roles` in ID tokens.
+  Assign the intended realm roles to users and include the roles client scope
+  in the client's default scopes. Set the username mapper to include
+  `preferred_username` in ID tokens.
+
+Use the realm's discovery document and the client's credentials:
+
+```dotenv
+SM_AUTH_PROVIDER=oidc
+SM_OIDC_PROVIDER=generic
+SM_OIDC_DISCOVERY_URL=https://<server>/realms/<realm>/.well-known/openid-configuration
+SM_OIDC_CLIENT_ID=<confidential-client-id>
+SM_OIDC_CLIENT_SECRET=<client-secret>
+```
+
+Here `<app>` includes the application's scheme and host, and `<server>` is the
+Keycloak server (including any deployment prefix). Discovery is exactly
+`<server>/realms/<realm>/.well-known/openid-configuration` when `<server>` already
+includes the scheme. Use HTTPS outside development.
+
+Set these **DB settings** under the `oidc` namespace, using Settings → OIDC when
+the Settings UI is enabled:
+
+```json
+{
+  "roles_claim_path": "realm_access.roles",
+  "role_mapping": {"admin": "admin", "user": "user"}
+}
+```
+
+Choose external roles and app roles appropriate for your host. `role_mapping`
+produces application roles; permission grants still come from the framework's
+permission registry. No mapping grants `tenant:*` roles. Visit `/oidc/login` to
+start sign-in. Cached identity is `(issuer, sub)` with a stable framework UUID.
 
 ## Native Microsoft Entra ID
 
 Set the `entra` preset and your single-tenant registration details:
 
 ```bash
+SM_AUTH_PROVIDER=oidc
 SM_OIDC_PROVIDER=entra
 SM_OIDC_TENANT_ID=<your-tenant-guid>
 SM_OIDC_CLIENT_ID=<app-registration-client-id>
@@ -54,7 +100,7 @@ https://<your-host>/api/oidc/auth/callback
 The `entra` preset derives the discovery URL
 (`https://login.microsoftonline.com/{tenant_id}/v2.0/.well-known/openid-configuration`),
 validates the **id_token**, keys the user cache on **(issuer, `oid`)**, and
-maps Entra **app roles** (the `roles` claim) to framework permissions via
+maps Entra **app roles** (the `roles` claim) to application roles via
 `role_mapping` (default: `admin` and `user` map 1:1). Assign app roles in
 *Entra → App registrations → App roles* and *Enterprise applications → Users and groups*.
 
@@ -63,6 +109,7 @@ maps Entra **app roles** (the `roles` claim) to framework permissions via
 Use the `generic` preset with an explicit discovery URL:
 
 ```bash
+SM_AUTH_PROVIDER=oidc
 SM_OIDC_PROVIDER=generic
 SM_OIDC_DISCOVERY_URL=https://<issuer>/.well-known/openid-configuration
 SM_OIDC_CLIENT_ID=<client-id>
@@ -80,6 +127,7 @@ SM_OIDC_CLIENT_SECRET=<client-secret>
 | `SM_OIDC_CLIENT_SECRET` | — | OAuth client secret. |
 
 Only the five environment variables above bootstrap process wiring and secrets.
+These variables seed defaults; explicit DB values can override them.
 All other settings are DB-backed; bare environment names and the old claim
 mapping environment variables are ignored. Provider, discovery, tenant, client
 credentials and JWKS cache TTL changes require a restart. Claim and role mapping
@@ -117,7 +165,8 @@ Sign-in replaces user-bound session state and rotates CSRF. The cookie never
 stores the ID token; it stores the ID-token expiry and an encrypted refresh token
 when supplied. Expired or unbounded sessions renew using a fresh ID token, with
 the same issuer and configured subject required. Definitive refresh rejection
-clears authentication; transport failures, 5xx and retryable 4xx preserve the
+clears authentication. Providers that do not return an `id_token` on refresh
+sign the user out at expiry. Transport failures, 5xx and retryable 4xx preserve the
 expired session for another attempt, while this request stays unauthenticated.
 
 Logout always clears local state. The optional discovered logout endpoint gets
@@ -134,3 +183,6 @@ Apply host migrations with `upgrade heads` before deployment.
 Add `simple_module_oidc` to the host's `pyproject.toml` dependencies and
 `[tool.uv.sources]`, remove the competing provider, then `uv sync --all-packages`.
 Alternatively scope active modules with `SM_MODULES_ENABLED`.
+
+See [the full configuration reference](../../docs/modules/oidc.md)
+for every setting, its environment support, tenancy policy and deployment limits.

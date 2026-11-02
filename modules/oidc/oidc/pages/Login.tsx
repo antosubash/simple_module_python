@@ -1,7 +1,5 @@
-import { useT } from '@simple-module-py/i18n';
+import { keys, useT } from '@simple-module-py/i18n';
 import { useEffect } from 'react';
-
-import messages from '../locales/en.json';
 
 const START_LOGIN_URL = '/api/oidc/auth/login';
 
@@ -13,11 +11,9 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-      <p className="text-muted-foreground">
-        {t('oidc.login.redirecting', messages.login.redirecting)}
-      </p>
+      <p className="text-muted-foreground">{t(keys.oidc.login.redirecting)}</p>
       <a href={START_LOGIN_URL} className="text-primary underline">
-        {t('oidc.login.title', messages.login.title)}
+        {t(keys.oidc.login.manual)}
       </a>
     </div>
   );

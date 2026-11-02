@@ -862,6 +862,26 @@ export const keys = {
       logout: 'keycloak.nav.logout',
     },
   },
+  oidc: {
+    errors: {
+      callback_failed: 'oidc.errors.callback_failed',
+      invalid_state: 'oidc.errors.invalid_state',
+      token_validation_failed: 'oidc.errors.token_validation_failed',
+    },
+    login: {
+      manual: 'oidc.login.manual',
+      redirecting: 'oidc.login.redirecting',
+      title: 'oidc.login.title',
+    },
+    logout: {
+      message: 'oidc.logout.message',
+      sign_in_again: 'oidc.logout.sign_in_again',
+      title: 'oidc.logout.title',
+    },
+    nav: {
+      logout: 'oidc.nav.logout',
+    },
+  },
   permissions: {
     audit: {
       role_permission: 'permissions.audit.role_permission',

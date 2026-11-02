@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
+from simple_module_core.user_directory import set_user_directory
 
 from oidc.constants import (
     _MODULE_AUTH,
@@ -35,6 +36,7 @@ class OidcModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
+        from oidc.directory import OidcDirectory
         from oidc.provider import OidcAuthProvider
         from oidc.settings import OidcSettings
         from oidc.state import OidcState
@@ -46,6 +48,7 @@ class OidcModule(ModuleBase):
             lambda s: OidcState(settings=s),
         )
 
+        set_user_directory(app, OidcDirectory())
         app.state.auth.auth_provider = OidcAuthProvider(
             app.state.oidc.settings, state=app.state.oidc
         )

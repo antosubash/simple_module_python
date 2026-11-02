@@ -190,6 +190,7 @@ export default defineConfig({
             { text: "auth", link: "/modules/auth" },
             { text: "users", link: "/modules/users" },
             { text: "keycloak", link: "/modules/keycloak" },
+            { text: "oidc", link: "/modules/oidc" },
             { text: "api_tokens", link: "/modules/api_tokens" },
             { text: "permissions", link: "/modules/permissions" },
             { text: "settings", link: "/modules/settings" },

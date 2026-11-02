@@ -99,4 +99,6 @@ def test_restart_fields_marked():
         "client_secret",
         "jwks_cache_ttl_seconds",
     ):
-        assert fields[name].json_schema_extra["requires_restart"] is True
+        extra = fields[name].json_schema_extra
+        assert isinstance(extra, dict)
+        assert extra["requires_restart"] is True

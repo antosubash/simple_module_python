@@ -7,7 +7,7 @@ configureI18n({
   locale: 'en',
   messages: {
     'oidc.login.redirecting': 'Redirecting to identity provider…',
-    'oidc.login.title': 'Sign In',
+    'oidc.login.manual': 'Continue manually',
   },
 });
 const assign = vi.fn();
@@ -18,7 +18,7 @@ import Login from '../oidc/pages/Login';
 test('login leaves the Inertia transport and provides a manual navigation link', () => {
   render(<Login />);
   expect(assign).toHaveBeenCalledWith('/api/oidc/auth/login');
-  expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Continue manually' })).toHaveAttribute(
     'href',
     '/api/oidc/auth/login',
   );
