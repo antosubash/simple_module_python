@@ -72,19 +72,14 @@ async def oidc_app(httpx_mock, request):
     config.update(getattr(request, "param", {}))
     oidc_settings = OidcSettings(**config)
     issuer = oidc_settings.discovery_url.split("/.well-known/", 1)[0]
-    endpoint_base = (
-        f"{issuer}/protocol/openid-connect"
-        if oidc_settings.provider == "generic"
-        else "https://idp"
-    )
-    authorization_url = (
-        f"{endpoint_base}/auth"
-        if oidc_settings.provider == "generic"
-        else f"{endpoint_base}/authorize"
-    )
-    keys_url = (
-        f"{endpoint_base}/certs" if oidc_settings.provider == "generic" else "https://idp/keys"
-    )
+    if oidc_settings.provider == "generic":
+        endpoint_base = f"{issuer}/protocol/openid-connect"
+        authorization_url = f"{endpoint_base}/auth"
+        keys_url = f"{endpoint_base}/certs"
+    else:
+        endpoint_base = "https://idp"
+        authorization_url = f"{endpoint_base}/authorize"
+        keys_url = "https://idp/keys"
     from simple_module_db.stored_settings import Setting
 
     async with app.state.sm.db.session_factory() as db:

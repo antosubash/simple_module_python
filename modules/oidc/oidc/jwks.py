@@ -139,13 +139,11 @@ class JWKSCache:
                 key_issuer = key_issuer.replace("{tenantid}", tenant)
             if key_issuer != self._issuer:
                 continue
-            kid = key_data.get("kid")
-            if kid:
-                try:
-                    public_key = RSAAlgorithm.from_jwk(key_data)
-                    new_keys[kid] = public_key
-                except Exception:
-                    logger.warning("Failed to parse JWK kid=%s", kid)
+            kid = key_data["kid"]  # _is_rsa_signing_key guarantees a non-empty kid
+            try:
+                new_keys[kid] = RSAAlgorithm.from_jwk(key_data)
+            except Exception:
+                logger.warning("Failed to parse JWK kid=%s", kid)
         if not new_keys:
             return
         self._keys = new_keys
