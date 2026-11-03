@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
+from auth.oidc_common.claims import extract_nested as _extract_nested
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, session_has_expired
@@ -192,20 +193,3 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
                     role,
                 )
         return kept
-
-
-def _extract_nested(data: dict, path: str) -> list[str] | None:
-    # A claim named exactly ``path`` wins: Auth0/Okta namespace custom claims
-    # as URLs (``https://example.com/roles``), which contain dots.
-    if path in data:
-        value = data[path]
-        return value if isinstance(value, list) else None
-    parts = path.split(".")
-    current: Any = data
-    for part in parts:
-        if not isinstance(current, dict):
-            return None
-        current = current.get(part)
-        if current is None:
-            return None
-    return current if isinstance(current, list) else None

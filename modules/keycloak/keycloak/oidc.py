@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import secrets
 from typing import Any
 from urllib.parse import urlencode
@@ -42,6 +44,8 @@ class OIDCClient:
         redirect_uri: str,
         nonce: str,
         scope: str = "openid email profile",
+        *,
+        code_verifier: str | None = None,
     ) -> tuple[str, str]:
         state = secrets.token_urlsafe(32)
         params = {
@@ -52,6 +56,13 @@ class OIDCClient:
             "state": state,
             "nonce": nonce,
         }
+        if code_verifier:
+            params["code_challenge"] = (
+                base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+                .rstrip(b"=")
+                .decode()
+            )
+            params["code_challenge_method"] = "S256"
         url = f"{self._base}/auth?{urlencode(params)}"
         return url, state
 
@@ -59,6 +70,8 @@ class OIDCClient:
         self,
         code: str,
         redirect_uri: str,
+        *,
+        code_verifier: str | None = None,
     ) -> dict[str, Any]:
         data = {
             "grant_type": "authorization_code",
@@ -67,6 +80,8 @@ class OIDCClient:
             "client_id": self._client_id,
             "client_secret": self._client_secret,
         }
+        if code_verifier:
+            data["code_verifier"] = code_verifier
         async with httpx.AsyncClient() as client:
             resp = await client.post(self.token_endpoint, data=data, timeout=10)
             resp.raise_for_status()
