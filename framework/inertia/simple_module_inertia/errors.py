@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.responses import RedirectResponse
 
 from simple_module_inertia.response import back_url
-from simple_module_inertia.validation import errors_from_validation
+from simple_module_inertia.validation import errors_from_validation, scope_errors
 
 
 class InertiaVersionConflictException(Exception):  # noqa: N818 - upstream name; hosting imports it
@@ -35,8 +35,7 @@ async def inertia_request_validation_exception_handler(
         return await request_validation_exception_handler(request, exc)
 
     errors = errors_from_validation(exc.errors(), request_source=True)
-    bag = request.headers.get("X-Inertia-Error-Bag")
-    request.session["_errors"] = errors if bag is None else {bag: errors}
+    request.session["_errors"] = scope_errors(errors, request.headers.get("X-Inertia-Error-Bag"))
 
     code = (
         status.HTTP_307_TEMPORARY_REDIRECT if request.method == "GET" else status.HTTP_303_SEE_OTHER

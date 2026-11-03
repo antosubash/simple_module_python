@@ -25,7 +25,7 @@ from simple_module_inertia.props import (
 )
 from simple_module_inertia.response import InertiaResponse
 from simple_module_inertia.templating import InertiaExtension
-from simple_module_inertia.validation import errors_from_validation
+from simple_module_inertia.validation import errors_from_validation, scope_errors
 
 __all__ = [
     "Head",
@@ -48,5 +48,6 @@ __all__ = [
     "once",
     "optional",
     "prepend",
+    "scope_errors",
     "scroll",
 ]

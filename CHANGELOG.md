@@ -34,7 +34,8 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change:** Inertia validation errors use the top-level form field
   and keep its first message, including union, list and nested-model errors
   (#776). Form-action redirects now scope errors under `X-Inertia-Error-Bag`
-  when present (#777). No migration.
+  when present (#777). Both go through the new `errors_from_validation` and
+  `scope_errors` helpers exported by `simple_module_inertia`. No migration.
 - `smpy package-update` selects the latest release in PEP 440 order and promotes
   RC pins to final releases without downgrading existing pins (#766).
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving

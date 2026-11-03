@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import Request
 from pydantic import ValidationError
-from simple_module_inertia import errors_from_validation
+from simple_module_inertia import errors_from_validation, scope_errors
 from starlette.responses import RedirectResponse
 
 from simple_module_hosting.redirects import safe_referer_or_root
@@ -22,7 +22,8 @@ def redirect_back_with_errors(request: Request, errors: dict[str, str]) -> Redir
 
     Uses ``safe_referer_or_root`` to reject attacker-controlled Referer values
     (cross-origin URLs) — otherwise this becomes a reflected open redirect
-    accessible to any attacker who can trigger a form validation error."""
+    accessible to any attacker who can trigger a form validation error.
+    With an ``X-Inertia-Error-Bag`` header the errors nest under that bag."""
     bag = request.headers.get("X-Inertia-Error-Bag")
-    request.session[SESSION_ERRORS_KEY] = errors if bag is None else {bag: errors}
+    request.session[SESSION_ERRORS_KEY] = scope_errors(errors, bag)
     return RedirectResponse(safe_referer_or_root(request), status_code=303)

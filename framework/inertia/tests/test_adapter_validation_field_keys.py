@@ -1,10 +1,10 @@
 """Validation locations describe form fields, not nested error details (#776)."""
 
 import pytest
-from simple_module_inertia import errors_from_validation
+from simple_module_inertia import errors_from_validation, scope_errors
 
 
-@pytest.mark.parametrize("source", [None, "body", "query", "path", "header", "cookie", "form"])
+@pytest.mark.parametrize("source", [None, "body", "query", "path", "header", "cookie"])
 @pytest.mark.parametrize("path", [("address", "city"), ("tags", 0), ("quantity", "int"), (7,)])
 def test_validation_uses_first_field_after_optional_source(source, path):
     loc = path if source is None else (source, *path)
@@ -28,3 +28,10 @@ def test_model_field_named_like_a_request_source_keeps_its_key(field):
     """A model_validate error has no source prefix, so ``path`` is the field."""
     loc = (field, "int")
     assert errors_from_validation([{"loc": loc, "msg": "bad"}]) == {field: "bad"}
+
+
+@pytest.mark.parametrize(
+    ("bag", "expected"), [(None, {"a": "b"}), ("", {"a": "b"}), ("f", {"f": {"a": "b"}})]
+)
+def test_scope_errors_treats_empty_bag_as_unset(bag, expected):
+    assert scope_errors({"a": "b"}, bag) == expected

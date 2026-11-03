@@ -72,7 +72,7 @@ async def test_hosting_error_bag_round_trip(tmp_path, bag):
         assert response.headers["location"] == "/__repro/page"
         response = await client.get("/__repro/page", headers=headers)
         assert response.status_code == 200
-        expected = {"email": "taken"} if bag is None else {bag: {"email": "taken"}}
+        expected = {bag: {"email": "taken"}} if bag else {"email": "taken"}
         assert response.json()["props"]["errors"] == expected
         response = await client.get("/__repro/page", headers=headers)
         assert response.json()["props"]["errors"] == {}

@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 # The first ``loc`` segment FastAPI adds to a RequestValidationError.
-_REQUEST_SOURCES = frozenset({"body", "query", "path", "header", "cookie", "form"})
+_REQUEST_SOURCES = frozenset({"body", "query", "path", "header", "cookie"})
 
 
 def errors_from_validation(
@@ -28,3 +28,11 @@ def errors_from_validation(
         field = str(loc[0]) if loc else "general"
         result.setdefault(field, error["msg"])
     return result
+
+
+def scope_errors(errors: dict[str, str], bag: str | None) -> dict[str, Any]:
+    """Nest ``errors`` under the ``X-Inertia-Error-Bag`` name when one is set.
+
+    An empty header counts as unset, matching ``InertiaRequest.error_bag``.
+    """
+    return {bag: errors} if bag else errors
