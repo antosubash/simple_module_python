@@ -9,6 +9,13 @@ describe('FormLevelError', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('tenant/user scope requires a scope_id');
   });
 
+  test('strips the pydantic "Value error, " prefix and applies className', () => {
+    render(<FormLevelError errors={{ general: 'Value error, bad scope' }} className="mt-2" />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/^bad scope$/);
+    expect(alert).toHaveClass('mt-2');
+  });
+
   test('renders nothing for field-only errors', () => {
     const { container } = render(<FormLevelError errors={{ key: 'required' }} />);
     expect(container).toBeEmptyDOMElement();

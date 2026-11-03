@@ -36,6 +36,9 @@ All notable changes to this project are documented in this file. The format is b
   (#776). Form-action redirects now scope errors under `X-Inertia-Error-Bag`
   when present (#777). Both go through the new `errors_from_validation` and
   `scope_errors` helpers exported by `simple_module_inertia`. No migration.
+- Settings override Create/Edit forms show model-level validation errors
+  (flashed under `errors.general`, e.g. a tenant/user scope without a
+  `scope_id`) instead of silently bouncing back to the form.
 - `smpy package-update` selects the latest release in PEP 440 order and promotes
   RC pins to final releases without downgrading existing pins (#766).
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving
