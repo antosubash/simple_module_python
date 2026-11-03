@@ -144,6 +144,7 @@ smpy package-update
 Pass `--dry-run` first to preview the diff. The command scans the root and uv
 workspace members: project dependencies, every optional-dependency extra and
 every dependency group, including workspace roots with only dev groups.
+Projects matching `[tool.uv.workspace].exclude` (exact paths or globs) are skipped.
 Include-group objects and workspace/local uv sources are left alone; source
 names are normalized and member sources override root sources.
 
@@ -156,6 +157,9 @@ version spellings, unsupported ranges and workspace/file/git/alias references
 are reported as skips, and so is every npm pin when the run leaves the Python
 `simple_module_core` pin alone (an upper bound or a local source), so npm never
 runs ahead of Python. `--include-pre` also applies to core target selection.
+Python releases use PEP 440 ordering: RC numbers advance numerically, and a final
+release outranks its RCs, so stable-only updates can promote an RC pin to final.
+Existing pins never move backwards.
 
 All manifests are parsed and changes planned before any writes. Dry runs write
 nothing; JSON indentation and trailing-newline style are preserved. Writes to

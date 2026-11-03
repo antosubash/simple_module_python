@@ -11,6 +11,7 @@ import tomlkit
 from tomlkit.items import Array
 
 from simple_module_cli.requirements import parse_requirement, rewrite_requirement
+from simple_module_cli.uv_workspace import is_workspace_member
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,7 @@ def workspace_member_dirs(root_pyproject: Path, doc: tomlkit.TOMLDocument) -> li
     out: list[Path] = []
     for pattern in members:
         for match in sorted(base.glob(str(pattern))):
-            if (match / "pyproject.toml").is_file():
+            if (match / "pyproject.toml").is_file() and is_workspace_member(base, match):
                 out.append(match / "pyproject.toml")
     return list(dict.fromkeys(p.resolve() for p in out))
 

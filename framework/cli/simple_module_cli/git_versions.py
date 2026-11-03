@@ -5,9 +5,16 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from simple_module_cli.requirements import _compatible_band, _matches_wildcard
+from packaging.version import InvalidVersion
 
-# --- version helpers (no `packaging` dep — CLI depends on typer + tomlkit only) ---
+from simple_module_cli.requirements import _compare as _cmp
+from simple_module_cli.requirements import (
+    _compatible_band,
+    _matches_wildcard,
+    is_valid_version,
+)
+
+# --- version helpers ---
 
 
 def version_tuple(v: str) -> tuple[int, ...]:
@@ -21,17 +28,6 @@ def version_tuple(v: str) -> tuple[int, ...]:
                 break
         parts.append(int(digits) if digits else 0)
     return tuple(parts)
-
-
-def _cmp(a: str, b: str) -> int:
-    ta, tb = version_tuple(a), version_tuple(b)
-    width = max(len(ta), len(tb))
-    ta += (0,) * (width - len(ta))
-    tb += (0,) * (width - len(tb))
-    if ta != tb:
-        return (ta > tb) - (ta < tb)
-    pa, pb = _prerelease_key(a), _prerelease_key(b)
-    return (pa > pb) - (pa < pb)
 
 
 def _prerelease_key(version: str) -> tuple[int, int]:
@@ -62,7 +58,10 @@ def satisfies(version: str, constraint: str) -> bool:
                     break
                 if op == "<" and _excluded_prerelease(version, bound):
                     return False
-                c = _cmp(version, bound)
+                try:
+                    c = _cmp(version, bound)
+                except InvalidVersion:
+                    return False
                 if op == "~=":
                     band = _compatible_band(bound)
                     if c < 0 or band is None or not _matches_wildcard(version, band):
@@ -106,6 +105,8 @@ def pick_latest_tag(tags: Iterable[str], constraint: str | None) -> str | None:
         if not tag.startswith("v") or len(tag) < 2 or not tag[1].isdigit():
             continue
         ver = tag[1:]
+        if not is_valid_version(ver):
+            continue
         if constraint and not satisfies(ver, constraint):
             continue
         if best is None or _cmp(ver, best[1:]) > 0:
