@@ -6,6 +6,7 @@ document, so this client is provider-agnostic.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import secrets
@@ -103,13 +104,15 @@ class OIDCClient:
 
     async def revoke_refresh_token(self, refresh_token: str) -> None:
         if self._revocation_endpoint:
-            await self._post(
-                self._revocation_endpoint,
-                self._revocation_endpoint_auth_methods_supported,
-                timeout=_REVOKE_TIMEOUT_SECONDS,
-                token=refresh_token,
-                token_type_hint="refresh_token",
-            )
+            # httpx timeouts are per phase; bound the whole exchange too.
+            async with asyncio.timeout(_REVOKE_TIMEOUT_SECONDS):
+                await self._post(
+                    self._revocation_endpoint,
+                    self._revocation_endpoint_auth_methods_supported,
+                    timeout=_REVOKE_TIMEOUT_SECONDS,
+                    token=refresh_token,
+                    token_type_hint="refresh_token",
+                )
 
     async def _token_request(self, **grant: str) -> dict[str, Any]:
         resp = await self._post(

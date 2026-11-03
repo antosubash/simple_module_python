@@ -198,3 +198,19 @@ async def test_revocation_uses_its_own_advertised_auth_method(endpoint_app, http
         "token": ["refresh"],
         "token_type_hint": ["refresh_token"],
     }
+
+
+async def test_revocation_total_time_is_capped(endpoint_app, monkeypatch):
+    import asyncio
+
+    from oidc import client as client_module
+
+    async def hang(*args, **kwargs):
+        await asyncio.sleep(30)
+
+    client = endpoint_app.state.oidc.client
+    monkeypatch.setattr(client_module, "_REVOKE_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(client, "_revocation_endpoint", "https://idp.test/revoke")
+    monkeypatch.setattr(client, "_post", hang)
+    with pytest.raises(TimeoutError):
+        await client.revoke_refresh_token("refresh")
