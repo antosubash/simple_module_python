@@ -130,3 +130,12 @@ async def test_defer_nested_in_dict_is_announced_at_its_dotted_path():
 async def test_wrapped_values_inside_list_rows_resolve_in_place():
     out = await resolve_props({"rows": [{"a": 1, "x": optional(lambda: 2)}]}, {}, "Page", request())
     assert out.props == {"rows": [{"a": 1, "x": 2}]}
+
+
+async def test_cached_once_inside_a_list_row_is_still_sent():
+    """A list item has no stable path for the client cache, so except-once skips nothing."""
+    req = InertiaRequest.from_headers(
+        {"X-Inertia": "true", "X-Inertia-Except-Once-Props": "rows.0"}, method="GET"
+    )
+    out = await resolve_props({"rows": [once(lambda: 1), 2]}, {}, "Page", req)
+    assert out.props == {"rows": [1, 2]}

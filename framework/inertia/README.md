@@ -86,7 +86,7 @@ Merge and once metadata on partial reloads follows the selected paths.
 full Inertia visit omits its cached value. Partial reloads ignore
 `X-Inertia-Except-Once-Props` and refresh requested once props.
 
-`scroll(value, ..., wrapper="data", reset=False)` labels `<prop>.data` for
+`scroll(value, ..., reset=False, wrapper="data")` labels `<prop>.data` for
 merging by default. A value that resolves to a bare list merges at the prop
 root automatically. Set `wrapper` to another dictionary path, or `None` to
 merge a dictionary value at the prop root. The infinite-scroll merge-intent header

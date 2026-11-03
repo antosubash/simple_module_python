@@ -130,7 +130,11 @@ async def _resolve_tree(
         if partial and not (parent_resolved or prop.always or _included(path, req, ancestors=True)):
             continue
         if not partial:
-            cached = prop.is_once and (prop.once_key or path) in req.except_once_props
+            cached = (
+                not parent_resolved
+                and prop.is_once
+                and (prop.once_key or path) in req.except_once_props
+            )
             # Inside a resolved loader value or a list there is no addressable
             # path for a follow-up request, so such props resolve eagerly.
             if not parent_resolved and (prop.optional or prop.deferred_group is not None):
