@@ -44,6 +44,7 @@ def stale_callback(request: Request, state_key: str, user_key: str, redirect: st
         return None
     if isinstance(request.session.get(user_key), dict):
         return RedirectResponse(redirect, 303)
+    # 419 "Page expired": the framework renders it with a sign-in link.
     raise HTTPException(status_code=419, detail="Sign-in expired; start again")
 
 

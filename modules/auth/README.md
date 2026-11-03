@@ -17,6 +17,7 @@ pip install simple_module_auth
 - `PrincipalResolver` chain — async `(Request) -> UserContext | None` callables apps append to `app.state.auth.principal_resolvers` (e.g. PAT/bearer-token or API-key auth), consulted after the session path.
 - `AuthMiddleware` — delegates to the provider + resolver chain on every request and populates the request principal.
 - `get_current_user` / `CurrentUser` dependency.
+- `auth.oidc_common` — provider-neutral OIDC helpers (JWKS/JWT validation, refresh-token sealing, sign-in rotation, renewal, cache persistence, directory) shared by the `oidc` and `keycloak` modules.
 - Anonymous-access is declared via the framework's method-aware `register_public_routes` hook (with the `SM_AUTH_PUBLIC_PATHS` host-level escape hatch).
 
 ## Usage
