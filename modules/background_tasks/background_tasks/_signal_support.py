@@ -7,6 +7,7 @@ These helpers are intentionally side-effect-free except for the DB write in
 
 from __future__ import annotations
 
+import json
 import logging
 import traceback as tb_mod
 from collections.abc import Callable
@@ -14,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from celery import current_app
+from kombu.utils.json import dumps
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlmodel import col
@@ -97,11 +99,10 @@ def jsonable_result(result: Any) -> dict[str, Any] | None:
     """Wrap arbitrary task results in a JSON-storable shape."""
     if result is None:
         return None
-    if isinstance(result, dict):
-        return result
     try:
-        return {"value": result}
-    except Exception:
+        # Plain json.loads keeps Kombu's type envelopes JSON-safe for the DB.
+        return json.loads(dumps(result if isinstance(result, dict) else {"value": result}))
+    except (TypeError, ValueError):
         return {"value": repr(result)}
 
 

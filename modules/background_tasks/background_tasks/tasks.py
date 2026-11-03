@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from celery import Task, shared_task
-from sqlalchemy import ColumnElement, and_, delete, or_, update
+from sqlalchemy import ColumnElement, and_, delete, or_, select, update
 from sqlmodel import col
 
 from background_tasks.constants import (
@@ -143,11 +143,18 @@ def purge_old_executions() -> int:
     log_cutoff = now - timedelta(days=runner.log_retention_days)
 
     with sync_session() as session:
-        result = session.execute(
-            delete(TaskExecution)
+        expired = (
+            select(TaskExecution.id)
             .where(TaskExecution.status.in_(list(TERMINAL_STATUSES)))
             .where(TaskExecution.finished_at < cutoff)
         )
+        # Surviving retries keep their history, but cannot reference purged rows.
+        session.execute(
+            update(TaskExecution)
+            .where(TaskExecution.retried_from_id.in_(expired))
+            .values(retried_from_id=None)
+        )
+        result = session.execute(delete(TaskExecution).where(TaskExecution.id.in_(expired)))
         count = result.rowcount or 0
         delivered = session.execute(
             delete(OutboxMessage)
