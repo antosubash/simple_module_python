@@ -8,15 +8,20 @@
   members whose score has passed, then admits while ``ZCARD < slots``.
 * ``INCR <key>:fence`` hands out the fencing token, inside the same script.
 
-Unlike the rate limiter there is no per-process fallback: a lease that Redis
-could not confirm must not be reported as held, so errors propagate.
+There is no per-process fallback: unavailable Redis cannot confirm a lease.
+Acquire connectivity errors become ConnectionError for the lease handle;
+release connectivity errors are logged and return False. Refresh errors propagate.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any
+
+logger = logging.getLogger(__name__)
+_SOCKET_TIMEOUT = 2.0
 
 # Holder and fence-counter keys live under disjoint prefixes: a name is never
 # parsed, so ``foo:fence`` cannot collide with the counter of ``foo``.
@@ -113,13 +118,33 @@ class RedisLeaseBackend:
                 self._client = self._factory()
             else:
                 import redis.asyncio as aioredis
+                from redis.asyncio.retry import Retry
+                from redis.backoff import NoBackoff
 
-                self._client = aioredis.from_url(self._url)
+                self._client = aioredis.from_url(
+                    self._url,
+                    socket_timeout=_SOCKET_TIMEOUT,
+                    socket_connect_timeout=_SOCKET_TIMEOUT,
+                    # One reconnect, no backoff: a stale pooled connection gets a fresh
+                    # socket, while the 2 s timeouts keep the worst case bounded.
+                    retry=Retry(NoBackoff(), 1),
+                )
             self._owner = owner
         return self._client
 
     async def _eval(self, script: str, keys: list[str], *args: Any) -> int:
-        return int(await self._redis().eval(script, len(keys), *keys, *args))
+        from redis.exceptions import ConnectionError as RedisConnectionError
+        from redis.exceptions import TimeoutError as RedisTimeoutError
+
+        try:
+            return int(await self._redis().eval(script, len(keys), *keys, *args))
+        except (RedisConnectionError, RedisTimeoutError) as exc:
+            if script in (_ACQUIRE, _SEM_ACQUIRE):
+                raise ConnectionError("Redis lease acquire unavailable") from exc
+            if script not in (_RELEASE, _SEM_RELEASE):
+                raise
+            logger.warning("Redis lease release unavailable (%s)", type(exc).__name__)
+            return 0
 
     @staticmethod
     def _lease_keys(name: str) -> list[str]:

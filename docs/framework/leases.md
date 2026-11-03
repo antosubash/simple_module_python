@@ -53,7 +53,18 @@ The backend is process-global because a Celery worker has no `app.state`. `creat
 | a database, no Redis | `DbLeaseBackend` (`simple_module_db`) | Rows in `sm_lease (name, slot, holder, fence, expires_at)`, primary key `(name, slot)`. Every comparison uses the database clock, so clock skew between hosts does not matter; on Postgres the clock is read after the slot row is locked, so a lock wait never shortens a TTL. |
 | neither | `InProcessLeaseBackend` | One process only. Also what tests and eager Celery get when nothing else is configured. |
 
-Backend errors propagate. A lease that the backend could not confirm is never reported as held. This is unlike the rate limiter, which falls back to per-process counters.
+Acquisition timeouts, and Redis connection failures, log a WARNING and return
+`False` (other backends' errors, such as a database outage under
+`DbLeaseBackend`, still propagate); `async with` consequently raises `LeaseNotAcquiredError`. An explicit
+`wait` bounds backend calls as well as polling, with a 1-second minimum attempt
+budget (including `wait=0`). Redis connections and socket reads each have a
+2-second timeout and at most one immediate reconnect (so roughly 4 s at
+worst against an unresponsive server), which also bounds calls when no
+`wait` is supplied. A Redis release timeout or connection failure logs a
+WARNING and returns `False`, so cleanup preserves an exception from the lease
+body; the remote holder expires by TTL. Refresh errors and other backend
+errors still propagate. There is no fallback to a local lease: a lease that
+the backend could not confirm is never reported as held.
 
 Override the backend with `configure_leases(backend)`, or pass `backend=` to a single `lease()`/`semaphore()` call. `configure_leases(None)` restores a fresh in-process backend, which is useful in test teardown.
 

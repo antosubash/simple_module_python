@@ -13,11 +13,12 @@ be rebuilt later. The lifespan then hydrates again so runtime edits land on
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, DotEnvSettingsSource, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.dotenv import find_env_file
 
 from simple_module_hosting import _host_settings_support as v
 from simple_module_hosting._api_version import default_api_version as _default_api_version
@@ -42,6 +43,16 @@ class HostSettings(BaseSettings):
     # from the environment, and ``LOG_LEVEL`` in particular is a common var
     # that has nothing to do with this app.
     model_config = SettingsConfigDict(env_prefix="SM_", extra="ignore")
+
+    def __init__(self, **values: Any) -> None:
+        if "_env_file" not in values:
+            values["_env_file"] = find_env_file()
+        super().__init__(**values)
+
+    @classmethod
+    def env_seeded_fields(cls) -> set[str]:
+        """Let hydration rank discovered dotenv values above DB overrides too."""
+        return set(DotEnvSettingsSource(cls, env_file=find_env_file())())
 
     multi_tenant: bool = Field(default=False, json_schema_extra=_RESTART_TENANCY)
     tenant_header: str = Field(default="", json_schema_extra=_RESTART_TENANCY)

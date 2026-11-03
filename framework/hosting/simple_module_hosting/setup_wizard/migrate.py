@@ -57,7 +57,11 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    from simple_module_hosting.migrations import default_alembic_ini, migration_status
+    from simple_module_hosting.migrations import (
+        ALEMBIC_DATABASE_URL_ATTRIBUTE,
+        default_alembic_ini,
+        migration_status,
+    )
 
     # Resolved through the hosting helper rather than hardcoded: this runs
     # inside a request, and a literal "host/alembic.ini" is only correct while
@@ -69,8 +73,13 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
         # branch_labels, so the history legitimately has several heads and
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
-        with migration_lock(request.app.state.sm.db.engine.url), _preserve_logging():
-            command.upgrade(AlembicConfig(ini_path), "heads")
+        url = request.app.state.sm.db.engine.url
+        config = AlembicConfig(ini_path)
+        config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE] = url.render_as_string(
+            hide_password=False
+        )
+        with migration_lock(url), _preserve_logging():
+            command.upgrade(config, "heads")
 
     try:
         async with _MIGRATION_LOCK:

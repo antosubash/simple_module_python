@@ -20,6 +20,7 @@ from simple_module_db import (
     make_process_revision_directives,
     render_item,
 )
+from simple_module_hosting.migrations import ALEMBIC_DATABASE_URL_ATTRIBUTE
 from simple_module_hosting.settings import Settings
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import make_url
@@ -51,8 +52,8 @@ def _get_url() -> str:
     (a stray app.db, nothing else) that printing the target, password masked,
     is worth the one line.
     """
-    settings = Settings()
-    url = settings.database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    database_url = config.attributes.get(ALEMBIC_DATABASE_URL_ATTRIBUTE) or Settings().database_url
+    url = database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
     logger.info(
         "Migrating %s (cwd=%s)", make_url(url).render_as_string(hide_password=True), Path.cwd()
     )
