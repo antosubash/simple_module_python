@@ -140,7 +140,13 @@ def process_file(
                 continue
             latest = cache.get(name)
             if latest is None:
-                skips.append(Skip(path, name, "not found on PyPI"))
+                skips.append(
+                    Skip(
+                        path,
+                        name,
+                        "no eligible release on PyPI (missing, or only pre-release/yanked)",
+                    )
+                )
                 continue
             result = rewrite_requirement(dep_str, latest, loosen=loosen)
             if result.spec is None:

@@ -55,7 +55,7 @@ def _npm_target(cache: dict[str, str | None], skips: list[Skip]) -> tuple[str | 
         if normalize(skip.package) == _CORE:
             return None, f"simple_module_core not updated ({skip.reason})"
     latest = next((v for n, v in cache.items() if normalize(n) == _CORE), None)
-    return latest, None if latest else "simple_module_core not found on PyPI"
+    return latest, None if latest else "simple_module_core has no eligible release on PyPI"
 
 
 def _print_summary(changes: list[Change], skips: list[Skip], dry_run: bool) -> None:

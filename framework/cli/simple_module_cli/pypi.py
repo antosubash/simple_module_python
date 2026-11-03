@@ -46,6 +46,8 @@ def fetch_latest(name: str, *, include_pre: bool, fetcher: Fetcher) -> str | Non
         candidates.append(version)
     if candidates:
         return max(candidates, key=version_key)
+    if releases:
+        return None
     info = data.get("info") or {}
     return info.get("version")
 

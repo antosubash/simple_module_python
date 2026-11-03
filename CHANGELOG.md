@@ -52,6 +52,14 @@ All notable changes to this project are documented in this file. The format is b
 - Background task arguments and worker request metadata preserve Kombu JSON
   type envelopes in execution history; retries decode datetime, UUID and Decimal
   arguments back to their original types. No migration is needed (#754).
+- `smpy package-update` leaves manifests unchanged when all available PyPI
+  releases are excluded prereleases or yanked, instead of falling back to the
+  unvalidated summary version (#756).
+- `smpy update` preserves git dependencies' compatibility ceilings and excluded
+  releases across repeated updates, and selects tags within `~=` and `==X.*`
+  ranges; a tag the declared policy excludes is skipped with a message rather
+  than pinned. **Behaviour change:** following PEP 440, an exclusive `<1.1.0`
+  no longer admits `1.1.0` pre-release tags (#757).
 - Bind OIDC and Keycloak browser principals and shared renewal outcomes to a
   short hash of provider, issuer and client ID (#750). **Behaviour change:**
   sessions from another provider or configuration must sign in again. Unmarked

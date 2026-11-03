@@ -105,7 +105,9 @@ def test_pick_latest_tag() -> None:
 def test_prerelease_does_not_satisfy_final_floor(prerelease: str) -> None:
     assert not satisfies(prerelease, ">=1.1.0")
     assert not satisfies(prerelease, "==1.1.0")
-    assert satisfies(prerelease, "<1.1.0")
+    # PEP 440: an exclusive ``<1.1.0`` also excludes 1.1.0's pre-releases (#757).
+    assert not satisfies(prerelease, "<1.1.0")
+    assert satisfies(prerelease, "<1.2.0")
 
 
 @pytest.mark.parametrize(

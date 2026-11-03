@@ -29,6 +29,7 @@ from simple_module_cli.pyproject_edit import (
     save_pyproject,
     write_dependency,
 )
+from simple_module_cli.requirements import rewrite_requirement
 
 __all__ = ["run_sources_update", "update_modules"]
 
@@ -92,8 +93,16 @@ def run_sources_update(
         version = candidate[1:]
         uv_sources = doc["tool"]["uv"]["sources"]  # exists: git_sources() was non-empty
         for name in tag_pinned:
+            existing = dep_constraint(doc, name)
+            result = rewrite_requirement(f"{name}{existing}", version) if existing else None
+            if result is not None and result.reason:
+                # Never pin a tag the declared policy forbids (#757).
+                typer.echo(f"{name}: skipped {candidate} ({result.reason})")
+                continue
             uv_sources[name]["tag"] = candidate
-            write_dependency(doc, name, derive_range(version), keep_extras_and_marker=True)
+            updated = result.spec if result is not None else f"{name}{derive_range(version)}"
+            if updated:
+                write_dependency(doc, name, updated[len(name) :], keep_extras_and_marker=True)
             changed.append(name)
             typer.echo(f"{name}: → {candidate}")
 
