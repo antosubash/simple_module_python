@@ -178,3 +178,22 @@ async def test_realistic_cookie_fits(callback):
     payload = json.loads(base64.b64decode(cookie.split("=", 1)[1].split(".", 1)[0]))
     assert "oidc_id_token" not in payload
     assert "r" * 922 not in payload["oidc_refresh_token"]
+
+
+async def test_idp_error_is_reported_and_consumes_login_transaction(callback):
+    request, _ = callback
+    request.scope["query_string"] = b"error=access_denied&state=state"
+    with pytest.raises(HTTPException) as exc:
+        await api.oidc_callback(request)
+    assert exc.value.status_code == 401
+    assert "refused" in exc.value.detail
+    assert "oidc_state" not in request.session
+    request.app.state.oidc.client.exchange_code.assert_not_awaited()
+
+
+async def test_non_object_token_response_is_a_bad_gateway(callback):
+    request, _ = callback
+    request.app.state.oidc.client.exchange_code.return_value = ["not", "an", "object"]
+    with pytest.raises(HTTPException) as exc:
+        await api.oidc_callback(request)
+    assert exc.value.status_code == 502

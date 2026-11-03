@@ -17,7 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 - Generic OIDC auth provider with Keycloak discovery and single-tenant Entra
   presets, configurable claims/roles, cached user directory, English/German UI,
-  and opt-in bearer `api_audience` (#192). Migration `c9d2e4f6a810` creates the
+  and opt-in bearer `api_audience` limited to `client_id` plus `api_allowed_client_ids` (#192). Migration `c9d2e4f6a810` creates the
   identity cache on the new independent `oidc` branch (`upgrade heads`).
   **Behaviour:** Entra identities use issuer + `oid`; `tid` never selects an app
   tenant, tenant-claim trust defaults off and memberships alone grant tenant roles.

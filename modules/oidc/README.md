@@ -146,6 +146,7 @@ and tenant-claim trust read the live settings state.
 | DB setting | Default | Behaviour |
 |---|---|---|
 | `api_audience` | empty | Bearer authentication disabled until configured; ID tokens always use `client_id`. |
+| `api_allowed_client_ids` | empty | Clients besides `client_id` whose API tokens (`azp`, or `appid` on Entra v1) are accepted; a token naming no client is refused. |
 | `trust_tenant_claim` | false | Opt in only to a trusted, validated `tenant_id` claim. Entra `tid` never selects an application tenant. Membership resolution stays authoritative. |
 | `scope` | preset | Entra requests `openid email profile offline_access`. |
 | `uid_claim` | `oid` for Entra, otherwise `sub` | Required identity claim; there is no fallback. Identities use unique (issuer, subject) UUID mappings. |
@@ -176,7 +177,10 @@ when supplied. Expired or unbounded sessions renew using a fresh ID token, with
 the same issuer and configured subject required. Definitive refresh rejection
 clears authentication. Providers that do not return an `id_token` on refresh
 sign the user out at expiry. Transport failures, 5xx and retryable 4xx preserve the
-expired session for another attempt, while this request stays unauthenticated.
+expired session for another attempt, while this request stays unauthenticated;
+the token endpoint is not called again for 30 seconds, so a flapping IdP does not
+stall every request. A refresh token too large for the 4 KB session cookie (Entra
+can issue such tokens) is not stored, and that session ends at ID-token expiry.
 
 Logout always clears local state. The optional discovered logout endpoint gets
 `client_id` and `post_logout_redirect_uri`, without `id_token_hint`. Register

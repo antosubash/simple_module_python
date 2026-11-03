@@ -49,7 +49,9 @@ class CachePersistence:
 
                 if email is not None:
                     row.email = email  # an absent claim keeps the last known address
-                row.full_name = self._display_name(claims)
+                name = self._display_name(claims)
+                if name or row.full_name is None:
+                    row.full_name = name  # an absent claim keeps the last known name
                 if not throttle_login:
                     row.last_login_at = now
                 else:

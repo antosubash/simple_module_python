@@ -52,6 +52,10 @@ class OidcSettings(DbBackedSettings):
 
     # Bearer authentication is opt-in; browser ID tokens always use client_id.
     api_audience: str = ""
+    # Clients (``azp``, or ``appid`` on Entra v1 tokens) allowed to call the API
+    # with a bearer token, besides ``client_id``. An API token is minted for our
+    # audience but by any client the IdP lets ask for it, so name each one.
+    api_allowed_client_ids: list[str] = Field(default_factory=list)
     trust_tenant_claim: bool = False
 
     # Claim mapping. ``_UNSET`` defaults are replaced by the preset's value.

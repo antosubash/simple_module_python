@@ -81,7 +81,8 @@ class OIDCClient:
             "post_logout_redirect_uri": post_logout_redirect_uri,
             "client_id": self._client_id,
         }
-        return f"{self._end_session_endpoint}?{urlencode(params)}"
+        separator = "&" if "?" in self._end_session_endpoint else "?"
+        return f"{self._end_session_endpoint}{separator}{urlencode(params)}"
 
     async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
         return await self._token_request(grant_type="refresh_token", refresh_token=refresh_token)

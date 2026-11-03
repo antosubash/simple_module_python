@@ -102,3 +102,18 @@ async def test_refresh_grant(client, httpx_mock):
         "client_secret": ["secret123"],
     }
     assert sent.extensions["timeout"]["read"] <= 10
+
+
+def test_logout_url_keeps_an_existing_query():
+    client = OIDCClient(
+        authorization_endpoint="https://idp.example.com/authorize",
+        token_endpoint="https://idp.example.com/token",
+        end_session_endpoint="https://idp.example.com/logout?tenant=x",
+        client_id="my-app",
+        client_secret="secret123",
+    )
+    url = client.build_logout_url(
+        post_logout_redirect_uri="https://app.example.com/oidc/logged-out"
+    )
+    assert url.startswith("https://idp.example.com/logout?tenant=x&")
+    assert url.count("?") == 1

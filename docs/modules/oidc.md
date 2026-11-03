@@ -126,6 +126,7 @@ ignored. Host selection `SM_AUTH_PROVIDER=oidc` is a separate host setting.
 | `client_id` | `SM_OIDC_CLIENT_ID` | empty | Browser ID-token audience and OAuth client ID. Restart required. |
 | `client_secret` | `SM_OIDC_CLIENT_SECRET` | empty | Confidential-client secret, masked by settings handling. Restart required. |
 | `api_audience` | — | empty | Expected API JWT audience; empty disables bearer authentication. |
+| `api_allowed_client_ids` | — | empty | Clients besides `client_id` allowed to call the API (`azp`/`appid`). |
 | `trust_tenant_claim` | — | `false` | Whether a validated `tenant_id` claim may select an app tenant; see below. |
 | `scope` | — | preset | Generic: `openid email profile`; Entra adds `offline_access`. |
 | `uid_claim` | — | preset | Generic `sub`; Entra `oid`. Required; no fallback. Changing it changes identity mapping. |
@@ -152,6 +153,12 @@ API audience. Bearer requests use the framework's bearer auth kind and cannot
 manage API tokens. PAT/service-token handling stays with its owning resolver.
 The returned OAuth access token from browser code exchange is unused.
 
+An API token is accepted only from a known client: its `azp` (or `appid` on
+Entra v1 tokens) must be `client_id` or listed in the DB setting
+`api_allowed_client_ids`. List each SPA, CLI or service that calls the API; a
+token naming no client is refused. Scopes (`scp`) are not checked; what a caller
+may do still comes from its mapped roles.
+
 Leave `trust_tenant_claim=false` unless you control and trust the IdP mapper
 producing `tenant_id`. When enabled, the claim must pass framework tenant-ID
 validation; a registered tenant resolver remains authoritative. Memberships,
@@ -172,9 +179,15 @@ Login replaces user-bound session state and rotates CSRF. The signed cookie
 stores a minimal principal, ID-token expiry, issuer/subject identity and an
 encrypted refresh token if issued. It never retains the ID token. At expiry,
 refresh must return a valid ID token for the same identity. **Providers that do
-not return an `id_token` on refresh sign the user out at expiry.** Definitive
-refresh rejection clears authentication; network/5xx/retryable failures retain
-the expired session for retry while leaving that request unauthenticated.
+not return an `id_token` on refresh sign the user out at expiry.** Parallel requests
+that cross the deadline may each present the same refresh token; with an IdP that
+rotates refresh tokens and detects reuse (Auth0, Okta, Keycloak with *Revoke
+Refresh Token*), allow a reuse grace period or the losing request signs the user
+out. Definitive refresh rejection clears authentication; network/5xx/retryable failures retain
+the expired session for retry while leaving that request unauthenticated; the
+token endpoint is not called again for 30 seconds. A refresh token that would push
+the session cookie past the 4 KB browser limit is not stored (the warning is
+logged), and that session ends at ID-token expiry.
 
 Logout clears the local session and uses discovered `end_session_endpoint` with
 `client_id` and `post_logout_redirect_uri=<app>/oidc/logged-out`. Inertia logout

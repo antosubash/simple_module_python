@@ -99,7 +99,11 @@ async def test_bearer_disabled_without_api_audience():
 async def test_lowercase_bearer_has_bearer_kind(monkeypatch):
     provider = OidcAuthProvider(OidcSettings(client_id="app", api_audience="api"))
     provider.jwks_cache = AsyncMock()
-    provider.jwks_cache.validate_jwt.return_value = {"iss": "https://idp", "sub": "subject"}
+    provider.jwks_cache.validate_jwt.return_value = {
+        "iss": "https://idp",
+        "sub": "subject",
+        "azp": "app",
+    }
     monkeypatch.setattr(provider, "_upsert_user_cache", AsyncMock(return_value="uuid"))
     request = Request({"type": "http", "headers": [(b"authorization", b"bearer token")]})
     principal = await provider.resolve_user(request)

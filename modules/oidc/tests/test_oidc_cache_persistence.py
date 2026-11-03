@@ -67,11 +67,11 @@ async def test_oidc_bearer_throttles_timestamp_writes(cache_request, db_state, a
 
     event.listen(db_state.engine.sync_engine, "before_cursor_execute", record_update)
     try:
-        provider = OidcAuthProvider(OidcSettings(api_audience="api"))
+        provider = OidcAuthProvider(OidcSettings(api_audience="api", client_id="app"))
 
         class Jwks:
             async def validate_jwt(self, token, **kwargs):
-                return CLAIMS
+                return {**CLAIMS, "azp": "app"}
 
         provider.jwks_cache = Jwks()
         for _ in range(2):
@@ -154,3 +154,15 @@ async def test_failed_cache_never_falls_back_to_external_subject(cache_request, 
 )
 async def test_missing_identity_is_refused(cache_request, claims):
     assert await OidcAuthProvider()._upsert_user_cache(cache_request, claims) is None
+
+
+async def test_oidc_token_without_profile_claims_keeps_cached_name(cache_request, db_state):
+    # A bearer token minted without the profile scope carries no name claims;
+    # it must not wipe the name an earlier browser sign-in stored.
+    provider = OidcAuthProvider(OidcSettings(api_audience="api"))
+    await provider._upsert_user_cache(cache_request, CLAIMS)
+    bare = {k: v for k, v in CLAIMS.items() if k not in ("preferred_username", "name", "email")}
+    await provider._upsert_user_cache(cache_request, bare, throttle_login=True)
+    async with db_state.session_factory() as db:
+        row = (await db.execute(select(OidcUserCache))).scalar_one()
+        assert (row.email, row.full_name) == (CLAIMS["email"], CLAIMS["preferred_username"])

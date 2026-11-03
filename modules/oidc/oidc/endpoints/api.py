@@ -50,6 +50,11 @@ async def oidc_callback(request: Request):
     expected_state = request.session.pop(SESSION_STATE_KEY, None)
     expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
     verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
+    if request.query_params.get("error"):
+        # The IdP refused or the user cancelled (access_denied, login_required,
+        # ...): say so instead of reporting a state mismatch. The login
+        # transaction above is spent either way.
+        raise HTTPException(status_code=401, detail="Sign-in was refused by the identity provider")
     if (
         not code
         or not state
@@ -71,6 +76,9 @@ async def oidc_callback(request: Request):
     except Exception:
         logger.warning("OIDC token exchange failed")
         raise HTTPException(status_code=502, detail="Token exchange failed") from None
+    if not isinstance(tokens, dict):
+        logger.warning("OIDC token endpoint returned a non-object response")
+        raise HTTPException(status_code=502, detail="Token exchange failed")
     s = request.app.state.oidc.settings
     cache = request.app.state.oidc.jwks_cache
     claims = (

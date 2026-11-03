@@ -84,7 +84,7 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
             logger.debug("OIDC bearer authentication unavailable")
             return None
         claims = await self.jwks_cache.validate_jwt(token, audience=self._settings.api_audience)
-        if claims is None:
+        if claims is None or not self._allowed_api_client(claims):
             return None
 
         cache_id = await self._upsert_user_cache(request, claims, throttle_login=True)
@@ -96,6 +96,20 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
         # builds the same context from the callback and keeps ``"session"``.
         ctx.auth_kind = AUTH_KIND_BEARER
         return ctx
+
+    def _allowed_api_client(self, claims: dict[str, Any]) -> bool:
+        """Whether the client that obtained this API token may call us.
+
+        Fails closed: a token naming no client (no ``azp``/``appid``) is refused.
+        """
+        s = self._settings
+        client = claims.get("azp") or claims.get("appid")
+        if not isinstance(client, str) or not s:
+            return False
+        if client == s.client_id or client in s.api_allowed_client_ids:
+            return True
+        logger.info("OIDC bearer token from a client not in api_allowed_client_ids")
+        return False
 
     def _claims_to_user_context(
         self,
