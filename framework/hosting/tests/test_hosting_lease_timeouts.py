@@ -132,7 +132,7 @@ async def test_zero_wait_tolerates_a_slow_but_healthy_backend() -> None:
     """``wait=0`` means "do not queue", so a 200 ms reply still acquires."""
 
     async def slow(*_args):
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)  # intentional-sleep: simulated slow backend reply
         return 1
 
     client = AsyncMock()
@@ -150,7 +150,7 @@ async def test_attempt_floor_is_one_second_at_zero_wait() -> None:
     delay = 0.8
 
     async def reply(*_args):
-        await asyncio.sleep(delay)
+        await asyncio.sleep(delay)  # intentional-sleep: simulated backend latency
         return 1
 
     client = AsyncMock()
