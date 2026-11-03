@@ -9,6 +9,7 @@ and ``ContextVar`` propagation.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import secrets
 from collections.abc import Callable
@@ -241,6 +242,10 @@ class InertiaLayoutDataMiddleware:
             return await self._shared(request, scope, user, resolved)
 
         request.state.inertia_shared_factory = build_shared
+        # Resolved later (a page render, or the 500 page after TenantMiddleware
+        # has unbound its tenant): run it in the context this middleware saw, so
+        # providers see the same tenant and user the eager build used to.
+        request.state.inertia_shared_context = contextvars.copy_context()
 
         await self.app(scope, receive, send)
 

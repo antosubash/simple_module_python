@@ -188,7 +188,8 @@ async def resolve_inertia_shared(request: Request) -> dict:
     if factory is not None:
         task = getattr(request.state, "inertia_shared_task", None)
         if task is None:
-            task = asyncio.create_task(factory())
+            context = getattr(request.state, "inertia_shared_context", None)
+            task = asyncio.create_task(factory(), context=context)
             request.state.inertia_shared_task = task
         request.state.inertia_shared = await task
     return getattr(request.state, "inertia_shared", None) or {}

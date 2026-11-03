@@ -176,3 +176,23 @@ def test_catalog_header_does_not_create_an_anonymous_session():
 def test_document_always_sends_catalog_even_with_matching_header():
     request = _request([(b"x-sm-i18n", b"de:full")])
     assert build_i18n_block(request.scope, request)["messages"] == {"hello": "Hallo"}
+
+
+async def test_late_resolution_runs_in_the_middleware_context():
+    """The 500 page resolves after TenantMiddleware unbound its tenant; providers must
+    still see the request's tenant (the context captured by the layout middleware)."""
+    import contextvars
+
+    from simple_module_db.tenancy import current_tenant_id
+    from simple_module_hosting._inertia_shared import resolve_inertia_shared
+
+    async def factory():
+        return {"tenant": current_tenant_id.get()}
+
+    token = current_tenant_id.set("tenant-a")
+    captured = contextvars.copy_context()
+    current_tenant_id.reset(token)  # what leaving TenantMiddleware does
+    request = SimpleNamespace(
+        state=SimpleNamespace(inertia_shared_factory=factory, inertia_shared_context=captured)
+    )
+    assert (await resolve_inertia_shared(request))["tenant"] == "tenant-a"
