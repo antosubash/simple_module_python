@@ -58,7 +58,8 @@ Acquisition timeouts, and Redis connection failures, log a WARNING and return
 `DbLeaseBackend`, still propagate); `async with` consequently raises `LeaseNotAcquiredError`. An explicit
 `wait` bounds backend calls as well as polling, with a 1-second minimum attempt
 budget (including `wait=0`). Redis connections and socket reads each have a
-2-second timeout and at most one immediate reconnect, which also bounds calls when no
+2-second timeout and at most one immediate reconnect (so roughly 4 s at
+worst against an unresponsive server), which also bounds calls when no
 `wait` is supplied. A Redis release timeout or connection failure logs a
 WARNING and returns `False`, so cleanup preserves an exception from the lease
 body; the remote holder expires by TTL. Refresh errors and other backend
