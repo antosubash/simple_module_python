@@ -33,8 +33,8 @@ _FLOOR_OPS = frozenset({"==", "===", ">="})
 
 #: Suffix marking a PEP 440 wildcard (``==1.4.*``, ``!=1.0.*``). These match on
 #: a *prefix* of the release segments, so they must never go through the
-#: numeric comparison — ``version_key`` maps ``*`` to 0, which would read
-#: ``1.0.*`` as ``1.0.0`` and quietly answer the wrong question.
+#: numeric comparison — a numeric compare would read ``1.0.*`` as ``1.0.0`` and
+#: quietly answer the wrong question.
 _WILDCARD = ".*"
 
 
@@ -62,19 +62,10 @@ class RewriteResult:
     reason: str | None = None
 
 
-def version_key(version: str) -> tuple[int, ...]:
-    """Numeric release segments for wildcard-prefix matching, ignoring suffixes."""
-    parts: list[int] = []
-    for part in version.split("."):
-        digits = re.match(r"\d+", part)
-        parts.append(int(digits.group()) if digits else 0)
-    return tuple(parts)
-
-
-def is_valid_version(version: object) -> bool:
+def is_valid_version(version: str | None) -> bool:
     """Is ``version`` a string PEP 440 can order? ``None`` and legacy spellings are not."""
     try:
-        Version(version)  # ty: ignore[invalid-argument-type]
+        Version(version)  # ty: ignore[invalid-argument-type]  # None -> TypeError, handled
     except (InvalidVersion, TypeError):
         return False
     return True
@@ -142,9 +133,10 @@ def _render(parsed: ParsedRequirement, clauses: tuple[tuple[str, str], ...]) -> 
 
 def _matches_wildcard(version: str, pattern: str) -> bool:
     """Does ``version`` fall under a PEP 440 wildcard like ``1.4.*``?"""
-    prefix = version_key(pattern[: -len(_WILDCARD)])
-    release = version_key(version)
-    return len(release) >= len(prefix) and release[: len(prefix)] == prefix
+    try:
+        return Specifier(f"=={pattern}").contains(version, prereleases=True)
+    except InvalidSpecifier:
+        return False
 
 
 def _compatible_band(version: str) -> str | None:
