@@ -5,9 +5,12 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from packaging.version import InvalidVersion, Version
+
+from simple_module_cli.requirements import _compare as _cmp
 from simple_module_cli.requirements import _compatible_band, _matches_wildcard
 
-# --- version helpers (no `packaging` dep — CLI depends on typer + tomlkit only) ---
+# --- version helpers ---
 
 
 def version_tuple(v: str) -> tuple[int, ...]:
@@ -21,17 +24,6 @@ def version_tuple(v: str) -> tuple[int, ...]:
                 break
         parts.append(int(digits) if digits else 0)
     return tuple(parts)
-
-
-def _cmp(a: str, b: str) -> int:
-    ta, tb = version_tuple(a), version_tuple(b)
-    width = max(len(ta), len(tb))
-    ta += (0,) * (width - len(ta))
-    tb += (0,) * (width - len(tb))
-    if ta != tb:
-        return (ta > tb) - (ta < tb)
-    pa, pb = _prerelease_key(a), _prerelease_key(b)
-    return (pa > pb) - (pa < pb)
 
 
 def _prerelease_key(version: str) -> tuple[int, int]:
@@ -106,6 +98,10 @@ def pick_latest_tag(tags: Iterable[str], constraint: str | None) -> str | None:
         if not tag.startswith("v") or len(tag) < 2 or not tag[1].isdigit():
             continue
         ver = tag[1:]
+        try:
+            Version(ver)
+        except InvalidVersion:
+            continue
         if constraint and not satisfies(ver, constraint):
             continue
         if best is None or _cmp(ver, best[1:]) > 0:

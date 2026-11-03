@@ -14,7 +14,7 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
-from simple_module_cli.requirements import version_key
+from packaging.version import InvalidVersion, Version
 
 __all__ = ["PYPI_URL", "Fetcher", "default_fetcher", "fetch_latest"]
 
@@ -23,8 +23,7 @@ Fetcher = Callable[[str], dict[str, Any]]
 PYPI_URL = "https://pypi.org/pypi/{name}/json"
 
 # PEP 440 release segments contain only digits + dots; any letter signals
-# a pre/post/dev release (a, b, rc, post, dev). Coarser than packaging.version
-# but `packaging` isn't a CLI dep (see test_no_framework_deps.py).
+# a pre/post/dev release (a, b, rc, post, dev). Keep the existing stable filter.
 _PRE_RELEASE_RE = re.compile(r"[a-zA-Z]")
 
 
@@ -43,9 +42,13 @@ def fetch_latest(name: str, *, include_pre: bool, fetcher: Fetcher) -> str | Non
             continue
         if not include_pre and _PRE_RELEASE_RE.search(version):
             continue
+        try:
+            Version(version)
+        except InvalidVersion:
+            continue
         candidates.append(version)
     if candidates:
-        return max(candidates, key=version_key)
+        return max(candidates, key=Version)
     if releases:
         return None
     info = data.get("info") or {}

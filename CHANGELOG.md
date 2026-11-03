@@ -31,6 +31,10 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- `smpy package-update` selects the latest release in PEP 440 order and promotes
+  RC pins to final releases without downgrading existing pins (#766).
+- `smpy package-update` respects exact and glob uv workspace exclusions, leaving
+  excluded project manifests unchanged (#767). No migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.

@@ -16,6 +16,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from packaging.specifiers import Specifier
+from packaging.version import Version
+
 __all__ = ["ParsedRequirement", "RewriteResult", "parse_requirement", "rewrite_requirement"]
 
 # Longest-first: ``===`` must win over ``==``, and ``>=`` over ``>``.
@@ -60,12 +63,7 @@ class RewriteResult:
 
 
 def version_key(version: str) -> tuple[int, ...]:
-    """Coarse PEP 440 release-segment ordering.
-
-    ``packaging`` isn't a CLI dependency (see ``test_no_framework_deps.py``),
-    so this compares the numeric release segments only. Good enough to answer
-    "does the latest release trip this upper bound", which is all it's for.
-    """
+    """Numeric release segments for wildcard-prefix matching, ignoring suffixes."""
     parts: list[int] = []
     for part in version.split("."):
         digits = re.match(r"\d+", part)
@@ -74,11 +72,8 @@ def version_key(version: str) -> tuple[int, ...]:
 
 
 def _compare(left: str, right: str) -> int:
-    """Three-way compare two versions on their release segments, zero-padded."""
-    a, b = version_key(left), version_key(right)
-    width = max(len(a), len(b))
-    a += (0,) * (width - len(a))
-    b += (0,) * (width - len(b))
+    """Three-way PEP 440 comparison, including pre/dev/post releases."""
+    a, b = Version(left), Version(right)
     return (a > b) - (a < b)
 
 
@@ -151,13 +146,8 @@ def _allows(op: str, version: str, latest: str) -> bool:
     if op == "~=":
         band = _compatible_band(version)
         return band is not None and _matches_wildcard(latest, band)
-    cmp = _compare(latest, version)
-    if op == "<":
-        return cmp < 0
-    if op == "<=":
-        return cmp <= 0
-    if op == "!=":
-        return cmp != 0
+    if op in ("<", "<=", "!="):
+        return Specifier(f"{op}{version}").contains(latest, prereleases=True)
     # ``>`` — already satisfied by anything newer than the pin.
     return True
 
