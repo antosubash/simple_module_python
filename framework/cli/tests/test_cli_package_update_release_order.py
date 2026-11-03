@@ -72,10 +72,23 @@ def test_package_update_checks_prerelease_bounds(
     ]
 
 
-@pytest.mark.parametrize("spec", ["a==foo", "a>=1.x", "a<foo", "a!=foo", "a===foo", "a~=1.x"])
+@pytest.mark.parametrize(
+    "spec",
+    ["a==foo", "a>=1.x", "a<foo", "a!=foo", "a===foo", "a~=1.x", "a<1.0+local", "a<=1.0+local"],
+)
 def test_rewrite_skips_unorderable_pins(spec: str) -> None:
     from simple_module_cli.requirements import rewrite_requirement
 
     result = rewrite_requirement(spec, "1.2.3")
     assert result.spec is None
     assert result.reason and "unsupported version spelling" in result.reason
+
+
+def test_compatible_floor_does_not_jump_past_a_prerelease() -> None:
+    from simple_module_cli.requirements import rewrite_requirement
+
+    # ``1.5.0rc1`` truncated to the pin's width is ``1.5``, above the rc itself.
+    assert rewrite_requirement("simple_module_core~=1.4", "1.5.0rc1").spec is None
+    # At full width the rc is a valid floor and still satisfies the band.
+    result = rewrite_requirement("simple_module_core~=1.4.2", "1.4.3rc1")
+    assert result.spec == "simple_module_core~=1.4.3rc1"

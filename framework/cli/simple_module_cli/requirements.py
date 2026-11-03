@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from packaging.specifiers import Specifier
+from packaging.specifiers import InvalidSpecifier, Specifier
 from packaging.version import InvalidVersion, Version
 
 __all__ = ["ParsedRequirement", "RewriteResult", "parse_requirement", "rewrite_requirement"]
@@ -98,6 +98,12 @@ def _unparseable(parsed: ParsedRequirement, latest: str) -> str | None:
     ):
         if not is_valid_version(candidate):
             return candidate
+    for op, version in parsed.clauses:
+        if op in ("<", "<=", "!=") and not version.endswith(_WILDCARD):
+            try:  # a valid Version can still be an invalid bound, e.g. ``<1.0+local``
+                Specifier(f"{op}{version}")
+            except InvalidSpecifier:
+                return version
     return None
 
 
@@ -207,7 +213,11 @@ def _bump(op: str, version: str, latest: str) -> str:
         if len(parts) < segments:
             return version
         candidate = ".".join(parts[:segments])
-        return candidate if _compare(candidate, version) > 0 else version
+        # A pre-release ``latest`` truncates to a release above itself
+        # (``1.5.0rc1`` -> ``1.5``), which nothing published satisfies yet.
+        if _compare(candidate, version) > 0 and _compare(candidate, latest) <= 0:
+            return candidate
+        return version
     if op in _FLOOR_OPS:
         return latest if _compare(latest, version) > 0 else version
     return version
