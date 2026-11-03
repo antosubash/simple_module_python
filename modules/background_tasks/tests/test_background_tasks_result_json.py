@@ -27,6 +27,8 @@ from sqlalchemy import select
         (42, {"value": 42}),
         (None, None),
         (1j, {"value": "1j"}),
+        (float("nan"), {"value": "nan"}),
+        ({"x": float("inf")}, {"value": "{'x': inf}"}),
     ],
 )
 def test_success_persists_json_result_and_survives_sweep(

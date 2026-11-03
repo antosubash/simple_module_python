@@ -101,9 +101,20 @@ def jsonable_result(result: Any) -> dict[str, Any] | None:
         return None
     try:
         # Plain json.loads keeps Kombu's type envelopes JSON-safe for the DB.
-        return json.loads(dumps(result if isinstance(result, dict) else {"value": result}))
-    except (TypeError, ValueError):
+        # NaN/Infinity encode fine but Postgres' json type rejects them, which
+        # would roll the success write back like the datetime case did.
+        return json.loads(
+            dumps(result if isinstance(result, dict) else {"value": result}),
+            parse_constant=_reject_constant,
+        )
+    except Exception:
+        # Result tracking must never undo a task's success (RecursionError,
+        # a failing ``__json__`` hook, ... included).
         return {"value": repr(result)}
+
+
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"non-finite JSON constant {name}")
 
 
 def render_traceback(einfo: Any, exception: BaseException | None) -> str | None:

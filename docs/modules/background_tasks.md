@@ -32,7 +32,7 @@ send_receipt.delay(order_id=42)
 
 Every dispatch / start / completion / failure / retry / revoke is recorded in the `background_tasks_task_execution` table by Celery signal handlers, so you can see history even after the Celery result backend has expired the result.
 
-Results use Kombu's JSON representation, including type envelopes for values such as datetimes. Non-dict results are wrapped in `{"value": ...}`; `None` stays null. Results unsupported by that encoder fall back to `{"value": repr(result)}` so serialization does not undo success tracking.
+Results use Kombu's JSON representation, including type envelopes for values such as datetimes. Non-dict results are wrapped in `{"value": ...}`; `None` stays null. Results unsupported by that encoder, or holding NaN/Infinity (which a PostgreSQL JSON column refuses), fall back to `{"value": repr(result)}` so serialization does not undo success tracking.
 
 ## Enqueueing from inside a transaction
 
