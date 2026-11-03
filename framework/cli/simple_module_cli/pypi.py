@@ -52,7 +52,12 @@ def fetch_latest(name: str, *, include_pre: bool, fetcher: Fetcher) -> str | Non
     if releases:
         return None
     info = data.get("info") or {}
-    return info.get("version")
+    fallback = info.get("version")
+    try:
+        Version(fallback)
+    except (InvalidVersion, TypeError):
+        return None
+    return fallback
 
 
 def default_fetcher(url: str) -> dict[str, Any]:

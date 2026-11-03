@@ -70,3 +70,12 @@ def test_package_update_checks_prerelease_bounds(
     assert tomllib.loads(manifest.read_text())["project"]["dependencies"] == [
         f"simple_module_core>={expected},{bound}"
     ]
+
+
+@pytest.mark.parametrize("spec", ["a==foo", "a>=1.x", "a<foo", "a!=foo", "a===foo", "a~=1.x"])
+def test_rewrite_skips_unorderable_pins(spec: str) -> None:
+    from simple_module_cli.requirements import rewrite_requirement
+
+    result = rewrite_requirement(spec, "1.2.3")
+    assert result.spec is None
+    assert result.reason and "unsupported version spelling" in result.reason

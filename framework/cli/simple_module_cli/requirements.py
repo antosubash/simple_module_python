@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass
 
 from packaging.specifiers import Specifier
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 __all__ = ["ParsedRequirement", "RewriteResult", "parse_requirement", "rewrite_requirement"]
 
@@ -75,6 +75,23 @@ def _compare(left: str, right: str) -> int:
     """Three-way PEP 440 comparison, including pre/dev/post releases."""
     a, b = Version(left), Version(right)
     return (a > b) - (a < b)
+
+
+def _unparseable(parsed: ParsedRequirement, latest: str) -> str | None:
+    """The first version that is not valid PEP 440, or ``None``.
+
+    Legacy spellings (``==1.x``, ``===local-build``) can't be ordered, so the
+    requirement is reported as a skip instead of aborting the whole run.
+    """
+    for candidate in (
+        latest,
+        *(v[: -len(_WILDCARD)] if v.endswith(_WILDCARD) else v for _, v in parsed.clauses),
+    ):
+        try:
+            Version(candidate)
+        except InvalidVersion:
+            return candidate
+    return None
 
 
 def parse_requirement(spec: str) -> ParsedRequirement | None:
@@ -206,6 +223,10 @@ def rewrite_requirement(spec: str, latest: str, *, loosen: bool = False) -> Rewr
         # so it gets the tool's default floor. Extras and markers survive.
         new = f"{parsed.name}{parsed.extras}>={latest}{parsed.marker}"
         return RewriteResult(None) if new == spec.strip() else RewriteResult(new)
+
+    bad = _unparseable(parsed, latest)
+    if bad is not None:
+        return RewriteResult(None, reason=f"unsupported version spelling {bad!r}")
 
     blocker = _excluded_by(parsed, latest)
     if blocker is not None:

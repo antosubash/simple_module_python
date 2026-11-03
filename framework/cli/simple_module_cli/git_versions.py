@@ -54,7 +54,10 @@ def satisfies(version: str, constraint: str) -> bool:
                     break
                 if op == "<" and _excluded_prerelease(version, bound):
                     return False
-                c = _cmp(version, bound)
+                try:
+                    c = _cmp(version, bound)
+                except InvalidVersion:
+                    return False
                 if op == "~=":
                     band = _compatible_band(bound)
                     if c < 0 or band is None or not _matches_wildcard(version, band):

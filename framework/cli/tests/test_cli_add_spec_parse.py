@@ -127,3 +127,9 @@ def test_pick_latest_tag_orders_prereleases(tags: list[str], expected: str) -> N
 @pytest.mark.parametrize("constraint", [None, ">=1.0"])
 def test_pick_latest_tag_skips_invalid_versions(constraint: str | None) -> None:
     assert pick_latest_tag(["v999.invalid", "v1.0"], constraint) == "v1.0"
+
+
+def test_satisfies_rejects_unparseable_bound() -> None:
+    from simple_module_cli.git_versions import satisfies
+
+    assert satisfies("1.0", ">=1.x") is False
