@@ -64,7 +64,7 @@ async def test_keycloak_module_builds_non_exclusive_cache():
     assert state.jwks_cache._exclusive_audience is False
 
 
-async def test_refresh_matches_session_whose_id_is_the_raw_sub(monkeypatch):
+async def test_refresh_matches_session_whose_id_is_the_raw_sub(monkeypatch, db_state, db_session):
     monkeypatch.setattr("time.time", lambda: 1000)
     provider = KeycloakAuthProvider(
         KeycloakSettings(server_url="https://idp.test", realm="t", client_id="app")
@@ -75,7 +75,7 @@ async def test_refresh_matches_session_whose_id_is_the_raw_sub(monkeypatch):
     app = SimpleNamespace(
         state=SimpleNamespace(
             keycloak=provider._settings and SimpleNamespace(settings=provider._settings),
-            sm=SimpleNamespace(settings=SimpleNamespace(secret_key="k")),
+            sm=SimpleNamespace(db=db_state, settings=SimpleNamespace(secret_key="k")),
         )
     )
     session = {
@@ -122,17 +122,25 @@ async def test_failed_cache_upsert_logs_without_personal_data(caplog):
     assert record.exc_info is None
 
 
-async def test_refresh_survives_an_unavailable_identity_check(monkeypatch):
-    # A UUID cached id whose lookup fails (no DB on this app): the spent refresh
-    # token must not turn a database blip into a sign-out.
+async def test_refresh_survives_an_unavailable_identity_check(monkeypatch, db_state, db_session):
+    # A UUID cached id whose lookup fails: the spent refresh token must not turn
+    # a database blip into a sign-out. Only keycloak's own lookup is broken; the
+    # shared renewal coordination still has its database.
     monkeypatch.setattr("time.time", lambda: 1000)
     provider = KeycloakAuthProvider()
     provider.jwks_cache = SimpleNamespace(
         validate_jwt=AsyncMock(return_value={"sub": "kc-sub", "exp": 1300})
     )
     app = SimpleNamespace(
-        state=SimpleNamespace(sm=SimpleNamespace(settings=SimpleNamespace(secret_key="k")))
+        state=SimpleNamespace(
+            sm=SimpleNamespace(db=db_state, settings=SimpleNamespace(secret_key="k"))
+        )
     )
+
+    def broken_session(_app):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr("keycloak.renewal.independent_session", broken_session)
     cached_id = "6f1c6a9e-5b7e-4c3b-9d8f-2a1e3c4b5d6e"
     session = {
         "user_ctx": UserContext(id=cached_id, email="", name="", roles=[]).to_session_dict(),
