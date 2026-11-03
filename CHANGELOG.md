@@ -24,7 +24,9 @@ All notable changes to this project are documented in this file. The format is b
   (inline or external); inline event handlers (`onclick=`), `eval`/`new
   Function` and scripts injected without a nonce-bearing parent no longer run;
   a module that set its own `content_security_policy` should keep the nonce
-  token. Development keeps the permissive Vite policy. A 304 carries no CSP
+  token. Origins added with `register_csp_sources("script-src", ...)` are ignored by
+  CSP3 browsers under `'strict-dynamic'`: load such scripts from a nonced entry or
+  give the `<script src>` tag the nonce. Development keeps the permissive Vite policy. A 304 carries no CSP
   header, so a cached document keeps the policy its nonce matches.
 - **Behaviour change (#785):** a response CSP containing `sandbox` (file_storage
   downloads) is sent beside the app policy, so browsers enforce both: such

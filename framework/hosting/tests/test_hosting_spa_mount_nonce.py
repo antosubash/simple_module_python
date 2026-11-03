@@ -11,7 +11,9 @@ from simple_module_hosting._spa_mount import SpaStaticFiles
 
 _SHELL = (
     '<html><head><script type="module" src="/legacy/assets/index-3f9a8c21b.js"></script>'
-    '<script nonce="kept">window.a = 1</script></head><body></body></html>'
+    '<script nonce="kept">window.a = 1</script>'
+    '<link rel="modulepreload" href="/legacy/assets/chunk-a1b2c3d4.js">'
+    '<link rel="stylesheet" href="/legacy/assets/index.css"></head><body></body></html>'
 )
 
 
@@ -29,6 +31,8 @@ async def test_index_scripts_carry_the_request_nonce(tmp_path) -> None:
     body = response.body.decode()
     assert '<script nonce="abc123" type="module" src="/legacy/assets/' in body
     assert '<script nonce="kept">' in body  # an author's own nonce is left alone
+    assert '<link nonce="abc123" rel="modulepreload"' in body
+    assert '<link rel="stylesheet"' in body  # only script preloads need it
     # The nonce changes per response, so no validator may revive an old shell.
     assert "etag" not in response.headers
     assert "last-modified" not in response.headers

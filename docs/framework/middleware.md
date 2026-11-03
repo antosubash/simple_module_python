@@ -159,7 +159,12 @@ Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 
 Outside development, `script-src` and `script-src-elem` use
 `'self' 'nonce-<request nonce>' 'strict-dynamic'`, without `'unsafe-inline'` or
-`'unsafe-eval'`. Each HTTP request gets `request.state.csp_nonce`. The host's
+`'unsafe-eval'`; `script-src` additionally allows `'wasm-unsafe-eval'` so
+WebAssembly can compile without re-enabling JavaScript `eval`. A `304 Not
+Modified` carries no CSP header, so the cached document keeps the policy whose
+nonce matches its body; for the same reason a nonce-bearing document must not
+be stored by a shared cache (`Cache-Control: public`), which would replay one
+nonce to every visitor. Each HTTP request gets `request.state.csp_nonce`. The host's
 pre-paint script and Inertia's module entry carry that nonce; custom templates
 must put `nonce="{{ request.state.csp_nonce }}"` on every executable script,
 including external entries. JSON page data and JSON-LD are inert and need no

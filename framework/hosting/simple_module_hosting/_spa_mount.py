@@ -41,6 +41,12 @@ _CACHE_CONTROL = "Cache-Control"
 # Set by SecurityHeadersMiddleware for every HTTP request.
 _NONCE_STATE_KEY = "csp_nonce"
 _SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\snonce\s*=)", re.IGNORECASE)
+# Vite shells preload their chunks; a script preload without the nonce is refused.
+_SCRIPT_PRELOAD_WITHOUT_NONCE = re.compile(
+    r"<link\b(?=[^>]*\b(?:rel\s*=\s*[\"']?modulepreload|as\s*=\s*[\"']?script))"
+    r"(?![^>]*\snonce\s*=)",
+    re.IGNORECASE,
+)
 _CONDITIONAL_HEADERS = (b"if-none-match", b"if-modified-since", b"if-match", b"if-unmodified-since")
 # Vite/webpack content-hashed file: `index-3f9a8c21.js`, `chunk.AbC123xy.css`.
 _HASHED_FILE = re.compile(r"[-.]([A-Za-z0-9_-]{8,})\.[A-Za-z0-9]+$")
@@ -121,10 +127,11 @@ def _with_script_nonce(response: FileResponse, nonce: str) -> Response:
     """
     html = Path(response.path).read_text(encoding="utf-8")
     html = _SCRIPT_WITHOUT_NONCE.sub(f'<script nonce="{nonce}"', html)
+    html = _SCRIPT_PRELOAD_WITHOUT_NONCE.sub(f'<link nonce="{nonce}"', html)
     headers = {
         k: v
         for k, v in response.headers.items()
-        if k.lower() not in ("content-length", "etag", "last-modified")
+        if k.lower() not in ("content-length", "etag", "last-modified", "accept-ranges")
     }
     return Response(html, status_code=_OK, headers=headers, media_type="text/html")
 
