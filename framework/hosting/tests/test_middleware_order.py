@@ -5,25 +5,13 @@ CLAUDE.md spells out the pipeline:
     (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
     CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session
                   → InertiaMiddleware → <module> → Tenant (opt-in) → Locale
-                  → InertiaLayoutData → InertiaCache → RateLimit → Setup → Maintenance
+                  → InertiaLayoutData → RateLimit → Setup → Maintenance
                   → CommitBeforeResponse → app
 
 Setup runs before Maintenance: an install that has never been set up has
 nothing meaningful to put into maintenance mode, so the setup redirect wins.
-It is inside InertiaCache for the same reason Maintenance is — it
-short-circuits, and its redirect must not be stored by any cache.
-
-InertiaCache sits directly inside InertiaLayoutData, the middleware that puts
-this user's auth block, permissions and menus into every Inertia payload. Being
-inside it means its send-wrapper sees the response before anything else can
-read the headers, and pairing the two keeps "what makes the payload per-user"
-and "what stops the payload being cached" from drifting apart.
-
-Maintenance sits inside InertiaCache rather than outside it. Its 503 is an
-Inertia payload carrying the same per-user auth block and menus, and it is
-produced by short-circuiting — so if it sat outside, that payload would never
-pass through the cache guard and would ship storable, which is the exact bug
-InertiaCache exists to prevent.
+The outer adapter InertiaMiddleware protects both redirects and page payloads
+from caching and varies HTML documents on X-Inertia.
 
 Tenant/Locale must see ``request.state.user`` set by AuthMiddleware so
 DB queries get filtered correctly; CorrelationId must wrap everything so
@@ -62,7 +50,7 @@ those still see every request, but outside everything that produces a body
 — including the /static mount, which is where compression pays off most.
 BodyLimit sits just inside RequestLogging (a 413 is still logged) and outside
 GZip and every module, so an oversized body is refused before anything reads
-it. RateLimit sits inside InertiaCache, after auth and locale/layout data: it
+it. RateLimit sits after auth and locale/layout data: it
 must know whether the caller is signed in, and its 429 page renders through
 Inertia with the shared props.
 
@@ -94,7 +82,6 @@ _EXPECTED_MULTI_TENANT = (
     "TenantMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
-    "InertiaCacheMiddleware",
     "RateLimitMiddleware",
     "SetupMiddleware",
     "MaintenanceMiddleware",
@@ -116,7 +103,6 @@ _EXPECTED_SINGLE_TENANT = (
     "AuthMiddleware",
     "LocaleMiddleware",
     "InertiaLayoutDataMiddleware",
-    "InertiaCacheMiddleware",
     "RateLimitMiddleware",
     "SetupMiddleware",
     "MaintenanceMiddleware",

@@ -7,7 +7,8 @@ a registered callable off ``app.state`` rather than reaching into module code,
 keeping the ``SM009`` framework→plugin import ban intact.
 
 A provider is ``Callable[[Request], dict]`` or an ``async`` one. It must be cheap
-and total — it runs for every request. :class:`InertiaLayoutDataMiddleware` merges each provider's
+and total — it runs once when a page needs shared props.
+:class:`InertiaLayoutDataMiddleware` merges each provider's
 returned dict into the ``shared`` payload after the built-in ``auth``/``menus``/
 ``i18n`` blocks; a provider that raises is skipped and logged, never failing the
 request.

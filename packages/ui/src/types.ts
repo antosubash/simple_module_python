@@ -48,6 +48,7 @@ export interface BrandingShared {
 
 export interface I18nSharedProps {
   locale: string;
+  audience?: 'public' | 'full';
   supportedLocales: string[];
   // ``null`` on Inertia XHR visits where the backend skipped the messages
   // payload because the client already has them from the initial page load.

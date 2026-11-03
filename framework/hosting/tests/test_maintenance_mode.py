@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
+from simple_module_inertia import InertiaMiddleware
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
@@ -35,7 +35,7 @@ def _build_app(
     user: _User | None = None,
     provider: _Provider | None = _Provider(),
     public_routes=None,
-    with_inertia_cache: bool = False,
+    with_inertia_middleware: bool = False,
 ) -> Starlette:
     async def ok(request):
         return PlainTextResponse("app reached")
@@ -67,12 +67,12 @@ def _build_app(
     app.state.public_routes = public_routes
 
     app.add_middleware(MaintenanceMiddleware)
-    # Real pipeline order: InertiaCache sits directly outside Maintenance, so
+    # InertiaMiddleware wraps Maintenance in the real pipeline, so
     # its send-wrapper is what actually receives the 503's response messages.
     # Added second so it wraps Maintenance and is itself wrapped by _SeedUser,
-    # matching install_middleware's (... -> InertiaCache -> Maintenance -> ...).
-    if with_inertia_cache:
-        app.add_middleware(InertiaCacheMiddleware)
+    # matching install_middleware's (... -> InertiaMiddleware -> Maintenance -> ...).
+    if with_inertia_middleware:
+        app.add_middleware(InertiaMiddleware)
     # Stands in for AuthMiddleware, which runs further out and is what puts the
     # resolved user on request.state. Added last so it executes first, exactly
     # as the real pipeline orders them.
@@ -241,11 +241,11 @@ class TestModulePublicRoutes:
         assert resp.status_code == 503
 
 
-class TestInertiaCacheOrdering:
-    """Pins the exact regression `test_middleware_order.py` guards structurally:
-    with `InertiaCacheMiddleware` sitting directly outside `MaintenanceMiddleware`
+class TestInertiaMiddlewareOrdering:
+    """Pins the exact regression `test_hosting_middleware_order.py` guards structurally:
+    with `InertiaMiddleware` sitting directly outside `MaintenanceMiddleware`
     (real pipeline order), the 503's own short-circuited response — not just a
-    response from `self.app` — must still pass through InertiaCache's
+    response from `self.app` — must still pass through InertiaMiddleware's
     send-wrapper. Built here rather than asserted from order alone because a
     correct middleware *order* does not by itself prove a short-circuiting
     middleware's response reaches the wrapper outside it; the ASGI `send`
@@ -253,7 +253,7 @@ class TestInertiaCacheOrdering:
     """
 
     async def test_maintenance_503_gets_private_no_store_for_an_inertia_request(self) -> None:
-        app = _build_app(enabled=True, with_inertia_cache=True)
+        app = _build_app(enabled=True, with_inertia_middleware=True)
         resp = await _get(app, "/protected", headers={"X-Inertia": "true"})
         assert resp.status_code == 503
         assert resp.headers["cache-control"] == "private, no-store"
@@ -263,7 +263,7 @@ class TestInertiaCacheOrdering:
     async def test_maintenance_503_is_not_forced_private_for_a_plain_json_request(self) -> None:
         """Only the Inertia representation needs the cache guard — a bare API
         caller's 503 keeps whatever caching (none, here) it already had."""
-        app = _build_app(enabled=True, with_inertia_cache=True)
+        app = _build_app(enabled=True, with_inertia_middleware=True)
         resp = await _get(app, "/api/thing")
         assert resp.status_code == 503
         assert "cache-control" not in resp.headers

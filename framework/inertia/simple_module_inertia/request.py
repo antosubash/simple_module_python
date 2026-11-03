@@ -11,6 +11,17 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from starlette.datastructures import Headers
+from starlette.types import Scope
+
+INERTIA_HEADER = "X-Inertia"
+
+
+def is_inertia_request(scope: Scope) -> bool:
+    """The adapter selects JSON whenever the request header is present."""
+    return INERTIA_HEADER in Headers(scope=scope)
+
+
 MergeIntent = Literal["append", "prepend"]
 
 
@@ -39,7 +50,7 @@ class InertiaRequest:
         lower = {k.lower(): v for k, v in headers.items()}
         intent = (lower.get("x-inertia-infinite-scroll-merge-intent") or "").lower()
         return cls(
-            is_inertia="x-inertia" in lower,
+            is_inertia=INERTIA_HEADER.lower() in lower,
             version=lower.get("x-inertia-version"),
             partial_component=lower.get("x-inertia-partial-component") or None,
             partial_data=_csv(lower.get("x-inertia-partial-data")),

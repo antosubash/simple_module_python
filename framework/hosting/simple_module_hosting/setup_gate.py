@@ -5,7 +5,7 @@ redirects to a login nobody can pass or fails outright. While any required
 :class:`~simple_module_core.setup_steps.SetupStep` reports incomplete, this
 redirects to ``/setup``.
 
-Sits inside ``InertiaCache`` in the middleware pipeline so its redirect is
+Sits inside ``InertiaMiddleware`` in the middleware pipeline so its redirect is
 never stored by a cache, and outside ``Maintenance`` — an install that is not
 set up has nothing to put into maintenance.
 """

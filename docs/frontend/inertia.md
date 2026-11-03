@@ -7,7 +7,7 @@ Inertia.js turns classic server-side routing into a single-page app without a se
 Two moving parts:
 
 1. **`fastapi-inertia`** — renders templates and serializes responses in Inertia's expected shape.
-2. **`InertiaLayoutDataMiddleware`** (framework) — attaches shared props (`auth`, `menus`, `i18n`) to every response.
+2. **`InertiaLayoutDataMiddleware`** (framework) — lazily supplies shared props (`auth`, `menus`, `i18n`) to rendered pages.
 
 ## Rendering a page
 
@@ -129,8 +129,9 @@ Every Inertia response includes:
   },
   i18n: {
     locale: string,
+    audience: 'public' | 'full',
     supportedLocales: string[],
-    messages: Record<string, string> | null,   // flat key → value; null on unchanged-locale XHR partials
+    messages: Record<string, string> | null,   // flat key → value; null when the tab reports a matching locale/audience
   },
 }
 ```

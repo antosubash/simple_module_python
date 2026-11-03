@@ -51,6 +51,16 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change:** `RedactionFilter` on ordinary logging handlers masks
   secrets in tracebacks and stack information, including exception text not
   yet formatted when the filter runs (#789).
+- **Behaviour change (#788):** Inertia visits report each tab's cached catalog
+  with `X-SM-I18n`; locale/audience mismatches resend messages, and raw requests
+  no longer advance legacy session markers. Clients reload a missing locale once.
+- **Behaviour change (#790):** The standalone adapter owns Inertia header
+  detection and cache protection (`private, no-store`, no ETag, `Vary: X-Inertia`).
+  Hosting's duplicate cache middleware is removed; document caching is preserved.
+- **Behaviour change (#791):** Layout props and module providers resolve once
+  when a page or error page needs them; JSON APIs/downloads skip that work.
+  Permission resolution remains eager. Direct layout readers can await
+  `resolve_inertia_shared(request)` before using `request.state.inertia_shared`.
 - **Behaviour change:** Inertia GETs with a missing asset-version header now
   receive 409 when the server version is non-empty; version conflicts include
   both `X-Inertia-Location` and the current `X-Inertia-Version` (#774).

@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -65,7 +66,7 @@ class TestInertiaLayoutDataMiddlewareRoleMap:
 
             req = Request(scope)
             captured["resolved"] = req.state.resolved_permissions
-            captured["shared"] = req.state.inertia_shared
+            captured["shared"] = await resolve_inertia_shared(req)
 
         mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
         scope = _http_scope(roles=["user"])
@@ -86,7 +87,7 @@ class TestInertiaLayoutDataMiddlewareRoleMap:
 
             req = Request(scope)
             captured["resolved"] = req.state.resolved_permissions
-            captured["shared"] = req.state.inertia_shared
+            captured["shared"] = await resolve_inertia_shared(req)
 
         mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
         scope = _http_scope(roles=None)  # no user
@@ -105,7 +106,7 @@ class TestInertiaLayoutDataMiddlewareRoleMap:
             from starlette.requests import Request
 
             req = Request(scope)
-            captured["shared"] = req.state.inertia_shared
+            captured["shared"] = await resolve_inertia_shared(req)
 
         mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
         await mw(_http_scope(roles=["user"]), _noop_receive, _noop_send)
@@ -123,7 +124,7 @@ class TestInertiaLayoutDataMiddlewareRoleMap:
             from starlette.requests import Request
 
             req = Request(scope)
-            captured["shared"] = req.state.inertia_shared
+            captured["shared"] = await resolve_inertia_shared(req)
 
         mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
         scope = _http_scope(
@@ -145,7 +146,7 @@ class TestInertiaLayoutDataMiddlewareRoleMap:
             from starlette.requests import Request
 
             req = Request(scope)
-            captured["shared"] = req.state.inertia_shared
+            captured["shared"] = await resolve_inertia_shared(req)
 
         mw = InertiaLayoutDataMiddleware(inner_app, menu_registry=menu_reg, permission_registry=reg)
         scope = _http_scope(roles=["admin"])

@@ -220,7 +220,7 @@ the host), then async `on_startup` / `on_shutdown` (reverse order). Non-hook ove
 **Middleware** (Starlette `add_middleware` is LIFO). Execution order per
 request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
 SM_TRUSTED_PROXY) → CorrelationId → RequestLogging → CORS → BodyLimit → GZip → SecurityHeaders → Session → InertiaMiddleware → <module middleware> → Tenant
-(opt-in) → Locale → InertiaLayoutData → InertiaCache → RateLimit → Setup →
+(opt-in) → Locale → InertiaLayoutData → RateLimit → Setup →
 Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
 
 - Modules at the same dependency tier: the one that sorts later wraps outermost.
@@ -262,7 +262,9 @@ and prop factories (`optional`, `always`, `defer`, `merge`, `once`, `scroll`)
 come from `simple_module_inertia`. Shared props `auth`, `menus`, `i18n` are set
 by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 `app.state.principal_serializer` is set, and `i18n.messages` is null on every
-`X-Inertia` request unless the locale or audience changed. Inertia
+`X-Inertia` request when the tab reports a matching locale and audience
+via `X-SM-I18n`; clients without that header use the legacy session markers.
+Layout props are resolved lazily by page and error rendering; permissions stay eager. Inertia
 `router.post/patch/put/delete` must target view routes, never `/api/*`
 (`SM018`). `docs/frontend/`.
 

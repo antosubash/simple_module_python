@@ -11,22 +11,23 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
 from simple_module_hosting.shared_props import register_inertia_shared_provider
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.testclient import TestClient
 
 
 def _build_app() -> FastAPI:
     app = FastAPI()
 
     @app.get("/shared")
-    def shared(request: Request) -> JSONResponse:
-        return JSONResponse(request.state.inertia_shared)
+    async def shared(request: Request) -> JSONResponse:
+        return JSONResponse(await resolve_inertia_shared(request))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -37,11 +38,13 @@ def _build_app() -> FastAPI:
     return app
 
 
-def test_registered_provider_dict_merged_into_shared() -> None:
+async def test_registered_provider_dict_merged_into_shared() -> None:
     app = _build_app()
     register_inertia_shared_provider(app, lambda _req: {"branding": {"appName": "Acme"}})
 
-    body = TestClient(app).get("/shared").json()
+    body = (
+        await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get("/shared")
+    ).json()
 
     assert body["branding"] == {"appName": "Acme"}
     # Built-in blocks still present.
@@ -49,7 +52,7 @@ def test_registered_provider_dict_merged_into_shared() -> None:
     assert "menus" in body
 
 
-def test_provider_that_raises_is_skipped_not_fatal(caplog) -> None:
+async def test_provider_that_raises_is_skipped_not_fatal(caplog) -> None:
     app = _build_app()
 
     def boom(_req: Request) -> dict:
@@ -59,7 +62,9 @@ def test_provider_that_raises_is_skipped_not_fatal(caplog) -> None:
     register_inertia_shared_provider(app, lambda _req: {"branding": {"appName": "Acme"}})
 
     with caplog.at_level(logging.WARNING, logger="simple_module_hosting.middleware"):
-        resp = TestClient(app).get("/shared")
+        resp = await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get(
+            "/shared"
+        )
 
     assert resp.status_code == 200
     body = resp.json()
@@ -69,13 +74,17 @@ def test_provider_that_raises_is_skipped_not_fatal(caplog) -> None:
     assert any("shared-prop" in rec.message.lower() for rec in caplog.records)
 
 
-def test_no_providers_leaves_shared_unchanged() -> None:
-    body = TestClient(_build_app()).get("/shared").json()
+async def test_no_providers_leaves_shared_unchanged() -> None:
+    body = (
+        await AsyncClient(transport=ASGITransport(app=_build_app()), base_url="http://test").get(
+            "/shared"
+        )
+    ).json()
     assert "branding" not in body
     assert "auth" in body and "menus" in body
 
 
-def test_provider_cannot_clobber_framework_keys(caplog) -> None:
+async def test_provider_cannot_clobber_framework_keys(caplog) -> None:
     app = _build_app()
     # A misbehaving provider tries to overwrite the framework-owned auth block.
     register_inertia_shared_provider(
@@ -83,7 +92,11 @@ def test_provider_cannot_clobber_framework_keys(caplog) -> None:
     )
 
     with caplog.at_level(logging.WARNING, logger="simple_module_hosting.middleware"):
-        body = TestClient(app).get("/shared").json()
+        body = (
+            await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get(
+                "/shared"
+            )
+        ).json()
 
     # auth stays the framework's dict; only the non-reserved key is added.
     assert isinstance(body["auth"], dict)
@@ -91,7 +104,7 @@ def test_provider_cannot_clobber_framework_keys(caplog) -> None:
     assert any("reserved shared-prop" in rec.message for rec in caplog.records)
 
 
-def test_async_provider_is_awaited() -> None:
+async def test_async_provider_is_awaited() -> None:
     """A provider may be async — branding resolves the request's tenant (#373)."""
     app = _build_app()
 
@@ -100,4 +113,6 @@ def test_async_provider_is_awaited() -> None:
 
     register_inertia_shared_provider(app, provider)
 
-    assert TestClient(app).get("/shared").json()["branding"] == {"appName": "Tenant"}
+    assert (
+        await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get("/shared")
+    ).json()["branding"] == {"appName": "Tenant"}

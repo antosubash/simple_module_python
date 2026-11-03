@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
 from simple_module_hosting.permissions import RequiresPermission, resolve_principal_permissions
 
@@ -69,7 +70,7 @@ class TestMiddlewareFoldsSources:
         async def inner_app(scope, receive, send):
             from starlette.requests import Request
 
-            captured["shared"] = Request(scope).state.inertia_shared
+            captured["shared"] = await resolve_inertia_shared(Request(scope))
 
         mw = InertiaLayoutDataMiddleware(
             inner_app, menu_registry=MenuRegistry(), permission_registry=_registry(_grants_view)

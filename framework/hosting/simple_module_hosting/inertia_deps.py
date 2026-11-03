@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from simple_module_inertia import Inertia
 
+from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.token_guard import GATE_PAGE, mark_token_gate
 
 
@@ -19,7 +20,7 @@ async def get_inertia(request: Request) -> Inertia:
     inertia_dep = request.app.state.inertia_dependency
     inertia = inertia_dep(request, None)
 
-    shared = getattr(request.state, "inertia_shared", None)
+    shared = await resolve_inertia_shared(request)
     if shared:
         inertia.share(**shared)
 

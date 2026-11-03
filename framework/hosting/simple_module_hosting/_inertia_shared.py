@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 from collections.abc import Callable
@@ -9,6 +10,7 @@ from typing import Any
 
 from simple_module_core.app_state import get_inertia_shared_providers, get_services
 from simple_module_core.i18n import Translator
+from simple_module_inertia import is_inertia_request
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import Scope
@@ -19,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 _I18N_SESSION_LOCALE_KEY = "__i18n_locale"
 _I18N_SESSION_AUDIENCE_KEY = "__i18n_audience"
-_INERTIA_HEADER = "x-inertia"
-_INERTIA_HEADER_TRUE = "true"
+I18N_CATALOG_HEADER = "X-SM-I18n"
 #: Shared-prop key the frontend API client reads its ``X-CSRF-Token`` from (#504).
 CSRF_SHARED_PROP = "csrfToken"
 
@@ -35,9 +36,9 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
     Rules:
 
     * No registry / no locale → serve an empty English block and log once.
-    * Inertia XHR partials (``X-Inertia: true``) reuse the client-side
-      cached messages; send ``messages: None`` unless the locale — or the
-      audience, see below — differs from what was last served this session.
+    * Inertia visits (header presence) report their tab's cached catalog in
+      ``X-SM-I18n: <locale>:<audience>``. Send messages only on a mismatch;
+      clients without that header retain the legacy session comparison.
     * Full page loads and locale transitions ship the complete dict.
     * Anonymous visitors receive the public snapshot: catalogs of modules
       declaring ``i18n_audience="admin"`` are withheld (issue #248). A login
@@ -58,36 +59,25 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
         )
         return {"locale": "en", "supportedLocales": ["en"], "messages": {}}
 
-    is_inertia = Headers(scope=scope).get(_INERTIA_HEADER) == _INERTIA_HEADER_TRUE
+    is_inertia = is_inertia_request(scope)
     audience = "full" if is_authenticated else "public"
-    session_dict = scope.get("session")
-    # When the session is absent (pre-session-middleware routes, WebSocket
-    # upgrades), treat locale as "unchanged" so Inertia XHR requests still
-    # skip the messages payload. Non-Inertia requests will always ship them
-    # regardless of the session state.
-    if session_dict is not None:
-        # Remembering the locale only pays off for a client that will come back
-        # with an Inertia XHR (to skip re-sending the catalog). A bare API or
-        # health-check call from a cookie-less client will not, and writing
-        # here would make Starlette's SessionMiddleware emit a two-week
-        # Set-Cookie on every anonymous response, which keeps shared caches
-        # from storing it (GH #349). So persist only when a session already
-        # exists (it has data) or the caller is page-shaped.
-        persist = bool(session_dict) or is_inertia or _accepts_html(scope)
-        last_locale = session_dict.get(_I18N_SESSION_LOCALE_KEY)
-        locale_changed = last_locale != locale
-        if locale_changed and persist:
-            session_dict[_I18N_SESSION_LOCALE_KEY] = locale
-        last_audience = session_dict.get(_I18N_SESSION_AUDIENCE_KEY)
-        audience_changed = last_audience != audience
-        if audience_changed and persist:
-            session_dict[_I18N_SESSION_AUDIENCE_KEY] = audience
+    cached_catalog = Headers(scope=scope).get(I18N_CATALOG_HEADER)
+    if cached_catalog is not None:
+        send_messages = not is_inertia or cached_catalog != f"{locale}:{audience}"
     else:
-        locale_changed = False
-        audience_changed = False
-    send_messages = (not is_inertia) or locale_changed or audience_changed
+        session = scope.get("session")
+        changed = session is not None and (
+            session.get(_I18N_SESSION_LOCALE_KEY) != locale
+            or session.get(_I18N_SESSION_AUDIENCE_KEY) != audience
+        )
+        # Legacy clients remember only page-shaped requests, never raw fetches.
+        if session is not None and (is_inertia or _accepts_html(scope)):
+            session[_I18N_SESSION_LOCALE_KEY] = locale
+            session[_I18N_SESSION_AUDIENCE_KEY] = audience
+        send_messages = not is_inertia or changed
     return {
         "locale": locale,
+        "audience": audience,
         "supportedLocales": registry.available_locales(),
         "messages": (
             registry.messages_snapshot(locale, include_admin=is_authenticated)
@@ -116,9 +106,8 @@ def lazy_csrf_shared_prop(
 ) -> dict[str, Callable[[], str]]:
     """Like :func:`csrf_shared_prop`, but the token is resolved at render time.
 
-    The shared props are built for every request; a JSON call or a download
-    never renders a page, so minting eagerly would write the session (a
-    ``Set-Cookie``) on responses that have no use for the token. Inertia calls
+    The token stays lazy even after layout resolution, so an Inertia partial
+    that excludes it does not mint an unused session token. Inertia calls
     the callable only when it serialises props.
     """
     if not is_authenticated or request.scope.get("session") is None:
@@ -191,3 +180,15 @@ def default_home_url(app: Any) -> str:
     sm = get_services(app)
     prefix = getattr(sm, "view_prefixes", {}).get("Dashboard")
     return f"{prefix}/" if prefix else "/"
+
+
+async def resolve_inertia_shared(request: Request) -> dict:
+    """Build layout props once on demand, keeping the resolved state dict public."""
+    factory = getattr(request.state, "inertia_shared_factory", None)
+    if factory is not None:
+        task = getattr(request.state, "inertia_shared_task", None)
+        if task is None:
+            task = asyncio.create_task(factory())
+            request.state.inertia_shared_task = task
+        request.state.inertia_shared = await task
+    return getattr(request.state, "inertia_shared", None) or {}

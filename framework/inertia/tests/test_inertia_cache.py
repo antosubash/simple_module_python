@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_hosting._inertia_cache import (
-    PAYLOAD_CACHE_CONTROL,
-    InertiaCacheMiddleware,
+from simple_module_inertia import (
+    INERTIA_HEADER,
+    InertiaMiddleware,
     is_inertia_request,
 )
 from starlette.applications import Starlette
@@ -56,7 +56,7 @@ def _build_app() -> Starlette:
         return Response(b"body{}", media_type="text/css", headers={"ETag": _SHARED_ETAG})
 
     app = Starlette(routes=[Route("/p/home", page), Route("/static/app.css", asset)])
-    app.add_middleware(InertiaCacheMiddleware)
+    app.add_middleware(InertiaMiddleware)
     return app
 
 
@@ -76,7 +76,7 @@ class TestInertiaPayload:
             resp = await client.get("/p/home", headers=_INERTIA)
 
         assert resp.status_code == _OK
-        assert resp.headers["cache-control"] == PAYLOAD_CACHE_CONTROL
+        assert resp.headers["cache-control"] == "private, no-store"
 
     async def test_payload_carries_no_validator(self, cache_client: httpx.AsyncClient) -> None:
         """A shared ETag lets a cache revalidate its way back to the payload.
@@ -111,10 +111,11 @@ class TestMatchesUpstreamDetection:
     through this middleware uncached, reopening the exact leak the fix closes.
     """
 
-    def test_any_header_value_counts_as_inertia(self) -> None:
-        scope = {"type": "http", "headers": [(b"x-inertia", b"false")]}
-
+    @pytest.mark.parametrize("value", [b"true", b"1", b"false", b""])
+    def test_any_header_value_counts_as_inertia(self, value: bytes) -> None:
+        scope = {"type": "http", "headers": [(INERTIA_HEADER.lower().encode(), value)]}
         assert is_inertia_request(scope) is True
+        assert is_inertia_request({"type": "http", "headers": []}) is False
 
     async def test_a_non_true_value_still_gets_the_safety_headers(self) -> None:
         """A route that mirrors upstream's own (presence-only) detection.
@@ -134,14 +135,14 @@ class TestMatchesUpstreamDetection:
             return response
 
         app = Starlette(routes=[Route("/p/home", page)])
-        app.add_middleware(InertiaCacheMiddleware)
+        app.add_middleware(InertiaMiddleware)
         transport = httpx.ASGITransport(app=app)
 
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/p/home", headers={"X-Inertia": "false"})
 
         assert resp.headers["content-type"].startswith("application/json")
-        assert resp.headers["cache-control"] == PAYLOAD_CACHE_CONTROL
+        assert resp.headers["cache-control"] == "private, no-store"
         assert "etag" not in resp.headers
 
 
@@ -174,14 +175,17 @@ class TestUnrelatedResponses:
         assert "x-inertia" not in _vary_fields(resp)
 
 
-class TestAgainstTheRealApp:
-    async def test_a_rendered_view_never_returns_a_storable_payload(
-        self, authenticated_client: httpx.AsyncClient
-    ) -> None:
-        """End to end, through the whole middleware pipeline."""
-        resp = await authenticated_client.get("/dashboard/", headers=_INERTIA)
+async def test_response_marked_inertia_is_protected_without_request_header():
+    async def payload(scope, receive, send):
+        await JSONResponse(
+            {"component": "Home", "props": {}},
+            headers={"X-Inertia": "true", "Cache-Control": _PUBLIC_CACHE, "ETag": _SHARED_ETAG},
+        )(scope, receive, send)
 
-        assert resp.status_code == _OK
-        assert resp.headers["content-type"].startswith("application/json")
-        assert resp.headers["cache-control"] == PAYLOAD_CACHE_CONTROL
-        assert "x-inertia" in _vary_fields(resp)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=InertiaMiddleware(payload)), base_url="http://test"
+    ) as client:
+        response = await client.get("/")
+    assert response.headers["cache-control"] == "private, no-store"
+    assert "etag" not in response.headers
+    assert "x-inertia" in _vary_fields(response)
