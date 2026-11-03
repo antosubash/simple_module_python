@@ -6,10 +6,8 @@ import logging
 import secrets
 import time
 
+from auth.oidc_common.session import sign_in, stale_callback
 from fastapi import APIRouter, HTTPException, Request
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
-from simple_module_hosting.csrf import rotate_csrf_token
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
 
 from oidc.constants import (
@@ -18,9 +16,8 @@ from oidc.constants import (
     SESSION_STATE_KEY,
     SESSION_USER_KEY,
     SESSION_VERIFIER_KEY,
-    STALE_LOGIN_STATUS,
 )
-from oidc.runtime import is_signed_in, require_client
+from oidc.runtime import require_client
 from oidc.tokens import store_refresh_token
 
 logger = logging.getLogger(__name__)
@@ -47,22 +44,16 @@ async def oidc_login(request: Request):
 @router.get("/callback", name="oidc_auth_callback")
 async def oidc_callback(request: Request):
     code = request.query_params.get("code")
-    state = request.query_params.get("state")
     # The state is compared before the login transaction is consumed: a reply
     # that does not carry it (a forged link) leaves the pending sign-in alone.
-    expected_state = request.session.get(SESSION_STATE_KEY)
-    if (
-        not state
-        or not isinstance(expected_state, str)
-        or not secrets.compare_digest(state.encode(), expected_state.encode())
-    ):
-        # Browser Back after signing in, or a second tab whose login another
-        # tab finished, lands here with a spent state. A signed-in user just
-        # continues; anyone else gets the "expired, sign in again" page (419)
-        # rather than a raw error, and no automatic retry that could loop.
-        if is_signed_in(request.session):
-            return RedirectResponse(request.app.state.oidc.settings.login_redirect_url, 303)
-        raise HTTPException(status_code=STALE_LOGIN_STATUS, detail="Sign-in expired; start again")
+    stale = stale_callback(
+        request,
+        SESSION_STATE_KEY,
+        SESSION_USER_KEY,
+        request.app.state.oidc.settings.login_redirect_url,
+    )
+    if stale is not None:
+        return stale
     request.session.pop(SESSION_STATE_KEY, None)
     expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
     verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
@@ -113,20 +104,15 @@ async def oidc_callback(request: Request):
     if cache_id is None:
         raise HTTPException(status_code=503, detail="OIDC identity unavailable")
     user_ctx = provider._claims_to_user_context(claims, cache_id=cache_id)
-    next_url = (
-        safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None)) or s.login_redirect_url
+    next_url = sign_in(
+        request,
+        user=user_ctx,
+        expires_at=expires_at,
+        redirect=s.login_redirect_url,
+        user_key=SESSION_USER_KEY,
+        identity_key=SESSION_IDENTITY_KEY,
+        identity=identity,
     )
-    preserved = {
-        key: request.session[key]
-        for key in sign_in_preserved_keys(request.app)
-        if key in request.session
-    }
-    request.session.clear()
-    request.session.update(preserved)
-    rotate_csrf_token(request)
-    request.session[SESSION_USER_KEY] = user_ctx.to_session_dict()
-    request.session[SESSION_IDENTITY_KEY] = list(identity)
-    request.session[SESSION_EXPIRES_AT_KEY] = expires_at
     if tokens.get("refresh_token"):
         store_refresh_token(request.app, request.session, tokens["refresh_token"])
     return RedirectResponse(next_url, status_code=303)

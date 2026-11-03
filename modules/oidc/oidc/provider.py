@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
-from simple_module_core.tenancy import is_tenant_role
-from simple_module_db import is_valid_tenant_id
+from auth.oidc_common.claims import extract_nested as _extract_nested
+from auth.oidc_common.tenant import trusted_tenant, without_tenant_roles
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, session_has_expired
 from starlette.requests import Request
 
@@ -162,50 +162,9 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
         return issuer, self._subject(claims)
 
     def _trusted_tenant(self, value: Any) -> str | None:
-        """The ``tenant_id`` claim, if the operator trusts it and it is well-formed.
-
-        The claim is the IdP's word, not ours: it is ignored unless the operator
-        vouches for the realm mapper (``trust_tenant_claim``), and even then a
-        registered tenant resolver overrides it every request. It must also pass
-        the same id check as any other tenant id taken from outside.
-        """
-        if value is None or not (self._settings and self._settings.trust_tenant_claim):
-            return None
-        if not is_valid_tenant_id(value):
-            logger.warning("Ignoring malformed tenant_id claim %r", value)
-            return None
-        return value
+        return trusted_tenant(
+            value, trust_claim=bool(self._settings and self._settings.trust_tenant_claim)
+        )
 
     def _without_tenant_roles(self, roles: list[str]) -> list[str]:
-        """Drop ``tenant:*`` roles: only the tenants module may grant them, for
-        the active tenant. A ``role_mapping`` entry producing one would
-        otherwise hand every user that tenant role in every tenant."""
-        kept = []
-        for role in roles:
-            if not is_tenant_role(role):
-                kept.append(role)
-            elif role not in self._warned_tenant_roles:
-                self._warned_tenant_roles.add(role)
-                logger.warning(
-                    "Oidc role_mapping produced tenant role %r; ignored "
-                    "(tenant roles come from memberships only)",
-                    role,
-                )
-        return kept
-
-
-def _extract_nested(data: dict, path: str) -> list[str] | None:
-    # A claim named exactly ``path`` wins: Auth0/Okta namespace custom claims
-    # as URLs (``https://example.com/roles``), which contain dots.
-    if path in data:
-        value = data[path]
-        return value if isinstance(value, list) else None
-    parts = path.split(".")
-    current: Any = data
-    for part in parts:
-        if not isinstance(current, dict):
-            return None
-        current = current.get(part)
-        if current is None:
-            return None
-    return current if isinstance(current, list) else None
+        return without_tenant_roles(roles, warned=self._warned_tenant_roles, provider="Oidc")

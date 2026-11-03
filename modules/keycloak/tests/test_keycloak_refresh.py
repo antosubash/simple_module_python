@@ -14,7 +14,7 @@ from starlette.requests import Request
 
 
 @pytest.fixture
-def refresh_session(monkeypatch):
+async def refresh_session(monkeypatch, db_state, db_session):
     monkeypatch.setattr("time.time", lambda: 1000)
     settings = KeycloakSettings(
         server_url="https://idp.test",
@@ -41,9 +41,17 @@ def refresh_session(monkeypatch):
             sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
         )
     )
+    from keycloak.models import KeycloakUserCache
+    from simple_module_db import independent_session
+
+    app.state.sm.db = db_state
+    async with independent_session(app) as db:
+        row = KeycloakUserCache(keycloak_sub="subject")
+        db.add(row)
+        user_id = str(row.id)
     session = {
         "user_ctx": UserContext(
-            id="user", email="old@example.com", name="Old", roles=["admin"]
+            id=user_id, email="old@example.com", name="Old", roles=["admin"]
         ).to_session_dict(),
         "keycloak_refresh_token": seal_refresh_token(app, "refresh-old"),
         "keycloak_id_token": "id-old",
@@ -158,5 +166,37 @@ async def test_undecryptable_refresh_token_requires_sign_in(refresh_session, tam
         request.session["keycloak_refresh_token"] = "not-a-fernet-token"
     else:
         request.app.state.sm.settings.secret_key = "rotated-secret"
+    assert await provider.resolve_user(request) is None
+    assert request.session == {"gate": "unlocked"}
+
+
+async def test_keycloak_refresh_backs_off_across_requests(refresh_session, httpx_mock, monkeypatch):
+    provider, request = refresh_session
+    httpx_mock.add_response(status_code=503)
+    assert await provider.resolve_user(request) is None
+    assert request.session["keycloak_refresh_retry_at"] == 1030
+    request.state.keycloak_refresh_attempted = False
+    monkeypatch.setattr("time.time", lambda: 1029)
+    assert await provider.resolve_user(request) is None
+    assert len(httpx_mock.get_requests()) == 1
+    request.state.keycloak_refresh_attempted = False
+    monkeypatch.setattr("time.time", lambda: 1031)
+    httpx_mock.add_response(json={"access_token": "new"})
+    assert await provider.resolve_user(request) is not None
+    assert "keycloak_refresh_retry_at" not in request.session
+
+
+async def test_keycloak_refresh_omits_oversized_token(refresh_session, httpx_mock):
+    provider, request = refresh_session
+    httpx_mock.add_response(json={"access_token": "new", "refresh_token": "r" * 3000})
+    assert await provider.resolve_user(request) is not None
+    assert request.session["expires_at"] == 1300
+    assert "keycloak_refresh_token" not in request.session
+
+
+async def test_keycloak_refresh_refuses_identity_switch(refresh_session, httpx_mock):
+    provider, request = refresh_session
+    provider.jwks_cache.validate_jwt.return_value["sub"] = "other"
+    httpx_mock.add_response(json={"access_token": "new"})
     assert await provider.resolve_user(request) is None
     assert request.session == {"gate": "unlocked"}

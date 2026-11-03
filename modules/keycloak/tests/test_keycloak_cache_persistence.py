@@ -123,3 +123,26 @@ async def test_keycloak_cache_recovers_unique_insert_race(cache_request, db_stat
         row = (await db.execute(select(KeycloakUserCache))).scalar_one()
         assert str(row.id) == winner_id
         assert (row.email, row.full_name) == ("old@example.com", "Old")
+
+
+@pytest.mark.parametrize("name", ["", None])
+async def test_keycloak_explicit_empty_name_clears_cached_name(cache_request, db_state, name):
+    provider = KeycloakAuthProvider()
+    user_id = await provider._upsert_user_cache(cache_request, CLAIMS)
+    await provider._upsert_user_cache(cache_request, {**CLAIMS, "preferred_username": name})
+    async with db_state.session_factory() as db:
+        row = (await db.execute(select(KeycloakUserCache))).scalar_one()
+        assert str(row.id) == user_id
+        assert row.full_name == name
+
+
+@pytest.mark.parametrize("email", [123, ["a@example.com"], {"v": 1}])
+async def test_keycloak_non_string_email_claim_still_caches_the_identity(
+    cache_request, db_state, email
+):
+    provider = KeycloakAuthProvider()
+    first = await provider._upsert_user_cache(cache_request, {**CLAIMS, "email": email})
+    assert first != CLAIMS["sub"]  # a real cache id, not the raw-sub fallback
+    async with db_state.session_factory() as db:
+        row = (await db.execute(select(KeycloakUserCache))).scalar_one()
+        assert row.email == ""

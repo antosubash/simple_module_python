@@ -17,5 +17,3 @@ SESSION_IDENTITY_KEY = "oidc_identity"
 SESSION_REFRESH_TOKEN_KEY = "oidc_refresh_token"
 SESSION_REFRESH_RETRY_AT_KEY = "oidc_refresh_retry_at"
 DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
-# "Page expired": the framework renders it with a sign-in link (simple_module_hosting).
-STALE_LOGIN_STATUS = 419

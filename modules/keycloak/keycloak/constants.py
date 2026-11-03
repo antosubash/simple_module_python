@@ -11,3 +11,11 @@ PUBLIC_PATH_PREFIXES = (
     "/keycloak/logged-out",
     "/api/keycloak/auth/",
 )
+
+SESSION_REFRESH_TOKEN_KEY = "keycloak_refresh_token"
+SESSION_REFRESH_RETRY_AT_KEY = "keycloak_refresh_retry_at"
+SESSION_ID_TOKEN_KEY = "keycloak_id_token"
+SESSION_USER_KEY = "user_ctx"
+SESSION_STATE_KEY = "keycloak_oidc_state"
+SESSION_NONCE_KEY = "keycloak_oidc_nonce"
+SESSION_VERIFIER_KEY = "keycloak_oidc_verifier"

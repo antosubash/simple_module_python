@@ -3129,7 +3129,10 @@ name = "simple-module-auth"
 version = "0.0.42"
 source = { editable = "modules/auth" }
 dependencies = [
+    { name = "cryptography" },
+    { name = "httpx" },
     { name = "itsdangerous" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
@@ -3137,7 +3140,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=42" },
+    { name = "httpx", specifier = ">=0.27,<0.29" },
     { name = "itsdangerous", specifier = ">=2.2,<3" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8,<3" },
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },

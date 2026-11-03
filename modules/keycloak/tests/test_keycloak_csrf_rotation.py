@@ -36,6 +36,7 @@ async def test_oidc_callback_rotates_csrf(monkeypatch):
             "session": {
                 "keycloak_oidc_state": "valid",
                 "keycloak_oidc_nonce": "nonce",
+                "keycloak_oidc_verifier": "verifier",
                 "next": "/deep-link/",
             },
         }

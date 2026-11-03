@@ -91,7 +91,8 @@ class TestEveryProviderConsumesTheStashedTarget:
         [
             "modules/users/users/oauth/api.py",
             "modules/users/users/auth_local/api.py",
-            "modules/keycloak/keycloak/endpoints/api.py",
+            # keycloak and oidc complete their logins through the shared helper (#741).
+            "modules/auth/auth/oidc_common/session.py",
         ],
     )
     def test_login_completion_paths_clear_the_stashed_target(self, relative: str) -> None:
@@ -108,10 +109,21 @@ class TestEveryProviderConsumesTheStashedTarget:
         "relative",
         [
             "modules/users/users/oauth/api.py",
-            "modules/keycloak/keycloak/endpoints/api.py",
+            # keycloak and oidc complete their logins through the shared helper (#741).
+            "modules/auth/auth/oidc_common/session.py",
         ],
     )
     def test_redirecting_providers_sanitise_the_target(self, relative: str) -> None:
         """The value lands in a Location header, so it is re-checked on the way
         out even though AuthMiddleware already validated it going in."""
         assert "safe_next_or_none" in self._source(relative)
+
+
+@pytest.mark.parametrize(
+    "relative", ["modules/keycloak/keycloak/endpoints/api.py", "modules/oidc/oidc/endpoints/api.py"]
+)
+def test_oidc_providers_complete_login_through_the_shared_sign_in(relative: str) -> None:
+    # The shared helper honours SESSION_NEXT_KEY; a provider that stopped
+    # calling it would silently drop the deep link again.
+    source = TestEveryProviderConsumesTheStashedTarget._source(relative)
+    assert "sign_in(" in source, f"{relative} must complete its login through oidc_common.sign_in"

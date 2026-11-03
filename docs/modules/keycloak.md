@@ -36,17 +36,22 @@ The provider-agnostic `AuthMiddleware` (in `auth`) runs on every request and:
 
 1. Calls `provider.resolve_user(request)`. The Keycloak provider:
    - If there's an `Authorization: Bearer <token>` header, validates the JWT against the cached JWKS and maps claims → `UserContext`.
-   - Otherwise rehydrates `UserContext.from_session_dict(...)` from the browser session cookie (populated by the OIDC callback). At access-token expiry, a stored refresh token renews the session server-side with a five-second token-endpoint timeout. The new access token is validated through the JWKS cache, and its claims replace the cached roles and deadline before the request continues. Demoted users lose their old privileges and disabled users lose access at the next access-token expiry. A refused refresh (for example `invalid_grant`), or an expired session without a refresh token, clears authentication and requires sign-in; a network error or 5xx only signs that request out and keeps the session so the next request retries. Refresh runs at most once per request and never for bearer credentials. Parallel requests that cross the deadline may each refresh: with Keycloak's default (refresh tokens reusable) that is harmless, but a realm with **Revoke Refresh Token** enabled should set *Refresh Token Max Reuse* to at least 1, otherwise the losing request gets `invalid_grant` and signs the user out. Sessions created before refresh-token renewal shipped sign in once after upgrading. Ordinary requests do not slide the deadline.
+   - Otherwise rehydrates `UserContext.from_session_dict(...)` from the browser session cookie (populated by the OIDC callback). At access-token expiry, a stored refresh token renews the session server-side with a five-second token-endpoint timeout. The new access token is validated through the JWKS cache, and its subject must match the existing UUID cache row. Its claims replace the cached roles and deadline before the request continues. Demoted users lose their old privileges and disabled users lose access at the next access-token expiry. A refused refresh (for example `invalid_grant`), or an expired session without a refresh token, clears authentication and requires sign-in; a network error or 5xx only signs that request out and keeps the session with a 30-second back-off before another request retries. Retryable 408, 425 and 429 responses use the same back-off. Refresh runs at most once per request and never for bearer credentials. Parallel requests that cross the deadline may each refresh: with Keycloak's default (refresh tokens reusable) that is harmless, but a realm with **Revoke Refresh Token** enabled should set *Refresh Token Max Reuse* to at least 1, otherwise the losing request gets `invalid_grant` and signs the user out. Sessions created before refresh-token renewal shipped sign in once after upgrading. Ordinary requests do not slide the deadline.
 2. If the provider returns `None`, it falls through to the registered **principal resolvers** (`app.state.auth.principal_resolvers`), trying each until one matches.
 3. If still unresolved and the path isn't public: `/api/*` and bearer requests get a `401` JSON; browser requests are redirected to `provider.get_login_url(...)` (`/keycloak/login`), with the original URL stashed in the session as `next`.
 
-The browser session uses a signed, **unencrypted** cookie, so the refresh token is Fernet-encrypted (key derived with HKDF from `secret_key`) before it is stored; a rotated key or a tampered value counts as no refresh token and requires sign-in. To stay below the roughly 4 KB browser limit with a refresh token and role claims, the ID token is validated at sign-in but never stored. Logout first ends the SSO session back-channel (POST to the end-session endpoint with the client credentials and the refresh token; failures are logged and never block the redirect), then redirects with `client_id` instead of `id_token_hint`.
+The browser session uses a signed, **unencrypted** cookie, so the refresh token is Fernet-encrypted (key derived with HKDF from `secret_key`) before it is stored; a rotated key or a tampered value counts as no refresh token and requires sign-in. To stay below the roughly 4 KB browser limit with a refresh token and role claims, the ID token is validated at sign-in but never stored. A refresh token that would overflow the cookie is omitted; the session then ends at access-token expiry and requires sign-in again. Logout first ends the SSO session back-channel (POST to the end-session endpoint with the client credentials and the refresh token; failures are logged and never block the redirect), then redirects with `client_id` instead of `id_token_hint`.
 
 `KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
 
 ## Bearer-token validation
 
-`JWKSCache` (`keycloak/jwks.py`) caches Keycloak's RS256 public signing keys (`/realms/<realm>/protocol/openid-connect/certs`) and validates tokens with PyJWT, checking signature, `issuer`, and `audience` (the `client_id`). It refetches once on a cache miss / unknown `kid`, so Keycloak key rotation is handled gracefully. The cache is built in `on_startup` (only when `server_url` and `realm` are configured) and attached to the provider.
+`JWKSCache` (`keycloak/jwks.py`) caches Keycloak's RS256 public signing keys (`/realms/<realm>/protocol/openid-connect/certs`) and validates tokens with PyJWT, requiring `iss`, non-empty `sub`, `aud`, integer `exp` and integer `iat`.
+The issuer must match and `client_id` must be among the token's `aud` values
+(extra audiences and the `azp` are not checked, see below). A 10-second clock leeway tolerates small clock
+skew, while browser authority still ends at the access token's exact expiry.
+Concurrent misses share one fetch, attempts have a 30-second cooldown, and
+failed or unusable JWKS refreshes retain the last-good RSA signing keys. The cache is built in `on_startup` (only when `server_url` and `realm` are configured) and attached to the provider.
 
 On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by the Keycloak `sub`, so each external identity maps to a stable framework UUID, then returns a `UserContext` whose `id` is that UUID.
 
@@ -58,8 +63,30 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 |---|---|
 | `GET /keycloak/login` | Inertia `Keycloak/Login` page (auto-redirects to the IdP). |
 | `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout with `client_id` and `post_logout_redirect_uri` back to `/keycloak/logged-out`. |
-| `GET /api/keycloak/auth/login` | Builds the authorization URL (random `state` + `nonce` stored in session) and 302s to Keycloak. |
-| `GET /api/keycloak/auth/callback` | Verifies `state`, exchanges the `code` for tokens, validates both tokens and checks the ID token nonce and matching subject. Upserts the user cache, replaces the session (preserving registered browser gate keys), writes `UserContext`, the refresh token (if returned) and access-token expiry, then redirects to the safe `next` (or `login_redirect_url`). |
+| `GET /api/keycloak/auth/login` | Builds the authorization URL (random `state`, `nonce` and S256 PKCE verifier stored in session) and 302s to Keycloak. |
+| `GET /api/keycloak/auth/callback` | Verifies `state` before consuming the transaction, exchanges the `code` with its PKCE verifier for tokens, validates both tokens and checks the ID token nonce and matching subject. Upserts the user cache, replaces the session (preserving registered browser gate keys), writes `UserContext`, the refresh token (if returned) and access-token expiry, then redirects to the safe `next` (or `login_redirect_url`). |
+
+A stale or replayed callback redirects an already signed-in browser with 303;
+an anonymous browser receives 419 and must start sign-in again. An unmatched
+state does not consume a pending sign-in. Transactions started before this
+upgrade lack a PKCE verifier; their callback also answers 419 ("sign in
+again") and the login must be restarted.
+
+Keycloak's JWT validation keeps its previous audience semantics: the client id
+only has to be among the token's `aud` values and `azp` is not pinned (real
+Keycloak access tokens carry `aud: [client, "account"]`). The `oidc` module
+keeps the strict exclusive-audience check. Keycloak does not add the client id
+to access tokens by default: configure an *Audience* protocol mapper that
+includes the client id in the access token's `aud`, or bearer requests are
+refused.
+
+The shared protocol implementation lives in `auth.oidc_common` (#741).
+Keycloak retains its discovery-free realm URLs, access-token identity and
+`realm_access.roles` mapping, tenant-claim trust setting and back-channel
+`revoke_session` logout. Existing routes, settings, `keycloak_user_cache`,
+subject-based UUIDs, session keys and the `keycloak-refresh-token` HKDF context
+are unchanged; existing refresh-token ciphertext still decrypts. No migration
+or data conversion is needed.
 
 ## Settings
 
@@ -104,7 +131,7 @@ Keycloak registers no setup steps: its local `users` table is legitimately empty
 | `keycloak_sub` | `str` | unique, indexed; the Keycloak `sub` claim |
 | `email` | `str` | from the token |
 | `full_name` | `str \| None` | from `preferred_username` |
-| `last_login_at` | `datetime \| None` | refreshed on each resolve |
+| `last_login_at` | `datetime \| None` | written on login; bearer activity writes throttled to once per five minutes |
 
 The cache backs this module's [user directory](/framework/user-directory)
 (`keycloak.directory.KeycloakDirectory`, installed in `register_settings`), so

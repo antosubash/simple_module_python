@@ -3,20 +3,18 @@
 from __future__ import annotations
 
 import logging
-import time
-from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-import httpx
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import AUTH_KIND_BEARER, is_api_token, parse_bearer
-from simple_module_core.tenancy import is_tenant_role
-from simple_module_db import independent_session, is_valid_tenant_id
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, session_has_expired
-from sqlmodel import col
+from auth.oidc_common.claims import extract_nested as _extract_nested
+from auth.oidc_common.tenant import trusted_tenant, without_tenant_roles
+from simple_module_hosting.session import session_has_expired
 from starlette.requests import Request
 
-from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token, seal_refresh_token
+from keycloak.constants import SESSION_USER_KEY as _SESSION_USER_CTX_KEY
+from keycloak.persistence import CachePersistence
+from keycloak.renewal import SessionRenewal
 
 if TYPE_CHECKING:
     from keycloak.jwks import JWKSCache
@@ -25,14 +23,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SESSION_USER_CTX_KEY = "user_ctx"
-_SESSION_ID_TOKEN_KEY = "keycloak_id_token"
-_LAST_LOGIN_WRITE_INTERVAL = timedelta(minutes=5)
-# 4xx answers that say "try again", not "this grant is dead".
-_RETRYABLE_STATUSES = frozenset({408, 425, 429})
 
-
-class KeycloakAuthProvider:
+class KeycloakAuthProvider(CachePersistence, SessionRenewal):
     """OIDC auth provider backed by Keycloak."""
 
     name = "keycloak"
@@ -76,67 +68,6 @@ class KeycloakAuthProvider:
             ctx.roles = self._without_tenant_roles(ctx.roles)
         return ctx
 
-    @staticmethod
-    def _forget_session(session: Any) -> None:
-        for key in (
-            _SESSION_USER_CTX_KEY,
-            _SESSION_ID_TOKEN_KEY,
-            SESSION_REFRESH_TOKEN_KEY,
-            SESSION_EXPIRES_AT_KEY,
-        ):
-            session.pop(key, None)
-
-    async def _refresh_session(self, request: Request) -> UserContext | None:
-        """Renew an expired session with a refresh grant; sign it out if that is refused.
-
-        A transient failure (network error, 5xx) signs this request out but keeps
-        the session, so the next request retries instead of losing the sign-in.
-        """
-        from keycloak.endpoints.api import _get_oidc_client
-
-        session = request.scope.get("session", {})
-        sealed = session.get(SESSION_REFRESH_TOKEN_KEY)
-        refresh_token = open_refresh_token(request.app, sealed) if sealed else None
-        old_ctx = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
-        if not refresh_token or old_ctx is None or self.jwks_cache is None:
-            self._forget_session(session)
-            return None
-        if getattr(request.state, "keycloak_refresh_attempted", False):
-            return None
-        request.state.keycloak_refresh_attempted = True
-        try:
-            tokens = await _get_oidc_client(request).refresh_tokens(refresh_token)
-        except (httpx.TransportError, httpx.HTTPStatusError) as exc:
-            # Never log the exception text or body: token endpoints can echo credentials.
-            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
-            logger.warning("Keycloak session refresh failed (status=%s)", status)
-            if status is None or status >= 500 or status in _RETRYABLE_STATUSES:
-                return None
-            self._forget_session(session)
-            return None
-        except Exception:
-            logger.warning("Keycloak session refresh failed")
-            self._forget_session(session)
-            return None
-        claims = await self.jwks_cache.validate_jwt(tokens.get("access_token", ""))
-        expires_at = claims.get("exp") if claims else None
-        if (
-            not claims
-            or not claims.get("sub")
-            or type(expires_at) is not int
-            or expires_at <= time.time()
-        ):
-            self._forget_session(session)
-            return None
-        ctx = self._claims_to_user_context(claims, cache_id=old_ctx.id)
-        session[_SESSION_USER_CTX_KEY] = ctx.to_session_dict()
-        new_refresh = tokens.get("refresh_token") or refresh_token
-        session[SESSION_REFRESH_TOKEN_KEY] = seal_refresh_token(request.app, new_refresh)
-        # Old cookies may still carry an ID token; make room for the refresh token.
-        session.pop(_SESSION_ID_TOKEN_KEY, None)
-        session[SESSION_EXPIRES_AT_KEY] = expires_at
-        return ctx
-
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/keycloak/login"
 
@@ -176,7 +107,7 @@ class KeycloakAuthProvider:
         mapped = [
             self._settings.role_mapping[r]
             for r in (roles_raw or [])
-            if self._settings and r in self._settings.role_mapping
+            if self._settings and isinstance(r, str) and r in self._settings.role_mapping
         ]
         return UserContext(
             id=cache_id,
@@ -188,101 +119,9 @@ class KeycloakAuthProvider:
         )
 
     def _trusted_tenant(self, value: Any) -> str | None:
-        """The ``tenant_id`` claim, if the operator trusts it and it is well-formed.
-
-        The claim is the IdP's word, not ours: it is ignored unless the operator
-        vouches for the realm mapper (``trust_tenant_claim``), and even then a
-        registered tenant resolver overrides it every request. It must also pass
-        the same id check as any other tenant id taken from outside.
-        """
-        if value is None or not (self._settings and self._settings.trust_tenant_claim):
-            return None
-        if not is_valid_tenant_id(value):
-            logger.warning("Ignoring malformed tenant_id claim %r", value)
-            return None
-        return value
+        return trusted_tenant(
+            value, trust_claim=bool(self._settings and self._settings.trust_tenant_claim)
+        )
 
     def _without_tenant_roles(self, roles: list[str]) -> list[str]:
-        """Drop ``tenant:*`` roles: only the tenants module may grant them, for
-        the active tenant. A ``role_mapping`` entry producing one would
-        otherwise hand every user that tenant role in every tenant."""
-        kept = []
-        for role in roles:
-            if not is_tenant_role(role):
-                kept.append(role)
-            elif role not in self._warned_tenant_roles:
-                self._warned_tenant_roles.add(role)
-                logger.warning(
-                    "Keycloak role_mapping produced tenant role %r; ignored "
-                    "(tenant roles come from memberships only)",
-                    role,
-                )
-        return kept
-
-    async def _upsert_user_cache(
-        self, request: Request, claims: dict, *, throttle_login: bool = False
-    ) -> str:
-        try:
-            from sqlalchemy import or_, select, update
-            from sqlalchemy.exc import IntegrityError
-
-            from keycloak.models import KeycloakUserCache
-
-            sub = claims["sub"]
-            now = datetime.now(UTC)
-            async with independent_session(request.app) as db:
-                stmt = select(KeycloakUserCache).where(col(KeycloakUserCache.keycloak_sub) == sub)
-                row = (await db.execute(stmt)).scalar_one_or_none()
-                if row is None:
-                    try:
-                        async with db.begin_nested():
-                            row = KeycloakUserCache(
-                                keycloak_sub=sub,
-                                email=claims.get("email", ""),
-                                full_name=claims.get("preferred_username"),
-                                last_login_at=now,
-                            )
-                            db.add(row)
-                            await db.flush()
-                    except IntegrityError:
-                        # Another request inserted this sub after our SELECT.
-                        row = (await db.execute(stmt)).scalar_one()
-
-                row.email = claims.get("email", row.email)
-                row.full_name = claims.get("preferred_username", row.full_name)
-                if not throttle_login:
-                    row.last_login_at = now
-                else:
-                    cutoff = now - _LAST_LOGIN_WRITE_INTERVAL
-                    if row.last_login_at is None or row.last_login_at <= cutoff:
-                        # Recheck in SQL so concurrent bearer requests share one touch.
-                        await db.execute(
-                            update(KeycloakUserCache)
-                            .where(
-                                col(KeycloakUserCache.id) == row.id,
-                                or_(
-                                    col(KeycloakUserCache.last_login_at).is_(None),
-                                    col(KeycloakUserCache.last_login_at) <= cutoff,
-                                ),
-                            )
-                            .values(last_login_at=now)
-                        )
-                return str(row.id)
-        except Exception:
-            logger.exception(
-                "Failed to upsert KeycloakUserCache for sub=%s",
-                claims.get("sub"),
-            )
-            return claims.get("sub", "unknown")
-
-
-def _extract_nested(data: dict, path: str) -> list[str] | None:
-    parts = path.split(".")
-    current: Any = data
-    for part in parts:
-        if not isinstance(current, dict):
-            return None
-        current = current.get(part)
-        if current is None:
-            return None
-    return current if isinstance(current, list) else None
+        return without_tenant_roles(roles, warned=self._warned_tenant_roles, provider="Keycloak")

@@ -1,6 +1,6 @@
 # auth
 
-A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
+A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, [`oidc`](/modules/oidc) for generic OIDC, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
 
 Auth is **pluggable**: exactly one installed module registers an `AuthProvider` implementation on `app.state.auth.auth_provider`, and `AuthMiddleware` delegates to it on every request. The split exists so you can swap authentication backends without churning every consumer's import paths. Diagnostics enforce the invariant — `SM020` errors if two auth-provider modules are installed, `SM021` warns if none is.
 
@@ -12,6 +12,18 @@ Auth is **pluggable**: exactly one installed module registers an `AuthProvider` 
 | `route_prefix` | `/auth` |
 | `view_prefix` | _(none)_ |
 | `depends_on` | _(none)_ |
+
+## Shared OIDC helpers
+
+`auth.oidc_common` holds the protocol pieces used by both `oidc` and
+`keycloak`: the single-flight JWKS cache and RS256 validator, refresh-token
+sealing and cookie-size guard, sign-in rotation and stale-state checks,
+refresh renewal with a 30-second transient-failure cooldown, race-safe cache
+persistence with throttled activity writes, and the cache-backed directory.
+It imports neither provider. Provider adapters retain their claim mapping,
+endpoint configuration, session keys and identity rules. Keycloak identifies
+cache rows by subject; OIDC uses issuer plus subject. Neither table changes
+and no migration is needed (#741).
 
 ## Public contracts
 

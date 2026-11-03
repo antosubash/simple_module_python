@@ -7,13 +7,12 @@ document, so this client is provider-agnostic.
 from __future__ import annotations
 
 import asyncio
-import base64
-import hashlib
 import secrets
 from typing import Any
 from urllib.parse import quote_plus, urlencode
 
 import httpx
+from auth.oidc_common.session import pkce_challenge
 
 # Revocation runs inside the logout request: a hung IdP must not hold it long.
 _REVOKE_TIMEOUT_SECONDS = 3
@@ -65,11 +64,7 @@ class OIDCClient:
             "state": state,
             "nonce": nonce,
             "code_challenge_method": "S256",
-            "code_challenge": base64.urlsafe_b64encode(
-                hashlib.sha256(code_verifier.encode("ascii")).digest()
-            )
-            .rstrip(b"=")
-            .decode("ascii"),
+            "code_challenge": pkce_challenge(code_verifier),
         }
         url = f"{self._authorization_endpoint}?{urlencode(params)}"
         return url, state

@@ -131,7 +131,7 @@ async def test_jwks_cache_refetches_on_unknown_kid(
     """Rotation is discovered after the short refetch cooldown, before the TTL."""
     private_key, public_key = rsa_keys
     now = 10_000.0
-    monkeypatch.setattr("keycloak.jwks.time", SimpleNamespace(monotonic=lambda: now))
+    monkeypatch.setattr("auth.oidc_common.jwks.time", SimpleNamespace(monotonic=lambda: now))
     httpx_mock.add_response(json=_make_jwks_response(public_key))
     httpx_mock.add_response(json=_make_jwks_response(public_key, kid="rotated-key"))
     cache = JWKSCache(
@@ -157,7 +157,7 @@ async def test_jwks_random_kids_throttle_fetch_attempts(
     """Random kids cannot bypass the cooldown, even with stale keys or an outage."""
     private_key, public_key = rsa_keys
     now = 10_000.0
-    monkeypatch.setattr("keycloak.jwks.time", SimpleNamespace(monotonic=lambda: now))
+    monkeypatch.setattr("auth.oidc_common.jwks.time", SimpleNamespace(monotonic=lambda: now))
     if outage:
         httpx_mock.add_exception(httpx.ConnectError("IdP unavailable"), is_reusable=True)
     else:
