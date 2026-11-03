@@ -176,14 +176,25 @@ def restore_tenant(*, task_id: str | None, task: Any) -> None:
 
 
 def release_tenant(*, task_id: str | None) -> None:
-    """Leave the most recent execution's binding in this context (postrun)."""
+    """Leave the binding :func:`restore_tenant` entered for *task_id* (postrun)."""
     stack = _tokens.get()
-    if not stack or stack[-1][0] != task_id:
+    ids = [entry[0] for entry in stack]
+    if task_id not in ids:
         return
-    _, tenant_token, owner_token = stack[-1]
-    _tokens.set(stack[:-1])
-    _task_owner.reset(owner_token)
-    current_tenant_id.reset(tenant_token)
+    depth = len(ids) - 1 - ids[::-1].index(task_id)
+    if depth != len(stack) - 1:
+        # A prerun without its postrun: unwind it too rather than strand it.
+        _log.warning("Unwinding %d unfinished task binding(s)", len(stack) - 1 - depth)
+    _, tenant_token, owner_token = stack[depth]
+    _tokens.set(stack[:depth])
+    try:
+        _task_owner.reset(owner_token)
+        current_tenant_id.reset(tenant_token)
+    except ValueError:
+        # Token from another context (exotic pool patching): clear instead, so
+        # the next task on this worker never inherits a tenant or owner.
+        _task_owner.set(None)
+        current_tenant_id.set(None)
 
 
 __all__ = [

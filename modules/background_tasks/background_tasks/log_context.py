@@ -108,8 +108,13 @@ def signal_task_started(*, task_id: str | None, task_name: str | None) -> None:
 def signal_task_finished(*, task_id: str | None) -> None:
     """Reset the binding from :func:`signal_task_started`."""
     stack = _signal_tokens.get()
-    if not stack or stack[-1][0] != task_id:
+    ids = [entry[0] for entry in stack]
+    if task_id not in ids:
         return
-    _, token = stack[-1]
-    _signal_tokens.set(stack[:-1])
-    current_log_context.reset(token)
+    depth = len(ids) - 1 - ids[::-1].index(task_id)
+    _, token = stack[depth]
+    _signal_tokens.set(stack[:depth])
+    try:
+        current_log_context.reset(token)
+    except ValueError:
+        current_log_context.set({})

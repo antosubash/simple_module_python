@@ -20,7 +20,7 @@ import logging
 from importlib.metadata import entry_points
 from typing import Any
 
-from celery import Celery
+from celery import Celery, Task
 from celery.schedules import schedule
 from simple_module_core.discovery import ENTRY_POINT_GROUP
 
@@ -36,13 +36,37 @@ from background_tasks.constants import (
 )
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.task_routing import load_task_configs, merge_routes, select_packages
-from background_tasks.tenant_context import stamp_tenant
+from background_tasks.tenant_context import stamp_owner, stamp_tenant
 
 logger = logging.getLogger(__name__)
 
 
+class TenantTask(Task):
+    """Stamp and validate authority on ``apply_async``, eager runs included.
+
+    An eager ``apply_async`` runs the body in-process without ``send_task`` or
+    the publish signal, so this is the only place its headers get the caller's
+    tenant and owner (and a mismatching tenant header is refused).
+    """
+
+    def apply_async(self, args: Any = None, kwargs: Any = None, **options: Any) -> Any:
+        # Explicit headers replace the task's default ones in Celery, so merge
+        # them here or a task-level default header would be lost.
+        defaults = self._get_exec_options().get("headers") or {}
+        headers = {**defaults, **(options.get("headers") or {})}
+        stamp_tenant(headers)
+        if self.app.conf.task_always_eager:
+            stamp_owner(headers)
+        options["headers"] = headers
+        return super().apply_async(args, kwargs, **options)
+
+
 class TenantCelery(Celery):
     """Validate publish authority before Celery's exception-swallowing signals."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("task_cls", TenantTask)
+        super().__init__(*args, **kwargs)
 
     def send_task(self, name: str, *args: Any, **kwargs: Any) -> Any:
         headers = dict(kwargs.get("headers") or {})

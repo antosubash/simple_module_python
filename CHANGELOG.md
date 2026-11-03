@@ -37,7 +37,8 @@ All notable changes to this project are documented in this file. The format is b
   instead of inheriting an earlier execution's tenant and owner (#751).
 - Tenant-header mismatches now raise before the configured Celery app sends a
   message through `apply_async`, `delay`, signatures or `send_task`, instead of
-  being swallowed by the publish signal (#752).
+  being swallowed by the publish signal; eager runs (`task_always_eager`) are
+  validated too and run with the caller's tenant and owner (#752).
 - Background task arguments and worker request metadata preserve Kombu JSON
   type envelopes in execution history; retries decode datetime, UUID and Decimal
   arguments back to their original types. No migration is needed (#754).

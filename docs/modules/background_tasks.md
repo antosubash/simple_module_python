@@ -34,7 +34,7 @@ Every dispatch / start / completion / failure / retry / revoke is recorded in th
 
 Task arguments and keyword arguments are stored using Kombu's JSON representation, retaining type envelopes for supported values such as datetime, UUID and Decimal. Administrative retries decode these envelopes before publishing, so task bodies receive the original types (#754).
 
-Tenant validation runs before publication on the configured Celery app's `send_task` path, shared by `apply_async`, `delay` and signatures. An explicit `sm_tenant_id` that differs from the bound tenant raises `TenantIsolationError` and sends no message (#752).
+Tenant validation runs before publication on the configured Celery app's `send_task` path, shared by `apply_async`, `delay` and signatures; the app's task class validates `apply_async` itself too, so eager runs (`task_always_eager`) are checked and stamped with the caller's tenant and owner. An explicit `sm_tenant_id` that differs from the bound tenant raises `TenantIsolationError` and sends no message (#752).
 
 Worker tenant, owner and log bindings are local to each execution and restore in nesting order, including eager child tasks and overlapping executions of the same task UUID. A task without tenant/owner headers never inherits an earlier execution's binding: it runs with no owner and with the install's `default_tenant` (or no tenant) (#751).
 
