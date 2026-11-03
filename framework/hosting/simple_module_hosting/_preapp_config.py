@@ -228,7 +228,8 @@ def merge_host_settings(
     # relative sqlite paths against the discovered project root, and
     # reconstructing Settings from env alone would redo that resolution
     # against whatever the cwd happens to be.
-    fixed = {"secret_key": secret_key, "database_url": bootstrap.database_url}
+    fixed = bootstrap.model_dump(include=bootstrap.model_fields_set)
+    fixed.update(secret_key=secret_key, database_url=bootstrap.database_url)
     # Lenient, like the lifespan hydration: a stored value that parses but no
     # longer validates (a Literal narrowed in an upgrade) falls back to its
     # default with a WARNING instead of taking down every worker — and with

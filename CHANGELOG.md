@@ -101,6 +101,16 @@ All notable changes to this project are documented in this file. The format is b
 - Hosting: readiness and setup connection probes have a five-second deadline
   per check. Timeouts report "timed out"; raised exceptions are logged and
   return only their class name, including database connection failures (#786).
+- Setup migrations lock and migrate the app's resolved database, including in
+  scaffolded hosts, when it differs from `SM_DATABASE_URL` (#782).
+- Explicit bootstrap process settings survive the pre-app settings merge,
+  including production environment, module selection and Redis (#783).
+- Runtime host settings discover the same project `.env` as boot settings;
+  dotenv values keep precedence over stored DB overrides (#793).
+- Lease and semaphore acquisition bounds backend calls by the wait deadline;
+  Redis uses finite socket timeouts without retries, and connectivity failures
+  return not-acquired or log failed release without masking body errors (#787).
+
 - **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
   before #750 (no authority marker) is adopted only when the issuer recorded in
   its `oidc_identity` matches the discovered issuer (#764). A session from a

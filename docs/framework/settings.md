@@ -29,6 +29,21 @@ class BootstrapSettings(BaseSettings):
 
 The `SM_` prefix means every field is set via `SM_<FIELD>` (e.g. `SM_DATABASE_URL`, `SM_LOG_FORMAT`). `multi_tenant` / `tenant_header` and the other tunables live on the DB-backed `HostSettings` half.
 
+Hosts call `merge_host_settings()` before `create_app` to apply stored host
+settings before middleware and module discovery are built. Precedence is
+**env → DB → default**. Here, env includes the discovered project `.env`;
+process environment variables take precedence over that file. Both the boot
+`Settings` and runtime `HostSettings` discover the same file via
+`find_env_file()`, including from a project subdirectory, without requiring
+`load_dotenv_into_environ()` first. Direct settings construction supports an
+explicit `_env_file` path or `_env_file=None` to disable dotenv loading.
+
+When passing a `BootstrapSettings` to `merge_host_settings(bootstrap)`, every
+field explicitly supplied on that object is preserved, including `environment`,
+`modules_enabled`, `redis_url`, `debug` and `vite_dev_url`. The resolved secret
+key and database URL are preserved too. Fields the bootstrap did not supply
+still use env → DB → default.
+
 Construct once at boot, put on `app.state.sm.settings`, never mutated.
 
 ### Placeholder-secret check

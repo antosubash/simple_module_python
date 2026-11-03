@@ -69,8 +69,11 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
         # branch_labels, so the history legitimately has several heads and
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
-        with migration_lock(request.app.state.sm.db.engine.url), _preserve_logging():
-            command.upgrade(AlembicConfig(ini_path), "heads")
+        url = request.app.state.sm.db.engine.url
+        config = AlembicConfig(ini_path)
+        config.attributes["sm.database_url"] = url.render_as_string(hide_password=False)
+        with migration_lock(url), _preserve_logging():
+            command.upgrade(config, "heads")
 
     try:
         async with _MIGRATION_LOCK:

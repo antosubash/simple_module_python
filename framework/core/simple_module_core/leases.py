@@ -20,13 +20,14 @@ The backend is process-global (Celery workers have no ``app.state``): the host
 installs one with :func:`configure_leases` when the app is built and when a
 worker boots — Redis when ``SM_REDIS_URL`` is set, else the ``sm_lease`` table,
 else :class:`InProcessLeaseBackend`, which only coordinates one process.
-Backend errors propagate: a lease that cannot be confirmed is never reported
-as held.
+Acquire timeouts and connectivity failures log a warning and return False.
+Other backend errors propagate; an unconfirmed lease is never reported as held.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import threading
 import time
@@ -50,6 +51,10 @@ __all__ = [
 # Seconds between attempts while waiting for a held lease.
 _POLL = 0.05
 _POLL_MAX = 0.5
+# Shortest deadline one acquire attempt gets, even when the wait has run out:
+# ``wait=0`` means "don't queue", not "fail a healthy backend that takes 60 ms".
+_ATTEMPT_FLOOR = 1.0
+logger = logging.getLogger(__name__)
 
 
 class LeaseNotAcquiredError(RuntimeError):
@@ -62,7 +67,8 @@ class LeaseBackend(Protocol):
     ``acquire``/``semaphore_acquire`` return the new fence number, or ``None``
     when the lease (or every slot) is held by someone else. ``refresh`` and
     ``release`` return ``False`` when *token* no longer holds it — expired,
-    released, or taken by another owner.
+    released, or taken by another owner. Connectivity failures during acquire
+    should raise built-in ConnectionError; release may log and return False.
     """
 
     async def acquire(self, name: str, token: str, ttl: float) -> int | None: ...
@@ -216,7 +222,14 @@ class Lease:
         deadline = None if wait is None else time.monotonic() + wait
         delay = _POLL
         while True:
-            fence = await self._try()
+            remaining = (
+                None if deadline is None else max(_ATTEMPT_FLOOR, deadline - time.monotonic())
+            )
+            try:
+                fence = await asyncio.wait_for(self._try(), remaining)
+            except (TimeoutError, ConnectionError):
+                logger.warning("Lease %r acquire timed out or backend unavailable", self.name)
+                return False
             if fence is not None:
                 self.fence = fence
                 return True
