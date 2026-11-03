@@ -2,18 +2,28 @@
 
 Input: the page's props, the shared props, the component being rendered and
 the typed request. Output: the resolved values plus every piece of metadata
-the page object announces (deferred groups, merge strategies, once keys,
-scroll cursors, shared keys). Nothing here knows about HTTP.
+the page object announces. Nothing here knows about HTTP.
 """
 
 from __future__ import annotations
 
+import inspect
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from simple_module_inertia.props import Prop, as_prop, resolve_value
 from simple_module_inertia.request import InertiaRequest
+
+logger = logging.getLogger(__name__)
+
+_SCALARS = frozenset({str, int, float, bool, type(None)})
+
+
+def _is_dynamic(value: Any) -> bool:
+    """A Prop, loader or awaitable: something the resolver must unwrap."""
+    return isinstance(value, Prop) or callable(value) or inspect.isawaitable(value)
 
 
 @dataclass
@@ -27,47 +37,130 @@ class ResolvedProps:
     once: dict[str, dict[str, Any]] = field(default_factory=dict)
     scroll: dict[str, dict[str, Any]] = field(default_factory=dict)
     shared: list[str] = field(default_factory=list)
+    rescued: list[str] = field(default_factory=list)
 
 
-async def _deep_resolve(value: Any) -> Any:
-    """Resolve callables/awaitables/Props anywhere inside a container."""
-    value = await resolve_value(value)
-    if isinstance(value, dict):
-        return {k: await _deep_resolve(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [await _deep_resolve(v) for v in value]
-    return value
+def _matches(path: str, filters: frozenset[str]) -> bool:
+    return any(path == key or path.startswith(f"{key}.") for key in filters)
 
 
-def _wants(name: str, prop: Prop, req: InertiaRequest, partial: bool) -> bool:
-    """Should this prop's value be resolved for this response?"""
-    if prop.is_once and (prop.once_key or name) in req.except_once_props:
+def _included(path: str, req: InertiaRequest, *, ancestors: bool = False) -> bool:
+    if (
+        req.partial_data
+        and not _matches(path, req.partial_data)
+        and (not ancestors or not any(key.startswith(f"{path}.") for key in req.partial_data))
+    ):
         return False
-    if prop.always:
-        return True
-    if partial:
-        if req.partial_data and name not in req.partial_data:
-            return False
-        return name not in req.partial_except
-    return prop.optional is False and prop.deferred_group is None
+    return not _matches(path, req.partial_except)
 
 
 def _announce_merge(name: str, prop: Prop, req: InertiaRequest, out: ResolvedProps) -> None:
-    if name in req.reset:
+    if name in req.reset or (prop.scroll is not None and prop.scroll.reset):
         return
     mode = prop.merge_mode
+    path = name
     if prop.scroll is not None:
         mode = req.merge_intent or "append"
+        if prop.scroll.wrapper is not None:
+            path = f"{name}.{prop.scroll.wrapper}"
     if mode == "append":
-        out.merge.append(name)
+        out.merge.append(path)
     elif mode == "prepend":
-        out.prepend.append(name)
+        out.prepend.append(path)
     elif mode == "deep":
-        out.deep_merge.append(name)
+        out.deep_merge.append(path)
     else:
         return
     if prop.match_on:
         out.match_on.append(f"{name}.{prop.match_on}")
+
+
+def _announce_metadata(
+    name: str, prop: Prop, req: InertiaRequest, partial: bool, out: ResolvedProps
+) -> None:
+    if partial and not _included(name, req):
+        return
+    _announce_merge(name, prop, req, out)
+    if prop.is_once:
+        out.once[prop.once_key or name] = {"prop": name, "expiresAt": prop.once_expires_at}
+
+
+async def _resolve_tree(
+    props: Mapping[str, Any],
+    req: InertiaRequest,
+    partial: bool,
+    out: ResolvedProps,
+    prefix: str = "",
+    parent_resolved: bool = False,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    filtering = partial and not parent_resolved
+    for key, raw in props.items():
+        # Fast path: plain JSON leaves and containers carry no prop flags, so
+        # they skip the Prop wrapper; only a partial filter needs their path.
+        if not _is_dynamic(raw):
+            if type(raw) in _SCALARS and not filtering:
+                result[key] = raw
+                continue
+            path = f"{prefix}.{key}" if prefix else key
+            if filtering and not _included(path, req, ancestors=True):
+                continue
+            bypass = parent_resolved or not isinstance(raw, dict)
+            result[key] = await _resolve_children(raw, path, req, partial, out, bypass)
+            continue
+        path = f"{prefix}.{key}" if prefix else key
+        prop = as_prop(raw)
+        if partial and not (parent_resolved or prop.always or _included(path, req, ancestors=True)):
+            continue
+        if not partial:
+            cached = prop.is_once and (prop.once_key or path) in req.except_once_props
+            if prop.optional or prop.deferred_group is not None:
+                if prop.deferred_group is not None and not cached:
+                    out.deferred.setdefault(prop.deferred_group, []).append(path)
+                _announce_metadata(path, prop, req, partial, out)
+                continue
+            if cached:
+                out.once[prop.once_key or path] = {"prop": path, "expiresAt": prop.once_expires_at}
+                continue
+        try:
+            value = await resolve_value(raw)
+        except Exception:
+            if not prop.rescue:
+                raise
+            logger.exception("Failed to resolve Inertia prop %s", path)
+            out.rescued.append(path)
+            continue
+        _announce_metadata(path, prop, req, partial, out)
+        if prop.scroll is not None:
+            out.scroll[path] = {
+                **prop.scroll.as_page_object(),
+                "reset": prop.scroll.reset or path in req.reset,
+            }
+        bypass = parent_resolved or not isinstance(raw, dict)
+        result[key] = await _resolve_children(value, path, req, partial, out, bypass)
+    return result
+
+
+async def _resolve_children(
+    value: Any,
+    path: str,
+    req: InertiaRequest,
+    partial: bool,
+    out: ResolvedProps,
+    bypass: bool,
+) -> Any:
+    if isinstance(value, dict):
+        return await _resolve_tree(value, req, partial, out, path, bypass)
+    if isinstance(value, list):
+        items: list[Any] = []
+        for index, child in enumerate(value):
+            if type(child) in _SCALARS:
+                items.append(child)
+                continue
+            resolved = await _resolve_tree({str(index): child}, req, partial, out, path, True)
+            items.extend(resolved.values())
+        return items
+    return value
 
 
 async def resolve_props(
@@ -79,21 +172,6 @@ async def resolve_props(
     out = ResolvedProps()
     partial = req.is_partial_for(component)
     combined: dict[str, Any] = {**shared_props, **page_props}
-
-    for name, raw in combined.items():
-        prop = as_prop(raw)
-        if not partial and prop.deferred_group is not None:
-            out.deferred.setdefault(prop.deferred_group, []).append(name)
-        if prop.merge_mode is not None or prop.scroll is not None:
-            _announce_merge(name, prop, req, out)
-        if not _wants(name, prop, req, partial):
-            continue
-        out.props[name] = await _deep_resolve(prop)
-        if prop.is_once:
-            key = prop.once_key or name
-            out.once[key] = {"prop": name, "expiresAt": prop.once_expires_at}
-        if prop.scroll is not None:
-            out.scroll[name] = prop.scroll.as_page_object()
-
+    out.props = await _resolve_tree(combined, req, partial, out)
     out.shared = [k for k in shared_props if k in out.props and k not in page_props]
     return out

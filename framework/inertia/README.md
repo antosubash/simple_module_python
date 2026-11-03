@@ -73,3 +73,29 @@ async def home(inertia: Inertia = Depends(inertia_dep)):
 
 The root template needs `{% inertia_head %}` in `<head>` and `{% inertia_body %}`
 in `<body>`; the page object lands in `<div id="app" data-page="…">`.
+
+## Prop resolution
+
+Partial reloads accept dotted paths in `X-Inertia-Partial-Data` and
+`X-Inertia-Partial-Except`, such as `auth.user`. Filtering traverses plain
+Python dictionaries before running loaders. A callable, awaitable or `Prop`
+resolves its children in full; `always()` also bypasses partial filters.
+Merge and once metadata on partial reloads follows the selected paths.
+
+`once(value, key=None, expires_at=None)` announces its cache key even when a
+full Inertia visit omits its cached value. Partial reloads ignore
+`X-Inertia-Except-Once-Props` and refresh requested once props.
+
+`scroll(value, ..., wrapper="data", reset=False)` labels `<prop>.data` for
+merging by default. Set `wrapper` to another dictionary path, or `None` to
+merge a plain list at the prop root. The infinite-scroll merge-intent header
+chooses append or prepend. The explicit `reset=True` argument or a prop path
+in `X-Inertia-Reset` sets `scrollProps[path].reset` and suppresses merge labels.
+
+`defer(value, group="default", rescue=False)` supports `rescue=True` for
+loaders that may fail. A failed rescued loader logs its exception, leaves the
+prop out of the response, and adds its path to `rescuedProps` so the client's
+`<Deferred>` rescue slot can render. Other props still resolve; without
+`rescue=True` the exception propagates. Deferred props are announced without
+running their loaders on full visits. All wrappers compose through `Prop`,
+for example `once(merge(defer(load_analytics, rescue=True)))`.

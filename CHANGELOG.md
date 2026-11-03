@@ -31,6 +31,14 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- **Behaviour changes:** Inertia v3 prop resolution retains cached once-prop
+  metadata on full visits (#768), refreshes requested once props on partial
+  reloads (#769), labels scroll data at `<prop>.data` by default (use
+  `wrapper=None` for root merging) and honours reset headers and arguments
+  (#770). Partial reloads restrict merge/once metadata to selected paths
+  (#771) and filter dotted paths inside plain dictionaries before running
+  loaders (#772). `defer(..., rescue=True)` logs loader failures, omits failed
+  props and reports their paths in `rescuedProps` (#773).
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
