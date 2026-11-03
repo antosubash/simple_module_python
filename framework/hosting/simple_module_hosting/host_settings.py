@@ -16,11 +16,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import (
-    BaseSettings,
-    DotEnvSettingsSource,
-    SettingsConfigDict,
-)
+from pydantic_settings import BaseSettings, DotEnvSettingsSource, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.dotenv import find_env_file
 

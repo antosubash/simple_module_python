@@ -58,9 +58,7 @@ def _get_url() -> str:
     (a stray app.db, nothing else) that printing the target, password masked,
     is worth the one line.
     """
-    database_url = config.attributes.get("sm.database_url")
-    if database_url is None:
-        database_url = Settings().database_url
+    database_url = config.attributes.get("sm.database_url") or Settings().database_url
     url = database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
     logger.info(
         "Migrating %s (cwd=%s)", make_url(url).render_as_string(hide_password=True), Path.cwd()
