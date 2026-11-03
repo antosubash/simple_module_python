@@ -34,6 +34,12 @@ mark_token_gate(get_inertia, GATE_PAGE)
 InertiaDep = Annotated[Inertia, Depends(get_inertia)]
 
 
-# Re-exported so modules detect an Inertia visit the same way the adapter does
-# without depending on simple_module_inertia directly.
-__all__ = ["INERTIA_HEADER", "InertiaDep", "get_inertia", "is_inertia_request"]
+# Re-exported so modules detect an Inertia visit the same way the adapter does and
+# can await the layout props, without importing private hosting modules.
+__all__ = [
+    "INERTIA_HEADER",
+    "InertiaDep",
+    "get_inertia",
+    "is_inertia_request",
+    "resolve_inertia_shared",
+]

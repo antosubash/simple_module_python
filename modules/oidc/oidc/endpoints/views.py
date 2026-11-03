@@ -4,7 +4,7 @@ import logging
 
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Request
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
 
@@ -54,6 +54,6 @@ async def logout(request: Request):
             destination = client.build_logout_url(post_logout_redirect_uri=destination)
         except Exception:
             logger.warning("OIDC logout unavailable; local session cleared")
-    if request.headers.get("X-Inertia"):
+    if is_inertia_request(request.scope):
         return location(destination)
     return RedirectResponse(destination, status_code=303)

@@ -60,7 +60,7 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change (#791):** Layout props and module providers resolve once
   when a page or error page needs them; JSON APIs/downloads skip that work.
   Permission resolution remains eager. Direct layout readers can await
-  `resolve_inertia_shared(request)` before using `request.state.inertia_shared`.
+  `resolve_inertia_shared(request)` (from `simple_module_hosting.inertia_deps`) before using `request.state.inertia_shared`.
 - **Behaviour change:** Inertia GETs with a missing asset-version header now
   receive 409 when the server version is non-empty; version conflicts include
   both `X-Inertia-Location` and the current `X-Inertia-Version` (#774).

@@ -36,7 +36,7 @@ interface I18nSharedProps {   // SharedProps['i18n']
 async layout factory. Page dependencies and error rendering resolve that factory;
 JSON API requests and downloads skip it. The resolved props remain available as
 `request.state.inertia_shared`; custom readers first await
-`resolve_inertia_shared(request)` from `simple_module_hosting._inertia_shared`.
+`resolve_inertia_shared(request)` from `simple_module_hosting.inertia_deps`.
 For each rendered page, it reads:
 
 - `request.state.user` (set by the auth middleware) and the registered `app.state.principal_serializer` to build `auth.user`. The user's roles drive `auth.permissions`.
