@@ -219,7 +219,7 @@ the host), then async `on_startup` / `on_shutdown` (reverse order). Non-hook ove
 
 **Middleware** (Starlette `add_middleware` is LIFO). Execution order per
 request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
-SM_TRUSTED_PROXY) → CorrelationId → RequestLogging → CORS → BodyLimit → GZip → SecurityHeaders → Session → <module middleware> → Tenant
+SM_TRUSTED_PROXY) → CorrelationId → RequestLogging → CORS → BodyLimit → GZip → SecurityHeaders → Session → InertiaMiddleware → <module middleware> → Tenant
 (opt-in) → Locale → InertiaLayoutData → InertiaCache → RateLimit → Setup →
 Maintenance → CommitBeforeResponse → app`. Rules that follow from it:
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from _users_app_builders import _build_users_app
+from simple_module_test import inertia_headers
 from users.demo import ensure_demo_users
 
 DEMO_ADMIN_EMAIL = "demo-admin@example.com"
@@ -29,5 +30,7 @@ async def demo_app(monkeypatch):
 async def demo_client(demo_app):
     """Anonymous client against ``demo_app`` — it signs itself in via a button."""
     transport = httpx.ASGITransport(app=demo_app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", headers=inertia_headers(demo_app)
+    ) as client:
         yield client

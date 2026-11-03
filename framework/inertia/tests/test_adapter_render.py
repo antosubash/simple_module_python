@@ -65,7 +65,7 @@ async def test_full_page_load_renders_the_document_with_the_page_object(client) 
     assert 'src="http://localhost:5050/main.tsx"' in resp.text
     assert "data-page=" in resp.text
     # htmlsafe_json_dumps leaves double quotes intact, so the page object is
-    # readable in the attribute exactly once — no double encoding.
+    # readable in the script exactly once — no double encoding.
     assert '"url": "/users"' in resp.text
     assert '\\"url\\"' not in resp.text
 
@@ -83,10 +83,15 @@ async def test_an_inertia_visit_gets_the_json_page_object(client) -> None:
     assert page["sharedProps"] == ["auth"]
 
 
-async def test_a_stale_get_is_a_409_pointing_at_the_same_url(client) -> None:
-    resp = await client.get("/users", headers={"X-Inertia": "true", "X-Inertia-Version": "old"})
+@pytest.mark.parametrize("version", ["old", None])
+async def test_a_stale_get_is_a_409_pointing_at_the_same_url(client, version) -> None:
+    headers = {"X-Inertia": "true"}
+    if version is not None:
+        headers["X-Inertia-Version"] = version
+    resp = await client.get("/users", headers=headers)
     assert resp.status_code == 409
     assert resp.headers["X-Inertia-Location"].endswith("/users")
+    assert resp.headers["X-Inertia-Version"] == "v1"
 
 
 async def test_a_stale_post_is_not_rejected(client) -> None:
@@ -98,3 +103,12 @@ async def test_a_stale_post_is_not_rejected(client) -> None:
 async def test_errors_always_prop_is_present_and_empty_by_default(client) -> None:
     resp = await client.get("/users", headers={"X-Inertia": "true", "X-Inertia-Version": "v1"})
     assert resp.json()["props"]["errors"] == {}
+
+
+async def test_missing_header_matches_an_empty_server_version(tmp_path) -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=_app(tmp_path, version="")), base_url="http://testserver"
+    ) as client:
+        response = await client.get("/users", headers={"X-Inertia": "true"})
+    assert response.status_code == 200
+    assert response.json()["version"] == ""

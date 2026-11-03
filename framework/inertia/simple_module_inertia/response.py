@@ -1,8 +1,7 @@
 """HTTP responses for each protocol outcome.
 
-``Vary: Accept`` is upstream's value and is kept on purpose: hosting's
-``InertiaCacheMiddleware`` appends ``X-Inertia`` on the way out and its tests
-pin today's header set.
+``Vary: Accept`` is upstream's value and is kept on purpose: ``InertiaMiddleware``
+appends ``X-Inertia`` on the way out for standalone and hosted apps.
 """
 
 from __future__ import annotations

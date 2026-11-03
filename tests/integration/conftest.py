@@ -17,7 +17,7 @@ from collections.abc import AsyncGenerator
 import httpx
 import pytest
 from fastapi_users.password import PasswordHelper
-from simple_module_test import forge_session_cookie
+from simple_module_test import forge_session_cookie, inertia_headers
 from sqlalchemy import select
 
 
@@ -81,7 +81,7 @@ def _make_client(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
         cookies={"session": cookie},
-        headers=extra_headers or {},
+        headers={**inertia_headers(app), **(extra_headers or {})},
     )
 
 

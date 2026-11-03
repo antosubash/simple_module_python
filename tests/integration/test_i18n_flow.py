@@ -93,7 +93,7 @@ async def test_inertia_shared_props_include_active_locale_messages(
     authenticated_client.cookies.set("locale", "es")
     resp = await authenticated_client.get(
         "/dashboard/",
-        headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        headers={"X-Inertia": "true"},
     )
     assert resp.status_code == 200
     body = resp.json()

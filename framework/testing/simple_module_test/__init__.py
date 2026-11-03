@@ -27,6 +27,7 @@ in as an ``owner``/``admin``/``member`` of a real tenant — see
 
 from simple_module_test.app_factory import build_test_app
 from simple_module_test.fake_events import FakeEventBus, RecordedEvent
+from simple_module_test.inertia import inertia_headers
 from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
 from simple_module_test.tenant_client import TenantClient
@@ -39,6 +40,7 @@ __all__ = [
     "build_test_app",
     "effective_route_paths",
     "forge_session_cookie",
+    "inertia_headers",
     "wait_for",
     "wait_for_sync",
 ]

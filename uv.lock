@@ -3669,6 +3669,7 @@ dependencies = [
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
+    { name = "simple-module-inertia" },
     { name = "sqlalchemy" },
 ]
 
@@ -3681,6 +3682,7 @@ requires-dist = [
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
+    { name = "simple-module-inertia", editable = "framework/inertia" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
 ]
 

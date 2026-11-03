@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from simple_module_test._schema import _create_all_tables
 from simple_module_test.database import begin_test, database_url_for_tests, init_db_kwargs
+from simple_module_test.inertia import inertia_headers
 from simple_module_test.session_cookie import forge_session_cookie
 
 _AUTH_PROVIDER_ENV = "SM_AUTH_PROVIDER"
@@ -230,6 +231,7 @@ async def client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
+        headers=inertia_headers(app),
     ) as c:
         yield c
 
@@ -265,6 +267,7 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
+        headers=inertia_headers(app),
         cookies={"session": signed},
     ) as c:
         yield c

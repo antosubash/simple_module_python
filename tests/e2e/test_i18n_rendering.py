@@ -70,7 +70,7 @@ def _translation_keys(page: Page) -> set[str]:
     partials send ``None`` and reuse the client cache, but this test always
     does a full ``goto``).
     """
-    raw = page.evaluate("() => document.getElementById('app')?.dataset.page ?? ''")
+    raw = page.evaluate("() => document.querySelector('script[data-page=app]')?.textContent ?? ''")
     if not raw:
         return set()
     messages = json.loads(raw).get("props", {}).get("i18n", {}).get("messages") or {}

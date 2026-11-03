@@ -11,6 +11,7 @@ from simple_module_inertia.errors import (
 )
 from simple_module_inertia.head import Head, SiteInfo
 from simple_module_inertia.inertia import Inertia
+from simple_module_inertia.middleware import InertiaMiddleware
 from simple_module_inertia.page import PropEncodingError
 from simple_module_inertia.props import (
     always,
@@ -32,6 +33,7 @@ __all__ = [
     "Inertia",
     "InertiaConfig",
     "InertiaExtension",
+    "InertiaMiddleware",
     "InertiaResponse",
     "InertiaVersionConflictException",
     "PropEncodingError",

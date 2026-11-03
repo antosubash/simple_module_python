@@ -33,6 +33,7 @@ import httpx
 import pytest
 from simple_module_core.tenancy import TenantRole
 
+from simple_module_test.inertia import inertia_headers
 from simple_module_test.session_cookie import forge_session_cookie
 
 
@@ -89,6 +90,7 @@ async def session_client(app: Any, data: dict[str, Any]) -> AsyncGenerator[httpx
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
+        headers=inertia_headers(app),
         cookies={"session": cookie},
     ) as client:
         yield client

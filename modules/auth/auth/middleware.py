@@ -9,6 +9,7 @@ principal-resolver chain. Sets ``request.state.user`` and the
 from __future__ import annotations
 
 import logging
+from urllib.parse import urlsplit
 
 from simple_module_core.app_state import get_openapi_url
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
@@ -55,6 +56,31 @@ def _is_navigation(request: Request) -> bool:
     if mode is not None:
         return mode == "navigate"
     return True
+
+
+def _post_login_target(request: Request) -> str | None:
+    """Where sign-in should return the visitor, or ``None``.
+
+    A GET/HEAD navigation returns to itself. A mutation (an Inertia DELETE
+    whose session expired) must not: replaying its URL as a GET after sign-in
+    hits a 405, so it returns to the same-site page it was sent from instead.
+    """
+    if not _is_navigation(request):
+        return None
+    if request.method in ("GET", "HEAD"):
+        return safe_next_or_none(request.url.path + _query_suffix(request))
+    try:
+        referer = urlsplit(request.headers.get("referer", ""))
+        # Same origin means host *and* port: another port on this host is a
+        # different site. A malformed Referer (``http://[``) raises ValueError.
+        if referer.netloc and (
+            referer.hostname != request.url.hostname or referer.port != request.url.port
+        ):
+            return None
+    except ValueError:
+        return None
+    query = f"?{referer.query}" if referer.query else ""
+    return safe_next_or_none(referer.path + query) if referer.path else None
 
 
 class AuthMiddleware:
@@ -136,11 +162,7 @@ class AuthMiddleware:
                 session = scope.get("session", {})
                 # Only a navigation is a target: a subresource (the sign-in
                 # page's own favicon) would overwrite it (#416).
-                next_url = (
-                    safe_next_or_none(request.url.path + _query_suffix(request))
-                    if _is_navigation(request)
-                    else None
-                )
+                next_url = _post_login_target(request)
                 if next_url is not None:
                     session[SESSION_NEXT_KEY] = next_url
                 response = RedirectResponse(

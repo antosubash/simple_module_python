@@ -31,6 +31,22 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- **Behaviour change:** Inertia GETs with a missing asset-version header now
+  receive 409 when the server version is non-empty; version conflicts include
+  both `X-Inertia-Location` and the current `X-Inertia-Version` (#774).
+- **Behaviour change:** Inertia middleware rewrites 302/307 redirects after
+  PUT/PATCH/DELETE/QUERY to 303, fragment redirects to empty 409 responses with
+  `X-Inertia-Redirect` (except prefetch), and empty 200 responses to safe back
+  redirects. Standalone HTML and Inertia responses vary on `X-Inertia` (#775).
+- **Behaviour change:** initial Inertia HTML embeds the page JSON only in the v3
+  `<script data-page="app">` element; the duplicate legacy
+  `<div id="app" data-page='…'>` attribute is gone, which halves a typical
+  first-load document (#778). Anything reading that attribute must read the
+  script element instead.
+- A non-`GET` request (an Inertia `PUT`/`PATCH`/`DELETE`, a form `POST`) whose
+  session expired no longer becomes the post-login target: signing back in replayed its URL as a
+  `GET` and hit a 405. Sign-in now returns to the same-site page the mutation
+  was sent from.
 - **Behaviour change:** Inertia validation errors use the top-level form field
   and keep its first message, including union, list and nested-model errors
   (#776). Form-action redirects now scope errors under `X-Inertia-Error-Bag`

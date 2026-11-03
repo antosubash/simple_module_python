@@ -32,6 +32,7 @@ async def test_version_conflict_handler_returns_409_with_location() -> None:
     )
     assert resp.status_code == 409
     assert resp.headers["X-Inertia-Location"] == "http://h/admin/"
+    assert resp.headers["X-Inertia-Version"] == ""
 
 
 async def test_validation_errors_are_flashed_and_redirected_back() -> None:

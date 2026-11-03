@@ -3,9 +3,9 @@
 CLAUDE.md spells out the pipeline:
 
     (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
-    CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session → <module>
-                  → Tenant (opt-in) → Locale → InertiaLayoutData
-                  → InertiaCache → RateLimit → Setup → Maintenance
+    CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session
+                  → InertiaMiddleware → <module> → Tenant (opt-in) → Locale
+                  → InertiaLayoutData → InertiaCache → RateLimit → Setup → Maintenance
                   → CommitBeforeResponse → app
 
 Setup runs before Maintenance: an install that has never been set up has
@@ -86,6 +86,7 @@ _EXPECTED_MULTI_TENANT = (
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "InertiaMiddleware",
     "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
     "CookielessPublicFilesMiddleware",
@@ -108,6 +109,7 @@ _EXPECTED_SINGLE_TENANT = (
     "GZipMiddleware",
     "SecurityHeadersMiddleware",
     "SessionMiddleware",
+    "InertiaMiddleware",
     "DemoReadOnlyMiddleware",
     "SiteLockMiddleware",
     "CookielessPublicFilesMiddleware",

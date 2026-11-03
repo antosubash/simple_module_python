@@ -1,10 +1,4 @@
-"""The initial page must reach both a v2 and a v3 client.
-
-Inertia 3's ``getInitialPageFromDOM`` reads
-``<script data-page="app" type="application/json">`` and nothing else; v2 read
-the ``data-page`` attribute on ``<div id="app">``. The adapter emits both so
-the package can ship before the client migrates and keep working after.
-"""
+"""The initial page reaches the v3 client once, through its JSON script."""
 
 from __future__ import annotations
 
@@ -33,9 +27,10 @@ def test_body_carries_the_v3_json_script_element() -> None:
     assert f'<script data-page="app" type="application/json">{PAGE_JSON}</script>' in html
 
 
-def test_body_keeps_the_v2_data_page_attribute() -> None:
+def test_body_has_a_bare_mount_point_and_only_one_page_copy() -> None:
     html = _render_body(PAGE_JSON)
-    assert f"<div id=\"app\" data-page='{PAGE_JSON}'></div>" in html
+    assert '<div id="app"></div>' in html
+    assert html.count(PAGE_JSON) == 1
 
 
 def test_body_orders_script_before_mount_point_then_entry_module() -> None:

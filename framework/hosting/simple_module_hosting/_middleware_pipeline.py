@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from simple_module_core.app_state import get_body_limits
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_db import CommitBeforeResponseMiddleware
+from simple_module_inertia import InertiaMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
@@ -88,9 +89,9 @@ def install_middleware(
     Order matters: last added = first executed. Execution order:
     (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging → CORS
-    → BodyLimit → GZip → Security → Session → [module] → (Tenant, if
-    multi_tenant) → Locale → Inertia → InertiaCache → RateLimit → Setup
-    → Maintenance → CommitBeforeResponse.
+    → BodyLimit → GZip → Security → Session → InertiaMiddleware → [module] →
+    (Tenant, if multi_tenant) → Locale → InertiaLayoutData → InertiaCache →
+    RateLimit → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
@@ -144,6 +145,11 @@ def install_middleware(
         app.add_middleware(TenantMiddleware, fixed=settings.default_tenant)
     for mod in modules:
         mod.register_middleware(app)
+    # Outside every module middleware and the cache guard, so it normalises
+    # the final response — including redirects a module middleware issues
+    # itself (an expired session's login redirect after a DELETE must still
+    # become a 303) — while Session, further out, still sees its result.
+    app.add_middleware(InertiaMiddleware)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,

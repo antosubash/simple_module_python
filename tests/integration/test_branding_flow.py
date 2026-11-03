@@ -18,7 +18,7 @@ async def test_branding_appears_in_inertia_shared_props(
     # Default branding is present on every page.
     resp = await authenticated_client.get(
         "/dashboard/",
-        headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        headers={"X-Inertia": "true"},
     )
     assert resp.status_code == 200
     assert resp.json()["props"]["branding"]["appName"] == "SimpleModule"
@@ -33,7 +33,7 @@ async def test_branding_appears_in_inertia_shared_props(
     # The next page load reflects the new branding in its shared props.
     resp = await authenticated_client.get(
         "/dashboard/",
-        headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
+        headers={"X-Inertia": "true"},
     )
     assert resp.status_code == 200
     branding = resp.json()["props"]["branding"]

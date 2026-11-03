@@ -22,6 +22,8 @@ if settings.multi_tenant:
 for module in discovered_modules:
     module.register_middleware(app)  # each module may add 0+ middleware
 
+app.add_middleware(InertiaMiddleware)  # wraps every module middleware
+
 app.add_middleware(SessionMiddleware, secret_key=...)
 app.add_middleware(SecurityHeadersMiddleware, ...)
 app.add_middleware(GZipMiddleware, minimum_size=...)
@@ -55,6 +57,8 @@ GZip
 SecurityHeaders
   ↓
 Session
+  ↓
+InertiaMiddleware           (303 / fragment 409 / empty-200 back / Vary)
   ↓
 <module middleware>        ← in whatever order each module installed them
   ↓
@@ -218,6 +222,23 @@ It exists because FastAPI runs a `yield` dependency's exit code *after* the resp
 Pure ASGI rather than `BaseHTTPMiddleware`, because the hook point is the `send` channel rather than the response object. `get_db` keeps the same commit in its own exit code as a fallback for when the middleware isn't in the stack; the session is claimed once, so whichever runs first wins.
 
 > A request normally has exactly one session, since FastAPI caches the dependency. With several — `Depends(get_db, use_cache=False)` — a failure part-way through leaves the earlier commits durable while the client sees a 500. There is no cross-session atomicity to recover short of two-phase commit; the logged `db.session.commit_failed` is what makes it diagnosable.
+
+## Inertia protocol responses
+
+`InertiaMiddleware` comes from `simple_module_inertia` and runs just inside
+`Session`, outside every module middleware and `InertiaCacheMiddleware`, so it
+also normalises redirects a module middleware issues (an expired session's
+login redirect after a `DELETE`).
+For requests carrying `X-Inertia`, it converts 302 and 307 redirects after
+PUT, PATCH, DELETE or QUERY into 303 responses. A redirect containing a
+`#fragment` becomes an empty 409 with `X-Inertia-Redirect`, except for
+`Purpose: prefetch` requests. An empty 200 becomes a 303 back to a safe
+same-site Referer (or `/`).
+
+Only the response start is held until the first body message when emptiness
+needs checking. A positive Content-Length or a streaming first chunk passes
+through immediately. Both Inertia and HTML responses receive `Vary: X-Inertia`;
+existing Vary fields are retained and matched without case sensitivity.
 
 ## Module middleware ordering
 

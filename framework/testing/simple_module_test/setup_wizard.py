@@ -11,10 +11,16 @@ from __future__ import annotations
 import httpx
 from simple_module_hosting.csrf import CSRF_HEADER
 
+from simple_module_test.inertia import inertia_headers
+
 
 def wizard_client(app) -> httpx.AsyncClient:
     """An anonymous client for *app*; it keeps the session cookie between calls."""
-    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver")
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+        headers=inertia_headers(app),
+    )
 
 
 async def wizard_headers(client: httpx.AsyncClient) -> dict[str, str]:

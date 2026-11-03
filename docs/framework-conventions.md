@@ -77,7 +77,7 @@ InertiaLayoutDataMiddleware
 
 ```
 (ProxyHeaders) → CorrelationId → RequestLogging → SecurityHeaders → Session
-  → <modules> → Tenant → Locale → InertiaLayoutData → CommitBeforeResponse → app
+  → InertiaMiddleware → <modules> → Tenant → Locale → InertiaLayoutData → CommitBeforeResponse → app
 ```
 
 `ProxyHeaders` is installed only when `SM_TRUSTED_PROXY` is set (uvicorn's
