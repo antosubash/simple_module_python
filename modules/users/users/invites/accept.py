@@ -36,6 +36,8 @@ async def complete_invite(
         raise exceptions.UserAlreadyVerified()
 
     await manager.validate_password(body.password, user)
+    # A blank name keeps what the admin typed when minting the invite: the form is
+    # pre-filled from it, so an untouched field must not read as "clear this".
     profile: dict[str, str] = {}
     if body.full_name and body.full_name.strip():
         profile["full_name"] = body.full_name.strip()
