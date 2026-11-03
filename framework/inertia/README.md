@@ -29,7 +29,7 @@ features still require the corresponding Inertia client API.
 | Validation | Implemented | Validation conversion keeps the first message per top-level field; `X-Inertia-Error-Bag` scopes session errors, which render only with `use_flash_errors` (hosting enables it). The standalone validation handler redirects back; hosting's form helper does likewise, while hosting's request-validation handler renders an error page. |
 | Hosting error pages | Implemented | `simple_module_hosting` renders the `Error` component for supported browser/Inertia errors, preserving the HTTP status and exception headers; API requests retain JSON errors. |
 | Test helper | Implemented | `simple_module_test.InertiaPage.from_response(response)` (or `inertia_page(response)`) parses HTML/JSON pages, offers fluent page/prop assertions, and follows partial reloads and deferred groups with `reload_only`, `reload_except`, and `load_deferred`. |
-| SSR | Not implemented | No SSR client; the `ssr_url`/`ssr_enabled` config fields and template branches are unused. Tracked in [#580](https://github.com/antosubash/simple_module_python/issues/580). |
+| SSR | Not implemented | No SSR client: `ssr_url` and the template's SSR branches are unused, and `ssr_enabled` only makes asset resolution read the Vite manifest. Tracked in [#580](https://github.com/antosubash/simple_module_python/issues/580). |
 | Live props | Not implemented | No live prop protocol support. |
 | Precognition | Not implemented | No predictive validation integration. |
 | DevTools | Not implemented | No DevTools integration. |
