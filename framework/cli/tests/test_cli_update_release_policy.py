@@ -46,6 +46,10 @@ def test_package_update_without_eligible_releases_keeps_manifest(
         ("~=0.1", ["v0.3.0", "v1.0.0"], "v0.3.0", "~=0.3"),
         ("~=0.1.0", ["v0.1.9", "v0.2.0"], "v0.1.9", "~=0.1.9"),
         ("<0.4,!=0.3.1", ["v0.3.0", "v0.3.1", "v0.8.0"], "v0.3.0", "<0.4,!=0.3.1"),
+        # PEP 440: <0.4 excludes 0.4 pre-releases; wildcards bound the band.
+        (">=0.1,<0.4", ["v0.3.0", "v0.4.0rc1"], "v0.3.0", ">=0.3.0,<0.4"),
+        ("==0.3.*", ["v0.3.0", "v0.3.5", "v0.4.0"], "v0.3.5", "==0.3.*"),
+        (">=0.1,!=0.3.*", ["v0.2.0", "v0.3.5"], "v0.2.0", ">=0.2.0,!=0.3.*"),
     ],
 )
 def test_git_update_preserves_policy_on_repeated_runs(
@@ -75,3 +79,21 @@ def test_git_update_preserves_policy_on_repeated_runs(
         if attempt:
             assert path.read_bytes() == before
             assert "up to date" in output
+
+
+@pytest.mark.parametrize(
+    ("version", "constraint", "expected"),
+    [
+        ("0.4.0rc1", "<0.4", False),
+        ("0.4.0rc1", "<0.4.0rc2", True),
+        ("0.3.9", "<0.4", True),
+        ("0.3.1", "==0.3.*", True),
+        ("0.4.0", "==0.3.*", False),
+        ("0.3.1", "!=0.3.*", False),
+        ("0.2.0", "!=0.3.*", True),
+    ],
+)
+def test_satisfies_follows_pep_440(version: str, constraint: str, expected: bool) -> None:
+    from simple_module_cli.git_versions import satisfies
+
+    assert satisfies(version, constraint) is expected

@@ -47,7 +47,10 @@ All notable changes to this project are documented in this file. The format is b
   releases are excluded prereleases or yanked, instead of falling back to the
   unvalidated summary version (#756).
 - `smpy update` preserves git dependencies' compatibility ceilings and excluded
-  releases across repeated updates, and selects tags within `~=` ranges (#757).
+  releases across repeated updates, and selects tags within `~=` and `==X.*`
+  ranges; a tag the declared policy excludes is skipped with a message rather
+  than pinned. **Behaviour change:** following PEP 440, an exclusive `<1.1.0`
+  no longer admits `1.1.0` pre-release tags (#757).
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**

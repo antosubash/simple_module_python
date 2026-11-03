@@ -56,6 +56,12 @@ def satisfies(version: str, constraint: str) -> bool:
         for op in _OPS:
             if clause.startswith(op):
                 bound = clause[len(op) :].strip()
+                if op in ("==", "!=") and bound.endswith(".*"):
+                    if (op == "==") != _matches_wildcard(version, bound):
+                        return False
+                    break
+                if op == "<" and _excluded_prerelease(version, bound):
+                    return False
                 c = _cmp(version, bound)
                 if op == "~=":
                     band = _compatible_band(bound)
@@ -76,6 +82,16 @@ def satisfies(version: str, constraint: str) -> bool:
         else:
             return False
     return True
+
+
+def _excluded_prerelease(version: str, bound: str) -> bool:
+    """PEP 440: ``<0.4`` excludes ``0.4.0rc1`` unless the bound is itself a pre-release."""
+    final = (3, 0)
+    if _prerelease_key(version) == final or _prerelease_key(bound) != final:
+        return False
+    width = max(len(version_tuple(version)), len(version_tuple(bound)))
+    pad = (0,) * width
+    return (version_tuple(version) + pad)[:width] == (version_tuple(bound) + pad)[:width]
 
 
 def derive_range(version: str) -> str:

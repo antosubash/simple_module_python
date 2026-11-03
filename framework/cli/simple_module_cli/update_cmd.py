@@ -93,13 +93,14 @@ def run_sources_update(
         version = candidate[1:]
         uv_sources = doc["tool"]["uv"]["sources"]  # exists: git_sources() was non-empty
         for name in tag_pinned:
-            uv_sources[name]["tag"] = candidate
             existing = dep_constraint(doc, name)
-            updated = (
-                rewrite_requirement(f"{name}{existing}", version).spec
-                if existing
-                else f"{name}{derive_range(version)}"
-            )
+            result = rewrite_requirement(f"{name}{existing}", version) if existing else None
+            if result is not None and result.reason:
+                # Never pin a tag the declared policy forbids (#757).
+                typer.echo(f"{name}: skipped {candidate} ({result.reason})")
+                continue
+            uv_sources[name]["tag"] = candidate
+            updated = result.spec if result is not None else f"{name}{derive_range(version)}"
             if updated:
                 write_dependency(doc, name, updated[len(name) :], keep_extras_and_marker=True)
             changed.append(name)
