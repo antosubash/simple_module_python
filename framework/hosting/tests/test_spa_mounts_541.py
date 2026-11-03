@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import re
-
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
 from simple_module_core.spa_mount import SpaMount
 from simple_module_hosting import app_builder
+from simple_module_test import inertia_page
 
 _HTML = {"Accept": "text/html"}
 _INDEX = "<html><body>legacy spa</body></html>"
@@ -122,12 +120,7 @@ async def test_public_mount_post_is_still_gated(client):
 
 async def test_native_prefixes_shared_prop(client):
     r = await client.get("/users/login", headers=_HTML)
-    found = re.search(
-        r'<script data-page="[^"]*" type="application/json">(.*?)</script>', r.text, re.DOTALL
-    )
-    assert found is not None
-    page = json.loads(found.group(1))
-    props = page["props"]
+    props = inertia_page(r).props
     assert "/legacy/" in props.get("nativePrefixes", [])
 
 

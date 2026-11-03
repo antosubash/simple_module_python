@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- `simple_module_test.InertiaPage` and `inertia_page()` parse HTML/JSON pages,
+  provide chained prop assertions, and load partial/deferred props (#779).
+- Inertia v3 protocol coverage and known gaps in the adapter README (#780).
+
 ### Changed
 - `simple_module_hosting[redis]` and `simple_module_background_tasks` accept
   `redis` 7 and 8 (`redis>=5,<9`); the lockfile moves to redis 8.1.0 with
