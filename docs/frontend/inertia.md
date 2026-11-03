@@ -7,7 +7,7 @@ Inertia.js turns classic server-side routing into a single-page app without a se
 Two moving parts:
 
 1. **`fastapi-inertia`** — renders templates and serializes responses in Inertia's expected shape.
-2. **`InertiaLayoutDataMiddleware`** (framework) — attaches shared props (`auth`, `menus`, `i18n`) to every response.
+2. **`InertiaLayoutDataMiddleware`** (framework) — lazily supplies shared props (`auth`, `menus`, `i18n`) to rendered pages.
 
 ## Rendering a page
 
@@ -33,7 +33,7 @@ async def browse(inertia: InertiaDep, service: OrderServiceDep):
 
 Breakdown:
 
-- `InertiaDep` (from `simple_module_hosting.inertia_deps`) is a request-scoped dependency that resolves the `Inertia` instance from `app.state.inertia_dependency` (configured at boot) and shares in `request.state.inertia_shared`.
+- `InertiaDep` (from `simple_module_hosting.inertia_deps`) is a request-scoped dependency that resolves the `Inertia` instance from `app.state.inertia_dependency` (configured at boot) and shares the layout props (`auth`, `menus`, `i18n`, …), which it resolves lazily via `resolve_inertia_shared(request)`; do not read `request.state.inertia_shared` without awaiting that first.
 - The first argument to `render` is the **page key** — `"Orders/Browse"` maps to `modules/orders/orders/pages/Browse.tsx`. See [Pages & discovery](/frontend/pages).
 - `props` is a plain dict serialized to JSON. Use `model_dump(mode="json")` on SQLModel DTOs to get JSON-safe types (`Decimal → str`, `datetime → iso string`).
 
@@ -129,8 +129,9 @@ Every Inertia response includes:
   },
   i18n: {
     locale: string,
+    audience: 'public' | 'full',
     supportedLocales: string[],
-    messages: Record<string, string> | null,   // flat key → value; null on unchanged-locale XHR partials
+    messages: Record<string, string> | null,   // flat key → value; null when the tab reports a matching locale/audience
   },
 }
 ```

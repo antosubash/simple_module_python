@@ -1,8 +1,7 @@
 """Choose JSON or HTML for framework error responses."""
 
+from simple_module_inertia import is_inertia_request
 from starlette.requests import Request
-
-from simple_module_hosting._inertia_shared import _INERTIA_HEADER
 
 
 def _explicit_accept_q(accept: str, media_type: str) -> float | None:
@@ -51,7 +50,7 @@ def _wants_json(request: Request) -> bool:
     view path keeps its pre-existing default and an ``/api/*`` path keeps
     getting JSON either way.
     """
-    if request.headers.get(_INERTIA_HEADER):
+    if is_inertia_request(request.scope):
         return False
     accept = request.headers.get("accept", "")
     html_q = _explicit_accept_q(accept, "text/html")

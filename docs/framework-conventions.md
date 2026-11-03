@@ -345,7 +345,7 @@ way.
 
 ### Shared props
 
-`InertiaLayoutDataMiddleware` populates `request.state.inertia_shared` with:
+`InertiaLayoutDataMiddleware` prepares these lazily; page and error rendering resolve them once (`await resolve_inertia_shared(request)`, from `simple_module_hosting.inertia_deps`) into `request.state.inertia_shared`:
 
 - `auth.user`, `auth.isAuthenticated`, `auth.permissions` (expanded from roles).
 - `menus` — grouped by `MenuSection` (sidebar, adminSidebar, navbar, userDropdown), role-filtered.

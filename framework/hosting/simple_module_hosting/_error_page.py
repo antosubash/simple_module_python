@@ -17,6 +17,8 @@ from simple_module_inertia import (
 from starlette.requests import Request
 from starlette.responses import Response
 
+from simple_module_hosting._inertia_shared import resolve_inertia_shared
+
 logger = logging.getLogger(__name__)
 
 # Statuses whose remedy is "sign in", so the page offers that as its primary
@@ -103,7 +105,13 @@ async def render_error_page(
         # repeated here. Without it the error page renders raw translation keys
         # (ui.error_page.not_found_title) and loses auth/menus, so a signed-in
         # user's 404 has no layout.
-        shared = getattr(request.state, "inertia_shared", None)
+        try:
+            shared = await resolve_inertia_shared(request)
+        except Exception:
+            # Building the layout is what failed (a DB outage in the menus, say):
+            # still render the page, just without the shared layout props.
+            logger.warning("Error page: layout props unavailable", exc_info=True)
+            shared = {}
         if shared:
             inertia.share(**shared)
         # The correlation id is the only handle a user has on their own failed

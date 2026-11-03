@@ -9,6 +9,7 @@ and ``ContextVar`` propagation.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import secrets
 from collections.abc import Callable
@@ -204,7 +205,8 @@ class InertiaLayoutDataMiddleware:
     """Inject shared data (auth, menus, i18n) into every Inertia response.
 
     This middleware reads the user from ``request.state.user`` (set by auth middleware)
-    and populates ``request.state.inertia_shared`` for the Inertia render function.
+    and installs an async factory; page resolution populates
+    ``request.state.inertia_shared`` for the Inertia render function.
 
     The ``auth.user`` projection is produced by a module-registered serializer
     looked up on ``request.app.state.principal_serializer``. Without one,
@@ -232,15 +234,18 @@ class InertiaLayoutDataMiddleware:
         # May demote the principal (a credential its account no longer backs).
         resolved = await resolve_request_permissions(request, self.permission_registry)
         user = getattr(request.state, "user", None)
-        if is_token_principal(user):
-            # An API token never legitimately renders a page, so the layout
-            # describes the anonymous visitor: no account, roles, permissions,
-            # menus or memberships on a 403 page or a public one (N2). The
-            # cached ``resolved`` set above still gates the token's API calls.
-            shared = await self._shared(request, scope, None, set())
-        else:
-            shared = await self._shared(request, scope, user, resolved)
-        request.state.inertia_shared = shared
+
+        # Permissions stay eager for route guards; layout work waits for rendering.
+        async def build_shared() -> dict:
+            if is_token_principal(user):
+                return await self._shared(request, scope, None, set())
+            return await self._shared(request, scope, user, resolved)
+
+        request.state.inertia_shared_factory = build_shared
+        # Resolved later (a page render, or the 500 page after TenantMiddleware
+        # has unbound its tenant): run it in the context this middleware saw, so
+        # providers see the same tenant and user the eager build used to.
+        request.state.inertia_shared_context = contextvars.copy_context()
 
         await self.app(scope, receive, send)
 

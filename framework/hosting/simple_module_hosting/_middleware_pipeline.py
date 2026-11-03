@@ -16,7 +16,6 @@ from simple_module_hosting import sentry
 from simple_module_hosting._body_limit import BodyLimitMiddleware
 from simple_module_hosting._cors import CorsMiddleware, host_policy
 from simple_module_hosting._forwarded_host import ForwardedHostMiddleware
-from simple_module_hosting._inertia_cache import InertiaCacheMiddleware
 from simple_module_hosting._rate_limit import RateLimitMiddleware
 from simple_module_hosting._route_access import API_PREFIX
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
@@ -90,42 +89,27 @@ def install_middleware(
     (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging → CORS
     → BodyLimit → GZip → Security → Session → InertiaMiddleware → [module] →
-    (Tenant, if multi_tenant) → Locale → InertiaLayoutData → InertiaCache →
+    (Tenant, if multi_tenant) → Locale → InertiaLayoutData →
     RateLimit → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
     # the response: the request's DB work commits before any byte reaches the
     # client, instead of in get_db's post-response exit code (GH #257).
     app.add_middleware(CommitBeforeResponseMiddleware)
-    # Inside InertiaCache, so its short-circuit is still governed by it. The
-    # maintenance 503 renders through Inertia and carries this user's auth
-    # block and menus like any other payload; short-circuiting *outside* the
-    # cache guard would ship exactly the per-user payload GH #272 exists to
-    # keep out of caches. Added before Inertia so it *executes* after it: the
-    # page needs the shared props (auth, menus, i18n) to render with a layout,
-    # and auth + locale — both further out — to know who is asking and in which
-    # language to answer.
+    # Auth, locale and lazy layout resolution must precede the maintenance page.
+    # The outer adapter middleware applies protocol and cache rules to it: the
+    # 503 renders through Inertia with this user's auth block and menus, so it
+    # must stay non-cacheable like any other payload (GH #272).
     app.add_middleware(MaintenanceMiddleware)
-    # Added after Maintenance so it *executes* before it: an install that has
-    # never been set up has nothing meaningful to put into maintenance mode,
-    # and the setup redirect should win. Inside InertiaCache for the same
-    # reason Maintenance is — this short-circuits, and the redirect must not
-    # be stored by any cache.
+    # An install awaiting setup takes precedence over maintenance mode.
     app.add_middleware(SetupMiddleware)
-    # Added before InertiaCache so it executes just after it: auth has run (it
-    # can tell anonymous from signed-in), locale/shared props are in place for
-    # the error page, and a 429 is still marked non-cacheable.
+    # Auth and locale are available when rendering a rate-limit error page.
     app.add_middleware(
         RateLimitMiddleware,
         public_rate=settings.rate_limit_public,
         authenticated_rate=settings.rate_limit_authenticated,
         store=rate_limit_store,
     )
-    # Paired with InertiaLayoutDataMiddleware below, which is what puts this
-    # user's auth, permissions and menus into every Inertia payload: this one
-    # makes sure the payload that results is never stored where a page request
-    # can be answered with it.
-    app.add_middleware(InertiaCacheMiddleware)
     app.add_middleware(
         InertiaLayoutDataMiddleware,
         menu_registry=menu_registry,

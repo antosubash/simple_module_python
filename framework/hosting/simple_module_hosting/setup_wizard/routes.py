@@ -85,7 +85,7 @@ async def setup_index(
         },
     )
     # The document embeds the session's CSRF token and connection diagnostics;
-    # the Inertia payload is already no-store via InertiaCache, the HTML is not.
+    # the Inertia payload is already no-store via InertiaMiddleware, the HTML is not.
     response.headers["Cache-Control"] = "no-store"
     return response
 

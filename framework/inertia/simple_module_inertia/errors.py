@@ -7,6 +7,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import RedirectResponse
 
+from simple_module_inertia.request import is_inertia_request
 from simple_module_inertia.response import back_url, version_conflict
 from simple_module_inertia.validation import errors_from_validation, scope_errors
 
@@ -30,7 +31,7 @@ async def inertia_request_validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> Response:
     """Flash validation errors and send the browser back, scoped by error bag."""
-    if "x-inertia" not in request.headers:
+    if not is_inertia_request(request.scope):
         return await request_validation_exception_handler(request, exc)
 
     errors = errors_from_validation(exc.errors(), request_source=True)

@@ -12,7 +12,6 @@ The actual `add_middleware` call order (in `install_middleware`) is the
 app.add_middleware(CommitBeforeResponseMiddleware)
 app.add_middleware(MaintenanceMiddleware)
 app.add_middleware(RateLimitMiddleware, ...)
-app.add_middleware(InertiaCacheMiddleware)
 app.add_middleware(InertiaLayoutDataMiddleware, ...)
 app.add_middleware(LocaleMiddleware, ...)
 
@@ -58,7 +57,7 @@ SecurityHeaders
   ↓
 Session
   ↓
-InertiaMiddleware           (303 / fragment 409 / empty-200 back / Vary)
+InertiaMiddleware           (303 / fragment 409 / empty-200 back / Vary / no-store)
   ↓
 <module middleware>        ← in whatever order each module installed them
   ↓
@@ -67,8 +66,6 @@ Tenant                      (only if SM_MULTI_TENANT=true)
 Locale
   ↓
 InertiaLayoutData
-  ↓
-InertiaCache
   ↓
 RateLimit                   (429 for anonymous public-route traffic)
   ↓
@@ -83,7 +80,7 @@ The response flows back up in the reverse of this order.
 
 The last three are ordered relative to each other for reasons worth stating, because each is the kind of thing that looks arbitrary until it breaks:
 
-- **`Maintenance` sits *inside* `InertiaCache`.** Its 503 is an Inertia payload produced by short-circuiting, carrying this user's auth block and menus like any other. Short-circuiting outside the cache guard would ship exactly the per-user payload that guard exists to keep out of caches. Because its `self.app` is the middleware below it, the 503 still travels back out through `InertiaCache`'s send-wrapper and picks up the same headers.
+- **`Maintenance` sits inside the adapter's `InertiaMiddleware`.** Its short-circuit responses receive the same cache protection and protocol normalization as page endpoints.
 - **`Maintenance` runs *after* `InertiaLayoutData`, `Locale` and auth.** It needs the shared props to render with a layout instead of bare, the locale to answer in the right language, and the resolved user to know whether the caller is an admin who should pass through.
 - **`CommitBeforeResponse` is innermost.** It hooks the `send` channel, so being added first makes its wrapper the first to see the response — which is what lets the commit land before any byte is written.
 
@@ -197,15 +194,23 @@ The resolved locale lands on `request.state.locale` and is used by `InertiaLayou
 
 ### `InertiaLayoutDataMiddleware`
 
-Runs last (closest to the app). Populates `request.state.inertia_shared` with:
+Permissions resolve eagerly for route guards. Other layout work is deferred in
+`request.state.inertia_shared_factory`: menus, catalog selection, principal
+serialization and module providers run only when a page needs them. Both
+`get_inertia` and `render_error_page` await `resolve_inertia_shared(request)`;
+its memoised task populates `request.state.inertia_shared` for existing readers.
+JSON APIs and downloads do not invoke it. Custom readers should await the same
+resolver before accessing the state dict.
+
+When a page needs layout data, populates `request.state.inertia_shared` with:
 
 - `auth.user`, `auth.isAuthenticated`, `auth.permissions`
 - `menus` — grouped by `MenuSection`, filtered by the current user's permissions
-- `i18n` — `{ locale, bundle }` for the resolved locale
+- `i18n` — `{ locale, audience, supportedLocales, messages }` for the resolved locale
 
 Inertia responses pick these up automatically via `InertiaDep` from `simple_module_hosting.inertia_deps`.
 
-### `InertiaCacheMiddleware`
+### Cache protection in `InertiaMiddleware`
 
 Keeps the Inertia payload out of caches that answer page requests.
 
@@ -218,7 +223,7 @@ That only bites once a route marks itself cacheable, which a public-content modu
 
 A module that wants its public page content cached should give the **document** its own `Cache-Control` and an ETag. That path is left alone — this middleware only governs the payload.
 
-The Inertia-request predicate mirrors `fastapi-inertia`'s own, which is presence-only (`"X-Inertia" in headers`), not an equality check against `true`. The two must agree: if the library renders JSON for `X-Inertia: 1` while this middleware doesn't recognise it as Inertia, the payload goes back marked however the route marked it — reopening the leak by changing one header value.
+The exported adapter helper `is_inertia_request(scope)` uses header presence (`"X-Inertia" in headers`), not an equality check against `true`. The two must agree: if the library renders JSON for `X-Inertia: 1` while this middleware doesn't recognise it as Inertia, the payload goes back marked however the route marked it — reopening the leak by changing one header value.
 
 ### `MaintenanceMiddleware`
 
@@ -245,7 +250,7 @@ Pure ASGI rather than `BaseHTTPMiddleware`, because the hook point is the `send`
 ## Inertia protocol responses
 
 `InertiaMiddleware` comes from `simple_module_inertia` and runs just inside
-`Session`, outside every module middleware and `InertiaCacheMiddleware`, so it
+`Session`, outside every module middleware, so it
 also normalises redirects a module middleware issues (an expired session's
 login redirect after a `DELETE`).
 For requests carrying `X-Inertia`, it converts 302 and 307 redirects after

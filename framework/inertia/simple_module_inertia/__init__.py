@@ -24,11 +24,13 @@ from simple_module_inertia.props import (
     prepend,
     scroll,
 )
+from simple_module_inertia.request import INERTIA_HEADER, is_inertia_request
 from simple_module_inertia.response import InertiaResponse
 from simple_module_inertia.templating import InertiaExtension
 from simple_module_inertia.validation import errors_from_validation, scope_errors
 
 __all__ = [
+    "INERTIA_HEADER",
     "Head",
     "Inertia",
     "InertiaConfig",
@@ -45,6 +47,7 @@ __all__ = [
     "inertia_dependency_factory",
     "inertia_request_validation_exception_handler",
     "inertia_version_conflict_exception_handler",
+    "is_inertia_request",
     "lazy",
     "merge",
     "once",

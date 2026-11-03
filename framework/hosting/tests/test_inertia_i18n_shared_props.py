@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from simple_module_core.i18n import I18nRegistry
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.testclient import TestClient
 
 
 def _resolved(shared: dict) -> dict:
@@ -32,8 +33,8 @@ def _build_app() -> FastAPI:
     app.state.sm = SimpleNamespace(i18n_registry=reg)
 
     @app.get("/shared")
-    def shared(request: Request) -> JSONResponse:
-        return JSONResponse(_resolved(request.state.inertia_shared))
+    async def shared(request: Request) -> JSONResponse:
+        return JSONResponse(_resolved(await resolve_inertia_shared(request)))
 
     # Stack order (last added = outermost = runs first):
     #   LocaleMiddleware (outer) -> InertiaLayoutDataMiddleware (inner)
@@ -51,9 +52,9 @@ def _build_app() -> FastAPI:
     return app
 
 
-def test_inertia_shared_props_include_i18n_block_for_default_locale() -> None:
-    client = TestClient(_build_app())
-    resp = client.get("/shared")
+async def test_inertia_shared_props_include_i18n_block_for_default_locale() -> None:
+    client = AsyncClient(transport=ASGITransport(app=_build_app()), base_url="http://test")
+    resp = await client.get("/shared")
     body = resp.json()
     assert "i18n" in body
     assert body["i18n"]["locale"] == "en"
@@ -61,9 +62,11 @@ def test_inertia_shared_props_include_i18n_block_for_default_locale() -> None:
     assert body["i18n"]["messages"] == {"hello": "Hello"}
 
 
-def test_inertia_shared_props_reflect_cookie_locale() -> None:
-    client = TestClient(_build_app(), cookies={"locale": "es"})
-    resp = client.get("/shared")
+async def test_inertia_shared_props_reflect_cookie_locale() -> None:
+    client = AsyncClient(
+        transport=ASGITransport(app=_build_app()), base_url="http://test", cookies={"locale": "es"}
+    )
+    resp = await client.get("/shared")
     body = resp.json()
     assert body["i18n"]["locale"] == "es"
     assert body["i18n"]["messages"] == {"hello": "Hola"}
@@ -94,8 +97,8 @@ def _build_audience_app(tmp_path) -> FastAPI:
     app.state.sm = SimpleNamespace(i18n_registry=reg)
 
     @app.get("/shared")
-    def shared(request: Request) -> JSONResponse:
-        return JSONResponse(_resolved(request.state.inertia_shared))
+    async def shared(request: Request) -> JSONResponse:
+        return JSONResponse(_resolved(await resolve_inertia_shared(request)))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -124,35 +127,43 @@ def _build_audience_app(tmp_path) -> FastAPI:
     return app
 
 
-def test_anonymous_visitors_receive_only_public_catalogs(tmp_path) -> None:
-    client = TestClient(_build_audience_app(tmp_path))
-    body = client.get("/shared").json()
+async def test_anonymous_visitors_receive_only_public_catalogs(tmp_path) -> None:
+    client = AsyncClient(
+        transport=ASGITransport(app=_build_audience_app(tmp_path)), base_url="http://test"
+    )
+    body = (await client.get("/shared")).json()
     assert body["i18n"]["messages"] == {"pages.title": "Pages"}
 
 
-def test_authenticated_users_receive_admin_catalogs_too(tmp_path) -> None:
-    client = TestClient(_build_audience_app(tmp_path))
-    body = client.get("/shared", headers={"X-Test-Auth": "1"}).json()
+async def test_authenticated_users_receive_admin_catalogs_too(tmp_path) -> None:
+    client = AsyncClient(
+        transport=ASGITransport(app=_build_audience_app(tmp_path)), base_url="http://test"
+    )
+    body = (await client.get("/shared", headers={"X-Test-Auth": "1"})).json()
     assert body["i18n"]["messages"] == {"pages.title": "Pages", "settings.key": "Key"}
 
 
-def test_login_mid_session_reships_messages_on_an_inertia_partial(tmp_path) -> None:
+async def test_login_mid_session_reships_messages_on_an_inertia_partial(tmp_path) -> None:
     """An Inertia partial normally skips messages — but not right after login,
     or the freshly-authenticated client would keep the anonymous catalog."""
-    client = TestClient(_build_audience_app(tmp_path))
-    client.get("/shared")  # anonymous full load seeds the session audience
-    body = client.get("/shared", headers={"X-Test-Auth": "1", "X-Inertia": "true"}).json()
+    client = AsyncClient(
+        transport=ASGITransport(app=_build_audience_app(tmp_path)), base_url="http://test"
+    )
+    (await client.get("/shared"))  # anonymous full load seeds the session audience
+    body = (await client.get("/shared", headers={"X-Test-Auth": "1", "X-Inertia": "true"})).json()
     assert body["i18n"]["messages"] == {"pages.title": "Pages", "settings.key": "Key"}
 
 
-def test_inertia_partial_with_unchanged_audience_still_skips_messages(tmp_path) -> None:
-    client = TestClient(_build_audience_app(tmp_path))
-    client.get("/shared", headers={"Accept": "text/html"})  # a real page load
-    body = client.get("/shared", headers={"X-Inertia": "true"}).json()
+async def test_inertia_partial_with_unchanged_audience_still_skips_messages(tmp_path) -> None:
+    client = AsyncClient(
+        transport=ASGITransport(app=_build_audience_app(tmp_path)), base_url="http://test"
+    )
+    (await client.get("/shared", headers={"Accept": "text/html"}))  # a real page load
+    body = (await client.get("/shared", headers={"X-Inertia": "true"})).json()
     assert body["i18n"]["messages"] is None
 
 
-def test_inertia_shared_props_fallback_when_registry_missing(
+async def test_inertia_shared_props_fallback_when_registry_missing(
     caplog,
 ) -> None:
     """When app.state.i18n_registry is absent, the middleware logs a warning and
@@ -164,8 +175,8 @@ def test_inertia_shared_props_fallback_when_registry_missing(
     # Intentionally do NOT set app.state.i18n_registry.
 
     @app.get("/shared")
-    def shared(request: Request) -> JSONResponse:
-        return JSONResponse(_resolved(request.state.inertia_shared))
+    async def shared(request: Request) -> JSONResponse:
+        return JSONResponse(_resolved(await resolve_inertia_shared(request)))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -176,8 +187,8 @@ def test_inertia_shared_props_fallback_when_registry_missing(
     app.add_middleware(SessionMiddleware, secret_key="test-secret")
 
     with caplog.at_level(logging.WARNING, logger="simple_module_hosting.middleware"):
-        client = TestClient(app)
-        resp = client.get("/shared")
+        client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+        resp = await client.get("/shared")
 
     body = resp.json()
     assert body["i18n"] == {"locale": "en", "supportedLocales": ["en"], "messages": {}}

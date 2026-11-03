@@ -4,6 +4,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from simple_module_inertia.request import is_inertia_request
 from simple_module_inertia.response import back_url
 
 # Redirect headers that describe a body the 409 no longer has.
@@ -44,7 +45,7 @@ class InertiaMiddleware:
             return
 
         request_headers = Headers(scope=scope)
-        inertia = "x-inertia" in request_headers
+        inertia = is_inertia_request(scope)
         pending: Message | None = None
         discard_body = False
         empty_sent = False
@@ -55,8 +56,14 @@ class InertiaMiddleware:
                 message.setdefault("headers", [])
                 headers = MutableHeaders(scope=message)
                 html = headers.get("content-type", "").split(";", 1)[0].strip() == "text/html"
-                if inertia or "x-inertia" in headers or html:
+                payload = inertia or "x-inertia" in headers
+                if payload or html:
                     add_vary(headers)
+                if payload:
+                    # The payload carries this user's auth, permissions and menus:
+                    # it must never answer a page request from a cache (GH #272).
+                    headers["cache-control"] = "private, no-store"
+                    del headers["etag"]
                 if inertia:
                     code = message["status"]
                     target = headers.get("location", "")

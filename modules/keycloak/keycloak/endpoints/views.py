@@ -6,7 +6,7 @@ import logging
 
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Request
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse, Response
 
@@ -77,7 +77,7 @@ async def logout(request: Request) -> Response:
     logout_url = client.build_logout_url(
         post_logout_redirect_uri=f"{base_url}{_LOGGED_OUT_PATH}",
     )
-    if request.headers.get("X-Inertia"):
+    if is_inertia_request(request.scope):
         # An Inertia XHR cannot follow a redirect to the IdP (CSP connect-src);
         # 409 + X-Inertia-Location makes the client do a full-page visit.
         return location(logout_url)

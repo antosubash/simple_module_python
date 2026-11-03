@@ -27,7 +27,7 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 
 ## Shared props (no setup needed)
 
-`InertiaLayoutDataMiddleware` populates these on every Inertia response:
+`InertiaLayoutDataMiddleware` prepares these for every page render (lazily: a JSON `/api` call never builds them; code that renders outside `InertiaDep` awaits `resolve_inertia_shared(request)` from `simple_module_hosting.inertia_deps`):
 
 | Prop | Shape | Populated from |
 |---|---|---|
@@ -35,7 +35,7 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 | `auth.isAuthenticated` | bool | `request.state.user` presence |
 | `auth.permissions` | string[] | Roles → permissions expansion via the framework's permission registry |
 | `menus` | `{ sidebar, adminSidebar, navbar, userDropdown }` | All modules' `register_menu_items()` output, auth/role-filtered |
-| `i18n` | `{ locale, supportedLocales, messages }` | Active locale (`request.state.locale`) + flattened message bundle for that locale (`messages` is `null` on Inertia XHR partials when the locale is unchanged) |
+| `i18n` | `{ locale, supportedLocales, audience, messages }` | Active locale (`request.state.locale`) + flattened message bundle for that locale and audience (`messages` is `null` on an Inertia visit whose `X-SM-I18n` header reports the same locale and audience; the host client sends it per tab) |
 
 **Typing them in TSX.** A page receives its own props as typed component arguments (`export default function Browse({ items }: Props)`). Shared props are typed globally: `usePage().props.auth` is already a `SharedProps['auth']`. Components and layouts that need page props too use `usePageProps<Props>()` from `@simple-module-py/ui` (it returns `Props & SharedProps & { errors }`). Never write `usePage<{ props: X }>().props as unknown as X`; `make lint` rejects `as unknown as` outside tests unless the line carries `// cast-ok: <reason>`.
 

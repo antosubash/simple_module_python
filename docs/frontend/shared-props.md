@@ -24,14 +24,20 @@ interface SharedProps {
 // Every Inertia response also carries an `i18n` block (read via usePage().props.i18n):
 interface I18nSharedProps {   // SharedProps['i18n']
   locale: string;
+  audience: 'public' | 'full';
   supportedLocales: string[];
-  messages: Record<string, string> | null;   // null on Inertia XHR partials when the locale is unchanged
+  messages: Record<string, string> | null;   // null when the tab reports the same locale and audience
 }
 ```
 
 ## How they're populated
 
-`InertiaLayoutDataMiddleware` runs **last** in the middleware pipeline (closest to the app). For every outgoing Inertia response, it reads:
+`InertiaLayoutDataMiddleware` resolves permissions eagerly and installs a memoised
+async layout factory. Page dependencies and error rendering resolve that factory;
+JSON API requests and downloads skip it. The resolved props remain available as
+`request.state.inertia_shared`; custom readers first await
+`resolve_inertia_shared(request)` from `simple_module_hosting.inertia_deps`.
+For each rendered page, it reads:
 
 - `request.state.user` (set by the auth middleware) and the registered `app.state.principal_serializer` to build `auth.user`. The user's roles drive `auth.permissions`.
 - `menu_registry.get_for_user(...)`, filtered by the user's auth state and roles, to build `menus`.
@@ -161,24 +167,18 @@ t("orders.browse.title");
 t("orders.items", { count: orders.length });   // pluralization
 ```
 
+Each tab advertises its cached locale/audience via `X-SM-I18n`. A matching
+Inertia visit receives `messages: null`; otherwise the server resends the catalog.
+The client reloads `i18n` once if it receives a changed locale without messages.
+
 The `i18n.messages` block is the **resolved locale's** translations merged across all modules. Switching the locale (via `<LocaleSwitcher />`, which POSTs to `/i18n/set-locale`) triggers a full-page navigation so the messages are re-fetched. The active locale and supported locales are on `usePage().props.i18n` (`locale`, `supportedLocales`).
 
 ## Extending shared props
 
-If your module needs to inject a new shared prop (e.g. feature flags), do **not** mutate `request.state.inertia_shared` from random handlers — wrap in a dedicated middleware:
-
-```python
-class FeatureFlagsSharedPropsMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        flags = request.app.state.sm.feature_flags.evaluate_all(
-            principal=getattr(request.state, "user", None)
-        )
-        if not hasattr(request.state, "inertia_shared"):
-            request.state.inertia_shared = {}
-        request.state.inertia_shared["flags"] = flags
-        return await call_next(request)
-```
-
-Register in `register_middleware`. Because it runs *before* `InertiaLayoutDataMiddleware` (framework middleware runs first on the way in), the flag dict is already attached when the framework middleware merges its own props.
+Register a sync or async provider with
+`simple_module_hosting.register_inertia_shared_provider(app, provider)` from a
+module lifecycle hook. It runs once when shared props are resolved, and its
+returned dict is merged after the built-in props. Reserved keys cannot be
+overwritten; provider failures are logged and skipped.
 
 On the client, a module-specific shared prop is read with `usePageProps<{ flags: Flags }>()`; props every app needs belong in `SharedProps` (`packages/ui/src/types.ts`).

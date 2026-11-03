@@ -26,6 +26,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from simple_module_hosting.inertia_deps import is_inertia_request
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -106,7 +107,7 @@ def _refusal(scope: Scope) -> Response:
     writes — get the 403 and can show the reason inline.
     """
     headers = Request(scope).headers
-    if headers.get("x-inertia"):
+    if is_inertia_request(scope):
         return Response(
             status_code=409,
             headers={"X-Inertia-Location": headers.get("referer") or "/"},
