@@ -151,9 +151,10 @@ async def test_service_preserves_last_active_admin(users_app, users_db, operatio
     inactive = await _make_user(users_db, "inactive-admin@example.com", role_names=["admin"])
     inactive.is_active = False
     await users_db.commit()
-    # The legacy superuser flag alone grants no framework admin permissions.
+    # An inactive superuser does not count as an available administrator.
     roleless = await _make_user(users_db, "roleless-superuser@example.com")
     roleless.is_superuser = True
+    roleless.is_active = False
     await users_db.commit()
     service = _build_service(users_db, users_app)
     with pytest.raises(AdminAccountSafetyError):

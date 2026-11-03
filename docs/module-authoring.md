@@ -684,7 +684,10 @@ required step at boot so an operator facing a form-less wizard can find out why.
 A few things are worth knowing before you add one.
 
 **Registering nothing is a valid answer, and it is how a module opts out.** The
-`users` module contributes the "an administrator exists" step; `keycloak`
+`users` module contributes the "first administrator" step, complete once any
+local account exists (an install that later loses its last administrator
+recovers with `smpy users create-admin`, never through the anonymous form);
+`keycloak`
 deliberately does not, because an install using an external identity provider
 has a legitimately empty local users table and a host-level superuser count
 would hold it behind the wizard forever.

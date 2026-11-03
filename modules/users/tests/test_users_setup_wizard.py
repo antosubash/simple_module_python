@@ -140,19 +140,20 @@ async def test_concurrent_submissions_create_one_admin(setup_pending_app) -> Non
 
 
 async def test_existing_non_admin_address_is_refused(setup_pending_app) -> None:
-    """create_admin leaves an existing account untouched; reporting success for
-    a step that is still pending would leave the operator stuck."""
+    """An account created after the wizard opened closes it; nothing is granted."""
     from users.bootstrap import create_standard_user
 
-    async with setup_pending_app.state.sm.db.session_factory() as session:
-        await create_standard_user(session, email="user@example.com", password="UserPass1!")
-
     async with wizard_client(setup_pending_app) as client:
-        resp = await post_step(
-            client, STEP_ADMINISTRATOR, {"email": "user@example.com", "password": "Another1!"}
+        headers = await wizard_headers(client)
+        async with setup_pending_app.state.sm.db.session_factory() as session:
+            await create_standard_user(session, email="user@example.com", password="UserPass1!")
+        resp = await client.post(
+            f"/setup/steps/{STEP_ADMINISTRATOR}",
+            json={"email": "user@example.com", "password": "Another1!"},
+            headers=headers,
         )
 
-    assert resp.status_code == 409
+    assert resp.status_code in (404, 409)
     assert await _superusers(setup_pending_app) == []
 
 

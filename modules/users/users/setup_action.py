@@ -1,20 +1,9 @@
-"""The wizard action that completes ``users.administrator``: create the first admin.
+"""Create the first administrator while the local users table is empty.
 
-Anonymous by necessity — it runs before any account exists — so the bounds on
-it are the whole of its security:
-
-1. The wizard calls it only while *this* step is pending (no active
-   superuser), never merely while "setup mode" is on. A live install whose
-   schema falls behind head re-enters setup mode with its administrators
-   intact; gated on the weaker condition this would mint a superuser there.
-2. That check runs before the handler, outside any transaction, so two
-   concurrent requests can both pass it. The handler therefore takes a
-   database-level lock and re-checks **inside the transaction that inserts**:
-   the loser of the race sees the winner's committed admin and is refused.
-3. The password goes through the users module's real policy
-   (``UserManager.validate_password``). ``create_admin`` writes the hash
-   directly and never consults it, and a local copy of "at least 8
-   characters" is exactly how it once drifted from the policy.
+The setup step uses the shared active-administrator definition. The action
+also requires an empty users table, checked under the database lock in the
+inserting transaction. Existing installations recover through
+``smpy users create-admin``. Passwords follow ``UserManager``'s policy.
 """
 
 from __future__ import annotations
@@ -34,7 +23,6 @@ from sqlmodel import SQLModel
 from users.bootstrap import create_admin
 from users.manager import UserManager
 from users.models import User
-from users.setup import session_has_administrator
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +92,15 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
 
     async with _process_lock(request.app), request.app.state.sm.db.session_factory() as session:
         await _lock_admin_creation(session)
-        if await session_has_administrator(session):
+        if await session.scalar(sa.select(User.id).limit(1)) is not None:
             await session.rollback()
-            raise HTTPException(status_code=409, detail="An administrator already exists.")
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "User accounts already exist. "
+                    "Use smpy users create-admin to restore an administrator."
+                ),
+            )
         # create_admin commits, which is what releases the database lock —
         # after the user row and its admin role are both written.
         result = await create_admin(
@@ -116,10 +110,7 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
             full_name=payload.full_name,
         )
         if not result.created:
-            # The address belongs to an account that is not an active
-            # superuser. create_admin(force=False) leaves it untouched, so
-            # nothing was granted — say so rather than reporting success
-            # for a step that is still pending.
+            # create_admin leaves an existing account untouched.
             await session.rollback()
             raise HTTPException(
                 status_code=409, detail="An account with this email already exists."

@@ -80,6 +80,21 @@ All notable changes to this project are documented in this file. The format is b
   RC pins to final releases without downgrading existing pins (#766).
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving
   excluded project manifests unchanged (#767). No migration.
+- Users: the setup administrator step and last-administrator guard now share
+  one definition of an active administrator: an active, enabled superuser or
+  Admin-role holder. **Behaviour change:** the `users.administrator` setup step
+  is complete once any local account exists, and the first-administrator action
+  requires an empty users table; an install with accounts but no administrator
+  recovers with `smpy users create-admin` rather than through `/setup`.
+- Hosting: first-run detection requires a never-migrated database, including
+  installs whose only required setup step is migrations. Pending steps on a
+  database with migration history no longer qualify as first run (#784).
+- Auth and hosting: framework public paths are matched exactly or by
+  `/`-terminated prefix, keeping similarly named module paths subject to
+  authentication, maintenance mode and anonymous rate limits.
+- Hosting: readiness and setup connection probes have a five-second deadline
+  per check. Timeouts report "timed out"; raised exceptions are logged and
+  return only their class name, including database connection failures (#786).
 - **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
   before #750 (no authority marker) is adopted only when the issuer recorded in
   its `oidc_identity` matches the discovered issuer (#764). A session from a

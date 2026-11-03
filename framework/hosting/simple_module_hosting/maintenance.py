@@ -20,13 +20,15 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting._error_negotiation import _wants_json
 from simple_module_hosting._error_page import render_error_page
+from simple_module_hosting.path_matching import matches_path
 from simple_module_hosting.public_access import is_public
 
 # Kept reachable while the gate is closed: liveness probes (so orchestrators
 # do not kill the pod mid-maintenance), static assets and i18n bundles (or the
 # 503 page renders unstyled and untranslated).
+_ALWAYS_OPEN_EXACT = ("/health",)
 _ALWAYS_OPEN_PREFIXES = (
-    "/health",
+    "/health/",
     "/static/",
     "/i18n/",
 )
@@ -56,7 +58,7 @@ class MaintenanceMiddleware:
             return
 
         path: str = scope["path"]
-        if any(path.startswith(p) for p in _ALWAYS_OPEN_PREFIXES):
+        if matches_path(path, exact=_ALWAYS_OPEN_EXACT, prefixes=_ALWAYS_OPEN_PREFIXES):
             await self.app(scope, receive, send)
             return
 

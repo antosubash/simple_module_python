@@ -7,11 +7,14 @@ import logging
 
 from fastapi import APIRouter, Request
 from simple_module_core.app_state import get_migration_status
-from simple_module_core.health import HealthCheckResult, HealthRegistry, HealthStatus
+from simple_module_core.correlation import correlation_id
+from simple_module_core.health import HealthCheckFn, HealthCheckResult, HealthRegistry, HealthStatus
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Health"])
+
+CHECK_TIMEOUT_SECONDS = 5
 
 _KEY_STATUS = "status"
 _KEY_CHECKS = "checks"
@@ -26,6 +29,19 @@ _STATUS_SEVERITY = {
     HealthStatus.DEGRADED: 1,
     HealthStatus.UNHEALTHY: 2,
 }
+
+
+async def run_health_check(name: str, check_fn: HealthCheckFn) -> HealthCheckResult:
+    """Bound a probe and report exception classes without exception messages."""
+    try:
+        return await asyncio.wait_for(check_fn(), timeout=CHECK_TIMEOUT_SECONDS)
+    except TimeoutError:
+        return HealthCheckResult(status=HealthStatus.UNHEALTHY, detail="timed out")
+    except Exception as exc:
+        logger.warning(
+            "Health check %s failed correlation_id=%s", name, correlation_id.get(), exc_info=True
+        )
+        return HealthCheckResult(status=HealthStatus.UNHEALTHY, detail=type(exc).__name__)
 
 
 @router.get("/health")
@@ -54,20 +70,8 @@ async def readiness(request: Request) -> dict:
     if not checks:
         return {_KEY_STATUS: _STATUS_HEALTHY, _KEY_CHECKS: {}}
 
-    # Run all checks concurrently
-    async def _run_check(name: str, check_fn):
-        try:
-            return name, await check_fn()
-        except Exception as exc:
-            return name, HealthCheckResult(
-                status=HealthStatus.UNHEALTHY,
-                detail=str(exc),
-            )
-
-    tasks = [_run_check(c.name, c.check) for c in checks]
-    completed = await asyncio.gather(*tasks)
-
-    results: dict[str, HealthCheckResult] = dict(completed)
+    completed = await asyncio.gather(*(run_health_check(c.name, c.check) for c in checks))
+    results = dict(zip((c.name for c in checks), completed, strict=True))
 
     # Aggregate: worst status wins
     worst = HealthStatus.HEALTHY

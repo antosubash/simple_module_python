@@ -24,73 +24,27 @@ from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting.data_compatibility import check_data_compatibility
 from simple_module_hosting.migrations import migration_status
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 
 logger = logging.getLogger(__name__)
 
 
 async def _is_first_run(app: FastAPI) -> bool:
-    """Whether this install has never been set up at all.
+    """True only when a registered setup flow has a never-migrated database.
 
-    The distinction the boot check turns on. Two very different situations both
-    leave ``host.migrations`` outstanding:
-
-    - A **fresh deployment**: nothing is configured, so the administrator step
-      is pending too. Serving the wizard is exactly right — running the
-      migrations is one of the things it exists to do.
-    - A **configured install whose schema drifted**: someone deployed code
-      ahead of the migration job. It has administrators; only the schema is
-      behind.
-
-    Treating the second as "setup mode" is wrong twice over. It serves traffic
-    against a schema the code does not match — the failure ``SM010`` exists to
-    prevent — and it re-opens ``/setup``, whose migration endpoint is
-    unauthenticated, letting an anonymous request trigger an Alembic run on a
-    live system.
-
-    So: first run means *something other than the schema* is also outstanding.
-    ``False`` when no registry exists, since an app built outside
-    ``create_app`` has no steps to reason about and the old raising behaviour
-    is the safer default there.
-
-    Deliberately does not delegate to ``registry.incomplete()``: that method
-    treats a step whose predicate raises as *complete*, which is right for
-    ``SetupMiddleware``'s steady-state gate (a transient DB error must not
-    lock a working install out) but wrong here. On a genuinely fresh
-    database the non-migration steps' own tables don't exist yet — the
-    administrator check is a query against a table migrations create — so it
-    raises too, and swallowing that would make every step but the schema
-    look satisfied, exactly the "is setup complete" trap this function
-    exists to avoid. A required step raising counts as pending only with
-    positive evidence the install is new: the database has never been
-    migrated at all (no ``alembic_version``). On a database with migration
-    history the same exception is far more likely a transient error on an
-    established install, and treating that as first run would serve the
-    unauthenticated migration endpoint on a live system — so boot fails
-    instead, with the "behind head" error.
+    A pending administrator or other setup step on an installation with
+    migration history is not evidence of a fresh install. Missing migration
+    status also supplies no such evidence. A never-migrated database qualifies
+    even when migrations are the only step, or another step would raise
+    because its tables do not exist yet.
     """
     registry = getattr(app.state.sm, "setup_registry", None)
-    if not registry:
-        return False
-    for step in registry.required_steps:
-        if step.id == STEP_MIGRATIONS:
-            continue
-        try:
-            done = await step.is_complete(app)
-        except Exception:
-            migration = get_migration_status(app) or {}
-            never_migrated = migration.get("current_revision") is None
-            if not never_migrated:
-                logger.warning(
-                    "Setup step %s failed on a database with migration history; "
-                    "not treating this install as new",
-                    step.id,
-                    exc_info=True,
-                )
-            return never_migrated
-        if not done:
-            return True
-    return False
+    migration = get_migration_status(app)
+    return (
+        bool(registry)
+        and migration is not None
+        and "current_revision" in migration
+        and migration["current_revision"] is None
+    )
 
 
 def build_lifespan(modules: Sequence) -> Callable:

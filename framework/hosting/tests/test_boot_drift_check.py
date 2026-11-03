@@ -32,8 +32,13 @@ def _step(step_id: str, done: bool) -> SetupStep:
     return SetupStep(id=step_id, title=step_id, is_complete=is_complete)
 
 
-def _app(registry) -> SimpleNamespace:
-    return SimpleNamespace(state=SimpleNamespace(sm=SimpleNamespace(setup_registry=registry)))
+def _app(registry, revision=None) -> SimpleNamespace:
+    return SimpleNamespace(
+        state=SimpleNamespace(
+            sm=SimpleNamespace(setup_registry=registry),
+            migration={"current_revision": revision},
+        )
+    )
 
 
 async def test_fresh_install_is_first_run() -> None:
@@ -55,7 +60,7 @@ async def test_configured_install_with_drift_is_not_first_run() -> None:
     registry.add(_step(STEP_MIGRATIONS, done=False))
     registry.add(_step("users.administrator", done=True))
 
-    assert await _is_first_run(_app(registry)) is False
+    assert await _is_first_run(_app(registry, "abc123")) is False
 
 
 async def test_no_registry_is_not_first_run() -> None:
@@ -66,13 +71,12 @@ async def test_no_registry_is_not_first_run() -> None:
     assert await _is_first_run(app) is False
 
 
-async def test_migration_step_alone_never_makes_it_first_run() -> None:
-    """Guards the subtraction: host.migrations is registered on every install,
-    so counting it would make every drifted install look brand new."""
+async def test_migration_step_with_history_is_not_first_run() -> None:
+    """An existing migration revision distinguishes a later upgrade."""
     registry = SetupRegistry()
     registry.add(_step(STEP_MIGRATIONS, done=False))
 
-    assert await _is_first_run(_app(registry)) is False
+    assert await _is_first_run(_app(registry, "abc123")) is False
 
 
 async def test_a_raising_step_still_counts_as_first_run() -> None:
@@ -97,3 +101,24 @@ async def test_a_raising_step_still_counts_as_first_run() -> None:
     registry.add(SetupStep(id="users.administrator", title="admin", is_complete=is_complete))
 
     assert await _is_first_run(_app(registry)) is True
+
+
+async def test_pending_administrator_with_history_is_not_first_run() -> None:
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(_step("users.administrator", done=False))
+    assert await _is_first_run(_app(registry, "abc123")) is False
+
+
+async def test_migrations_only_without_history_is_first_run() -> None:
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    assert await _is_first_run(_app(registry)) is True
+
+
+async def test_missing_migration_snapshot_is_not_first_run() -> None:
+    registry = SetupRegistry()
+    registry.add(_step("users.administrator", done=False))
+    app = _app(registry)
+    del app.state.migration
+    assert await _is_first_run(app) is False

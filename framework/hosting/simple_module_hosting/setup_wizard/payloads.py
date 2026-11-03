@@ -13,6 +13,7 @@ import asyncio
 from fastapi import Request
 
 from simple_module_hosting._db_health import CHECK_DATABASE
+from simple_module_hosting.health import run_health_check
 
 # A health-check *name*, not an import: the check exists only when the
 # background_tasks module registered it, and is skipped otherwise.
@@ -30,12 +31,10 @@ async def run_check(request: Request, name: str) -> dict | None:
     for check in registry.all_checks:
         if check.name != name:
             continue
-        result = await check.check()
+        result = await run_health_check(check.name, check.check)
         return {
             "name": name,
             "status": str(result.status),
-            # The reason is the point: "connection refused" and "authentication
-            # failed" need different fixes.
             "detail": result.detail or "",
         }
     return None
@@ -44,8 +43,8 @@ async def run_check(request: Request, name: str) -> dict | None:
 async def connection_status(request: Request) -> list[dict]:
     """Every dependency this install actually has, probed concurrently.
 
-    Concurrently because each probe carries its own connect timeout: run in
-    series, a wizard on a host where both the database and Redis are
+    Each probe uses the same bounded runner as readiness. Running them in
+    series means a wizard on a host where both the database and Redis are
     unreachable waits for the sum of them before rendering anything, which is
     exactly the case the wizard exists to diagnose.
     """
