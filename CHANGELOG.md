@@ -102,7 +102,10 @@ All notable changes to this project are documented in this file. The format is b
   per check. Timeouts report "timed out"; raised exceptions are logged and
   return only their class name, including database connection failures (#786).
 - Setup migrations lock and migrate the app's resolved database, including in
-  scaffolded hosts, when it differs from `SM_DATABASE_URL` (#782).
+  newly scaffolded hosts, when it differs from `SM_DATABASE_URL` (#782). Hosts
+  scaffolded earlier keep their own `migrations/env.py`: read
+  `config.attributes.get(ALEMBIC_DATABASE_URL_ATTRIBUTE)` (from
+  `simple_module_hosting.migrations`) before falling back to `Settings()`.
 - Explicit bootstrap process settings survive the pre-app settings merge,
   including production environment, module selection and Redis (#783).
 - **Behaviour change** (`hosting`): runtime host settings discover the same

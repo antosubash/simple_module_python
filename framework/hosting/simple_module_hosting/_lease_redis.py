@@ -125,7 +125,9 @@ class RedisLeaseBackend:
                     self._url,
                     socket_timeout=_SOCKET_TIMEOUT,
                     socket_connect_timeout=_SOCKET_TIMEOUT,
-                    retry=Retry(NoBackoff(), 0),
+                    # One reconnect, no backoff: a stale pooled connection gets a fresh
+                    # socket, while the 2 s timeouts keep the worst case bounded.
+                    retry=Retry(NoBackoff(), 1),
                 )
             self._owner = owner
         return self._client

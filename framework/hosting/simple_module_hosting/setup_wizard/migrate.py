@@ -57,7 +57,11 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    from simple_module_hosting.migrations import default_alembic_ini, migration_status
+    from simple_module_hosting.migrations import (
+        ALEMBIC_DATABASE_URL_ATTRIBUTE,
+        default_alembic_ini,
+        migration_status,
+    )
 
     # Resolved through the hosting helper rather than hardcoded: this runs
     # inside a request, and a literal "host/alembic.ini" is only correct while
@@ -71,7 +75,9 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
         # This is what `make migrate` runs.
         url = request.app.state.sm.db.engine.url
         config = AlembicConfig(ini_path)
-        config.attributes["sm.database_url"] = url.render_as_string(hide_password=False)
+        config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE] = url.render_as_string(
+            hide_password=False
+        )
         with migration_lock(url), _preserve_logging():
             command.upgrade(config, "heads")
 

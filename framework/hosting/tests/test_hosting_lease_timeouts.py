@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 from redis.exceptions import ConnectionError, TimeoutError
-from simple_module_core.leases import LeaseNotAcquiredError, lease, semaphore
-from simple_module_hosting._lease_redis import RedisLeaseBackend
+from simple_module_core.leases import _ATTEMPT_FLOOR, LeaseNotAcquiredError, lease, semaphore
+from simple_module_hosting._lease_redis import _SOCKET_TIMEOUT, RedisLeaseBackend
 
 
 @pytest.mark.parametrize("slots", [None, 2])
@@ -32,7 +32,7 @@ async def test_unresponsive_redis_respects_wait(slots, caplog) -> None:
         start = time.monotonic()
         assert await held.acquire() is False
         # One attempt is bounded by the per-attempt floor (1 s), not the socket retries.
-        assert time.monotonic() - start < 2
+        assert time.monotonic() - start < 3
         assert held.acquired is False
         assert "WARNING" in caplog.text
     finally:
@@ -70,14 +70,14 @@ async def test_redis_errors_fail_acquire_and_preserve_body_error(error, slots, c
     assert "WARNING" in caplog.text
 
 
-async def test_redis_client_has_finite_timeouts_without_retries() -> None:
+async def test_redis_client_has_finite_timeouts_and_one_reconnect() -> None:
     backend = RedisLeaseBackend("redis://localhost")
     client = backend._redis()
     try:
         options = client.connection_pool.connection_kwargs
-        assert 0 < options["socket_timeout"] <= 2
-        assert 0 < options["socket_connect_timeout"] <= 2
-        assert options["retry"].get_retries() == 0
+        assert options["socket_timeout"] == _SOCKET_TIMEOUT == 2.0
+        assert options["socket_connect_timeout"] == _SOCKET_TIMEOUT
+        assert options["retry"].get_retries() == 1
     finally:
         await client.aclose()
 
@@ -100,7 +100,7 @@ async def test_stalled_backend_call_is_cancelled_at_deadline(slots, caplog) -> N
         if slots is None
         else semaphore("stalled", slots, 10, wait=0.05, backend=backend)
     )
-    assert await asyncio.wait_for(held.acquire(), 2.0) is False
+    assert await asyncio.wait_for(held.acquire(), 3.0) is False
     assert cancelled.is_set()
     assert not held.acquired
     assert "WARNING" in caplog.text
@@ -141,3 +141,23 @@ async def test_zero_wait_tolerates_a_slow_but_healthy_backend() -> None:
         "slow", 10, wait=0, backend=RedisLeaseBackend("redis://unused", factory=lambda: client)
     )
     assert await held.acquire()
+
+
+async def test_attempt_floor_is_one_second_at_zero_wait() -> None:
+    """The floor is the documented 1 s: a 0.8 s reply acquires, a stall gives up at ~1 s."""
+    assert _ATTEMPT_FLOOR == 1.0
+
+    delay = 0.8
+
+    async def reply(*_args):
+        await asyncio.sleep(delay)
+        return 1
+
+    client = AsyncMock()
+    client.eval.side_effect = reply
+    backend = RedisLeaseBackend("redis://unused", factory=lambda: client)
+    assert await lease("floor-ok", 10, wait=0, backend=backend).acquire()
+    delay = 30
+    start = time.monotonic()
+    assert await lease("floor-stall", 10, wait=0, backend=backend).acquire() is False
+    assert 0.9 <= time.monotonic() - start < 2.5

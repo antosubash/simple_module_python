@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 
 _ALEMBIC_INI_RELATIVE = "host/alembic.ini"
 
+#: ``alembic.config.Config.attributes`` key carrying the database URL to migrate.
+#: The setup wizard sets it to the app's own engine URL, and ``env.py`` prefers
+#: it over ``Settings()`` so the migrated database is the one the lock covers.
+ALEMBIC_DATABASE_URL_ATTRIBUTE = "sm.database_url"
+
 
 def default_alembic_ini() -> str:
     """Locate ``alembic.ini`` without depending on the process cwd.
