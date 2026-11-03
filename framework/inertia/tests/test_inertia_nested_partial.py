@@ -125,3 +125,8 @@ async def test_defer_nested_in_dict_is_announced_at_its_dotted_path():
     out = await resolve_props({"stats": {"daily": defer(lambda: 1)}}, {}, "Page", request())
     assert out.props == {"stats": {}}
     assert out.deferred == {"default": ["stats.daily"]}
+
+
+async def test_wrapped_values_inside_list_rows_resolve_in_place():
+    out = await resolve_props({"rows": [{"a": 1, "x": optional(lambda: 2)}]}, {}, "Page", request())
+    assert out.props == {"rows": [{"a": 1, "x": 2}]}

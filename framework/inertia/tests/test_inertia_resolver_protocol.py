@@ -136,3 +136,9 @@ async def test_scroll_match_on_targets_the_wrapped_array():
     )
     out = await resolve_props({"posts": posts}, {}, "Page", request())
     assert (out.merge, out.match_on) == (["posts.data"], ["posts.data.id"])
+
+
+async def test_scroll_over_a_bare_list_merges_at_the_root():
+    posts = scroll([{"id": 1}], page_name="page", current_page=1, previous_page=None, next_page=2)
+    out = await resolve_props({"posts": posts}, {}, "Page", request())
+    assert out.merge == ["posts"]

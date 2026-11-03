@@ -41,7 +41,9 @@ All notable changes to this project are documented in this file. The format is b
   props and reports their paths in `rescuedProps` (#773). An `optional()` or
   `defer()` nested inside a plain dict prop is now skipped on full visits and
   announced at its dotted path (`deferredProps: {"default": ["stats.daily"]}`)
-  instead of resolving eagerly; one nested inside a list still resolves eagerly.
+  instead of resolving eagerly; one inside a list item or a loader's returned
+  value still resolves eagerly. A `scroll()` whose value is a bare list merges
+  at the prop root.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.

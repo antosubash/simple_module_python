@@ -91,13 +91,13 @@ to assert against.
   with `matchPropsOn` entries as `"propPath.keyField"`. A key listed in `X-Inertia-Reset` is
   resolved but **not** reported as mergeable for that response, so the client replaces it.
 - **Scroll props**: reported under `scrollProps` with their cursor metadata, `reset` set when
-  `X-Inertia-Reset` names the prop or `reset=True` was passed (either also drops the merge label); merge labels target `<prop>.<wrapper>` (default `data`,
+  `X-Inertia-Reset` names the prop or `reset=True` was passed (either also drops the merge label); merge labels target `<prop>.<wrapper>` (default `data`; a resolved bare list merges at the root,
   #770); the `X-Inertia-Infinite-Scroll-Merge-Intent` header selects append vs prepend.
 - Values that are callables are called; awaitables are awaited; nested containers are
   walked so a wrapper inside a dict or list still resolves. `optional` and `deferred`
   wrappers nested in a dict follow the full-visit and partial rules at their dotted
-  path (skipped and announced on a full visit); a wrapper that is a list item resolves
-  eagerly, since an index has no stable path for a follow-up request.
+  path (skipped and announced on a full visit); one inside a list item or a loader's
+  returned value resolves eagerly, since it has no stable path for a follow-up request.
 - **Shared props** (`share()`) merge under the page's own props, page props winning on
   conflict; their top-level keys are reported under `sharedProps`.
 

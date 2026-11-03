@@ -57,14 +57,17 @@ def _included(path: str, req: InertiaRequest, *, ancestors: bool = False) -> boo
     return not _matches(path, req.partial_except)
 
 
-def _announce_merge(name: str, prop: Prop, req: InertiaRequest, out: ResolvedProps) -> None:
+def _announce_merge(
+    name: str, prop: Prop, req: InertiaRequest, out: ResolvedProps, value: Any = None
+) -> None:
     if name in req.reset or (prop.scroll is not None and prop.scroll.reset):
         return
     mode = prop.merge_mode
     path = name
     if prop.scroll is not None:
         mode = req.merge_intent or "append"
-        if prop.scroll.wrapper is not None:
+        # A resolved bare list is itself the page of items: merge at its root.
+        if prop.scroll.wrapper is not None and not isinstance(value, list):
             path = f"{name}.{prop.scroll.wrapper}"
     if mode == "append":
         out.merge.append(path)
@@ -85,12 +88,13 @@ def _announce_metadata(
     partial: bool,
     out: ResolvedProps,
     parent_resolved: bool = False,
+    value: Any = None,
 ) -> None:
     # ``always`` props and children of an already-resolved value are sent whole,
     # so their merge/once labels must accompany them.
     if partial and not (parent_resolved or prop.always or _included(name, req)):
         return
-    _announce_merge(name, prop, req, out)
+    _announce_merge(name, prop, req, out, value)
     if prop.is_once:
         _announce_once(name, prop, out)
 
@@ -127,7 +131,9 @@ async def _resolve_tree(
             continue
         if not partial:
             cached = prop.is_once and (prop.once_key or path) in req.except_once_props
-            if prop.optional or prop.deferred_group is not None:
+            # Inside a resolved loader value or a list there is no addressable
+            # path for a follow-up request, so such props resolve eagerly.
+            if not parent_resolved and (prop.optional or prop.deferred_group is not None):
                 if prop.deferred_group is not None and not cached:
                     out.deferred.setdefault(prop.deferred_group, []).append(path)
                 _announce_metadata(path, prop, req, partial, out, parent_resolved)
@@ -143,7 +149,7 @@ async def _resolve_tree(
             logger.exception("Failed to resolve Inertia prop %s", path)
             out.rescued.append(path)
             continue
-        _announce_metadata(path, prop, req, partial, out, parent_resolved)
+        _announce_metadata(path, prop, req, partial, out, parent_resolved, value)
         if prop.scroll is not None:
             out.scroll[path] = {
                 **prop.scroll.as_page_object(),
@@ -172,11 +178,6 @@ async def _resolve_children(
             ):
                 items.append(child)
                 continue
-            if isinstance(child, Prop):
-                # A list item has no addressable path for a follow-up request,
-                # so a wrapped item resolves now rather than being deferred and
-                # shifting every later index.
-                child = await resolve_value(child)
             resolved = await _resolve_tree({str(index): child}, req, partial, out, path, True)
             items.extend(resolved.values())
         return items
