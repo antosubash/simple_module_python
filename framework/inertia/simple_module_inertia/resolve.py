@@ -82,7 +82,11 @@ def _announce_metadata(
         return
     _announce_merge(name, prop, req, out)
     if prop.is_once:
-        out.once[prop.once_key or name] = {"prop": name, "expiresAt": prop.once_expires_at}
+        _announce_once(name, prop, out)
+
+
+def _announce_once(path: str, prop: Prop, out: ResolvedProps) -> None:
+    out.once[prop.once_key or path] = {"prop": path, "expiresAt": prop.once_expires_at}
 
 
 async def _resolve_tree(
@@ -105,8 +109,7 @@ async def _resolve_tree(
             path = f"{prefix}.{key}" if prefix else key
             if filtering and not _included(path, req, ancestors=True):
                 continue
-            bypass = parent_resolved or not isinstance(raw, dict)
-            result[key] = await _resolve_children(raw, path, req, partial, out, bypass)
+            result[key] = await _resolve_children(raw, path, req, partial, out, parent_resolved)
             continue
         path = f"{prefix}.{key}" if prefix else key
         prop = as_prop(raw)
@@ -120,7 +123,7 @@ async def _resolve_tree(
                 _announce_metadata(path, prop, req, partial, out)
                 continue
             if cached:
-                out.once[prop.once_key or path] = {"prop": path, "expiresAt": prop.once_expires_at}
+                _announce_once(path, prop, out)
                 continue
         try:
             value = await resolve_value(raw)
@@ -136,8 +139,8 @@ async def _resolve_tree(
                 **prop.scroll.as_page_object(),
                 "reset": prop.scroll.reset or path in req.reset,
             }
-        bypass = parent_resolved or not isinstance(raw, dict)
-        result[key] = await _resolve_children(value, path, req, partial, out, bypass)
+        # A loader's value is returned whole: partial filters stop at its path.
+        result[key] = await _resolve_children(value, path, req, partial, out, True)
     return result
 
 

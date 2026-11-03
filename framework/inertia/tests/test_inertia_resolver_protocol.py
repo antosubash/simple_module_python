@@ -34,7 +34,7 @@ async def test_cached_once_keeps_metadata_without_running_loader():
     assert out.once == {"plans": {"prop": "plans", "expiresAt": None}}
 
 
-async def test_partial_once_ignores_client_cache():
+async def test_partial_once_ignores_client_cache_and_announces_value():
     out = await resolve_props(
         {"plans": once(lambda: ["basic", "pro"])},
         {},
@@ -42,15 +42,6 @@ async def test_partial_once_ignores_client_cache():
         partial("plans", **{"X-Inertia-Except-Once-Props": "plans"}),
     )
     assert out.props == {"plans": ["basic", "pro"]}
-
-
-async def test_partial_once_announces_requested_value():
-    out = await resolve_props(
-        {"plans": once(lambda: ["basic"])},
-        {},
-        "Page",
-        partial("plans", **{"X-Inertia-Except-Once-Props": "plans"}),
-    )
     assert out.once == {"plans": {"prop": "plans", "expiresAt": None}}
 
 

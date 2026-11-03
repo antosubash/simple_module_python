@@ -69,17 +69,11 @@ async def test_full_visit_does_not_announce_rescued_props():
     assert "rescuedProps" not in page
 
 
-async def test_rescued_failure_keeps_merge_and_once_flags_composable():
+async def test_rescued_failure_composes_and_announces_no_success_metadata():
     out = await resolve_props(
         {"analytics": once(merge(defer(broken, rescue=True)))}, {}, "Page", request()
     )
     assert out.rescued == ["analytics"]
-
-
-async def test_rescued_failure_does_not_announce_success_metadata():
-    out = await resolve_props(
-        {"analytics": once(merge(defer(broken, rescue=True)))}, {}, "Page", request()
-    )
     assert (out.merge, out.once) == ([], {})
 
 
