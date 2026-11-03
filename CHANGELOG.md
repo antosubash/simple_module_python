@@ -80,6 +80,9 @@ All notable changes to this project are documented in this file. The format is b
   RC pins to final releases without downgrading existing pins (#766).
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving
   excluded project manifests unchanged (#767). No migration.
+- Users: creating the first administrator in the setup wizard refreshes the
+  cached role list, so the admin user screens offer the Admin role without a
+  restart.
 - Users: the setup administrator step and last-administrator guard now share
   one definition of an active administrator: an active, enabled Admin-role
   holder (`is_superuser` alone grants no permissions). **Behaviour change:** the `users.administrator` setup step

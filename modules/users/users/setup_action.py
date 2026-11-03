@@ -24,6 +24,7 @@ from sqlmodel import SQLModel
 from users.bootstrap import create_admin
 from users.manager import UserManager
 from users.models import User
+from users.roles_cache import refresh_roles_cache
 from users.setup import session_has_local_account
 
 logger = logging.getLogger(__name__)
@@ -118,5 +119,8 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
                 status_code=409, detail="An account with this email already exists."
             )
 
+    # create_admin may have created the admin role (migrations seed only
+    # ``user``), after startup cached the role list the admin screens offer.
+    await refresh_roles_cache(request.app)
     logger.info("Setup: administrator created (%s)", payload.email)
     return {"created": True, "email": payload.email}

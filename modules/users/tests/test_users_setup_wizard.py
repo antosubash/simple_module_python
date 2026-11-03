@@ -186,3 +186,20 @@ async def test_malformed_payload_is_422(setup_pending_app) -> None:
 
     assert resp.status_code == 422
     assert isinstance(resp.json()["detail"], str)
+
+
+async def test_first_administrator_refreshes_the_roles_cache(setup_pending_app) -> None:
+    """The wizard creates the admin role after startup cached the seeded roles.
+
+    Migrations seed only ``user``; ``create_admin`` adds ``admin``. A cache warmed
+    before that kept offering only ``user`` on the admin user screens.
+    """
+    from users.roles_cache import get_roles_cache, refresh_roles_cache
+
+    await refresh_roles_cache(setup_pending_app)  # what startup does
+    async with wizard_client(setup_pending_app) as client:
+        resp = await post_step(
+            client, STEP_ADMINISTRATOR, {"email": "first@example.com", "password": "FirstPass1!"}
+        )
+    assert resp.status_code == 200
+    assert "admin" in {role.name for role in await get_roles_cache(setup_pending_app)}
