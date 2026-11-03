@@ -5,10 +5,14 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from packaging.version import InvalidVersion, Version
+from packaging.version import InvalidVersion
 
 from simple_module_cli.requirements import _compare as _cmp
-from simple_module_cli.requirements import _compatible_band, _matches_wildcard
+from simple_module_cli.requirements import (
+    _compatible_band,
+    _matches_wildcard,
+    is_valid_version,
+)
 
 # --- version helpers ---
 
@@ -101,9 +105,7 @@ def pick_latest_tag(tags: Iterable[str], constraint: str | None) -> str | None:
         if not tag.startswith("v") or len(tag) < 2 or not tag[1].isdigit():
             continue
         ver = tag[1:]
-        try:
-            Version(ver)
-        except InvalidVersion:
+        if not is_valid_version(ver):
             continue
         if constraint and not satisfies(ver, constraint):
             continue

@@ -71,6 +71,15 @@ def version_key(version: str) -> tuple[int, ...]:
     return tuple(parts)
 
 
+def is_valid_version(version: object) -> bool:
+    """Is ``version`` a string PEP 440 can order? ``None`` and legacy spellings are not."""
+    try:
+        Version(version)  # ty: ignore[invalid-argument-type]
+    except (InvalidVersion, TypeError):
+        return False
+    return True
+
+
 def _compare(left: str, right: str) -> int:
     """Three-way PEP 440 comparison, including pre/dev/post releases."""
     a, b = Version(left), Version(right)
@@ -87,9 +96,7 @@ def _unparseable(parsed: ParsedRequirement, latest: str) -> str | None:
         latest,
         *(v[: -len(_WILDCARD)] if v.endswith(_WILDCARD) else v for _, v in parsed.clauses),
     ):
-        try:
-            Version(candidate)
-        except InvalidVersion:
+        if not is_valid_version(candidate):
             return candidate
     return None
 
