@@ -230,3 +230,49 @@ async def test_status_transitions(authenticated_client, status, expected):
     r = await authenticated_client.patch("/api/orders/1", json={"status": status})
     assert r.status_code == expected
 ```
+
+## Asserting Inertia pages
+
+Import `InertiaPage` or its short form `inertia_page` from `simple_module_test`.
+Both read an `httpx.Response` containing either an `X-Inertia` JSON page or the
+initial HTML document's `<script data-page="app" type="application/json">`.
+Invalid responses raise `AssertionError` with a diagnostic message.
+
+```python
+from simple_module_test import InertiaPage, inertia_page
+
+
+async def test_orders_page(authenticated_client):
+    response = await authenticated_client.get("/orders/")
+    assert response.status_code == 200
+    page = InertiaPage.from_response(response)
+    page.assert_component("Orders/Browse").assert_url("/orders/")
+    page.has("orders", count=2).where("orders.0.id", lambda value: value > 0)
+    page.has("auth.user.email").missing("internal_token")
+
+    # An equivalent short form, useful for a single assertion:
+    inertia_page(response).assert_version(page.version)
+
+    # Optional props are fetched only when requested.
+    details = await page.reload_only(authenticated_client, "details")
+    details.has("details")
+    without_orders = await page.reload_except(authenticated_client, "orders")
+    without_orders.missing("orders")
+
+    page.deferred("default", "stats")
+    loaded = await page.load_deferred(authenticated_client, group="default")
+    loaded.has("stats")
+```
+
+`has`, `missing`, and `where` address props with dot paths, including list indices.
+`where` accepts either an expected value or a predicate. Assertions return the
+same page for chaining; failed lookups show the keys available at that path.
+`deferred(group, *props)` checks group membership. `load_deferred(client)` loads
+all advertised groups; a page without deferred props requires no request.
+
+Follow-up requests use the page's URL, component, and asset version, and return
+new `InertiaPage` objects containing the server's partial response. They do not
+merge props into the original page. Inspect protocol metadata through
+`deferred_props`, `merge_props`, `prepend_props`, `deep_merge_props`,
+`match_props_on`, `once_props`, `scroll_props`, `shared_props`, `rescued_props`,
+`encrypt_history`, and `clear_history`.

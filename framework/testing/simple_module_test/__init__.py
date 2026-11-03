@@ -11,6 +11,9 @@ Primary exports:
   so tests can assert on emitted events without wiring real subscribers.
 * :func:`build_test_app` — return a minimal FastAPI app loading exactly
   one module, with an in-memory SQLite DB.
+* :func:`inertia_page` / :class:`InertiaPage` — parse an Inertia document or
+  ``X-Inertia`` response into fluent prop assertions and partial/deferred reloads.
+* :func:`inertia_headers` — default ``X-Inertia-Version`` header for clients.
 
 The pytest plugin auto-registers these fixtures (no imports needed):
 ``fake_event_bus``, ``build_test_app``, ``settings``, ``db_state``,
@@ -28,6 +31,7 @@ in as an ``owner``/``admin``/``member`` of a real tenant — see
 from simple_module_test.app_factory import build_test_app
 from simple_module_test.fake_events import FakeEventBus, RecordedEvent
 from simple_module_test.inertia import inertia_headers
+from simple_module_test.inertia_page import InertiaPage, inertia_page
 from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
 from simple_module_test.tenant_client import TenantClient
@@ -35,12 +39,14 @@ from simple_module_test.waiting import wait_for, wait_for_sync
 
 __all__ = [
     "FakeEventBus",
+    "InertiaPage",
     "RecordedEvent",
     "TenantClient",
     "build_test_app",
     "effective_route_paths",
     "forge_session_cookie",
     "inertia_headers",
+    "inertia_page",
     "wait_for",
     "wait_for_sync",
 ]

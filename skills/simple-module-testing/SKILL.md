@@ -46,6 +46,36 @@ async def test_view_renders_index(authenticated_client):
 
 `authenticated_client` already carries the cookie — don't manually pass `cookies=`.
 
+## Asserting Inertia pages
+
+Use `InertiaPage.from_response(resp)` or `inertia_page(resp)` from
+`simple_module_test` for either an HTML document or an `X-Inertia` JSON page:
+
+```python
+from simple_module_test import inertia_page
+
+
+async def test_orders_page(authenticated_client):
+    resp = await authenticated_client.get("/orders/")
+    assert resp.status_code == 200
+    page = inertia_page(resp)
+    page.assert_component("Orders/Browse").has("orders", count=2)
+    page.where("orders.0.id", lambda value: value > 0).missing("secret")
+    page.deferred("default", "stats")
+    loaded = await page.load_deferred(authenticated_client, "default")
+    loaded.has("stats")
+```
+
+Assertions chain and use dot paths into props, including list indices. `where`
+accepts a value or predicate; `assert_url` and `assert_version` check page fields.
+`reload_only(client, *props)`, `reload_except(client, *props)`, and
+`load_deferred(client, group=None)` send the correct Inertia version and partial
+headers. Each returns a new page with the server's response, without merging it
+into the original props; omitting a deferred group loads all advertised groups.
+No fixture is needed. Metadata is available as `deferred_props`, `merge_props`,
+`prepend_props`, `deep_merge_props`, `match_props_on`, `once_props`, `scroll_props`,
+`shared_props`, `rescued_props`, `encrypt_history`, and `clear_history`.
+
 ## Single-test / focused runs
 
 ```bash

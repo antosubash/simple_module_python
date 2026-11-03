@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- `simple_module_test.InertiaPage` and `inertia_page()` parse HTML/JSON pages,
+  provide chained prop assertions, and load partial/deferred props (#779).
+- Inertia v3 protocol coverage and known gaps in the adapter README (#780).
+
 ### Changed
 - **Breaking (production CSP, #785):** `script-src`/`script-src-elem` are now
   `'self' 'nonce-<per-request>' 'strict-dynamic'` (plus `'wasm-unsafe-eval'`

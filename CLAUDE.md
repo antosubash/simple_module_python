@@ -510,6 +510,8 @@ app-level fixtures to every test directory; the root `conftest.py` is thin.
   `authenticated_client` (`httpx.AsyncClient`, the latter with a forged admin
   session); `tenant_client(role)` for tenant-scoped requests;
   `setup_pending_app`, `fake_event_bus`, `build_test_app`, `redis_server`.
+- `inertia_page(resp)` / `InertiaPage.from_response(resp)` (from `simple_module_test`)
+  parse an HTML or JSON Inertia page for prop assertions and partial/deferred reloads.
 - Module-specific fixtures live in each module's `modules/<m>/tests/conftest.py`
   (`background_tasks`, `file_storage` override some of the above).
 - Importing the plugin drops `PasswordHelper()`'s Argon2/bcrypt work factor to
