@@ -137,6 +137,7 @@ async def publish_grants_changed(app: FastAPI, user_id: uuid.UUID) -> None:
     bus = getattr(get_services(app), "invalidation", None)
     if bus is None:
         logger.debug("No invalidation bus on this app; dropping %s locally", user_id)
-        _cache(app).pop(user_id, None)
+        if (cache := _CACHES.get(app)) is not None:
+            cache.pop(user_id, None)
         return
     await bus.publish(CHANNEL, key=str(user_id))

@@ -17,10 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from permissions.models import RolePermission
 
-_SYNC_ATTEMPTS = 3
-
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
+
+# Attempts at the admin-grant insert before a persistent conflict is re-raised.
+_SYNC_ATTEMPTS = 3
 
 
 def _role_names(user: DirectoryUser) -> list[str]:
@@ -118,6 +119,7 @@ class RegistrySyncMixin:
                         )
                         for key in sorted(missing)
                     )
+                break
             except IntegrityError:
                 if attempt == _SYNC_ATTEMPTS - 1:
                     raise
