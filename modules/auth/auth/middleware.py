@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from simple_module_core.app_state import get_openapi_url
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
+from simple_module_hosting.inertia_deps import is_inertia_request
 from simple_module_hosting.path_matching import matches_path
 from simple_module_hosting.public_access import is_public as route_is_public
 from starlette.requests import Request
@@ -48,7 +49,7 @@ def _is_navigation(request: Request) -> bool:
     clients, scripts) keep the previous behaviour.
     """
     headers = request.headers
-    if headers.get("x-inertia") == "true":
+    if is_inertia_request(request.scope):
         return True
     dest = headers.get("sec-fetch-dest")
     if dest is not None:

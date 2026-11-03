@@ -17,7 +17,7 @@ import logging
 import time
 
 from simple_module_core.app_state import get_migration_status, get_services
-from starlette.datastructures import Headers
+from simple_module_inertia import is_inertia_request
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -243,8 +243,7 @@ class SetupMiddleware:
         choke on the wizard's HTML document. The 409 tells it to do a full
         page visit instead.
         """
-        headers = Headers(scope=scope)
-        if headers.get("x-inertia"):
+        if is_inertia_request(scope):
             response = RedirectResponse(SETUP_PATH, status_code=409)
             response.headers["X-Inertia-Location"] = SETUP_PATH
         else:

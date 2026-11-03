@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
-from simple_module_inertia import Inertia
+from simple_module_inertia import Inertia, is_inertia_request
 
 from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.token_guard import GATE_PAGE, mark_token_gate
@@ -32,3 +32,8 @@ async def get_inertia(request: Request) -> Inertia:
 mark_token_gate(get_inertia, GATE_PAGE)
 
 InertiaDep = Annotated[Inertia, Depends(get_inertia)]
+
+
+# Re-exported so modules detect an Inertia visit the same way the adapter does
+# without depending on simple_module_inertia directly.
+__all__ = ["InertiaDep", "get_inertia", "is_inertia_request"]
