@@ -51,6 +51,19 @@ async def test_logout_from_a_renewed_legacy_cookie_clears_its_outcome(renewal):
     assert await _outcomes(r) == []
 
 
+async def test_logout_waits_for_an_in_flight_renewal_before_clearing(renewal):
+    from auth.oidc_common.renewal_outcomes import forget_outcomes
+
+    r = renewal
+    r.refresh.delay = 0.3
+    renewing = asyncio.create_task(r.renew(r.make_request()))
+    while not r.calls:
+        await asyncio.sleep(0.01)  # intentional-sleep: let the renewal take the lease
+    await forget_outcomes(r.app, r.keys, r.make_request().session)
+    assert await renewing is not None
+    assert await _outcomes(r) == []  # published before the delete, never after
+
+
 async def test_logout_keeps_other_sessions_outcomes(renewal):
     from auth.oidc_common.renewal_outcomes import forget_outcomes
 
@@ -89,3 +102,18 @@ async def test_slow_publish_still_returns_the_renewed_principal(renewal, monkeyp
     assert principal is not None and principal.roles == ["new"]
     assert r.tokens.open_refresh_token(r.app, req.session[r.keys.refresh]) == "rotated"
     assert "retry" not in req.session
+
+
+async def test_hung_publish_ends_before_the_lease_expires(renewal, monkeypatch):
+    from auth.oidc_common import renewal_outcomes
+
+    async def hang(*_):
+        await asyncio.Event().wait()
+
+    r = renewal
+    budget = renewal_outcomes._WORK_SECONDS + renewal_outcomes._PUBLISH_SECONDS
+    assert budget < renewal_outcomes._LEASE_TTL
+    monkeypatch.setattr(renewal_outcomes, "_PUBLISH_SECONDS", 0.1)
+    monkeypatch.setattr(renewal_outcomes, "_publish", hang)
+    principal = await asyncio.wait_for(r.renew(r.make_request()), timeout=5)
+    assert principal is not None and principal.roles == ["new"]

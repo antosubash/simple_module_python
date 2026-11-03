@@ -25,6 +25,7 @@ _OUTCOME_TTL = 30
 _LEASE_TTL = 15  # Above the token endpoint's 10-second timeout.
 _WAIT_SECONDS = 3
 _WORK_SECONDS = 12
+_PUBLISH_SECONDS = 2  # Work + publish stay inside the lease TTL.
 
 
 def _authority_keys(keys: SessionKeys) -> tuple[str, ...]:
@@ -97,8 +98,17 @@ async def forget_outcomes(app: Any, keys: SessionKeys, session: Any) -> None:
             matches.append(col(RefreshOutcome.outcome_key) == _outcome_key(keys, session, sealed))
         if not matches:
             return
-        async with independent_session(app) as db:
-            await db.execute(delete(RefreshOutcome).where(or_(*matches)))
+        # Wait out a renewal still in flight for this cookie, so its outcome
+        # cannot be published just after the delete. Delete regardless.
+        lock = _lock_key(keys, identity or hashlib.sha256(sealed.encode()).hexdigest())
+        held = lease(f"auth-refresh:{lock}", ttl=_LEASE_TTL, wait=_LEASE_TTL)
+        acquired = await held.acquire()
+        try:
+            async with independent_session(app) as db:
+                await db.execute(delete(RefreshOutcome).where(or_(*matches)))
+        finally:
+            if acquired:
+                await held.release()
     except Exception as exc:
         logger.warning("OIDC refresh outcome not cleared (%s)", type(exc).__name__)
 
@@ -135,18 +145,20 @@ async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) ->
                     return None  # the winner failed or its outcome expired; see above
                 session.setdefault(SESSION_ID_KEY, secrets.token_urlsafe(24))
                 result = await renew()
-            # Publishing is outside the work timeout: renew() already stored the
-            # rotated token, so a slow publish must not look like a failed renewal.
+            # Publishing has its own timeout: renew() already stored the rotated
+            # token, so a slow publish must not look like a failed renewal, and
+            # it must end before the lease expires and admits a second grant.
             try:
                 # Filed under the id the renewed cookie carries, so its logout
                 # finds the row even when a legacy cookie had no id before. A
                 # rejected grant cleared the session, so it keeps the lock key.
-                await _publish(
-                    request.app,
-                    name,
-                    _lock_key(keys, session.get(SESSION_ID_KEY) or identity),
-                    {key: session[key] for key in _authority_keys(keys) if key in session},
-                )
+                async with asyncio.timeout(_PUBLISH_SECONDS):
+                    await _publish(
+                        request.app,
+                        name,
+                        _lock_key(keys, session.get(SESSION_ID_KEY) or identity),
+                        {key: session[key] for key in _authority_keys(keys) if key in session},
+                    )
             except Exception as exc:
                 # The grant already succeeded and the cookie holds the rotated
                 # token: losing the shared outcome only costs waiters a retry.
