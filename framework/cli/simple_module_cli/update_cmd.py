@@ -29,6 +29,7 @@ from simple_module_cli.pyproject_edit import (
     save_pyproject,
     write_dependency,
 )
+from simple_module_cli.requirements import rewrite_requirement
 
 __all__ = ["run_sources_update", "update_modules"]
 
@@ -93,7 +94,14 @@ def run_sources_update(
         uv_sources = doc["tool"]["uv"]["sources"]  # exists: git_sources() was non-empty
         for name in tag_pinned:
             uv_sources[name]["tag"] = candidate
-            write_dependency(doc, name, derive_range(version), keep_extras_and_marker=True)
+            existing = dep_constraint(doc, name)
+            updated = (
+                rewrite_requirement(f"{name}{existing}", version).spec
+                if existing
+                else f"{name}{derive_range(version)}"
+            )
+            if updated:
+                write_dependency(doc, name, updated[len(name) :], keep_extras_and_marker=True)
             changed.append(name)
             typer.echo(f"{name}: → {candidate}")
 

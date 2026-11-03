@@ -30,7 +30,7 @@ smpy --help
 
 `smpy add` handles a repo containing several modules: `--module a,b` picks specific dist names and `--all` takes every module it finds.
 
-Modules from one repo move **in lockstep** — one repo, one ref. `smpy update` takes every module sourced from the same URL to the same new tag, which must be a `v*` semver tag satisfying every sibling's declared dependency range. Mixing tags from one source tree is how you end up with a module built against a sibling it was never shipped with. Branch-pinned sources re-lock to the newest SHA (dev mode), rev-pinned sources are left alone, and a plain PyPI name delegates to `uv lock --upgrade-package`.
+Modules from one repo move **in lockstep** — one repo, one ref. `smpy update` takes every module sourced from the same URL to the same new tag, which must be a `v*` semver tag satisfying every sibling's declared dependency range. Version bumps preserve explicit ceilings, excluded releases, and the implicit upper bound of `~=` constraints, so later updates still respect the original policy. Mixing tags from one source tree is how you end up with a module built against a sibling it was never shipped with. Branch-pinned sources re-lock to the newest SHA (dev mode), rev-pinned sources are left alone, and a plain PyPI name delegates to `uv lock --upgrade-package`.
 
 Git tag updates also advance the dependency's version floor, preserving its
 extras and environment marker. For example, updating to `v0.2.0` changes

@@ -43,6 +43,11 @@ All notable changes to this project are documented in this file. The format is b
 - Background task arguments and worker request metadata preserve Kombu JSON
   type envelopes in execution history; retries decode datetime, UUID and Decimal
   arguments back to their original types. No migration is needed (#754).
+- `smpy package-update` leaves manifests unchanged when all available PyPI
+  releases are excluded prereleases or yanked, instead of falling back to the
+  unvalidated summary version (#756).
+- `smpy update` preserves git dependencies' compatibility ceilings and excluded
+  releases across repeated updates, and selects tags within `~=` ranges (#757).
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**
