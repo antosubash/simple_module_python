@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -23,7 +24,7 @@ from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
 from simple_module_core.spa_mount import SPA_AUTH_PUBLIC, SpaMount
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
-from starlette.responses import Response
+from starlette.responses import FileResponse, Response
 from starlette.types import Scope
 
 from simple_module_hosting._route_paths import app_route_paths
@@ -37,6 +38,9 @@ _SAFE_METHODS = ("GET", "HEAD")
 _NO_CACHE = "no-cache"
 _CACHE_CONTROL = "Cache-Control"
 # Vite/webpack content-hashed file: `index-3f9a8c21.js`, `chunk.AbC123xy.css`.
+# Set by SecurityHeadersMiddleware for every HTTP request.
+_NONCE_STATE_KEY = "csp_nonce"
+_SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\bnonce=)", re.IGNORECASE)
 _HASHED_FILE = re.compile(r"[-.]([A-Za-z0-9_-]{8,})\.[A-Za-z0-9]+$")
 _PRIVATE_IMMUTABLE = "private, max-age=31536000, immutable"
 _PRIVATE_NO_CACHE = "private, no-cache"
@@ -91,9 +95,30 @@ class SpaStaticFiles(StaticFiles):
 
     async def _index_response(self, scope: Scope) -> Response:
         response = await super().get_response(self._index, scope)
+        nonce = (scope.get("state") or {}).get(_NONCE_STATE_KEY)
+        if nonce and isinstance(response, FileResponse) and response.status_code == _OK:
+            response = _with_script_nonce(response, nonce)
         # The shell references hashed bundles, so it must revalidate on each visit.
         response.headers[_CACHE_CONTROL] = _NO_CACHE if self._public else _PRIVATE_NO_CACHE
         return response
+
+
+def _with_script_nonce(response: FileResponse, nonce: str) -> Response:
+    """The shell with the request's CSP nonce on every ``<script>`` tag.
+
+    The production script policy is ``'nonce-…' 'strict-dynamic'``, under which a
+    CSP3 browser ignores ``'self'``: a static shell's own entry script would be
+    blocked. The nonce differs per response, so the validators go too: a 304
+    would revive a cached shell whose nonce no longer matches the header.
+    """
+    html = Path(response.path).read_text(encoding="utf-8")
+    html = _SCRIPT_WITHOUT_NONCE.sub(f'<script nonce="{nonce}"', html)
+    headers = {
+        k: v
+        for k, v in response.headers.items()
+        if k.lower() not in ("content-length", "etag", "last-modified")
+    }
+    return Response(html, status_code=_OK, headers=headers, media_type="text/html")
 
 
 def _is_page_request(path: str, scope: Scope) -> bool:

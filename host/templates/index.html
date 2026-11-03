@@ -13,11 +13,9 @@
        React mounts, so a dark-mode user saw a white page for the length of the
        bundle download. Reads the same `sm.theme` key `theme.ts` writes and
        applies the same rule; `theme.ts` stays the source of truth for every
-       later change, including the OS flipping at sunset. Inline is allowed
-       here — the CSP in `middleware.py` carries 'unsafe-inline' for scripts
-       (Vite's preamble needs it); tightening it to a nonce is a change to make
-       there and here together. #}
-    <script>
+       later change, including the OS flipping at sunset. The per-request
+       CSP nonce authorizes this pre-paint script in production. #}
+    <script nonce="{{ request.state.csp_nonce }}">
       (function () {
         try {
           var pref = window.localStorage.getItem('sm.theme');
@@ -44,7 +42,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     {% inertia_head %}
     {% if request.app.state.sm.inertia_config.environment == "development" %}
-    <script type="module">
+    <script type="module" nonce="{{ request.state.csp_nonce }}">
       import RefreshRuntime from "{{ request.app.state.sm.inertia_config.dev_url }}/@react-refresh";
       RefreshRuntime.injectIntoGlobalHook(window);
       window.$RefreshReg$ = () => {};

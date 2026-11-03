@@ -8,6 +8,7 @@ a static ``add()``. A provider is evaluated per response against ``app``.
 from __future__ import annotations
 
 import logging
+import re
 from types import SimpleNamespace
 
 import httpx
@@ -50,7 +51,8 @@ async def _csp(app, path: str = "/health/live") -> str:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
         resp = await c.get(path)
-    return resp.headers[_CSP]
+    # Compare the policy structure independently of the per-request nonce.
+    return re.sub(r"'nonce-[^']+' ", "", resp.headers[_CSP])
 
 
 class TestThroughCreateApp:

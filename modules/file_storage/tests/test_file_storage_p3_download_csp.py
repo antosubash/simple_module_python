@@ -13,7 +13,7 @@ class TestDownloadSandbox:
             resp = await a.client.get(f"{API}/files/{file_id}/download")
 
             assert resp.status_code == 200
-            assert resp.headers["content-security-policy"] == constants.PUBLIC_CSP
+            assert constants.PUBLIC_CSP in resp.headers.get_list("content-security-policy")
             assert resp.headers["x-content-type-options"] == "nosniff"
             assert "attachment" in resp.headers["content-disposition"]
 
@@ -31,4 +31,4 @@ class TestDownloadSandbox:
             file_id = resp.json()["id"]
             thumb = await a.client.get(f"{API}/files/{file_id}/thumbnail")
             assert thumb.status_code == 200
-            assert thumb.headers["content-security-policy"] == constants.PUBLIC_CSP
+            assert constants.PUBLIC_CSP in thumb.headers.get_list("content-security-policy")

@@ -13,7 +13,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 from jinja2.runtime import Context
-from markupsafe import Markup
+from markupsafe import Markup, escape
 
 
 @dataclass
@@ -41,10 +41,13 @@ class InertiaExtension(Extension):
 
     def _render_inertia_head(self, context: Context) -> Markup:
         inertia: InertiaContext = context["inertia"]
+        request = context.get("request")
+        nonce = getattr(request.state, "csp_nonce", "") if request is not None else ""
+        nonce_attr = f' nonce="{escape(nonce)}"' if nonce else ""
         fragments: list[str] = []
         if inertia.environment == "development":
             fragments.append(
-                f'<script type="module" src="{inertia.dev_url}/@vite/client"></script>'
+                f'<script type="module" src="{inertia.dev_url}/@vite/client"{nonce_attr}></script>'
             )
         if inertia.is_ssr:
             if inertia.ssr_head is None:
@@ -56,6 +59,9 @@ class InertiaExtension(Extension):
 
     def _render_inertia_body(self, context: Context) -> Markup:
         inertia: InertiaContext = context["inertia"]
+        request = context.get("request")
+        nonce = getattr(request.state, "csp_nonce", "") if request is not None else ""
+        nonce_attr = f' nonce="{escape(nonce)}"' if nonce else ""
         fragments: list[str] = []
         if inertia.is_ssr:
             if inertia.ssr_body is None:
@@ -69,5 +75,5 @@ class InertiaExtension(Extension):
                 f'<script data-page="app" type="application/json">{inertia.data}</script>'
             )
             fragments.append('<div id="app"></div>')
-        fragments.append(f'<script type="module" src="{inertia.js}"></script>')
+        fragments.append(f'<script type="module" src="{inertia.js}"{nonce_attr}></script>')
         return Markup("\n".join(fragments))

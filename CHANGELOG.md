@@ -31,6 +31,15 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- **Behaviour change:** production scripts require a per-request CSP nonce and
+  use `strict-dynamic`, without script `unsafe-inline` or `unsafe-eval`.
+  The host/scaffold templates and Inertia entry scripts carry the nonce;
+  custom templates must add `request.state.csp_nonce` to executable scripts,
+  and static SPA shells need nonce-aware HTML serving.
+  Sandbox response policies are enforced alongside the app CSP (#785).
+- **Behaviour change:** `RedactionFilter` on ordinary logging handlers masks
+  secrets in tracebacks and stack information, including exception text not
+  yet formatted when the filter runs (#789).
 - **Behaviour change:** Inertia GETs with a missing asset-version header now
   receive 409 when the server version is non-empty; version conflicts include
   both `X-Inertia-Location` and the current `X-Inertia-Version` (#774).

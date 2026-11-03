@@ -39,7 +39,13 @@ with a warning.
 an anonymous visitor is redirected to login. `auth="public"` registers the prefix
 in the [public route registry](/framework/public-routes) for `GET`/`HEAD` only.
 CSP applies as for any response; whitelist external origins the SPA needs with
-`register_csp_sources`.
+`register_csp_sources`. In production the script policy is
+`'nonce-<request nonce>' 'strict-dynamic'`, under which CSP3 browsers ignore
+origin allowlists, so the mount stamps the request nonce onto every `<script>`
+tag of the shell's `index.html` as it serves it (an existing `nonce=` is kept)
+and drops the shell's `ETag`/`Last-Modified`, because a revalidated copy would
+carry a stale nonce. Scripts the shell's entry loads are trusted through
+`'strict-dynamic'`. Development retains the permissive Vite policy.
 
 ## Boot check
 

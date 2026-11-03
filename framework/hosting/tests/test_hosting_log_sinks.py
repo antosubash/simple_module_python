@@ -207,3 +207,40 @@ def test_structured_extras_are_scrubbed_recursively() -> None:
     assert "abc" not in dumped
     assert record.payload["ok"] == "fine"
     assert original["password"] == "hunter2"  # the caller's object is untouched
+
+
+@pytest.mark.parametrize("cached_traceback", [False, True])
+def test_plain_handler_redacts_traceback_and_stack(target, cached_traceback):
+    import io
+    import sys
+
+    from simple_module_hosting.log_sinks import RedactionFilter
+
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    handler.addFilter(RedactionFilter())
+    target.addHandler(handler)
+    try:
+        raise RuntimeError("connect failed password=hunter2")
+    except RuntimeError:
+        record = target.makeRecord(
+            target.name,
+            logging.ERROR,
+            __file__,
+            1,
+            "boom secret=s3cr3t",
+            (),
+            sys.exc_info(),
+            sinfo="Stack (most recent call last):\npassword=stacksecret",
+        )
+    if cached_traceback:
+        record.exc_text = logging.Formatter().formatException(record.exc_info)
+    target.handle(record)
+    rendered = out.getvalue()
+    assert "hunter2" not in rendered
+    assert "s3cr3t" not in rendered
+    assert "stacksecret" not in rendered
+    assert "Traceback (most recent call last)" in rendered
+    assert f"RuntimeError: connect failed password={REDACTED}" in rendered
+    assert f"boom secret={REDACTED}" in rendered
+    assert f"password={REDACTED}" in rendered
