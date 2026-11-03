@@ -56,6 +56,8 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
             return await self._resolve_bearer(request, credential)
 
         session = request.scope.get("session", {})
+        if not self._accept_session(session):
+            return None
         # Renew authority from the IdP at expiry, without interrupting the request.
         if session_has_expired(session):
             return await self._refresh_session(request)

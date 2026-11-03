@@ -52,6 +52,14 @@ All notable changes to this project are documented in this file. The format is b
 - Background task arguments and worker request metadata preserve Kombu JSON
   type envelopes in execution history; retries decode datetime, UUID and Decimal
   arguments back to their original types. No migration is needed (#754).
+- Bind OIDC and Keycloak browser principals and shared renewal outcomes to a
+  short hash of provider, issuer and client ID (#750). **Behaviour change:**
+  sessions from another provider or configuration must sign in again. Unmarked
+  cookies are upgraded only with a key that the selected provider's own sign-in
+  writes (its identity key, or for earlier Keycloak cookies its sealed refresh
+  token). No migration.
+- Preserve existing discovery authorization-endpoint query parameters when
+  adding `client_id`, PKCE and other authorization fields (#755).
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**

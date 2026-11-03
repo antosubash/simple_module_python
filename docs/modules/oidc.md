@@ -180,7 +180,14 @@ Discovery validates URLs and issuer, requires HTTPS outside development, and
 permits legitimate endpoints on different hosts. Discovery failure refuses boot
 outside development; development retries lazily at login.
 
-Login replaces user-bound session state and rotates CSRF. The signed cookie
+Authorization endpoints discovered with existing query parameters retain them
+when the client adds the authorization parameters (#755).
+
+Login replaces user-bound session state and rotates CSRF. The cookie carries
+`oidc_identity` and an `oidc_authority` hash binding it to this provider, issuer
+and client ID. Cookies from another authority require sign-in again; legacy
+OIDC cookies with their own identity key are stamped on first use (#750).
+See [browser session authority](auth.md#browser-session-authority-750). The signed cookie
 stores a minimal principal, ID-token expiry, issuer/subject identity and an
 encrypted refresh token if issued. It never retains the ID token. At expiry,
 refresh must return a valid ID token for the same identity. **Providers that do

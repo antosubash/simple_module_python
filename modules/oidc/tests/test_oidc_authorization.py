@@ -57,7 +57,11 @@ async def test_restored_session_rechecks_live_trust_and_filters_roles():
         {
             "type": "http",
             "headers": [],
-            "session": {"user_ctx": ctx.to_session_dict(), "expires_at": int(time.time()) + 300},
+            "session": {
+                "user_ctx": ctx.to_session_dict(),
+                "expires_at": int(time.time()) + 300,
+                "oidc_identity": ["https://issuer", "subject"],
+            },
         }
     )
     assert (await provider.resolve_user(request)).tenant_id == "acme"

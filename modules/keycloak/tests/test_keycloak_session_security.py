@@ -45,6 +45,7 @@ async def test_keycloak_session_deadline_does_not_slide(monkeypatch):
             id="u", email="u@example.com", name="User", roles=["user"]
         ).to_session_dict(),
         "expires_at": 1001,
+        "keycloak_identity": ["u"],
     }
     request = Request({"type": "http", "headers": [], "session": session})
     provider = KeycloakAuthProvider()
@@ -111,6 +112,7 @@ async def test_keycloak_sign_in_replaces_session_and_bounds_authorization(callba
     assert request.session["user_ctx"]["id"] == "new-user"
     assert "keycloak_id_token" not in request.session
     assert request.session["expires_at"] == 2000
+    assert isinstance(request.session.get("oidc_authority"), str)
     assert request.session["gate"] == "unlocked"
     assert get_csrf_token(request) != old_csrf
     assert not {"active_tenant_id", "remember", "old-state", "next"} & request.session.keys()

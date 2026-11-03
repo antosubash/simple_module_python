@@ -40,6 +40,13 @@ The provider-agnostic `AuthMiddleware` (in `auth`) runs on every request and:
 2. If the provider returns `None`, it falls through to the registered **principal resolvers** (`app.state.auth.principal_resolvers`), trying each until one matches.
 3. If still unresolved and the path isn't public: `/api/*` and bearer requests get a `401` JSON; browser requests are redirected to `provider.get_login_url(...)` (`/keycloak/login`), with the original URL stashed in the session as `next`.
 
+The browser cookie includes `keycloak_identity` (the subject) and an
+`oidc_authority` hash binding the principal to Keycloak, its realm issuer and
+client ID. Cookies from another authority, including local users cookies, require
+sign-in again. Legacy cookies are upgraded only when they already contain
+`keycloak_identity` or Keycloak's sealed `keycloak_refresh_token` (#750).
+See [browser session authority](auth.md#browser-session-authority-750).
+
 The browser session uses a signed, **unencrypted** cookie, so the refresh token is Fernet-encrypted (key derived with HKDF from `secret_key`) before it is stored; a rotated key or a tampered value counts as no refresh token and requires sign-in. To stay below the roughly 4 KB browser limit with a refresh token and role claims, the ID token is validated at sign-in but never stored. A refresh token that would overflow the cookie is omitted; the session then ends at access-token expiry and requires sign-in again. Logout first ends the SSO session back-channel (POST to the end-session endpoint with the client credentials and the refresh token; failures are logged and never block the redirect), then redirects with `client_id` instead of `id_token_hint`.
 
 `KeycloakModule.register_public_routes` exempts `/keycloak/login`, `/keycloak/logout`, and `/api/keycloak/auth/` from auth.
