@@ -16,6 +16,13 @@ from jinja2.runtime import Context
 from markupsafe import Markup, escape
 
 
+def _nonce_attr(context: Context) -> str:
+    """`` nonce="…"`` for the request's CSP nonce, or ``""`` when it has none."""
+    request = context.get("request")
+    nonce = getattr(request.state, "csp_nonce", "") if request is not None else ""
+    return f' nonce="{escape(nonce)}"' if nonce else ""
+
+
 @dataclass
 class InertiaContext:
     environment: Literal["development", "production"]
@@ -41,9 +48,7 @@ class InertiaExtension(Extension):
 
     def _render_inertia_head(self, context: Context) -> Markup:
         inertia: InertiaContext = context["inertia"]
-        request = context.get("request")
-        nonce = getattr(request.state, "csp_nonce", "") if request is not None else ""
-        nonce_attr = f' nonce="{escape(nonce)}"' if nonce else ""
+        nonce_attr = _nonce_attr(context)
         fragments: list[str] = []
         if inertia.environment == "development":
             fragments.append(
@@ -59,9 +64,7 @@ class InertiaExtension(Extension):
 
     def _render_inertia_body(self, context: Context) -> Markup:
         inertia: InertiaContext = context["inertia"]
-        request = context.get("request")
-        nonce = getattr(request.state, "csp_nonce", "") if request is not None else ""
-        nonce_attr = f' nonce="{escape(nonce)}"' if nonce else ""
+        nonce_attr = _nonce_attr(context)
         fragments: list[str] = []
         if inertia.is_ssr:
             if inertia.ssr_body is None:

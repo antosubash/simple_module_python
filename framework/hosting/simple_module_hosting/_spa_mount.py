@@ -37,10 +37,10 @@ _OK = 200
 _SAFE_METHODS = ("GET", "HEAD")
 _NO_CACHE = "no-cache"
 _CACHE_CONTROL = "Cache-Control"
-# Vite/webpack content-hashed file: `index-3f9a8c21.js`, `chunk.AbC123xy.css`.
 # Set by SecurityHeadersMiddleware for every HTTP request.
 _NONCE_STATE_KEY = "csp_nonce"
 _SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\bnonce=)", re.IGNORECASE)
+# Vite/webpack content-hashed file: `index-3f9a8c21.js`, `chunk.AbC123xy.css`.
 _HASHED_FILE = re.compile(r"[-.]([A-Za-z0-9_-]{8,})\.[A-Za-z0-9]+$")
 _PRIVATE_IMMUTABLE = "private, max-age=31536000, immutable"
 _PRIVATE_NO_CACHE = "private, no-cache"

@@ -169,13 +169,11 @@ class SecurityHeadersMiddleware:
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
                 headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
-                # Separate policies intersect: sandbox responses cannot replace
-                # the app's default-src, frame-ancestors or other protections.
-                own = headers.get(_HEADER_CSP) or ""
-                keeps_own = any(
-                    d.split() and d.split()[0].lower() == "sandbox" for d in own.split(";")
-                )
                 if self.csp:
+                    # Separate policies intersect: sandbox responses cannot replace
+                    # the app's default-src, frame-ancestors or other protections.
+                    own = (headers.get(_HEADER_CSP) or "").lower()
+                    keeps_own = any(d.split()[:1] == ["sandbox"] for d in own.split(";"))
                     dyn = self._dynamic
                     policy = dyn.policy_for(scope.get("app")) if dyn else self.csp
                     policy = policy.replace("'strict-dynamic'", f"'nonce-{nonce}' 'strict-dynamic'")
