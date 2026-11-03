@@ -1,7 +1,7 @@
 # OIDC
 
 `simple_module_oidc` is the generic OpenID Connect auth provider (#192).
-It discovers authorization, token, JWKS and optional logout endpoints. It uses
+It discovers authorization, token, JWKS and optional logout and revocation endpoints. It uses
 hosted login with authorization code flow, S256 PKCE, state and nonce checks.
 Only one auth provider may be active; select it with `SM_AUTH_PROVIDER=oidc`.
 
@@ -194,7 +194,18 @@ token endpoint is not called again for 30 seconds. A refresh token that would pu
 the session cookie past the 4 KB browser limit is not stored (the warning is
 logged), and that session ends at ID-token expiry.
 
-Logout clears the local session and uses discovered `end_session_endpoint` with
+Logout first attempts to revoke the decrypted refresh token when discovery
+advertises a `revocation_endpoint`, using `token_type_hint=refresh_token` and the
+client authentication the revocation endpoint advertises in
+`revocation_endpoint_auth_methods_supported` (falling back to the token
+endpoint's). Revocation is best-effort with a 3 second timeout: failures still
+clear the local session and continue logout, logging only the failure type,
+never the token or response body. Without that endpoint or a usable refresh
+token, no revocation request is made. A malformed or non-HTTPS (outside
+development) `revocation_endpoint`, or malformed auth-method lists, are ignored
+with a warning rather than blocking sign-in.
+
+Logout then clears the local session and uses discovered `end_session_endpoint` with
 `client_id` and `post_logout_redirect_uri=<app>/oidc/logged-out`. Inertia logout
 uses external navigation. Without that endpoint, logout stays local. There is
 **no `id_token_hint`**, so an IdP may prompt for confirmation or retain its SSO
@@ -203,9 +214,12 @@ browser on a shared computer when provider logout cannot be guaranteed.
 
 The access token is not consumed, so **`at_hash` is not checked**. Tokens are
 validated with 10 seconds of clock leeway. The client authenticates to the
-token endpoint with `client_secret_post` only (supported by Keycloak, Entra,
-Auth0 and Okta); IdPs that accept only `client_secret_basic` are not supported
-yet. An IdP `error` reply to the callback (for example a cancelled sign-in)
+token endpoint with `client_secret_post` when discovery lists it or omits
+`token_endpoint_auth_methods_supported` (OIDC Discovery's default for an omitted
+list is `client_secret_basic`; this module keeps the post method it always sent);
+otherwise it uses `client_secret_basic`, form-encoding the client ID and secret
+before HTTP Basic encoding. An IdP
+`error` reply to the callback (for example a cancelled sign-in)
 answers 401 once the login state matched. A callback with a spent or unknown
 state (browser Back after signing in, or a second tab whose login another tab
 finished) sends a signed-in user on to `login_redirect_url` and answers anyone

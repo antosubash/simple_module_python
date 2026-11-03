@@ -75,3 +75,31 @@ def test_metadata_allows_local_http_only_in_development():
     assert OidcMetadata.from_document(doc, development=True).jwks_uri.startswith("http:")
     with pytest.raises(ValueError):
         OidcMetadata.from_document(doc)
+
+
+def test_revocation_endpoint_is_optional():
+    assert OidcMetadata.from_document(_ENTRA_DOC).revocation_endpoint == ""
+
+
+@pytest.mark.parametrize(
+    "value", [None, 42, [], "http://idp/revoke", "https://u:p@idp/revoke", "https://idp/r#f"]
+)
+def test_metadata_ignores_unusable_revocation_endpoint(value):
+    # Never used (no token over cleartext), but sign-in still works.
+    meta = OidcMetadata.from_document({**_ENTRA_DOC, "revocation_endpoint": value})
+    assert meta.revocation_endpoint == ""
+
+
+def test_revocation_endpoint_allows_http_in_development():
+    meta = OidcMetadata.from_document(
+        {**_ENTRA_DOC, "revocation_endpoint": "http://localhost/revoke"}, development=True
+    )
+    assert meta.revocation_endpoint == "http://localhost/revoke"
+
+
+@pytest.mark.parametrize("value", [None, "client_secret_post", 42, [None]])
+def test_metadata_ignores_malformed_auth_methods(value):
+    meta = OidcMetadata.from_document(
+        {**_ENTRA_DOC, "token_endpoint_auth_methods_supported": value}
+    )
+    assert meta.token_endpoint_auth_methods_supported is None

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 def _validate_url(value: object, *, development: bool) -> str:
@@ -30,6 +34,9 @@ class OidcMetadata:
     token_endpoint: str
     jwks_uri: str
     end_session_endpoint: str = ""
+    revocation_endpoint: str = ""
+    token_endpoint_auth_methods_supported: list[str] | None = None
+    revocation_endpoint_auth_methods_supported: list[str] | None = None
 
     @classmethod
     def from_document(
@@ -43,7 +50,9 @@ class OidcMetadata:
             raise ValueError(
                 f"OIDC discovery document missing required fields: {', '.join(missing)}"
             )
-        values = {key: _validate_url(doc[key], development=development) for key in required}
+        values: dict[str, Any] = {
+            key: _validate_url(doc[key], development=development) for key in required
+        }
         issuer = urlsplit(values["issuer"])
         if issuer.query or "{" in values["issuer"] or "}" in values["issuer"]:
             raise ValueError("OIDC issuer must be concrete and have no query")
@@ -55,9 +64,31 @@ class OidcMetadata:
         ):
             raise ValueError("OIDC discovery issuer does not match configured issuer")
         logout = doc.get("end_session_endpoint", "")
-        if logout != "":
-            logout = _validate_url(logout, development=development)
-        return cls(**values, end_session_endpoint=logout)
+        values["end_session_endpoint"] = (
+            _validate_url(logout, development=development) if logout != "" else ""
+        )
+        # Optional extras must not take sign-in down: a malformed one is ignored
+        # (no revocation; the default client authentication) with a warning.
+        values["revocation_endpoint"] = ""
+        if doc.get("revocation_endpoint", "") != "":
+            try:
+                values["revocation_endpoint"] = _validate_url(
+                    doc["revocation_endpoint"], development=development
+                )
+            except ValueError:
+                logger.warning("Ignoring unusable OIDC revocation_endpoint in discovery")
+        for key in (
+            "token_endpoint_auth_methods_supported",
+            "revocation_endpoint_auth_methods_supported",
+        ):
+            methods = doc.get(key)
+            if methods is not None and (
+                not isinstance(methods, list) or not all(isinstance(m, str) for m in methods)
+            ):
+                logger.warning("Ignoring malformed OIDC %s in discovery", key)
+                methods = None
+            values[key] = methods
+        return cls(**values)
 
 
 async def fetch_metadata(
