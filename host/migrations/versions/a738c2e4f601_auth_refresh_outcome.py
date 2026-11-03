@@ -17,7 +17,7 @@ def upgrade() -> None:
     op.create_table(
         "auth_refresh_outcome",
         sa.Column("session_id", sa.String(length=128), nullable=False),
-        sa.Column("expires_at", sa.Integer(), nullable=False),
+        sa.Column("expires_at", sa.BigInteger(), nullable=False),
         sa.Column("session", sa.JSON(), nullable=False),
         sa.PrimaryKeyConstraint("session_id", name=op.f("pk_auth_refresh_outcome")),
     )

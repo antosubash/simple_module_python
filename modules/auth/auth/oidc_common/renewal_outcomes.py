@@ -15,7 +15,7 @@ from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from sqlalchemy import delete
 from sqlmodel import col
 
-from auth.constants import SESSION_ID_KEY
+from auth.constants import REFRESH_RETRY_AFTER_SECONDS, SESSION_ID_KEY
 from auth.contracts.schemas import UserContext
 from auth.models import RefreshOutcome
 from auth.oidc_common.session import SessionKeys
@@ -25,7 +25,6 @@ _OUTCOME_TTL = 30
 _LEASE_TTL = 15  # Above the token endpoint's 10-second timeout.
 _WAIT_SECONDS = 3
 _WORK_SECONDS = 12
-_RETRY_SECONDS = 30
 
 
 def _authority_keys(keys: SessionKeys) -> tuple[str, ...]:
@@ -47,17 +46,17 @@ def _authority_keys(keys: SessionKeys) -> tuple[str, ...]:
 async def _load(app: Any, name: str) -> dict | None:
     async with independent_session(app) as db:
         row = await db.get(RefreshOutcome, name)
-        result = row.session if row is not None and row.expires_at > time.time() else None
+        return row.session if row is not None and row.expires_at > time.time() else None
+
+
+async def _publish(app: Any, name: str, session: dict) -> None:
+    async with independent_session(app) as db:
+        # Purge here, on the write path, so a lookup never takes a write lock.
         await db.execute(
             delete(RefreshOutcome).where(
                 col(RefreshOutcome.expires_at) <= int(time.time()),
             )
         )
-        return result
-
-
-async def _publish(app: Any, name: str, session: dict) -> None:
-    async with independent_session(app) as db:
         await db.merge(
             RefreshOutcome(
                 session_id=name,
@@ -84,7 +83,9 @@ async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) ->
         if not await held.acquire(blocking=False):
             waited = True
             if not await held.acquire():
-                session[keys.retry] = int(time.time()) + _RETRY_SECONDS
+                # Leave the cookie untouched: a waiter's Set-Cookie would carry
+                # the already-spent refresh token and could land after the
+                # winner's. This request alone goes unauthenticated.
                 return None
         try:
             async with asyncio.timeout(_WORK_SECONDS):
@@ -97,21 +98,25 @@ async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) ->
                         return UserContext.from_session_dict(session.get(keys.user))
                     return None
                 if waited:
-                    session[keys.retry] = int(time.time()) + _RETRY_SECONDS
-                    return None
+                    return None  # the winner failed or its outcome expired; see above
                 session.setdefault(SESSION_ID_KEY, secrets.token_urlsafe(24))
                 result = await renew()
-                await _publish(
-                    request.app,
-                    name,
-                    {key: session[key] for key in _authority_keys(keys) if key in session},
-                )
+                try:
+                    await _publish(
+                        request.app,
+                        name,
+                        {key: session[key] for key in _authority_keys(keys) if key in session},
+                    )
+                except Exception as exc:
+                    # The grant already succeeded and the cookie holds the rotated
+                    # token: losing the shared outcome only costs waiters a retry.
+                    logger.warning("OIDC refresh outcome not shared (%s)", type(exc).__name__)
                 return result
         finally:
             await held.release()
-    except Exception:
+    except Exception as exc:
         # Storage/lease failures cannot prove a grant safe. Keep the cookie and
-        # never expose SQL parameters (which include sealed credentials).
-        logger.warning("OIDC refresh coordination unavailable")
-        session[keys.retry] = int(time.time()) + _RETRY_SECONDS
+        # never log the exception text (SQL parameters include sealed credentials).
+        logger.warning("OIDC refresh coordination unavailable (%s)", type(exc).__name__)
+        session[keys.retry] = int(time.time()) + REFRESH_RETRY_AFTER_SECONDS
         return None

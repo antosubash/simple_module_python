@@ -122,9 +122,16 @@ caches and the invalidation bus cannot deliver these outcomes across workers.
 Apply migration `a738c2e4f601` (`auth@head`) before upgrading.
 
 Waiters adopt the outcome into their own cookie. A waiter whose outcome is gone,
-a lease timeout, or unavailable coordination storage keeps its session and uses
-the normal 30-second retry cooldown. Definitive provider rejections still clear
-authentication. Expired outcomes are deleted on subsequent renewal lookups.
+or whose lease wait times out, leaves its cookie untouched (its copy still holds
+the spent refresh token, and a late Set-Cookie must not overwrite the winner's);
+that one request goes unauthenticated and the next uses the renewed cookie.
+Unavailable coordination storage keeps the session with the normal 30-second
+retry cooldown. Definitive provider rejections still clear authentication.
+Expired outcomes are purged when a new outcome is published, so a lookup never
+takes a write lock. An outcome is bound to the exact sealed refresh token being
+spent: an older copy of the cookie cannot adopt it, while any holder of the same
+pre-rotation cookie can within its 30 seconds (as that holder could also have
+refreshed it first).
 Existing cookies without an id coordinate their first renewal by a hash of their
 sealed refresh token, then receive the winner's new random id. No plaintext
 refresh tokens or identity tokens enter the outcome table.

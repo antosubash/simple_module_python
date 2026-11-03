@@ -184,13 +184,12 @@ Login replaces user-bound session state and rotates CSRF. The signed cookie
 stores a minimal principal, ID-token expiry, issuer/subject identity and an
 encrypted refresh token if issued. It never retains the ID token. At expiry,
 refresh must return a valid ID token for the same identity. **Providers that do
-not return an `id_token` on refresh sign the user out at expiry.** Parallel requests at expiry serialize through a per-session
-framework
-lease (15-second TTL, at most 3 seconds waiting). Waiters copy the winner's sealed
+not return an `id_token` on refresh sign the user out at expiry.** Parallel requests at expiry serialize through a per-session framework lease
+(15-second TTL, at most 3 seconds waiting). Waiters copy the winner's sealed
 refresh token, principal and deadline from a shared 30-second DB outcome into
 their own cookie; no IdP reuse grace period is needed for this race (#738).
-A missing/expired waiter outcome or lease timeout keeps the session with the
-30-second retry cooldown. Apply migration `a738c2e4f601` (`auth@head`); see
+A missing/expired waiter outcome or lease timeout leaves that request's cookie
+untouched and signs only that request out. Apply migration `a738c2e4f601` (`auth@head`); see
 [auth coordination](auth.md#concurrent-browser-renewal-738). Definitive refresh
 rejection clears authentication; network/5xx/retryable failures retain
 the expired session for retry while leaving that request unauthenticated; the

@@ -10,15 +10,13 @@ import httpx
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from starlette.requests import Request
 
+from auth.constants import REFRESH_RETRY_AFTER_SECONDS
 from auth.contracts.schemas import UserContext
 from auth.oidc_common.renewal_outcomes import coordinated_refresh
 from auth.oidc_common.session import SessionKeys
 
 logger = logging.getLogger(__name__)
 _RETRYABLE_STATUSES = frozenset({408, 425, 429})
-# After a transient failure, don't call the token endpoint again for this long:
-# every request on the session would otherwise wait up to its 10 s timeout.
-_RETRY_AFTER_SECONDS = 30
 
 
 async def refresh_session(
@@ -84,7 +82,7 @@ async def _refresh_grant(
         status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
         logger.warning("OIDC session refresh failed (status=%s)", status)
         if status is None or status >= 500 or status in _RETRYABLE_STATUSES:
-            session[keys.retry] = int(time.time()) + _RETRY_AFTER_SECONDS
+            session[keys.retry] = int(time.time()) + REFRESH_RETRY_AFTER_SECONDS
             return None
         keys.forget(session)
         return None

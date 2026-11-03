@@ -51,7 +51,8 @@ async def renewal(request, tmp_path):
 
     async def refresh(token):
         calls.append(token)
-        await asyncio.sleep(refresh.delay)
+        # The grant stays in flight so a second request has to wait on the lease.
+        await asyncio.sleep(refresh.delay)  # intentional-sleep: in-flight grant
         if refresh.error is not None:
             raise refresh.error
         return {"refresh_token": "rotated"}
@@ -119,7 +120,7 @@ async def test_legacy_session_gets_an_id(renewal):
     assert len(req.session["oidc_session_id"]) >= 32
 
 
-async def test_waiter_with_expired_outcome_keeps_cookie_for_retry(renewal, monkeypatch):
+async def test_waiter_with_expired_outcome_leaves_the_cookie_untouched(renewal, monkeypatch):
     from auth.oidc_common import renewal_outcomes
 
     r = renewal
@@ -140,11 +141,11 @@ async def test_waiter_with_expired_outcome_keeps_cookie_for_retry(renewal, monke
     assert principals[0] is not None
     assert principals[1] is None
     assert r.calls == ["old"]
-    assert second.session[r.keys.refresh] == r.session[r.keys.refresh]
-    assert second.session["retry"] == now + 61
+    # The waiter leaves its cookie alone (no stale Set-Cookie over the winner's).
+    assert second.session == r.session
 
 
-async def test_waiter_timeout_keeps_cookie_for_retry(renewal, monkeypatch):
+async def test_waiter_timeout_leaves_the_cookie_untouched(renewal, monkeypatch):
     import hashlib
 
     from auth.oidc_common import renewal_outcomes
@@ -157,8 +158,7 @@ async def test_waiter_timeout_keeps_cookie_for_retry(renewal, monkeypatch):
     async with lease(f"auth-refresh:{name}", ttl=15):
         assert await r.renew(req) is None
     assert not r.calls
-    assert req.session[r.keys.refresh] == r.session[r.keys.refresh]
-    assert req.session["retry"] >= int(time.time()) + 29
+    assert req.session == r.session
 
 
 async def test_outcome_contains_only_sealed_authority_and_is_purged(renewal, monkeypatch):
@@ -177,9 +177,13 @@ async def test_outcome_contains_only_sealed_authority_and_is_purged(renewal, mon
         assert "gate" not in row.session
         name, expiry = row.session_id, row.expires_at
     monkeypatch.setattr(time, "time", lambda: expiry)
+    # An expired outcome is ignored on lookup (a read never takes a write lock)
+    # and purged by the next publish.
     assert await renewal_outcomes._load(r.app, name) is None
+    await renewal_outcomes._publish(r.app, "another-session", {})
     async with independent_session(r.app) as db:
-        assert (await db.execute(select(RefreshOutcome))).scalar_one_or_none() is None
+        ids = (await db.execute(select(RefreshOutcome.session_id))).scalars().all()
+        assert ids == ["another-session"]
 
 
 async def test_slow_grant_is_cancelled_before_lease_expires(renewal, monkeypatch):
@@ -248,3 +252,19 @@ async def test_older_cookie_copy_cannot_adopt_the_outcome(renewal):
     older[r.keys.refresh] = r.tokens.seal_refresh_token(r.app, "ancient")
     await r.renew(r.make_request(older))
     assert r.calls == ["old", "ancient"]
+
+
+async def test_publish_failure_keeps_the_renewed_principal(renewal, monkeypatch):
+    from auth.oidc_common import renewal_outcomes
+
+    async def locked(*_):
+        raise RuntimeError("database is locked")
+
+    r = renewal
+    monkeypatch.setattr(renewal_outcomes, "_publish", locked)
+    req = r.make_request()
+    principal = await r.renew(req)
+    assert principal is not None and principal.roles == ["new"]
+    assert r.calls == ["old"]
+    assert r.tokens.open_refresh_token(r.app, req.session[r.keys.refresh]) == "rotated"
+    assert "retry" not in req.session
