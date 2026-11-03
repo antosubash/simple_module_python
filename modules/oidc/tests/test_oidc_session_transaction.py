@@ -69,6 +69,7 @@ async def test_sign_in_rotates_and_preserves_only_registered_keys(callback):
     assert response.headers["location"] == "/deep-link"
     assert request.session["user_ctx"]["id"] == "uuid"
     assert request.session["expires_at"] == 2000
+    assert isinstance(request.session.get("oidc_authority"), str)
     assert request.session["oidc_identity"] == ["https://idp", "user"]
     assert request.session["gate"] == "unlocked"
     assert get_csrf_token(request) != old_csrf

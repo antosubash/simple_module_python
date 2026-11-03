@@ -55,6 +55,7 @@ async def refresh_session(monkeypatch, db_state, db_session):
         ).to_session_dict(),
         "keycloak_refresh_token": seal_refresh_token(app, "refresh-old"),
         "keycloak_id_token": "id-old",
+        "keycloak_identity": ["subject"],
         "expires_at": 999,
         "gate": "unlocked",
     }

@@ -15,7 +15,7 @@ from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from sqlalchemy import delete, or_
 from sqlmodel import col
 
-from auth.constants import REFRESH_RETRY_AFTER_SECONDS, SESSION_ID_KEY
+from auth.constants import REFRESH_RETRY_AFTER_SECONDS, SESSION_AUTHORITY_KEY, SESSION_ID_KEY
 from auth.contracts.schemas import UserContext
 from auth.models import RefreshOutcome
 from auth.oidc_common.session import SessionKeys
@@ -37,6 +37,7 @@ def _authority_keys(keys: SessionKeys) -> tuple[str, ...]:
             keys.retry,
             keys.identity,
             SESSION_ID_KEY,
+            SESSION_AUTHORITY_KEY,
             SESSION_EXPIRES_AT_KEY,
             *keys.obsolete,
         )
@@ -135,6 +136,11 @@ async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) ->
             async with asyncio.timeout(_WORK_SECONDS):
                 outcome = await _load(request.app, name)
                 if outcome is not None:
+                    if outcome and outcome.get(SESSION_AUTHORITY_KEY) != session.get(
+                        SESSION_AUTHORITY_KEY
+                    ):
+                        session.clear()
+                        return None
                     for key in _authority_keys(keys):
                         session.pop(key, None)
                     session.update(outcome)

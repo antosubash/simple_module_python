@@ -66,7 +66,8 @@ class OIDCClient:
             "code_challenge_method": "S256",
             "code_challenge": pkce_challenge(code_verifier),
         }
-        url = f"{self._authorization_endpoint}?{urlencode(params)}"
+        separator = "&" if "?" in self._authorization_endpoint else "?"
+        url = f"{self._authorization_endpoint}{separator}{urlencode(params)}"
         return url, state
 
     async def exchange_code(

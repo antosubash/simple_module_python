@@ -81,6 +81,7 @@ async def test_refresh_matches_session_whose_id_is_the_raw_sub(monkeypatch, db_s
     session = {
         "user_ctx": UserContext(id="not-a-uuid", email="", name="", roles=[]).to_session_dict(),
         "keycloak_refresh_token": seal_refresh_token(app, "r"),
+        "keycloak_identity": ["kc-sub"],
         "expires_at": 999,
     }
     request = Request({"type": "http", "headers": [], "session": session, "app": app})
@@ -145,6 +146,7 @@ async def test_refresh_survives_an_unavailable_identity_check(monkeypatch, db_st
     session = {
         "user_ctx": UserContext(id=cached_id, email="", name="", roles=[]).to_session_dict(),
         "keycloak_refresh_token": seal_refresh_token(app, "r"),
+        "keycloak_identity": ["kc-sub"],
         "expires_at": 999,
     }
     request = Request({"type": "http", "headers": [], "session": session, "app": app})

@@ -12,6 +12,7 @@ from starlette.requests import Request
 async def test_oidc_callback_rotates_csrf(monkeypatch):
     context = SimpleNamespace(to_session_dict=lambda: {"id": "new-user"})
     provider = SimpleNamespace(
+        _session_authority="test-authority",
         _upsert_user_cache=AsyncMock(return_value="new-user"),
         _claims_to_user_context=lambda claims, cache_id: context,
     )

@@ -109,6 +109,20 @@ app.state.auth.principal_resolvers.append(my_pat_resolver)
 
 Translated automatically when the request locale is set — no extra wiring needed.
 
+### Browser session authority (#750)
+
+OIDC and Keycloak stamp `oidc_authority`, a short SHA-256 hash of the provider
+name, issuer and client ID, at sign-in. Cached principals and shared renewal
+outcomes must match that authority; changing provider, issuer or client requires
+sign-in again. No client secret is included. Anonymous login transactions remain
+intact so state, nonce, PKCE and the saved destination survive authentication.
+
+A cookie without the marker is upgraded only when it carries the selected
+provider's own identity key (`oidc_identity` or `keycloak_identity`), or, for a
+Keycloak cookie from before the identity key existed, its sealed
+`keycloak_refresh_token`. Other cached principals, including local users
+cookies, are cleared. No database migration is required.
+
 ### Concurrent browser renewal (#738)
 
 Shared sign-in gives each browser session a random opaque `oidc_session_id`;

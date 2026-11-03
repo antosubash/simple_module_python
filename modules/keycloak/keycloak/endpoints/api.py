@@ -12,6 +12,10 @@ from fastapi import APIRouter, HTTPException, Request
 from starlette.responses import RedirectResponse
 
 from keycloak.constants import (
+    SESSION_IDENTITY_KEY,
+    SESSION_VERIFIER_KEY,
+)
+from keycloak.constants import (
     SESSION_NONCE_KEY as _SESSION_OIDC_NONCE,
 )
 from keycloak.constants import (
@@ -19,9 +23,6 @@ from keycloak.constants import (
 )
 from keycloak.constants import (
     SESSION_USER_KEY as _SESSION_USER_CTX,
-)
-from keycloak.constants import (
-    SESSION_VERIFIER_KEY,
 )
 from keycloak.tokens import store_refresh_token
 
@@ -131,8 +132,11 @@ async def oidc_callback(request: Request):
         request,
         user=user_ctx,
         expires_at=expires_at,
+        authority=provider._session_authority,
         redirect=s.login_redirect_url,
         user_key=_SESSION_USER_CTX,
+        identity_key=SESSION_IDENTITY_KEY,
+        identity=(claims["sub"],),
     )
     if tokens.get("refresh_token"):
         store_refresh_token(request.app, request.session, tokens["refresh_token"])
