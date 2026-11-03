@@ -76,13 +76,13 @@ async def delete_order(order_id: int) -> None: ...
 
 1. The keys assigned to any of the user's roles.
 2. The keys assigned directly to the user (`permissions_user_permission`), contributed by `permissions.grants.direct_grant_source` via `PermissionRegistry.add_grant_source`.
-3. The implicit `WILDCARD` grant. The `admin` role is synced to hold every permission key at startup, so admins pass any check.
+3. The implicit `WILDCARD` grant. The `admin` role is synced to hold every permission key at startup, so admins pass any check. Missing grants use conflict-safe inserts so concurrent worker startups succeed (#732).
 
 All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`. `auth.deps.require_permission(*keys)` reads the same set, with any-of semantics.
 
 ### Caching and propagation
 
-The grant source runs on every authenticated request, so each process caches a user's direct grants for 30 seconds (`permissions.grants.GRANTS_TTL_SECONDS`). Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. `PermissionService.set_user_permissions` owns this callback, so service callers
+The grant source runs on every authenticated request, so each application caches a user's direct grants for 30 seconds (`permissions.grants.GRANTS_TTL_SECONDS`). Co-hosted applications keep separate caches and app bus invalidations, even for the same user UUID (#736). Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. `PermissionService.set_user_permissions` owns this callback, so service callers
 receive the same invalidation as endpoints (#687, #621); rollback publishes nothing.
 Pass `app` to the service for cross-worker delivery. Without an app, commit clears
 the local grant cache. The endpoint helper

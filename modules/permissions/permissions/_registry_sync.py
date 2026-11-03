@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
 from simple_module_core.user_directory import DirectoryUser
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from permissions.models import RolePermission
@@ -103,9 +105,16 @@ class RegistrySyncMixin:
         missing = registered - existing
         if not missing:
             return
-        self.db.add_all(
-            RolePermission(role_name=ADMIN_ROLE, permission_key=key, assigned_by=assigned_by)
-            for key in missing
+        insert = sqlite_insert if self.db.get_bind().dialect.name == "sqlite" else pg_insert
+        await self.db.execute(
+            insert(RolePermission)
+            .values(
+                [
+                    {"role_name": ADMIN_ROLE, "permission_key": key, "assigned_by": assigned_by}
+                    for key in sorted(missing)
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=["role_name", "permission_key"])
         )
         await self.db.flush()
         self.registry.set_role_overlay(ADMIN_ROLE, registered)
