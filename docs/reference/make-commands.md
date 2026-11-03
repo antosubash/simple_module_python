@@ -32,6 +32,11 @@ smpy --help
 
 Modules from one repo move **in lockstep** — one repo, one ref. `smpy update` takes every module sourced from the same URL to the same new tag, which must be a `v*` semver tag satisfying every sibling's declared dependency range. Mixing tags from one source tree is how you end up with a module built against a sibling it was never shipped with. Branch-pinned sources re-lock to the newest SHA (dev mode), rev-pinned sources are left alone, and a plain PyPI name delegates to `uv lock --upgrade-package`.
 
+Git tag updates also advance the dependency's version floor, preserving its
+extras and environment marker. For example, updating to `v0.2.0` changes
+`simple_module_blog[s3]>=0.1,<1.0; python_version >= "3.12"` to
+`simple_module_blog[s3]>=0.2.0,<1.0; python_version >= "3.12"`.
+
 Both take `--path` to point at a project root or `pyproject.toml` other than the cwd. `smpy add` takes `--yes` to fail rather than prompt, which is what you want in CI.
 
 ### Authoring a module

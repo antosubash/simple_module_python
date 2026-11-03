@@ -31,7 +31,8 @@ def worker_db(tmp_path):
     url = f"sqlite:///{tmp_path}/worker.db"
     _Base.metadata.create_all(create_engine(url))
     sync_db.set_database_url(url, tenant_strict=True)
-    with sync_db.sync_session() as s:
+    # Seeding two tenants at once is a cross-tenant write: say so (#728).
+    with all_tenants(), sync_db.sync_session() as s:
         s.add_all([_Job(name="a1", tenant_id="a"), _Job(name="b1", tenant_id="b")])
     yield
     sync_db.dispose_sync_engine()

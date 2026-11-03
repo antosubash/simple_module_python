@@ -17,8 +17,8 @@ tenant a request acts for.
 |---|---|---|---|
 | `SELECT` | filtered to the tenant | `MissingTenantError` | unfiltered |
 | ORM `update()` / `delete()` | filtered to the tenant; `update().values(tenant_id=…)` raises | `MissingTenantError` | unfiltered |
-| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless `tenant_id` is set explicitly | `tenant_id` filled in with the install's fallback tenant unless set |
-| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError` unless every row sets `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
+| `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError`, even with an explicit `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
+| ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError`, even when every row sets `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
 | Flushing a change to, or a delete of, a loaded object | only if it belongs to the bound tenant | `MissingTenantError` | allowed |
 | Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
 
