@@ -13,6 +13,7 @@ import jwt
 from jwt.algorithms import RSAAlgorithm
 
 logger = logging.getLogger(__name__)
+_CLOCK_SKEW_SECONDS = 10
 _MIN_REFETCH_INTERVAL_SECONDS = 30
 
 
@@ -75,6 +76,9 @@ class JWKSCache:
                 issuer=self._issuer,
                 audience=audience,
                 options={"require": ["iss", "sub", "aud", "exp", "iat"]},
+                # An app clock a few seconds behind the IdP would otherwise
+                # reject fresh tokens as issued in the future.
+                leeway=_CLOCK_SKEW_SECONDS,
             )
             if not isinstance(claims["sub"], str) or not claims["sub"].strip():
                 return None

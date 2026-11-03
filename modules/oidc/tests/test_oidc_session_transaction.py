@@ -197,3 +197,13 @@ async def test_non_object_token_response_is_a_bad_gateway(callback):
     with pytest.raises(HTTPException) as exc:
         await api.oidc_callback(request)
     assert exc.value.status_code == 502
+
+
+async def test_forged_error_reply_cannot_spend_a_victims_login(callback):
+    # An error reply without the victim's state is a state mismatch, not a
+    # refusal: it never reaches the error branch.
+    request, _ = callback
+    request.scope["query_string"] = b"error=access_denied&state=forged"
+    with pytest.raises(HTTPException) as exc:
+        await api.oidc_callback(request)
+    assert exc.value.status_code == 400

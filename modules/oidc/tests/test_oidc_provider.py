@@ -107,3 +107,25 @@ def test_non_string_claims_do_not_break_the_context(provider, email):
         {"email": email, "preferred_username": 5, "name": "Alice"}, cache_id="id-1"
     )
     assert (ctx.email, ctx.name) == ("", "Alice")
+
+
+@pytest.mark.parametrize(
+    "path,claims",
+    [
+        # Auth0/Okta namespace custom claims as URLs, dots included.
+        ("https://example.com/roles", {"https://example.com/roles": ["admin"]}),
+        ("realm_access.roles", {"realm_access": {"roles": ["admin"]}}),
+    ],
+)
+def test_roles_claim_path_exact_key_then_dotted_path(path, claims):
+    settings = OidcSettings(
+        provider="generic",
+        discovery_url="https://issuer/.well-known/openid-configuration",
+        client_id="my-app",
+        client_secret="secret",
+        roles_claim_path=path,
+    )
+    ctx = OidcAuthProvider(settings)._claims_to_user_context(
+        {"sub": "s-1", **claims}, cache_id="cache"
+    )
+    assert ctx.roles == ["admin"]

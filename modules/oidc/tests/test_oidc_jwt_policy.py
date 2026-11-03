@@ -115,3 +115,10 @@ async def test_algorithm_allowlist(signed, algorithm, key):
         headers={"kid": "key"},
     )
     assert await cache.validate_jwt(token) is None
+
+
+async def test_small_clock_skew_is_tolerated(signed):
+    cache, sign = signed
+    # Issued "in the future" by an IdP clock a few seconds ahead of ours.
+    assert await cache.validate_jwt(sign({"iat": int(time.time()) + 5})) is not None
+    assert await cache.validate_jwt(sign({"iat": int(time.time()) + 60})) is None

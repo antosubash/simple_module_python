@@ -80,7 +80,11 @@ start sign-in. Cached identity is `(issuer, sub)` with a stable framework UUID.
 `generic` requires an explicit discovery URL. Its defaults are `sub`,
 `preferred_username`, `email`, `name`, no roles path, and scope
 `openid email profile`. Use dotted paths such as `realm_access.roles` or
-`resource_access.my-client.roles` to select a list of external roles.
+`resource_access.my-client.roles` to select a list of external roles; a claim
+named exactly like the path wins, so Auth0/Okta URL-namespaced claims such as
+`https://example.com/roles` work as written. Keycloak issues refresh tokens for
+this scope; Auth0 and Okta only do with `offline_access`, so add it to `scope`
+there or sessions end at ID-token expiry.
 
 `entra` supports **single-tenant** registrations. Register a Web application
 for accounts in your directory, create its client secret, and add
@@ -170,7 +174,8 @@ never selects an application tenant.
 JWT validation requires RS256, signature, exact issuer, subject, audience,
 expiry and issued-at. For the browser ID token a supplied `azp` must name this
 client and is required for multiple audiences; additional audiences are rejected.
-An API access token's `azp` is the calling client and is not pinned.
+An API access token's `azp` is the calling client: it is not pinned to this
+client but checked against `api_allowed_client_ids` (see above).
 Discovery validates URLs and issuer, requires HTTPS outside development, and
 permits legitimate endpoints on different hosts. Discovery failure refuses boot
 outside development; development retries lazily at login.
@@ -196,7 +201,12 @@ uses external navigation. Without that endpoint, logout stays local. There is
 session. The public signed-out landing page does not auto-login. Close the
 browser on a shared computer when provider logout cannot be guaranteed.
 
-The access token is not consumed, so **`at_hash` is not checked**. Entra support
+The access token is not consumed, so **`at_hash` is not checked**. Tokens are
+validated with 10 seconds of clock leeway. The client authenticates to the
+token endpoint with `client_secret_post` only (supported by Keycloak, Entra,
+Auth0 and Okta); IdPs that accept only `client_secret_basic` are not supported
+yet. An IdP `error` reply to the callback (for example a cancelled sign-in)
+answers 401 once the login state matched. Entra support
 is single-tenant only. The directory lists only users who have signed in,
 reads cached names/emails and returns unknown roles (`None`), rather than
 claiming no roles. Activity statistics count last login; account creation dates

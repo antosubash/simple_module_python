@@ -168,7 +168,7 @@ development retries lazily on login.
 Authorization uses code flow with S256 PKCE, state and constant-time nonce
 validation. JWTs require `iss`, `sub`, `aud`, `exp` and `iat`, RS256 and the
 expected audience. Additional audiences are rejected, and a supplied `azp` on a browser ID token must name this client (required with multiple
-audiences); an API access token's `azp` is the calling client and is not pinned. The returned access token is unused, so `at_hash` is intentionally
+audiences); an API access token's `azp` is the calling client, checked against `api_allowed_client_ids` instead. The returned access token is unused, so `at_hash` is intentionally
 not checked.
 
 Sign-in replaces user-bound session state and rotates CSRF. The cookie never

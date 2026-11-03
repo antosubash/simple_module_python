@@ -50,17 +50,18 @@ async def oidc_callback(request: Request):
     expected_state = request.session.pop(SESSION_STATE_KEY, None)
     expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
     verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
-    if request.query_params.get("error"):
-        # The IdP refused or the user cancelled (access_denied, login_required,
-        # ...): say so instead of reporting a state mismatch. The login
-        # transaction above is spent either way.
-        raise HTTPException(status_code=401, detail="Sign-in was refused by the identity provider")
     if (
-        not code
-        or not state
+        not state
         or not isinstance(expected_state, str)
         or not secrets.compare_digest(state.encode(), expected_state.encode())
     ):
+        raise HTTPException(status_code=400, detail="Invalid OIDC state")
+    # Only after the state matched: an ``error`` reply (access_denied,
+    # login_required, ...) belongs to this login, so a forged error link
+    # cannot pass for a real one.
+    if request.query_params.get("error"):
+        raise HTTPException(status_code=401, detail="Sign-in was refused by the identity provider")
+    if not code:
         raise HTTPException(status_code=400, detail="Invalid OIDC state")
     if not isinstance(expected_nonce, str) or not expected_nonce:
         raise HTTPException(status_code=400, detail="Missing OIDC nonce")

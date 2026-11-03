@@ -55,7 +55,13 @@ class OidcSettings(DbBackedSettings):
     # Clients (``azp``, or ``appid`` on Entra v1 tokens) allowed to call the API
     # with a bearer token, besides ``client_id``. An API token is minted for our
     # audience but by any client the IdP lets ask for it, so name each one.
-    api_allowed_client_ids: list[str] = Field(default_factory=list)
+    api_allowed_client_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Client IDs (token azp, or appid on Entra v1) besides client_id allowed to call "
+            "the API with a bearer token. Empty: only this app's own client."
+        ),
+    )
     trust_tenant_claim: bool = False
 
     # Claim mapping. ``_UNSET`` defaults are replaced by the preset's value.
