@@ -76,8 +76,11 @@ Guidance: give an unlabelled module a `branch_labels` on its **next** revision. 
 Migration `a738c2e4f601` creates `auth_refresh_outcome` on an independent
 `auth` root. Apply `upgrade heads` before using OIDC or Keycloak renewal. The
 30-second outcomes contain only the principal, expiry, sealed refresh token and
-session coordination keys; expired rows are purged during subsequent renewal
-lookups. Independent transactions publish outcomes before releasing the session
+session coordination keys; expired rows are purged when a later renewal
+publishes its outcome (lookups never write). `outcome_key` (primary key) is a hash
+of the session, its sealed refresh token being spent and the provider; `lock_key`
+(indexed) is the per-session hash, which logout uses to delete the session's
+outcomes. Independent transactions publish outcomes before releasing the session
 lease, without waiting for the request transaction. No Redis is required.
 Downgrade drops this short-lived cache; it does not alter user accounts.
 

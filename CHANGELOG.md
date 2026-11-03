@@ -32,7 +32,8 @@ All notable changes to this project are documented in this file. The format is b
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**
   signed-in sessions receive an opaque id; waiters adopt the renewed cookie,
-  and a waiter that finds nothing leaves its cookie untouched. Apply migration
+  a waiter that finds nothing leaves its cookie untouched, and logout clears the
+  session's shared outcome. Apply migration
   `a738c2e4f601` (`auth@head`, new `auth` branch) for the SQLite/Postgres
   outcome table before upgrading — hosts with their own migration history must
   add it, or renewal fails closed (logged); no Redis is required.

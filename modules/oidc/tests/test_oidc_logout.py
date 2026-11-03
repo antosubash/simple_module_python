@@ -64,3 +64,31 @@ async def test_logout_without_end_session_endpoint(oidc_app, flow_client):
     response = await flow_client.post("/oidc/logout", headers=_INERTIA)
     assert response.status_code == 409
     assert response.headers["x-inertia-location"] == "http://testserver/oidc/logged-out"
+
+
+async def test_logout_drops_the_sessions_shared_renewal_outcome(oidc_app, flow_client):
+    import hashlib
+    import time
+
+    from auth.models import RefreshOutcome
+    from oidc.renewal import _KEYS
+    from simple_module_db import independent_session
+    from sqlmodel import select
+
+    lock = hashlib.sha256(f"{_KEYS.refresh}:sid".encode()).hexdigest()
+    async with independent_session(oidc_app) as db:
+        db.add(
+            RefreshOutcome(
+                outcome_key="k", lock_key=lock, expires_at=int(time.time()) + 30, session={}
+            )
+        )
+    flow_client.cookies.set(
+        "session",
+        forge_session_cookie(
+            "test-secret-key",
+            {"oidc_refresh_token": "old", "oidc_session_id": "sid", "expires_at": 4_102_444_800},
+        ),
+    )
+    assert (await flow_client.post("/oidc/logout")).status_code == 303
+    async with independent_session(oidc_app) as db:
+        assert (await db.execute(select(RefreshOutcome))).scalars().all() == []

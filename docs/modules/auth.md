@@ -119,7 +119,9 @@ The `auth_refresh_outcome` table shares the principal, new expiry and **sealed**
 refresh token for 30 seconds; unrelated cookie fields are never copied. This
 small DB store works with SQLite and Postgres without Redis; process-local TTL
 caches and the invalidation bus cannot deliver these outcomes across workers.
-Apply migration `a738c2e4f601` (`auth@head`) before upgrading.
+Logout removes the session's shared outcome, so a replayed pre-rotation cookie
+cannot adopt a renewed principal after sign-out (best effort; a failure never
+blocks logout). Apply migration `a738c2e4f601` (`auth@head`) before upgrading.
 
 Waiters adopt the outcome into their own cookie. A waiter whose outcome is gone,
 or whose lease wait times out, leaves its cookie untouched (its copy still holds

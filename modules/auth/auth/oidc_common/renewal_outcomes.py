@@ -12,7 +12,7 @@ from typing import Any
 from simple_module_core.leases import lease
 from simple_module_db import independent_session
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
-from sqlalchemy import delete
+from sqlalchemy import delete, or_
 from sqlmodel import col
 
 from auth.constants import REFRESH_RETRY_AFTER_SECONDS, SESSION_ID_KEY
@@ -49,7 +49,19 @@ async def _load(app: Any, name: str) -> dict | None:
         return row.session if row is not None and row.expires_at > time.time() else None
 
 
-async def _publish(app: Any, name: str, session: dict) -> None:
+def _lock_key(keys: SessionKeys, identity: str) -> str:
+    return hashlib.sha256(f"{keys.refresh}:{identity}".encode()).hexdigest()
+
+
+def _outcome_key(keys: SessionKeys, session: Any, sealed: str) -> str:
+    # Old cookies have no random id yet; identical ciphertext coordinates their
+    # first renewal without storing or hashing the plaintext refresh credential.
+    spent = hashlib.sha256(sealed.encode()).hexdigest()
+    identity = session.get(SESSION_ID_KEY) or spent
+    return hashlib.sha256(f"{keys.refresh}:{identity}:{spent}".encode()).hexdigest()
+
+
+async def _publish(app: Any, name: str, lock_key: str, session: dict) -> None:
     async with independent_session(app) as db:
         # Purge here, on the write path, so a lookup never takes a write lock.
         await db.execute(
@@ -59,24 +71,46 @@ async def _publish(app: Any, name: str, session: dict) -> None:
         )
         await db.merge(
             RefreshOutcome(
-                session_id=name,
+                outcome_key=name,
+                lock_key=lock_key,
                 expires_at=int(time.time()) + _OUTCOME_TTL,
                 session=session,
             )
         )
 
 
+async def forget_outcomes(app: Any, keys: SessionKeys, session: Any) -> None:
+    """Drop the session's shared outcomes at logout (best effort, never raises).
+
+    Without this a replayed pre-rotation cookie could adopt the renewed
+    principal for up to the outcome TTL after the user signed out.
+    """
+    try:
+        matches = []
+        identity = session.get(SESSION_ID_KEY)
+        if identity:
+            matches.append(col(RefreshOutcome.lock_key) == _lock_key(keys, identity))
+        sealed = session.get(keys.refresh)
+        if sealed:
+            # An outcome this very cookie could adopt, e.g. an id-less legacy
+            # cookie whose renewal another request already published.
+            matches.append(col(RefreshOutcome.outcome_key) == _outcome_key(keys, session, sealed))
+        if not matches:
+            return
+        async with independent_session(app) as db:
+            await db.execute(delete(RefreshOutcome).where(or_(*matches)))
+    except Exception as exc:
+        logger.warning("OIDC refresh outcome not cleared (%s)", type(exc).__name__)
+
+
 async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) -> UserContext | None:
     session = request.session
-    # Old cookies have no random id yet; identical ciphertext coordinates their
-    # first renewal without storing or hashing the plaintext refresh credential.
-    spent = hashlib.sha256(sealed.encode()).hexdigest()
-    identity = session.get(SESSION_ID_KEY) or spent
+    identity = session.get(SESSION_ID_KEY) or hashlib.sha256(sealed.encode()).hexdigest()
     # The lock is per session, so renewals serialise. The outcome is bound to
     # the exact credential being spent: only requests carrying the same
     # pre-rotation cookie may adopt it, never an older copy of the cookie.
-    lock = hashlib.sha256(f"{keys.refresh}:{identity}".encode()).hexdigest()
-    name = hashlib.sha256(f"{keys.refresh}:{identity}:{spent}".encode()).hexdigest()
+    lock = _lock_key(keys, identity)
+    name = _outcome_key(keys, session, sealed)
     held = lease(f"auth-refresh:{lock}", ttl=_LEASE_TTL, wait=_WAIT_SECONDS)
     waited = False
     try:
@@ -101,17 +135,23 @@ async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) ->
                     return None  # the winner failed or its outcome expired; see above
                 session.setdefault(SESSION_ID_KEY, secrets.token_urlsafe(24))
                 result = await renew()
-                try:
-                    await _publish(
-                        request.app,
-                        name,
-                        {key: session[key] for key in _authority_keys(keys) if key in session},
-                    )
-                except Exception as exc:
-                    # The grant already succeeded and the cookie holds the rotated
-                    # token: losing the shared outcome only costs waiters a retry.
-                    logger.warning("OIDC refresh outcome not shared (%s)", type(exc).__name__)
-                return result
+            # Publishing is outside the work timeout: renew() already stored the
+            # rotated token, so a slow publish must not look like a failed renewal.
+            try:
+                # Filed under the id the renewed cookie carries, so its logout
+                # finds the row even when a legacy cookie had no id before. A
+                # rejected grant cleared the session, so it keeps the lock key.
+                await _publish(
+                    request.app,
+                    name,
+                    _lock_key(keys, session.get(SESSION_ID_KEY) or identity),
+                    {key: session[key] for key in _authority_keys(keys) if key in session},
+                )
+            except Exception as exc:
+                # The grant already succeeded and the cookie holds the rotated
+                # token: losing the shared outcome only costs waiters a retry.
+                logger.warning("OIDC refresh outcome not shared (%s)", type(exc).__name__)
+            return result
         finally:
             await held.release()
     except Exception as exc:
