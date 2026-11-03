@@ -61,6 +61,7 @@ async def test_restored_session_rechecks_live_trust_and_filters_roles():
                 "user_ctx": ctx.to_session_dict(),
                 "expires_at": int(time.time()) + 300,
                 "oidc_identity": ["https://issuer", "subject"],
+                "oidc_authority": provider._session_authority,
             },
         }
     )
