@@ -34,6 +34,12 @@ All notable changes to this project are documented in this file. The format is b
 - Custom background task bases retain tenant validation and caller tenant/owner
   stamping in eager mode, preserving custom `apply_async` overrides and default
   headers. Incompatible bases fail clearly at registration (#765). No migration.
+- **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
+  before #750 (no authority marker) is adopted only when the issuer recorded in
+  its `oidc_identity` matches the discovered issuer (#764). A session from a
+  previously configured issuer, or one whose issuer cannot be read, must sign in
+  again; same-issuer sessions stay signed in. Keycloak is unaffected. No
+  migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
