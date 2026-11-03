@@ -26,7 +26,11 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change:** strict tenant-scoped inserts require a bound tenant even
   when an explicit `tenant_id` is supplied, across ORM flushes, statement values,
   bulk parameters and multi-VALUES inserts. Explicit cross-tenant bypasses remain
-  supported; no migration (#728).
+  supported; no migration (#728). Code that opens a session before binding the
+  tenant (`with sync_session() as db, tenant_context(t):`) now raises at commit,
+  because the flush runs after the tenant context has exited: bind the tenant
+  first (`with tenant_context(t), sync_session() as db:`), or wrap a deliberate
+  cross-tenant seed in `all_tenants()`.
 - Git module updates preserve dependency extras and environment markers when
   advancing the version floor and tag; markers are excluded from version-range
   matching (#735).

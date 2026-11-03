@@ -34,7 +34,7 @@ All modules — on Postgres and SQLite alike — share the host's single schema.
 |---|---|---|
 | `AuditMixin` | `created_at`, `updated_at`, `created_by`, `updated_by` | `created_at` defaults Python-side (and via `server_default`); `updated_at`/`created_by`/`updated_by` set by the `before_flush` listener from `current_user_id` + timestamp. |
 | `SoftDeleteMixin` | `is_deleted`, `deleted_at`, `deleted_by` | `session.delete(obj)` → soft-delete; `SELECT` auto-filters deleted rows. |
-| `MultiTenantMixin` | `tenant_id` | Auto-populated on insert from `current_tenant_id`. Column is **non-nullable**, so inserting outside any tenant context fails at the DB; creating/mutating a row for a different tenant raises `TenantIsolationError`. `SELECT` auto-scoped when `current_tenant_id` is set. |
+| `MultiTenantMixin` | `tenant_id` | Auto-populated on insert from `current_tenant_id`. Column is **non-nullable**; with `multi_tenant` on, inserting with no bound tenant raises `MissingTenantError` even when `tenant_id` is set explicitly (cross-tenant writes go in `all_tenants()`); creating/mutating a row for a different tenant raises `TenantIsolationError`. `SELECT` auto-scoped when `current_tenant_id` is set. |
 | `VersionedMixin` | `version: int` | Auto-incremented on update. Use for optimistic concurrency. |
 
 List `Base` first; Python MRO handles mixin ordering after that:

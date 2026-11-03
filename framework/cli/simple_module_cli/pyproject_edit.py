@@ -72,15 +72,26 @@ def dep_constraint(doc: tomlkit.TOMLDocument, dist_name: str) -> str | None:
     return ",".join(f"{op}{version}" for op, version in parsed.clauses)
 
 
-def write_dependency(doc: tomlkit.TOMLDocument, dist_name: str, constraint: str) -> bool:
+def write_dependency(
+    doc: tomlkit.TOMLDocument,
+    dist_name: str,
+    constraint: str,
+    *,
+    keep_extras_and_marker: bool = False,
+) -> bool:
+    """Write ``dist_name`` + ``constraint``, replacing any existing declaration.
+
+    ``keep_extras_and_marker`` is for version bumps (``smpy update``): the
+    existing extras and environment marker survive and only the version
+    changes (#735). ``smpy add`` writes the declaration it was given.
+    """
     deps = _dependencies(doc)
     entry = f"{dist_name}{constraint}"
     idx = _dep_index(deps, dist_name)
     if idx is None:
         deps.append(entry)
         return True
-    # A version-only edit preserves metadata; a full declaration replaces it.
-    if "[" not in constraint and ";" not in constraint:
+    if keep_extras_and_marker:
         parsed = parse_requirement(str(deps[idx]))
         if parsed:
             entry = f"{dist_name}{parsed.extras}{constraint}{parsed.marker}"

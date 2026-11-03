@@ -93,7 +93,7 @@ def run_sources_update(
         uv_sources = doc["tool"]["uv"]["sources"]  # exists: git_sources() was non-empty
         for name in tag_pinned:
             uv_sources[name]["tag"] = candidate
-            write_dependency(doc, name, derive_range(version))
+            write_dependency(doc, name, derive_range(version), keep_extras_and_marker=True)
             changed.append(name)
             typer.echo(f"{name}: → {candidate}")
 

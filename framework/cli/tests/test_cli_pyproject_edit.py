@@ -96,20 +96,24 @@ def test_dep_constraint_and_no_git_sources(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("suffix", "constraint", "expected_suffix"),
+    ("suffix", "constraint", "keep", "expected_suffix"),
     [
+        # smpy update: a version bump keeps extras and marker (#735).
         (
             '[s3]>=0.1; python_version >= "3.12"',
             ">=0.2,<1",
+            True,
             '[s3]>=0.2,<1; python_version >= "3.12"',
         ),
-        ("[s3]>=0.1", "", "[s3]"),
-        ('>=0.1; python_version >= "3.12"', ">=0.2", '>=0.2; python_version >= "3.12"'),
-        ("[s3]>=0.1", "[redis]>=0.2", "[redis]>=0.2"),
+        ("[s3]>=0.1", "", True, "[s3]"),
+        ('>=0.1; python_version >= "3.12"', ">=0.2", True, '>=0.2; python_version >= "3.12"'),
+        # smpy add: the given declaration replaces the old one.
+        ("[s3]>=0.1", "[redis]>=0.2", False, "[redis]>=0.2"),
+        ('[s3]>=0.1; python_version >= "3.12"', "==1.0", False, "==1.0"),
     ],
 )
 def test_version_edit_preserves_requirement_metadata(
-    tmp_path: Path, suffix: str, constraint: str, expected_suffix: str
+    tmp_path: Path, suffix: str, constraint: str, keep: bool, expected_suffix: str
 ) -> None:
     _, doc = _doc(
         tmp_path,
@@ -117,9 +121,9 @@ def test_version_edit_preserves_requirement_metadata(
             "simple_module_core>=0.1,<1.0", "simple_module_core" + suffix.replace('"', '\\"')
         ),
     )
-    assert write_dependency(doc, "simple_module_core", constraint)
+    assert write_dependency(doc, "simple_module_core", constraint, keep_extras_and_marker=keep)
     assert doc["project"]["dependencies"][1] == "simple_module_core" + expected_suffix
-    assert not write_dependency(doc, "simple_module_core", constraint)
+    assert not write_dependency(doc, "simple_module_core", constraint, keep_extras_and_marker=keep)
 
 
 def test_dependency_constraint_excludes_extras_and_marker(tmp_path: Path) -> None:
