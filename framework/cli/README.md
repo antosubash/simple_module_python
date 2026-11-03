@@ -12,7 +12,7 @@ pipx install simple_module_cli
 uvx --from simple_module_cli smpy new my-app
 ```
 
-The package depends only on `typer` and `tomlkit` — installing it does **not** pull in FastAPI, SQLModel, or any other framework runtime.
+The package depends only on `typer`, `tomlkit` and `packaging` — installing it does **not** pull in FastAPI, SQLModel, or any other framework runtime.
 
 ## Usage
 

@@ -115,10 +115,10 @@ def test_extras_and_markers_survive_the_rewrite(tmp_path: Path, fake_pypi, write
 
 
 class TestWildcardsAndImplicitCeilings:
-    """Wildcards and `~=` carry ceilings `version_key` can't see.
+    """Wildcards and `~=` carry ceilings a plain version comparison can't see.
 
-    `version_key` maps `*` to 0, so `!=1.0.*` compared numerically reads as
-    `!=1.0.0` and never fires. That produced `>=1.0.5,!=1.0.*` — a specifier
+    The old numeric key mapped `*` to 0, so `!=1.0.*` compared numerically read as
+    `!=1.0.0` and never fired. That produced `>=1.0.5,!=1.0.*` — a specifier
     nothing can satisfy, which fails the `uv sync` the tool tells you to run.
     """
 
