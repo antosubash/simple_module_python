@@ -125,9 +125,13 @@ class UsersModule(ModuleBase):
         believed compromised leaves the *other* workers admitting the old
         sessions for the rest of their TTL (GH #318).
         """
+        from users import roles_cache
         from users.session_revocation import subscribe
 
         subscribe(bus)
+        # The admin user screens' cached role list: the setup wizard can add
+        # the admin role after every worker cached the seeded ``user`` role.
+        roles_cache.subscribe(bus, app)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
         from users.errors import install_exception_handlers
@@ -154,7 +158,7 @@ class UsersModule(ModuleBase):
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
     def register_setup_steps(self, registry: SetupRegistry) -> None:
-        """Gate the app until an administrator exists — see ``users.setup``."""
+        """Gate the app until a local account exists — see ``users.setup``."""
         from users.setup import build_admin_step
 
         registry.add(build_admin_step())

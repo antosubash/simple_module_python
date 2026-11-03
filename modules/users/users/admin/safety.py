@@ -14,13 +14,13 @@ from simple_module_hosting.permissions import (
 )
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import col
 
 from users.admin.queries import _UserServiceBase
+from users.administrators import count_active_administrators
 from users.constants import ADMIN_ROLE_NAME
 from users.exceptions import AdminAccountSafetyError, AdminPermissionError
 from users.manager import UserManager
-from users.models import Role, User, UserRole
+from users.models import Role, User
 
 
 def _is_admin(actor: UserContext) -> bool:
@@ -134,20 +134,5 @@ class _UserAdminSafety(_UserServiceBase):
         await self._db.execute(
             select(Role.id).where(Role.name == ADMIN_ROLE_NAME).with_for_update()
         )
-        admin_ids = (
-            select(UserRole.user_id)
-            .join(Role, col(Role.id) == UserRole.role_id)
-            .where(Role.name == ADMIN_ROLE_NAME)
-        )
-        remaining = await self._db.execute(
-            select(User.id)
-            .where(
-                col(User.id) != user.id,
-                col(User.is_active).is_(True),
-                col(User.disabled_at).is_(None),
-                col(User.id).in_(admin_ids),
-            )
-            .limit(1)
-        )
-        if remaining.scalar_one_or_none() is None:
+        if not await count_active_administrators(self._db, excluding=user.id):
             raise AdminAccountSafetyError("You cannot remove the last active administrator.")

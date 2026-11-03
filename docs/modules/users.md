@@ -418,7 +418,7 @@ every settings load. Do not run it against a database you care about. Blanking
   keys on path + client IP), so a bot hammering one cannot lock a visitor out
   of the other. Each click mints a session row, so a demo instance under real
   traffic may want the budget raised.
-- The demo **admin satisfies the first-run setup gate** — an administrator
+- The demo **admin satisfies the first-run setup gate** — a local account
   exists, so `/setup` never appears. Seed your own admin first
   (`smpy users create-admin`, or the `SM_USERS_BOOTSTRAP_*` vars), because a
   read-only demo session cannot complete the wizard.
@@ -541,7 +541,7 @@ In the admin UI, the user list and edit page show an **"External · SSO"** badge
 - For a `Bearer` token, looks the token's SHA-256 digest up in `users_access_token` and returns the active user.
 - Otherwise reads `session["user_id"]`, returns the cached context from `session["user_ctx"]` on a hit, else loads the User row with eagerly-loaded roles, builds a `UserContext`, caches it in `session["user_ctx"]`, and clears stale session keys when the user is missing/disabled.
 
-`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. `UsersModule.register_public_routes` declares these prefixes anonymous (in addition to the framework defaults `/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, `/`):
+`get_login_url()` → `/users/login`, `get_logout_url()` → `/users/logout`. `UsersModule.register_public_routes` declares these prefixes anonymous (in addition to the framework defaults: exact `/`, `/health`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), and everything under `/health/`, `/static/`, `/api/docs/`, `/api/redoc/`, `/i18n/`):
 
 `/users/login`, `/users/register`, `/users/forgot-password`, `/users/reset-password`, `/users/verify`, `/users/invite/accept`, `/api/users/auth/`, `/api/users/register`.
 
@@ -549,7 +549,7 @@ Anything else without a session redirects to `/users/login` (or returns 401 JSON
 
 ## Roles cache
 
-`roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. Used by the admin UI to render role pickers without hitting the DB on every request.
+`roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. When the role set changes (the setup wizard's first administrator creates the `admin` role), `publish_roles_changed(app)` announces it on the `users.roles` invalidation channel: each subscribed worker empties its cache and `get_roles_cache` refills it on the next read (other workers hear it where the Redis invalidation transport is installed). Because delivery is not guaranteed, the cache also expires on its own after `TTL_SECONDS` (300 s, stamped as `roles_cache_loaded_at` on the users state) and is refetched on the next read. Used by the admin UI to render role pickers without hitting the DB on every request.
 
 ## Branding the auth screens
 

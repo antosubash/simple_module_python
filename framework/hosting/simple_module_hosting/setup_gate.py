@@ -24,6 +24,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from simple_module_hosting import migrations
 from simple_module_hosting._deferred_startup import run_deferred_startup
 from simple_module_hosting.data_compatibility import DataCompatibilityError
+from simple_module_hosting.path_matching import matches_path
 
 logger = logging.getLogger(__name__)
 _migration_failure_warned = False
@@ -32,12 +33,8 @@ SETUP_PATH = "/setup"
 
 # How long a completeness verdict may be reused before the steps are re-run.
 #
-# Recomputing per request is what makes an install that loses its last
-# administrator recoverable through the browser, but every evaluation costs a
-# session checkout and a `SELECT COUNT(*)` on users — paid on every request
-# for the entire life of an install that finished setup months ago. A few
-# seconds of staleness buys that back while keeping the recovery property:
-# the wizard reappears within the window rather than only after a restart.
+# Recheck periodically so the wizard reflects changes to required steps
+# without paying for a database query on every request.
 _VERDICT_TTL_SECONDS = 5.0
 
 # Paths that must answer during setup. /setup itself for obvious reasons;
@@ -48,7 +45,7 @@ _VERDICT_TTL_SECONDS = 5.0
 # Split exact from prefix rather than one `startswith` tuple: a bare "/setup"
 # prefix also exempts an unrelated module route like "/setup-guide", and this
 # list is mirrored by the anonymous-access rule in ``attach_public_routes`` —
-# a sloppy match there is an auth bypass, not just a missed redirect.
+# both lists use exact paths and slash-terminated prefixes.
 _EXEMPT_EXACT = (SETUP_PATH, "/health")
 _EXEMPT_PREFIXES = (f"{SETUP_PATH}/", "/static/", "/health/")
 
@@ -206,7 +203,7 @@ class SetupMiddleware:
             return
 
         path: str = scope.get("path", "")
-        if path in _EXEMPT_EXACT or path.startswith(_EXEMPT_PREFIXES):
+        if matches_path(path, exact=_EXEMPT_EXACT, prefixes=_EXEMPT_PREFIXES):
             await self.app(scope, receive, send)
             return
 

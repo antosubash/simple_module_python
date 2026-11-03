@@ -684,8 +684,10 @@ required step at boot so an operator facing a form-less wizard can find out why.
 A few things are worth knowing before you add one.
 
 **Registering nothing is a valid answer, and it is how a module opts out.** The
-`users` module contributes the "an administrator exists" step; `keycloak`
-deliberately does not, because an install using an external identity provider
+`users` module contributes the "first administrator" step, complete once any
+local account exists (an install that later loses its last administrator
+recovers with `smpy users create-admin`, never through the anonymous form);
+`keycloak` deliberately does not, because an install using an external identity provider
 has a legitimately empty local users table and a host-level superuser count
 would hold it behind the wizard forever.
 
@@ -709,9 +711,12 @@ transient database error would open an anonymous admin-creation form on a
 live install — that is failing *open* on security, so the framework fails the
 other way.
 
-**Completion is recomputed per request, not latched.** An install that loses
-its administrators can be recovered through the browser rather than needing
-shell access to the container.
+**Completion is recomputed periodically, not latched.** The gate reuses a
+verdict for a few seconds, so a step that becomes incomplete re-opens the
+wizard without a restart. Whether that is a recovery path is your predicate's
+choice: the `users` step is complete once any account exists, so an install
+that lost its last administrator recovers with `smpy users create-admin`
+instead.
 
 Set `required=False` for a step that should appear in the wizard without
 holding the install closed. `order` controls display order (lower first).

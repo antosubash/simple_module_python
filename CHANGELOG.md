@@ -80,6 +80,27 @@ All notable changes to this project are documented in this file. The format is b
   RC pins to final releases without downgrading existing pins (#766).
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving
   excluded project manifests unchanged (#767). No migration.
+- Users: creating the first administrator in the setup wizard refreshes the
+  cached role list (new `users.roles` invalidation channel; reaches other workers
+  where the Redis transport is installed), so the admin user screens offer the
+  Admin role without a restart.
+- Users: the setup administrator step and last-administrator guard now share
+  one definition of an active administrator: an active, enabled Admin-role
+  holder (`is_superuser` alone grants no permissions). **Behaviour change:** the
+  `users.administrator` setup step is complete once any local account exists,
+  and the first-administrator action requires an empty users table; an install with accounts but no administrator
+  recovers with `smpy users create-admin` rather than through `/setup`.
+- Hosting: first-run detection requires a never-migrated database on which no
+  other required setup step is already complete, and now includes installs
+  whose only required setup step is migrations. Pending steps on a database
+  with migration history no longer qualify as first run (#784).
+- Auth and hosting: **behaviour change:** framework public paths are matched
+  exactly or by `/`-terminated prefix (so e.g. `/healthz` or `/api/docs.json`
+  are no longer anonymous), keeping similarly named module paths subject to
+  authentication, maintenance mode and anonymous rate limits.
+- Hosting: readiness and setup connection probes have a five-second deadline
+  per check. Timeouts report "timed out"; raised exceptions are logged and
+  return only their class name, including database connection failures (#786).
 - **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
   before #750 (no authority marker) is adopted only when the issuer recorded in
   its `oidc_identity` matches the discovered issuer (#764). A session from a

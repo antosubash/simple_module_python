@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from simple_module_core.app_state import get_openapi_url
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
+from simple_module_hosting.path_matching import matches_path
 from simple_module_hosting.public_access import is_public as route_is_public
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
@@ -24,13 +25,13 @@ from auth._route_match import route_exists
 logger = logging.getLogger(__name__)
 
 _FRAMEWORK_PUBLIC_PREFIXES = (
-    "/health",
+    "/health/",
     "/static/",
-    "/api/docs",
-    "/api/redoc",
+    "/api/docs/",
+    "/api/redoc/",
     "/i18n/",
 )
-_FRAMEWORK_PUBLIC_EXACT = ("/",)
+_FRAMEWORK_PUBLIC_EXACT = ("/", "/health", "/api/docs", "/api/redoc")
 
 
 def _query_suffix(request: Request) -> str:
@@ -111,8 +112,7 @@ class AuthMiddleware:
             return
 
         is_public = (
-            any(path.startswith(p) for p in _FRAMEWORK_PUBLIC_PREFIXES)
-            or path in _FRAMEWORK_PUBLIC_EXACT
+            matches_path(path, exact=_FRAMEWORK_PUBLIC_EXACT, prefixes=_FRAMEWORK_PUBLIC_PREFIXES)
             # Anonymous exactly when the host serves it (dev, or openapi_public).
             or path == get_openapi_url(scope["app"])
         )

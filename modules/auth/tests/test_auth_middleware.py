@@ -273,3 +273,26 @@ class TestDeepLinkPreservation:
 
         assert resp.status_code == 200
         assert seen == []
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/healthcare/x", 302),
+        ("/healthX", 302),
+        ("/api/docsearch", 401),
+        ("/api/docsX", 401),
+        ("/api/redocX", 401),
+        ("/health", 200),
+        ("/health/ready", 200),
+        ("/api/docs", 200),
+        ("/api/docs/oauth2-redirect", 200),
+        ("/api/redoc", 200),
+        ("/api/docs/asset.js", 200),
+    ],
+)
+async def test_framework_public_paths_have_boundaries(unauthenticated_app, path, expected):
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=unauthenticated_app), base_url="http://test"
+    ) as client:
+        assert (await client.get(path)).status_code == expected

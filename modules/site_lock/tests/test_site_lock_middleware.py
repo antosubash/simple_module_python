@@ -86,6 +86,13 @@ async def test_health_is_never_gated() -> None:
     assert response.status_code == 200
 
 
+async def test_paths_that_only_start_with_health_are_gated() -> None:
+    app = _build_app(SiteLockSettings(enabled=True, password=PASSWORD))
+    async with _client(app) as client:
+        response = await client.get("/healthcare/records", headers={"Authorization": "Bearer x"})
+    assert response.status_code == 403
+
+
 async def test_gate_page_is_served() -> None:
     app = _build_app(SiteLockSettings(enabled=True, password=PASSWORD, message="Soon"))
     async with _client(app) as client:

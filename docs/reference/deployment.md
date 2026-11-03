@@ -155,7 +155,7 @@ For small deployments, one web container is plenty. Scale by adding:
 
 - `/health` — returns 200 with `{"status": "healthy", "migration": ...}` (includes the cached migration state). No dependency checks.
 - `/health/live` — Kubernetes liveness. Returns 200 `{"status": "alive"}` if the process is up.
-- `/health/ready` — readiness. Runs every module's registered health checks concurrently and aggregates the worst status into the JSON body (`healthy`/`degraded`/`unhealthy`). Returns 200 regardless — inspect the `status` field rather than the HTTP code.
+- `/health/ready` — readiness. Runs every module's registered health checks concurrently and aggregates the worst status into the JSON body (`healthy`/`degraded`/`unhealthy`). Each check has a 5 s deadline (`timed out`), and a failing check reports only its exception class name; the error itself goes to the server log. Returns 200 regardless — inspect the `status` field rather than the HTTP code.
 
 ### Metrics
 

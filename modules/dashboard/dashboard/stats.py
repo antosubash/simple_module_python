@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from simple_module_core.discovery import get_module_package_name
 from simple_module_core.health import HealthCheck, HealthStatus
 from simple_module_core.user_directory import get_user_directory
+from simple_module_hosting.health import run_health_check
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _CACHE_TTL_SECONDS = 30
@@ -132,14 +133,9 @@ async def _run_health_checks(app: FastAPI) -> list[dict[str, str]]:
         return []
 
     async def _run_one(check: HealthCheck) -> dict[str, str]:
-        try:
-            result = await check.check()
-            return {"name": check.name, "status": result.status.value, "module": check.module}
-        except Exception:
-            return {
-                "name": check.name,
-                "status": HealthStatus.UNHEALTHY.value,
-                "module": check.module,
-            }
+        # The readiness probe's bounded runner: a hung check reports unhealthy
+        # after its deadline instead of stalling the dashboard.
+        result = await run_health_check(check.name, check.check)
+        return {"name": check.name, "status": result.status.value, "module": check.module}
 
     return list(await asyncio.gather(*[_run_one(c) for c in checks]))

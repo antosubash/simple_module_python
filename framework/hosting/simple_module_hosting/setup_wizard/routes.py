@@ -15,9 +15,9 @@ Two gates, deliberately of different widths:
   incomplete. "Setup mode" is not a safe gate for an action: the host always
   registers ``host.migrations``, so a live install whose schema falls behind
   head — code deployed before the migration job ran — re-enters setup mode
-  with its administrators intact. Gated on the weaker condition, the
-  administrator step's action would let an anonymous request mint a fresh
-  superuser there. The step-level check answers 409.
+  with its accounts intact. Gated on the weaker condition, the first
+  administrator action would run there. The step-level check answers 409
+  (the users step is complete once any local account exists).
 
 Every mutation carries the session-bound CSRF token (``RequiresCsrf``): the
 page hands it out as the ``csrfToken`` prop and echoes it as ``X-CSRF-Token``.

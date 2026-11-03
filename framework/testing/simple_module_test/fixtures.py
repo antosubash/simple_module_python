@@ -133,8 +133,8 @@ SETUP_ADMIN_PASSWORD = "test-password"
 async def _seed_setup_admin(application) -> None:
     """Make the ``app`` fixture model a *configured* install.
 
-    ``SetupMiddleware`` redirects every request to ``/setup`` until an
-    administrator exists. That is right for a fresh deployment and wrong for a
+    ``SetupMiddleware`` redirects every request to ``/setup`` until a
+    local account exists. That is right for a fresh deployment and wrong for a
     suite asserting on ordinary pages — without this, every test using ``app``
     gets a 302.
 
@@ -196,7 +196,7 @@ def _disable_env_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
     disk. A developer who followed ``.env.example`` has those set, so every app
     this plugin builds gets an admin whether the fixture asked for one or not.
     For ``setup_pending_app`` that is not a nuisance but the opposite of its
-    contract: the setup gate releases the moment an administrator exists, so the
+    contract: the setup gate releases the moment a local account exists, so the
     wizard routes 404 and every test using it fails.
 
     They fail *locally only* — CI has no ``.env`` — which is the worst shape for

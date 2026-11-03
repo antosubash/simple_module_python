@@ -82,8 +82,11 @@ to anonymous callers.
 
 For each request, `AuthMiddleware` treats the path as public if **any** of:
 
-1. **Framework defaults** — `/health`, `/static/`, `/api/docs`, `/api/redoc`,
-   `/api/openapi.json` (only when served), `/i18n/`, the root `/`.
+1. **Framework defaults** — the exact paths `/`, `/health`, `/api/docs`,
+   `/api/redoc` and `/api/openapi.json` (only when served), plus everything
+   under `/health/`, `/static/`, `/api/docs/`, `/api/redoc/` and `/i18n/`.
+   Matching is exact or by `/`-terminated prefix, so `/healthcare` is not
+   public.
 2. **`app.state.public_routes`** — the `PublicRouteRegistry` (module hooks +
    `SM_AUTH_PUBLIC_PATHS`). Method-aware.
 3. **`provider.get_public_paths()`** — *deprecated* (removed in 0.1.0). A

@@ -39,6 +39,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting._rate_limit_keys import KEY_IP, KEY_USER_OR_IP, rule_bucket, rule_key
 from simple_module_hosting._request_guard_responses import send_guard_response
+from simple_module_hosting.path_matching import matches_path
 from simple_module_hosting.public_access import is_public
 
 __all__ = ["RateLimitMiddleware"]
@@ -46,7 +47,8 @@ __all__ = ["RateLimitMiddleware"]
 logger = logging.getLogger("simple_module.request_guard")
 
 _MESSAGE = "Too many requests. Please slow down and try again shortly."
-_OPERATIONAL_PREFIXES = ("/health", "/static/")
+_OPERATIONAL_EXACT = ("/health",)
+_OPERATIONAL_PREFIXES = ("/health/", "/static/")
 
 
 class RateLimitMiddleware:
@@ -76,7 +78,9 @@ class RateLimitMiddleware:
             flag = is_public(scope["app"], scope["method"], scope["path"])
         if not flag:
             return None
-        if rule is None and scope["path"].startswith(_OPERATIONAL_PREFIXES):
+        if rule is None and matches_path(
+            scope["path"], exact=_OPERATIONAL_EXACT, prefixes=_OPERATIONAL_PREFIXES
+        ):
             return None  # health probes and static assets are not an API surface
         if rule is not None and rule.rate is not None:
             spec = rule.rate_spec

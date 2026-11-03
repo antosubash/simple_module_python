@@ -207,7 +207,7 @@ Serves everyone but admins a 503 page while `maintenance_mode` is set on `HostSe
 
 The flag is DB-backed rather than an env var on purpose: flipping it must not require a redeploy, which is exactly the moment you least want one.
 
-Admins pass through — someone has to be able to reach the settings screen and switch it back off. For the same reason the auth provider's own routes stay open, so an admin who was signed *out* when the switch flipped can still sign in. Three prefixes stay reachable regardless: `/health` (so orchestrators don't kill the pod mid-maintenance), `/static/` and `/i18n/` (or the 503 renders unstyled and untranslated). Module routes registered through `register_public_routes` are honoured too, which is how branding's logo and favicon keep the maintenance page on-brand.
+Admins pass through — someone has to be able to reach the settings screen and switch it back off. For the same reason the auth provider's own routes stay open, so an admin who was signed *out* when the switch flipped can still sign in. Three paths stay reachable regardless: `/health` and everything under `/health/` (so orchestrators don't kill the pod mid-maintenance), `/static/` and `/i18n/` (or the 503 renders unstyled and untranslated). Module routes registered through `register_public_routes` are honoured too, which is how branding's logo and favicon keep the maintenance page on-brand.
 
 It **fails open** on missing config: a configuration gap taking the site down is the exact failure this feature would otherwise cause.
 

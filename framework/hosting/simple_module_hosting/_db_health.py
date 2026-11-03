@@ -29,11 +29,8 @@ def build_database_check(db_state):
     """Return an async check issuing the cheapest possible round trip."""
 
     async def check() -> HealthCheckResult:
-        try:
-            async with db_state.session_factory() as session:
-                await session.execute(text("SELECT 1"))
-        except Exception as exc:
-            return HealthCheckResult(status=HealthStatus.UNHEALTHY, detail=str(exc))
+        async with db_state.session_factory() as session:
+            await session.execute(text("SELECT 1"))
         return HealthCheckResult(status=HealthStatus.HEALTHY, detail="Database reachable")
 
     return check
