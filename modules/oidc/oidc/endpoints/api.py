@@ -47,18 +47,20 @@ async def oidc_login(request: Request):
 async def oidc_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-    expected_state = request.session.pop(SESSION_STATE_KEY, None)
-    expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
-    verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
+    # The state is compared before the login transaction is consumed: a reply
+    # that does not carry it (a forged link) leaves the pending sign-in alone.
+    expected_state = request.session.get(SESSION_STATE_KEY)
     if (
         not state
         or not isinstance(expected_state, str)
         or not secrets.compare_digest(state.encode(), expected_state.encode())
     ):
         raise HTTPException(status_code=400, detail="Invalid OIDC state")
-    # Only after the state matched: an ``error`` reply (access_denied,
-    # login_required, ...) belongs to this login, so a forged error link
-    # cannot pass for a real one.
+    request.session.pop(SESSION_STATE_KEY, None)
+    expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
+    verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
+    # Past this point the reply belongs to this login, and every outcome,
+    # including an ``error`` reply (access_denied, login_required, ...), spends it.
     if request.query_params.get("error"):
         raise HTTPException(status_code=401, detail="Sign-in was refused by the identity provider")
     if not code:

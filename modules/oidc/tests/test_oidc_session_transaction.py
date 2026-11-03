@@ -201,9 +201,11 @@ async def test_non_object_token_response_is_a_bad_gateway(callback):
 
 async def test_forged_error_reply_cannot_spend_a_victims_login(callback):
     # An error reply without the victim's state is a state mismatch, not a
-    # refusal: it never reaches the error branch.
+    # refusal, and it does not consume the pending login transaction.
     request, _ = callback
     request.scope["query_string"] = b"error=access_denied&state=forged"
     with pytest.raises(HTTPException) as exc:
         await api.oidc_callback(request)
     assert exc.value.status_code == 400
+    # The victim's pending login is still there to complete.
+    assert {"oidc_state", "oidc_nonce", "oidc_pkce_verifier"} <= request.session.keys()
