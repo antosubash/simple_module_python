@@ -55,7 +55,7 @@ The backend is process-global because a Celery worker has no `app.state`. `creat
 
 Acquisition timeouts and connectivity failures log a WARNING and return
 `False`; `async with` consequently raises `LeaseNotAcquiredError`. An explicit
-`wait` bounds backend calls as well as polling, with a 50 ms minimum attempt
+`wait` bounds backend calls as well as polling, with a 1-second minimum attempt
 budget (including `wait=0`). Redis connections and socket reads each have a
 2-second timeout and no automatic retries, which also bounds calls when no
 `wait` is supplied. A Redis release timeout or connection failure logs a
