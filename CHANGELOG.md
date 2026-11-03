@@ -31,6 +31,11 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- Rejecting an invitation password leaves the invitation usable for a corrected
+  retry. Acceptance now validates the password first, then writes verification
+  and the new password in one update; error responses are unchanged.
+  `UserManager.on_after_verify` now fires after the password is set, followed by
+  `on_after_update` (#763). No migration.
 - Custom background task bases retain tenant validation and caller tenant/owner
   stamping in eager mode, preserving custom `apply_async` overrides and default
   headers. Incompatible bases fail clearly at registration (#765). No migration.

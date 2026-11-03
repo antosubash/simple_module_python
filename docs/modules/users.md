@@ -22,6 +22,12 @@ The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for p
 - Login lockout — see [Login lockout](#login-lockout). Shared across workers, source IPs and restarts.
 - `ThroughputLimiter` — per-IP rate limit across register / forgot-password / accept-invite / verify-token endpoints.
 
+Invite acceptance validates the password before writing verification and the
+new password together. A rejected password returns `400 INVALID_PASSWORD: …`
+and leaves the invitation usable for a corrected retry. Invalid, expired or
+already-used tokens return `400 INVITE_BAD_TOKEN`. Successful acceptance still
+fires `on_after_verify` followed by `on_after_update`, then signs the user in.
+
 ### Auth endpoints
 
 | Method + path | Body | Notes |

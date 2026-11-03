@@ -47,6 +47,7 @@ from users.deps import (
     get_current_local_user,
     get_user_manager,
 )
+from users.invites.accept import complete_invite
 from users.manager import UserManager
 from users.token_storage import revoke_access_token
 
@@ -193,23 +194,9 @@ async def accept_invite(
 ):
     """Verify an invite token, set the user's password, and log them in."""
     try:
-        user = await user_manager.verify(body.token, request=request)
+        user = await complete_invite(user_manager, body, request)
     except (fu_exceptions.InvalidVerifyToken, fu_exceptions.UserAlreadyVerified):
         raise HTTPException(status_code=400, detail="INVITE_BAD_TOKEN") from None
-
-    # A blank name leaves whatever the admin typed when minting the invite
-    # alone: the field is pre-filled from it, so an untouched form must not
-    # read as "clear this". Omitted rather than passed as None — ``UserUpdate``
-    # dumps with ``exclude_unset``, so an explicit None would write the wipe.
-    changes: dict[str, str] = {"password": body.password}
-    if body.full_name and body.full_name.strip():
-        changes["full_name"] = body.full_name.strip()
-    try:
-        await user_manager.update(
-            UserUpdate(**changes),  # ty: ignore[invalid-argument-type]
-            user,
-            request=request,
-        )
     except fu_exceptions.InvalidPasswordException as e:
         raise HTTPException(status_code=400, detail=f"INVALID_PASSWORD: {e.reason}") from e
 
