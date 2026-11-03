@@ -97,3 +97,27 @@ def test_lower_q_supported_beats_higher_q_unsupported() -> None:
         headers={"Accept-Language": "de;q=1.0,es;q=0.1"},
     )
     assert resp.json() == {"locale": "es"}
+
+
+def test_skips_accept_language_with_q_zero() -> None:
+    """q=0 is 'not acceptable' (RFC 9110 §12.4.2) — must not select the tag."""
+    app = _build_app(["en", "es"], "en")
+    mw = LocaleMiddleware(app, supported_locales=["en", "es"], default_locale="en")
+    assert mw._negotiate("es;q=0") is None
+    assert mw._negotiate("es;q=0,en;q=0.5") == "en"
+
+    client = TestClient(app)
+    resp = client.get("/", headers={"Accept-Language": "es;q=0"})
+    assert resp.json() == {"locale": "en"}
+
+
+def test_skips_non_finite_accept_language_q() -> None:
+    app = _build_app(["en", "es"], "en")
+    mw = LocaleMiddleware(app, supported_locales=["en", "es"], default_locale="en")
+    assert mw._negotiate("es;q=nan") is None
+    assert mw._negotiate("es;q=inf,en;q=0.5") == "en"
+    assert mw._negotiate("es;q=-inf,en") == "en"
+
+    client = TestClient(app)
+    resp = client.get("/", headers={"Accept-Language": "es;q=nan,en;q=0.8"})
+    assert resp.json() == {"locale": "en"}
