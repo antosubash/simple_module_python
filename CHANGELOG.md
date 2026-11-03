@@ -43,6 +43,10 @@ All notable changes to this project are documented in this file. The format is b
   `<div id="app" data-page='…'>` attribute is gone, which halves a typical
   first-load document (#778). Anything reading that attribute must read the
   script element instead.
+- A mutation (an Inertia `PUT`/`PATCH`/`DELETE`) whose session expired no
+  longer becomes the post-login target: signing back in replayed its URL as a
+  `GET` and hit a 405. Sign-in now returns to the same-site page the mutation
+  was sent from.
 - **Behaviour changes:** Inertia v3 prop resolution retains cached once-prop
   metadata on full visits (#768), refreshes requested once props on partial
   reloads (#769), labels scroll data at `<prop>.data` by default (use

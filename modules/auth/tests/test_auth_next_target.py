@@ -45,7 +45,7 @@ def _build_app(provider) -> FastAPI:
         return JSONResponse({})
 
     app.add_api_route("/static/next", _next, methods=["GET"])
-    app.add_api_route("/{path:path}", _any, methods=["GET"])
+    app.add_api_route("/{path:path}", _any, methods=["GET", "DELETE", "PUT"])
     app.add_middleware(AuthMiddleware)
     app.add_middleware(SessionMiddleware, secret_key=SECRET)
     return app
@@ -96,3 +96,27 @@ async def test_a_subresource_does_not_overwrite_a_recorded_target():
         assert resp.status_code == 302  # the redirect itself is unchanged
         recorded = (await c.get("/static/next")).json()["next"]
     assert recorded == "/protected/page"
+
+
+@pytest.mark.parametrize(
+    ("referer", "expected"),
+    [
+        ("http://test/protected/list?page=2", "/protected/list?page=2"),
+        (None, None),
+        ("https://evil.example/phish", None),
+    ],
+)
+@pytest.mark.parametrize("method", ["DELETE", "PUT"])
+async def test_a_mutation_returns_to_the_page_it_came_from(method, referer, expected):
+    """Replaying a DELETE URL as a GET after sign-in is a 405 (#775 QA)."""
+    headers = {"X-Inertia": "true", "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors"}
+    if referer:
+        headers["Referer"] = referer
+    app = _build_app(_StubProvider())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        resp = await c.request(method, "/protected/item/3", headers=headers)
+        recorded = (await c.get("/static/next")).json()["next"]
+    assert resp.status_code == 302
+    assert recorded == expected
