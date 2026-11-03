@@ -56,6 +56,11 @@ class JWKSCache:
     def _now() -> float:
         return time.monotonic()
 
+    @property
+    def issuer(self) -> str:
+        """The exact discovered issuer used to validate token claims."""
+        return self._issuer
+
     async def validate_jwt(
         self,
         token: str,
@@ -84,7 +89,7 @@ class JWKSCache:
                 token,
                 key,
                 algorithms=["RS256"],
-                issuer=self._issuer,
+                issuer=self.issuer,
                 audience=audience,
                 options={"require": ["iss", "sub", "aud", "exp", "iat"]},
                 # An app clock a few seconds behind the IdP would otherwise

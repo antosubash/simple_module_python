@@ -32,8 +32,28 @@ class SessionRenewal:
 
     def _accept_session(self, session) -> bool:
         return accept_authority(
-            session, self._session_authority, (SESSION_IDENTITY_KEY,), SESSION_USER_KEY
+            session,
+            self._session_authority,
+            (SESSION_IDENTITY_KEY,),
+            SESSION_USER_KEY,
+            legacy_ok=lambda: self._legacy_identity_matches(session),
         )
+
+    def _legacy_identity_matches(self, session) -> bool:
+        identity = session.get(SESSION_IDENTITY_KEY)
+        if (
+            not isinstance(identity, list)
+            or len(identity) != 2
+            or not self.jwks_cache
+            or not self._settings
+        ):
+            return False
+        issuer = self.jwks_cache.issuer
+        configured = self._settings.discovery_url.replace(
+            "/.well-known/openid-configuration", "", 1
+        )
+        # Discovery tolerates a trailing slash; token issuers must match exactly.
+        return issuer.rstrip("/") == configured.rstrip("/") and identity[0] == issuer
 
     async def _refresh_session(self, request):
         async def refresh(token):
