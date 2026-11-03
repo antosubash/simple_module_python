@@ -49,7 +49,17 @@ class TenantTask(Task):
     tenant and owner (and a mismatching tenant header is refused).
     """
 
-    def apply_async(self, args: Any = None, kwargs: Any = None, **options: Any) -> Any:
+    def apply_async(
+        self,
+        args: Any = None,
+        kwargs: Any = None,
+        task_id: Any = None,
+        producer: Any = None,
+        link: Any = None,
+        link_error: Any = None,
+        shadow: Any = None,
+        **options: Any,
+    ) -> Any:
         # Explicit headers replace the task's default ones in Celery, so merge
         # them here or a task-level default header would be lost.
         defaults = self._get_exec_options().get("headers") or {}
@@ -58,7 +68,9 @@ class TenantTask(Task):
         if self.app.conf.task_always_eager:
             stamp_owner(headers)
         options["headers"] = headers
-        return super().apply_async(args, kwargs, **options)
+        return super().apply_async(
+            args, kwargs, task_id, producer, link, link_error, shadow, **options
+        )
 
 
 class TenantCelery(Celery):
