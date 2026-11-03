@@ -71,9 +71,14 @@ async def coordinated_refresh(request, keys: SessionKeys, sealed: str, renew) ->
     session = request.session
     # Old cookies have no random id yet; identical ciphertext coordinates their
     # first renewal without storing or hashing the plaintext refresh credential.
-    identity = session.get(SESSION_ID_KEY) or hashlib.sha256(sealed.encode()).hexdigest()
-    name = hashlib.sha256(f"{keys.refresh}:{identity}".encode()).hexdigest()
-    held = lease(f"auth-refresh:{name}", ttl=_LEASE_TTL, wait=_WAIT_SECONDS)
+    spent = hashlib.sha256(sealed.encode()).hexdigest()
+    identity = session.get(SESSION_ID_KEY) or spent
+    # The lock is per session, so renewals serialise. The outcome is bound to
+    # the exact credential being spent: only requests carrying the same
+    # pre-rotation cookie may adopt it, never an older copy of the cookie.
+    lock = hashlib.sha256(f"{keys.refresh}:{identity}".encode()).hexdigest()
+    name = hashlib.sha256(f"{keys.refresh}:{identity}:{spent}".encode()).hexdigest()
+    held = lease(f"auth-refresh:{lock}", ttl=_LEASE_TTL, wait=_WAIT_SECONDS)
     waited = False
     try:
         if not await held.acquire(blocking=False):

@@ -237,3 +237,14 @@ async def test_independent_sessions_refresh_without_database_lock_conflicts(rene
     assert r.calls == ["old", "old"]
     assert first.session["oidc_session_id"] == "opaque-session"
     assert second.session["oidc_session_id"] == "another-session"
+
+
+async def test_older_cookie_copy_cannot_adopt_the_outcome(renewal):
+    # Same session id, but an earlier refresh token: it must spend its own
+    # (rotated-away) credential at the IdP rather than pick up the new tokens.
+    r = renewal
+    assert await r.renew(r.make_request()) is not None
+    older = copy.deepcopy(r.session)
+    older[r.keys.refresh] = r.tokens.seal_refresh_token(r.app, "ancient")
+    await r.renew(r.make_request(older))
+    assert r.calls == ["old", "ancient"]
