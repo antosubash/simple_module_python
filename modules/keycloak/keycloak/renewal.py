@@ -1,5 +1,6 @@
 """Keycloak access-token adapter for shared browser renewal."""
 
+import logging
 import uuid
 
 from auth.oidc_common.renewal import refresh_session
@@ -15,6 +16,8 @@ from keycloak.constants import (
 )
 from keycloak.models import KeycloakUserCache
 from keycloak.tokens import open_refresh_token, store_refresh_token
+
+logger = logging.getLogger(__name__)
 
 _KEYS = SessionKeys(
     SESSION_USER_KEY,
@@ -53,8 +56,15 @@ class SessionRenewal:
                         )
                     ).scalar_one_or_none()
                 return subject is not None and subject == claims["sub"]
-            except Exception:
-                return False
+            except Exception as exc:
+                # The refresh token is already spent, so signing out here would
+                # turn a database blip into a lost sign-in. The token is bound to
+                # its user at the IdP; fall back to what origin/main did (no
+                # identity check) for this one renewal.
+                logger.warning(
+                    "Keycloak identity check unavailable during renewal (%s)", type(exc).__name__
+                )
+                return True
 
         return await refresh_session(
             request,

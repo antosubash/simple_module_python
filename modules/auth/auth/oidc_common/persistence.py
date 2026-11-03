@@ -41,7 +41,7 @@ async def upsert_user_cache(
                     async with db.begin_nested():
                         row = model(
                             **identity,
-                            email=email or "",
+                            email=email if isinstance(email, str) else "",
                             full_name=name,
                             last_login_at=now,
                         )
@@ -51,8 +51,8 @@ async def upsert_user_cache(
                     # Another request inserted this sub after our SELECT.
                     row = (await db.execute(stmt)).scalar_one()
 
-            if email is not None:
-                row.email = email  # an absent claim keeps the last known address
+            if isinstance(email, str):
+                row.email = email  # an absent or malformed claim keeps the last known address
             if update_name or row.full_name is None:
                 row.full_name = name  # an absent claim keeps the last known name
             if not throttle_login:

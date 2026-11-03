@@ -134,3 +134,15 @@ async def test_keycloak_explicit_empty_name_clears_cached_name(cache_request, db
         row = (await db.execute(select(KeycloakUserCache))).scalar_one()
         assert str(row.id) == user_id
         assert row.full_name == name
+
+
+@pytest.mark.parametrize("email", [123, ["a@example.com"], {"v": 1}])
+async def test_keycloak_non_string_email_claim_still_caches_the_identity(
+    cache_request, db_state, email
+):
+    provider = KeycloakAuthProvider()
+    first = await provider._upsert_user_cache(cache_request, {**CLAIMS, "email": email})
+    assert first != CLAIMS["sub"]  # a real cache id, not the raw-sub fallback
+    async with db_state.session_factory() as db:
+        row = (await db.execute(select(KeycloakUserCache))).scalar_one()
+        assert row.email == ""

@@ -120,3 +120,30 @@ async def test_failed_cache_upsert_logs_without_personal_data(caplog):
     # Error class and a hash only: no subject, no traceback with SQL parameters.
     assert "kc-1" not in record.getMessage()
     assert record.exc_info is None
+
+
+async def test_refresh_survives_an_unavailable_identity_check(monkeypatch):
+    # A UUID cached id whose lookup fails (no DB on this app): the spent refresh
+    # token must not turn a database blip into a sign-out.
+    monkeypatch.setattr("time.time", lambda: 1000)
+    provider = KeycloakAuthProvider()
+    provider.jwks_cache = SimpleNamespace(
+        validate_jwt=AsyncMock(return_value={"sub": "kc-sub", "exp": 1300})
+    )
+    app = SimpleNamespace(
+        state=SimpleNamespace(sm=SimpleNamespace(settings=SimpleNamespace(secret_key="k")))
+    )
+    cached_id = "6f1c6a9e-5b7e-4c3b-9d8f-2a1e3c4b5d6e"
+    session = {
+        "user_ctx": UserContext(id=cached_id, email="", name="", roles=[]).to_session_dict(),
+        "keycloak_refresh_token": seal_refresh_token(app, "r"),
+        "expires_at": 999,
+    }
+    request = Request({"type": "http", "headers": [], "session": session, "app": app})
+    monkeypatch.setattr(
+        "keycloak.endpoints.api._get_oidc_client",
+        lambda _r: SimpleNamespace(refresh_tokens=AsyncMock(return_value={"access_token": "a"})),
+    )
+    principal = await provider.resolve_user(request)
+    assert principal is not None
+    assert principal.id == cached_id

@@ -47,8 +47,8 @@ The browser session uses a signed, **unencrypted** cookie, so the refresh token 
 ## Bearer-token validation
 
 `JWKSCache` (`keycloak/jwks.py`) caches Keycloak's RS256 public signing keys (`/realms/<realm>/protocol/openid-connect/certs`) and validates tokens with PyJWT, requiring `iss`, non-empty `sub`, `aud`, integer `exp` and integer `iat`.
-The issuer and audience must match; additional audiences and an `azp` naming a
-different client are refused. A 10-second clock leeway tolerates small clock
+The issuer must match and `client_id` must be among the token's `aud` values
+(extra audiences and the `azp` are not checked, see below). A 10-second clock leeway tolerates small clock
 skew, while browser authority still ends at the access token's exact expiry.
 Concurrent misses share one fetch, attempts have a 30-second cooldown, and
 failed or unusable JWKS refreshes retain the last-good RSA signing keys. The cache is built in `on_startup` (only when `server_url` and `realm` are configured) and attached to the provider.
@@ -75,7 +75,10 @@ again") and the login must be restarted.
 Keycloak's JWT validation keeps its previous audience semantics: the client id
 only has to be among the token's `aud` values and `azp` is not pinned (real
 Keycloak access tokens carry `aud: [client, "account"]`). The `oidc` module
-keeps the strict exclusive-audience check.
+keeps the strict exclusive-audience check. Keycloak does not add the client id
+to access tokens by default: configure an *Audience* protocol mapper that
+includes the client id in the access token's `aud`, or bearer requests are
+refused.
 
 The shared protocol implementation lives in `auth.oidc_common` (#741).
 Keycloak retains its discovery-free realm URLs, access-token identity and
