@@ -97,7 +97,9 @@ def install_middleware(
     # client, instead of in get_db's post-response exit code (GH #257).
     app.add_middleware(CommitBeforeResponseMiddleware)
     # Auth, locale and lazy layout resolution must precede the maintenance page.
-    # The outer adapter middleware applies protocol and cache rules to it.
+    # The outer adapter middleware applies protocol and cache rules to it: the
+    # 503 renders through Inertia with this user's auth block and menus, so it
+    # must stay non-cacheable like any other payload (GH #272).
     app.add_middleware(MaintenanceMiddleware)
     # An install awaiting setup takes precedence over maintenance mode.
     app.add_middleware(SetupMiddleware)

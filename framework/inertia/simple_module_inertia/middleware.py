@@ -56,9 +56,12 @@ class InertiaMiddleware:
                 message.setdefault("headers", [])
                 headers = MutableHeaders(scope=message)
                 html = headers.get("content-type", "").split(";", 1)[0].strip() == "text/html"
-                if inertia or "x-inertia" in headers or html:
+                payload = inertia or "x-inertia" in headers
+                if payload or html:
                     add_vary(headers)
-                if inertia or "x-inertia" in headers:
+                if payload:
+                    # The payload carries this user's auth, permissions and menus:
+                    # it must never answer a page request from a cache (GH #272).
                     headers["cache-control"] = "private, no-store"
                     del headers["etag"]
                 if inertia:

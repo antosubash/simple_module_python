@@ -12,10 +12,14 @@ import type { SharedProps } from '@simple-module-py/ui/types';
 
 let cachedCatalog: string | undefined;
 
+/** `<locale>:<audience>` of a catalog the server actually sent, else undefined. */
+function catalogKey(i18n: SharedProps['i18n'] | undefined): string | undefined {
+  return i18n?.messages != null && i18n.audience ? `${i18n.locale}:${i18n.audience}` : undefined;
+}
+
 export function bootI18nFromInitialPage(props: Partial<SharedProps>): void {
   const i18n = props.i18n;
-  cachedCatalog =
-    i18n?.messages != null && i18n.audience ? `${i18n.locale}:${i18n.audience}` : undefined;
+  cachedCatalog = catalogKey(i18n);
   if (!i18n) {
     configureI18n({ locale: 'en', messages: {} });
     return;
@@ -35,7 +39,7 @@ export function subscribeI18nToNavigation(): () => void {
     if (!i18n) return;
     if (i18n.messages != null) {
       updateI18n({ locale: i18n.locale, messages: i18n.messages });
-      cachedCatalog = i18n.audience ? `${i18n.locale}:${i18n.audience}` : undefined;
+      cachedCatalog = catalogKey(i18n);
       reloading = false;
     } else if (i18n.locale !== activeLocale() && !reloading) {
       reloading = true;
