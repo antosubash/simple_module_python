@@ -24,15 +24,23 @@ def register_on_commit(session: AsyncSession, callback: OnCommitCallback) -> Non
     sync_session = session.sync_session
     if not event.contains(sync_session, "after_soft_rollback", _discard_rolled_back_callbacks):
         event.listen(sync_session, "after_soft_rollback", _discard_rolled_back_callbacks)
+    callbacks = session.info.setdefault(_CALLBACKS_KEY, [])
+    callbacks.append((open_savepoints(sync_session), callback))
+
+
+def open_savepoints(sync_session: Session) -> set[SessionTransaction]:
+    """The savepoints enclosing the session's current point, innermost first.
+
+    Work queued here belongs to every one of them: a released child still
+    belongs to its parent's rollback.
+    """
     savepoints: set[SessionTransaction] = set()
     transaction = sync_session.get_nested_transaction()
-    # Keep ancestors too: a released child still belongs to its parent's rollback.
     while transaction is not None:
         if transaction.nested:
             savepoints.add(transaction)
         transaction = transaction.parent
-    callbacks = session.info.setdefault(_CALLBACKS_KEY, [])
-    callbacks.append((savepoints, callback))
+    return savepoints
 
 
 def _discard_rolled_back_callbacks(session: Session, transaction: SessionTransaction) -> None:

@@ -31,6 +31,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from simple_module_db import RequestSession, bind_current_tenant, mark_written
+from simple_module_db.callbacks import open_savepoints
 from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,13 +109,7 @@ def after_commit(
             db.on_commit(lambda: _run_all(batch))
         return
     sync = db.sync_session if isinstance(db, AsyncSession) else db
-    savepoints: set[SessionTransaction] = set()
-    transaction = sync.get_nested_transaction()
-    # A released child's callbacks still belong to every enclosing savepoint.
-    while transaction is not None:
-        if transaction.nested:
-            savepoints.add(transaction)
-        transaction = transaction.parent
+    savepoints = open_savepoints(sync)
     sync.info.setdefault(_PENDING_KEY, []).extend((savepoints, publish) for publish in batch)
     _hook(sync)
 

@@ -29,6 +29,7 @@ from sqlalchemy import select
         (1j, {"value": "1j"}),
         (float("nan"), {"value": "nan"}),
         ({"x": float("inf")}, {"value": "{'x': inf}"}),
+        ({"s": "a\x00b"}, {"value": "{'s': 'a\\x00b'}"}),
     ],
 )
 def test_success_persists_json_result_and_survives_sweep(
@@ -67,3 +68,13 @@ def test_success_persists_json_result_and_survives_sweep(
         assert tasks.sweep_stuck_tasks.run() == 0
     finally:
         app.close()
+
+
+def test_result_whose_repr_raises_is_still_storable():
+    from background_tasks._signal_support import jsonable_result
+
+    class Hostile:
+        def __repr__(self):
+            raise RuntimeError("no repr")
+
+    assert jsonable_result(Hostile()) == {"value": "<unrepresentable Hostile>"}

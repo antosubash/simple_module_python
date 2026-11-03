@@ -103,14 +103,18 @@ def jsonable_result(result: Any) -> dict[str, Any] | None:
         # Plain json.loads keeps Kombu's type envelopes JSON-safe for the DB.
         # NaN/Infinity encode fine but Postgres' json type rejects them, which
         # would roll the success write back like the datetime case did.
-        return json.loads(
-            dumps(result if isinstance(result, dict) else {"value": result}),
-            parse_constant=_reject_constant,
-        )
+        text = dumps(result if isinstance(result, dict) else {"value": result})
+        if "\\u0000" in text:
+            # PostgreSQL's json/jsonb types reject NUL escapes in strings.
+            raise ValueError("NUL character in result")
+        return json.loads(text, parse_constant=_reject_constant)
     except Exception:
         # Result tracking must never undo a task's success (RecursionError,
         # a failing ``__json__`` hook, ... included).
-        return {"value": repr(result)}
+        try:
+            return {"value": repr(result)}
+        except Exception:
+            return {"value": f"<unrepresentable {type(result).__name__}>"}
 
 
 def _reject_constant(name: str) -> Any:
