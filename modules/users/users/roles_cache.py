@@ -11,8 +11,9 @@ responsible for shaping them into whatever the page needs.
 Refresh entry points:
 
 * ``UsersModule.on_startup`` — initial population.
-* ``refresh_roles_cache(app)`` — callable after any future role-management
-  code paths that add/remove roles.
+* ``refresh_roles_cache(app)`` — called by the setup wizard's first-administrator
+  action (``create_admin`` may create the admin role) and by any future
+  role-management code path that adds or removes roles.
 """
 
 from __future__ import annotations
