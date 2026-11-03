@@ -1,8 +1,9 @@
 """Cached list of roles for admin-page rendering.
 
-Roles are seed data — created by the ``e3ce9754e6dc_seed_users_roles``
-migration and only mutated by hand. Caching on ``app.state`` lets admin views
-build Inertia payloads without a per-request ``SELECT * FROM users_role``.
+Roles are seed data: migrations seed ``user`` and ``create_admin`` adds
+``admin`` the first time an administrator is created (the setup wizard).
+Caching on ``app.state`` lets admin views build Inertia payloads without a
+per-request ``SELECT * FROM users_role``.
 
 The cache stores detached :class:`RoleSummary` values (not ORM objects, which
 would blow up on attribute access after their session closes). Each view is
@@ -11,22 +12,31 @@ responsible for shaping them into whatever the page needs.
 Refresh entry points:
 
 * ``UsersModule.on_startup`` — initial population.
-* ``refresh_roles_cache(app)`` — called by the setup wizard's first-administrator
-  action (``create_admin`` may create the admin role) and by any future
-  role-management code path that adds or removes roles.
+* ``publish_roles_changed(app)`` — announces on :data:`CHANNEL` that the role
+  set changed (the setup wizard's first-administrator action, since
+  ``create_admin`` may create the admin role). Every worker, the publisher
+  included, empties its cache and the next read repopulates it lazily.
+* ``refresh_roles_cache(app)`` — reload now in this process.
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from simple_module_core.app_state import get_services
 from sqlalchemy import select
 
 from users.models import Role
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from simple_module_core.invalidation import InvalidationBus
+
+logger = logging.getLogger(__name__)
+
+CHANNEL = "users.roles"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,3 +67,26 @@ async def get_roles_cache(app: FastAPI) -> list[RoleSummary]:
     if cached:
         return cached
     return await refresh_roles_cache(app)
+
+
+def forget_roles_cache(app: FastAPI) -> None:
+    """Empty this process's cache; :func:`get_roles_cache` refills it on next read."""
+    app.state.users.roles_cache = []
+
+
+def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
+    """Wire :data:`CHANNEL` to :func:`forget_roles_cache` for *app*."""
+    bus.subscribe(CHANNEL, lambda _invalidation: forget_roles_cache(app))
+
+
+async def publish_roles_changed(app: FastAPI) -> None:
+    """Tell every worker the role set changed. Call after the change committed.
+
+    Falls back to a local eviction when the app has no bus (single-module test
+    harnesses), so the change is never silently ignored.
+    """
+    bus = getattr(get_services(app), "invalidation", None)
+    if bus is None:
+        forget_roles_cache(app)
+        return
+    await bus.publish(CHANNEL)

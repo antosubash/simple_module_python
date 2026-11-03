@@ -24,7 +24,7 @@ from sqlmodel import SQLModel
 from users.bootstrap import create_admin
 from users.manager import UserManager
 from users.models import User
-from users.roles_cache import refresh_roles_cache
+from users.roles_cache import publish_roles_changed
 from users.setup import session_has_local_account
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,12 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
             )
 
     # create_admin may have created the admin role (migrations seed only
-    # ``user``), after startup cached the role list the admin screens offer.
-    await refresh_roles_cache(request.app)
+    # ``user``), after every worker cached the role list the admin screens
+    # offer. Best effort: the administrator exists either way, and a 500 here
+    # would make the operator retry into a 409.
+    try:
+        await publish_roles_changed(request.app)
+    except Exception:
+        logger.warning("Setup: could not announce the new admin role", exc_info=True)
     logger.info("Setup: administrator created (%s)", payload.email)
     return {"created": True, "email": payload.email}

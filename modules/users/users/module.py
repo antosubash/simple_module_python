@@ -125,9 +125,13 @@ class UsersModule(ModuleBase):
         believed compromised leaves the *other* workers admitting the old
         sessions for the rest of their TTL (GH #318).
         """
+        from users import roles_cache
         from users.session_revocation import subscribe
 
         subscribe(bus)
+        # The admin user screens' cached role list: the setup wizard can add
+        # the admin role after every worker cached the seeded ``user`` role.
+        roles_cache.subscribe(bus, app)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
         from users.errors import install_exception_handlers

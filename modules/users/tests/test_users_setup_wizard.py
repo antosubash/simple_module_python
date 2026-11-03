@@ -197,9 +197,24 @@ async def test_first_administrator_refreshes_the_roles_cache(setup_pending_app) 
     from users.roles_cache import get_roles_cache, refresh_roles_cache
 
     await refresh_roles_cache(setup_pending_app)  # what startup does
+    assert "admin" not in {role.name for role in await get_roles_cache(setup_pending_app)}
     async with wizard_client(setup_pending_app) as client:
         resp = await post_step(
             client, STEP_ADMINISTRATOR, {"email": "first@example.com", "password": "FirstPass1!"}
         )
     assert resp.status_code == 200
     assert "admin" in {role.name for role in await get_roles_cache(setup_pending_app)}
+
+
+async def test_roles_changed_empties_every_subscribed_cache(setup_pending_app) -> None:
+    """Another worker's cache is emptied through the bus, then refills lazily."""
+    from simple_module_core.invalidation import InvalidationBus
+    from users import roles_cache
+
+    await roles_cache.refresh_roles_cache(setup_pending_app)
+    assert setup_pending_app.state.users.roles_cache
+    other_worker_bus = InvalidationBus()
+    roles_cache.subscribe(other_worker_bus, setup_pending_app)
+    await other_worker_bus.publish(roles_cache.CHANNEL)
+    assert setup_pending_app.state.users.roles_cache == []
+    assert await roles_cache.get_roles_cache(setup_pending_app)
