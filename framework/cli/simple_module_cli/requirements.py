@@ -16,6 +16,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from packaging.specifiers import InvalidSpecifier, Specifier
+from packaging.version import InvalidVersion, Version
+
 __all__ = ["ParsedRequirement", "RewriteResult", "parse_requirement", "rewrite_requirement"]
 
 # Longest-first: ``===`` must win over ``==``, and ``>=`` over ``>``.
@@ -30,8 +33,8 @@ _FLOOR_OPS = frozenset({"==", "===", ">="})
 
 #: Suffix marking a PEP 440 wildcard (``==1.4.*``, ``!=1.0.*``). These match on
 #: a *prefix* of the release segments, so they must never go through the
-#: numeric comparison — ``version_key`` maps ``*`` to 0, which would read
-#: ``1.0.*`` as ``1.0.0`` and quietly answer the wrong question.
+#: numeric comparison — a numeric compare would read ``1.0.*`` as ``1.0.0`` and
+#: quietly answer the wrong question.
 _WILDCARD = ".*"
 
 
@@ -59,27 +62,40 @@ class RewriteResult:
     reason: str | None = None
 
 
-def version_key(version: str) -> tuple[int, ...]:
-    """Coarse PEP 440 release-segment ordering.
-
-    ``packaging`` isn't a CLI dependency (see ``test_no_framework_deps.py``),
-    so this compares the numeric release segments only. Good enough to answer
-    "does the latest release trip this upper bound", which is all it's for.
-    """
-    parts: list[int] = []
-    for part in version.split("."):
-        digits = re.match(r"\d+", part)
-        parts.append(int(digits.group()) if digits else 0)
-    return tuple(parts)
+def is_valid_version(version: str | None) -> bool:
+    """Is ``version`` a string PEP 440 can order? ``None`` and legacy spellings are not."""
+    try:
+        Version(version)  # ty: ignore[invalid-argument-type]  # None -> TypeError, handled
+    except (InvalidVersion, TypeError):
+        return False
+    return True
 
 
 def _compare(left: str, right: str) -> int:
-    """Three-way compare two versions on their release segments, zero-padded."""
-    a, b = version_key(left), version_key(right)
-    width = max(len(a), len(b))
-    a += (0,) * (width - len(a))
-    b += (0,) * (width - len(b))
+    """Three-way PEP 440 comparison, including pre/dev/post releases."""
+    a, b = Version(left), Version(right)
     return (a > b) - (a < b)
+
+
+def _unparseable(parsed: ParsedRequirement, latest: str) -> str | None:
+    """The first version that is not valid PEP 440, or ``None``.
+
+    Legacy spellings (``==1.x``, ``===local-build``) can't be ordered, so the
+    requirement is reported as a skip instead of aborting the whole run.
+    """
+    for candidate in (
+        latest,
+        *(v[: -len(_WILDCARD)] if v.endswith(_WILDCARD) else v for _, v in parsed.clauses),
+    ):
+        if not is_valid_version(candidate):
+            return candidate
+    for op, version in parsed.clauses:
+        if op in ("<", "<=", "!=") and not version.endswith(_WILDCARD):
+            try:  # a valid Version can still be an invalid bound, e.g. ``<1.0+local``
+                Specifier(f"{op}{version}")
+            except InvalidSpecifier:
+                return version
+    return None
 
 
 def parse_requirement(spec: str) -> ParsedRequirement | None:
@@ -117,9 +133,10 @@ def _render(parsed: ParsedRequirement, clauses: tuple[tuple[str, str], ...]) -> 
 
 def _matches_wildcard(version: str, pattern: str) -> bool:
     """Does ``version`` fall under a PEP 440 wildcard like ``1.4.*``?"""
-    prefix = version_key(pattern[: -len(_WILDCARD)])
-    release = version_key(version)
-    return len(release) >= len(prefix) and release[: len(prefix)] == prefix
+    try:
+        return Specifier(f"=={pattern}").contains(version, prereleases=True)
+    except InvalidSpecifier:
+        return False
 
 
 def _compatible_band(version: str) -> str | None:
@@ -151,13 +168,8 @@ def _allows(op: str, version: str, latest: str) -> bool:
     if op == "~=":
         band = _compatible_band(version)
         return band is not None and _matches_wildcard(latest, band)
-    cmp = _compare(latest, version)
-    if op == "<":
-        return cmp < 0
-    if op == "<=":
-        return cmp <= 0
-    if op == "!=":
-        return cmp != 0
+    if op in ("<", "<=", "!="):
+        return Specifier(f"{op}{version}").contains(latest, prereleases=True)
     # ``>`` — already satisfied by anything newer than the pin.
     return True
 
@@ -193,7 +205,11 @@ def _bump(op: str, version: str, latest: str) -> str:
         if len(parts) < segments:
             return version
         candidate = ".".join(parts[:segments])
-        return candidate if _compare(candidate, version) > 0 else version
+        # A pre-release ``latest`` truncates to a release above itself
+        # (``1.5.0rc1`` -> ``1.5``), which nothing published satisfies yet.
+        if _compare(candidate, version) > 0 and _compare(candidate, latest) <= 0:
+            return candidate
+        return version
     if op in _FLOOR_OPS:
         return latest if _compare(latest, version) > 0 else version
     return version
@@ -216,6 +232,10 @@ def rewrite_requirement(spec: str, latest: str, *, loosen: bool = False) -> Rewr
         # so it gets the tool's default floor. Extras and markers survive.
         new = f"{parsed.name}{parsed.extras}>={latest}{parsed.marker}"
         return RewriteResult(None) if new == spec.strip() else RewriteResult(new)
+
+    bad = _unparseable(parsed, latest)
+    if bad is not None:
+        return RewriteResult(None, reason=f"unsupported version spelling {bad!r}")
 
     blocker = _excluded_by(parsed, latest)
     if blocker is not None:

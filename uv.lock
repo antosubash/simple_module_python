@@ -3198,12 +3198,14 @@ name = "simple-module-cli"
 version = "0.0.42"
 source = { editable = "framework/cli" }
 dependencies = [
+    { name = "packaging" },
     { name = "tomlkit" },
     { name = "typer" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "packaging", specifier = ">=23.0,<27" },
     { name = "tomlkit", specifier = ">=0.13,<0.16" },
     { name = "typer", specifier = ">=0.12,<0.28" },
 ]

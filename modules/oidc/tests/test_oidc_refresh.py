@@ -26,6 +26,7 @@ def refresh_session(monkeypatch, db_state, db_session):
     )
     provider = OidcAuthProvider(settings)
     provider.jwks_cache = SimpleNamespace(
+        issuer="https://idp.test",
         validate_jwt=AsyncMock(
             return_value={
                 "sub": "subject",
@@ -35,7 +36,7 @@ def refresh_session(monkeypatch, db_state, db_session):
                 "exp": 1300,
                 "roles": ["reader"],
             }
-        )
+        ),
     )
     app = SimpleNamespace(
         state=SimpleNamespace(
