@@ -7,8 +7,9 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
 
-from oidc.constants import _PAGE_LOGGED_OUT, _PAGE_LOGIN, LOGGED_OUT_PATH
+from oidc.constants import _PAGE_LOGGED_OUT, _PAGE_LOGIN, LOGGED_OUT_PATH, SESSION_REFRESH_TOKEN_KEY
 from oidc.runtime import is_signed_in
+from oidc.tokens import open_refresh_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["oidc-views"])
@@ -30,9 +31,18 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
 
 @router.post("/logout")
 async def logout(request: Request):
+    client = request.app.state.oidc.client
+    if client is not None:
+        try:
+            refresh_token = open_refresh_token(
+                request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY)
+            )
+            if refresh_token:
+                await client.revoke_refresh_token(refresh_token)
+        except Exception:
+            logger.warning("OIDC refresh token revocation unavailable; continuing logout")
     request.session.clear()
     destination = f"{str(request.base_url).rstrip('/')}{LOGGED_OUT_PATH}"
-    client = request.app.state.oidc.client
     if client is not None:
         try:
             destination = client.build_logout_url(post_logout_redirect_uri=destination)

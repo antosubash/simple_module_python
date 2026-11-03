@@ -30,6 +30,8 @@ class OidcMetadata:
     token_endpoint: str
     jwks_uri: str
     end_session_endpoint: str = ""
+    revocation_endpoint: str = ""
+    token_endpoint_auth_methods_supported: list[str] | None = None
 
     @classmethod
     def from_document(
@@ -54,10 +56,15 @@ class OidcMetadata:
             "/"
         ):
             raise ValueError("OIDC discovery issuer does not match configured issuer")
-        logout = doc.get("end_session_endpoint", "")
-        if logout != "":
-            logout = _validate_url(logout, development=development)
-        return cls(**values, end_session_endpoint=logout)
+        for key in ("end_session_endpoint", "revocation_endpoint"):
+            value = doc.get(key, "")
+            values[key] = _validate_url(value, development=development) if value != "" else ""
+        methods = doc.get("token_endpoint_auth_methods_supported")
+        if "token_endpoint_auth_methods_supported" in doc and (
+            not isinstance(methods, list) or not all(isinstance(m, str) for m in methods)
+        ):
+            raise ValueError("OIDC token endpoint auth methods must be a list of strings")
+        return cls(**values, token_endpoint_auth_methods_supported=methods)
 
 
 async def fetch_metadata(
