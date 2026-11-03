@@ -37,7 +37,7 @@ def _fake_task(name: str) -> SimpleNamespace:
 @pytest.fixture(autouse=True)
 def _reset_signal_tokens() -> None:
     """Clear the prerun/postrun bookkeeping in case a prior test panicked."""
-    _signal_tokens.clear()
+    _signal_tokens.set(())
 
 
 class TestBindTaskContext:
@@ -129,7 +129,7 @@ class TestSignalBinding:
         on_task_postrun(sender=task, task_id=task_id, task=task)
 
         assert get_log_context() == {}
-        assert _signal_tokens == {}
+        assert _signal_tokens.get() == ()
 
     def test_postrun_without_prerun_is_noop(self, sync_sqlite: Path) -> None:
         task = _fake_task("demo.detached")

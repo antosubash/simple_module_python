@@ -32,12 +32,10 @@ _RESERVED_RECORD_KEYS: frozenset[str] = frozenset(logging.makeLogRecord({}).__di
     "asctime",
 }
 
-# Pairs ``task_prerun`` → ``task_postrun`` across signal calls. Keyed by
-# Celery task UUID so threaded / gevent pools — which can interleave
-# prerun/postrun pairs within one process — stay isolated.
-_signal_tokens: dict[str, Token[Mapping[str, Any]]] = {}
-
-_log = logging.getLogger(__name__)
+# Immutable stacks keep overlapping UUIDs and nested eager executions isolated.
+_signal_tokens: ContextVar[tuple[tuple[str, Token[Mapping[str, Any]]], ...]] = ContextVar(
+    "sm_log_signal_tokens", default=()
+)
 
 
 def get_log_context() -> dict[str, Any]:
@@ -104,20 +102,14 @@ def signal_task_started(*, task_id: str | None, task_name: str | None) -> None:
     if not task_id:
         return
     merged = {**current_log_context.get(), "task_id": task_id, "task_name": task_name}
-    _signal_tokens[task_id] = current_log_context.set(merged)
+    _signal_tokens.set((*_signal_tokens.get(), (task_id, current_log_context.set(merged))))
 
 
 def signal_task_finished(*, task_id: str | None) -> None:
     """Reset the binding from :func:`signal_task_started`."""
-    if not task_id:
+    stack = _signal_tokens.get()
+    if not stack or stack[-1][0] != task_id:
         return
-    token = _signal_tokens.pop(task_id, None)
-    if token is None:
-        return
-    try:
-        current_log_context.reset(token)
-    except ValueError:
-        # Token belongs to a different context — possible under exotic
-        # eventlet patching. The var falls back when the task's context
-        # exits, so the leak is bounded.
-        _log.debug("Log-context reset skipped for task_id=%s", task_id)
+    _, token = stack[-1]
+    _signal_tokens.set(stack[:-1])
+    current_log_context.reset(token)

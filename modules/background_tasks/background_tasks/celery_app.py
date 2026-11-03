@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib
 import logging
 from importlib.metadata import entry_points
+from typing import Any
 
 from celery import Celery
 from celery.schedules import schedule
@@ -35,8 +36,19 @@ from background_tasks.constants import (
 )
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.task_routing import load_task_configs, merge_routes, select_packages
+from background_tasks.tenant_context import stamp_tenant
 
 logger = logging.getLogger(__name__)
+
+
+class TenantCelery(Celery):
+    """Validate publish authority before Celery's exception-swallowing signals."""
+
+    def send_task(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        headers = dict(kwargs.get("headers") or {})
+        stamp_tenant(headers)
+        kwargs["headers"] = headers
+        return super().send_task(name, *args, **kwargs)
 
 
 def _discover_task_packages() -> list[str]:
@@ -126,7 +138,7 @@ def describe_routes(settings: BackgroundTasksSettings) -> list[dict[str, str]]:
 
 def build_celery(settings: BackgroundTasksSettings) -> Celery:
     """Construct a Celery app wired to the project's Redis broker."""
-    celery = Celery(MODULE_NAME)
+    celery = TenantCelery(MODULE_NAME)
 
     all_packages = _discover_task_packages()
     # Routes and beat entries come from the light ``task_config`` of *every*

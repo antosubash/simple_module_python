@@ -26,8 +26,9 @@ TENANT_HEADER = "sm_tenant_id"
 OWNER_HEADER = "sm_owner_id"
 
 _log = logging.getLogger(__name__)
-_tokens: dict[str, Token[str | None]] = {}
-_owner_tokens: dict[str, Token[str | None]] = {}
+_tokens: ContextVar[tuple[tuple[str, Token[str | None], Token[str | None]], ...]] = ContextVar(
+    "sm_task_binding_tokens", default=()
+)
 # The owner of the task body running on this context, so tasks it enqueues
 # carry the same owner. Kept apart from ``current_user_id`` on purpose: that
 # one also stamps ``created_by`` on audited rows.
@@ -168,32 +169,21 @@ def restore_tenant(*, task_id: str | None, task: Any) -> None:
     """Enter the message's tenant for the task body (prerun)."""
     if not task_id:
         return
-    owner = message_owner(task=task)
-    if owner is not None:
-        _owner_tokens[task_id] = _task_owner.set(owner)
-    tenant_id = _tenant_of(task) or _default_tenant
-    if tenant_id is not None:
-        _tokens[task_id] = current_tenant_id.set(tenant_id)
+    # Always set both, so a headerless task never inherits the previous binding.
+    owner_token = _task_owner.set(message_owner(task=task) or "")  # "": no owner
+    tenant_token = current_tenant_id.set(_tenant_of(task) or _default_tenant)
+    _tokens.set((*_tokens.get(), (task_id, tenant_token, owner_token)))
 
 
 def release_tenant(*, task_id: str | None) -> None:
-    """Leave the tenant entered by :func:`restore_tenant` (postrun)."""
-    owner_token = _owner_tokens.pop(task_id, None) if task_id else None
-    if owner_token is not None:
-        try:
-            _task_owner.reset(owner_token)
-        except ValueError:
-            _task_owner.set(None)
-    token = _tokens.pop(task_id, None) if task_id else None
-    if token is None:
+    """Leave the most recent execution's binding in this context (postrun)."""
+    stack = _tokens.get()
+    if not stack or stack[-1][0] != task_id:
         return
-    try:
-        current_tenant_id.reset(token)
-    except ValueError:
-        # Token from another context (exotic pool patching): fall back to
-        # clearing, so the next task on this worker never inherits a tenant.
-        _log.debug("Tenant reset skipped for task_id=%s; clearing", task_id)
-        current_tenant_id.set(None)
+    _, tenant_token, owner_token = stack[-1]
+    _tokens.set(stack[:-1])
+    _task_owner.reset(owner_token)
+    current_tenant_id.reset(tenant_token)
 
 
 __all__ = [

@@ -36,12 +36,12 @@ def now_utc() -> datetime:
 def coerce_args_kwargs(args: Any, kwargs: Any) -> tuple[list[Any], dict[str, Any]]:
     """Normalise Celery args/kwargs payloads to JSON-ready shapes.
 
-    Celery sometimes hands us tuples/frozensets that our JSON column can't
-    store; also tolerates ``None`` so a partial payload won't wedge the row.
+    Keep Kombu type envelopes in SQL JSON columns; retry decodes them.
+    Tolerate ``None`` so a partial payload does not wedge the row.
     """
     safe_args: list[Any] = list(args) if args else []
     safe_kwargs: dict[str, Any] = dict(kwargs) if kwargs else {}
-    return safe_args, safe_kwargs
+    return json.loads(dumps(safe_args)), json.loads(dumps(safe_kwargs))
 
 
 def upsert_by_celery_id(
@@ -166,9 +166,9 @@ def apply_signal(
     if request is not None:
         metadata = {}
         if getattr(request, "args", None) is not None:
-            metadata["args"] = list(request.args)
+            metadata["args"] = coerce_args_kwargs(request.args, None)[0]
         if getattr(request, "kwargs", None) is not None:
-            metadata["kwargs"] = dict(request.kwargs)
+            metadata["kwargs"] = coerce_args_kwargs(None, request.kwargs)[1]
         delivery = getattr(request, "delivery_info", None) or {}
         if delivery.get("routing_key"):
             metadata["queue"] = delivery["routing_key"]

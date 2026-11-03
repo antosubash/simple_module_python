@@ -8,11 +8,13 @@ must not happen twice. The read paths have none of those questions.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
+from kombu.utils.json import loads
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession, all_tenants, tenant_context
 from sqlalchemy import Select, func, select, update
@@ -192,8 +194,8 @@ class RetryCoordinator:
         tenant_id = row.tenant_id
         owner_user_id = row.owner_user_id
         options: dict[str, Any] = {
-            "args": list(row.args or []),
-            "kwargs": dict(row.kwargs or {}),
+            "args": loads(json.dumps(row.args or [])),
+            "kwargs": loads(json.dumps(row.kwargs or {})),
             "queue": row.queue,
             "task_id": task_id,
         }
