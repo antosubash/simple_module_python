@@ -90,3 +90,4 @@ def sanitize_list_filters(
 
 
 UPGRADE_HASHED_BEARER_TOKENS = "users.hashed_bearer_tokens_v1"
+UPGRADE_UNIQUE_EMAILS = "users.unique_email_v1"

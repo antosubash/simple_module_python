@@ -1,17 +1,64 @@
-"""Recognize legacy bearer-token columns and credentials without reading secrets out."""
+"""Read-only checks for ambiguous email identities and legacy bearer credentials."""
 
 from simple_module_core.data_compatibility import DataCompatibilityIssue
 from sqlalchemy import String, column, func, inspect, or_, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from users.constants import UPGRADE_HASHED_BEARER_TOKENS
+from users.constants import UPGRADE_HASHED_BEARER_TOKENS, UPGRADE_UNIQUE_EMAILS
 from users.models import RefreshToken, UserAccessToken
 
+_SHOWN_CONFLICTS = 20
+DUPLICATE_EMAILS_QUERY = (
+    "SELECT id, email FROM users_user WHERE lower(email) IN "
+    "(SELECT lower(email) FROM users_user GROUP BY lower(email) HAVING count(*) > 1);"
+)
 # A SHA-256 hex digest; tokens hashed at rest (#626) are always this long.
 _DIGEST_LENGTH = 64
 
 
 async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:
+    issues = await _email_conflicts(db)
+    return issues + await _token_compatibility(db)
+
+
+async def _email_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
+    connection = await db.connection()
+    if not await connection.run_sync(lambda sync: inspect(sync).has_table("users_user")):
+        return []
+    users = table("users_user", column("email"))
+    email = users.c.email
+    duplicates = select(func.lower(email)).group_by(func.lower(email)).having(func.count() > 1)
+    conflicts = list((await db.scalars(duplicates)).all())
+    if not conflicts:
+        return []
+    # Boot and doctor output lands in logs: name the conflicts by a masked
+    # address and leave the full list to an operator's own query.
+    shown = ", ".join(mask_email(value) for value in conflicts[:_SHOWN_CONFLICTS])
+    more = len(conflicts) - _SHOWN_CONFLICTS
+    return [
+        DataCompatibilityIssue(
+            upgrade_id=UPGRADE_UNIQUE_EMAILS,
+            severity="error",
+            message=(
+                f"{len(conflicts)} email address(es) are used by more than one account "
+                f"in different letter case: {shown}"
+                + (f" and {more} more" if more > 0 else "")
+                + ". List them with: "
+                + DUPLICATE_EMAILS_QUERY
+                + " Give each account a distinct email before migrating; accounts are "
+                "never merged or deleted."
+            ),
+        )
+    ]
+
+
+def mask_email(value: str) -> str:
+    """``alice@example.com`` -> ``a***@example.com``."""
+    local, _, domain = value.partition("@")
+    return f"{local[:1]}***@{domain}" if domain else f"{local[:1]}***"
+
+
+async def _token_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:
     connection = await db.connection()
     for model in (RefreshToken, UserAccessToken):
         name = model.__tablename__

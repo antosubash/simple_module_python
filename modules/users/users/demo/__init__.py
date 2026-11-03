@@ -184,7 +184,7 @@ async def reconcile_demo_user(db: AsyncSession, account: DemoAccount) -> User:
     ).scalar_one_or_none()
     created = user is None
     if user is None:
-        user = User(email=account.email)
+        user = User(email=account.email.lower())
         db.add(user)
 
     if account.password:

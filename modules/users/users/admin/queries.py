@@ -9,14 +9,16 @@ from typing import Any, cast
 from fastapi import FastAPI
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
 from simple_module_db.pagination import PageParams
+from simple_module_db.transaction import rollback_session
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
 from users.admin.user_state import STATUS_CONDITIONS, user_state
 from users.contracts.schemas import RoleListItem, UserListItem
-from users.exceptions import UserNotFoundError
+from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
 from users.manager import UserManager
 from users.models import Role, User, UserRole
 from users.session_revocation import bump_session_version, publish_revocation
@@ -56,6 +58,25 @@ class _UserServiceBase:
             self._db.on_commit(lambda: publish_revocation(app, user_id))
 
     # ── Helpers ─────────────────────────────────────────────────
+
+    async def _flush_email_change(self, email: str, user_id: uuid.UUID) -> None:
+        """Flush an edit; a lost lower(email) race (#731) becomes a duplicate error.
+
+        A failed flush leaves the transaction unusable; an admin edit is its only write."""
+        try:
+            await self._db.flush()
+        except IntegrityError:
+            await rollback_session(self._db)
+            if await self._email_taken(email, user_id):
+                raise EmailAlreadyExistsError(email) from None
+            raise
+
+    async def _email_taken(self, email: str, user_id: uuid.UUID) -> bool:
+        """Whether another account holds *email* in any letter case."""
+        clash = await self._db.execute(
+            select(User.id).where(func.lower(User.email) == email.lower(), User.id != user_id)
+        )
+        return clash.scalar_one_or_none() is not None
 
     async def _resolve_roles(self, role_names: list[str]) -> list[Role]:
         """Return Role ORM objects matching the given names."""

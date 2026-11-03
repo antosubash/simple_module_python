@@ -6,10 +6,12 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 from fastapi import Depends, Request
+from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from simple_module_db.deps import get_db
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
@@ -29,6 +31,25 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
     fastapi-users' OAuth association flow, which appends to the collection —
     lets the model's default ``selectin`` materialise it.
     """
+
+    async def create(self, create_dict):
+        create_dict = {**create_dict, "email": create_dict["email"].lower()}
+        user = self.user_table(**create_dict)
+        # A savepoint scopes a lost email race to this insert: rolling back the
+        # whole request session would also drop on-commit work queued for other
+        # accounts in the same request (bulk invites). Commit and refresh as the
+        # upstream adapter does.
+        try:
+            async with self.session.begin_nested():
+                self.session.add(user)
+        except IntegrityError:
+            # Only translate an email race; unrelated constraint errors still surface.
+            if await self.get_by_email(create_dict["email"]) is not None:
+                raise UserAlreadyExists() from None
+            raise
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
 
     async def get(self, id):
         stmt = (
