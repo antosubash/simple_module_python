@@ -17,6 +17,17 @@ async def test_public_logged_out_page(flow_client):
     assert response.json()["component"] == "Oidc/LoggedOut"
 
 
+async def test_logged_out_page_sends_a_signed_in_visitor_on(flow_client):
+    signed_in = {
+        "user_ctx": {"id": "u", "email": "a@example.com", "name": "A", "roles": []},
+        "expires_at": 4_102_444_800,  # 2100-01-01: no renewal attempt
+    }
+    flow_client.cookies.set("session", forge_session_cookie("test-secret-key", signed_in))
+    response = await flow_client.get("/oidc/logged-out")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/dashboard/"
+
+
 @pytest.mark.parametrize("inertia", [True, False])
 async def test_logout_redirect_and_session_clear(oidc_app, flow_client, inertia):
     flow_client.cookies.set(

@@ -8,7 +8,7 @@ from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
 
 from oidc.constants import _PAGE_LOGGED_OUT, _PAGE_LOGIN, LOGGED_OUT_PATH
-from oidc.session_state import is_signed_in
+from oidc.runtime import is_signed_in
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["oidc-views"])

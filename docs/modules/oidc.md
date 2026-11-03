@@ -209,7 +209,8 @@ yet. An IdP `error` reply to the callback (for example a cancelled sign-in)
 answers 401 once the login state matched. A callback with a spent or unknown
 state (browser Back after signing in, or a second tab whose login another tab
 finished) sends a signed-in user on to `login_redirect_url` and answers anyone
-else with 419, the framework's "expired, sign in again" page. Entra support
+else with 419, the framework's "expired, sign in again" page. `/oidc/logged-out`
+likewise sends a signed-in visitor on to `login_redirect_url`. Entra support
 is single-tenant only. The directory lists only users who have signed in,
 reads cached names/emails and returns unknown roles (`None`), rather than
 claiming no roles. Activity statistics count last login; account creation dates

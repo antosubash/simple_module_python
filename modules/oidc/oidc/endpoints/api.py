@@ -20,8 +20,7 @@ from oidc.constants import (
     SESSION_VERIFIER_KEY,
     STALE_LOGIN_STATUS,
 )
-from oidc.runtime import require_client
-from oidc.session_state import is_signed_in
+from oidc.runtime import is_signed_in, require_client
 from oidc.tokens import store_refresh_token
 
 logger = logging.getLogger(__name__)
