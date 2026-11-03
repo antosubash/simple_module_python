@@ -14,7 +14,8 @@ UNLOCK_PATH = "/__unlock"
 SESSION_KEY = "site_lock"
 
 # Never gated: Kubernetes liveness/readiness probes must always succeed.
-HEALTH_PREFIX = "/health"
+HEALTH_PATH = "/health"
+HEALTH_PREFIX = "/health/"
 API_PREFIX = "/api/"
 
 # Duplicated rather than imported from ``users`` — site_lock must also work

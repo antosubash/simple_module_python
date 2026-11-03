@@ -18,6 +18,7 @@ import secrets
 from urllib.parse import quote
 
 from simple_module_core.app_state import get_auth_provider
+from simple_module_hosting.path_matching import matches_path
 from starlette.requests import Request
 from starlette.responses import (
     HTMLResponse,
@@ -68,7 +69,7 @@ class SiteLockMiddleware:
         path: str = scope["path"]
 
         # Kubernetes probes must never be gated, or the pod gets killed.
-        if path.startswith(c.HEALTH_PREFIX):
+        if matches_path(path, exact=(c.HEALTH_PATH,), prefixes=(c.HEALTH_PREFIX,)):
             await self.app(scope, receive, send)
             return
 

@@ -1,6 +1,7 @@
 """Readiness and wizard connection checks complete within a bounded wait."""
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -14,6 +15,12 @@ from simple_module_hosting.health import router
 from simple_module_hosting.setup_wizard.payloads import connection_status
 
 
+def test_check_deadline_is_five_seconds():
+    import simple_module_hosting.health as health_module
+
+    assert health_module.CHECK_TIMEOUT_SECONDS == 5
+
+
 @pytest.mark.parametrize("consumer", ["readiness", "wizard"])
 @pytest.mark.parametrize("failure", ["exception", "timeout", "database"])
 async def test_failed_check_returns_safe_bounded_result(monkeypatch, caplog, consumer, failure):
@@ -21,6 +28,8 @@ async def test_failed_check_returns_safe_bounded_result(monkeypatch, caplog, con
     import simple_module_hosting.health as health_module
 
     monkeypatch.setattr(health_module, "CHECK_TIMEOUT_SECONDS", 0.02)
+    # The traceback is logged at DEBUG (WARNING carries the class name only).
+    caplog.set_level(logging.DEBUG, logger=health_module.__name__)
     cancelled = asyncio.Event()
 
     async def check():

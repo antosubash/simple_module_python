@@ -21,7 +21,6 @@ import logging
 from simple_module_core.setup_steps import SetupAction, SetupField, SetupStep
 from sqlalchemy import select
 
-from users.administrators import count_active_administrators
 from users.models import User
 
 logger = logging.getLogger(__name__)
@@ -85,18 +84,6 @@ def build_admin_step() -> SetupStep:
         order=30,
         action=_admin_action(),
     )
-
-
-async def session_has_administrator(session) -> bool:
-    """True when the session sees an active, enabled administrator."""
-    return await count_active_administrators(session) > 0
-
-
-async def has_administrator(app) -> bool:
-    """True once an active, enabled superuser or Admin-role user exists."""
-    session_factory = app.state.sm.db.session_factory
-    async with session_factory() as session:
-        return await session_has_administrator(session)
 
 
 async def session_has_local_account(session) -> bool:

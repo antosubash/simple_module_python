@@ -53,7 +53,11 @@ async def _is_first_run(app: FastAPI) -> bool:
             if await step.is_complete(app):
                 return False
         except Exception:
-            logger.debug("Setup step %s raised on a never-migrated database", step.id)
+            logger.warning(
+                "Setup step %s raised on a never-migrated database; counting it as pending",
+                step.id,
+                exc_info=True,
+            )
     return True
 
 

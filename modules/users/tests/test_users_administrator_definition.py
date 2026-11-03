@@ -6,15 +6,11 @@ import pytest
 from simple_module_test.setup_wizard import wizard_client, wizard_headers
 from sqlalchemy import select
 from users.admin.service import UserService
+from users.administrators import count_active_administrators
 from users.bootstrap import ensure_admin_role
 from users.exceptions import AdminAccountSafetyError
 from users.models import User, UserRole
-from users.setup import (
-    STEP_ADMINISTRATOR,
-    has_administrator,
-    has_local_account,
-    session_has_administrator,
-)
+from users.setup import STEP_ADMINISTRATOR, has_local_account
 
 
 async def test_role_administrator_keeps_setup_complete_after_superuser_disabled(setup_pending_app):
@@ -31,7 +27,8 @@ async def test_role_administrator_keeps_setup_complete_after_superuser_disabled(
             await session.commit()
             await UserService(session, None, app).disable(superuser.id)
             await session.commit()
-        assert await has_administrator(app) is True
+        async with app.state.sm.db.session_factory() as session:
+            assert await count_active_administrators(session) == 1
         response = await client.post(
             f"/setup/steps/{STEP_ADMINISTRATOR}",
             json={"email": "new@example.com", "password": "SetupPass1!"},
@@ -93,7 +90,7 @@ async def test_last_active_administrator_is_preserved(setup_pending_app, kind, o
             session.add(UserRole(user_id=user.id, role_id=role.id))
         await session.commit()
         # Permissions resolve from roles: a roleless superuser is not an administrator.
-        assert await session_has_administrator(session) is (kind != "superuser")
+        assert (await count_active_administrators(session) > 0) is (kind != "superuser")
         service = UserService(session, None, app)
         with pytest.raises(AdminAccountSafetyError):
             if operation == "demote":
@@ -121,7 +118,7 @@ async def test_unavailable_superuser_does_not_complete_setup(
             )
         )
         await session.commit()
-        assert await session_has_administrator(session) is False
+        assert await count_active_administrators(session) == 0
 
 
 async def test_roleless_superuser_is_not_a_surviving_administrator(setup_pending_app):
@@ -145,7 +142,7 @@ async def test_install_with_accounts_but_no_administrator_is_not_gated(setup_pen
     async with app.state.sm.db.session_factory() as session:
         session.add(User(email="member@example.com", hashed_password="unused"))
         await session.commit()
-        assert await session_has_administrator(session) is False
+        assert await count_active_administrators(session) == 0
     assert await has_local_account(app) is True
     async with wizard_client(app) as client:
         assert (await client.get("/setup")).status_code == 404

@@ -153,7 +153,7 @@ def register_health_checks(self, registry: HealthRegistry) -> None:
 async def _check_db(self) -> HealthCheckResult: ...
 ```
 
-Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently and reports the worst status (a raising check counts as `UNHEALTHY`).
+Each check returns a `HealthCheckResult(status=HealthStatus.HEALTHY | DEGRADED | UNHEALTHY, detail=...)`. The `/health/ready` endpoint runs all checks concurrently, each with a 5 s deadline, and reports the worst status. A check that times out reports `UNHEALTHY` with detail `timed out`; a raising check reports `UNHEALTHY` with only the exception class name as detail (the endpoint is anonymous; the full error is logged at DEBUG, its class at WARNING).
 
 ## `register_body_limits(registry)`
 

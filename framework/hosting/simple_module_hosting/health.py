@@ -38,9 +38,15 @@ async def run_health_check(name: str, check_fn: HealthCheckFn) -> HealthCheckRes
     except TimeoutError:
         return HealthCheckResult(status=HealthStatus.UNHEALTHY, detail="timed out")
     except Exception as exc:
+        # No traceback at WARNING: probes and the dashboard poll every few
+        # seconds, and a dependency that stays down would log one each time.
         logger.warning(
-            "Health check %s failed correlation_id=%s", name, correlation_id.get(), exc_info=True
+            "Health check %s failed: %s correlation_id=%s",
+            name,
+            type(exc).__name__,
+            correlation_id.get(),
         )
+        logger.debug("Health check %s failure detail", name, exc_info=True)
         return HealthCheckResult(status=HealthStatus.UNHEALTHY, detail=type(exc).__name__)
 
 

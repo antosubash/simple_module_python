@@ -6,6 +6,7 @@ import httpx
 import pytest
 from simple_module_hosting._rate_limit import RateLimitMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
+from simple_module_hosting.path_matching import matches_path
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
@@ -72,7 +73,5 @@ async def test_anonymous_rate_limit_operational_path_boundaries(path, limited):
 
 
 def test_path_matcher_requires_slash_terminated_prefixes():
-    from simple_module_hosting.path_matching import matches_path
-
     with pytest.raises(ValueError):
         matches_path("/healthcare", prefixes=("/health",))
