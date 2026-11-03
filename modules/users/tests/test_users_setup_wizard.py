@@ -218,3 +218,16 @@ async def test_roles_changed_empties_every_subscribed_cache(setup_pending_app) -
     await other_worker_bus.publish(roles_cache.CHANNEL)
     assert setup_pending_app.state.users.roles_cache == []
     assert await roles_cache.get_roles_cache(setup_pending_app)
+
+
+async def test_roles_cache_expires_without_an_invalidation(setup_pending_app, monkeypatch) -> None:
+    """The bus only forgets and may not deliver, so the cache keeps a TTL floor."""
+    from users import roles_cache
+
+    await roles_cache.refresh_roles_cache(setup_pending_app)
+    setup_pending_app.state.users.roles_cache = [roles_cache.RoleSummary(id="x", name="stale")]
+    assert await roles_cache.get_roles_cache(setup_pending_app) == [
+        roles_cache.RoleSummary(id="x", name="stale")
+    ]
+    monkeypatch.setattr(roles_cache, "TTL_SECONDS", 0.0)
+    assert "stale" not in {r.name for r in await roles_cache.get_roles_cache(setup_pending_app)}

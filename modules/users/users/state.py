@@ -33,6 +33,8 @@ class UsersState:
     mailer: Mailer | None = None
     auth_throughput_limiter: ThroughputLimiter | None = None
     roles_cache: list[RoleSummary] = field(default_factory=list)
+    #: ``time.monotonic()`` of the last load; the TTL floor in ``users.roles_cache``.
+    roles_cache_loaded_at: float = 0.0
     oauth_providers: list[dict[str, str]] = field(default_factory=list)
     oauth_clients: dict[str, OAuthProvider] = field(default_factory=dict)
     # Ids of the seeded demo accounts, empty when demo mode is off. Cached at

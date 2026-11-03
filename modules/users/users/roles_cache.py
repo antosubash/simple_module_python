@@ -21,7 +21,7 @@ Refresh entry points:
 
 from __future__ import annotations
 
-import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -34,9 +34,11 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from simple_module_core.invalidation import InvalidationBus
 
-logger = logging.getLogger(__name__)
-
 CHANNEL = "users.roles"
+# Invalidation only ever forgets and delivery is not guaranteed, so the cache
+# still expires on its own (and a refresh racing an invalidation cannot pin a
+# stale list for longer than this).
+TTL_SECONDS = 300.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +55,7 @@ async def refresh_roles_cache(app: FastAPI) -> list[RoleSummary]:
         result = await db.execute(select(Role).order_by(Role.name))
         cached = [RoleSummary(id=str(r.id), name=r.name) for r in result.scalars().all()]
     app.state.users.roles_cache = cached
+    app.state.users.roles_cache_loaded_at = time.monotonic()
     return cached
 
 
@@ -61,17 +64,21 @@ async def get_roles_cache(app: FastAPI) -> list[RoleSummary]:
 
     The cache is pre-warmed in ``UsersModule.on_startup``. The lazy fallback
     covers scenarios where startup ran before the ``users_role`` table had any
-    rows. Once populated, subsequent calls are O(1) attribute reads.
+    rows. Once populated, calls are O(1) attribute reads until it is forgotten
+    (:data:`CHANNEL`) or older than :data:`TTL_SECONDS`.
     """
-    cached = app.state.users.roles_cache
-    if cached:
+    state = app.state.users
+    cached = state.roles_cache
+    if cached and time.monotonic() - state.roles_cache_loaded_at < TTL_SECONDS:
         return cached
     return await refresh_roles_cache(app)
 
 
 def forget_roles_cache(app: FastAPI) -> None:
     """Empty this process's cache; :func:`get_roles_cache` refills it on next read."""
-    app.state.users.roles_cache = []
+    state = getattr(app.state, "users", None)
+    if state is not None:  # a message can arrive before register_settings ran
+        state.roles_cache = []
 
 
 def subscribe(bus: InvalidationBus, app: FastAPI) -> None:

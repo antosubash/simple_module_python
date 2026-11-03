@@ -549,7 +549,7 @@ Anything else without a session redirects to `/users/login` (or returns 401 JSON
 
 ## Roles cache
 
-`roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. Used by the admin UI to render role pickers without hitting the DB on every request.
+`roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. When the role set changes (the setup wizard's first administrator creates the `admin` role), `publish_roles_changed(app)` announces it on the `users.roles` invalidation channel: each subscribed worker empties its cache and `get_roles_cache` refills it on the next read (other workers hear it where the Redis invalidation transport is installed). Used by the admin UI to render role pickers without hitting the DB on every request.
 
 ## Branding the auth screens
 
