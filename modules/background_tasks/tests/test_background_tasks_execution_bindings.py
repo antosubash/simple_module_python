@@ -83,7 +83,9 @@ def test_headerless_task_clears_ambient_authority(celery_app, monkeypatch, defau
 def test_nested_eager_same_uuid_restores_outer_binding(celery_app, headers):
     @celery_app.task(name="bindings.inner")
     def inner():
-        assert _binding()[:2] == (("inner-tenant", "inner-user") if headers else (None, None))
+        # In-process: a headerless inner run is its caller's (the outer task's) context.
+        expected = ("inner-tenant", "inner-user") if headers else ("outer-tenant", "outer-user")
+        assert _binding()[:2] == expected
         return True
 
     @celery_app.task(name="bindings.outer")

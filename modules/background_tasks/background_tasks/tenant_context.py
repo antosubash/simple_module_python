@@ -169,9 +169,14 @@ def restore_tenant(*, task_id: str | None, task: Any) -> None:
     """Enter the message's tenant for the task body (prerun)."""
     if not task_id:
         return
-    # Always set both, so a headerless task never inherits the previous binding.
-    owner_token = _task_owner.set(message_owner(task=task) or "")  # "": no owner
-    tenant_token = current_tenant_id.set(_tenant_of(task) or _default_tenant)
+    # Always set both, so a headerless worker task never inherits the previous
+    # binding. An in-process run (``apply()``, eager mode) is its caller's own
+    # context, so without headers it keeps the caller's tenant and owner.
+    eager = bool(getattr(getattr(task, "request", None), "is_eager", False))
+    tenant = _tenant_of(task) or (current_tenant_id.get() if eager else _default_tenant)
+    owner = message_owner(task=task) or (_task_owner.get() if eager else "")  # "": no owner
+    owner_token = _task_owner.set(owner)
+    tenant_token = current_tenant_id.set(tenant)
     _tokens.set((*_tokens.get(), (task_id, tenant_token, owner_token)))
 
 

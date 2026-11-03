@@ -32,9 +32,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 - Background task tenant, owner and log reset tokens are execution-local and
-  nesting-safe, including overlapping task UUIDs: a task with no tenant or
-  owner on its message runs unbound (or as the configured `default_tenant`)
-  instead of inheriting an earlier execution's tenant and owner (#751).
+  nesting-safe, including overlapping task UUIDs: a worker task with no tenant
+  or owner on its message runs unbound (or as the configured `default_tenant`)
+  instead of inheriting an earlier execution's tenant and owner; an in-process
+  run (`apply()`, eager mode) keeps its caller's binding (#751).
 - Tenant-header mismatches now raise before the configured Celery app sends a
   message through `apply_async`, `delay`, signatures or `send_task`, instead of
   being swallowed by the publish signal; eager runs (`task_always_eager`) are
