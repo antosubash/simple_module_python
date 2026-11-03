@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
@@ -44,17 +45,29 @@ def authority_marker(provider: str, issuer: str, client_id: str) -> str:
     return hashlib.sha256(json.dumps([provider, issuer, client_id]).encode()).hexdigest()[:32]
 
 
-def accept_authority(session, marker: str, legacy_keys: tuple[str, ...], user_key: str) -> bool:
+def accept_authority(
+    session,
+    marker: str,
+    legacy_keys: tuple[str, ...],
+    user_key: str,
+    *,
+    legacy_ok: Callable[[], bool] | None = None,
+) -> bool:
     """Accept a session minted by this provider and configuration; else clear it.
 
     A session from before #750 has no marker: it is adopted only when it holds
     a key that only this provider's sign-in writes (*legacy_keys*), so a users-
-    module or other-provider cookie must sign in again.
+    module or other-provider cookie must sign in again. Providers can require
+    additional proof of legacy authority with *legacy_ok*.
     """
     # Anonymous login transactions and browser gates carry no cached principal.
     if user_key not in session and SESSION_AUTHORITY_KEY not in session:
         return False
-    if SESSION_AUTHORITY_KEY not in session and any(session.get(k) for k in legacy_keys):
+    if (
+        SESSION_AUTHORITY_KEY not in session
+        and any(session.get(k) for k in legacy_keys)
+        and (legacy_ok is None or legacy_ok())
+    ):
         session[SESSION_AUTHORITY_KEY] = marker
     if session.get(SESSION_AUTHORITY_KEY) == marker:
         return True

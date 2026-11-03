@@ -120,11 +120,16 @@ intact so state, nonce, PKCE and the saved destination survive authentication.
 A cookie without the marker is upgraded only when it carries the selected
 provider's own identity key (`oidc_identity` or `keycloak_identity`), or, for a
 Keycloak cookie from before the identity key existed, its sealed
-`keycloak_refresh_token`. Other cached principals, including local users
-cookies, are cleared. An unmarked cookie is adopted under the current
-configuration, so rotate the host secret key if you changed the issuer or
-client before upgrading and must end those sessions. No database migration is
-required.
+`keycloak_refresh_token`. OIDC also requires the recorded `oidc_identity`
+issuer to match the discovered issuer used for ID-token validation (#764).
+A different or unreadable issuer, or unavailable trusted discovery metadata,
+clears the session and requires sign-in again. The same-issuer legacy cookie
+is stamped and retained, including tenant-specific Entra issuers.
+Other cached principals, including local users cookies, are cleared.
+Legacy cookies do not record the old client ID, and Keycloak's sealed refresh
+token does not expose a trusted old realm issuer. Rotate the host secret key
+if you changed the client, or Keycloak issuer, before upgrading and must end
+those unmarked sessions. No database migration is required.
 
 ### Concurrent browser renewal (#738)
 
