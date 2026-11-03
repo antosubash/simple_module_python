@@ -31,6 +31,9 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- Custom background task bases retain tenant validation and caller tenant/owner
+  stamping in eager mode, preserving custom `apply_async` overrides and default
+  headers. Incompatible bases fail clearly at registration (#765). No migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.

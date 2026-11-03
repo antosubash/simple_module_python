@@ -41,7 +41,7 @@ from background_tasks.tenant_context import stamp_owner, stamp_tenant
 logger = logging.getLogger(__name__)
 
 
-class TenantTask(Task):
+class TenantPublishMixin:
     """Stamp and validate authority on ``apply_async``, eager runs included.
 
     An eager ``apply_async`` runs the body in-process without ``send_task`` or
@@ -73,12 +73,29 @@ class TenantTask(Task):
         )
 
 
+class TenantTask(TenantPublishMixin, Task):
+    """Default task base with tenant-aware publication."""
+
+
 class TenantCelery(Celery):
     """Validate publish authority before Celery's exception-swallowing signals."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs.setdefault("task_cls", TenantTask)
         super().__init__(*args, **kwargs)
+
+    def _task_from_fun(
+        self, fun: Any, name: str | None = None, base: type[Task] | None = None, **options: Any
+    ) -> Task:
+        base = base or self.Task
+        if not issubclass(base, TenantPublishMixin):
+            try:
+                base = type(base.__name__, (TenantPublishMixin, base), {})
+            except TypeError as exc:
+                raise TypeError(
+                    f"Cannot compose tenant publish validation with task base {base.__name__}"
+                ) from exc
+        return super()._task_from_fun(fun, name=name, base=base, **options)
 
     def send_task(self, name: str, *args: Any, **kwargs: Any) -> Any:
         headers = dict(kwargs.get("headers") or {})
