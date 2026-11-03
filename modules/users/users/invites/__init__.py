@@ -1,1 +1,1 @@
-"""Invitation creation, delivery, resend and preview."""
+"""Invitation creation, delivery, resend, preview and acceptance."""

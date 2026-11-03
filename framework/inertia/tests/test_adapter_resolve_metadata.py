@@ -100,7 +100,7 @@ async def test_scroll_props_report_cursor_metadata() -> None:
             "reset": False,
         }
     }
-    assert out.merge == ["posts"], "scroll props merge by default so pages accumulate"
+    assert out.merge == ["posts"], "a bare-list scroll page merges at its root"
 
 
 async def test_scroll_merge_intent_prepend_moves_the_key() -> None:
