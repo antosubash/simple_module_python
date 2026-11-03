@@ -6,8 +6,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import noload
 from sqlmodel import col
 
@@ -92,23 +91,13 @@ class UserService(_UserAdminSafety):
         another user."""
         user = await self._require_manageable_user(user_id)
         if email.lower() != user.email.lower():
-            clash = await self._db.execute(
-                select(User.id).where(
-                    func.lower(User.email) == email.lower(),
-                    User.id != user_id,
-                )
-            )
-            if clash.scalar_one_or_none() is not None:
+            if await self._email_taken(email, user_id):
                 raise EmailAlreadyExistsError(email)
-        user.email = email.lower()
+            # Only a changed address is normalised: a name-only edit leaves a
+            # legacy mixed-case login identity as it is.
+            user.email = email.lower()
         user.full_name = full_name
-        try:
-            # The unique lower(email) index catches a concurrent edit or signup
-            # that slipped past the check above (#731).
-            async with self._db.begin_nested():
-                await self._db.flush()
-        except IntegrityError:
-            raise EmailAlreadyExistsError(email) from None
+        await self._flush_email_change(email, user_id)
         return user
 
     async def delete_user(self, user_id: uuid.UUID) -> None:
