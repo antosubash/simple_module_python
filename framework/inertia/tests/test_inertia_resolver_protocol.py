@@ -125,3 +125,14 @@ async def test_reset_scroll_has_no_merge_label(explicit, header):
         partial("posts", **{"X-Inertia-Reset": "posts" if header else ""}),
     )
     assert out.merge == []
+
+
+async def test_scroll_match_on_targets_the_wrapped_array():
+    """Laravel append('data', 'id') announces matchPropsOn 'posts.data.id'."""
+    page = {"data": [{"id": 1}]}
+    posts = merge(
+        scroll(page, page_name="page", current_page=1, previous_page=None, next_page=2),
+        match_on="id",
+    )
+    out = await resolve_props({"posts": posts}, {}, "Page", request())
+    assert (out.merge, out.match_on) == (["posts.data"], ["posts.data.id"])

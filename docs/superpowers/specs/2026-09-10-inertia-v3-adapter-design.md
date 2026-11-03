@@ -78,13 +78,21 @@ to assert against.
   `X-Inertia-Partial-Data` resolve, minus any in `X-Inertia-Partial-Except`; `always` props
   resolve regardless; `optional` and `deferred` props resolve **when named**.
 - `errors` is an always-prop — present in every response, `{}` when empty.
-- **Once props**: skipped when their key appears in `X-Inertia-Except-Once-Props`; otherwise
-  resolved and reported under `onceProps` with their `expiresAt` (ms) when set.
+- **Once props**: on a full visit, a key in `X-Inertia-Except-Once-Props` skips the loader
+  and the value, but the key stays in `onceProps` so the client reuses its copy (#768); a
+  partial reload ignores that header for the props it names (#769). Otherwise resolved
+  and reported under `onceProps` with their `expiresAt` (ms) when set.
+- **Partial-reload metadata** (#771): merge and once labels are emitted only for props the
+  partial reload resolves. Dotted `Partial-Data`/`Partial-Except` paths select inside plain
+  dict props; a loader's value is returned whole (#772).
+- **Rescued deferred props** (#773): `defer(..., rescue=True)` logs a failing loader, leaves
+  the prop out of `props` and lists its path under `rescuedProps`.
 - **Merge props**: reported under `mergeProps` / `prependProps` / `deepMergeProps` by mode,
   with `matchPropsOn` entries as `"propPath.keyField"`. A key listed in `X-Inertia-Reset` is
   resolved but **not** reported as mergeable for that response, so the client replaces it.
-- **Scroll props**: reported under `scrollProps` with their cursor metadata; the
-  `X-Inertia-Infinite-Scroll-Merge-Intent` header selects append vs prepend for that response.
+- **Scroll props**: reported under `scrollProps` with their cursor metadata, `reset` set when
+  `X-Inertia-Reset` names the prop; merge labels target `<prop>.<wrapper>` (default `data`,
+  #770); the `X-Inertia-Infinite-Scroll-Merge-Intent` header selects append vs prepend.
 - Values that are callables are called; awaitables are awaited; nested containers are
   walked so a wrapper inside a dict or list still resolves.
 - **Shared props** (`share()`) merge under the page's own props, page props winning on

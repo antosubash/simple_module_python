@@ -59,14 +59,14 @@ async def test_resolved_values_bypass_child_filters(kind):
     async def later():
         return value
 
-    raw = {
-        "callable": lambda: value,
-        "awaitable": later,
-        "prop": optional(value),
-        "always": always(value),
-    }[kind]
     if kind == "awaitable":
-        raw = later()
+        raw = later()  # a coroutine object, not the function
+    else:
+        raw = {
+            "callable": lambda: value,
+            "prop": optional(value),
+            "always": always(value),
+        }[kind]
     out = await resolve_props({"auth": raw}, {}, "Page", partial("auth.user", "auth.permissions"))
     assert out.props == {"auth": {"user": {"name": "J"}, "permissions": ["a"]}}
 
@@ -98,3 +98,12 @@ async def test_metadata_only_filter_does_not_treat_ancestor_as_selected():
         {"auth": once(merge({"user": "J"}, match_on="id"))}, {}, "Page", partial("auth.user")
     )
     assert (out.merge, out.match_on, out.once) == ([], [], {})
+
+
+async def test_always_prop_keeps_merge_and_once_metadata_when_unselected():
+    out = await resolve_props(
+        {"feed": always(once(merge([1], match_on="id"))), "user": "j"}, {}, "Page", partial("user")
+    )
+    assert out.props == {"feed": [1], "user": "j"}
+    assert out.merge == ["feed"] and out.match_on == ["feed.id"]
+    assert out.once == {"feed": {"prop": "feed", "expiresAt": None}}

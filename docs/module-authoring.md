@@ -763,8 +763,18 @@ await inertia.render(
 
 `once(loader, key="feature-flags")` announces its cache entry under the custom
 key, defaulting to the prop name when no key is given. Clients send that key in
-`X-Inertia-Except-Once-Props` to skip both the loader and the returned prop on
-full and partial requests (#694).
+`X-Inertia-Except-Once-Props`; on a full visit the loader is skipped and the
+prop left out of `props`, while `onceProps` still lists the key so the client
+reuses its cached value (#694, #768). A partial reload that names the prop
+resolves it regardless (#769).
+
+`scroll()` labels its inner `data` array for merging (`mergeProps:
+["posts.data"]`); pass `wrapper=None` for a prop that is itself the list, or
+another name for a different inner key (#770). `defer(loader, rescue=True)`
+turns a failing loader into a `rescuedProps` entry, so the `<Deferred>`
+component renders its `rescue` slot instead of the whole reload failing
+(#773). Partial reloads accept dotted paths such as `only: ['auth.user']`
+inside plain dict props (#772).
 
 `errors` is always present in props (it is the protocol's always-prop) and is
 filled from validation failures flashed by the previous request. A page `url`

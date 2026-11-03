@@ -72,13 +72,20 @@ def _announce_merge(name: str, prop: Prop, req: InertiaRequest, out: ResolvedPro
     else:
         return
     if prop.match_on:
-        out.match_on.append(f"{name}.{prop.match_on}")
+        out.match_on.append(f"{path}.{prop.match_on}")
 
 
 def _announce_metadata(
-    name: str, prop: Prop, req: InertiaRequest, partial: bool, out: ResolvedProps
+    name: str,
+    prop: Prop,
+    req: InertiaRequest,
+    partial: bool,
+    out: ResolvedProps,
+    parent_resolved: bool = False,
 ) -> None:
-    if partial and not _included(name, req):
+    # ``always`` props and children of an already-resolved value are sent whole,
+    # so their merge/once labels must accompany them.
+    if partial and not (parent_resolved or prop.always or _included(name, req)):
         return
     _announce_merge(name, prop, req, out)
     if prop.is_once:
@@ -120,7 +127,7 @@ async def _resolve_tree(
             if prop.optional or prop.deferred_group is not None:
                 if prop.deferred_group is not None and not cached:
                     out.deferred.setdefault(prop.deferred_group, []).append(path)
-                _announce_metadata(path, prop, req, partial, out)
+                _announce_metadata(path, prop, req, partial, out, parent_resolved)
                 continue
             if cached:
                 _announce_once(path, prop, out)
@@ -133,7 +140,7 @@ async def _resolve_tree(
             logger.exception("Failed to resolve Inertia prop %s", path)
             out.rescued.append(path)
             continue
-        _announce_metadata(path, prop, req, partial, out)
+        _announce_metadata(path, prop, req, partial, out, parent_resolved)
         if prop.scroll is not None:
             out.scroll[path] = {
                 **prop.scroll.as_page_object(),
@@ -157,7 +164,9 @@ async def _resolve_children(
     if isinstance(value, list):
         items: list[Any] = []
         for index, child in enumerate(value):
-            if type(child) in _SCALARS:
+            if type(child) in _SCALARS or not (
+                _is_dynamic(child) or isinstance(child, (dict, list))
+            ):
                 items.append(child)
                 continue
             resolved = await _resolve_tree({str(index): child}, req, partial, out, path, True)
