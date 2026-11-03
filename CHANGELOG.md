@@ -18,9 +18,6 @@ All notable changes to this project are documented in this file. The format is b
 - OIDC logout attempts refresh-token revocation before clearing the session when
   discovery advertises a revocation endpoint; revocation failures still complete
   local and RP-initiated logout without logging tokens or response bodies (#739).
-- OIDC code exchange, refresh and revocation support `client_secret_basic` when
-  discovery omits `client_secret_post` from its supported methods; absent method
-  metadata preserves `client_secret_post` authentication (#740). No migration.
 - Background task publishes wait for the root commit and discard callbacks from
   rolled-back savepoints, including released child savepoints (#729).
 - Successful background tasks normalize results with Kombu's JSON encoder before
@@ -63,6 +60,9 @@ All notable changes to this project are documented in this file. The format is b
   worker threads instead of blocking the event loop (#737).
 
 ### Added
+- OIDC code exchange, refresh and revocation support `client_secret_basic` when
+  discovery omits `client_secret_post` from its supported methods; absent method
+  metadata preserves `client_secret_post` authentication (#740). No migration.
 - Generic OIDC auth provider with Keycloak discovery and single-tenant Entra
   presets, configurable claims/roles, cached user directory, English/German UI,
   and opt-in bearer `api_audience`, limited to `client_id` plus

@@ -43,6 +43,9 @@ async def initialize(app) -> bool:
                 end_session_endpoint=metadata.end_session_endpoint,
                 revocation_endpoint=metadata.revocation_endpoint,
                 token_endpoint_auth_methods_supported=metadata.token_endpoint_auth_methods_supported,
+                revocation_endpoint_auth_methods_supported=(
+                    metadata.revocation_endpoint_auth_methods_supported
+                ),
                 client_id=s.client_id,
                 client_secret=s.client_secret,
             )

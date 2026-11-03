@@ -39,8 +39,11 @@ async def logout(request: Request):
             )
             if refresh_token:
                 await client.revoke_refresh_token(refresh_token)
-        except Exception:
-            logger.warning("OIDC refresh token revocation unavailable; continuing logout")
+        except Exception as exc:
+            # The class (timeout, HTTP status error, ...), never the token or body.
+            logger.warning(
+                "OIDC refresh token revocation failed (%s); continuing logout", type(exc).__name__
+            )
     request.session.clear()
     destination = f"{str(request.base_url).rstrip('/')}{LOGGED_OUT_PATH}"
     if client is not None:

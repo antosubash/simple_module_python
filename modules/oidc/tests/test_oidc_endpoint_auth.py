@@ -178,3 +178,23 @@ async def test_logout_skips_unavailable_revocation(endpoint_app, token, httpx_mo
     assert response.status_code == 303
     assert session == {}
     assert len(httpx_mock.get_requests()) == 1  # Discovery only.
+
+
+@pytest.mark.parametrize(
+    "endpoint_app",
+    [
+        {
+            "revocation_endpoint": "https://idp/revoke",
+            "token_endpoint_auth_methods_supported": ["client_secret_post"],
+            "revocation_endpoint_auth_methods_supported": ["client_secret_basic"],
+        }
+    ],
+    indirect=["endpoint_app"],
+)
+async def test_revocation_uses_its_own_advertised_auth_method(endpoint_app, httpx_mock):
+    httpx_mock.add_response(url="https://idp/revoke", text="")
+    await endpoint_app.state.oidc.client.revoke_refresh_token("refresh")
+    assert _assert_auth(httpx_mock.get_requests()[-1], basic=True) == {
+        "token": ["refresh"],
+        "token_type_hint": ["refresh_token"],
+    }

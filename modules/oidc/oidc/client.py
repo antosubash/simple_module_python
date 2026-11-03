@@ -14,6 +14,9 @@ from urllib.parse import quote_plus, urlencode
 
 import httpx
 
+# Revocation runs inside the logout request: a hung IdP must not hold it long.
+_REVOKE_TIMEOUT_SECONDS = 3
+
 
 class OIDCClient:
     """Thin wrapper around a provider's discovered OIDC endpoints."""
@@ -28,6 +31,7 @@ class OIDCClient:
         client_secret: str,
         revocation_endpoint: str = "",
         token_endpoint_auth_methods_supported: list[str] | None = None,
+        revocation_endpoint_auth_methods_supported: list[str] | None = None,
     ) -> None:
         self._authorization_endpoint = authorization_endpoint
         self._token_endpoint = token_endpoint
@@ -36,6 +40,12 @@ class OIDCClient:
         self._client_secret = client_secret
         self._revocation_endpoint = revocation_endpoint
         self._token_endpoint_auth_methods_supported = token_endpoint_auth_methods_supported
+        # The revocation endpoint advertises its own methods; fall back to the token endpoint's.
+        self._revocation_endpoint_auth_methods_supported = (
+            revocation_endpoint_auth_methods_supported
+            if revocation_endpoint_auth_methods_supported is not None
+            else token_endpoint_auth_methods_supported
+        )
 
     def build_authorization_url(
         self,
@@ -93,21 +103,31 @@ class OIDCClient:
 
     async def revoke_refresh_token(self, refresh_token: str) -> None:
         if self._revocation_endpoint:
-            await self._token_request(
-                revoke=True, token=refresh_token, token_type_hint="refresh_token"
+            await self._post(
+                self._revocation_endpoint,
+                self._revocation_endpoint_auth_methods_supported,
+                timeout=_REVOKE_TIMEOUT_SECONDS,
+                token=refresh_token,
+                token_type_hint="refresh_token",
             )
 
-    async def _token_request(self, *, revoke: bool = False, **grant: str) -> dict[str, Any]:
-        data = dict(grant)
-        methods = self._token_endpoint_auth_methods_supported
+    async def _token_request(self, **grant: str) -> dict[str, Any]:
+        resp = await self._post(
+            self._token_endpoint, self._token_endpoint_auth_methods_supported, **grant
+        )
+        return resp.json()
+
+    async def _post(
+        self, endpoint: str, methods: list[str] | None, *, timeout: float = 10, **fields: str
+    ) -> httpx.Response:
+        data = dict(fields)
         auth = None
         if methods is None or "client_secret_post" in methods:
             data.update(client_id=self._client_id, client_secret=self._client_secret)
         else:
             # RFC 6749 requires form-encoding each credential before HTTP Basic encoding.
             auth = httpx.BasicAuth(quote_plus(self._client_id), quote_plus(self._client_secret))
-        endpoint = self._revocation_endpoint if revoke else self._token_endpoint
         async with httpx.AsyncClient() as client:
-            resp = await client.post(endpoint, data=data, auth=auth, timeout=10)
+            resp = await client.post(endpoint, data=data, auth=auth, timeout=timeout)
             resp.raise_for_status()
-            return {} if revoke else resp.json()
+            return resp

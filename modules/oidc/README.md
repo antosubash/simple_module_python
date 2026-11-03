@@ -182,7 +182,8 @@ the token endpoint is not called again for 30 seconds, so a flapping IdP does no
 stall every request. A refresh token too large for the 4 KB session cookie (Entra
 can issue such tokens) is not stored, and that session ends at ID-token expiry.
 
-Logout always clears local state. The optional discovered logout endpoint gets
+Logout best-effort revokes the refresh token when discovery advertises a
+`revocation_endpoint`, then always clears local state. The optional discovered logout endpoint gets
 `client_id` and `post_logout_redirect_uri`, without `id_token_hint`. Register
 `https://<your-host>/oidc/logged-out` as the post-logout URI. Providers requiring
 an ID-token hint may show a confirmation prompt or leave their SSO session active;

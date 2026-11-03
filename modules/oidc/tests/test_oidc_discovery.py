@@ -84,9 +84,10 @@ def test_revocation_endpoint_is_optional():
 @pytest.mark.parametrize(
     "value", [None, 42, [], "http://idp/revoke", "https://u:p@idp/revoke", "https://idp/r#f"]
 )
-def test_metadata_rejects_invalid_revocation_endpoint(value):
-    with pytest.raises(ValueError):
-        OidcMetadata.from_document({**_ENTRA_DOC, "revocation_endpoint": value})
+def test_metadata_ignores_unusable_revocation_endpoint(value):
+    # Never used (no token over cleartext), but sign-in still works.
+    meta = OidcMetadata.from_document({**_ENTRA_DOC, "revocation_endpoint": value})
+    assert meta.revocation_endpoint == ""
 
 
 def test_revocation_endpoint_allows_http_in_development():
@@ -97,6 +98,8 @@ def test_revocation_endpoint_allows_http_in_development():
 
 
 @pytest.mark.parametrize("value", [None, "client_secret_post", 42, [None]])
-def test_metadata_rejects_malformed_auth_methods(value):
-    with pytest.raises(ValueError):
-        OidcMetadata.from_document({**_ENTRA_DOC, "token_endpoint_auth_methods_supported": value})
+def test_metadata_ignores_malformed_auth_methods(value):
+    meta = OidcMetadata.from_document(
+        {**_ENTRA_DOC, "token_endpoint_auth_methods_supported": value}
+    )
+    assert meta.token_endpoint_auth_methods_supported is None
