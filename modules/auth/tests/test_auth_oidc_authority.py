@@ -34,7 +34,9 @@ def authority_provider(request):
                 client_secret="secret",
             )
         )
-    provider.jwks_cache = SimpleNamespace(validate_jwt=AsyncMock(return_value=None))
+    provider.jwks_cache = SimpleNamespace(
+        issuer="https://issuer.test", validate_jwt=AsyncMock(return_value=None)
+    )
     return provider
 
 
