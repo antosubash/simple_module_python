@@ -40,6 +40,18 @@ All notable changes to this project are documented in this file. The format is b
   `409` (`file_storage.storage_busy` / tenant `admission_conflict`), rather than
   a 500, before any upload is assembled or cleaned up;
   Postgres advisory/row locking is unchanged (#753). No migration.
+- Background task tenant, owner and log reset tokens are execution-local and
+  nesting-safe, including overlapping task UUIDs: a worker task with no tenant
+  or owner on its message runs unbound (or as the configured `default_tenant`)
+  instead of inheriting an earlier execution's tenant and owner; an in-process
+  run (`apply()`, eager mode) keeps its caller's binding (#751).
+- Tenant-header mismatches now raise before the configured Celery app sends a
+  message through `apply_async`, `delay`, signatures or `send_task`, instead of
+  being swallowed by the publish signal; eager runs (`task_always_eager`) are
+  validated too and run with the caller's tenant and owner (#752).
+- Background task arguments and worker request metadata preserve Kombu JSON
+  type envelopes in execution history; retries decode datetime, UUID and Decimal
+  arguments back to their original types. No migration is needed (#754).
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**

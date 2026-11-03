@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import Any
 
 from celery import signals
+from simple_module_db import current_tenant_id
 
 from background_tasks._signal_bus import bind_event_bus, publish_from_signal, unbind_event_bus
 from background_tasks._signal_support import (
@@ -42,13 +43,13 @@ from background_tasks.log_context import signal_task_finished, signal_task_start
 from background_tasks.models import TaskExecution
 from background_tasks.task_heartbeat import forget_heartbeat
 from background_tasks.tenant_context import (
+    TENANT_HEADER,
     message_tenant,
     published_owner,
     published_tenant,
     release_tenant,
     restore_tenant,
     stamp_owner,
-    stamp_tenant,
 )
 
 # ── Enqueue ─────────────────────────────────────────────────────
@@ -63,7 +64,8 @@ def on_task_publish(
     **_kwargs: Any,
 ) -> None:
     """Record a row the moment a task is pushed onto the broker."""
-    stamp_tenant(headers)
+    if headers is not None and current_tenant_id.get() is not None:
+        headers.setdefault(TENANT_HEADER, current_tenant_id.get())
     stamp_owner(headers)
     task_id = (headers or {}).get("id")
     task_name = sender or (headers or {}).get("task") or "unknown"
