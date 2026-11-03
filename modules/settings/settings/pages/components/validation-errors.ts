@@ -16,6 +16,11 @@ export interface SplitErrors {
 
 const VALUE_ERROR_PREFIX = /^Value error, /;
 
+/** Pydantic prefixes a validator's ValueError message with "Value error, ". */
+export function stripValueErrorPrefix(message: string): string {
+  return message.replace(VALUE_ERROR_PREFIX, '');
+}
+
 export function splitValidationErrors(
   detail: unknown,
   fieldNames?: readonly string[],
@@ -28,7 +33,7 @@ export function splitValidationErrors(
   if (!Array.isArray(detail)) return out;
   const known = fieldNames ? new Set(fieldNames) : null;
   for (const d of detail as ValidationDetail[]) {
-    const msg = String(d?.msg ?? '').replace(VALUE_ERROR_PREFIX, '');
+    const msg = stripValueErrorPrefix(String(d?.msg ?? ''));
     if (!msg) continue;
     let loc = (d?.loc ?? []).map(String);
     if (loc[0] === 'body') loc = loc.slice(1);
