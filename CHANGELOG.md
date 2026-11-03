@@ -15,6 +15,14 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Fixed
+- Background task publishes wait for the root commit and discard callbacks from
+  rolled-back savepoints, including released child savepoints (#729).
+- Successful background tasks normalize results with Kombu's JSON encoder before
+  storage, so datetime results no longer undo success tracking and become stuck
+  (#733).
+- Background task retention clears retry links to expired executions before
+  deletion, preserving recent retries and allowing execution, outbox and log
+  cleanup to complete with foreign keys enforced; no migration (#734).
 - Concurrent permission-module startups no longer fail on a unique constraint
   while adding missing administrator grants: the insert runs in a savepoint and
   a worker that lost the race re-reads and inserts only what is still missing
