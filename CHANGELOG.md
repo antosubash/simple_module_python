@@ -31,6 +31,10 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- **Behaviour change:** Inertia validation errors use the top-level form field
+  and keep its first message, including union, list and nested-model errors
+  (#776). Form-action redirects now scope errors under `X-Inertia-Error-Bag`
+  when present (#777). No migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
