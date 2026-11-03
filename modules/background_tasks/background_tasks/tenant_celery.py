@@ -64,7 +64,7 @@ class TenantCelery(Celery):
         # publish checks by composing them in front of the custom base.
         base = base or self.Task
         if not issubclass(base, TenantPublishMixin):
-            label = str(getattr(base, "__name__", "Task"))
+            label = base.__name__
             try:
                 base = type(
                     label,

@@ -35,17 +35,9 @@ from background_tasks.constants import (
 )
 from background_tasks.settings import BackgroundTasksSettings
 from background_tasks.task_routing import load_task_configs, merge_routes, select_packages
-from background_tasks.tenant_celery import TenantCelery, TenantPublishMixin, TenantTask
+from background_tasks.tenant_celery import TenantCelery
 
 logger = logging.getLogger(__name__)
-
-__all__ = [
-    "TenantCelery",
-    "TenantPublishMixin",
-    "TenantTask",
-    "build_celery",
-    "describe_routes",
-]
 
 
 def _discover_task_packages() -> list[str]:

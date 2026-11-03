@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 from background_tasks import signals as _signals  # noqa: F401 - connects the handlers
-from background_tasks.celery_app import TenantCelery, TenantTask
+from background_tasks.tenant_celery import TenantCelery, TenantTask
 from background_tasks.tenant_context import OWNER_HEADER, TENANT_HEADER
 from celery import Task, _state, current_app, shared_task
 from simple_module_db import TenantIsolationError, current_tenant_id, tenant_context
@@ -79,12 +79,12 @@ def test_custom_base_eager_stamps_caller_and_merges_default_headers(register):
 def test_custom_apply_async_override_runs_after_validation(register):
     calls = []
 
-    class CustomTask(Task):
+    class OverridingTask(Task):
         def apply_async(self, *args, **kwargs):
             calls.append(kwargs["headers"].copy())
             return super().apply_async(*args, **kwargs)
 
-    job = register(CustomTask)
+    job = register(OverridingTask)
     with tenant_context("tenant-a"):
         with pytest.raises(TenantIsolationError):
             job.apply_async(headers={TENANT_HEADER: "tenant-b"})
