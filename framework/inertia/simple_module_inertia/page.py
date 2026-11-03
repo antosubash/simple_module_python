@@ -59,6 +59,7 @@ def build_page(
     }
     optional_fields: list[tuple[str, Any]] = [
         ("deferredProps", resolved.deferred),
+        ("rescuedProps", resolved.rescued),
         ("mergeProps", resolved.merge),
         ("prependProps", resolved.prepend),
         ("deepMergeProps", resolved.deep_merge),

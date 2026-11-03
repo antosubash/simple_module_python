@@ -43,6 +43,19 @@ All notable changes to this project are documented in this file. The format is b
   `<div id="app" data-page='…'>` attribute is gone, which halves a typical
   first-load document (#778). Anything reading that attribute must read the
   script element instead.
+- **Behaviour changes:** Inertia v3 prop resolution retains cached once-prop
+  metadata on full visits (#768), refreshes requested once props on partial
+  reloads (#769), labels scroll data at `<prop>.data` by default (use
+  `wrapper=None` for root merging) and honours reset headers and arguments
+  (#770). Partial reloads restrict merge/once metadata to selected paths
+  (#771) and filter dotted paths inside plain dictionaries before running
+  loaders (#772). `defer(..., rescue=True)` logs loader failures, omits failed
+  props and reports their paths in `rescuedProps` (#773). An `optional()` or
+  `defer()` nested inside a plain dict prop is now skipped on full visits and
+  announced at its dotted path (`deferredProps: {"default": ["stats.daily"]}`)
+  instead of resolving eagerly; one inside a list item or a loader's returned
+  value still resolves eagerly. A `scroll()` whose value is a bare list merges
+  at the prop root.
 - Rejecting an invitation password leaves the invitation usable for a corrected
   retry. Acceptance now validates the password first, then writes verification
   and the new password in one update; error responses are unchanged.
