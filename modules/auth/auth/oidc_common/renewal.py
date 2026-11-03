@@ -10,14 +10,13 @@ import httpx
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from starlette.requests import Request
 
+from auth.constants import REFRESH_RETRY_AFTER_SECONDS
 from auth.contracts.schemas import UserContext
+from auth.oidc_common.renewal_outcomes import coordinated_refresh
 from auth.oidc_common.session import SessionKeys
 
 logger = logging.getLogger(__name__)
 _RETRYABLE_STATUSES = frozenset({408, 425, 429})
-# After a transient failure, don't call the token endpoint again for this long:
-# every request on the session would otherwise wait up to its 10 s timeout.
-_RETRY_AFTER_SECONDS = 30
 
 
 async def refresh_session(
@@ -46,6 +45,36 @@ async def refresh_session(
     if type(retry_at) is int and retry_at > time.time():
         return None
     setattr(request.state, keys.attempted, True)
+
+    async def renew():
+        return await _refresh_grant(
+            request,
+            keys=keys,
+            refresh_token=refresh_token,
+            old_ctx=old_ctx,
+            store_token=store_token,
+            refresh=refresh,
+            validate=validate,
+            matches_identity=matches_identity,
+            to_context=to_context,
+        )
+
+    return await coordinated_refresh(request, keys, sealed, renew)
+
+
+async def _refresh_grant(
+    request,
+    *,
+    keys,
+    refresh_token,
+    old_ctx,
+    store_token,
+    refresh,
+    validate,
+    matches_identity,
+    to_context,
+):
+    session = request.session
     try:
         tokens = await refresh(refresh_token)
     except (httpx.TransportError, httpx.HTTPStatusError) as exc:
@@ -53,7 +82,7 @@ async def refresh_session(
         status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
         logger.warning("OIDC session refresh failed (status=%s)", status)
         if status is None or status >= 500 or status in _RETRYABLE_STATUSES:
-            session[keys.retry] = int(time.time()) + _RETRY_AFTER_SECONDS
+            session[keys.retry] = int(time.time()) + REFRESH_RETRY_AFTER_SECONDS
             return None
         keys.forget(session)
         return None

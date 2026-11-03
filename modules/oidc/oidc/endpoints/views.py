@@ -2,12 +2,14 @@
 
 import logging
 
+from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Request
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
 
 from oidc.constants import _PAGE_LOGGED_OUT, _PAGE_LOGIN, LOGGED_OUT_PATH, SESSION_REFRESH_TOKEN_KEY
+from oidc.renewal import _KEYS
 from oidc.runtime import is_signed_in
 from oidc.tokens import open_refresh_token
 
@@ -44,6 +46,7 @@ async def logout(request: Request):
             logger.warning(
                 "OIDC refresh token revocation failed (%s); continuing logout", type(exc).__name__
             )
+    await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
     destination = f"{str(request.base_url).rstrip('/')}{LOGGED_OUT_PATH}"
     if client is not None:

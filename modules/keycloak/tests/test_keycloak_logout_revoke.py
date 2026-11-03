@@ -75,3 +75,19 @@ async def test_inertia_logout_uses_a_full_page_location_visit(httpx_mock):
 
     assert response.status_code == 409
     assert response.headers["X-Inertia-Location"].startswith(_LOGOUT)
+
+
+async def test_logout_drops_shared_renewal_outcomes_before_clearing(httpx_mock, monkeypatch):
+    httpx_mock.add_response(url=_LOGOUT, method="POST", status_code=204)
+    seen = []
+
+    async def forget(app, keys, session):
+        seen.append((keys.refresh, dict(session)))
+
+    monkeypatch.setattr(views, "forget_outcomes", forget)
+    request = _request()
+    await views.logout(request)
+    assert [(k, "keycloak_refresh_token" in s) for k, s in seen] == [
+        ("keycloak_refresh_token", True)
+    ]
+    assert request.session == {}

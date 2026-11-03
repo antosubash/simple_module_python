@@ -312,11 +312,11 @@ development and testing (`session_cookie_secure`).
 - **Migrations** live in `host/migrations/versions/`, never in module packages.
   `host/migrations/env.py` builds metadata from every installed module and runs
   `ensure_db_extensions` first. The history is **not** one linear chain: it has
-  five roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants,
-  `f733c7938fd1` sharing, `d263ea727663` the framework's `sm_lease`, and
-  `c9d2e4f6a810` OIDC) and seven
-  heads (`audit_log`, `tenants`, `keycloak`, `sharing`, `leases`, `oidc`, and the users
-  trunk, which Alembic reports as `api_tokens`, `users`, `file_storage` and, since #536,
+  six roots (`77162e7b184b` initial schema, `e36ab09c4a92` tenants,
+  `f733c7938fd1` sharing, `d263ea727663` the framework's `sm_lease`,
+  `c9d2e4f6a810` OIDC, and `a738c2e4f601` auth refresh outcomes) and eight
+  heads (`audit_log`, `tenants`, `keycloak`, `sharing`, `leases`, `oidc`, `auth`,
+  and the users trunk, which Alembic reports as `api_tokens`, `users`, `file_storage` and, since #536,
   `background_tasks`). Apply with `upgrade heads` (what `make migrate`
   does); plain `revision --autogenerate` refuses with "Multiple heads", so name
   the branch:

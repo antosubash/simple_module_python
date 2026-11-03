@@ -53,10 +53,18 @@ _OWNER: dict[str, str] = {
     "70786227af4c": "audit_log",
     "a7c2e91d4b58": "audit_log",
     "f733c7938fd1": "sharing",
+    "a738c2e4f601": "auth",
     "d263ea727663": "leases",  # framework-owned sm_lease (#539)
 }
 
-_ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1", "d263ea727663", "c9d2e4f6a810"}
+_ROOTS = {
+    "77162e7b184b",
+    "e36ab09c4a92",
+    "f733c7938fd1",
+    "d263ea727663",
+    "c9d2e4f6a810",
+    "a738c2e4f601",
+}
 
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
@@ -66,6 +74,7 @@ _HEADS = {
     "f6a3b9d2e8c4": "keycloak",
     "c9d2e4f6a810": "oidc",
     "f733c7938fd1": "sharing",
+    "a738c2e4f601": "auth",
     "d263ea727663": "leases",
 }
 
@@ -77,6 +86,7 @@ _DECLARED_LABELS = {
     "e36ab09c4a92": "tenants",
     "f733c7938fd1": "sharing",
     "bb906e1a1089": "background_tasks",
+    "a738c2e4f601": "auth",
     "d263ea727663": "leases",
     "a625f0b7c912": "users",
     "f5b1c3e8a207": "file_storage",

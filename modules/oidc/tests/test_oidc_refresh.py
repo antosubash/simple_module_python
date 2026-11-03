@@ -15,7 +15,7 @@ from starlette.requests import Request
 
 
 @pytest.fixture
-def refresh_session(monkeypatch):
+def refresh_session(monkeypatch, db_state, db_session):
     monkeypatch.setattr("time.time", lambda: 1000)
     settings = OidcSettings(
         discovery_url="https://idp.test/.well-known/openid-configuration",
@@ -49,7 +49,7 @@ def refresh_session(monkeypatch):
                     client_secret="secret",
                 ),
             ),
-            sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
+            sm=SimpleNamespace(db=db_state, settings=SimpleNamespace(secret_key="test-secret-key")),
         )
     )
     session = {

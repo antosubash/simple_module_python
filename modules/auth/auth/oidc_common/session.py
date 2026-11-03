@@ -11,6 +11,8 @@ from simple_module_hosting.csrf import rotate_csrf_token
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
 
+from auth.constants import SESSION_ID_KEY
+
 
 @dataclass(frozen=True)
 class SessionKeys:
@@ -23,6 +25,7 @@ class SessionKeys:
 
     def forget(self, session) -> None:
         for key in (
+            SESSION_ID_KEY,
             self.user,
             self.refresh,
             self.retry,
@@ -74,6 +77,7 @@ def sign_in(
     }
     request.session.clear()
     request.session.update(preserved)
+    request.session[SESSION_ID_KEY] = secrets.token_urlsafe(24)
     rotate_csrf_token(request)
     request.session[user_key] = user.to_session_dict()
     if identity_key is not None:

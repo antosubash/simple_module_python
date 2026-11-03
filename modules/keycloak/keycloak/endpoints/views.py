@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 
+from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Request
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse, Response
 
+from keycloak.renewal import _KEYS
 from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,7 @@ async def logout(request: Request) -> Response:
 
     s = request.app.state.keycloak.settings
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))
+    await forget_outcomes(request.app, _KEYS, request.session)
     request.session.clear()
 
     client = OIDCClient(
