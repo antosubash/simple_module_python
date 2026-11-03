@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -49,7 +50,9 @@ class OidcMetadata:
             raise ValueError(
                 f"OIDC discovery document missing required fields: {', '.join(missing)}"
             )
-        values = {key: _validate_url(doc[key], development=development) for key in required}
+        values: dict[str, Any] = {
+            key: _validate_url(doc[key], development=development) for key in required
+        }
         issuer = urlsplit(values["issuer"])
         if issuer.query or "{" in values["issuer"] or "}" in values["issuer"]:
             raise ValueError("OIDC issuer must be concrete and have no query")

@@ -109,28 +109,34 @@ class OIDCClient:
                 await self._post(
                     self._revocation_endpoint,
                     self._revocation_endpoint_auth_methods_supported,
+                    {"token": refresh_token, "token_type_hint": "refresh_token"},
                     timeout=_REVOKE_TIMEOUT_SECONDS,
-                    token=refresh_token,
-                    token_type_hint="refresh_token",
                 )
 
     async def _token_request(self, **grant: str) -> dict[str, Any]:
         resp = await self._post(
-            self._token_endpoint, self._token_endpoint_auth_methods_supported, **grant
+            self._token_endpoint, self._token_endpoint_auth_methods_supported, dict(grant)
         )
         return resp.json()
 
     async def _post(
-        self, endpoint: str, methods: list[str] | None, *, timeout: float = 10, **fields: str
+        self,
+        endpoint: str,
+        methods: list[str] | None,
+        fields: dict[str, str],
+        *,
+        timeout: float = 10,
     ) -> httpx.Response:
         data = dict(fields)
-        auth = None
+        extra: dict[str, Any] = {}
         if methods is None or "client_secret_post" in methods:
             data.update(client_id=self._client_id, client_secret=self._client_secret)
         else:
             # RFC 6749 requires form-encoding each credential before HTTP Basic encoding.
-            auth = httpx.BasicAuth(quote_plus(self._client_id), quote_plus(self._client_secret))
+            extra["auth"] = httpx.BasicAuth(
+                quote_plus(self._client_id), quote_plus(self._client_secret)
+            )
         async with httpx.AsyncClient() as client:
-            resp = await client.post(endpoint, data=data, auth=auth, timeout=timeout)
+            resp = await client.post(endpoint, data=data, timeout=timeout, **extra)
             resp.raise_for_status()
             return resp
