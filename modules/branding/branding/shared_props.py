@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_hosting.inertia_deps import is_inertia_request
+from simple_module_hosting.inertia_deps import INERTIA_HEADER
 
 from branding.constants import (
     ASSET_VERSION_QUERY_KEY,
@@ -77,7 +77,7 @@ def renders_a_page(request: Request) -> bool:
     ``/api/``, SM018). Elsewhere an Inertia visit, or anything a browser could
     be navigating with (``text/html``, ``*/*``, or no ``Accept``), counts.
     """
-    if is_inertia_request(request.scope):
+    if INERTIA_HEADER in request.headers:  # presence, like is_inertia_request
         return True
     path = request.url.path
     if path == "/api" or path.startswith(_NO_PAGE_PREFIXES):
