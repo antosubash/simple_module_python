@@ -95,6 +95,9 @@ The module ships no billing, but a billing module needs nothing more from it:
   with an `EntitlementProvider` (`limit(tenant_id, key)`,
   `has_feature(tenant_id, key)`). The module enforces `tenants.seats` on new
   members and invitations; `EntitlementExceededError` maps to HTTP 402.
+  Admission holds a Postgres row lock or a SQLite writer lock before counting
+  seats until commit. SQLite lock contention or a stale WAL snapshot returns
+  `409 admission_conflict`; retry the whole operation in a fresh transaction.
 - `TenantService.set_status(tenant_id, TenantStatus.SUSPENDED | ACTIVE)` for
   dunning.
 - Events, published after commit: `TenantCreated`, `TenantStatusChanged`,

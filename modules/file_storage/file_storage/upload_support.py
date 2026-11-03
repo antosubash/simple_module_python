@@ -28,6 +28,10 @@ class QuotaExceededError(Exception):
     """The file would not fit in the configured storage quota."""
 
 
+class StorageBusyError(Exception):
+    """Another upload holds the quota check; retry shortly (SQLite only)."""
+
+
 class InvalidPartError(Exception):
     """A part number outside the file, or a part of the wrong size."""
 

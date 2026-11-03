@@ -141,7 +141,8 @@
     "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
     "already_member": "Diese Person ist bereits Mitglied dieser Organisation.",
     "tenant_manager_required": "Nur ein Inhaber oder Administrator dieser Organisation kann dies tun.",
-    "tenant_isolation": "Diese Aktion ist organisationsübergreifend nicht erlaubt."
+    "tenant_isolation": "Diese Aktion ist organisationsübergreifend nicht erlaubt.",
+    "admission_conflict": "Diese Organisation wurde gerade gleichzeitig geändert. Bitte versuchen Sie es erneut."
   },
   "settings": {
     "head_title": "Organisationseinstellungen",
