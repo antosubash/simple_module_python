@@ -31,6 +31,9 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- Rejecting an invitation password leaves the invitation usable for a corrected
+  retry. Acceptance now writes verification and the new password together,
+  preserving lifecycle hooks and existing error responses (#763). No migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
