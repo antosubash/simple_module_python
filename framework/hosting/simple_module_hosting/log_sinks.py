@@ -70,8 +70,12 @@ def redact_record(record: logging.LogRecord) -> None:
     """Mask ``record`` in place: the message, the traceback text and any extra attributes."""
     record.msg = redact(record.getMessage())
     record.args = None
+    if record.exc_info and not record.exc_text:
+        record.exc_text = logging.Formatter().formatException(record.exc_info)
     if record.exc_text:
         record.exc_text = redact(record.exc_text)
+    if record.stack_info:
+        record.stack_info = redact(record.stack_info)
     for key, value in list(standard_extra_attrs(record).items()):
         if is_sensitive_key(key):
             record.__dict__[key] = REDACTED

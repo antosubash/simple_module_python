@@ -155,7 +155,26 @@ It runs at `COMPRESSION_LEVEL` 5, not Starlette's default of 9. Compression runs
 
 ### `SecurityHeadersMiddleware`
 
-Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Modules that load assets from an external origin extend the policy through the [`register_csp_sources`](lifecycle.md#register_csp_sourcesregistry) hook; both the dev and production variants honor those origins. Override on a per-route basis with your own response headers.
+Sets conservative defaults: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 0` (the legacy auditor is disabled in favour of CSP), plus a default CSP and — outside development — HSTS. In development the CSP is widened for the Vite dev origin and HSTS is suppressed. Modules that load assets from an external origin extend the policy through the [`register_csp_sources`](lifecycle.md#register_csp_sourcesregistry) hook; both the dev and production variants include those origins.
+
+Outside development, `script-src` and `script-src-elem` use
+`'self' 'nonce-<request nonce>' 'strict-dynamic'`, without `'unsafe-inline'` or
+`'unsafe-eval'`; `script-src` additionally allows `'wasm-unsafe-eval'` so
+WebAssembly can compile without re-enabling JavaScript `eval`. A `304 Not
+Modified` carries no CSP header, so the cached document keeps the policy whose
+nonce matches its body; for the same reason a nonce-bearing document must not
+be stored by a shared cache (`Cache-Control: public`), which would replay one
+nonce to every visitor. Each HTTP request gets `request.state.csp_nonce`. The host's
+pre-paint script and Inertia's module entry carry that nonce; custom templates
+must put `nonce="{{ request.state.csp_nonce }}"` on every executable script,
+including external entries. JSON page data and JSON-LD are inert and need no
+nonce. Development retains the permissive Vite/HMR policy.
+
+CSP3 browsers ignore script host allowlists under `strict-dynamic`; a nonced
+entry can load its imports. Module sources are retained for older browsers
+and other fetch directives. A response CSP containing `sandbox` is emitted
+as a separate header alongside the app policy, so browsers enforce their
+intersection. Other response CSPs are overwritten by the app policy.
 
 ### `SessionMiddleware`
 

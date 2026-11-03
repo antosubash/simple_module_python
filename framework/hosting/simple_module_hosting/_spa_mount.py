@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
+import anyio
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from simple_module_core.app_state import get_host_services, get_public_routes, get_spa_prefixes
@@ -23,7 +25,7 @@ from simple_module_core.diagnostics._spa_mount import check_spa_mount_overlaps
 from simple_module_core.spa_mount import SPA_AUTH_PUBLIC, SpaMount
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
-from starlette.responses import Response
+from starlette.responses import FileResponse, Response
 from starlette.types import Scope
 
 from simple_module_hosting._route_paths import app_route_paths
@@ -36,6 +38,16 @@ _OK = 200
 _SAFE_METHODS = ("GET", "HEAD")
 _NO_CACHE = "no-cache"
 _CACHE_CONTROL = "Cache-Control"
+# Set by SecurityHeadersMiddleware for every HTTP request.
+_NONCE_STATE_KEY = "csp_nonce"
+_SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\snonce\s*=)", re.IGNORECASE)
+# Vite shells preload their chunks; a script preload without the nonce is refused.
+_SCRIPT_PRELOAD_WITHOUT_NONCE = re.compile(
+    r"<link\b(?=[^>]*\s(?:rel\s*=\s*[\"']?modulepreload|as\s*=\s*[\"']?script))"
+    r"(?![^>]*\snonce\s*=)",
+    re.IGNORECASE,
+)
+_CONDITIONAL_HEADERS = (b"if-none-match", b"if-modified-since", b"if-match", b"if-unmodified-since")
 # Vite/webpack content-hashed file: `index-3f9a8c21.js`, `chunk.AbC123xy.css`.
 _HASHED_FILE = re.compile(r"[-.]([A-Za-z0-9_-]{8,})\.[A-Za-z0-9]+$")
 _PRIVATE_IMMUTABLE = "private, max-age=31536000, immutable"
@@ -90,10 +102,38 @@ class SpaStaticFiles(StaticFiles):
         return response
 
     async def _index_response(self, scope: Scope) -> Response:
+        nonce = (scope.get("state") or {}).get(_NONCE_STATE_KEY)
+        if nonce:
+            # A 304 would revive a cached shell carrying an older nonce (or none).
+            scope = {
+                **scope,
+                "headers": [(k, v) for k, v in scope["headers"] if k not in _CONDITIONAL_HEADERS],
+            }
         response = await super().get_response(self._index, scope)
+        if nonce and isinstance(response, FileResponse) and response.status_code == _OK:
+            response = await anyio.to_thread.run_sync(_with_script_nonce, response, nonce)
         # The shell references hashed bundles, so it must revalidate on each visit.
         response.headers[_CACHE_CONTROL] = _NO_CACHE if self._public else _PRIVATE_NO_CACHE
         return response
+
+
+def _with_script_nonce(response: FileResponse, nonce: str) -> Response:
+    """The shell with the request's CSP nonce on every ``<script>`` tag.
+
+    The production script policy is ``'nonce-…' 'strict-dynamic'``, under which a
+    CSP3 browser ignores ``'self'``: a static shell's own entry script would be
+    blocked. The nonce differs per response, so the validators go too: a 304
+    would revive a cached shell whose nonce no longer matches the header.
+    """
+    html = Path(response.path).read_text(encoding="utf-8")
+    html = _SCRIPT_WITHOUT_NONCE.sub(f'<script nonce="{nonce}"', html)
+    html = _SCRIPT_PRELOAD_WITHOUT_NONCE.sub(f'<link nonce="{nonce}"', html)
+    headers = {
+        k: v
+        for k, v in response.headers.items()
+        if k.lower() not in ("content-length", "etag", "last-modified", "accept-ranges")
+    }
+    return Response(html, status_code=_OK, headers=headers, media_type="text/html")
 
 
 def _is_page_request(path: str, scope: Scope) -> bool:

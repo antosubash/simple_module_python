@@ -612,6 +612,14 @@ def register_csp_sources(self, registry):
 Only fetch directives can be extended; each source must be a single
 origin/scheme token, validated at boot.
 
+Production script directives use a per-request nonce and `strict-dynamic`.
+In CSP3 browsers, script host allowlists are ignored: executable scripts in
+custom templates must carry `nonce="{{ request.state.csp_nonce }}"`, including
+external script entries. The Inertia adapter adds it to its module scripts;
+imports loaded by those trusted entries inherit trust. Registered script
+origins remain in the policy for older browsers; other asset directives
+continue to use their allowlists. See [security headers](framework/middleware.md#securityheadersmiddleware).
+
 An origin that comes from a DB-backed setting (a configurable tile server)
 can't be added at boot — the hook runs before settings hydrate. Register a
 provider, evaluated per response:

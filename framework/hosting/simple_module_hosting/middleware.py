@@ -10,6 +10,7 @@ and ``ContextVar`` propagation.
 from __future__ import annotations
 
 import logging
+import secrets
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -63,8 +64,9 @@ _XCTO_NOSNIFF = "nosniff"
 _XFO_SAMEORIGIN = "SAMEORIGIN"
 # OWASP/MDN now recommend disabling the legacy XSS auditor — older
 # browser implementations introduced reflected-XSS vectors of their own.
-# Modern protection comes from the CSP below (strict-dynamic + nonces).
+# Production CSP authorizes scripts with a per-request nonce.
 _XXSS_DISABLED = "0"
+_HTTP_NOT_MODIFIED = 304
 _REFERRER_STRICT_ORIGIN = "strict-origin-when-cross-origin"
 
 __all__ = [
@@ -90,12 +92,11 @@ class SecurityHeadersMiddleware:
 
     DEFAULT_CSP = (
         "default-src 'self'; "
-        # Inertia embeds the initial page blob inline; Vite injects a React
-        # Refresh shim at boot. Both require 'unsafe-inline' for scripts.
-        # Production builds compile to hashed bundles, so this can be
-        # tightened with a nonce once Vite's preamble is removed in prod.
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "script-src-elem 'self' 'unsafe-inline'; "
+        # The request nonce is inserted after static/dynamic sources are merged.
+        # 'wasm-unsafe-eval' lets WebAssembly compile (see worker-src below)
+        # without re-allowing JavaScript eval.
+        "script-src 'self' 'strict-dynamic' 'wasm-unsafe-eval'; "
+        "script-src-elem 'self' 'strict-dynamic'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: blob:; "
         "font-src 'self' https://fonts.gstatic.com data:; "
@@ -161,6 +162,9 @@ class SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
 
+        nonce = secrets.token_urlsafe(16)
+        scope.setdefault("state", {})["csp_nonce"] = nonce
+
         async def send_with_headers(message: Message) -> None:
             if message["type"] == _MSG_RESPONSE_START:
                 headers = MutableHeaders(scope=message)
@@ -168,15 +172,20 @@ class SecurityHeadersMiddleware:
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
                 headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
-                # A response may only *tighten* the app-wide policy: one that
-                # carries its own ``sandbox`` directive (file_storage serving
-                # user-uploaded bytes) keeps it. Any other response-supplied
-                # policy is overwritten, so a module cannot weaken the default.
-                own = headers.get(_HEADER_CSP) or ""
-                keeps_own = "sandbox" in {d.strip().split(" ")[0].lower() for d in own.split(";")}
-                if self.csp and not keeps_own:
+                # A 304 refreshes the cached response's headers: a new nonce there
+                # would no longer match the cached body, so keep the cached CSP.
+                if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:
+                    # Separate policies intersect: sandbox responses cannot replace
+                    # the app's default-src, frame-ancestors or other protections.
+                    own = (headers.get(_HEADER_CSP) or "").lower()
+                    keeps_own = any(d.split()[:1] == ["sandbox"] for d in own.split(";"))
                     dyn = self._dynamic
-                    headers[_HEADER_CSP] = dyn.policy_for(scope.get("app")) if dyn else self.csp
+                    policy = dyn.policy_for(scope.get("app")) if dyn else self.csp
+                    policy = policy.replace("'strict-dynamic'", f"'nonce-{nonce}' 'strict-dynamic'")
+                    if keeps_own:
+                        headers.append(_HEADER_CSP, policy)
+                    else:
+                        headers[_HEADER_CSP] = policy
                 if self.hsts:
                     headers[_HEADER_HSTS] = self.hsts
             await send(message)

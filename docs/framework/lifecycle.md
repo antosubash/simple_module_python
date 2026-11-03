@@ -224,6 +224,14 @@ can be extended — never `default-src`, `base-uri`, `form-action`, or
 single origin/scheme token; invalid declarations raise at boot. The origins
 land in both the development (Vite-widened) and production policies.
 
+Production script directives use a per-request nonce and `strict-dynamic`.
+In CSP3 browsers, script host allowlists are ignored: executable scripts in
+custom templates must carry `nonce="{{ request.state.csp_nonce }}"`, including
+external script entries. The Inertia adapter adds it to its module scripts;
+imports loaded by those trusted entries inherit trust. Registered script
+origins remain in the policy for older browsers; other asset directives
+continue to use their allowlists. See [security headers](middleware.md#securityheadersmiddleware).
+
 The hook runs before DB-backed settings are hydrated, so an origin that comes
 from a setting can't be a static `add()`. Register a provider instead — it is
 called on every response with the app and returns `(directive, source)` pairs:
@@ -238,7 +246,8 @@ Providers must be synchronous and read only in-memory state
 same validation as `add()`; a provider that raises, or an invalid pair, is
 logged once and dropped — the static policy still applies. The finished policy
 is cached by the pairs returned, so a settings edit takes effect on the next
-response. With no providers the header is the precomputed boot-time string.
+response. With no providers the base policy is precomputed at boot; the request nonce
+is inserted afterwards, outside the provider cache.
 
 ## `register_exception_handlers(app)`
 
