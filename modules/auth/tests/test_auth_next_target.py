@@ -104,6 +104,8 @@ async def test_a_subresource_does_not_overwrite_a_recorded_target():
         ("http://test/protected/list?page=2", "/protected/list?page=2"),
         (None, None),
         ("https://evil.example/phish", None),
+        ("http://test:9999/other", None),
+        ("http://[bad/x", None),
     ],
 )
 @pytest.mark.parametrize("method", ["DELETE", "PUT"])

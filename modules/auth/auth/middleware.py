@@ -69,8 +69,15 @@ def _post_login_target(request: Request) -> str | None:
         return None
     if request.method in ("GET", "HEAD"):
         return safe_next_or_none(request.url.path + _query_suffix(request))
-    referer = urlsplit(request.headers.get("referer", ""))
-    if referer.netloc and referer.hostname != request.url.hostname:
+    try:
+        referer = urlsplit(request.headers.get("referer", ""))
+        # Same origin means host *and* port: another port on this host is a
+        # different site. A malformed Referer (``http://[``) raises ValueError.
+        if referer.netloc and (
+            referer.hostname != request.url.hostname or referer.port != request.url.port
+        ):
+            return None
+    except ValueError:
         return None
     query = f"?{referer.query}" if referer.query else ""
     return safe_next_or_none(referer.path + query) if referer.path else None
