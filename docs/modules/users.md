@@ -265,7 +265,7 @@ SELECT id, email FROM users_user WHERE lower(email) IN
   (SELECT lower(email) FROM users_user GROUP BY lower(email) HAVING count(*) > 1);
 ```
 
- Assign distinct addresses to those accounts before retrying;
+Assign distinct addresses to those accounts before retrying;
 no accounts are automatically merged or deleted. Hosts with their own migration
 history must also replace `ix_users_user_email_lower` with a unique index on
 `lower(email)` after resolving conflicts.

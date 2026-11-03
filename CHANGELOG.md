@@ -30,6 +30,9 @@ All notable changes to this project are documented in this file. The format is b
   Migration `e731a1b2c3d4` makes `lower(email)` unique; migration and boot checks
   report existing conflicts (masked, with the query that lists them) and refuse
   to proceed until operators resolve them.
+  Admin email edits, `smpy users create-admin` and the demo seeder store
+  lowercase emails too, and an edit that loses a race answers as a duplicate
+  email rather than a 500.
   No accounts are automatically merged or deleted.
 - Browser and bearer password logins offload real and dummy password work to
   worker threads instead of blocking the event loop (#737).

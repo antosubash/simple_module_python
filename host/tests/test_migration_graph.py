@@ -61,7 +61,7 @@ _ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1", "d263ea727663", "c9d2e
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
     "a7c2e91d4b58": "audit_log",
-    "e731a1b2c3d4": "users",  # also carries ``api_tokens``, ``background_tasks``, ``users``
+    "e731a1b2c3d4": "users",  # also carries ``api_tokens``, ``background_tasks``, ``file_storage``
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
     "c9d2e4f6a810": "oidc",

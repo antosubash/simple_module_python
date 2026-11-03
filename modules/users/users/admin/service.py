@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import noload
 from sqlmodel import col
 
@@ -99,9 +100,15 @@ class UserService(_UserAdminSafety):
             )
             if clash.scalar_one_or_none() is not None:
                 raise EmailAlreadyExistsError(email)
-        user.email = email
+        user.email = email.lower()
         user.full_name = full_name
-        await self._db.flush()
+        try:
+            # The unique lower(email) index catches a concurrent edit or signup
+            # that slipped past the check above (#731).
+            async with self._db.begin_nested():
+                await self._db.flush()
+        except IntegrityError:
+            raise EmailAlreadyExistsError(email) from None
         return user
 
     async def delete_user(self, user_id: uuid.UUID) -> None:
