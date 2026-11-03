@@ -28,11 +28,15 @@ async def test_permissions_concurrent_module_startup(tmp_path, monkeypatch):
             apps.append(app)
         barrier = asyncio.Barrier(2)
         original = PermissionService._get_role_keys
+        first_reads = []
 
         async def synchronized_read(self, name):
             keys = await original(self, name)
-            assert keys == []
-            await asyncio.wait_for(barrier.wait(), 5)
+            # Hold both workers after their first (empty) read so both try the
+            # insert; the loser's re-read after the conflict runs straight on.
+            if len(first_reads) < 2:
+                first_reads.append(keys)
+                await asyncio.wait_for(barrier.wait(), 5)
             return keys
 
         with monkeypatch.context() as patch:
@@ -41,6 +45,7 @@ async def test_permissions_concurrent_module_startup(tmp_path, monkeypatch):
                 *(PermissionsModule().on_startup(app) for app in apps), return_exceptions=True
             )
         assert results == [None, None]
+        assert first_reads == [[], []]
         await PermissionsModule().on_startup(apps[0])
         async with state.session_factory() as db:
             rows = (await db.execute(select(RolePermission))).scalars().all()

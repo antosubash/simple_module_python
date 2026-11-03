@@ -108,7 +108,11 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
 
 def apply_invalidation(invalidation: Invalidation, app: FastAPI | None = None) -> None:
     """Drop grants for this app; app-less maintenance callers forget all caches."""
-    caches = [_cache(app)] if app is not None else list(_CACHES.values())
+    if app is None:
+        caches = list(_CACHES.values())
+    else:
+        # ``get``, not ``_cache``: an invalidation must not allocate a cache.
+        caches = [cache] if (cache := _CACHES.get(app)) is not None else []
     for cache in caches:
         if invalidation.key is None:
             cache.clear()
@@ -118,7 +122,7 @@ def apply_invalidation(invalidation: Invalidation, app: FastAPI | None = None) -
                 cache.pop(user_id, None)
 
 
-def subscribe(bus: InvalidationBus, app: FastAPI | None = None) -> None:
+def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
     bus.subscribe(CHANNEL, lambda message: apply_invalidation(message, app))
 
 
