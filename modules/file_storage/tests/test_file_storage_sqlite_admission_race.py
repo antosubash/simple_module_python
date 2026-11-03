@@ -10,7 +10,7 @@ from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.models import Base, StoredFile, UploadSession
 from file_storage.service import FileStorageService
 from file_storage.settings import FileStorageSettings
-from file_storage.upload_support import QuotaExceededError
+from file_storage.upload_support import QuotaExceededError, StorageBusyError
 from file_storage.uploads import UploadSessionService
 from simple_module_db import tenant_context
 from simple_module_db.listeners import register_listeners
@@ -59,9 +59,12 @@ async def test_concurrent_storage_admission_stays_within_quota(tmp_path, reserva
                     try:
                         await admit(b)
                         await b.commit()
-                    except QuotaExceededError as exc:
-                        if snapshot:
-                            assert exc.__cause__.orig.sqlite_errorcode == SQLITE_BUSY_SNAPSHOT
+                    except StorageBusyError as exc:
+                        # A stale snapshot cannot take the lock: retryable, not "quota".
+                        assert exc.__cause__.orig.sqlite_errorcode == SQLITE_BUSY_SNAPSHOT
+                        await b.rollback()
+                        return "busy"
+                    except QuotaExceededError:
                         await b.rollback()
                         return "refused"
                     return "admitted"
@@ -70,7 +73,8 @@ async def test_concurrent_storage_admission_stays_within_quota(tmp_path, reserva
                 try:
                     await asyncio.wait_for(writing.wait(), 5)
                     await a.commit()
-                    assert await asyncio.wait_for(task, 5) == "refused"
+                    expected = "busy" if snapshot else "refused"
+                    assert await asyncio.wait_for(task, 5) == expected
                 finally:
                     if not task.done():
                         task.cancel()

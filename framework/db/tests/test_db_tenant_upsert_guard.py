@@ -17,7 +17,7 @@ from sqlmodel import Field
 Base = create_module_base("upsert_guard_regression")
 
 
-class UpsertRow(Base, MultiTenantMixin, table=True):
+class UpsertRow(Base, MultiTenantMixin, table=True):  # ty: ignore[unsupported-base]
     __tablename__ = "upsert_guard_regression_row"
     id: int = Field(primary_key=True)
     name: str
@@ -136,3 +136,15 @@ async def test_do_nothing_remains_supported(upsert_db):
     await upsert_db.execute(stmt.on_conflict_do_nothing(index_elements=["id"]))
     with all_tenants():
         assert await upsert_db.scalar(select(UpsertRow.name).where(UpsertRow.id == 1)) == "private"
+
+
+async def test_upsert_from_excluded_updates_own_row_only(upsert_db):
+    base = insert(UpsertRow).values(id=2, name="refreshed", tenant_id="attacker")
+    await upsert_db.execute(base.on_conflict_do_update(index_elements=["id"], set_=base.excluded))
+    base = insert(UpsertRow).values(id=1, name="corrupted", tenant_id="attacker")
+    await upsert_db.execute(base.on_conflict_do_update(index_elements=["id"], set_=base.excluded))
+    with all_tenants():
+        rows = dict((await upsert_db.execute(select(UpsertRow.id, UpsertRow.name))).all())
+        owners = dict((await upsert_db.execute(select(UpsertRow.id, UpsertRow.tenant_id))).all())
+    assert rows == {1: "private", 2: "refreshed"}
+    assert owners == {1: "victim", 2: "attacker"}

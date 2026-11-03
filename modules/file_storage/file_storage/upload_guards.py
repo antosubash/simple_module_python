@@ -15,7 +15,11 @@ from file_storage import constants
 from file_storage.contracts.service import StorageError
 from file_storage.models import StoredFile, UploadSession
 from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
-from file_storage.upload_support import DirectUploadUnsupportedError, QuotaExceededError
+from file_storage.upload_support import (
+    DirectUploadUnsupportedError,
+    QuotaExceededError,
+    StorageBusyError,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,9 +43,7 @@ class StorageQuota:
     async def _lock_quota(self) -> None:
         quota = self.settings.quota_bytes
         if quota is not None:
-            await serialize_sqlite_writes(
-                self.db, StoredFile.__table__, on_busy=QuotaExceededError(str(quota))
-            )
+            await serialize_sqlite_writes(self.db, StoredFile.__table__, on_busy=StorageBusyError())
 
     async def _serialize_reservations(self, *, platform: bool = False) -> None:
         """Make concurrent quota admissions take turns on Postgres.

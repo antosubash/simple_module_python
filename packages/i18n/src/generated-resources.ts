@@ -545,6 +545,7 @@ export default {
     'file_storage.errors.parts_mismatch': '',
     'file_storage.errors.quota_exceeded': '',
     'file_storage.errors.size_mismatch': '',
+    'file_storage.errors.storage_busy': '',
     'file_storage.errors.too_large': '',
     'file_storage.errors.upload_session_closed': '',
     'file_storage.feature_flags.public_uploads': '',

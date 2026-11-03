@@ -183,7 +183,10 @@ def _guard_conflict_update(execute_state: ORMExecuteState, tenant_id: str | None
     arm = getattr(stmt, "_post_values_clause", None)
     if not isinstance(arm, (PgConflictUpdate, SqliteConflictUpdate)):
         return
-    if any(_column_name(key) == TENANT_COLUMN for key, _ in arm.update_values_to_set):
+    if any(
+        _column_name(key) == TENANT_COLUMN and not _is_excluded_tenant(value)
+        for key, value in arm.update_values_to_set
+    ):
         raise TenantIsolationError("Cannot change tenant_id of existing rows")
     if tenant_id is None:
         return
@@ -196,3 +199,15 @@ def _guard_conflict_update(execute_state: ORMExecuteState, tenant_id: str | None
     )
     scoped._post_values_clause = scoped_arm
     execute_state.statement = scoped
+
+
+def _is_excluded_tenant(value: Any) -> bool:
+    """``excluded.tenant_id`` (e.g. ``set_=stmt.excluded``): the inserted tenant.
+
+    That value is validated against the bound tenant above, and the arm is
+    scoped to rows of that tenant, so assigning it changes nothing.
+    """
+    table = getattr(value, "table", None)
+    return (
+        getattr(value, "name", None) == TENANT_COLUMN and getattr(table, "name", None) == "excluded"
+    )

@@ -690,6 +690,7 @@ export const keys = {
       parts_mismatch: 'file_storage.errors.parts_mismatch',
       quota_exceeded: 'file_storage.errors.quota_exceeded',
       size_mismatch: 'file_storage.errors.size_mismatch',
+      storage_busy: 'file_storage.errors.storage_busy',
       too_large: 'file_storage.errors.too_large',
       upload_session_closed: 'file_storage.errors.upload_session_closed',
     },
