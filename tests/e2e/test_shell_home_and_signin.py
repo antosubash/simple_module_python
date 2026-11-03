@@ -37,7 +37,8 @@ def test_admin_shell_is_translated_and_links_home(
     assert not _RAW_UI_KEY.search(page.locator("body").inner_text())
 
     home = page.evaluate(
-        "() => JSON.parse(document.getElementById('app').dataset.page).props.homeUrl"
+        "() => JSON.parse("
+        "document.querySelector('script[data-page=app]').textContent).props.homeUrl"
     )
     assert home.startswith("/")
     expect(back).to_have_attribute("href", home)

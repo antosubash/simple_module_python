@@ -123,9 +123,9 @@ async def test_fragment_redirect_discards_streamed_body_but_keeps_cookie():
     assert sent[1:] == [{"type": "http.response.body", "body": b""}]
 
 
-@pytest.mark.parametrize("length", [None, "0", "00"])
+@pytest.mark.parametrize("length", ["0", "00"])
 async def test_empty_200_redirects_after_the_first_body_message(length):
-    headers = [] if length is None else [(b"content-length", length.encode())]
+    headers = [(b"content-length", length.encode())]
     start = {"type": "http.response.start", "status": 200, "headers": headers}
     sent = await _exchange(
         start,
@@ -135,3 +135,34 @@ async def test_empty_200_redirects_after_the_first_body_message(length):
     assert sent[0]["status"] == 303
     assert Headers(raw=sent[0]["headers"])["location"] == "/before"
     assert sent[1]["body"] == b""
+
+
+async def test_200_without_a_content_length_is_not_held():
+    """A streaming response (no Content-Length) keeps its headers flowing."""
+    start = {"type": "http.response.start", "status": 200, "headers": []}
+    sent = await _exchange(
+        start,
+        [{"type": "http.response.body", "body": b""}],
+        headers=[(b"x-inertia", b"true"), (b"referer", b"/before")],
+    )
+    assert sent[0]["status"] == 200
+
+
+async def test_fragment_409_drops_headers_of_the_discarded_body():
+    start = {
+        "type": "http.response.start",
+        "status": 302,
+        "headers": [
+            (b"location", b"/p#a"),
+            (b"content-type", b"text/html; charset=utf-8"),
+            (b"etag", b'"abc"'),
+        ],
+    }
+    sent = await _exchange(
+        start,
+        [{"type": "http.response.body", "body": b"<p>x</p>"}],
+        headers=[(b"x-inertia", b"true")],
+    )
+    headers = Headers(raw=sent[0]["headers"])
+    assert sent[0]["status"] == 409
+    assert "content-type" not in headers and "etag" not in headers

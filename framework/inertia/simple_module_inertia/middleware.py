@@ -6,8 +6,25 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from simple_module_inertia.response import back_url
 
+# Redirect headers that describe a body the 409 no longer has.
+_BODY_HEADERS = (
+    "content-type",
+    "content-encoding",
+    "content-disposition",
+    "etag",
+    "transfer-encoding",
+)
 
-def _add_vary(headers: MutableHeaders) -> None:
+
+def _declares_empty_body(headers: MutableHeaders) -> bool:
+    """An explicit ``Content-Length: 0``. A streaming response declares none,
+    so it is never held back waiting for a first chunk."""
+    value = headers.get("content-length", "").strip()
+    return value.isdigit() and int(value) == 0
+
+
+def add_vary(headers: MutableHeaders) -> None:
+    """Add ``X-Inertia`` to ``Vary``, keeping whatever is already listed."""
     existing = headers.get("vary")
     if not existing:
         headers["vary"] = "X-Inertia"
@@ -35,10 +52,11 @@ class InertiaMiddleware:
         async def send_response(message: Message) -> None:
             nonlocal pending, discard_body, empty_sent
             if message["type"] == "http.response.start":
+                message.setdefault("headers", [])
                 headers = MutableHeaders(scope=message)
                 html = headers.get("content-type", "").split(";", 1)[0].strip() == "text/html"
                 if inertia or "x-inertia" in headers or html:
-                    _add_vary(headers)
+                    add_vary(headers)
                 if inertia:
                     code = message["status"]
                     target = headers.get("location", "")
@@ -50,8 +68,9 @@ class InertiaMiddleware:
                         message["status"] = 409
                         headers["x-inertia-redirect"] = target
                         del headers["location"]
+                        for name in _BODY_HEADERS:
+                            del headers[name]
                         headers["content-length"] = "0"
-                        del headers["content-encoding"]
                         discard_body = True
                     elif code in (302, 307) and scope["method"] in (
                         "PUT",
@@ -60,7 +79,7 @@ class InertiaMiddleware:
                         "QUERY",
                     ):
                         message["status"] = 303
-                    elif code == 200 and int(headers.get("content-length", "0")) == 0:
+                    elif code == 200 and _declares_empty_body(headers):
                         # Hold only the start; the first chunk decides whether this is empty.
                         pending = message
                         return

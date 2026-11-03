@@ -38,8 +38,11 @@ All notable changes to this project are documented in this file. The format is b
   PUT/PATCH/DELETE/QUERY to 303, fragment redirects to empty 409 responses with
   `X-Inertia-Redirect` (except prefetch), and empty 200 responses to safe back
   redirects. Standalone HTML and Inertia responses vary on `X-Inertia` (#775).
-- Initial Inertia HTML embeds the page JSON only in the v3 script element,
-  removing the duplicate legacy root-div attribute (#778).
+- **Behaviour change:** initial Inertia HTML embeds the page JSON only in the v3
+  `<script data-page="app">` element; the duplicate legacy
+  `<div id="app" data-page='…'>` attribute is gone, which halves a typical
+  first-load document (#778). Anything reading that attribute must read the
+  script element instead.
 - Rejecting an invitation password leaves the invitation usable for a corrected
   retry. Acceptance now validates the password first, then writes verification
   and the new password in one update; error responses are unchanged.

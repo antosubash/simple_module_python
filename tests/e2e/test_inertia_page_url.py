@@ -46,9 +46,9 @@ def _login(page: Page, username: str, password: str) -> None:
 
 
 def _page_payload_url(page: Page) -> str | None:
-    """The ``url`` the server put in the ``data-page`` blob, or None."""
+    """The ``url`` the server put in the ``data-page`` script blob, or None."""
     raw = page.evaluate(
-        "() => { const el = document.getElementById('app'); return el ? el.dataset.page : null; }"
+        "() => document.querySelector('script[data-page=app]')?.textContent ?? null"
     )
     if not raw:
         return None

@@ -33,6 +33,7 @@ middleware leaves that path alone and only governs the payload.
 
 from __future__ import annotations
 
+from simple_module_inertia.middleware import add_vary
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -45,17 +46,6 @@ PAYLOAD_CACHE_CONTROL = "private, no-store"
 #: The request header that selects the representation, and therefore the one
 #: caches must key on.
 VARY_FIELD = "X-Inertia"
-
-
-def add_vary(headers: MutableHeaders, field: str = VARY_FIELD) -> None:
-    """Add a field to ``Vary``, keeping whatever is already listed."""
-    existing = headers.get("vary")
-    if not existing:
-        headers["vary"] = field
-        return
-    if any(part.strip().lower() == field.lower() for part in existing.split(",")):
-        return
-    headers["vary"] = f"{existing}, {field}"
 
 
 def is_inertia_request(scope: Scope) -> bool:
