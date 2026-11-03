@@ -38,6 +38,7 @@ The history is **not** a single linear chain. It has several roots and several h
 | Root | Branch |
 |---|---|
 | `77162e7b184b` initial schema | the users trunk (also holds file_storage, background_tasks, api_tokens revisions) |
+| `c9d2e4f6a810` OIDC identity cache (#192) | oidc (root and head) |
 | `e36ab09c4a92` tenants initial schema | tenants (`f1a9c3d7b2e4` head) |
 | `f733c7938fd1` sharing resource share | sharing (root and head) |
 | `d263ea727663` framework `sm_lease` table | leases (its own head; [leases](../framework/leases.md)) |
@@ -50,6 +51,7 @@ The history is **not** a single linear chain. It has several roots and several h
 | `d263ea727663` | framework (`sm_lease`) | `leases` |
 | `f6a3b9d2e8c4` | keycloak | `keycloak` |
 | `f733c7938fd1` | sharing | `sharing` |
+| `c9d2e4f6a810` | oidc | `oidc` |
 
 `audit_log` forks off the trunk at `41cf2c53660e`, and `keycloak` forks off the users revision `873ca2015033`.
 
@@ -57,7 +59,7 @@ A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **
 
 ### Known mislabels
 
-The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases`, `users` (added by `a625f0b7c912`) and `file_storage` (added by `f5b1c3e8a207`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
+The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases`, `users` (added by `a625f0b7c912`), `oidc` (added by `c9d2e4f6a810`) and `file_storage` (added by `f5b1c3e8a207`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
 
 - `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.

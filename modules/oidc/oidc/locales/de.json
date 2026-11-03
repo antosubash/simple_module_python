@@ -1,0 +1,14 @@
+{
+  "login": {
+    "redirecting": "Weiterleitung zum Identitätsanbieter…",
+    "manual": "Keine Weiterleitung? Manuell fortfahren"
+  },
+  "logout": {
+    "title": "Abgemeldet",
+    "message": "Sie wurden erfolgreich von dieser App abgemeldet.",
+    "sign_in_again": "Erneut anmelden"
+  },
+  "nav": {
+    "logout": "Abmelden"
+  }
+}

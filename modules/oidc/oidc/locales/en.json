@@ -1,0 +1,14 @@
+{
+  "login": {
+    "redirecting": "Redirecting to identity provider\u2026",
+    "manual": "Not redirected? Continue manually"
+  },
+  "logout": {
+    "title": "Signed Out",
+    "message": "You have been signed out successfully.",
+    "sign_in_again": "Sign in again"
+  },
+  "nav": {
+    "logout": "Logout"
+  }
+}

@@ -7,7 +7,7 @@ A modular-monolith framework for Python. Each feature lives in its own self-cont
 - **Backend:** Python 3.12, FastAPI, SQLModel (SQLAlchemy async + Pydantic), Alembic
 - **Frontend:** Inertia.js + React + Tailwind CSS 4, Vite HMR
 - **UI:** shadcn/ui primitives + emerald/teal design tokens, Sora display font, DM Sans body, JetBrains Mono code
-- **Auth:** Pluggable providers — local users (email+password + OAuth/OIDC: Google, GitHub, Microsoft/Entra) via fastapi-users, or Keycloak OIDC SSO; cookie sessions or bearer tokens resolved through a principal-resolver chain
+- **Auth:** Pluggable providers — local users (email+password + OAuth/OIDC: Google, GitHub, Microsoft/Entra) via fastapi-users, Keycloak OIDC SSO, or any OIDC provider (Microsoft Entra, Auth0, Okta, Keycloak) via the generic `oidc` module; cookie sessions or bearer tokens resolved through a principal-resolver chain
 - **Tooling:** uv workspaces, Ruff, ty, Biome, pytest
 
 ## Use in a new project
@@ -183,7 +183,7 @@ Local deployments only need one env var — everything else has sensible default
 | `SM_ENVIRONMENT` | `development` | No — any value other than `development`, `test`, `testing` triggers strict discovery and placeholder-secret checks |
 | `SM_SECRET_KEY` | `change-me-in-production` | No in dev; **must** be overridden in production |
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — Vite HMR origin |
-| `SM_AUTH_PROVIDER` | `users` | No — `users` or `keycloak`. Only read when both are installed; see [Auth providers](#auth-providers-users-or-keycloak) |
+| `SM_AUTH_PROVIDER` | `users` | No — `users`, `keycloak` or `oidc`. Only read when more than one is installed; see [Auth providers](#auth-providers-exactly-one-is-active) |
 
 Power users can still override the following bootstrap knobs via env if needed: `SM_DB_POOL_SIZE`, `SM_DB_MAX_OVERFLOW`, `SM_DB_POOL_PRE_PING`, `SM_DB_POOL_RECYCLE`, `SM_DEBUG`, `SM_LOG_LEVEL`, `SM_LOG_FORMAT`, `SM_MODULES_ENABLED`. These are needed before the DB connection is open.
 
@@ -227,22 +227,23 @@ The 300-line file cap (enforced by CI) usually pushes you to factor row-level co
 
 ## User management
 
-### Auth providers: users **or** keycloak, never both
+### Auth providers: exactly one is active
 
-This repo ships two authentication providers, and **exactly one can be active at a time**:
+This repo ships three authentication providers, and **exactly one can be active at a time**:
 
 | Module | What it does |
 |---|---|
 | `users` (default) | Local accounts — password login, invites, signup, roles, an admin UI |
 | `keycloak` | Delegates authentication to a Keycloak realm over OIDC |
+| `oidc` | Delegates authentication to any OIDC provider (Entra preset; Keycloak via the generic preset) — see [docs/modules/oidc.md](docs/modules/oidc.md) |
 
-Both claim the same slot (`app.state.auth.auth_provider`), so running them together
-is a misconfiguration, not a supported combination. Installing both and activating
-neither is reported as `SM020` (error — fails boot); installing neither is `SM021`.
+They all claim the same slot (`app.state.auth.auth_provider`), so running two together
+is a misconfiguration, not a supported combination. Installing several and activating
+none is reported as `SM020` (error — fails boot); installing neither is `SM021`.
 
-`uv sync --all-packages` installs *every* workspace member, so a dev clone has both
-packages on disk. The host therefore activates one and skips the other rather than
-failing on `SM020`, and **`users` is the default** — `keycloak` is installed but inert
+`uv sync --all-packages` installs *every* workspace member, so a dev clone has every
+provider on disk. The host therefore activates one and skips the others rather than
+failing on `SM020`, and **`users` is the default** — `keycloak` and `oidc` are installed but inert
 until you ask for it. To switch:
 
 ```bash
@@ -266,7 +267,7 @@ Two caveats when running Keycloak:
   realm owns login, logout, and user administration instead.
 
 Only one provider is ever discovered, so nothing here changes if you install just one
-of the two: a host that ships only `keycloak` keeps it regardless of `SM_AUTH_PROVIDER`.
+of them: a host that ships only `keycloak` (or only `oidc`) keeps it regardless of `SM_AUTH_PROVIDER`.
 
 ### Creating the first admin
 

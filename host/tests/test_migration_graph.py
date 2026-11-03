@@ -46,6 +46,7 @@ _OWNER: dict[str, str] = {
     "51b2058d8afd": "api_tokens",
     "168a2882f443": "keycloak",
     "f6a3b9d2e8c4": "keycloak",
+    "c9d2e4f6a810": "oidc",
     "e36ab09c4a92": "tenants",
     "f1a9c3d7b2e4": "tenants",
     "70786227af4c": "audit_log",
@@ -54,7 +55,7 @@ _OWNER: dict[str, str] = {
     "d263ea727663": "leases",  # framework-owned sm_lease (#539)
 }
 
-_ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1", "d263ea727663"}
+_ROOTS = {"77162e7b184b", "e36ab09c4a92", "f733c7938fd1", "d263ea727663", "c9d2e4f6a810"}
 
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
@@ -62,6 +63,7 @@ _HEADS = {
     "f5b1c3e8a207": "file_storage",  # also carries ``api_tokens``, ``background_tasks``, ``users``
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
+    "c9d2e4f6a810": "oidc",
     "f733c7938fd1": "sharing",
     "d263ea727663": "leases",
 }
@@ -77,6 +79,7 @@ _DECLARED_LABELS = {
     "d263ea727663": "leases",
     "a625f0b7c912": "users",
     "f5b1c3e8a207": "file_storage",
+    "c9d2e4f6a810": "oidc",
 }
 
 # Known mislabels: revisions that inherit a label from an ancestor owned by a
