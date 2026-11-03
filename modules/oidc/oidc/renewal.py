@@ -25,10 +25,14 @@ class SessionRenewal:
     _forget_session = staticmethod(_KEYS.forget)
 
     @property
+    def _configured_issuer(self) -> str:
+        s = self._settings
+        return s.discovery_url.replace("/.well-known/openid-configuration", "", 1) if s else ""
+
+    @property
     def _session_authority(self) -> str:
         s = self._settings
-        issuer = s.discovery_url.replace("/.well-known/openid-configuration", "", 1) if s else ""
-        return authority_marker(self.name, issuer, s.client_id if s else "")
+        return authority_marker(self.name, self._configured_issuer, s.client_id if s else "")
 
     def _accept_session(self, session) -> bool:
         return accept_authority(
@@ -49,9 +53,7 @@ class SessionRenewal:
         ):
             return False
         issuer = self.jwks_cache.issuer
-        configured = self._settings.discovery_url.replace(
-            "/.well-known/openid-configuration", "", 1
-        )
+        configured = self._configured_issuer
         # Discovery tolerates a trailing slash; token issuers must match exactly.
         return issuer.rstrip("/") == configured.rstrip("/") and identity[0] == issuer
 

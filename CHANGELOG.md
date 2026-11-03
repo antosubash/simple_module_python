@@ -31,10 +31,12 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
-- **Behaviour change:** legacy unmarked OIDC cookies now require their recorded
-  identity issuer to match the trusted discovery issuer before adoption (#764).
-  Changed or unreadable issuers require sign-in again; same-issuer cookies
-  remain compatible. Keycloak legacy adoption is unchanged. No migration.
+- **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
+  before #750 (no authority marker) is adopted only when the issuer recorded in
+  its `oidc_identity` matches the discovered issuer (#764). A session from a
+  previously configured issuer, or one whose issuer cannot be read, must sign in
+  again; same-issuer sessions stay signed in. Keycloak is unaffected. No
+  migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
