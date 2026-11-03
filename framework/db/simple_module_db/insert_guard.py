@@ -79,6 +79,8 @@ def guard_insert(
     bound = current_tenant_id.get()
     tenant_id = None if bypass else bound
     stamp = bound or fallback
+    if tenant_id is None and strict:
+        raise missing_tenant_error(mappers[0], "INSERT")
     if getattr(execute_state.statement, "select", None) is not None:
         return _guard_from_select(execute_state, tenant_id, stamp, mappers[0], strict)
     if getattr(execute_state.statement, "_multi_values", None):
@@ -94,8 +96,6 @@ def guard_insert(
     )
     if not missing:
         return None
-    if tenant_id is None and strict:
-        raise missing_tenant_error(mappers[0], "INSERT")
     if rows:
         stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, stamp)} for r in rows]
         payload = stamped if isinstance(execute_state.parameters, list) else stamped[0]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from simple_module_cli.git_source import RefInfo
 from simple_module_cli.pyproject_edit import (
     dep_constraint,
@@ -92,3 +93,41 @@ def test_dep_constraint_and_no_git_sources(tmp_path: Path) -> None:
     assert dep_constraint(doc, "simple_module_core") == ">=0.1,<1.0"
     assert dep_constraint(doc, "absent") is None
     assert has_git_sources(doc) is False
+
+
+@pytest.mark.parametrize(
+    ("suffix", "constraint", "expected_suffix"),
+    [
+        (
+            '[s3]>=0.1; python_version >= "3.12"',
+            ">=0.2,<1",
+            '[s3]>=0.2,<1; python_version >= "3.12"',
+        ),
+        ("[s3]>=0.1", "", "[s3]"),
+        ('>=0.1; python_version >= "3.12"', ">=0.2", '>=0.2; python_version >= "3.12"'),
+        ("[s3]>=0.1", "[redis]>=0.2", "[redis]>=0.2"),
+    ],
+)
+def test_version_edit_preserves_requirement_metadata(
+    tmp_path: Path, suffix: str, constraint: str, expected_suffix: str
+) -> None:
+    _, doc = _doc(
+        tmp_path,
+        BASE.replace(
+            "simple_module_core>=0.1,<1.0", "simple_module_core" + suffix.replace('"', '\\"')
+        ),
+    )
+    assert write_dependency(doc, "simple_module_core", constraint)
+    assert doc["project"]["dependencies"][1] == "simple_module_core" + expected_suffix
+    assert not write_dependency(doc, "simple_module_core", constraint)
+
+
+def test_dependency_constraint_excludes_extras_and_marker(tmp_path: Path) -> None:
+    _, doc = _doc(
+        tmp_path,
+        BASE.replace(
+            "simple_module_core>=0.1,<1.0",
+            "simple_module_core[s3]>=0.1,<1.0; python_version < '3.12'",
+        ),
+    )
+    assert dep_constraint(doc, "simple_module_core") == ">=0.1,<1.0"

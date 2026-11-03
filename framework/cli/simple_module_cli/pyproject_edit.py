@@ -14,6 +14,7 @@ import tomlkit
 from tomlkit.items import Array, Table
 
 from simple_module_cli.git_source import RefInfo
+from simple_module_cli.requirements import parse_requirement
 
 __all__ = [
     "dep_constraint",
@@ -65,11 +66,10 @@ def dep_constraint(doc: tomlkit.TOMLDocument, dist_name: str) -> str | None:
     idx = _dep_index(deps, dist_name)
     if idx is None:
         return None
-    text = str(deps[idx]).strip()
-    for i, ch in enumerate(text):
-        if ch in "<>=!~":
-            return text[i:].strip()
-    return None
+    parsed = parse_requirement(str(deps[idx]))
+    if parsed is None or not parsed.clauses:
+        return None
+    return ",".join(f"{op}{version}" for op, version in parsed.clauses)
 
 
 def write_dependency(doc: tomlkit.TOMLDocument, dist_name: str, constraint: str) -> bool:
@@ -79,6 +79,11 @@ def write_dependency(doc: tomlkit.TOMLDocument, dist_name: str, constraint: str)
     if idx is None:
         deps.append(entry)
         return True
+    # A version-only edit preserves metadata; a full declaration replaces it.
+    if "[" not in constraint and ";" not in constraint:
+        parsed = parse_requirement(str(deps[idx]))
+        if parsed:
+            entry = f"{dist_name}{parsed.extras}{constraint}{parsed.marker}"
     if str(deps[idx]).strip() == entry:
         return False
     deps[idx] = entry

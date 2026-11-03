@@ -23,6 +23,13 @@ All notable changes to this project are documented in this file. The format is b
 - Background task retention clears retry links to expired executions before
   deletion, preserving recent retries and allowing execution, outbox and log
   cleanup to complete with foreign keys enforced; no migration (#734).
+- **Behaviour change:** strict tenant-scoped inserts require a bound tenant even
+  when an explicit `tenant_id` is supplied, across ORM flushes, statement values,
+  bulk parameters and multi-VALUES inserts. Explicit cross-tenant bypasses remain
+  supported; no migration (#728).
+- Git module updates preserve dependency extras and environment markers when
+  advancing the version floor and tag; markers are excluded from version-range
+  matching (#735).
 - Concurrent permission-module startups no longer fail on a unique constraint
   while adding missing administrator grants: the insert runs in a savepoint and
   a worker that lost the race re-reads and inserts only what is still missing

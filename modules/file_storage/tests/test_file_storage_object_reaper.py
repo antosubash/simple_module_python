@@ -28,7 +28,7 @@ def test_reconcile_spares_live_recent_and_foreign_objects(worker):  # noqa: F811
                 os.utime(worker._resolve(key), (1, 1))
 
     asyncio.run(store())
-    with sync_db.sync_session() as db, tenant_context("tenant-a"):
+    with tenant_context("tenant-a"), sync_db.sync_session() as db:
         for key, deleted in [(keys[0], False), (keys[1], True)]:
             db.add(
                 StoredFile(
