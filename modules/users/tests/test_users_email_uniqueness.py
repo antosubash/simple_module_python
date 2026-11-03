@@ -28,7 +28,10 @@ async def test_users_duplicate_email_compatibility_is_read_only(duplicates):
             assert bool(issues) is duplicates
             if duplicates:
                 assert issues[0].severity == "error"
-                assert all(email in issues[0].message for email in emails)
+                # Masked in logs; the full addresses never appear.
+                assert "a***@example.com" in issues[0].message
+                assert not any(email in issues[0].message for email in emails)
+                assert "SELECT id, email FROM users_user" in issues[0].message
             assert (
                 list((await db.execute(sa.text("SELECT email FROM users_user"))).scalars())
                 == emails
@@ -64,8 +67,8 @@ def test_users_email_migration_refuses_duplicates_or_roundtrips(duplicates):
                 if duplicates:
                     with pytest.raises(RuntimeError) as error:
                         migration.upgrade()
-                    assert "Alice@example.com" in str(error.value)
-                    assert "alice@example.com" in str(error.value)
+                    assert "a***@example.com" in str(error.value)
+                    assert "lice@example.com" not in str(error.value)
                     assert conn.scalar(sa.text("SELECT count(*) FROM users_user")) == 2
                     # Refusal leaves the old index in place and accounts untouched.
                     assert "UNIQUE" not in conn.scalar(

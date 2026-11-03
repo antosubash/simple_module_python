@@ -28,7 +28,8 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change:** registrations normalize email to lowercase and concurrent
   case-variant signups return one account and one duplicate-account error (#731).
   Migration `e731a1b2c3d4` makes `lower(email)` unique; migration and boot checks
-  name existing conflicts and refuse to proceed until operators resolve them.
+  report existing conflicts (masked, with the query that lists them) and refuse
+  to proceed until operators resolve them.
   No accounts are automatically merged or deleted.
 - Browser and bearer password logins offload real and dummy password work to
   worker threads instead of blocking the event loop (#737).

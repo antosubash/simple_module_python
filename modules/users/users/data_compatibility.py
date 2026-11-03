@@ -7,6 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from users.constants import UPGRADE_HASHED_BEARER_TOKENS, UPGRADE_UNIQUE_EMAILS
 from users.models import RefreshToken, UserAccessToken
 
+_SHOWN_CONFLICTS = 20
+DUPLICATE_EMAILS_QUERY = (
+    "SELECT id, email FROM users_user WHERE lower(email) IN "
+    "(SELECT lower(email) FROM users_user GROUP BY lower(email) HAVING count(*) > 1);"
+)
 # A SHA-256 hex digest; tokens hashed at rest (#626) are always this long.
 _DIGEST_LENGTH = 64
 
@@ -23,22 +28,34 @@ async def _email_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
     users = table("users_user", column("email"))
     email = users.c.email
     duplicates = select(func.lower(email)).group_by(func.lower(email)).having(func.count() > 1)
-    conflicts = list(
-        (
-            await db.scalars(select(email).where(func.lower(email).in_(duplicates)).order_by(email))
-        ).all()
-    )
+    conflicts = list((await db.scalars(duplicates)).all())
     if not conflicts:
         return []
+    # Boot and doctor output lands in logs: name the conflicts by a masked
+    # address and leave the full list to an operator's own query.
+    shown = ", ".join(mask_email(value) for value in conflicts[:_SHOWN_CONFLICTS])
+    more = len(conflicts) - _SHOWN_CONFLICTS
     return [
         DataCompatibilityIssue(
             upgrade_id=UPGRADE_UNIQUE_EMAILS,
             severity="error",
-            message="Case-insensitive email conflicts: "
-            + ", ".join(conflicts)
-            + ". Assign distinct emails before migrating; accounts will not be merged or deleted.",
+            message=(
+                f"{len(conflicts)} email address(es) are used by more than one account "
+                f"in different letter case: {shown}"
+                + (f" and {more} more" if more > 0 else "")
+                + ". List them with: "
+                + DUPLICATE_EMAILS_QUERY
+                + " Give each account a distinct email before migrating; accounts are "
+                "never merged or deleted."
+            ),
         )
     ]
+
+
+def mask_email(value: str) -> str:
+    """``alice@example.com`` -> ``a***@example.com``."""
+    local, _, domain = value.partition("@")
+    return f"{local[:1]}***@{domain}" if domain else f"{local[:1]}***"
 
 
 async def _token_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:
