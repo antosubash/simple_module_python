@@ -136,7 +136,7 @@ async def _resolve_tree(
             if not parent_resolved and (prop.optional or prop.deferred_group is not None):
                 if prop.deferred_group is not None and not cached:
                     out.deferred.setdefault(prop.deferred_group, []).append(path)
-                _announce_metadata(path, prop, req, partial, out, parent_resolved)
+                _announce_metadata(path, prop, req, False, out)
                 continue
             if cached:
                 _announce_once(path, prop, out)

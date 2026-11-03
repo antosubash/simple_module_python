@@ -769,8 +769,9 @@ reuses its cached value (#694, #768). A partial reload that names the prop
 resolves it regardless (#769).
 
 `scroll()` labels its inner `data` array for merging (`mergeProps:
-["posts.data"]`); pass `wrapper=None` for a prop that is itself the list, or
-another name for a different inner key (#770). `defer(loader, rescue=True)`
+["posts.data"]`); a value that resolves to a bare list merges at the prop root
+(`["posts"]`), and `wrapper=None` or another name picks the root or a different
+inner key for a dict value (#770). `defer(loader, rescue=True)`
 turns a failing loader into a `rescuedProps` entry, so the `<Deferred>`
 component renders its `rescue` slot instead of the whole reload failing
 (#773). Partial reloads accept dotted paths such as `only: ['auth.user']`

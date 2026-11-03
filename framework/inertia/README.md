@@ -87,8 +87,9 @@ full Inertia visit omits its cached value. Partial reloads ignore
 `X-Inertia-Except-Once-Props` and refresh requested once props.
 
 `scroll(value, ..., wrapper="data", reset=False)` labels `<prop>.data` for
-merging by default. Set `wrapper` to another dictionary path, or `None` to
-merge a plain list at the prop root. The infinite-scroll merge-intent header
+merging by default. A value that resolves to a bare list merges at the prop
+root automatically. Set `wrapper` to another dictionary path, or `None` to
+merge a dictionary value at the prop root. The infinite-scroll merge-intent header
 chooses append or prepend. The explicit `reset=True` argument or a prop path
 in `X-Inertia-Reset` sets `scrollProps[path].reset` and suppresses merge labels.
 
