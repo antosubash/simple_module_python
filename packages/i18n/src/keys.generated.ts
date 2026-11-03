@@ -1187,6 +1187,7 @@ export const keys = {
       toast_suspended: 'tenants.admin.toast_suspended',
     },
     errors: {
+      admission_conflict: 'tenants.errors.admission_conflict',
       already_invited: 'tenants.errors.already_invited',
       already_member: 'tenants.errors.already_member',
       generic: 'tenants.errors.generic',

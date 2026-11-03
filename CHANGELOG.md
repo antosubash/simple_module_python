@@ -31,6 +31,14 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
+  ownership and restrict updates to the bound tenant, retaining the caller's
+  conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
+- SQLite storage quota and tenant seat admissions now acquire a writer lock
+  before counting, held through commit, including upload reservations and
+  invitations. Stale WAL snapshots and lock timeouts return the normal storage
+  quota error or a retryable tenant `409 admission_conflict`, rather than a 500;
+  Postgres advisory/row locking is unchanged (#753). No migration.
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**

@@ -20,6 +20,7 @@ from simple_module_core.events import Event, EventBus
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 from simple_module_db import PLATFORM_TENANT_ID
+from simple_module_db.admission import serialize_sqlite_writes
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +28,7 @@ from sqlmodel import col
 
 from tenants._deletion import delete_tenant_rows
 from tenants._membership_ops import MembershipOpsMixin
-from tenants.constants import MAX_SLUG_LEN, MembershipRole, TenantStatus
+from tenants.constants import ERROR_ADMISSION_CONFLICT, MAX_SLUG_LEN, MembershipRole, TenantStatus
 from tenants.contracts.entitlements import (
     EntitlementProvider,
     UnlimitedEntitlements,
@@ -187,12 +188,14 @@ class TenantService(MembershipOpsMixin):
     async def lock(self, tenant_id: str) -> Tenant:
         """Row-lock the tenant for the rest of the transaction.
 
-        Serialises check-then-act rules per tenant — "at least one owner",
-        "within the seat limit" — so two concurrent requests cannot both pass
-        the check and together break the rule. On SQLite ``FOR UPDATE``
-        compiles away; there the database's own writer lock serialises the
-        two transactions (see ``tests/test_owner_race.py``).
+        Serialises check-then-act rules per tenant. SQLite takes a real writer
+        lock before reading; FOR UPDATE alone compiles away on SQLite.
         """
+        await serialize_sqlite_writes(
+            self.db,
+            Tenant.__table__,
+            on_busy=TenantError(ERROR_ADMISSION_CONFLICT, status_code=409),
+        )
         stmt = select(Tenant).where(col(Tenant.id) == tenant_id).with_for_update()
         tenant = (await self.db.execute(stmt)).scalar_one_or_none()
         if tenant is None:

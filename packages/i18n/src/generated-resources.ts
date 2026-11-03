@@ -914,6 +914,7 @@ export default {
     'tenants.admin.toast_action_failed': '',
     'tenants.admin.toast_reactivated': '',
     'tenants.admin.toast_suspended': '',
+    'tenants.errors.admission_conflict': '',
     'tenants.errors.already_invited': '',
     'tenants.errors.already_member': '',
     'tenants.errors.generic': '',

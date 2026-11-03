@@ -202,3 +202,20 @@ For endpoint tests, use `client` or `authenticated_client` — they share the sa
 | A handler that must explicitly discard partial changes | `raise`ing propagates to the dependency, which rolls back |
 
 If you find yourself writing `await session.commit()` inside a service, step back — there's a cleaner way using flush or a dedicated transactional helper.
+
+### SQLite admission checks
+
+`simple_module_db.admission.serialize_sqlite_writes(db, table, on_busy=error)`
+takes the SQLite writer lock with a zero-row UPDATE before a read/check/write
+admission. It changes no rows and holds the lock until commit or rollback;
+Postgres is a no-op, so callers keep their existing row/advisory locks. Storage
+quotas and tenant seat limits use this helper (#753).
+
+SQLite WAL serializes writers, but a SELECT in the driver's legacy transaction
+mode need not start a transaction: two earlier counts can both pass. Taking the
+writer lock **before counting** makes the second admission see the first one's
+committed write. If a real deferred read transaction already has an older
+snapshot, SQLite refuses its upgrade after another commit with
+`SQLITE_BUSY_SNAPSHOT`. The helper raises the supplied admission error on SQLite
+busy/locked errors; callers must roll back and retry in a fresh transaction,
+never continue or retry the old snapshot. Other database errors propagate.
