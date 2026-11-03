@@ -91,6 +91,13 @@ When `SM_MULTI_TENANT=true` and a request has an active tenant, the `do_orm_exec
 
 ### Automatic stamping
 
+SQLite and Postgres `INSERT ... ON CONFLICT DO UPDATE` arms obey the same
+ownership rule: assigning `tenant_id` is refused, and a bound tenant adds
+`WHERE tenant_id = <bound tenant>` to the update arm (ANDed with any existing
+predicate). Conflicts with another tenant's row leave it unchanged. An explicit
+`all_tenants()` / `execution_options(all_tenants=True)` bypass permits deliberate
+cross-tenant upserts (#749).
+
 INSERTs populate `tenant_id` from the `current_tenant_id` contextvar. Creating a row for a different tenant than the active one — or changing `tenant_id` on an existing row — raises `TenantIsolationError`.
 
 `insert(Model).from_select(...)` and Core table targets follow the same rules:

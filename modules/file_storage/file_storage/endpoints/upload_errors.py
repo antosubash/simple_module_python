@@ -56,6 +56,16 @@ def quota(t) -> HTTPException:
     )
 
 
+def busy(t) -> HTTPException:
+    """Retryable: another upload held the quota check (SQLite)."""
+    return error(
+        t,
+        status.HTTP_409_CONFLICT,
+        constants.ErrorCode.STORAGE_BUSY,
+        constants.I18nKey.ERR_BUSY,
+    )
+
+
 def too_large(limit: int, t) -> HTTPException:
     return error(
         t,

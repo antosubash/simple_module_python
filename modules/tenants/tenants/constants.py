@@ -24,6 +24,7 @@ INVALIDATION_CHANNEL = "tenants.membership"
 
 # Entitlement keys this module enforces (see contracts.entitlements).
 ENTITLEMENT_SEATS = "tenants.seats"
+ERROR_ADMISSION_CONFLICT = "admission_conflict"
 
 MAX_NAME_LEN = 200
 MAX_SLUG_LEN = 50

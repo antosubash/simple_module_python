@@ -8,9 +8,12 @@ query filter refuse an UPDATE that assigns ``tenant_id`` (#356).
 
 from __future__ import annotations
 
+from copy import copy
 from typing import Any
 
-from sqlalchemy import literal, select
+from sqlalchemy import and_, literal, select
+from sqlalchemy.dialects.postgresql.dml import OnConflictDoUpdate as PgConflictUpdate
+from sqlalchemy.dialects.sqlite.dml import OnConflictDoUpdate as SqliteConflictUpdate
 from sqlalchemy.orm import ORMExecuteState
 from sqlalchemy.sql.elements import BindParameter, Label
 
@@ -77,6 +80,8 @@ def guard_insert(
     # A non-strict bypass checks no explicit values; missing ones still get
     # the bound tenant, else the install's fallback (#380).
     bound = current_tenant_id.get()
+    if not bypass:
+        _guard_conflict_update(execute_state, bound)
     tenant_id = None if bypass else bound
     stamp = bound or fallback
     if tenant_id is None and strict:
@@ -170,3 +175,40 @@ def _guard_multi_values(execute_state: ORMExecuteState, tenant_id: str | None, s
     stamped._multi_values = tuple(groups)
     execute_state.statement = stamped
     return None
+
+
+def _guard_conflict_update(execute_state: ORMExecuteState, tenant_id: str | None) -> None:
+    """Conflict updates are UPDATEs: preserve ownership and scope their target."""
+    stmt = execute_state.statement
+    arm = getattr(stmt, "_post_values_clause", None)
+    if not isinstance(arm, (PgConflictUpdate, SqliteConflictUpdate)):
+        return
+    if any(
+        # excluded.tenant_id is harmless only once the arm is scoped below.
+        _column_name(key) == TENANT_COLUMN and (tenant_id is None or not _is_excluded_tenant(value))
+        for key, value in arm.update_values_to_set
+    ):
+        raise TenantIsolationError("Cannot change tenant_id of existing rows")
+    if tenant_id is None:
+        return
+    # SQLAlchemy has no generative setter for an existing conflict arm.
+    scoped = stmt._generate()
+    scoped_arm = copy(arm)
+    predicate = stmt.table.c[TENANT_COLUMN] == tenant_id
+    scoped_arm.update_whereclause = (
+        predicate if arm.update_whereclause is None else and_(arm.update_whereclause, predicate)
+    )
+    scoped._post_values_clause = scoped_arm
+    execute_state.statement = scoped
+
+
+def _is_excluded_tenant(value: Any) -> bool:
+    """``excluded.tenant_id`` (e.g. ``set_=stmt.excluded``): the inserted tenant.
+
+    That value is validated against the bound tenant above, and the arm is
+    scoped to rows of that tenant, so assigning it changes nothing.
+    """
+    table = getattr(value, "table", None)
+    return (
+        getattr(value, "name", None) == TENANT_COLUMN and getattr(table, "name", None) == "excluded"
+    )
