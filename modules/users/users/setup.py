@@ -38,7 +38,8 @@ _MIN_PASSWORD_LENGTH = 8
 
 def _admin_action() -> SetupAction:
     """The wizard form that completes the step — see ``users.setup_action``."""
-    # Keep setup action dependencies out of step registration.
+    # Imported lazily: ``users.setup_action`` imports this module for
+    # ``session_has_local_account``, so a top-level import would be circular.
     from users.setup_action import create_first_administrator
 
     return SetupAction(
