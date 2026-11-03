@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Sized
+from collections.abc import Sized
 from copy import copy
 from html.parser import HTMLParser
 from typing import Any, Self
@@ -60,6 +60,7 @@ class InertiaPage:
         self.rescued_props: list[str] = page.get("rescuedProps", [])
         self.encrypt_history: bool = page.get("encryptHistory", False)
         self.clear_history: bool = page.get("clearHistory", False)
+        self.preserve_fragment: bool = page.get("preserveFragment", False)
 
     @classmethod
     def from_response(cls, response: httpx.Response) -> Self:
@@ -73,7 +74,7 @@ class InertiaPage:
                 if parser.page_json is None:
                     raise ValueError("no <script data-page='app' type='application/json'>")
                 page = json.loads(parser.page_json)
-        except (ValueError, UnicodeError) as exc:
+        except ValueError as exc:
             raise AssertionError(f"Not a valid Inertia response: {exc}") from exc
         assert isinstance(page, dict), "Not a valid Inertia response: page must be an object"
         assert isinstance(page.get("component"), str) and isinstance(page.get("url"), str), (
@@ -98,6 +99,7 @@ class InertiaPage:
         return self
 
     def _lookup(self, path: str) -> tuple[Any, str]:
+        # Dot-separated; a prop key that itself contains a dot cannot be addressed.
         value: Any = self.props
         for part in path.split("."):
             if isinstance(value, dict):
@@ -131,7 +133,7 @@ class InertiaPage:
         assert value is _MISSING, f"Prop {path!r} is present: {value!r}. {available}"
         return self
 
-    def where(self, path: str, expected_or_predicate: Any | Callable[[Any], bool]) -> Self:
+    def where(self, path: str, expected_or_predicate: Any) -> Self:
         value = self._value(path)
         if callable(expected_or_predicate):
             assert expected_or_predicate(value), f"Prop {path!r} failed predicate; got {value!r}"
@@ -153,9 +155,9 @@ class InertiaPage:
             )
         return self
 
-    async def _reload(
-        self, client: httpx.AsyncClient, header: str, props: tuple[str, ...]
-    ) -> InertiaPage:
+    async def _reload(self, client: httpx.AsyncClient, header: str, props: tuple[str, ...]) -> Self:
+        # An empty partial header makes the server answer with the full page.
+        assert props, "Name at least one prop; an empty partial reload is a full visit"
         response = await client.get(
             self.url,
             headers={
@@ -167,17 +169,15 @@ class InertiaPage:
         )
         return self.from_response(response)
 
-    async def reload_only(self, client: httpx.AsyncClient, *props: str) -> InertiaPage:
+    async def reload_only(self, client: httpx.AsyncClient, *props: str) -> Self:
         """Request only these props; the result is the unmerged response page."""
         return await self._reload(client, "X-Inertia-Partial-Data", props)
 
-    async def reload_except(self, client: httpx.AsyncClient, *props: str) -> InertiaPage:
+    async def reload_except(self, client: httpx.AsyncClient, *props: str) -> Self:
         """Request a partial page excluding these props."""
         return await self._reload(client, "X-Inertia-Partial-Except", props)
 
-    async def load_deferred(
-        self, client: httpx.AsyncClient, group: str | None = None
-    ) -> InertiaPage:
+    async def load_deferred(self, client: httpx.AsyncClient, group: str | None = None) -> Self:
         """Load one deferred group, or all groups when omitted."""
         if group is not None:
             self.deferred(group)

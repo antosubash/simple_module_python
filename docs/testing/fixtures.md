@@ -273,5 +273,6 @@ all advertised groups; a page without deferred props requires no request.
 Follow-up requests use the page's URL, component, and asset version, and return
 new `InertiaPage` objects containing the server's partial response. They do not
 merge props into the original page. Inspect protocol metadata through
-`deferred_props`, `merge_props`, `once_props`, `scroll_props`, `shared_props`,
-`rescued_props`, `encrypt_history`, and `clear_history`.
+`deferred_props`, `merge_props`, `prepend_props`, `deep_merge_props`,
+`match_props_on`, `once_props`, `scroll_props`, `shared_props`, `rescued_props`,
+`encrypt_history`, and `clear_history`.

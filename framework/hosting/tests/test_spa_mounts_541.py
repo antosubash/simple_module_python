@@ -120,8 +120,7 @@ async def test_public_mount_post_is_still_gated(client):
 
 async def test_native_prefixes_shared_prop(client):
     r = await client.get("/users/login", headers=_HTML)
-    props = inertia_page(r).props
-    assert "/legacy/" in props.get("nativePrefixes", [])
+    inertia_page(r).where("nativePrefixes", lambda prefixes: "/legacy/" in prefixes)
 
 
 def test_overlap_with_router_prefix_is_an_error(tmp_path):

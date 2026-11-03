@@ -61,6 +61,10 @@ def test_parsing_preserves_html_safe_json_and_metadata(html):
         "props": {"text": "<script>&lt; ' snowman ☃"},
         "deferredProps": {"default": ["slow"]},
         "mergeProps": ["items"],
+        "prependProps": ["feed"],
+        "deepMergeProps": ["tree"],
+        "matchPropsOn": ["items.id"],
+        "preserveFragment": True,
         "onceProps": {"key": {"prop": "lookup"}},
         "scrollProps": {"items": {"currentPage": 1}},
         "sharedProps": ["auth"],
@@ -80,6 +84,10 @@ def test_parsing_preserves_html_safe_json_and_metadata(html):
     assert page.props == fields["props"]
     assert page.deferred_props == fields["deferredProps"]
     assert page.merge_props == fields["mergeProps"]
+    assert page.prepend_props == fields["prependProps"]
+    assert page.deep_merge_props == fields["deepMergeProps"]
+    assert page.match_props_on == fields["matchPropsOn"]
+    assert page.preserve_fragment is True
     assert page.once_props == fields["onceProps"]
     assert page.scroll_props == fields["scrollProps"]
     assert page.shared_props == fields["sharedProps"]
@@ -92,7 +100,7 @@ def test_optional_page_fields_default_to_empty_or_false():
     page = simple_module_test.inertia_page(page_response())
     assert page.deferred_props == page.once_props == page.scroll_props == {}
     assert page.merge_props == page.shared_props == page.rescued_props == []
-    assert page.encrypt_history is page.clear_history is False
+    assert page.encrypt_history is page.clear_history is page.preserve_fragment is False
 
 
 @pytest.mark.parametrize(
@@ -233,3 +241,11 @@ async def test_no_deferred_props_does_not_reload():
         page = simple_module_test.inertia_page(page_response())
         loaded = await page.load_deferred(client)
         assert loaded.props == page.props
+
+
+@pytest.mark.parametrize("method", ["reload_only", "reload_except"])
+async def test_partial_reload_needs_at_least_one_prop(method):
+    page = simple_module_test.inertia_page(page_response())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None)) as client:
+        with pytest.raises(AssertionError, match="at least one prop"):
+            await getattr(page, method)(client)

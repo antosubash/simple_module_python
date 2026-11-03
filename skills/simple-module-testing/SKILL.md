@@ -73,8 +73,8 @@ accepts a value or predicate; `assert_url` and `assert_version` check page field
 headers. Each returns a new page with the server's response, without merging it
 into the original props; omitting a deferred group loads all advertised groups.
 No fixture is needed. Metadata is available as `deferred_props`, `merge_props`,
-`once_props`, `scroll_props`, `shared_props`, `rescued_props`, `encrypt_history`,
-and `clear_history`.
+`prepend_props`, `deep_merge_props`, `match_props_on`, `once_props`, `scroll_props`,
+`shared_props`, `rescued_props`, `encrypt_history`, and `clear_history`.
 
 ## Single-test / focused runs
 

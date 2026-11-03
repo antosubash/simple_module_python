@@ -20,21 +20,21 @@ features still require the corresponding Inertia client API.
 | Page object | Implemented | `component`, `props` (including an always-present `errors` object), root-relative `url`, and `version`, in both HTML and JSON responses. |
 | Partial reloads | Implemented | Matching `X-Inertia-Partial-Component` with `X-Inertia-Partial-Data` and/or `X-Inertia-Partial-Except`; dotted dictionary paths and filtering before loaders run. |
 | Prop types | Implemented | Composable `optional`, `always`, `defer` (groups and `rescue=True`), `merge`, `prepend`, `deep_merge`, `once`, and `scroll`; merge factories accept `match_on`. |
-| Prop metadata | Implemented | Conditional `deferredProps`, `rescuedProps`, `mergeProps`, `prependProps`, `deepMergeProps`, `matchPropsOn`, `onceProps`, `scrollProps`, and `sharedProps`. |
+| Prop metadata | Implemented | Conditional `deferredProps`, `rescuedProps`, `mergeProps`, `prependProps`, `deepMergeProps`, `matchPropsOn`, `onceProps`, `scrollProps`, and `sharedProps`. `X-Inertia-Except-Once-Props` skips resolving cached once props, and `X-Inertia-Infinite-Scroll-Merge-Intent` picks append or prepend for scroll props. |
 | Reset | Implemented | `X-Inertia-Reset` suppresses merge metadata for named prop paths and sets the corresponding scroll reset flag. |
 | Asset versioning | Implemented | Inertia GETs with a missing or stale `X-Inertia-Version` receive 409 with `X-Inertia-Location` and the server's `X-Inertia-Version`. |
-| Redirects and middleware | Implemented | Mutation redirects through `inertia.redirect()` use 303; middleware also converts 302/307 after PUT/PATCH/DELETE/QUERY. Fragment redirects use 409 and `X-Inertia-Redirect` (automatic conversion excludes prefetch). Explicitly empty 200 responses redirect back with 303; HTML and Inertia responses include `Vary: X-Inertia`. |
+| Redirects and middleware | Implemented | `inertia.redirect()` (and `back()`) answer 303 for non-GET requests and 307 for GET; middleware also converts 302/307 after PUT/PATCH/DELETE/QUERY. Redirects whose target has a `#fragment` become an empty 409 with `X-Inertia-Redirect` (`inertia.redirect_with_fragment()` emits it directly; the automatic conversion skips prefetch). Explicitly empty 200 responses redirect back with 303; HTML and Inertia responses include `Vary: X-Inertia`. |
 | External navigation | Implemented | `inertia.location(url)` returns 409 with `X-Inertia-Location` for a client-side full-page navigation. |
 | History and fragments | Implemented | `inertia.encrypt_history()`, `inertia.clear_history()`, and `inertia.preserve_fragment()` emit `encryptHistory`, `clearHistory`, and `preserveFragment`; the client performs encryption and history updates. |
-| Validation | Implemented | Validation conversion keeps the first message per top-level field; `X-Inertia-Error-Bag` scopes session errors. The standalone validation handler redirects back; hosting's form helper does likewise, while hosting's request-validation handler renders an error page. |
+| Validation | Implemented | Validation conversion keeps the first message per top-level field; `X-Inertia-Error-Bag` scopes session errors, which render only with `use_flash_errors` (hosting enables it). The standalone validation handler redirects back; hosting's form helper does likewise, while hosting's request-validation handler renders an error page. |
 | Hosting error pages | Implemented | `simple_module_hosting` renders the `Error` component for supported browser/Inertia errors, preserving the HTTP status and exception headers; API requests retain JSON errors. |
 | Test helper | Implemented | `simple_module_test.InertiaPage.from_response(response)` (or `inertia_page(response)`) parses HTML/JSON pages, offers fluent page/prop assertions, and follows partial reloads and deferred groups with `reload_only`, `reload_except`, and `load_deferred`. |
-| SSR | Not implemented | Tracked in [#580](https://github.com/antosubash/simple_module_python/issues/580). |
+| SSR | Not implemented | No SSR client; the `ssr_url`/`ssr_enabled` config fields and template branches are unused. Tracked in [#580](https://github.com/antosubash/simple_module_python/issues/580). |
 | Live props | Not implemented | No live prop protocol support. |
 | Precognition | Not implemented | No predictive validation integration. |
 | DevTools | Not implemented | No DevTools integration. |
 | `preserveBigIntegers` | Not implemented | No big-integer marker protocol. |
-| Page `flash` / `inertia:flash` | Not implemented | `inertia.flash()` uses a session-backed `messages` prop when enabled. |
+| Page `flash` / `inertia:flash` | Not implemented | The protocol `flash` page field is never emitted. `inertia.flash()` writes a session-backed `messages` prop (`flash_message_key`) only when `use_flash_messages` is set; hosting leaves it off, so there `flash()` raises `NotImplementedError`. |
 
 ## Install
 
