@@ -7,6 +7,7 @@ import pytest
 import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from users.models import User
 from users.module import UsersModule
@@ -78,7 +79,7 @@ def test_users_email_migration_refuses_duplicates_or_roundtrips(duplicates):
                     )
                 else:
                     migration.upgrade()
-                    with pytest.raises(sa.exc.IntegrityError):
+                    with pytest.raises(IntegrityError):
                         conn.execute(sa.text("INSERT INTO users_user VALUES ('alice@example.com')"))
                     migration.downgrade()
                     conn.execute(sa.text("INSERT INTO users_user VALUES ('alice@example.com')"))
@@ -97,7 +98,7 @@ def test_users_model_rejects_case_variant_email():
         with engine.begin() as conn:
             User.__table__.create(conn)
             conn.execute(User.__table__.insert().values(email="Alice@example.com"))
-            with pytest.raises(sa.exc.IntegrityError):
+            with pytest.raises(IntegrityError):
                 conn.execute(User.__table__.insert().values(email="alice@example.com"))
     finally:
         engine.dispose()
