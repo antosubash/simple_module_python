@@ -24,27 +24,37 @@ from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting.data_compatibility import check_data_compatibility
 from simple_module_hosting.migrations import migration_status
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 
 logger = logging.getLogger(__name__)
 
 
 async def _is_first_run(app: FastAPI) -> bool:
-    """True only when a registered setup flow has a never-migrated database.
+    """Whether this install has never been set up, so boot serves ``/setup``.
 
-    A pending administrator or other setup step on an installation with
-    migration history is not evidence of a fresh install. Missing migration
-    status also supplies no such evidence. A never-migrated database qualifies
-    even when migrations are the only step, or another step would raise
-    because its tables do not exist yet.
+    Needs positive evidence on both counts. The database must never have been
+    migrated (no ``alembic_version``): a pending step on a database with
+    migration history is a configured install whose schema drifted, and serving
+    the unauthenticated migration endpoint there would run Alembic on a live
+    system. And no other required step may already report complete: a
+    never-migrated database that holds accounts (built with ``create_all``) is
+    not empty either. A step that raises counts as pending, since on a fresh
+    database its tables do not exist yet. An install whose only required step
+    is the migrations step (Keycloak) qualifies (#784).
     """
     registry = getattr(app.state.sm, "setup_registry", None)
     migration = get_migration_status(app)
-    return (
-        bool(registry)
-        and migration is not None
-        and "current_revision" in migration
-        and migration["current_revision"] is None
-    )
+    if not registry or migration is None or migration.get("current_revision", "") is not None:
+        return False
+    for step in registry.required_steps:
+        if step.id == STEP_MIGRATIONS:
+            continue
+        try:
+            if await step.is_complete(app):
+                return False
+        except Exception:
+            logger.debug("Setup step %s raised on a never-migrated database", step.id)
+    return True
 
 
 def build_lifespan(modules: Sequence) -> Callable:

@@ -1,8 +1,14 @@
-"""The shared definition of an available local administrator."""
+"""The shared definition of an available local administrator.
+
+An administrator is an active, enabled holder of the Admin role. Permissions
+resolve from roles only, so ``is_superuser`` on its own grants nothing: a
+roleless superuser counted here would let the last account that can actually
+administer the install be removed.
+"""
 
 import uuid
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -13,7 +19,7 @@ from users.models import Role, User, UserRole
 async def count_active_administrators(
     session: AsyncSession, *, excluding: uuid.UUID | None = None
 ) -> int:
-    """Count active, enabled superusers or holders of the Admin role."""
+    """Count active, enabled holders of the Admin role."""
     admin_ids = (
         select(UserRole.user_id)
         .join(Role, col(Role.id) == UserRole.role_id)
@@ -25,7 +31,7 @@ async def count_active_administrators(
         .where(
             col(User.is_active).is_(True),
             col(User.disabled_at).is_(None),
-            or_(col(User.is_superuser).is_(True), col(User.id).in_(admin_ids)),
+            col(User.id).in_(admin_ids),
         )
     )
     if excluding is not None:

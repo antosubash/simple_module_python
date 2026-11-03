@@ -92,7 +92,8 @@ async def test_last_active_administrator_is_preserved(setup_pending_app, kind, o
             role = await ensure_admin_role(session)
             session.add(UserRole(user_id=user.id, role_id=role.id))
         await session.commit()
-        assert await session_has_administrator(session) is True
+        # Permissions resolve from roles: a roleless superuser is not an administrator.
+        assert await session_has_administrator(session) is (kind != "superuser")
         service = UserService(session, None, app)
         with pytest.raises(AdminAccountSafetyError):
             if operation == "demote":
@@ -123,7 +124,8 @@ async def test_unavailable_superuser_does_not_complete_setup(
         assert await session_has_administrator(session) is False
 
 
-async def test_active_superuser_is_a_surviving_administrator(setup_pending_app):
+async def test_roleless_superuser_is_not_a_surviving_administrator(setup_pending_app):
+    """``is_superuser`` grants no permissions, so it cannot stand in for the last admin."""
     app = setup_pending_app
     async with app.state.sm.db.session_factory() as session:
         role = await ensure_admin_role(session)
@@ -133,9 +135,8 @@ async def test_active_superuser_is_a_surviving_administrator(setup_pending_app):
         await session.flush()
         session.add(UserRole(user_id=administrator.id, role_id=role.id))
         await session.commit()
-        await UserService(session, None, app).disable(administrator.id)
-        await session.commit()
-        assert await session_has_administrator(session) is True
+        with pytest.raises(AdminAccountSafetyError):
+            await UserService(session, None, app).disable(administrator.id)
 
 
 async def test_install_with_accounts_but_no_administrator_is_not_gated(setup_pending_app):

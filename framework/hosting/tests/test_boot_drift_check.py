@@ -122,3 +122,11 @@ async def test_missing_migration_snapshot_is_not_first_run() -> None:
     app = _app(registry)
     del app.state.migration
     assert await _is_first_run(app) is False
+
+
+async def test_never_migrated_database_with_data_is_not_first_run() -> None:
+    """No alembic_version but accounts exist (create_all): not empty, so boot fails closed."""
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(_step("users.administrator", done=True))
+    assert await _is_first_run(_app(registry)) is False

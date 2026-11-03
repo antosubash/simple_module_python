@@ -81,14 +81,15 @@ All notable changes to this project are documented in this file. The format is b
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving
   excluded project manifests unchanged (#767). No migration.
 - Users: the setup administrator step and last-administrator guard now share
-  one definition of an active administrator: an active, enabled superuser or
-  Admin-role holder. **Behaviour change:** the `users.administrator` setup step
+  one definition of an active administrator: an active, enabled Admin-role
+  holder (`is_superuser` alone grants no permissions). **Behaviour change:** the `users.administrator` setup step
   is complete once any local account exists, and the first-administrator action
   requires an empty users table; an install with accounts but no administrator
   recovers with `smpy users create-admin` rather than through `/setup`.
-- Hosting: first-run detection requires a never-migrated database, including
-  installs whose only required setup step is migrations. Pending steps on a
-  database with migration history no longer qualify as first run (#784).
+- Hosting: first-run detection requires a never-migrated database on which no
+  other required setup step is already complete, and now includes installs
+  whose only required setup step is migrations. Pending steps on a database
+  with migration history no longer qualify as first run (#784).
 - Auth and hosting: framework public paths are matched exactly or by
   `/`-terminated prefix, keeping similarly named module paths subject to
   authentication, maintenance mode and anonymous rate limits.
