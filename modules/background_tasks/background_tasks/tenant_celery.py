@@ -52,16 +52,12 @@ class TenantCelery(Celery):
         kwargs.setdefault("task_cls", TenantTask)
         super().__init__(*args, **kwargs)
 
-    def _task_from_fun(
+    def _task_from_fun(  # ty: ignore[invalid-method-override]
         self,
         fun: Any,
         name: Any = None,
         base: Any = None,
         bind: bool = False,
-        pydantic: bool = False,
-        pydantic_strict: bool = False,
-        pydantic_context: dict[str, Any] | None = None,
-        pydantic_dump_kwargs: dict[str, Any] | None = None,
         **options: Any,
     ) -> Any:
         # ``@app.task(base=Custom)`` replaces ``task_cls``; keep the tenant
@@ -70,22 +66,17 @@ class TenantCelery(Celery):
         if not issubclass(base, TenantPublishMixin):
             label = str(getattr(base, "__name__", "Task"))
             try:
-                base = type(label, (TenantPublishMixin, base), {})
+                base = type(
+                    label,
+                    (TenantPublishMixin, base),
+                    {"__module__": base.__module__, "__qualname__": base.__qualname__},
+                )
             except TypeError as exc:
                 raise TypeError(
                     f"Cannot compose tenant publish validation with task base {label}"
                 ) from exc
-        return super()._task_from_fun(
-            fun,
-            name=name,
-            base=base,
-            bind=bind,
-            pydantic=pydantic,
-            pydantic_strict=pydantic_strict,
-            pydantic_context=pydantic_context,
-            pydantic_dump_kwargs=pydantic_dump_kwargs,
-            **options,
-        )
+        # Forward the rest untouched: the pydantic_* options only exist in Celery >= 5.5.
+        return super()._task_from_fun(fun, name=name, base=base, bind=bind, **options)
 
     def send_task(self, name: str, *args: Any, **kwargs: Any) -> Any:
         headers = dict(kwargs.get("headers") or {})
