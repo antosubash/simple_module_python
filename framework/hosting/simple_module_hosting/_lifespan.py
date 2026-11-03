@@ -73,8 +73,7 @@ def build_lifespan(modules: Sequence) -> Callable:
             # running the migrations is one of the things that wizard does, and
             # check_migrations' RuntimeError would make it unreachable. Anywhere
             # else the original behaviour stands: a schema the code does not match
-            # fails the boot. See _is_first_run for why those two cases cannot be
-            # told apart by "is setup complete".
+            # fails the boot. See _is_first_run for how the two are told apart.
             app.state.migration = await migration_status(app.state.sm.db.engine)
             if not app.state.migration["is_current"] and not await _is_first_run(app):
                 raise RuntimeError(

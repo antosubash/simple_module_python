@@ -10,14 +10,13 @@ import pytest
 from fastapi import FastAPI
 from simple_module_core.correlation import correlation_id
 from simple_module_core.health import HealthCheck, HealthCheckResult, HealthRegistry, HealthStatus
+from simple_module_hosting import health as health_module
 from simple_module_hosting._db_health import CHECK_DATABASE, build_database_check
 from simple_module_hosting.health import router
 from simple_module_hosting.setup_wizard.payloads import connection_status
 
 
 def test_check_deadline_is_five_seconds():
-    import simple_module_hosting.health as health_module
-
     assert health_module.CHECK_TIMEOUT_SECONDS == 5
 
 
@@ -25,8 +24,6 @@ def test_check_deadline_is_five_seconds():
 @pytest.mark.parametrize("failure", ["exception", "timeout", "database"])
 async def test_failed_check_returns_safe_bounded_result(monkeypatch, caplog, consumer, failure):
     # Shorten the real deadline; cancellation and exception handling still run normally.
-    import simple_module_hosting.health as health_module
-
     monkeypatch.setattr(health_module, "CHECK_TIMEOUT_SECONDS", 0.02)
     # The traceback is logged at DEBUG (WARNING carries the class name only).
     caplog.set_level(logging.DEBUG, logger=health_module.__name__)

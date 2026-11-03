@@ -90,8 +90,9 @@ All notable changes to this project are documented in this file. The format is b
   other required setup step is already complete, and now includes installs
   whose only required setup step is migrations. Pending steps on a database
   with migration history no longer qualify as first run (#784).
-- Auth and hosting: framework public paths are matched exactly or by
-  `/`-terminated prefix, keeping similarly named module paths subject to
+- Auth and hosting: **behaviour change:** framework public paths are matched
+  exactly or by `/`-terminated prefix (so e.g. `/healthz` or `/api/docs.json`
+  are no longer anonymous), keeping similarly named module paths subject to
   authentication, maintenance mode and anonymous rate limits.
 - Hosting: readiness and setup connection probes have a five-second deadline
   per check. Timeouts report "timed out"; raised exceptions are logged and

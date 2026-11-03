@@ -154,7 +154,7 @@ class UsersModule(ModuleBase):
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
     def register_setup_steps(self, registry: SetupRegistry) -> None:
-        """Gate the app until an administrator exists — see ``users.setup``."""
+        """Gate the app until a local account exists — see ``users.setup``."""
         from users.setup import build_admin_step
 
         registry.add(build_admin_step())

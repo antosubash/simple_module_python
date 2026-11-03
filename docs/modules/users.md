@@ -418,7 +418,7 @@ every settings load. Do not run it against a database you care about. Blanking
   keys on path + client IP), so a bot hammering one cannot lock a visitor out
   of the other. Each click mints a session row, so a demo instance under real
   traffic may want the budget raised.
-- The demo **admin satisfies the first-run setup gate** — an administrator
+- The demo **admin satisfies the first-run setup gate** — a local account
   exists, so `/setup` never appears. Seed your own admin first
   (`smpy users create-admin`, or the `SM_USERS_BOOTSTRAP_*` vars), because a
   read-only demo session cannot complete the wizard.

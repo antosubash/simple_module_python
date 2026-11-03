@@ -104,7 +104,7 @@ async def test_last_active_administrator_is_preserved(setup_pending_app, kind, o
 @pytest.mark.parametrize(
     "is_active,disabled_at", [(False, None), (True, datetime(2026, 1, 1, tzinfo=UTC))]
 )
-async def test_unavailable_superuser_does_not_complete_setup(
+async def test_unavailable_superuser_is_not_an_active_administrator(
     setup_pending_app, is_active, disabled_at
 ):
     async with setup_pending_app.state.sm.db.session_factory() as session:
