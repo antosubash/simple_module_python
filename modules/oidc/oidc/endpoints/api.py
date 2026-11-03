@@ -18,8 +18,10 @@ from oidc.constants import (
     SESSION_STATE_KEY,
     SESSION_USER_KEY,
     SESSION_VERIFIER_KEY,
+    STALE_LOGIN_STATUS,
 )
 from oidc.runtime import require_client
+from oidc.session_state import is_signed_in
 from oidc.tokens import store_refresh_token
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,13 @@ async def oidc_callback(request: Request):
         or not isinstance(expected_state, str)
         or not secrets.compare_digest(state.encode(), expected_state.encode())
     ):
-        raise HTTPException(status_code=400, detail="Invalid OIDC state")
+        # Browser Back after signing in, or a second tab whose login another
+        # tab finished, lands here with a spent state. A signed-in user just
+        # continues; anyone else gets the "expired, sign in again" page (419)
+        # rather than a raw error, and no automatic retry that could loop.
+        if is_signed_in(request.session):
+            return RedirectResponse(request.app.state.oidc.settings.login_redirect_url, 303)
+        raise HTTPException(status_code=STALE_LOGIN_STATUS, detail="Sign-in expired; start again")
     request.session.pop(SESSION_STATE_KEY, None)
     expected_nonce = request.session.pop(SESSION_NONCE_KEY, None)
     verifier = request.session.pop(SESSION_VERIFIER_KEY, None)

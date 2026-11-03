@@ -102,9 +102,10 @@ async def test_callback_checks_nonce_and_consumes_transaction(callback, nonce):
         await api.oidc_callback(request)
     assert exc.value.status_code == 401
     assert "user_ctx" not in request.session
+    # The transaction is spent: a replay is a stale sign-in, not a second try.
     with pytest.raises(HTTPException) as exc:
         await api.oidc_callback(request)
-    assert exc.value.status_code == 400
+    assert exc.value.status_code == 419
 
 
 @pytest.mark.parametrize("missing", ["oidc_nonce", "oidc_pkce_verifier"])
@@ -206,6 +207,15 @@ async def test_forged_error_reply_cannot_spend_a_victims_login(callback):
     request.scope["query_string"] = b"error=access_denied&state=forged"
     with pytest.raises(HTTPException) as exc:
         await api.oidc_callback(request)
-    assert exc.value.status_code == 400
+    assert exc.value.status_code == 419
     # The victim's pending login is still there to complete.
     assert {"oidc_state", "oidc_nonce", "oidc_pkce_verifier"} <= request.session.keys()
+
+
+async def test_replayed_callback_of_a_signed_in_user_continues_to_the_app(callback):
+    # Browser Back after signing in replays the spent callback URL.
+    request, _ = callback
+    await api.oidc_callback(request)
+    response = await api.oidc_callback(request)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/dashboard/"

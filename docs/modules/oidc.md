@@ -206,7 +206,10 @@ validated with 10 seconds of clock leeway. The client authenticates to the
 token endpoint with `client_secret_post` only (supported by Keycloak, Entra,
 Auth0 and Okta); IdPs that accept only `client_secret_basic` are not supported
 yet. An IdP `error` reply to the callback (for example a cancelled sign-in)
-answers 401 once the login state matched. Entra support
+answers 401 once the login state matched. A callback with a spent or unknown
+state (browser Back after signing in, or a second tab whose login another tab
+finished) sends a signed-in user on to `login_redirect_url` and answers anyone
+else with 419, the framework's "expired, sign in again" page. Entra support
 is single-tenant only. The directory lists only users who have signed in,
 reads cached names/emails and returns unknown roles (`None`), rather than
 claiming no roles. Activity statistics count last login; account creation dates

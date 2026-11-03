@@ -89,8 +89,11 @@ async def test_keycloak_generic_login_refresh_logout(
     if refresh_id_token:
         refreshed["id_token"] = _sign_id_token(nonce="", **claims)
     httpx_mock.add_response(url=f"{_ENDPOINT}/token", json=refreshed)
+    # Any request on the expired session triggers the refresh. Renewed, the
+    # visitor is still signed in and sent on to the app; a refresh without an
+    # ID token signs out, and the signed-out page renders.
     response = await flow_client.get("/oidc/logged-out")
-    assert response.status_code == 200
+    assert response.status_code == (303 if refresh_id_token else 200)
     renewed = _session(flow_client)
     if refresh_id_token:
         assert renewed["user_ctx"]["id"] == session["user_ctx"]["id"]

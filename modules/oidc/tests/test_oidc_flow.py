@@ -97,7 +97,7 @@ async def test_callback_rejects_nonce_mismatch(oidc_app, flow_client, httpx_mock
 async def test_callback_rejects_state_mismatch(flow_client):
     await _begin_login(flow_client)
     resp = await flow_client.get("/api/oidc/auth/callback?code=abc&state=forged-state")
-    assert resp.status_code == 400
+    assert resp.status_code == 419
 
 
 async def test_callback_rejects_token_with_wrong_audience(oidc_app, flow_client, httpx_mock):

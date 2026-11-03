@@ -8,6 +8,7 @@ from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
 
 from oidc.constants import _PAGE_LOGGED_OUT, _PAGE_LOGIN, LOGGED_OUT_PATH
+from oidc.session_state import is_signed_in
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["oidc-views"])
@@ -19,7 +20,11 @@ async def login_page(inertia: InertiaDep):
 
 
 @router.get("/logged-out")
-async def logged_out_page(inertia: InertiaDep):
+async def logged_out_page(request: Request, inertia: InertiaDep):
+    # Only meaningful once the session is gone; a signed-in visitor is not
+    # told they were signed out.
+    if is_signed_in(request.session):
+        return RedirectResponse(request.app.state.oidc.settings.login_redirect_url, 303)
     return await inertia.render(_PAGE_LOGGED_OUT)
 
 
