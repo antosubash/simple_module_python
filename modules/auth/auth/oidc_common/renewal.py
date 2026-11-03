@@ -11,6 +11,7 @@ from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from starlette.requests import Request
 
 from auth.contracts.schemas import UserContext
+from auth.oidc_common.renewal_outcomes import coordinated_refresh
 from auth.oidc_common.session import SessionKeys
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,36 @@ async def refresh_session(
     if type(retry_at) is int and retry_at > time.time():
         return None
     setattr(request.state, keys.attempted, True)
+
+    async def renew():
+        return await _refresh_grant(
+            request,
+            keys=keys,
+            refresh_token=refresh_token,
+            old_ctx=old_ctx,
+            store_token=store_token,
+            refresh=refresh,
+            validate=validate,
+            matches_identity=matches_identity,
+            to_context=to_context,
+        )
+
+    return await coordinated_refresh(request, keys, sealed, renew)
+
+
+async def _refresh_grant(
+    request,
+    *,
+    keys,
+    refresh_token,
+    old_ctx,
+    store_token,
+    refresh,
+    validate,
+    matches_identity,
+    to_context,
+):
+    session = request.session
     try:
         tokens = await refresh(refresh_token)
     except (httpx.TransportError, httpx.HTTPStatusError) as exc:

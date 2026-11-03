@@ -28,6 +28,12 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- OIDC and Keycloak serialize rotating refresh grants with a per-session framework
+  lease and share sealed cookie outcomes for 30 seconds, preventing parallel
+  expiry requests from signing each other out (#738). **Behaviour change:**
+  signed-in sessions receive an opaque id; waiters adopt the renewed cookie or
+  keep it with a 30-second cooldown. Apply migration `a738c2e4f601` (`auth@head`)
+  for the SQLite/Postgres outcome table; no Redis is required.
 - OIDC logout attempts refresh-token revocation before clearing the session when
   discovery advertises a revocation endpoint; revocation failures still complete
   local and RP-initiated logout without logging tokens or response bodies (#739).

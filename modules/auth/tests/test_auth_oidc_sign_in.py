@@ -22,6 +22,7 @@ def test_rotation_and_safe_next(identity_key, target, expected):
         "active_tenant_id": "old-tenant",
         "expires_at": 1,
         "old_refresh": "old",
+        "oidc_session_id": "old-session-id",
     }
     request = Request({"type": "http", "app": app, "session": session})
     old_csrf = get_csrf_token(request)
@@ -41,5 +42,7 @@ def test_rotation_and_safe_next(identity_key, target, expected):
     assert session["browser_gate"] == "open"
     assert not {"next", "active_tenant_id", "old_refresh"} & session.keys()
     assert get_csrf_token(request) != old_csrf
+    assert len(session["oidc_session_id"]) >= 32
+    assert session["oidc_session_id"] != "old-session-id"
     if identity_key:
         assert session[identity_key] == ["https://issuer", "subject"]

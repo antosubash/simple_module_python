@@ -18,7 +18,7 @@ Auth is **pluggable**: exactly one installed module registers an `AuthProvider` 
 `auth.oidc_common` holds the protocol pieces used by both `oidc` and
 `keycloak`: the single-flight JWKS cache and RS256 validator, refresh-token
 sealing and cookie-size guard, sign-in rotation and stale-state checks,
-refresh renewal with a 30-second transient-failure cooldown, race-safe cache
+per-session refresh renewal with a 30-second transient-failure cooldown, race-safe cache
 persistence with throttled activity writes, and the cache-backed directory.
 It imports neither provider. Provider adapters retain their claim mapping,
 endpoint configuration, session keys and identity rules. Keycloak identifies
@@ -108,3 +108,23 @@ app.state.auth.principal_resolvers.append(my_pat_resolver)
 | `errors.missing_permission` | `"Missing required permission: {permissions}"` |
 
 Translated automatically when the request locale is set — no extra wiring needed.
+
+### Concurrent browser renewal (#738)
+
+Shared sign-in gives each browser session a random opaque `oidc_session_id`;
+renewal preserves it. A framework lease serializes refresh grants across workers
+(DB by default, Redis when configured): TTL 15 seconds, wait at most 3 seconds. Renewal work is bounded to 12 seconds
+so token exchange and validation cannot outlive the lease.
+The `auth_refresh_outcome` table shares the principal, new expiry and **sealed**
+refresh token for 30 seconds; unrelated cookie fields are never copied. This
+small DB store works with SQLite and Postgres without Redis; process-local TTL
+caches and the invalidation bus cannot deliver these outcomes across workers.
+Apply migration `a738c2e4f601` (`auth@head`) before upgrading.
+
+Waiters adopt the outcome into their own cookie. A waiter whose outcome is gone,
+a lease timeout, or unavailable coordination storage keeps its session and uses
+the normal 30-second retry cooldown. Definitive provider rejections still clear
+authentication. Expired outcomes are deleted on subsequent renewal lookups.
+Existing cookies without an id coordinate their first renewal by a hash of their
+sealed refresh token, then receive the winner's new random id. No plaintext
+refresh tokens or identity tokens enter the outcome table.
