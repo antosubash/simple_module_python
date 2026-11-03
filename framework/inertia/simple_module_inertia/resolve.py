@@ -45,6 +45,9 @@ def _matches(path: str, filters: frozenset[str]) -> bool:
 
 
 def _included(path: str, req: InertiaRequest, *, ancestors: bool = False) -> bool:
+    """Does the partial reload select ``path``? ``ancestors`` also accepts a path
+    that only *contains* a selected path (``auth`` for ``auth.user``), so its
+    children can be filtered; metadata labels must not use it."""
     if (
         req.partial_data
         and not _matches(path, req.partial_data)
@@ -169,6 +172,11 @@ async def _resolve_children(
             ):
                 items.append(child)
                 continue
+            if isinstance(child, Prop):
+                # A list item has no addressable path for a follow-up request,
+                # so a wrapped item resolves now rather than being deferred and
+                # shifting every later index.
+                child = await resolve_value(child)
             resolved = await _resolve_tree({str(index): child}, req, partial, out, path, True)
             items.extend(resolved.values())
         return items

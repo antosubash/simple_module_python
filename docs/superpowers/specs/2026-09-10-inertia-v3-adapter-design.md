@@ -55,9 +55,9 @@ responsibility. Every file below has one job and is testable on its own.
 | File | Responsibility |
 |---|---|
 | `config.py` | `InertiaConfig`. Upstream's fields, plus `version` accepting a `str` or a zero-arg callable (so the asset version can be computed from the Vite manifest hash at boot). |
-| `props.py` | Prop wrappers and their factories: `OptionalProp`, `AlwaysProp`, `DeferredProp(group="default")`, `MergeProp(mode="append"\|"prepend"\|"deep", match_on=None)`, `OnceProp(key=None, expires_at=None)` — `key` defaults to the prop name; the page object reports `onceProps[key] = {"prop": name, "expiresAt": ms\|null}` — and `ScrollProp(page_name, current_page, previous_page, next_page, reset=False)`, reported under `scrollProps[name]` as `{pageName, currentPage, previousPage, nextPage, reset}` with `null` for an absent neighbour page. Wrappers compose — a deferred prop may also be mergeable, as the protocol allows. Each wraps a value, a callable, or an awaitable. |
+| `props.py` | Prop wrappers and their factories: `OptionalProp`, `AlwaysProp`, `DeferredProp(group="default", rescue=False)`, `MergeProp(mode="append"\|"prepend"\|"deep", match_on=None)`, `OnceProp(key=None, expires_at=None)` — `key` defaults to the prop name; the page object reports `onceProps[key] = {"prop": name, "expiresAt": ms\|null}` — and `ScrollProp(page_name, current_page, previous_page, next_page, reset=False, wrapper="data")`, reported under `scrollProps[name]` as `{pageName, currentPage, previousPage, nextPage, reset}` with `null` for an absent neighbour page. Wrappers compose — a deferred prop may also be mergeable, as the protocol allows. Each wraps a value, a callable, or an awaitable. |
 | `request.py` | `InertiaRequest`, built from request headers only: `is_inertia`, `version`, `partial_component`, `partial_data`, `partial_except`, `reset`, `error_bag`, `merge_intent`, `except_once_props`, `is_prefetch`. A pure function of headers — no FastAPI objects. |
-| `resolve.py` | The prop-resolution engine. Input: the raw props dict and an `InertiaRequest`. Output: `ResolvedProps` — resolved values plus page-object metadata (`deferredProps`, `mergeProps`, `prependProps`, `deepMergeProps`, `matchPropsOn`, `onceProps`, `scrollProps`). Implements the v3 rules in §3. |
+| `resolve.py` | The prop-resolution engine. Input: the raw props dict and an `InertiaRequest`. Output: `ResolvedProps` — resolved values plus page-object metadata (`deferredProps`, `mergeProps`, `prependProps`, `deepMergeProps`, `matchPropsOn`, `onceProps`, `scrollProps`, `rescuedProps`). Implements the v3 rules in §3. |
 | `page.py` | `PageObject` assembly and serialisation. Root-relative `url` (absorbs `_inertia_url`). Exactly one JSON encoder used by both the HTML and JSON branches (absorbs `_inertia_json`); it handles pydantic/SQLModel models, `datetime`, `UUID`, `Decimal`, enums. Conditional fields are emitted **only when set** — `encryptHistory`/`clearHistory`/`preserveFragment` only when `true`, the array/object metadata only when non-empty. |
 | `response.py` | Turns a `PageObject` into an HTTP response: JSON (`X-Inertia: true`, `Vary: X-Inertia`) for Inertia requests, the Jinja root template otherwise; 409 + `X-Inertia-Location` (+ echoed `X-Inertia-Version`) on a GET version mismatch; 303 for redirects after POST/PUT/PATCH/DELETE; 409 + `X-Inertia-Redirect` for fragment-preserving redirects; `location()` for external redirects. |
 | `inertia.py` | The request-scoped `Inertia` facade: `render`, `share`, `flash`, `back`, `redirect`, `location`, `encrypt_history`, `clear_history`. Thin — it delegates to `resolve`, `page`, `response`. |
@@ -91,10 +91,13 @@ to assert against.
   with `matchPropsOn` entries as `"propPath.keyField"`. A key listed in `X-Inertia-Reset` is
   resolved but **not** reported as mergeable for that response, so the client replaces it.
 - **Scroll props**: reported under `scrollProps` with their cursor metadata, `reset` set when
-  `X-Inertia-Reset` names the prop; merge labels target `<prop>.<wrapper>` (default `data`,
+  `X-Inertia-Reset` names the prop or `reset=True` was passed (either also drops the merge label); merge labels target `<prop>.<wrapper>` (default `data`,
   #770); the `X-Inertia-Infinite-Scroll-Merge-Intent` header selects append vs prepend.
 - Values that are callables are called; awaitables are awaited; nested containers are
-  walked so a wrapper inside a dict or list still resolves.
+  walked so a wrapper inside a dict or list still resolves. `optional` and `deferred`
+  wrappers nested in a dict follow the full-visit and partial rules at their dotted
+  path (skipped and announced on a full visit); a wrapper that is a list item resolves
+  eagerly, since an index has no stable path for a follow-up request.
 - **Shared props** (`share()`) merge under the page's own props, page props winning on
   conflict; their top-level keys are reported under `sharedProps`.
 

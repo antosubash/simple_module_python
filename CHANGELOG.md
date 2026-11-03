@@ -38,7 +38,10 @@ All notable changes to this project are documented in this file. The format is b
   (#770). Partial reloads restrict merge/once metadata to selected paths
   (#771) and filter dotted paths inside plain dictionaries before running
   loaders (#772). `defer(..., rescue=True)` logs loader failures, omits failed
-  props and reports their paths in `rescuedProps` (#773).
+  props and reports their paths in `rescuedProps` (#773). An `optional()` or
+  `defer()` nested inside a plain dict prop is now skipped on full visits and
+  announced at its dotted path (`deferredProps: {"default": ["stats.daily"]}`)
+  instead of resolving eagerly; one nested inside a list still resolves eagerly.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.

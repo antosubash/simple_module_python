@@ -1,9 +1,13 @@
 """Dotted partial paths filter plain dictionaries before evaluation (#772)."""
 
 import pytest
-from simple_module_inertia.props import always, merge, once, optional
+from simple_module_inertia.props import always, defer, merge, once, optional
 from simple_module_inertia.request import InertiaRequest
 from simple_module_inertia.resolve import resolve_props
+
+
+def request():
+    return InertiaRequest.from_headers({"X-Inertia": "true"}, method="GET")
 
 
 def partial(only="", exclude=""):
@@ -107,3 +111,17 @@ async def test_always_prop_keeps_merge_and_once_metadata_when_unselected():
     assert out.props == {"feed": [1], "user": "j"}
     assert out.merge == ["feed"] and out.match_on == ["feed.id"]
     assert out.once == {"feed": {"prop": "feed", "expiresAt": None}}
+
+
+async def test_wrapped_list_items_resolve_in_place():
+    out = await resolve_props(
+        {"rows": [1, optional(lambda: 2), defer(lambda: 3), {"x": 4}]}, {}, "Page", request()
+    )
+    assert out.props == {"rows": [1, 2, 3, {"x": 4}]}
+    assert out.deferred == {}
+
+
+async def test_defer_nested_in_dict_is_announced_at_its_dotted_path():
+    out = await resolve_props({"stats": {"daily": defer(lambda: 1)}}, {}, "Page", request())
+    assert out.props == {"stats": {}}
+    assert out.deferred == {"default": ["stats.daily"]}
