@@ -76,7 +76,7 @@ def test_recovers_lost_jobs_across_tenants_and_skips_ineligible_files(
 
 
 def test_batch_is_bounded_and_failed_publishes_are_retried(checksum_worker, monkeypatch):
-    with sync_db.sync_session() as db, tenant_context("tenant-a"):
+    with tenant_context("tenant-a"), sync_db.sync_session() as db:
         db.add(_file("tenant-a", age=60))
     monkeypatch.setattr(constants, "CHECKSUM_RECONCILE_BATCH_SIZE", 1)
     publish = Mock(side_effect=OSError("broker unavailable"))
@@ -92,7 +92,7 @@ def test_batch_is_bounded_and_failed_publishes_are_retried(checksum_worker, monk
 
 def test_other_backend_rows_do_not_starve_active_backend(checksum_worker, monkeypatch):
     monkeypatch.setattr(constants, "CHECKSUM_RECONCILE_BATCH_SIZE", 2)
-    with sync_db.sync_session() as db, tenant_context("tenant-a"):
+    with tenant_context("tenant-a"), sync_db.sync_session() as db:
         for age in range(100, 103):
             row = _file("tenant-a", age=age)
             row.backend = constants.BackendId.S3
@@ -108,7 +108,7 @@ def test_other_backend_rows_do_not_starve_active_backend(checksum_worker, monkey
 def test_candidate_order_is_random(checksum_worker, monkeypatch):
     from sqlalchemy import event
 
-    with sync_db.sync_session() as db, tenant_context("tenant-a"):
+    with tenant_context("tenant-a"), sync_db.sync_session() as db:
         db.add_all([_file("tenant-a", age=60), _file("tenant-a", age=90)])
     statements = []
     with sync_db.sync_session() as db:

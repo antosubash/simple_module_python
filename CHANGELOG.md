@@ -14,6 +14,93 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- OIDC and Keycloak share provider-neutral protocol helpers in
+  `auth.oidc_common`. **Keycloak hardening:** required JWT claims and a 10-second
+  clock leeway, last-good RSA JWKS
+  retention, S256 PKCE, stale/replayed callback handling (303 when signed in,
+  419 otherwise), refresh identity matching, a 30-second transient refresh
+  back-off and a refresh-token cookie-size cap. Provider routes, settings,
+  session encryption and cache schemas remain unchanged; no migration (#741).
+  Keycloak sign-ins started before the upgrade lack a PKCE verifier; their
+  callback answers 419 ("sign in again") and the login must be restarted.
+  Keycloak keeps accepting tokens whose `aud` includes extra audiences such as
+  `account` or whose `azp` is another client (only `oidc` pins both).
+
+### Fixed
+- OIDC and Keycloak serialize rotating refresh grants with a per-session framework
+  lease and share sealed cookie outcomes for 30 seconds, preventing parallel
+  expiry requests from signing each other out (#738). **Behaviour change:**
+  signed-in sessions receive an opaque id; waiters adopt the renewed cookie,
+  a waiter that finds nothing leaves its cookie untouched, and logout clears the
+  session's shared outcome. Apply migration
+  `a738c2e4f601` (`auth@head`, new `auth` branch) for the SQLite/Postgres
+  outcome table before upgrading — hosts with their own migration history must
+  add it, or renewal fails closed (logged); no Redis is required.
+- OIDC logout attempts refresh-token revocation before clearing the session when
+  discovery advertises a revocation endpoint; revocation failures still complete
+  local and RP-initiated logout without logging tokens or response bodies (#739).
+- Background task publishes wait for the root commit and discard callbacks from
+  rolled-back savepoints, including released child savepoints (#729).
+- Successful background tasks normalize results with Kombu's JSON encoder before
+  storage, so datetime results no longer undo success tracking and become stuck
+  (#733).
+- Background task retention clears retry links to expired executions before
+  deletion, preserving recent retries and allowing execution, outbox and log
+  cleanup to complete with foreign keys enforced; no migration (#734).
+- **Behaviour change:** strict tenant-scoped inserts require a bound tenant even
+  when an explicit `tenant_id` is supplied, across ORM flushes, statement values,
+  bulk parameters and multi-VALUES inserts. Explicit cross-tenant bypasses remain
+  supported; no migration (#728). Code that opens a session before binding the
+  tenant (`with sync_session() as db, tenant_context(t):`) now raises at commit,
+  because the flush runs after the tenant context has exited: bind the tenant
+  first (`with tenant_context(t), sync_session() as db:`), or wrap a deliberate
+  cross-tenant seed in `all_tenants()`.
+- Git module updates preserve dependency extras and environment markers when
+  advancing the version floor and tag; markers are excluded from version-range
+  matching (#735).
+- Concurrent permission-module startups no longer fail on a unique constraint
+  while adding missing administrator grants: the insert runs in a savepoint and
+  a worker that lost the race re-reads and inserts only what is still missing
+  (#732).
+- Direct permission-grant caches are kept per application, and bus
+  invalidations clear only their own app's cache, so co-hosted apps on different
+  databases no longer share grants for the same user id (#736).
+- Self-service password changes persist the new password and credential revocation
+  atomically; failed revocation leaves the old password and credentials intact,
+  while successful changes preserve the changing browser's access (#730).
+- **Behaviour change:** registrations normalize email to lowercase and concurrent
+  case-variant signups return one account and one duplicate-account error (#731).
+  Migration `e731a1b2c3d4` makes `lower(email)` unique; migration and boot checks
+  report existing conflicts (masked, with the query that lists them) and refuse
+  to proceed until operators resolve them.
+  Admin email edits, `smpy users create-admin` and the demo seeder store
+  lowercase emails too, and an edit that loses a race answers as a duplicate
+  email rather than a 500.
+  No accounts are automatically merged or deleted.
+- Browser and bearer password logins offload real and dummy password work to
+  worker threads instead of blocking the event loop (#737).
+
+### Added
+- OIDC code exchange, refresh and revocation support `client_secret_basic` when
+  discovery omits `client_secret_post` from its supported methods; absent method
+  metadata preserves `client_secret_post` authentication (#740). No migration.
+- Generic OIDC auth provider with Keycloak discovery and single-tenant Entra
+  presets, configurable claims/roles, cached user directory, English/German UI,
+  and opt-in bearer `api_audience`, limited to `client_id` plus
+  `api_allowed_client_ids` (#192). Migration `c9d2e4f6a810` creates the
+  identity cache on the new independent `oidc` branch (`upgrade heads`).
+  **Behaviour:** Entra identities use issuer + `oid`; `tid` never selects an app
+  tenant, tenant-claim trust defaults off and memberships alone grant tenant roles.
+  Login uses S256 PKCE and bounded sessions with encrypted refresh tokens;
+  providers omitting `id_token` on refresh sign users out at expiry. Logout clears
+  local state and optionally redirects to the IdP without `id_token_hint`, so
+  remote SSO logout depends on the provider. The unused access token's `at_hash`
+  is not checked. Entra tenant-independent discovery is unsupported; discovery
+  failure refuses boot outside development.
+
+## [0.0.42] — 2026-10-31
+
 ### Added
 - Per-resource-type sharing roles and implied actions (`ResourceType.share_roles`),
   including delegated share management: a role implying `ACTION_SHARE` may list,
@@ -56,6 +143,11 @@ All notable changes to this project are documented in this file. The format is b
   most 32 characters now fail at registration (#707).
 
 ### Fixed
+- Two connections opening a fresh SQLite file at the same time no longer fail
+  with "database is locked": switching the file to WAL needs an exclusive lock
+  that SQLite refuses at once instead of waiting out `busy_timeout`. A
+  connection now skips the switch when the file is already in WAL, and retries a
+  lost switch until `busy_timeout` runs out.
 - `file_storage_stored_file.size_bytes` is now `BIGINT` (migration `f5b1c3e8a207`,
   which also gives `file_storage` its own branch label): on PostgreSQL it was a
   32-bit `INTEGER`, so a file of 2 GiB or more failed on insert (#708).
@@ -1412,7 +1504,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...HEAD
+[0.0.42]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...v0.0.42
 [0.0.41]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...v0.0.41
 [0.0.40]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...v0.0.40
 [0.0.39]: https://github.com/antosubash/simple_module_python/compare/v0.0.38...v0.0.39

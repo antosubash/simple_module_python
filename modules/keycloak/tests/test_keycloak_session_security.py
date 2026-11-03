@@ -83,6 +83,7 @@ def callback(monkeypatch):
             "session": {
                 "keycloak_oidc_state": "valid",
                 "keycloak_oidc_nonce": "nonce",
+                "keycloak_oidc_verifier": "verifier",
                 "next": "/deep-link/",
                 "active_tenant_id": "old-tenant",
                 "remember": True,
@@ -173,6 +174,7 @@ async def test_keycloak_callback_validates_signed_id_token(
     common = {
         "iss": "https://idp.test",
         "aud": "app",
+        "iat": 999,
         "exp": int(datetime.now(UTC).timestamp()) + 300,
     }
     access = jwt.encode({**claims, **common}, key, algorithm="RS256", headers={"kid": "key"})
@@ -235,3 +237,26 @@ async def test_keycloak_realistic_session_cookie_fits(callback, monkeypatch):
         == tokens["refresh_token"]
     )
     assert len(response.headers["set-cookie"].encode()) < 4096
+
+
+async def test_keycloak_callback_sends_saved_pkce_verifier(callback, monkeypatch, httpx_mock):
+    from urllib.parse import parse_qs, urlencode, urlsplit
+
+    from keycloak.oidc import OIDCClient
+
+    request, _, id_claims = callback
+    client = OIDCClient("https://idp.test", "test", "app", "secret")
+    monkeypatch.setattr(api, "_get_oidc_client", lambda req: client)
+    login = await api.oidc_login(request)
+    query = parse_qs(urlsplit(login.headers["location"]).query)
+    verifier = request.session["keycloak_oidc_verifier"]
+    assert query["code_challenge_method"] == ["S256"]
+    id_claims["nonce"] = request.session["keycloak_oidc_nonce"]
+    request.scope["query_string"] = urlencode({"code": "code", "state": query["state"][0]}).encode()
+    httpx_mock.add_response(json={"access_token": "access", "id_token": "id"})
+    response = await api.oidc_callback(request)
+    assert response.status_code == 303
+    assert request.session["user_ctx"]["id"] == "new-user"
+    posted = parse_qs(httpx_mock.get_request().content.decode())
+    assert posted["code_verifier"] == [verifier]
+    assert "keycloak_oidc_verifier" not in request.session

@@ -1,6 +1,6 @@
 # auth
 
-A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
+A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, [`oidc`](/modules/oidc) for generic OIDC, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
 
 Auth is **pluggable**: exactly one installed module registers an `AuthProvider` implementation on `app.state.auth.auth_provider`, and `AuthMiddleware` delegates to it on every request. The split exists so you can swap authentication backends without churning every consumer's import paths. Diagnostics enforce the invariant — `SM020` errors if two auth-provider modules are installed, `SM021` warns if none is.
 
@@ -12,6 +12,18 @@ Auth is **pluggable**: exactly one installed module registers an `AuthProvider` 
 | `route_prefix` | `/auth` |
 | `view_prefix` | _(none)_ |
 | `depends_on` | _(none)_ |
+
+## Shared OIDC helpers
+
+`auth.oidc_common` holds the protocol pieces used by both `oidc` and
+`keycloak`: the single-flight JWKS cache and RS256 validator, refresh-token
+sealing and cookie-size guard, sign-in rotation and stale-state checks,
+per-session refresh renewal with a 30-second transient-failure cooldown, race-safe cache
+persistence with throttled activity writes, and the cache-backed directory.
+It imports neither provider. Provider adapters retain their claim mapping,
+endpoint configuration, session keys and identity rules. Keycloak identifies
+cache rows by subject; OIDC uses issuer plus subject. Neither table changes
+and no migration is needed (#741).
 
 ## Public contracts
 
@@ -76,7 +88,7 @@ async def delete_order(order_id: int, user: CurrentUser) -> None:
 `AuthModule.register_settings` puts an empty `AuthState` on `app.state.auth` (holding `auth_provider` and `principal_resolvers`), and `register_middleware` installs `AuthMiddleware`. On each HTTP request the middleware:
 
 1. Skips authentication for public paths — framework defaults (`/health`, `/static/`, `/api/docs`, `/api/redoc`, `/api/openapi.json` (only when served), `/i18n/`, and the exact path `/`), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch), and, until 0.1.0, a third-party provider's deprecated `get_public_paths()` (prefix-only).
-2. Calls `provider.resolve_user(request)` (the `AuthProvider` registered by `users` or `keycloak`).
+2. Calls `provider.resolve_user(request)` (the `AuthProvider` registered by `users`, `keycloak` or `oidc`).
 3. On a miss, walks the **principal-resolver chain** (`app.state.auth.principal_resolvers`) in order — async callables `(Request) -> UserContext | None` for extra credential sources (PAT bearer tokens, API keys). The first non-`None` wins; each is wrapped in `try/except` so a raising resolver is treated as no-match.
 4. If still unauthenticated and the path isn't public: returns `401` JSON for `/api/*` or bearer requests, otherwise stashes `next` in the session and redirects to `provider.get_login_url(request)`.
 
@@ -96,3 +108,32 @@ app.state.auth.principal_resolvers.append(my_pat_resolver)
 | `errors.missing_permission` | `"Missing required permission: {permissions}"` |
 
 Translated automatically when the request locale is set — no extra wiring needed.
+
+### Concurrent browser renewal (#738)
+
+Shared sign-in gives each browser session a random opaque `oidc_session_id`;
+renewal preserves it. A framework lease serializes refresh grants across workers
+(DB by default, Redis when configured): TTL 15 seconds, wait at most 3 seconds. Renewal work is bounded to 12 seconds
+so token exchange and validation cannot outlive the lease.
+The `auth_refresh_outcome` table shares the principal, new expiry and **sealed**
+refresh token for 30 seconds; unrelated cookie fields are never copied. This
+small DB store works with SQLite and Postgres without Redis; process-local TTL
+caches and the invalidation bus cannot deliver these outcomes across workers.
+Logout removes the session's shared outcome, so a replayed pre-rotation cookie
+cannot adopt a renewed principal after sign-out (best effort; a failure never
+blocks logout). Apply migration `a738c2e4f601` (`auth@head`) before upgrading.
+
+Waiters adopt the outcome into their own cookie. A waiter whose outcome is gone,
+or whose lease wait times out, leaves its cookie untouched (its copy still holds
+the spent refresh token, and a late Set-Cookie must not overwrite the winner's);
+that one request goes unauthenticated and the next uses the renewed cookie.
+Unavailable coordination storage keeps the session with the normal 30-second
+retry cooldown. Definitive provider rejections still clear authentication.
+Expired outcomes are purged when a new outcome is published, so a lookup never
+takes a write lock. An outcome is bound to the exact sealed refresh token being
+spent: an older copy of the cookie cannot adopt it, while any holder of the same
+pre-rotation cookie can within its 30 seconds (as that holder could also have
+refreshed it first).
+Existing cookies without an id coordinate their first renewal by a hash of their
+sealed refresh token, then receive the winner's new random id. No plaintext
+refresh tokens or identity tokens enter the outcome table.

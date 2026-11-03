@@ -79,10 +79,12 @@ def guard_insert(
     bound = current_tenant_id.get()
     tenant_id = None if bypass else bound
     stamp = bound or fallback
+    if tenant_id is None and strict:
+        raise missing_tenant_error(mappers[0], "INSERT")
     if getattr(execute_state.statement, "select", None) is not None:
-        return _guard_from_select(execute_state, tenant_id, stamp, mappers[0], strict)
+        return _guard_from_select(execute_state, tenant_id, stamp)
     if getattr(execute_state.statement, "_multi_values", None):
-        return _guard_multi_values(execute_state, tenant_id, stamp, mappers[0], strict)
+        return _guard_multi_values(execute_state, tenant_id, stamp)
     for value in assigned_tenant_ids(execute_state):
         if tenant_id is not None and value != tenant_id:
             raise _foreign_insert(value, tenant_id)
@@ -94,8 +96,6 @@ def guard_insert(
     )
     if not missing:
         return None
-    if tenant_id is None and strict:
-        raise missing_tenant_error(mappers[0], "INSERT")
     if rows:
         stamped = [{**r, TENANT_COLUMN: r.get(TENANT_COLUMN, stamp)} for r in rows]
         payload = stamped if isinstance(execute_state.parameters, list) else stamped[0]
@@ -104,12 +104,8 @@ def guard_insert(
     return None
 
 
-def _guard_from_select(
-    execute_state: ORMExecuteState, tenant_id: str | None, stamp: str, entity: str, strict: bool
-) -> None:
+def _guard_from_select(execute_state: ORMExecuteState, tenant_id: str | None, stamp: str) -> None:
     stmt = execute_state.statement
-    if tenant_id is None and strict:
-        raise missing_tenant_error(entity, "INSERT")
     names = list(stmt._select_names)
     if TENANT_COLUMN in names:
         if tenant_id is None:
@@ -144,9 +140,7 @@ def _guard_from_select(
     )
 
 
-def _guard_multi_values(
-    execute_state: ORMExecuteState, tenant_id: str | None, stamp: str, entity: str, strict: bool
-) -> Any:
+def _guard_multi_values(execute_state: ORMExecuteState, tenant_id: str | None, stamp: str) -> Any:
     """``insert(M).values([{...}, {...}])``: check and stamp each row.
 
     ``.values(tenant_id=...)`` cannot be appended to a multi-VALUES insert
@@ -172,8 +166,6 @@ def _guard_multi_values(
         groups.append(rows)
     if not missing:
         return None
-    if tenant_id is None and strict:
-        raise missing_tenant_error(entity, "INSERT")
     stamped = stmt._generate()
     stamped._multi_values = tuple(groups)
     execute_state.statement = stamped

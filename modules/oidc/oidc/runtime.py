@@ -1,0 +1,74 @@
+"""Initialize one coherent discovery/client/JWKS configuration per process."""
+
+import logging
+
+from fastapi import HTTPException, Request
+
+from oidc.client import OIDCClient
+from oidc.constants import SESSION_USER_KEY
+from oidc.discovery import fetch_metadata
+from oidc.jwks import JWKSCache
+
+logger = logging.getLogger(__name__)
+_DISCOVERY_SUFFIX = "/.well-known/openid-configuration"
+
+
+async def initialize(app) -> bool:
+    state = app.state.oidc
+    development = app.state.sm.settings.environment == "development"
+    async with state.initialization_lock:
+        if state.client is not None:
+            return True
+        s = state.settings
+        try:
+            if not s.discovery_url or not s.client_id:
+                raise ValueError("OIDC discovery URL and client ID are required")
+            if _DISCOVERY_SUFFIX not in s.discovery_url:
+                raise ValueError("OIDC discovery URL must identify its issuer")
+            # OIDC discovery uses either issuer + suffix or suffix + issuer path.
+            prefix, suffix = s.discovery_url.split(_DISCOVERY_SUFFIX, 1)
+            expected_issuer = prefix + suffix
+            metadata = await fetch_metadata(
+                s.discovery_url, expected_issuer=expected_issuer, development=development
+            )
+            cache = JWKSCache(
+                metadata.jwks_uri,
+                ttl_seconds=s.jwks_cache_ttl_seconds,
+                issuer=metadata.issuer,
+                audience=s.client_id,
+            )
+            client = OIDCClient(
+                authorization_endpoint=metadata.authorization_endpoint,
+                token_endpoint=metadata.token_endpoint,
+                end_session_endpoint=metadata.end_session_endpoint,
+                revocation_endpoint=metadata.revocation_endpoint,
+                token_endpoint_auth_methods_supported=metadata.token_endpoint_auth_methods_supported,
+                revocation_endpoint_auth_methods_supported=(
+                    metadata.revocation_endpoint_auth_methods_supported
+                ),
+                client_id=s.client_id,
+                client_secret=s.client_secret,
+            )
+        except Exception as exc:
+            if not development:
+                raise RuntimeError("OIDC discovery failed; authentication unavailable") from exc
+            logger.warning("OIDC discovery unavailable; login will retry")
+            return False
+        state.metadata, state.jwks_cache, state.client = metadata, cache, client
+        app.state.auth.auth_provider.jwks_cache = cache
+        return True
+
+
+async def require_client(request: Request) -> OIDCClient:
+    """The configured client, initialising lazily; 503 when the provider is unavailable."""
+    if request.app.state.oidc.client is None:
+        await initialize(request.app)
+    client = request.app.state.oidc.client
+    if client is None:
+        raise HTTPException(status_code=503, detail="OIDC provider not configured")
+    return client
+
+
+def is_signed_in(session) -> bool:
+    """Whether the browser session already holds an OIDC sign-in."""
+    return isinstance(session.get(SESSION_USER_KEY), dict)

@@ -123,5 +123,5 @@ class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     )
 
     # Functional index so the ``lower(email)`` predicate used by
-    # ``UserDatabaseWithRoles.get_by_email`` can be served from an index.
-    __table_args__ = (Index("ix_users_user_email_lower", text("lower(email)")),)
+    # ``UserDatabaseWithRoles.get_by_email`` has one unambiguous identity (#731).
+    __table_args__ = (Index("ix_users_user_email_lower", text("lower(email)"), unique=True),)

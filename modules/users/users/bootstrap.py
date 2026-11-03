@@ -77,7 +77,7 @@ async def create_admin(
     hasher = PasswordHelper()
     if existing is None:
         user = User(
-            email=email,
+            email=email.lower(),
             hashed_password=hasher.hash(password),
             is_active=True,
             is_verified=True,
@@ -182,7 +182,7 @@ async def create_standard_user(
     user_role = await ensure_user_role(db)
 
     user = User(
-        email=email,
+        email=email.lower(),
         hashed_password=PasswordHelper().hash(password),
         is_active=True,
         is_verified=True,

@@ -144,7 +144,7 @@ permissions role pages. The edit page's *Recent activity* card reads the core
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `UUID` | PK |
-| `email` | `str` | unique, indexed; functional index on `lower(email)` |
+| `email` | `str` | unique, indexed; unique functional index on `lower(email)` |
 | `hashed_password` | `str \| None` | **nullable** — external (SSO) users have no local password (see [External / SSO users](#external-sso-users)) |
 | `is_active` / `is_superuser` / `is_verified` | `bool` | |
 | `is_external` | `bool` | `True` for users provisioned via an external IdP; default `False` (`server_default false`) |
@@ -248,6 +248,31 @@ counter caches are invalidated only after the revocation commits.
 Password changes and sign-out-everywhere use the same revocation. A password
 change reissues the calling browser's cookie so that browser remains signed in;
 a password reset and sign-out-everywhere preserve no existing credentials.
+The self-service password change flushes the new hash and credential revocation
+in one transaction (#730): a failed revocation rolls the password change back.
+
+Email login identities are case-insensitive. New registrations, admin email
+edits, `smpy users create-admin` and the demo seeder store lowercase emails; an
+admin edit that loses a race answers as a duplicate email. A unique expression index on `lower(email)` prevents concurrent
+case-variant registrations; the losing signup returns the usual duplicate-account
+error (#731). Migration `e731a1b2c3d4` replaces the nonunique index. If existing
+accounts have conflicting emails, both the migration and the users data
+compatibility check refuse the upgrade/boot (outside development) and report how
+many addresses conflict, masked (`a***@example.com`, at most 20) because the message
+lands in logs, together with the query that lists the full rows:
+
+```sql
+SELECT id, email FROM users_user WHERE lower(email) IN
+  (SELECT lower(email) FROM users_user GROUP BY lower(email) HAVING count(*) > 1);
+```
+
+Assign distinct addresses to those accounts before retrying;
+no accounts are automatically merged or deleted. Hosts with their own migration
+history must also replace `ix_users_user_email_lower` with a unique index on
+`lower(email)` after resolving conflicts.
+
+Both browser and bearer password logins run verification and dummy password work
+in worker threads so unrelated requests can continue during hashing (#737).
 
 ## Events
 
@@ -541,4 +566,4 @@ Components (under `pages/Users/components/`):
 
 - `cookie_secure` is automatically flipped to `False` in dev (`SM_ENVIRONMENT=development`) so login works over plain HTTP. Don't override it in non-dev environments.
 - `ThroughputLimiter` (register, forgot-password, accept-invite, verify-token, `/me/password`) counts in-process, so with N workers its budget is up to N times the configured one. Password-login lockout does not have that limit — see [Login lockout](#login-lockout).
-- The functional `lower(email)` index makes case-insensitive lookups fast on Postgres; on SQLite the lookup falls back to `LOWER(email) = ?` which still uses the regular index.
+- The unique functional `lower(email)` index serves case-insensitive lookups on Postgres and enforces one account per address regardless of letter case; on SQLite the lookup uses `LOWER(email) = ?`.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -153,6 +155,34 @@ def _is_file_database(database_url: str) -> bool:
     return bool(path) and path != ":memory:"
 
 
+def _ensure_wal(cursor, timeout_ms: int = 5000) -> None:
+    """Switch the file to WAL unless it already is.
+
+    Switching needs an exclusive lock, and SQLite fails it with "database is
+    locked" at once, without waiting out ``busy_timeout``, when another
+    connection holds a lock. That happens when two connections open a fresh
+    file together. So read the mode first (WAL persists in the file, so later
+    connections skip the switch), and retry a lost switch until the winner has
+    finished or ``timeout_ms`` has passed. On aiosqlite the sleep blocks the
+    event loop, but only while a fresh file is being switched.
+    """
+    deadline = time.monotonic() + timeout_ms / 1000
+    while _journal_mode(cursor) != "wal":
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            return
+        except sqlite3.OperationalError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.02)
+
+
+def _journal_mode(cursor) -> str:
+    # The aiosqlite adapter's ``execute`` returns None, so fetch from the cursor.
+    cursor.execute("PRAGMA journal_mode")
+    return cursor.fetchone()[0].lower()
+
+
 def _configure_sqlite(
     engine: AsyncEngine,
     database_url: str,
@@ -166,7 +196,7 @@ def _configure_sqlite(
     Registered on the *sync* engine's ``connect`` event — the async engine is a
     facade, and ``connect`` fires on the DBAPI connection underneath it. All
     three PRAGMAs must be re-issued per connection except ``journal_mode``,
-    which is a property of the file; re-issuing it is cheap and idempotent.
+    which is a property of the file (see :func:`_ensure_wal`).
 
     Also registers a ``savepoint`` listener that opens the transaction before an
     outermost SAVEPOINT (pysqlite would otherwise let its RELEASE commit; GH #350).
@@ -182,7 +212,7 @@ def _configure_sqlite(
             if busy_timeout_ms is not None:
                 cursor.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
             if apply_wal:
-                cursor.execute("PRAGMA journal_mode=WAL")
+                _ensure_wal(cursor, busy_timeout_ms or 0)
         finally:
             cursor.close()
 

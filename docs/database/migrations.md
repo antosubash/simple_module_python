@@ -38,18 +38,22 @@ The history is **not** a single linear chain. It has several roots and several h
 | Root | Branch |
 |---|---|
 | `77162e7b184b` initial schema | the users trunk (also holds file_storage, background_tasks, api_tokens revisions) |
+| `a738c2e4f601` auth refresh outcomes (#738) | auth (root and head) |
+| `c9d2e4f6a810` OIDC identity cache (#192) | oidc (root and head) |
 | `e36ab09c4a92` tenants initial schema | tenants (`f1a9c3d7b2e4` head) |
 | `f733c7938fd1` sharing resource share | sharing (root and head) |
 | `d263ea727663` framework `sm_lease` table | leases (its own head; [leases](../framework/leases.md)) |
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
-| `f5b1c3e8a207` | file_storage (`size_bytes` BIGINT) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
+| `e731a1b2c3d4` | users (unique `lower(email)`, #731) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
 | `a7c2e91d4b58` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
 | `d263ea727663` | framework (`sm_lease`) | `leases` |
 | `f6a3b9d2e8c4` | keycloak | `keycloak` |
 | `f733c7938fd1` | sharing | `sharing` |
+| `c9d2e4f6a810` | oidc | `oidc` |
+| `a738c2e4f601` | auth | `auth` |
 
 `audit_log` forks off the trunk at `41cf2c53660e`, and `keycloak` forks off the users revision `873ca2015033`.
 
@@ -57,7 +61,7 @@ A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **
 
 ### Known mislabels
 
-The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases`, `users` (added by `a625f0b7c912`) and `file_storage` (added by `f5b1c3e8a207`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
+The declared `branch_labels` are `auth` (added by `a738c2e4f601`), `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases`, `users` (added by `a625f0b7c912`), `oidc` (added by `c9d2e4f6a810`) and `file_storage` (added by `f5b1c3e8a207`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
 
 - `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.
@@ -66,6 +70,19 @@ The declared `branch_labels` are `audit_log`, `api_tokens`, `background_tasks`, 
 Guidance: give an unlabelled module a `branch_labels` on its **next** revision. Adding a label to an existing revision file is technically possible, because `alembic_version` stores revision ids and never labels, but it also relabels every descendant and changes what `<label>@head` resolves to, so treat it as a deliberate, reviewed change rather than a cleanup.
 
 `host/tests/test_migration_graph.py` pins the roots, heads, each revision's owning module and the mislabels above. Adding a root, head or revision fails it until the table is updated.
+
+## Browser refresh coordination (#738)
+
+Migration `a738c2e4f601` creates `auth_refresh_outcome` on an independent
+`auth` root. Apply `upgrade heads` before using OIDC or Keycloak renewal. The
+30-second outcomes contain only the principal, expiry, sealed refresh token and
+session coordination keys; expired rows are purged when a later renewal
+publishes its outcome (lookups never write). `outcome_key` (primary key) is a hash
+of the session, its sealed refresh token being spent and the provider; `lock_key`
+(indexed) is the per-session hash, which logout uses to delete the session's
+outcomes. Independent transactions publish outcomes before releasing the session
+lease, without waiting for the request transaction. No Redis is required.
+Downgrade drops this short-lived cache; it does not alter user accounts.
 
 ## Users token storage upgrade (#626)
 

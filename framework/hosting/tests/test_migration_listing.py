@@ -76,8 +76,13 @@ class TestAppliedStatus:
         """A database at one branch head has applied that branch's whole chain,
         not just the revision named in ``alembic_version``."""
         script = script_directory()
-        head = sorted(resolve_head_revisions())[0]
-        ancestors = {rev.revision for rev in script.iterate_revisions(head, "base")}
+        chains = {
+            head: {rev.revision for rev in script.iterate_revisions(head, "base")}
+            for head in sorted(resolve_head_revisions())
+        }
+        # The longest chain: some roots (e.g. auth) are a single revision.
+        head = max(chains, key=lambda h: len(chains[h]))
+        ancestors = chains[head]
 
         rows = {
             row["id"]: row["applied"] for row in list_migrations(current_revision=head, limit=100)

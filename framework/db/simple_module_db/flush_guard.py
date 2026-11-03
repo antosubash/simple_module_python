@@ -58,11 +58,11 @@ def guard_flush(session: Session) -> None:
     for obj in session.new:
         if not isinstance(obj, MultiTenantMixin):
             continue
+        if tenant_id is None and strict:
+            raise missing_tenant_error(type(obj).__name__, "INSERT")
         if obj.tenant_id is None:
             if tenant_id is not None:
                 obj.tenant_id = tenant_id
-            elif strict:
-                raise missing_tenant_error(type(obj).__name__, "INSERT")
         elif tenant_id is not None and obj.tenant_id != tenant_id:
             raise TenantIsolationError(
                 f"Cannot create object for tenant '{obj.tenant_id}' "

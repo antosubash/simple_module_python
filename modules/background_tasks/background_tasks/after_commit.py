@@ -15,7 +15,7 @@ Two delivery paths, picked per session:
 - **Any other session** — a worker's sync session, a CLI script's own
   ``async with session.begin()`` — has nobody to run ``on_commit`` callbacks,
   so the publish hangs off SQLAlchemy's ``after_commit`` event instead and is
-  dropped when the outermost transaction ends without committing.
+  dropped when its savepoint or the outermost transaction rolls back.
 
 The broker id is reserved up front and returned, so the caller can write it
 onto its own row in the same transaction: the row names the task before the
@@ -31,6 +31,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from simple_module_db import RequestSession, bind_current_tenant, mark_written
+from simple_module_db.callbacks import open_savepoints
 from simple_module_db.transaction import SESSION_START_KEY
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,7 +109,8 @@ def after_commit(
             db.on_commit(lambda: _run_all(batch))
         return
     sync = db.sync_session if isinstance(db, AsyncSession) else db
-    sync.info.setdefault(_PENDING_KEY, []).extend(batch)
+    savepoints = open_savepoints(sync)
+    sync.info.setdefault(_PENDING_KEY, []).extend((savepoints, publish) for publish in batch)
     _hook(sync)
 
 
@@ -127,7 +129,14 @@ def _hook(session: Session) -> None:
     session.info[_HOOKED_KEY] = True
 
     def on_commit(sess: Session) -> None:
-        _run_all(sess.info.pop(_PENDING_KEY, []))
+        if not sess.in_nested_transaction():
+            _run_all([publish for _, publish in sess.info.pop(_PENDING_KEY, [])])
+
+    def on_rollback(sess: Session, transaction: SessionTransaction) -> None:
+        if transaction.nested and _PENDING_KEY in sess.info:
+            sess.info[_PENDING_KEY] = [
+                entry for entry in sess.info[_PENDING_KEY] if transaction not in entry[0]
+            ]
 
     def on_end(sess: Session, transaction: SessionTransaction) -> None:
         # ``after_commit`` already took the batch on the commit path; anything
@@ -136,6 +145,7 @@ def _hook(session: Session) -> None:
             sess.info.pop(_PENDING_KEY, None)
 
     event.listen(session, "after_commit", on_commit)
+    event.listen(session, "after_soft_rollback", on_rollback)
     event.listen(session, "after_transaction_end", on_end)
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -73,6 +74,30 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     )
     assert p.read_text(encoding="utf-8") == before
     assert calls == []
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_git_update_preserves_extras_and_marker(tmp_path: Path, dry_run: bool) -> None:
+    p = _host(tmp_path, "https://github.com/x/mods")
+    original = 'simple_module_blog[s3]>=0.1,<1.0; python_version >= "3.12"'
+    p.write_text(
+        p.read_text().replace('"simple_module_blog>=0.1.0,<1.0"', repr(original)),
+        encoding="utf-8",
+    )
+    before = p.read_bytes()
+    calls, runner = _recorder()
+    run_sources_update(
+        p, only=None, dry_run=dry_run, git_runner=_git_stub(["v0.2.0"]), exec_runner=runner
+    )
+    if dry_run:
+        assert p.read_bytes() == before
+        assert calls == []
+    else:
+        data = tomllib.loads(p.read_text())
+        assert data["project"]["dependencies"][0] == (
+            'simple_module_blog[s3]>=0.2.0,<1.0; python_version >= "3.12"'
+        )
+        assert data["tool"]["uv"]["sources"]["simple_module_blog"]["tag"] == "v0.2.0"
 
 
 def test_only_limits_to_that_group(tmp_path: Path) -> None:
@@ -160,3 +185,21 @@ def test_group_update_requires_tag_accepted_by_every_sibling(
         assert calls == []
     else:
         assert after.count(f'tag = "{expected}"') == 2
+
+
+def test_sibling_without_a_version_clause_does_not_break_the_group(tmp_path: Path) -> None:
+    p = _host(tmp_path, "https://github.com/x/mods")
+    text = p.read_text(encoding="utf-8").replace(
+        '"simple_module_comments>=0.1.0,<1.0"', '"simple_module_comments[s3]"'
+    )
+    p.write_text(text, encoding="utf-8")
+    _calls, runner = _recorder()
+    run_sources_update(
+        p,
+        only=None,
+        dry_run=False,
+        git_runner=_git_stub(["v0.1.0", "v0.3.0", "v2.0.0"]),
+        exec_runner=runner,
+    )
+    # The unversioned sibling adds no bound; the other's <1.0 still holds.
+    assert p.read_text(encoding="utf-8").count('tag = "v0.3.0"') == 2

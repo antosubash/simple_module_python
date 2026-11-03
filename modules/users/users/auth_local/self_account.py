@@ -22,7 +22,7 @@ from simple_module_hosting.token_guard import Authenticated
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.backend import cookie_login_response
 from users.constants import SESSION_VERSION_KEY
-from users.contracts.schemas import SelfPasswordChange, UserUpdate
+from users.contracts.schemas import SelfPasswordChange
 from users.credentials import revoke_all_credentials
 from users.db_adapter import get_access_token_db
 from users.deps import fastapi_users, get_user_manager
@@ -86,7 +86,13 @@ async def change_my_password(
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
 
     try:
-        await user_manager.update(UserUpdate(password=body.new_password), user, request=request)  # ty: ignore[invalid-argument-type]
+        await user_manager.validate_password(body.new_password, user)
+        # The upstream adapter's update commits; keep hash and revocation together.
+        user.hashed_password = await asyncio.to_thread(
+            user_manager.password_helper.hash, body.new_password
+        )
+        await db.flush()
+        await user_manager.on_after_update(user, {"password": body.new_password}, request)
     except fu_exceptions.InvalidPasswordException as exc:
         raise HTTPException(status_code=400, detail=exc.reason) from exc
 

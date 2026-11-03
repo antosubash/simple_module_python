@@ -89,6 +89,7 @@ class KeycloakModule(ModuleBase):
                 ttl_seconds=s.jwks_cache_ttl_seconds,
                 issuer=f"{s.server_url}/realms/{s.realm}",
                 audience=s.client_id,
+                exclusive_audience=False,
             )
             provider = app.state.auth.auth_provider
             provider.jwks_cache = state.jwks_cache

@@ -86,15 +86,15 @@ class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.
         try:
             user = await self.get_by_email(credentials.username)
         except exceptions.UserNotExists:
-            self.password_helper.hash(credentials.password)
+            await asyncio.to_thread(self.password_helper.hash, credentials.password)
             return None
 
         if user.hashed_password is None:
-            self.password_helper.hash(credentials.password)
+            await asyncio.to_thread(self.password_helper.hash, credentials.password)
             return None
 
-        verified, updated_password_hash = self.password_helper.verify_and_update(
-            credentials.password, user.hashed_password
+        verified, updated_password_hash = await asyncio.to_thread(
+            self.password_helper.verify_and_update, credentials.password, user.hashed_password
         )
         if not verified:
             return None

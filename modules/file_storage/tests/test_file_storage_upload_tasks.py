@@ -61,7 +61,7 @@ def test_beat_schedule_runs_the_reaper_hourly():
 def test_the_reaper_aborts_only_expired_active_sessions(worker):
     expired_id = asyncio.run(worker.create_multipart("k1", "x/y"))
     live_id = asyncio.run(worker.create_multipart("k2", "x/y"))
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add_all(
             [
                 _session_row(expired_id, expires_in=timedelta(hours=-1)),
@@ -86,7 +86,7 @@ def test_the_reaper_aborts_only_expired_active_sessions(worker):
 
 def test_a_failing_abort_is_retried_next_hour(worker, monkeypatch):
     upload_id = asyncio.run(worker.create_multipart("k", "x/y"))
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add(_session_row(upload_id, expires_in=timedelta(hours=-1)))
 
     async def boom(key, upload):
@@ -110,7 +110,7 @@ def test_compute_checksum_fills_the_digest(worker):
 
     asyncio.run(_store())
     file_id = uuid.uuid4()
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add(
             StoredFile(
                 id=file_id,
@@ -127,7 +127,7 @@ def test_compute_checksum_fills_the_digest(worker):
     digest = tasks.compute_checksum(str(file_id), TENANT)
 
     assert digest == hashlib.sha256(payload).hexdigest()
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         assert db.get(StoredFile, file_id).checksum_sha256 == digest
     # Already filled: a duplicate delivery does nothing.
     assert tasks.compute_checksum(str(file_id), TENANT) is None
@@ -135,7 +135,7 @@ def test_compute_checksum_fills_the_digest(worker):
 
 def test_compute_checksum_ignores_another_tenants_file(worker):
     file_id = uuid.uuid4()
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add(
             StoredFile(
                 id=file_id,
@@ -156,7 +156,7 @@ def test_the_orphan_sweep_spares_active_sessions_and_foreign_keys(worker, monkey
     tracked_id = asyncio.run(worker.create_multipart(tracked_key, "x/y"))
     orphan_id = asyncio.run(worker.create_multipart(own, "x/y"))
     foreign_id = asyncio.run(worker.create_multipart("another-app/exports/data.csv", "x/y"))
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add(_session_row(tracked_id, expires_in=timedelta(hours=1), key=tracked_key))
 
     async def stale(older_than):
@@ -176,7 +176,7 @@ def test_the_orphan_sweep_spares_active_sessions_and_foreign_keys(worker, monkey
 
 def test_compute_checksum_survives_a_deleted_object(worker):
     file_id = uuid.uuid4()
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add(
             StoredFile(
                 id=file_id,
@@ -194,7 +194,7 @@ def test_compute_checksum_survives_a_deleted_object(worker):
 def test_the_reaper_purges_finished_rows_past_the_retention_window(worker):
     retention = FileStorageSettings().upload_session_retention_days
     old, recent = timedelta(days=-(retention + 1)), timedelta(days=-(retention - 1))
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         rows = [
             _session_row("a", expires_in=old),
             _session_row("b", expires_in=old),
@@ -218,7 +218,7 @@ def test_checksum_refuses_previous_provider(worker, monkeypatch):
     from file_storage.backend_guard import BackendUnavailableError
 
     file_id = uuid.uuid4()
-    with sync_db.sync_session() as db, tenant_context(TENANT):
+    with tenant_context(TENANT), sync_db.sync_session() as db:
         db.add(
             StoredFile(
                 id=file_id,

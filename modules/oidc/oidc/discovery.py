@@ -1,0 +1,103 @@
+"""Validated OIDC discovery metadata; endpoint hosts may legitimately differ."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import urlsplit
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+
+def _validate_url(value: object, *, development: bool) -> str:
+    if not isinstance(value, str) or not value or any(c.isspace() for c in value):
+        raise ValueError("OIDC metadata URL must be a non-empty URL")
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme not in ({"https", "http"} if development else {"https"})
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        raise ValueError("OIDC metadata requires HTTPS URLs without credentials or fragments")
+    return value
+
+
+@dataclass(frozen=True)
+class OidcMetadata:
+    issuer: str
+    authorization_endpoint: str
+    token_endpoint: str
+    jwks_uri: str
+    end_session_endpoint: str = ""
+    revocation_endpoint: str = ""
+    token_endpoint_auth_methods_supported: list[str] | None = None
+    revocation_endpoint_auth_methods_supported: list[str] | None = None
+
+    @classmethod
+    def from_document(
+        cls, doc: dict, *, expected_issuer: str | None = None, development: bool = False
+    ) -> OidcMetadata:
+        if not isinstance(doc, dict):
+            raise ValueError("OIDC discovery document must be an object")
+        required = ("issuer", "authorization_endpoint", "token_endpoint", "jwks_uri")
+        missing = [key for key in required if not doc.get(key)]
+        if missing:
+            raise ValueError(
+                f"OIDC discovery document missing required fields: {', '.join(missing)}"
+            )
+        values: dict[str, Any] = {
+            key: _validate_url(doc[key], development=development) for key in required
+        }
+        issuer = urlsplit(values["issuer"])
+        if issuer.query or "{" in values["issuer"] or "}" in values["issuer"]:
+            raise ValueError("OIDC issuer must be concrete and have no query")
+        # Compared without one trailing slash: issuers such as Auth0's end in
+        # "/" while the discovery URL is built without it. Tokens are still
+        # validated against the issuer exactly as the document states it.
+        if expected_issuer is not None and values["issuer"].rstrip("/") != expected_issuer.rstrip(
+            "/"
+        ):
+            raise ValueError("OIDC discovery issuer does not match configured issuer")
+        logout = doc.get("end_session_endpoint", "")
+        values["end_session_endpoint"] = (
+            _validate_url(logout, development=development) if logout != "" else ""
+        )
+        # Optional extras must not take sign-in down: a malformed one is ignored
+        # (no revocation; the default client authentication) with a warning.
+        values["revocation_endpoint"] = ""
+        if doc.get("revocation_endpoint", "") != "":
+            try:
+                values["revocation_endpoint"] = _validate_url(
+                    doc["revocation_endpoint"], development=development
+                )
+            except ValueError:
+                logger.warning("Ignoring unusable OIDC revocation_endpoint in discovery")
+        for key in (
+            "token_endpoint_auth_methods_supported",
+            "revocation_endpoint_auth_methods_supported",
+        ):
+            methods = doc.get(key)
+            if methods is not None and (
+                not isinstance(methods, list) or not all(isinstance(m, str) for m in methods)
+            ):
+                logger.warning("Ignoring malformed OIDC %s in discovery", key)
+                methods = None
+            values[key] = methods
+        return cls(**values)
+
+
+async def fetch_metadata(
+    discovery_url: str, *, expected_issuer: str | None = None, development: bool = False
+) -> OidcMetadata:
+    _validate_url(discovery_url, development=development)
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(discovery_url, timeout=10)
+        resp.raise_for_status()
+        return OidcMetadata.from_document(
+            resp.json(), expected_issuer=expected_issuer, development=development
+        )

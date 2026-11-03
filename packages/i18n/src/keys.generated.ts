@@ -862,6 +862,20 @@ export const keys = {
       logout: 'keycloak.nav.logout',
     },
   },
+  oidc: {
+    login: {
+      manual: 'oidc.login.manual',
+      redirecting: 'oidc.login.redirecting',
+    },
+    logout: {
+      message: 'oidc.logout.message',
+      sign_in_again: 'oidc.logout.sign_in_again',
+      title: 'oidc.logout.title',
+    },
+    nav: {
+      logout: 'oidc.nav.logout',
+    },
+  },
   permissions: {
     audit: {
       role_permission: 'permissions.audit.role_permission',

@@ -101,7 +101,7 @@ class PermissionsModule(ModuleBase):
         """Let another worker's grant change drop this worker's cached grants."""
         from permissions.grants import subscribe
 
-        subscribe(bus)
+        subscribe(bus, app)
         from permissions.role_invalidation import subscribe as subscribe_roles
 
         self._refresh = subscribe_roles(bus, app)

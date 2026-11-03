@@ -32,6 +32,8 @@ send_receipt.delay(order_id=42)
 
 Every dispatch / start / completion / failure / retry / revoke is recorded in the `background_tasks_task_execution` table by Celery signal handlers, so you can see history even after the Celery result backend has expired the result.
 
+Results use Kombu's JSON representation, including type envelopes for values such as datetimes. Non-dict results are wrapped in `{"value": ...}`; `None` stays null. Results unsupported by that encoder, or holding NaN/Infinity (which a PostgreSQL JSON column refuses), fall back to `{"value": repr(result)}` so serialization does not undo success tracking.
+
 ## Enqueueing from inside a transaction
 
 `send_receipt.delay(...)` publishes *now*. If the request that called it is still writing the row the task will read, two things go wrong: a fast worker (or eager mode, which runs the task inside the publish) starts before the row is visible, and if the commit then fails the task is queued against a row that never existed. Publish after commit instead:
@@ -54,6 +56,7 @@ async def place(self, data: OrderCreate) -> OrderOut:
 - In a request (`get_db`), the publish runs from the session's `on_commit` hook — after the commit, before the response leaves.
 - Any other session — a task body's sync session, a CLI script's own `async with session.begin()` — hangs it off SQLAlchemy's `after_commit` event instead, and drops it when the outermost transaction ends without committing. Publishing then blocks the committing thread for the length of one kombu publish.
 - The task runs as the tenant bound when you called `enqueue_after_commit`, not whatever is bound at commit time.
+- Releasing a savepoint never publishes early. Rolling back a savepoint discards its queued publishes, including those from released child savepoints; other publishes still wait for the root commit.
 
 **Delivery is at-most-once.** The publish intent lives only in memory. A broker
 failure after commit is logged as `background_tasks.after_commit.publish_failed`
@@ -586,6 +589,8 @@ Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at f
 | `background_tasks.sweep_stuck_tasks` | every `stuck_sweep_interval_seconds` | flips `running` rows whose heartbeat is older than their task's `stuck_after` (else `stuck_after_seconds`) to `stuck` |
 | `background_tasks.purge_old_executions` | every `purge_interval_seconds` | deletes terminal rows, and delivered outbox rows, older than `retention_days` |
 | `background_tasks.sweep_outbox` | every `outbox_sweep_interval_seconds` | reclaims expired outbox leases and delivers every due outbox row |
+
+Retention clears retry links to expired executions before deleting them. Recent retries survive with `retried_from_id=None`; links to retained executions are unchanged. Execution, delivered outbox and log cleanup share one transaction.
 
 `background_tasks.dispatch_outbox(ids)` is not scheduled: it is sent after each commit that wrote outbox rows.
 

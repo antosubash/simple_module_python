@@ -7,6 +7,7 @@ These helpers are intentionally side-effect-free except for the DB write in
 
 from __future__ import annotations
 
+import json
 import logging
 import traceback as tb_mod
 from collections.abc import Callable
@@ -14,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from celery import current_app
+from kombu.utils.json import dumps
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlmodel import col
@@ -97,12 +99,26 @@ def jsonable_result(result: Any) -> dict[str, Any] | None:
     """Wrap arbitrary task results in a JSON-storable shape."""
     if result is None:
         return None
-    if isinstance(result, dict):
-        return result
     try:
-        return {"value": result}
+        # Plain json.loads keeps Kombu's type envelopes JSON-safe for the DB.
+        # NaN/Infinity encode fine but Postgres' json type rejects them, which
+        # would roll the success write back like the datetime case did.
+        text = dumps(result if isinstance(result, dict) else {"value": result})
+        if "\\u0000" in text:
+            # PostgreSQL's json/jsonb types reject NUL escapes in strings.
+            raise ValueError("NUL character in result")
+        return json.loads(text, parse_constant=_reject_constant)
     except Exception:
-        return {"value": repr(result)}
+        # Result tracking must never undo a task's success (RecursionError,
+        # a failing ``__json__`` hook, ... included).
+        try:
+            return {"value": repr(result)}
+        except Exception:
+            return {"value": f"<unrepresentable {type(result).__name__}>"}
+
+
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"non-finite JSON constant {name}")
 
 
 def render_traceback(einfo: Any, exception: BaseException | None) -> str | None:
