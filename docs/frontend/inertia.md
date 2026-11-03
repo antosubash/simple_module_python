@@ -33,7 +33,7 @@ async def browse(inertia: InertiaDep, service: OrderServiceDep):
 
 Breakdown:
 
-- `InertiaDep` (from `simple_module_hosting.inertia_deps`) is a request-scoped dependency that resolves the `Inertia` instance from `app.state.inertia_dependency` (configured at boot) and shares in `request.state.inertia_shared`.
+- `InertiaDep` (from `simple_module_hosting.inertia_deps`) is a request-scoped dependency that resolves the `Inertia` instance from `app.state.inertia_dependency` (configured at boot) and shares the layout props (`auth`, `menus`, `i18n`, …), which it resolves lazily via `resolve_inertia_shared(request)`; do not read `request.state.inertia_shared` without awaiting that first.
 - The first argument to `render` is the **page key** — `"Orders/Browse"` maps to `modules/orders/orders/pages/Browse.tsx`. See [Pages & discovery](/frontend/pages).
 - `props` is a plain dict serialized to JSON. Use `model_dump(mode="json")` on SQLModel DTOs to get JSON-safe types (`Decimal → str`, `datetime → iso string`).
 

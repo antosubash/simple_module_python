@@ -105,7 +105,13 @@ async def render_error_page(
         # repeated here. Without it the error page renders raw translation keys
         # (ui.error_page.not_found_title) and loses auth/menus, so a signed-in
         # user's 404 has no layout.
-        shared = await resolve_inertia_shared(request)
+        try:
+            shared = await resolve_inertia_shared(request)
+        except Exception:
+            # Building the layout is what failed (a DB outage in the menus, say):
+            # still render the page, just without the shared layout props.
+            logger.warning("Error page: layout props unavailable", exc_info=True)
+            shared = {}
         if shared:
             inertia.share(**shared)
         # The correlation id is the only handle a user has on their own failed

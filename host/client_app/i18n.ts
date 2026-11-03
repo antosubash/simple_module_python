@@ -43,7 +43,12 @@ export function subscribeI18nToNavigation(): () => void {
       reloading = false;
     } else if (i18n.locale !== activeLocale() && !reloading) {
       reloading = true;
-      router.reload({ only: ['i18n'] });
+      router.reload({
+        only: ['i18n'],
+        onFinish: () => {
+          reloading = false;
+        },
+      });
     }
   });
   return () => {

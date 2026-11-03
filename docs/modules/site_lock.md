@@ -17,7 +17,7 @@ This is not user authentication — that is what [`auth`](/modules/auth), [`user
 
 Both dependencies are load-bearing. `Settings` lets `register_module_settings` reach the module registry. `Auth` makes this module sort *after* the auth module, and since middleware is installed in topological order while Starlette's `add_middleware` is LIFO, sorting later means wrapping **outermost** — so `SiteLockMiddleware` executes *before* `AuthMiddleware`.
 
-That ordering is the point of the design: an anonymous visitor gets the gate rather than a redirect to the login page, so a locked site never reveals it has one. The order is pinned by `framework/hosting/tests/test_hosting_middleware_order.py`.
+That ordering is the point of the design: an anonymous visitor gets the gate rather than a redirect to the login page, so a locked site never reveals it has one. The order is pinned by `framework/hosting/tests/test_middleware_order.py`.
 
 ## Routes
 

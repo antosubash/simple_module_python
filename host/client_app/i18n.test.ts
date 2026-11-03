@@ -66,7 +66,7 @@ it('reloads a missing catalog once and keeps advertising the catalog it holds', 
   handlers.success(event);
   handlers.success(event);
   expect(reload).toHaveBeenCalledTimes(1);
-  expect(reload).toHaveBeenCalledWith({ only: ['i18n'] });
+  expect(reload).toHaveBeenCalledWith(expect.objectContaining({ only: ['i18n'] }));
   const visit = { headers: {} as Record<string, string> };
   handlers.before({ detail: { visit } });
   expect(visit.headers['X-SM-I18n']).toBe('en:public');

@@ -242,7 +242,7 @@ class TestModulePublicRoutes:
 
 
 class TestInertiaMiddlewareOrdering:
-    """Pins the exact regression `test_hosting_middleware_order.py` guards structurally:
+    """Pins the exact regression `test_middleware_order.py` guards structurally:
     with `InertiaMiddleware` sitting directly outside `MaintenanceMiddleware`
     (real pipeline order), the 503's own short-circuited response — not just a
     response from `self.app` — must still pass through InertiaMiddleware's
