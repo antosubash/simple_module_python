@@ -29,13 +29,13 @@ async def test_service_invalidates_user_grants_only_on_commit(db_session, commit
     registry = PermissionRegistry()
     registry.add_group("Test", ["test.view"])
     bus = InvalidationBus()
-    subscribe(bus)
     messages = []
     bus.subscribe(CHANNEL, messages.append)
     app = FastAPI()
     app.state.sm = SimpleNamespace(
         invalidation=bus, db=SimpleNamespace(session_factory=async_sessionmaker(db_session.bind))
     )
+    subscribe(bus, app)
     request = Request({"type": "http", "app": app})
     user_id = uuid.UUID(user.id)
     if clear:

@@ -14,6 +14,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+- Concurrent permission-module startups no longer fail on a unique constraint
+  while adding missing administrator grants: the insert runs in a savepoint and
+  a worker that lost the race re-reads and inserts only what is still missing
+  (#732).
+- Direct permission-grant caches are kept per application, and bus
+  invalidations clear only their own app's cache, so co-hosted apps on different
+  databases no longer share grants for the same user id (#736).
+
 ### Added
 - Generic OIDC auth provider with Keycloak discovery and single-tenant Entra
   presets, configurable claims/roles, cached user directory, English/German UI,

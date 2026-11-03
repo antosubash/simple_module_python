@@ -12,12 +12,16 @@ from typing import TYPE_CHECKING
 from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
 from simple_module_core.user_directory import DirectoryUser
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from permissions.models import RolePermission
 
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
+
+# Attempts at the admin-grant insert before a persistent conflict is re-raised.
+_SYNC_ATTEMPTS = 3
 
 
 def _role_names(user: DirectoryUser) -> list[str]:
@@ -99,13 +103,24 @@ class RegistrySyncMixin:
         keys until someone clicked Save.
         """
         registered = set(self.registry.all_permissions)
-        existing = set(await self._get_role_keys(ADMIN_ROLE))
-        missing = registered - existing
-        if not missing:
-            return
-        self.db.add_all(
-            RolePermission(role_name=ADMIN_ROLE, permission_key=key, assigned_by=assigned_by)
-            for key in missing
-        )
-        await self.db.flush()
+        # Workers start together on a fresh install or a release with new keys,
+        # and each sees the same rows missing. Insert through the ORM (audit
+        # stamping) inside a savepoint; when another worker won the race, read
+        # again and insert only what is still missing (#732).
+        for attempt in range(_SYNC_ATTEMPTS):
+            missing = registered - set(await self._get_role_keys(ADMIN_ROLE))
+            if not missing:
+                break
+            try:
+                async with self.db.begin_nested():
+                    self.db.add_all(
+                        RolePermission(
+                            role_name=ADMIN_ROLE, permission_key=key, assigned_by=assigned_by
+                        )
+                        for key in sorted(missing)
+                    )
+                break
+            except IntegrityError:
+                if attempt == _SYNC_ATTEMPTS - 1:
+                    raise
         self.registry.set_role_overlay(ADMIN_ROLE, registered)

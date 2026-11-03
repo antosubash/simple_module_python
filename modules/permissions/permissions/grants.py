@@ -1,4 +1,4 @@
-"""Direct per-user grants as a framework grant source, cached per process.
+"""Direct per-user grants as a framework grant source, cached per application.
 
 Registered on the :class:`~simple_module_core.permissions.PermissionRegistry`
 so the framework's one permission resolution — the door (``RequiresPermission``),
@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any
+from weakref import WeakKeyDictionary
 
 from cachetools import TTLCache
 from simple_module_core.app_state import get_services
@@ -52,13 +53,24 @@ The window only matters for a revocation made in *another* worker with no
 invalidation transport installed; see the module docstring.
 """
 
-_GRANTS: TTLCache = TTLCache(maxsize=10_000, ttl=GRANTS_TTL_SECONDS)
+_CACHES: WeakKeyDictionary = WeakKeyDictionary()
+
+
+def _cache(app: FastAPI) -> TTLCache:
+    cache = _CACHES.get(app)
+    if cache is None:
+        cache = TTLCache(maxsize=10_000, ttl=GRANTS_TTL_SECONDS)
+        _CACHES[app] = cache
+    return cache
+
+
 _MISS = object()
 
 
 def clear_grants_cache() -> None:
     """Empty the cache — for tests that need a cold read."""
-    _GRANTS.clear()
+    for cache in list(_CACHES.values()):
+        cache.clear()
 
 
 def _user_uuid(raw: Any) -> uuid.UUID | None:
@@ -80,7 +92,8 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
     if user_id is None:
         return frozenset()
     # One ``get``, not ``in`` then ``[]``: a TTLCache entry can expire between.
-    cached = _GRANTS.get(user_id, _MISS)
+    grants = _cache(request.app)
+    cached = grants.get(user_id, _MISS)
     if cached is not _MISS:
         return cached
     session_factory = request.app.state.sm.db.session_factory
@@ -89,22 +102,28 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
             select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
         )
         keys = frozenset(result.scalars().all())
-    _GRANTS[user_id] = keys
+    grants[user_id] = keys
     return keys
 
 
-def apply_invalidation(invalidation: Invalidation) -> None:
-    """Drop the cached grants named by *invalidation*. The bus handler."""
-    if invalidation.key is None:
-        _GRANTS.clear()
-        return
-    user_id = _user_uuid(invalidation.key)
-    if user_id is not None:
-        _GRANTS.pop(user_id, None)
+def apply_invalidation(invalidation: Invalidation, app: FastAPI | None = None) -> None:
+    """Drop grants for this app; app-less maintenance callers forget all caches."""
+    if app is None:
+        caches = list(_CACHES.values())
+    else:
+        # ``get``, not ``_cache``: an invalidation must not allocate a cache.
+        caches = [cache] if (cache := _CACHES.get(app)) is not None else []
+    for cache in caches:
+        if invalidation.key is None:
+            cache.clear()
+        else:
+            user_id = _user_uuid(invalidation.key)
+            if user_id is not None:
+                cache.pop(user_id, None)
 
 
-def subscribe(bus: InvalidationBus) -> None:
-    bus.subscribe(CHANNEL, apply_invalidation)
+def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
+    bus.subscribe(CHANNEL, lambda message: apply_invalidation(message, app))
 
 
 async def publish_grants_changed(app: FastAPI, user_id: uuid.UUID) -> None:
@@ -118,6 +137,7 @@ async def publish_grants_changed(app: FastAPI, user_id: uuid.UUID) -> None:
     bus = getattr(get_services(app), "invalidation", None)
     if bus is None:
         logger.debug("No invalidation bus on this app; dropping %s locally", user_id)
-        _GRANTS.pop(user_id, None)
+        if (cache := _CACHES.get(app)) is not None:
+            cache.pop(user_id, None)
         return
     await bus.publish(CHANNEL, key=str(user_id))
