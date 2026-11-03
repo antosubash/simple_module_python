@@ -73,5 +73,5 @@ async def upsert_user_cache(
                     )
             return str(row.id)
     except Exception:
-        logger.warning("Failed to persist OIDC identity")
+        logger.exception("Failed to persist OIDC identity for %s", identity)
         return None

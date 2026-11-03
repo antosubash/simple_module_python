@@ -84,7 +84,8 @@ async def oidc_callback(request: Request):
         raise HTTPException(status_code=400, detail="Missing OIDC nonce")
 
     if not isinstance(verifier, str) or not verifier:
-        raise HTTPException(status_code=400, detail="Missing PKCE verifier")
+        # A login started before the PKCE upgrade: same as a stale callback.
+        raise HTTPException(status_code=419, detail="Sign-in expired; start again")
     client = _get_oidc_client(request)
     callback_url = str(request.url_for("oidc_callback"))
 

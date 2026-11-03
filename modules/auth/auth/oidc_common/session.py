@@ -1,5 +1,7 @@
 """Shared sign-in rotation and callback transaction checks."""
 
+import base64
+import hashlib
 import secrets
 from dataclasses import dataclass
 
@@ -30,6 +32,12 @@ class SessionKeys:
         ):
             if key is not None:
                 session.pop(key, None)
+
+
+def pkce_challenge(verifier: str) -> str:
+    """The S256 ``code_challenge`` for a PKCE ``code_verifier``."""
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
 def stale_callback(request: Request, state_key: str, user_key: str, redirect: str):

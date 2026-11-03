@@ -69,7 +69,13 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 A stale or replayed callback redirects an already signed-in browser with 303;
 an anonymous browser receives 419 and must start sign-in again. An unmatched
 state does not consume a pending sign-in. Transactions started before this
-upgrade lack a PKCE verifier and must be restarted.
+upgrade lack a PKCE verifier; their callback also answers 419 ("sign in
+again") and the login must be restarted.
+
+Keycloak's JWT validation keeps its previous audience semantics: the client id
+only has to be among the token's `aud` values and `azp` is not pinned (real
+Keycloak access tokens carry `aud: [client, "account"]`). The `oidc` module
+keeps the strict exclusive-audience check.
 
 The shared protocol implementation lives in `auth.oidc_common` (#741).
 Keycloak retains its discovery-free realm URLs, access-token identity and

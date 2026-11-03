@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from types import SimpleNamespace
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -61,3 +62,20 @@ def store_refresh_token(
     session.pop(session_key, None)
     logger.warning("OIDC refresh token too large for the session cookie; session ends at expiry")
     return False
+
+
+def provider_tokens(*, info: bytes, session_key: str) -> SimpleNamespace:
+    """The seal/open/store trio for one provider (only HKDF info and key differ)."""
+
+    def seal(app: Any, token: str) -> str:
+        return seal_refresh_token(app, token, info=info)
+
+    def open_(app: Any, sealed: Any) -> str | None:
+        return open_refresh_token(app, sealed, info=info)
+
+    def store(app: Any, session: Any, token: str) -> bool:
+        return store_refresh_token(app, session, token, info=info, session_key=session_key)
+
+    return SimpleNamespace(
+        seal_refresh_token=seal, open_refresh_token=open_, store_refresh_token=store
+    )

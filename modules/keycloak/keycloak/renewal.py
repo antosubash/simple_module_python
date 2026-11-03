@@ -39,7 +39,11 @@ class SessionRenewal:
 
         async def matches(claims, old_ctx):
             try:
-                cache_id = uuid.UUID(old_ctx.id)
+                try:
+                    cache_id = uuid.UUID(old_ctx.id)
+                except ValueError:
+                    # The sign-in upsert fell back to the raw ``sub``.
+                    return old_ctx.id == claims["sub"]
                 async with independent_session(request.app) as db:
                     subject = (
                         await db.execute(

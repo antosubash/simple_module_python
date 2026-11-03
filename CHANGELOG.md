@@ -17,13 +17,15 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 - OIDC and Keycloak share provider-neutral protocol helpers in
   `auth.oidc_common`. **Keycloak hardening:** required JWT claims and a 10-second
-  clock leeway, strict audience/authorized-party checks, last-good RSA JWKS
+  clock leeway, last-good RSA JWKS
   retention, S256 PKCE, stale/replayed callback handling (303 when signed in,
   419 otherwise), refresh identity matching, a 30-second transient refresh
   back-off and a refresh-token cookie-size cap. Provider routes, settings,
   session encryption and cache schemas remain unchanged; no migration (#741).
-  Keycloak sign-ins started before the upgrade lack a PKCE verifier and must be
-  restarted.
+  Keycloak sign-ins started before the upgrade lack a PKCE verifier; their
+  callback answers 419 ("sign in again") and the login must be restarted.
+  Keycloak keeps accepting tokens whose `aud` includes extra audiences such as
+  `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
 - OIDC logout attempts refresh-token revocation before clearing the session when

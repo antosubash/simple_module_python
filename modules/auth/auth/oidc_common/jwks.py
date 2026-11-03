@@ -31,6 +31,7 @@ class JWKSCache:
         *,
         issuer: str,
         audience: str,
+        exclusive_audience: bool = True,
     ) -> None:
         if not issuer:
             raise ValueError("issuer is required for JWT validation")
@@ -40,6 +41,12 @@ class JWKSCache:
         self._ttl = ttl_seconds
         self._issuer = issuer
         self._audience = audience
+        # True: the token may name only the expected audience and, for this
+        # client's own audience, ``azp`` must be this client. False (Keycloak):
+        # the audience only has to be among the token's ``aud`` values and
+        # ``azp`` is not checked, as Keycloak access tokens carry
+        # ``aud: [client, "account"]`` and bearer tokens come from other clients.
+        self._exclusive_audience = exclusive_audience
         self._keys: dict[str, Any] = {}
         self._fetched_at: float = 0
         self._last_fetch_attempt: float | None = None
@@ -88,6 +95,8 @@ class JWKSCache:
                 return None
             if any(type(claims[k]) is not int for k in ("exp", "iat")):
                 return None
+            if not self._exclusive_audience:
+                return claims
             audiences = claims["aud"]
             audiences = [audiences] if isinstance(audiences, str) else audiences
             if not isinstance(audiences, list) or any(

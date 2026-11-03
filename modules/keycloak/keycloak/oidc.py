@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import base64
-import hashlib
 import secrets
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+from auth.oidc_common.session import pkce_challenge
 
 
 class OIDCClient:
@@ -57,11 +56,7 @@ class OIDCClient:
             "nonce": nonce,
         }
         if code_verifier:
-            params["code_challenge"] = (
-                base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-                .rstrip(b"=")
-                .decode()
-            )
+            params["code_challenge"] = pkce_challenge(code_verifier)
             params["code_challenge_method"] = "S256"
         url = f"{self._base}/auth?{urlencode(params)}"
         return url, state
