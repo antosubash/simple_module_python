@@ -42,7 +42,7 @@ CSP applies as for any response; whitelist external origins the SPA needs with
 `register_csp_sources`. In production the script policy is
 `'nonce-<request nonce>' 'strict-dynamic'`, under which CSP3 browsers ignore
 origin allowlists, so the mount stamps the request nonce onto every `<script>`
-tag of the shell's `index.html` as it serves it (an existing `nonce=` is kept)
+tag (and `modulepreload` / `as="script"` preload link) of the shell's `index.html` as it serves it (an existing `nonce=` is kept)
 and drops the shell's `ETag`/`Last-Modified` and ignores the request's
 conditional headers (`If-None-Match` and friends), so a revalidation always gets
 a fresh `200` instead of a `304` that would revive a stale nonce. Scripts the shell's entry loads are trusted through

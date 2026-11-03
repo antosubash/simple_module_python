@@ -43,7 +43,7 @@ _NONCE_STATE_KEY = "csp_nonce"
 _SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\snonce\s*=)", re.IGNORECASE)
 # Vite shells preload their chunks; a script preload without the nonce is refused.
 _SCRIPT_PRELOAD_WITHOUT_NONCE = re.compile(
-    r"<link\b(?=[^>]*\b(?:rel\s*=\s*[\"']?modulepreload|as\s*=\s*[\"']?script))"
+    r"<link\b(?=[^>]*\s(?:rel\s*=\s*[\"']?modulepreload|as\s*=\s*[\"']?script))"
     r"(?![^>]*\snonce\s*=)",
     re.IGNORECASE,
 )
