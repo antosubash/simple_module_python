@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -72,6 +73,10 @@ async def upsert_user_cache(
                         .values(last_login_at=now)
                     )
             return str(row.id)
-    except Exception:
-        logger.exception("Failed to persist OIDC identity for %s", identity)
+    except Exception as exc:
+        # Diagnosable without personal data: the error class and a short hash
+        # of the identity, never the identity itself or a traceback whose SQL
+        # parameters can carry the email.
+        digest = hashlib.sha256(repr(sorted(identity.items())).encode()).hexdigest()[:12]
+        logger.warning("Failed to persist OIDC identity %s (%s)", digest, type(exc).__name__)
         return None

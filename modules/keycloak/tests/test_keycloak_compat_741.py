@@ -109,12 +109,14 @@ async def test_callback_without_pkce_verifier_is_419():
     assert exc.value.status_code == 419
 
 
-async def test_failed_cache_upsert_logs_the_exception(caplog):
+async def test_failed_cache_upsert_logs_without_personal_data(caplog):
     provider = KeycloakAuthProvider()
     request = Request(
         {"type": "http", "app": SimpleNamespace(state=SimpleNamespace()), "headers": []}
     )
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         assert await provider._upsert_user_cache(request, {"sub": "kc-1"}) == "kc-1"
-    record = next(r for r in caplog.records if "kc-1" in r.getMessage())
-    assert record.exc_info is not None
+    record = next(r for r in caplog.records if "Failed to persist OIDC identity" in r.getMessage())
+    # Error class and a hash only: no subject, no traceback with SQL parameters.
+    assert "kc-1" not in record.getMessage()
+    assert record.exc_info is None
