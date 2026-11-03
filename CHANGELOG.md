@@ -44,6 +44,16 @@ All notable changes to this project are documented in this file. The format is b
   instead of resolving eagerly; one inside a list item or a loader's returned
   value still resolves eagerly. A `scroll()` whose value is a bare list merges
   at the prop root.
+- `smpy package-update` selects the latest release in PEP 440 order and promotes
+  RC pins to final releases without downgrading existing pins (#766).
+- `smpy package-update` respects exact and glob uv workspace exclusions, leaving
+  excluded project manifests unchanged (#767). No migration.
+- **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
+  before #750 (no authority marker) is adopted only when the issuer recorded in
+  its `oidc_identity` matches the discovered issuer (#764). A session from a
+  previously configured issuer, or one whose issuer cannot be read, must sign in
+  again; same-issuer sessions stay signed in. Keycloak is unaffected. No
+  migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.

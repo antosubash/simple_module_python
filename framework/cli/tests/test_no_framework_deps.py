@@ -1,4 +1,4 @@
-"""Guard: `simple_module_cli` distribution depends only on typer + tomlkit.
+"""Guard: the CLI depends only on typer, tomlkit and packaging.
 
 If a future change accidentally pulls in simple_module_core, FastAPI,
 SQLModel, or anything else, this test fires immediately.
@@ -6,7 +6,8 @@ SQLModel, or anything else, this test fires immediately.
 
 from __future__ import annotations
 
-from importlib.metadata import distribution
+import tomllib
+from pathlib import Path
 
 
 def _normalize(req: str) -> str:
@@ -18,9 +19,11 @@ def _normalize(req: str) -> str:
 
 
 def test_simple_module_cli_runtime_deps_are_minimal() -> None:
-    requires = distribution("simple_module_cli").requires or []
+    # Read the declaration so an editable install's stale metadata cannot hide drift.
+    manifest = Path(__file__).parents[1] / "pyproject.toml"
+    requires = tomllib.loads(manifest.read_text())["project"]["dependencies"]
     names = {_normalize(r) for r in requires}
-    expected = {"typer", "tomlkit"}
+    expected = {"typer", "tomlkit", "packaging"}
     assert names == expected, (
         f"simple_module_cli direct deps drifted; got {sorted(names)}, expected {sorted(expected)}"
     )
