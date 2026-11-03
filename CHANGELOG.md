@@ -15,6 +15,9 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- `simple_module_hosting[redis]` and `simple_module_background_tasks` accept
+  `redis` 7 and 8 (`redis>=5,<9`); the lockfile moves to redis 8.1.0 with
+  kombu 5.7.0, the first stable kombu that supports it (#665).
 - OIDC and Keycloak share provider-neutral protocol helpers in
   `auth.oidc_common`. **Keycloak hardening:** required JWT claims and a 10-second
   clock leeway, last-good RSA JWKS
