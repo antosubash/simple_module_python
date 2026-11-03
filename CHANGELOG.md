@@ -36,6 +36,9 @@ All notable changes to this project are documented in this file. The format is b
   and the new password in one update; error responses are unchanged.
   `UserManager.on_after_verify` now fires after the password is set, followed by
   `on_after_update` (#763). No migration.
+- Custom background task bases retain tenant validation and caller tenant/owner
+  stamping in eager mode, preserving custom `apply_async` overrides and default
+  headers. Incompatible bases fail clearly at registration (#765). No migration.
 - `smpy package-update` selects the latest release in PEP 440 order and promotes
   RC pins to final releases without downgrading existing pins (#766).
 - `smpy package-update` respects exact and glob uv workspace exclusions, leaving
