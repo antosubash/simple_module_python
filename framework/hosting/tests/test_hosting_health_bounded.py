@@ -20,7 +20,7 @@ async def test_failed_check_returns_safe_bounded_result(monkeypatch, caplog, con
     # Shorten the real deadline; cancellation and exception handling still run normally.
     import simple_module_hosting.health as health_module
 
-    monkeypatch.setattr(health_module, "CHECK_TIMEOUT_SECONDS", 0.02, raising=False)
+    monkeypatch.setattr(health_module, "CHECK_TIMEOUT_SECONDS", 0.02)
     cancelled = asyncio.Event()
 
     async def check():

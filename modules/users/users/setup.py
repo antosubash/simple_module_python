@@ -98,8 +98,13 @@ async def has_administrator(app) -> bool:
         return await session_has_administrator(session)
 
 
+async def session_has_local_account(session) -> bool:
+    """True when *session* sees any local account (the step's and the action's rule)."""
+    return await session.scalar(select(User.id).limit(1)) is not None
+
+
 async def has_local_account(app) -> bool:
     """True once any local account exists; the step's completion predicate."""
     session_factory = app.state.sm.db.session_factory
     async with session_factory() as session:
-        return await session.scalar(select(User.id).limit(1)) is not None
+        return await session_has_local_account(session)

@@ -1,8 +1,9 @@
 """Create the first administrator while the local users table is empty.
 
-The setup step uses the shared active-administrator definition. The action
-also requires an empty users table, checked under the database lock in the
-inserting transaction. Existing installations recover through
+The step and this action share one rule, ``session_has_local_account``: the
+step is complete once any account exists, and the action re-checks it under
+the database lock in the inserting transaction, so two concurrent requests
+cannot both create one. Existing installations recover through
 ``smpy users create-admin``. Passwords follow ``UserManager``'s policy.
 """
 
@@ -23,6 +24,7 @@ from sqlmodel import SQLModel
 from users.bootstrap import create_admin
 from users.manager import UserManager
 from users.models import User
+from users.setup import session_has_local_account
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +94,7 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
 
     async with _process_lock(request.app), request.app.state.sm.db.session_factory() as session:
         await _lock_admin_creation(session)
-        if await session.scalar(sa.select(User.id).limit(1)) is not None:
+        if await session_has_local_account(session):
             await session.rollback()
             raise HTTPException(
                 status_code=409,
