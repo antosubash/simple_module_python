@@ -39,7 +39,7 @@ class Inertia:
         self._clear_history = False
         self._preserve_fragment = False
         if self._is_stale():
-            raise InertiaVersionConflictException(url=str(request.url))
+            raise InertiaVersionConflictException(url=str(request.url), version=self._version)
 
     # -- request state ----------------------------------------------------
 
@@ -48,8 +48,7 @@ class Inertia:
         return (
             self._req.is_inertia
             and self._req.method == "GET"
-            and self._req.version is not None
-            and self._req.version != self._version
+            and (self._req.version or "") != self._version
         )
 
     def share(self, **props: Any) -> None:

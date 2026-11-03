@@ -31,6 +31,15 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- **Behaviour change:** Inertia GETs with a missing asset-version header now
+  receive 409 when the server version is non-empty; version conflicts include
+  both `X-Inertia-Location` and the current `X-Inertia-Version` (#774).
+- **Behaviour change:** Inertia middleware rewrites 302/307 redirects after
+  PUT/PATCH/DELETE/QUERY to 303, fragment redirects to empty 409 responses with
+  `X-Inertia-Redirect` (except prefetch), and empty 200 responses to safe back
+  redirects. Standalone HTML and Inertia responses vary on `X-Inertia` (#775).
+- Initial Inertia HTML embeds the page JSON only in the v3 script element,
+  removing the duplicate legacy root-div attribute (#778).
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.

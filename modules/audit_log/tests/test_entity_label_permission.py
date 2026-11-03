@@ -30,7 +30,7 @@ from audit_log.constants import PERM_VIEW
 from audit_log.resolve import resolve_entity_labels
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_db.stored_settings import Setting
-from simple_module_test import forge_session_cookie
+from simple_module_test import forge_session_cookie, inertia_headers
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.constants import PERM_USERS_MANAGE
 from users.models import User
@@ -86,6 +86,7 @@ async def _reader(app, *, permissions: list[str], email: str) -> AsyncIterator[h
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
+        headers=inertia_headers(app),
         cookies={"session": cookie},
     ) as client:
         yield client

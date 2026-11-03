@@ -17,7 +17,7 @@ from feature_flags.constants import PERM_FEATURE_FLAGS_VIEW, VIEW_PREFIX
 from permissions.deps import RequiresPermission as ModuleRequiresPermission
 from permissions.grants import clear_grants_cache
 from simple_module_hosting.permissions import RequiresPermission
-from simple_module_test import forge_session_cookie
+from simple_module_test import forge_session_cookie, inertia_headers
 
 _GUARDED = "/api/feature_flags/"
 
@@ -53,6 +53,7 @@ def _client_for(app: FastAPI, user_id: uuid.UUID) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
+        headers=inertia_headers(app),
         cookies={"session": cookie},
     )
 

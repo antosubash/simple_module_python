@@ -26,7 +26,7 @@ from _users_app_builders import (
     _make_admin_user,
     _make_standard_user,
 )
-from simple_module_test import forge_session_cookie
+from simple_module_test import forge_session_cookie, inertia_headers
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -95,6 +95,7 @@ async def anon_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
+        headers=inertia_headers(users_app),
     ) as c:
         yield c
 
@@ -106,6 +107,7 @@ async def anon_client_signup(users_app_signup) -> AsyncGenerator[httpx.AsyncClie
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
+        headers=inertia_headers(users_app_signup),
     ) as c:
         yield c
 
@@ -122,6 +124,7 @@ async def admin_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
+        headers=inertia_headers(users_app),
         cookies={"session": cookie},
     ) as c:
         yield c
@@ -144,6 +147,7 @@ async def user_client(users_app) -> AsyncGenerator[httpx.AsyncClient, None]:
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
+        headers=inertia_headers(users_app),
         cookies={"session": cookie},
     ) as c:
         yield c

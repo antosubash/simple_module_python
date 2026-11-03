@@ -39,7 +39,7 @@ async def index(inertia: InertiaDep) -> InertiaResponse:
     )
 ```
 
-Standalone, configure it once and register the two exception handlers:
+Standalone, configure it once, install the middleware and register the version-conflict handler:
 
 ```python
 from fastapi import Depends, FastAPI
@@ -47,6 +47,7 @@ from fastapi.templating import Jinja2Templates
 from simple_module_inertia import (
     Inertia,
     InertiaConfig,
+    InertiaMiddleware,
     InertiaVersionConflictException,
     inertia_dependency_factory,
     inertia_version_conflict_exception_handler,
@@ -61,6 +62,7 @@ config = InertiaConfig(
 inertia_dep = inertia_dependency_factory(config)
 
 app = FastAPI()
+app.add_middleware(InertiaMiddleware)
 app.add_exception_handler(
     InertiaVersionConflictException, inertia_version_conflict_exception_handler
 )
@@ -72,4 +74,14 @@ async def home(inertia: Inertia = Depends(inertia_dep)):
 ```
 
 The root template needs `{% inertia_head %}` in `<head>` and `{% inertia_body %}`
-in `<body>`; the page object lands in `<div id="app" data-page="…">`.
+in `<body>`; the page object lands once in
+`<script data-page="app" type="application/json">…</script>`, followed by
+`<div id="app"></div>`.
+
+The middleware normalizes mutation redirects (302/307 to 303), fragment redirects
+(409 with `X-Inertia-Redirect`, except prefetch), and empty 200 responses (303 back
+to a safe same-site Referer). It adds `Vary: X-Inertia` to Inertia and HTML
+responses without buffering streams. Inertia GETs that inject the dependency
+must send the current `X-Inertia-Version`; a missing or stale version receives
+409 with `X-Inertia-Location` and the server's `X-Inertia-Version`.
+Hosting installs this middleware and exception handler automatically.

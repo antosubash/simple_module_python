@@ -9,23 +9,22 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import RedirectResponse
 
-from simple_module_inertia.response import back_url
+from simple_module_inertia.response import back_url, version_conflict
 
 
 class InertiaVersionConflictException(Exception):  # noqa: N818 - upstream name; hosting imports it
     """Raised on a GET whose ``X-Inertia-Version`` no longer matches ours."""
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, *, version: str = "") -> None:
         self.url = url
+        self.version = version
         super().__init__()
 
 
 async def inertia_version_conflict_exception_handler(
     _: Request, exc: InertiaVersionConflictException
 ) -> Response:
-    return Response(
-        status_code=status.HTTP_409_CONFLICT, headers={"X-Inertia-Location": str(exc.url)}
-    )
+    return version_conflict(str(exc.url), exc.version)
 
 
 def _field(loc: tuple[Any, ...]) -> Any:

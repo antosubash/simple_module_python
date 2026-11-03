@@ -119,7 +119,9 @@ async def test_titles_and_text_are_escaped(tmp_path) -> None:
 async def test_inertia_visit_carries_head_prop_with_replaceable_keys(tmp_path) -> None:
     head = Head(title="Maps", description="d", canonical="/maps")
     async with _client(_app(tmp_path, head)) as client:
-        body = (await client.get("/p", headers={"X-Inertia": "true"})).json()
+        body = (
+            await client.get("/p", headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"})
+        ).json()
     tags = body["props"]["_head"]
     assert any(t.startswith("<title") for t in tags)
     assert all('data-inertia="' in t for t in tags)
