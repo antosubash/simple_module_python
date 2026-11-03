@@ -121,7 +121,10 @@ A cookie without the marker is upgraded only when it carries the selected
 provider's own identity key (`oidc_identity` or `keycloak_identity`), or, for a
 Keycloak cookie from before the identity key existed, its sealed
 `keycloak_refresh_token`. Other cached principals, including local users
-cookies, are cleared. No database migration is required.
+cookies, are cleared. An unmarked cookie is adopted under the current
+configuration, so rotate the host secret key if you changed the issuer or
+client before upgrading and must end those sessions. No database migration is
+required.
 
 ### Concurrent browser renewal (#738)
 

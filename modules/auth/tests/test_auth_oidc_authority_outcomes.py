@@ -38,3 +38,12 @@ async def test_renewal_publishes_authority(renewal):
     async with independent_session(r.app) as db:
         row = (await db.execute(select(RefreshOutcome))).scalar_one()
         assert row.session["oidc_authority"] == "current-authority"
+
+
+async def test_waiter_adopts_an_unmarked_outcome_from_before_the_upgrade(renewal):
+    r = renewal
+    assert await r.renew(r.make_request()) is not None  # published without a marker
+    waiter = r.make_request()
+    waiter.session["oidc_authority"] = "current-authority"
+    assert await r.renew(waiter) is not None
+    assert r.calls == ["old"]
