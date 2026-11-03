@@ -184,7 +184,8 @@ def _guard_conflict_update(execute_state: ORMExecuteState, tenant_id: str | None
     if not isinstance(arm, (PgConflictUpdate, SqliteConflictUpdate)):
         return
     if any(
-        _column_name(key) == TENANT_COLUMN and not _is_excluded_tenant(value)
+        # excluded.tenant_id is harmless only once the arm is scoped below.
+        _column_name(key) == TENANT_COLUMN and (tenant_id is None or not _is_excluded_tenant(value))
         for key, value in arm.update_values_to_set
     ):
         raise TenantIsolationError("Cannot change tenant_id of existing rows")

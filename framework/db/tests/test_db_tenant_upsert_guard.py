@@ -148,3 +148,22 @@ async def test_upsert_from_excluded_updates_own_row_only(upsert_db):
         owners = dict((await upsert_db.execute(select(UpsertRow.id, UpsertRow.tenant_id))).all())
     assert rows == {1: "private", 2: "refreshed"}
     assert owners == {1: "victim", 2: "attacker"}
+
+
+async def test_unbound_upsert_cannot_assign_tenant_from_excluded():
+    state = init_db("sqlite+aiosqlite:///:memory:")
+    register_listeners(state)  # non-strict: an unbound upsert is not scoped
+    async with state.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with state.session_factory() as db:
+            with all_tenants():
+                db.add(UpsertRow(id=1, name="private", tenant_id="victim"))
+                await db.commit()
+            base = insert(UpsertRow).values(id=1, name="new", tenant_id="attacker")
+            with pytest.raises(TenantIsolationError):
+                await db.execute(
+                    base.on_conflict_do_update(index_elements=["id"], set_=base.excluded)
+                )
+    finally:
+        await state.engine.dispose()

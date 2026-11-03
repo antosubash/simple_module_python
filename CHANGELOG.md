@@ -38,7 +38,7 @@ All notable changes to this project are documented in this file. The format is b
   before counting, held through commit, including upload reservations and
   invitations. Stale WAL snapshots and lock timeouts return a retryable
   `409` (`file_storage.storage_busy` / tenant `admission_conflict`), rather than
-  a 500; the uploaded object's assembly and cleanup stay outside the lock;
+  a 500, before any upload is assembled or cleaned up;
   Postgres advisory/row locking is unchanged (#753). No migration.
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
