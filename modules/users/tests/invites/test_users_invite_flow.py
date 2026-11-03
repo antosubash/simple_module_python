@@ -193,3 +193,40 @@ class TestInviteFlow:
         )
         assert resp.status_code == 400, resp.text
         assert resp.json()["detail"] == "INVITE_BAD_TOKEN"
+
+    @pytest.mark.anyio
+    async def test_accept_invite_token_is_single_use(
+        self, admin_client, anon_client, captured_mail
+    ):
+        """A second acceptance with the same token is refused, not re-applied."""
+        await admin_client.post("/api/users/admin/invite", json={"email": "once@example.com"})
+        token = re.search(r"token=(\S+)", captured_mail.to("once@example.com")[-1].text).group(1)
+        body = {"token": token, "password": "FreshSecure1!"}
+        assert (
+            await anon_client.post("/api/users/auth/accept-invite", json=body)
+        ).status_code == 204
+        again = await anon_client.post(
+            "/api/users/auth/accept-invite", json={**body, "password": "Another-Secure2!"}
+        )
+        assert again.status_code == 400
+        assert again.json()["detail"] == "INVITE_BAD_TOKEN"
+
+    @pytest.mark.anyio
+    async def test_rejected_password_fires_no_hooks(
+        self, admin_client, anon_client, captured_mail, monkeypatch
+    ):
+        """Neither lifecycle hook runs for an acceptance that writes nothing."""
+        await admin_client.post("/api/users/admin/invite", json={"email": "nohooks@example.com"})
+        token = re.search(r"token=(\S+)", captured_mail.to("nohooks@example.com")[-1].text).group(1)
+        seen = []
+
+        async def record(*args, **kwargs):
+            seen.append(args)
+
+        monkeypatch.setattr(UserManager, "on_after_verify", record)
+        monkeypatch.setattr(UserManager, "on_after_update", record)
+        resp = await anon_client.post(
+            "/api/users/auth/accept-invite", json={"token": token, "password": "short"}
+        )
+        assert resp.status_code == 400
+        assert seen == []

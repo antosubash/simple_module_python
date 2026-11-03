@@ -23,7 +23,6 @@ from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_ex
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from users.auth_local.invites import complete_invite
 from users.auth_local.lockout import (
     admit,
     login_attempt,
@@ -48,6 +47,7 @@ from users.deps import (
     get_current_local_user,
     get_user_manager,
 )
+from users.invites.accept import complete_invite
 from users.manager import UserManager
 from users.token_storage import revoke_access_token
 

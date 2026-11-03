@@ -36,18 +36,13 @@ async def complete_invite(
         raise exceptions.UserAlreadyVerified()
 
     await manager.validate_password(body.password, user)
-    changes = {"password": body.password}
+    profile: dict[str, str] = {}
     if body.full_name and body.full_name.strip():
-        changes["full_name"] = body.full_name.strip()
+        profile["full_name"] = body.full_name.strip()
     hashed_password = await asyncio.to_thread(manager.password_helper.hash, body.password)
     user = await manager.user_db.update(
-        user,
-        {
-            **{key: value for key, value in changes.items() if key != "password"},
-            "hashed_password": hashed_password,
-            "is_verified": True,
-        },
+        user, {**profile, "hashed_password": hashed_password, "is_verified": True}
     )
     await manager.on_after_verify(user, request)
-    await manager.on_after_update(user, changes, request)
+    await manager.on_after_update(user, {"password": body.password, **profile}, request)
     return user

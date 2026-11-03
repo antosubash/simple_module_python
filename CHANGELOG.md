@@ -32,8 +32,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 - Rejecting an invitation password leaves the invitation usable for a corrected
-  retry. Acceptance now writes verification and the new password together,
-  preserving lifecycle hooks and existing error responses (#763). No migration.
+  retry. Acceptance now validates the password first, then writes verification
+  and the new password in one update; error responses are unchanged.
+  `UserManager.on_after_verify` now fires after the password is set, followed by
+  `on_after_update` (#763). No migration.
 - Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
   ownership and restrict updates to the bound tenant, retaining the caller's
   conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
