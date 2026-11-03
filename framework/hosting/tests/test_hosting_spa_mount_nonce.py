@@ -42,3 +42,16 @@ async def test_without_a_nonce_the_shell_is_served_unchanged(tmp_path) -> None:
     response = await spa.get_response("", _scope(None))
 
     assert "etag" in response.headers  # still the plain FileResponse
+
+
+async def test_conditional_request_gets_a_fresh_shell_not_a_304(tmp_path) -> None:
+    (tmp_path / "index.html").write_text(_SHELL, encoding="utf-8")
+    spa = SpaStaticFiles(directory=tmp_path, index="index.html")
+    etag = (await spa.get_response("", _scope(None))).headers["etag"]
+    scope = _scope("abc123")
+    scope["headers"] = [(b"if-none-match", etag.encode())]
+
+    response = await spa.get_response("", scope)
+
+    assert response.status_code == 200
+    assert 'nonce="abc123"' in response.body.decode()

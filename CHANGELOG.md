@@ -15,6 +15,21 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- **Breaking (production CSP, #785):** `script-src`/`script-src-elem` are now
+  `'self' 'nonce-<per-request>' 'strict-dynamic'` (plus `'wasm-unsafe-eval'`
+  for WebAssembly) instead of `'unsafe-inline' 'unsafe-eval'`. The host and
+  scaffolded templates, the Inertia entry tags and SPA-mount shells carry the
+  nonce. Upgrade: custom templates must put
+  `nonce="{{ request.state.csp_nonce }}"` on every executable `<script>`
+  (inline or external); inline event handlers (`onclick=`), `eval`/`new
+  Function` and scripts injected without a nonce-bearing parent no longer run;
+  a module that set its own `content_security_policy` should keep the nonce
+  token. Development keeps the permissive Vite policy. A 304 carries no CSP
+  header, so a cached document keeps the policy its nonce matches.
+- **Behaviour change (#785):** a response CSP containing `sandbox` (file_storage
+  downloads) is sent beside the app policy, so browsers enforce both: such
+  responses now also get the app's `frame-ancestors 'self'`, so they cannot be
+  framed by other origins.
 - `simple_module_hosting[redis]` and `simple_module_background_tasks` accept
   `redis` 7 and 8 (`redis>=5,<9`); the lockfile moves to redis 8.1.0 with
   kombu 5.7.0, the first stable kombu that supports it (#665).
@@ -31,12 +46,6 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
-- **Behaviour change:** production scripts require a per-request CSP nonce and
-  use `strict-dynamic`, without script `unsafe-inline` or `unsafe-eval`.
-  The host/scaffold templates and Inertia entry scripts carry the nonce;
-  custom templates must add `request.state.csp_nonce` to executable scripts,
-  and static SPA shells need nonce-aware HTML serving.
-  Sandbox response policies are enforced alongside the app CSP (#785).
 - **Behaviour change:** `RedactionFilter` on ordinary logging handlers masks
   secrets in tracebacks and stack information, including exception text not
   yet formatted when the filter runs (#789).

@@ -17,6 +17,7 @@ import logging
 import re
 from pathlib import Path
 
+import anyio
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from simple_module_core.app_state import get_host_services, get_public_routes, get_spa_prefixes
@@ -39,7 +40,8 @@ _NO_CACHE = "no-cache"
 _CACHE_CONTROL = "Cache-Control"
 # Set by SecurityHeadersMiddleware for every HTTP request.
 _NONCE_STATE_KEY = "csp_nonce"
-_SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\bnonce=)", re.IGNORECASE)
+_SCRIPT_WITHOUT_NONCE = re.compile(r"<script\b(?![^>]*\snonce\s*=)", re.IGNORECASE)
+_CONDITIONAL_HEADERS = (b"if-none-match", b"if-modified-since", b"if-match", b"if-unmodified-since")
 # Vite/webpack content-hashed file: `index-3f9a8c21.js`, `chunk.AbC123xy.css`.
 _HASHED_FILE = re.compile(r"[-.]([A-Za-z0-9_-]{8,})\.[A-Za-z0-9]+$")
 _PRIVATE_IMMUTABLE = "private, max-age=31536000, immutable"
@@ -94,10 +96,16 @@ class SpaStaticFiles(StaticFiles):
         return response
 
     async def _index_response(self, scope: Scope) -> Response:
-        response = await super().get_response(self._index, scope)
         nonce = (scope.get("state") or {}).get(_NONCE_STATE_KEY)
+        if nonce:
+            # A 304 would revive a cached shell carrying an older nonce (or none).
+            scope = {
+                **scope,
+                "headers": [(k, v) for k, v in scope["headers"] if k not in _CONDITIONAL_HEADERS],
+            }
+        response = await super().get_response(self._index, scope)
         if nonce and isinstance(response, FileResponse) and response.status_code == _OK:
-            response = _with_script_nonce(response, nonce)
+            response = await anyio.to_thread.run_sync(_with_script_nonce, response, nonce)
         # The shell references hashed bundles, so it must revalidate on each visit.
         response.headers[_CACHE_CONTROL] = _NO_CACHE if self._public else _PRIVATE_NO_CACHE
         return response

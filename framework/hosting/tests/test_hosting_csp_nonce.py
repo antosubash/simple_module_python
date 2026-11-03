@@ -90,6 +90,7 @@ async def test_scripts_share_the_request_nonce(template_dir, environment):
         for directive in ("script-src", "script-src-elem"):
             assert f"{directive} 'self' 'nonce-{nonce}' 'strict-dynamic'" in csp
         assert "'unsafe-eval'" not in csp
+        assert "'wasm-unsafe-eval'" in csp.split("script-src-elem")[0]  # WASM keeps compiling
         assert "'unsafe-inline'" not in csp.split("style-src")[0]
     else:
         assert "'unsafe-eval'" in csp and "'unsafe-inline'" in csp
@@ -118,3 +119,20 @@ async def test_sandbox_response_keeps_both_policies(own):
         "default-src 'self'",
     ):
         assert directive in app_policy
+
+
+async def test_not_modified_keeps_the_cached_policy():
+    """A 304 must not carry a fresh nonce the cached body does not have."""
+    from starlette.responses import Response
+
+    async def page(request):
+        return Response(status_code=304, headers={"etag": '"v1"'})
+
+    app = SecurityHeadersMiddleware(Starlette(routes=[Route("/", page)]))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/")
+    assert response.status_code == 304
+    assert _CSP not in response.headers
+    assert response.headers["x-content-type-options"] == "nosniff"

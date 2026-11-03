@@ -66,6 +66,7 @@ _XFO_SAMEORIGIN = "SAMEORIGIN"
 # browser implementations introduced reflected-XSS vectors of their own.
 # Production CSP authorizes scripts with a per-request nonce.
 _XXSS_DISABLED = "0"
+_HTTP_NOT_MODIFIED = 304
 _REFERRER_STRICT_ORIGIN = "strict-origin-when-cross-origin"
 
 __all__ = [
@@ -92,7 +93,9 @@ class SecurityHeadersMiddleware:
     DEFAULT_CSP = (
         "default-src 'self'; "
         # The request nonce is inserted after static/dynamic sources are merged.
-        "script-src 'self' 'strict-dynamic'; "
+        # 'wasm-unsafe-eval' lets WebAssembly compile (see worker-src below)
+        # without re-allowing JavaScript eval.
+        "script-src 'self' 'strict-dynamic' 'wasm-unsafe-eval'; "
         "script-src-elem 'self' 'strict-dynamic'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: blob:; "
@@ -169,7 +172,9 @@ class SecurityHeadersMiddleware:
                 headers[_HEADER_X_FRAME_OPTIONS] = _XFO_SAMEORIGIN
                 headers[_HEADER_X_XSS_PROTECTION] = _XXSS_DISABLED
                 headers[_HEADER_REFERRER_POLICY] = _REFERRER_STRICT_ORIGIN
-                if self.csp:
+                # A 304 refreshes the cached response's headers: a new nonce there
+                # would no longer match the cached body, so keep the cached CSP.
+                if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:
                     # Separate policies intersect: sandbox responses cannot replace
                     # the app's default-src, frame-ancestors or other protections.
                     own = (headers.get(_HEADER_CSP) or "").lower()
