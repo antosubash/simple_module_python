@@ -248,6 +248,22 @@ counter caches are invalidated only after the revocation commits.
 Password changes and sign-out-everywhere use the same revocation. A password
 change reissues the calling browser's cookie so that browser remains signed in;
 a password reset and sign-out-everywhere preserve no existing credentials.
+The self-service password change flushes the new hash and credential revocation
+in one transaction (#730): a failed revocation rolls the password change back.
+
+Email login identities are case-insensitive. New registrations store lowercase
+emails, and a unique expression index on `lower(email)` prevents concurrent
+case-variant registrations; the losing signup returns the usual duplicate-account
+error (#731). Migration `e731a1b2c3d4` replaces the nonunique index. If existing
+accounts have conflicting emails, both the migration and the users data
+compatibility check report the conflicting addresses and refuse the upgrade/boot
+(outside development). Assign distinct addresses to those accounts before retrying;
+no accounts are automatically merged or deleted. Hosts with their own migration
+history must also replace `ix_users_user_email_lower` with a unique index on
+`lower(email)` after resolving conflicts.
+
+Both browser and bearer password logins run verification and dummy password work
+in worker threads so unrelated requests can continue during hashing (#737).
 
 ## Events
 

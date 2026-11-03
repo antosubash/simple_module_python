@@ -1,10 +1,10 @@
-"""Recognize legacy bearer-token columns and credentials without reading secrets out."""
+"""Read-only checks for ambiguous email identities and legacy bearer credentials."""
 
 from simple_module_core.data_compatibility import DataCompatibilityIssue
 from sqlalchemy import String, column, func, inspect, or_, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from users.constants import UPGRADE_HASHED_BEARER_TOKENS
+from users.constants import UPGRADE_HASHED_BEARER_TOKENS, UPGRADE_UNIQUE_EMAILS
 from users.models import RefreshToken, UserAccessToken
 
 # A SHA-256 hex digest; tokens hashed at rest (#626) are always this long.
@@ -12,6 +12,36 @@ _DIGEST_LENGTH = 64
 
 
 async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:
+    issues = await _email_conflicts(db)
+    return issues + await _token_compatibility(db)
+
+
+async def _email_conflicts(db: AsyncSession) -> list[DataCompatibilityIssue]:
+    connection = await db.connection()
+    if not await connection.run_sync(lambda sync: inspect(sync).has_table("users_user")):
+        return []
+    users = table("users_user", column("email"))
+    email = users.c.email
+    duplicates = select(func.lower(email)).group_by(func.lower(email)).having(func.count() > 1)
+    conflicts = list(
+        (
+            await db.scalars(select(email).where(func.lower(email).in_(duplicates)).order_by(email))
+        ).all()
+    )
+    if not conflicts:
+        return []
+    return [
+        DataCompatibilityIssue(
+            upgrade_id=UPGRADE_UNIQUE_EMAILS,
+            severity="error",
+            message="Case-insensitive email conflicts: "
+            + ", ".join(conflicts)
+            + ". Assign distinct emails before migrating; accounts will not be merged or deleted.",
+        )
+    ]
+
+
+async def _token_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:
     connection = await db.connection()
     for model in (RefreshToken, UserAccessToken):
         name = model.__tablename__

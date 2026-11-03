@@ -22,6 +22,16 @@ All notable changes to this project are documented in this file. The format is b
 - Direct permission-grant caches are kept per application, and bus
   invalidations clear only their own app's cache, so co-hosted apps on different
   databases no longer share grants for the same user id (#736).
+- Self-service password changes persist the new password and credential revocation
+  atomically; failed revocation leaves the old password and credentials intact,
+  while successful changes preserve the changing browser's access (#730).
+- **Behaviour change:** registrations normalize email to lowercase and concurrent
+  case-variant signups return one account and one duplicate-account error (#731).
+  Migration `e731a1b2c3d4` makes `lower(email)` unique; migration and boot checks
+  name existing conflicts and refuse to proceed until operators resolve them.
+  No accounts are automatically merged or deleted.
+- Browser and bearer password logins offload real and dummy password work to
+  worker threads instead of blocking the event loop (#737).
 
 ### Added
 - Generic OIDC auth provider with Keycloak discovery and single-tenant Entra

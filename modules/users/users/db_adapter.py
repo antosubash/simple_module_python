@@ -6,10 +6,13 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 from fastapi import Depends, Request
+from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from simple_module_db.deps import get_db
+from simple_module_db.transaction import rollback_session
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
@@ -29,6 +32,17 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
     fastapi-users' OAuth association flow, which appends to the collection —
     lets the model's default ``selectin`` materialise it.
     """
+
+    async def create(self, create_dict):
+        create_dict = {**create_dict, "email": create_dict["email"].lower()}
+        try:
+            return await super().create(create_dict)
+        except IntegrityError:
+            await rollback_session(self.session)
+            # Only translate an email race; unrelated constraint errors still surface.
+            if await self.get_by_email(create_dict["email"]) is not None:
+                raise UserAlreadyExists() from None
+            raise
 
     async def get(self, id):
         stmt = (

@@ -7,6 +7,7 @@ third-party API consumers).
 
 from __future__ import annotations
 
+import asyncio
 import uuid as uuid_mod
 from datetime import UTC, datetime, timedelta
 
@@ -93,12 +94,14 @@ async def token_login(
         # Constant-time: run bcrypt on a dummy hash to prevent timing-based
         # email enumeration (existing user + wrong password takes ~50ms for
         # bcrypt; missing user would be instant without this).
-        helper.verify_and_update(body.password, _DUMMY_HASH)
+        await asyncio.to_thread(helper.verify_and_update, body.password, _DUMMY_HASH)
         await rollback_session(db)
         locked = await record_failure(db, attempt, admission)
         raise locked or HTTPException(status_code=401, detail="Invalid credentials")
 
-    verified, updated_hash = helper.verify_and_update(body.password, user.hashed_password)
+    verified, updated_hash = await asyncio.to_thread(
+        helper.verify_and_update, body.password, user.hashed_password
+    )
     if not verified:
         await rollback_session(db)
         locked = await record_failure(db, attempt, admission)
