@@ -31,6 +31,10 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- `smpy package-update` selects the latest release in PEP 440 order and promotes
+  RC pins to final releases without downgrading existing pins (#766).
+- `smpy package-update` respects exact and glob uv workspace exclusions, leaving
+  excluded project manifests unchanged (#767). No migration.
 - **Behaviour change** (`auth`, `oidc`): a generic-OIDC browser session created
   before #750 (no authority marker) is adopted only when the issuer recorded in
   its `oidc_identity` matches the discovered issuer (#764). A session from a
