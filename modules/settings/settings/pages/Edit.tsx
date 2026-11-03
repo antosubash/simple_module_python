@@ -8,6 +8,7 @@ import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
+import { FormLevelError } from './components/FormLevelError';
 import ValueInput from './components/ValueInput';
 import { ROUTES } from './routes';
 import type { Setting } from './types';
@@ -37,6 +38,7 @@ function Edit({ setting }: Props) {
         <Card className="max-w-2xl border-border">
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+              <FormLevelError errors={errors} className="sm:col-span-2" />
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-muted-foreground">
                   {t(keys.settings.form.scope_label)}

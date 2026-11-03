@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import Request, Response, status
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import RedirectResponse
 
 from simple_module_inertia.response import back_url, version_conflict
+from simple_module_inertia.validation import errors_from_validation, scope_errors
 
 
 class InertiaVersionConflictException(Exception):  # noqa: N818 - upstream name; hosting imports it
@@ -27,10 +26,6 @@ async def inertia_version_conflict_exception_handler(
     return version_conflict(str(exc.url), exc.version)
 
 
-def _field(loc: tuple[Any, ...]) -> Any:
-    return loc[1] if len(loc) > 1 else loc[0]
-
-
 async def inertia_request_validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> Response:
@@ -38,15 +33,8 @@ async def inertia_request_validation_exception_handler(
     if "x-inertia" not in request.headers:
         return await request_validation_exception_handler(request, exc)
 
-    errors: dict[str, Any] = {}
-    bag = request.headers.get("X-Inertia-Error-Bag")
-    for error in exc.errors():
-        field = _field(tuple(error["loc"]))
-        if bag is None:
-            errors[field] = error["msg"]
-        else:
-            errors.setdefault(bag, {})[field] = error["msg"]
-    request.session["_errors"] = errors
+    errors = errors_from_validation(exc.errors(), request_source=True)
+    request.session["_errors"] = scope_errors(errors, request.headers.get("X-Inertia-Error-Bag"))
 
     code = (
         status.HTTP_307_TEMPORARY_REDIRECT if request.method == "GET" else status.HTTP_303_SEE_OTHER

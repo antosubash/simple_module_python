@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from simple_module_inertia.errors import (
     InertiaVersionConflictException,
     inertia_request_validation_exception_handler,
     inertia_version_conflict_exception_handler,
 )
+from sqlmodel import SQLModel
 from starlette.requests import Request
 
 
@@ -53,3 +56,24 @@ async def test_non_inertia_validation_errors_keep_fastapis_422() -> None:
     exc = RequestValidationError([{"loc": ("body", "email"), "msg": "invalid"}])
     resp = await inertia_request_validation_exception_handler(req, exc)
     assert resp.status_code == 422
+
+
+@pytest.mark.parametrize("bag", [None, "order"])
+async def test_adapter_validation_keeps_first_message_for_union_and_list_fields(bag):
+    class Order(SQLModel):
+        quantity: int | bool
+        tags: list[int]
+
+    with pytest.raises(ValidationError) as caught:
+        Order.model_validate({"quantity": "lots", "tags": ["x"]})
+    errors = [{**error, "loc": ("body", *error["loc"])} for error in caught.value.errors()]
+    headers = {"X-Inertia": "true"}
+    if bag is not None:
+        headers["X-Inertia-Error-Bag"] = bag
+    req = _request(headers)
+    await inertia_request_validation_exception_handler(req, RequestValidationError(errors))
+    expected = {
+        "quantity": "Input should be a valid integer, unable to parse string as an integer",
+        "tags": "Input should be a valid integer, unable to parse string as an integer",
+    }
+    assert req.session["_errors"] == (expected if bag is None else {bag: expected})

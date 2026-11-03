@@ -26,6 +26,7 @@ from simple_module_inertia.props import (
 )
 from simple_module_inertia.response import InertiaResponse
 from simple_module_inertia.templating import InertiaExtension
+from simple_module_inertia.validation import errors_from_validation, scope_errors
 
 __all__ = [
     "Head",
@@ -40,6 +41,7 @@ __all__ = [
     "always",
     "deep_merge",
     "defer",
+    "errors_from_validation",
     "inertia_dependency_factory",
     "inertia_request_validation_exception_handler",
     "inertia_version_conflict_exception_handler",
@@ -48,5 +50,6 @@ __all__ = [
     "once",
     "optional",
     "prepend",
+    "scope_errors",
     "scroll",
 ]

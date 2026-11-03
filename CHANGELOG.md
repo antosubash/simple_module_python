@@ -47,6 +47,14 @@ All notable changes to this project are documented in this file. The format is b
   session expired no longer becomes the post-login target: signing back in replayed its URL as a
   `GET` and hit a 405. Sign-in now returns to the same-site page the mutation
   was sent from.
+- **Behaviour change:** Inertia validation errors use the top-level form field
+  and keep its first message, including union, list and nested-model errors
+  (#776). Form-action redirects now scope errors under `X-Inertia-Error-Bag`
+  when present (#777). Both go through the new `errors_from_validation` and
+  `scope_errors` helpers exported by `simple_module_inertia`. No migration.
+- Settings override Create/Edit forms show model-level validation errors
+  (flashed under `errors.general`, e.g. a tenant/user scope without a
+  `scope_id`) instead of silently bouncing back to the form.
 - **Behaviour changes:** Inertia v3 prop resolution retains cached once-prop
   metadata on full visits (#768), refreshes requested once props on partial
   reloads (#769), labels scroll data at `<prop>.data` by default (use

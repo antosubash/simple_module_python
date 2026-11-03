@@ -15,6 +15,7 @@ import {
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
+import { FormLevelError } from './components/FormLevelError';
 import { KeyField, type KnownKey } from './components/KeyField';
 import { ResolvedValue } from './components/ResolvedValue';
 import ValueInput from './components/ValueInput';
@@ -53,6 +54,7 @@ function Create({ known_keys }: Props) {
         <div className="grid items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
           <Card className="border-border p-6">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <FormLevelError errors={errors} />
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className={LABEL}>{t(keys.settings.form.scope_label)}</Label>
