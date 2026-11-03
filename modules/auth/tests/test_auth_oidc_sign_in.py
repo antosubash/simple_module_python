@@ -33,11 +33,13 @@ def test_rotation_and_safe_next(identity_key, target, expected):
         expires_at=2000,
         redirect="/home/",
         user_key="user_ctx",
+        authority="test-authority",
         identity_key=identity_key,
         identity=("https://issuer", "subject"),
     )
     assert destination == expected
     assert session["user_ctx"] == user.to_session_dict()
+    assert session["oidc_authority"] == "test-authority"
     assert session["expires_at"] == 2000
     assert session["browser_gate"] == "open"
     assert not {"next", "active_tenant_id", "old_refresh"} & session.keys()

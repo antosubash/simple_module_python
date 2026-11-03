@@ -79,6 +79,9 @@ class UploadSessionService(UploadGuards):
         # Housekeeping that needs no worker: without background_tasks nothing
         # else ever reaps, so a user's abandoned uploads go when they start one.
         # Done first so their reservations stop counting against the quota.
+        # The quota lock comes before any backend side effect, so a busy lock
+        # (a retryable 409) never leaves half-done work behind.
+        await self._lock_quota()
         owner = current_user_id.get()
         await self.abort_expired(owner=owner)
         await self.purge_finished(owner=owner)
@@ -225,6 +228,9 @@ class UploadSessionService(UploadGuards):
         ``created`` is false when a retried request finds the session already
         completed, so the caller does not publish ``FileUploaded`` twice.
         """
+        # Before assembly: a busy lock after it would leave an open session
+        # whose multipart object is already complete. SQLite only.
+        await self._lock_quota()
         await self._lock(session)
         if session.status == constants.UploadStatus.COMPLETED and session.file_id:
             existing = await self.files.get(session.file_id)

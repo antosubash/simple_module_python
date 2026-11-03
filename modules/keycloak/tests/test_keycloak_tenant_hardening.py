@@ -28,7 +28,11 @@ def _request(session: dict) -> Request:
 
 def _session(tenant_id: str | None, roles: list[str] | None = None) -> dict:
     ctx = UserContext(id="u1", email="u@x.io", name="u", roles=roles or [], tenant_id=tenant_id)
-    return {"user_ctx": ctx.to_session_dict(), "expires_at": int(time.time()) + 300}
+    return {
+        "user_ctx": ctx.to_session_dict(),
+        "expires_at": int(time.time()) + 300,
+        "keycloak_identity": ["u1"],
+    }
 
 
 @pytest.fixture

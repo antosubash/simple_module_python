@@ -30,6 +30,7 @@ from file_storage.contracts.schemas import (
 from file_storage.deps import get_event_bus, get_file_storage_service
 from file_storage.endpoints.upload_errors import (
     bad_part,
+    busy,
     closed,
     committed,
     error,
@@ -46,6 +47,7 @@ from file_storage.upload_support import (
     PartsMismatchError,
     QuotaExceededError,
     SizeMismatchError,
+    StorageBusyError,
     UploadClosedError,
     UploadNotFoundError,
     total_parts,
@@ -114,6 +116,8 @@ async def create_session(
         ) from exc
     except QuotaExceededError as exc:
         raise quota(t) from exc
+    except StorageBusyError as exc:
+        raise busy(t) from exc
     return _out(session)
 
 
@@ -202,6 +206,9 @@ async def complete_session(
             _missing=exc.missing,
             _mismatched=exc.mismatched,
         ) from exc
+    except StorageBusyError as exc:
+        # Raised before anything changed: the session stays open for a retry.
+        raise busy(t) from exc
     except (FileTooLargeError, QuotaExceededError, SizeMismatchError) as exc:
         # The service has already deleted the object and closed the session.
         # Returned, not raised: an exception rolls the request's transaction

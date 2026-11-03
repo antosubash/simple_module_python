@@ -21,6 +21,8 @@ async def test_logged_out_page_sends_a_signed_in_visitor_on(flow_client):
     signed_in = {
         "user_ctx": {"id": "u", "email": "a@example.com", "name": "A", "roles": []},
         "expires_at": 4_102_444_800,  # 2100-01-01: no renewal attempt
+        # A pre-#750 OIDC session: its own identity key gets it stamped (#750).
+        "oidc_identity": ["https://issuer.test", "u"],
     }
     flow_client.cookies.set("session", forge_session_cookie("test-secret-key", signed_in))
     response = await flow_client.get("/oidc/logged-out")

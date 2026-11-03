@@ -1,7 +1,7 @@
 """OIDC identity-token adapter for shared browser renewal."""
 
 from auth.oidc_common.renewal import refresh_session
-from auth.oidc_common.session import SessionKeys
+from auth.oidc_common.session import SessionKeys, accept_authority, authority_marker
 
 from oidc.constants import (
     SESSION_IDENTITY_KEY,
@@ -23,6 +23,17 @@ _KEYS = SessionKeys(
 
 class SessionRenewal:
     _forget_session = staticmethod(_KEYS.forget)
+
+    @property
+    def _session_authority(self) -> str:
+        s = self._settings
+        issuer = s.discovery_url.replace("/.well-known/openid-configuration", "", 1) if s else ""
+        return authority_marker(self.name, issuer, s.client_id if s else "")
+
+    def _accept_session(self, session) -> bool:
+        return accept_authority(
+            session, self._session_authority, (SESSION_IDENTITY_KEY,), SESSION_USER_KEY
+        )
 
     async def _refresh_session(self, request):
         async def refresh(token):

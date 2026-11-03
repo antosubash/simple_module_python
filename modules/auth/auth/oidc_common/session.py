@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import json
 import secrets
 from dataclasses import dataclass
 
@@ -11,7 +12,7 @@ from simple_module_hosting.csrf import rotate_csrf_token
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
 
-from auth.constants import SESSION_ID_KEY
+from auth.constants import SESSION_AUTHORITY_KEY, SESSION_ID_KEY
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class SessionKeys:
     def forget(self, session) -> None:
         for key in (
             SESSION_ID_KEY,
+            SESSION_AUTHORITY_KEY,
             self.user,
             self.refresh,
             self.retry,
@@ -35,6 +37,29 @@ class SessionKeys:
         ):
             if key is not None:
                 session.pop(key, None)
+
+
+def authority_marker(provider: str, issuer: str, client_id: str) -> str:
+    """Bind browser authority to public configuration without storing its details."""
+    return hashlib.sha256(json.dumps([provider, issuer, client_id]).encode()).hexdigest()[:32]
+
+
+def accept_authority(session, marker: str, legacy_keys: tuple[str, ...], user_key: str) -> bool:
+    """Accept a session minted by this provider and configuration; else clear it.
+
+    A session from before #750 has no marker: it is adopted only when it holds
+    a key that only this provider's sign-in writes (*legacy_keys*), so a users-
+    module or other-provider cookie must sign in again.
+    """
+    # Anonymous login transactions and browser gates carry no cached principal.
+    if user_key not in session and SESSION_AUTHORITY_KEY not in session:
+        return False
+    if SESSION_AUTHORITY_KEY not in session and any(session.get(k) for k in legacy_keys):
+        session[SESSION_AUTHORITY_KEY] = marker
+    if session.get(SESSION_AUTHORITY_KEY) == marker:
+        return True
+    session.clear()
+    return False
 
 
 def pkce_challenge(verifier: str) -> str:
@@ -66,6 +91,7 @@ def sign_in(
     expires_at: int,
     redirect: str,
     user_key: str,
+    authority: str,
     identity_key: str | None = None,
     identity: tuple[str, ...] = (),
 ) -> str:
@@ -78,6 +104,7 @@ def sign_in(
     request.session.clear()
     request.session.update(preserved)
     request.session[SESSION_ID_KEY] = secrets.token_urlsafe(24)
+    request.session[SESSION_AUTHORITY_KEY] = authority
     rotate_csrf_token(request)
     request.session[user_key] = user.to_session_dict()
     if identity_key is not None:

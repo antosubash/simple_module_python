@@ -108,6 +108,7 @@ async def oidc_callback(request: Request):
         request,
         user=user_ctx,
         expires_at=expires_at,
+        authority=provider._session_authority,
         redirect=s.login_redirect_url,
         user_key=SESSION_USER_KEY,
         identity_key=SESSION_IDENTITY_KEY,

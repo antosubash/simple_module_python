@@ -31,6 +31,15 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- Tenant-scoped SQLite/Postgres upsert conflict updates now preserve `tenant_id`
+  ownership and restrict updates to the bound tenant, retaining the caller's
+  conflict predicate and explicit `all_tenants()` bypass (#749). No migration.
+- SQLite storage quota and tenant seat admissions now acquire a writer lock
+  before counting, held through commit, including upload reservations and
+  invitations. Stale WAL snapshots and lock timeouts return a retryable
+  `409` (`file_storage.storage_busy` / tenant `admission_conflict`), rather than
+  a 500, before any upload is assembled or cleaned up;
+  Postgres advisory/row locking is unchanged (#753). No migration.
 - Background task tenant, owner and log reset tokens are execution-local and
   nesting-safe, including overlapping task UUIDs: a worker task with no tenant
   or owner on its message runs unbound (or as the configured `default_tenant`)
@@ -51,6 +60,14 @@ All notable changes to this project are documented in this file. The format is b
   ranges; a tag the declared policy excludes is skipped with a message rather
   than pinned. **Behaviour change:** following PEP 440, an exclusive `<1.1.0`
   no longer admits `1.1.0` pre-release tags (#757).
+- Bind OIDC and Keycloak browser principals and shared renewal outcomes to a
+  short hash of provider, issuer and client ID (#750). **Behaviour change:**
+  sessions from another provider or configuration must sign in again. Unmarked
+  cookies are upgraded only with a key that the selected provider's own sign-in
+  writes (its identity key, or for earlier Keycloak cookies its sealed refresh
+  token). No migration.
+- Preserve existing discovery authorization-endpoint query parameters when
+  adding `client_id`, PKCE and other authorization fields (#755).
 - OIDC and Keycloak serialize rotating refresh grants with a per-session framework
   lease and share sealed cookie outcomes for 30 seconds, preventing parallel
   expiry requests from signing each other out (#738). **Behaviour change:**

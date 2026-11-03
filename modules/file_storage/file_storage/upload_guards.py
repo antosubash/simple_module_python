@@ -7,6 +7,7 @@ import zlib
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
+from simple_module_db.admission import serialize_sqlite_writes
 from sqlalchemy import delete, func, select, text
 from sqlmodel import col
 
@@ -14,7 +15,11 @@ from file_storage import constants
 from file_storage.contracts.service import StorageError
 from file_storage.models import StoredFile, UploadSession
 from file_storage.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
-from file_storage.upload_support import DirectUploadUnsupportedError, QuotaExceededError
+from file_storage.upload_support import (
+    DirectUploadUnsupportedError,
+    QuotaExceededError,
+    StorageBusyError,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,13 +40,18 @@ class StorageQuota:
     db: AsyncSession
     settings: FileStorageSettings
 
+    async def _lock_quota(self) -> None:
+        quota = self.settings.quota_bytes
+        if quota is not None:
+            await serialize_sqlite_writes(self.db, StoredFile.__table__, on_busy=StorageBusyError())
+
     async def _serialize_reservations(self, *, platform: bool = False) -> None:
         """Make concurrent quota admissions take turns on Postgres.
 
         Each upload sums stored + reserved bytes before recording a file or
         reservation. Under READ COMMITTED, concurrent uploads can read the same
         sum and all pass. The transaction-scoped lock lasts until the new row
-        becomes visible at commit. SQLite serialises writers already.
+        becomes visible at commit. SQLite takes its writer lock in `_lock_quota`.
         """
         bind = self.db.get_bind()
         if bind.dialect.name != "postgresql":
@@ -63,6 +73,7 @@ class StorageQuota:
         quota = self.settings.quota_bytes
         if quota is None:
             return
+        await self._lock_quota()
         if reserve:
             await self._serialize_reservations(platform=platform)
         stored_query = select(func.coalesce(func.sum(StoredFile.size_bytes), 0))

@@ -38,7 +38,7 @@ from file_storage.contracts.schemas import (
 from file_storage.contracts.service import StorageNotFoundError
 from file_storage.deps import OwnerScope, get_event_bus, get_file_storage_service
 from file_storage.downloads import content_disposition
-from file_storage.endpoints.upload_errors import quota
+from file_storage.endpoints.upload_errors import busy, quota
 from file_storage.format import format_bytes
 from file_storage.ranges import file_body_response
 from file_storage.service import (
@@ -50,7 +50,7 @@ from file_storage.service import (
     StreamDownload,
 )
 from file_storage.serving import etag_for, not_found, sandbox_headers, thumbnail_response
-from file_storage.upload_support import QuotaExceededError
+from file_storage.upload_support import QuotaExceededError, StorageBusyError
 
 router = APIRouter()
 
@@ -72,6 +72,8 @@ async def upload_file(
         out = await service.upload(file, public=public)
     except QuotaExceededError as exc:
         raise quota(t) from exc
+    except StorageBusyError as exc:
+        raise busy(t) from exc
     except FileTooLargeError as exc:
         # The limit belongs in the sentence: "too large" is not actionable to
         # someone holding a 40 MB file, and every client that shows this
