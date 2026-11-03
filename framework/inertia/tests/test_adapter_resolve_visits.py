@@ -95,7 +95,10 @@ async def test_once_props_are_skipped_when_the_client_already_has_them() -> None
         _req(**{"X-Inertia-Except-Once-Props": "plans"}),
     )
     assert out.props == {"flags": ["b"]}
-    assert out.once == {"flags": {"prop": "flags", "expiresAt": None}}
+    assert out.once == {
+        "plans": {"prop": "plans", "expiresAt": None},
+        "flags": {"prop": "flags", "expiresAt": None},
+    }
 
 
 async def test_shared_props_merge_under_page_props() -> None:

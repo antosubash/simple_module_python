@@ -25,6 +25,7 @@ class ScrollMeta:
     previous_page: int | None
     next_page: int | None
     reset: bool = False
+    wrapper: str | None = "data"
 
     def as_page_object(self) -> dict[str, Any]:
         return {
@@ -51,6 +52,7 @@ class Prop:
     # to the prop name at resolve time. A private flag keeps that distinction
     # without making ``once_key`` a sentinel.
     _once_flag: bool = False
+    rescue: bool = False
 
     @property
     def is_once(self) -> bool:
@@ -69,8 +71,8 @@ def always(value: Any) -> Prop:
     return replace(as_prop(value), always=True)
 
 
-def defer(value: Any, group: str = "default") -> Prop:
-    return replace(as_prop(value), deferred_group=group)
+def defer(value: Any, group: str = "default", rescue: bool = False) -> Prop:
+    return replace(as_prop(value), deferred_group=group, rescue=rescue)
 
 
 def merge(value: Any, match_on: str | None = None) -> Prop:
@@ -97,10 +99,11 @@ def scroll(
     previous_page: int | None,
     next_page: int | None,
     reset: bool = False,
+    wrapper: str | None = "data",
 ) -> Prop:
     if not page_name:
         raise ValueError("scroll() requires a non-empty page_name")
-    meta = ScrollMeta(page_name, current_page, previous_page, next_page, reset)
+    meta = ScrollMeta(page_name, current_page, previous_page, next_page, reset, wrapper)
     return replace(as_prop(value), scroll=meta)
 
 
