@@ -185,3 +185,21 @@ def test_group_update_requires_tag_accepted_by_every_sibling(
         assert calls == []
     else:
         assert after.count(f'tag = "{expected}"') == 2
+
+
+def test_sibling_without_a_version_clause_does_not_break_the_group(tmp_path: Path) -> None:
+    p = _host(tmp_path, "https://github.com/x/mods")
+    text = p.read_text(encoding="utf-8").replace(
+        '"simple_module_comments>=0.1.0,<1.0"', '"simple_module_comments[s3]"'
+    )
+    p.write_text(text, encoding="utf-8")
+    _calls, runner = _recorder()
+    run_sources_update(
+        p,
+        only=None,
+        dry_run=False,
+        git_runner=_git_stub(["v0.1.0", "v0.3.0", "v2.0.0"]),
+        exec_runner=runner,
+    )
+    # The unversioned sibling adds no bound; the other's <1.0 still holds.
+    assert p.read_text(encoding="utf-8").count('tag = "v0.3.0"') == 2

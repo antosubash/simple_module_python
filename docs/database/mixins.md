@@ -105,8 +105,8 @@ tenant tables and explicitly supplies `tenant_id` (#693).
 
 ### Bypass
 
-Without an active tenant, strict mode raises `TenantIsolationError` (`MissingTenantError`) for every insert form, even when the rows name their `tenant_id` (#728); non-strict
-inserts use the install's fallback tenant (`default_tenant` or `"default"`). There is no per-statement `skip_tenant_filter` option; cross-tenant work uses `all_tenants()` (see [multi-tenancy](../framework/multi-tenancy.md)). `no_tenant()` is the opposite: it forces the unscoped state, where strict mode fails closed.
+Without an active tenant, strict mode raises `TenantIsolationError` (`MissingTenantError`) for every insert form, even when the rows name
+their `tenant_id` (#728); non-strict inserts use the install's fallback tenant (`default_tenant` or `"default"`). There is no per-statement `skip_tenant_filter` option; cross-tenant work uses `all_tenants()` (see [multi-tenancy](../framework/multi-tenancy.md)). `no_tenant()` is the opposite: it forces the unscoped state, where strict mode fails closed.
 
 ## `VersionedMixin`
 

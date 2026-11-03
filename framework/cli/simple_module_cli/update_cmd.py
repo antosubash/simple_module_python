@@ -81,7 +81,7 @@ def run_sources_update(
         if not tag_pinned:
             continue
         tags, _ = list_remote_refs(url, **git_kwargs)
-        constraint = ",".join(dep_constraint(doc, name) or "" for name in tag_pinned)
+        constraint = ",".join(c for name in tag_pinned if (c := dep_constraint(doc, name)))
         candidate = pick_latest_tag(tags, constraint)
         if candidate is None:
             continue
