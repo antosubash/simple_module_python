@@ -38,6 +38,7 @@
     "updated": "updated",
     "deleted": "deleted",
     "soft_deleted": "archived",
+    "restored": "restored",
     "bulk_inserted": "bulk created",
     "bulk_updated": "bulk updated",
     "bulk_deleted": "bulk deleted",

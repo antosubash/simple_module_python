@@ -9,8 +9,6 @@ from typing import Any, Final
 from simple_module_core.correlation import correlation_id
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ORMExecuteState, Session
-from sqlalchemy.sql.elements import BindParameter
-from sqlalchemy.sql.visitors import iterate
 
 from simple_module_db.audit import AuditRecord, _serialize, format_pk
 from simple_module_db.query_filter import engine_policy
@@ -59,15 +57,6 @@ def _current_user() -> str | None:
     from simple_module_db.listeners import current_user_id
 
     return current_user_id.get()
-
-
-def _where_params(stmt: Any, params: Any) -> dict[str, Any] | None:
-    """The execute params the ``WHERE`` clause binds, so the prefetch can run it."""
-    where = getattr(stmt, "whereclause", None)
-    if where is None or not isinstance(params, dict):
-        return None
-    keys = {e.key for e in iterate(where) if isinstance(e, BindParameter)}
-    return {k: v for k, v in params.items() if k in keys} or None
 
 
 def _bulk_by_pk_ids(execute_state: ORMExecuteState, cls: type) -> list[str] | None:

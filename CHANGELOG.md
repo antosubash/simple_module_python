@@ -53,6 +53,11 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- Bulk-DML audit prefetch preserves statement options, including loader criteria,
+  so it records only the rows selected by the UPDATE or DELETE (#810).
+- ORM restores now emit `restored` audit entries with translated action labels
+  and ORM primary-key updates include the old and new key in their diffs
+  (behaviour change: both used to leave no entry) (#811).
 - Tenant scoping in `simple_module_db` now applies to more statement shapes:
   ORM bulk UPDATE by primary key (`session.execute(update(Model), rows)`),
   `update().ordered_values()` (assigning `tenant_id` raises like `.values()`),
