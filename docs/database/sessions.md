@@ -1,24 +1,25 @@
 # Session lifecycle
 
-Each request opens exactly one `AsyncSession`. The framework commits only when there are pending writes; read-only requests rollback. **Service code should not call `session.commit()` directly.**
+Each request opens exactly one `AsyncSession`. The framework commits only when there are pending writes; read-only requests end their transaction with a rollback that preserves loaded attributes. **Service code should not call `session.commit()` directly.**
 
 ## The `get_db` dependency
 
-```python
-# simple_module_db.deps
-async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
-    factory = request.app.state.sm.db.session_factory
-    async with factory() as session:
-        try:
-            yield session
-            if _has_pending_writes(session):
-                await session.commit()
-            else:
-                await session.rollback()
-        except Exception:
-            await session.rollback()
-            raise
-```
+`get_db` yields a request session and enlists it with
+`CommitBeforeResponseMiddleware`. At `http.response.start`, before headers or
+body bytes leave the server, the middleware commits pending writes or closes a
+read-only transaction. Closing rolls back and releases the connection without
+expiring or detaching loaded ORM objects. A streaming body or background task
+can read already-loaded attributes without database IO; unloaded attributes
+still require an explicit async load.
+
+If commit fails, the framework rolls back and unwinds the original response,
+including its streaming body and background tasks, then sends a JSON 500.
+Those tasks do not run for a failed request commit (#807).
+
+The dependency finalizes again on exit to persist writes made during a
+successful stream or background task. The session remains usable after
+read-only finalization, including for later writes (#808). Without the
+middleware, finalization happens when the dependency exits.
 
 Usage in endpoints:
 
@@ -51,28 +52,30 @@ OrderServiceDep = Annotated[OrderService, Depends(_order_service)]
 
 ## The `has_writes` flag
 
-To distinguish "this request wrote something" from "this request only read", an `after_flush` event listener sets `session.info["has_writes"] = True`. The dependency checks:
+ORM flushes and session-executed INSERT/UPDATE/DELETE statements mark the
+current transaction as written. Raw SQL writes require `mark_written(session)`.
+The finalizer checks both this marker and pending `new`/`dirty`/`deleted`
+objects, so an already-flushed write still commits.
 
-```python
-if session.info.get("has_writes") or session.new or session.dirty or session.deleted:
-    await session.commit()
-else:
-    await session.rollback()
-```
-
-Why both? `session.new/dirty/deleted` show **pending** writes that haven't flushed yet; `has_writes` catches the case where writes flushed but were already synced. Together they cover every path to "we touched the DB with intent to change it."
+Write markers follow savepoint boundaries: releasing a savepoint merges its
+marker into its parent; rolling it back discards only its marker. A released
+child's writes still belong to its parent's rollback. If all writes were
+rolled back, finalization takes the read-only path and discards outer
+`on_commit` callbacks (#809). Callbacks registered inside a rolled-back
+savepoint are also discarded, while callbacks outside it survive if other
+writes commit. A full rollback clears all write markers and callbacks.
 
 ## Why not always commit?
 
 - **Cheaper.** A rollback on a clean session is a single Postgres message; a commit with no writes still goes through two-phase round-trips on some drivers.
 - **Observability.** The write/read distinction is useful in profiling and logs — you can answer "how many requests mutated data?" without guessing.
-- **Safety.** If a GET handler accidentally stages a write (rare, but happens with `session.merge`), the rollback prevents silent persistence.
+- A handler that stages a write, including a GET handler, takes the write path and commits. Read-only finalization is not a guard against accidental writes.
 
 ## Why service code shouldn't commit
 
-The per-request session is **owned** by the dependency. If your service calls `commit()` mid-request, two problems arise:
+The per-request transaction is **owned** by the framework. If your service calls `commit()` mid-request, two problems arise:
 
-1. The dependency commits again on exit — harmless but confusing.
+1. It bypasses commit-before-response finalization and its post-commit callbacks.
 2. If a later step in the request fails, the partial writes are already persisted and can't be rolled back.
 
 Instead, **flush** when you need a DB-assigned value (e.g. an auto-generated `id`):
@@ -196,7 +199,7 @@ For endpoint tests, use `client` or `authenticated_client` — they share the sa
 | Situation | Call |
 |---|---|
 | Inside an endpoint handler / service, need DB-assigned id | `await session.flush()` |
-| Inside an endpoint handler / service, done with work | nothing — dependency commits on exit |
+| Inside an endpoint handler / service, done with work | nothing — middleware commits before response start |
 | Outside a request (worker, CLI, lifespan) | explicit `async with session.begin():` |
 | A handler that reads-only but wants to persist an audit row | stage the row; the dependency detects pending writes and commits |
 | A handler that must explicitly discard partial changes | `raise`ing propagates to the dependency, which rolls back |

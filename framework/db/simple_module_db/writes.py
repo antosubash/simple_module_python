@@ -12,15 +12,17 @@ listeners and both of which were wrong for statements the ORM never sees:
 
 from __future__ import annotations
 
+from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import ORMExecuteState, Session
+from sqlalchemy.orm import ORMExecuteState, Session, SessionTransaction
 
 from simple_module_db.mixins import SoftDeleteMixin
 
 # Key on ``Session.info`` distinguishing read-only requests from write requests
 # after flush has cleared ``session.new/.dirty/.deleted``.
 SESSION_HAS_WRITES_KEY = "has_writes"
+_WRITE_TRANSACTIONS_KEY = "sm_db_write_transactions"
 
 # Key on ``Session.info`` holding ``id()`` of instances the caller asked to
 # hard-delete, consumed by the before_flush soft-delete rewrite.
@@ -37,8 +39,42 @@ def mark_written(session: Session | AsyncSession) -> None:
     Without it that write is rolled back at request end, silently (GH #336).
 
     Accepts either an ``AsyncSession`` or the underlying sync ``Session``.
+    Savepoint releases transfer the marker to the parent; rollbacks discard it.
     """
+    sync_session = session.sync_session if isinstance(session, AsyncSession) else session
+    if not event.contains(sync_session, "after_commit", _merge_written_transaction):
+        event.listen(sync_session, "after_commit", _merge_written_transaction)
+        event.listen(sync_session, "after_soft_rollback", _discard_written_transaction)
+    transaction = sync_session.get_nested_transaction() or sync_session.get_transaction()
+    if transaction is None:
+        transaction = sync_session.begin()
+    session.info.setdefault(_WRITE_TRANSACTIONS_KEY, set()).add(transaction)
     session.info[SESSION_HAS_WRITES_KEY] = True
+
+
+def _merge_written_transaction(session: Session) -> None:
+    transaction = session.get_nested_transaction() or session.get_transaction()
+    if transaction is None:
+        return
+    if transaction.parent is None:
+        session.info.pop(_WRITE_TRANSACTIONS_KEY, None)
+        session.info.pop(SESSION_HAS_WRITES_KEY, None)
+    else:
+        written = session.info.get(_WRITE_TRANSACTIONS_KEY, set())
+        if transaction in written:
+            written.remove(transaction)
+            written.add(transaction.parent)
+
+
+def _discard_written_transaction(session: Session, transaction: SessionTransaction) -> None:
+    if transaction.parent is None:
+        session.info.pop(_WRITE_TRANSACTIONS_KEY, None)
+        session.info.pop(SESSION_HAS_WRITES_KEY, None)
+    elif transaction.nested:
+        written = session.info.get(_WRITE_TRANSACTIONS_KEY, set())
+        written.discard(transaction)
+        if not written:
+            session.info.pop(SESSION_HAS_WRITES_KEY, None)
 
 
 def _mark_session_written(session: Session, flush_context: object) -> None:
@@ -48,7 +84,7 @@ def _mark_session_written(session: Session, flush_context: object) -> None:
     — flush empties those sets — so we stash a tag on ``session.info`` that
     survives the rest of the request.
     """
-    session.info[SESSION_HAS_WRITES_KEY] = True
+    mark_written(session)
 
 
 def _mark_dml_written(execute_state: ORMExecuteState) -> None:
@@ -65,7 +101,7 @@ def _mark_dml_written(execute_state: ORMExecuteState) -> None:
     pay for a commit.
     """
     if execute_state.is_insert or execute_state.is_update or execute_state.is_delete:
-        execute_state.session.info[SESSION_HAS_WRITES_KEY] = True
+        mark_written(execute_state.session)
 
 
 async def hard_delete(session: AsyncSession, instance: object) -> None:

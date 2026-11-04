@@ -32,6 +32,7 @@ from collections.abc import MutableMapping
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from simple_module_db.callbacks import (
     discard_on_commit_callbacks,
@@ -50,6 +51,16 @@ SESSION_START_KEY = "sm_db_started_at"
 _FINALIZED_KEY = "sm_db_finalized"
 
 _INTERNAL_ERROR_BODY = json.dumps({"detail": "Internal Server Error"}).encode()
+
+
+class _ResponseAbortedError(Exception):
+    """Unwind the original response before replacing it after commit failure."""
+
+
+def _close_read_only_transaction(session: Session) -> None:
+    # Transaction.close rolls back and releases connections without expiring ORM state.
+    while transaction := session.get_nested_transaction() or session.get_transaction():
+        transaction.close()
 
 
 def _elapsed_ms(session: AsyncSession) -> float:
@@ -91,10 +102,9 @@ async def finalize_session(session: AsyncSession) -> None:
     never commit. So each call commits whatever is pending *at that moment*, and
     ``get_db``'s exit code still runs afterwards to catch the rest.
 
-    Read-only handlers exit via ``rollback`` — one round-trip cheaper than
-    ``commit``, and it keeps read-only queries from showing up as writes in
-    query logs / ``pg_stat_statements``. A repeat call with nothing new pending
-    returns immediately rather than paying for a second rollback.
+    Read-only handlers close their transaction, rolling back and releasing the
+    connection without expiring loaded objects needed by streams or tasks.
+    A repeat call with nothing new pending returns immediately.
 
     On commit failure the session is rolled back before the error propagates,
     so the caller never has to reason about a half-finalized session.
@@ -104,7 +114,7 @@ async def finalize_session(session: AsyncSession) -> None:
             return
         _settle(session)
         discard_on_commit_callbacks(session)
-        await session.rollback()
+        await session.run_sync(_close_read_only_transaction)
         logger.debug(
             "db.session.read_only",
             extra={"operation": "read_only_rollback", "db_duration_ms": _elapsed_ms(session)},
@@ -178,14 +188,8 @@ class CommitBeforeResponseMiddleware:
 
         sessions: list[AsyncSession] = []
         scope.setdefault("state", {})[REQUEST_SESSIONS_KEY] = sessions
-        aborted = False
 
         async def send_wrapper(message) -> None:
-            nonlocal aborted
-            if aborted:
-                # The response we replaced is still streaming its body into a
-                # channel we've already closed off. Drop it.
-                return
             if message["type"] == "http.response.start" and sessions:
                 try:
                     # A request normally has exactly one session (FastAPI caches
@@ -197,15 +201,17 @@ class CommitBeforeResponseMiddleware:
                     for session in sessions:
                         await finalize_session(session)
                 except Exception:
-                    aborted = True
                     logger.exception(
                         "db.session.commit_failed", extra={"operation": "commit_failed"}
                     )
-                    await _send_internal_error(send)
-                    return
+                    raise _ResponseAbortedError from None
             await send(message)
 
-        await self.app(scope, receive, send_wrapper)
+        try:
+            await self.app(scope, receive, send_wrapper)
+        except* _ResponseAbortedError:
+            # StreamingResponse may wrap the signal in an ExceptionGroup.
+            await _send_internal_error(send)
 
 
 async def _send_internal_error(send) -> None:
