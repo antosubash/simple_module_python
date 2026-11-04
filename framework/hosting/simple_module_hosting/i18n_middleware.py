@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -80,7 +82,11 @@ class LocaleMiddleware:
                 q = float(q_part.split("=", 1)[1]) if q_part.startswith("q=") else 1.0
             except ValueError:
                 q = 1.0
-            candidates.append((q, tag))
+            # q=0 means "not acceptable" (RFC 9110 §12.4.2); nan is no weight at
+            # all. Weights above 1 count as 1 so the sort stays well defined.
+            if math.isnan(q) or q <= 0:
+                continue
+            candidates.append((min(q, 1.0), tag))
 
         # Sort by q descending, stable.
         candidates.sort(key=lambda pair: -pair[0])
