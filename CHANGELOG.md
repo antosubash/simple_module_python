@@ -56,17 +56,22 @@ All notable changes to this project are documented in this file. The format is b
 - Tenant scoping in `simple_module_db` now applies to more statement shapes:
   ORM bulk UPDATE by primary key (`session.execute(update(Model), rows)`),
   `update().ordered_values()` (assigning `tenant_id` raises like `.values()`),
-  subqueries in an insert's `.values()` / multi-row values / `on_conflict_do_update()`
-  `set_` and `where` (whatever the insert's target; strict mode with no tenant
+  subqueries in an insert's `.values()` / multi-row values / `RETURNING` /
+  `on_conflict_do_update()` `set_` and `where` (whatever the insert's target; strict mode with no tenant
   raises), UPDATE / DELETE embedded as a CTE, UPDATE / DELETE on an aliased Core
   table, and a table read only through an UPDATE's `SET` values (`UPDATE … FROM`).
-- **Behaviour change:** these shapes now raise `TenantIsolationError` outside
-  `all_tenants()`: an INSERT into a tenant table embedded as a CTE; SQLite
-  `INSERT OR REPLACE` into a tenant table while a tenant is bound (use
-  `on_conflict_do_update()`); and `Session.bulk_save_objects()`,
-  `bulk_insert_mappings()` and `bulk_update_mappings()` on a `MultiTenantMixin`
-  model while a tenant is bound or strict mode is on (use
-  `session.execute(insert(Model), rows)` / `update(Model)`). See
+- **Behaviour change:** these shapes now raise `TenantIsolationError`:
+  - an INSERT into a tenant table embedded in another statement (as a CTE, or
+    attached with `add_cte()`), unless inside `all_tenants()`; this includes
+    single-tenant installs, because such rows can be neither checked nor stamped;
+  - SQLite `INSERT OR REPLACE` into a tenant table while a tenant is bound (use
+    `on_conflict_do_update()`);
+  - `Session.bulk_save_objects()`, `bulk_insert_mappings()` and
+    `bulk_update_mappings()` on a `MultiTenantMixin` model while a tenant is bound
+    or strict mode is on, unless inside `all_tenants()` (use
+    `session.execute(insert(Model), rows)` / `update(Model)`).
+
+  A single-tenant install with nothing bound keeps running the last two. See
   `docs/framework/multi-tenancy.md`.
 - **Behaviour change:** `LocaleMiddleware` never picks a language the browser
   sends with `q=0` ("not acceptable"), including through a regional tag such

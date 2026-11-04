@@ -7,7 +7,7 @@
 """
 
 import pytest
-from _db_dml_scope_models import ScopeDoc, ScopeOther, doc, docs, other, scope_db
+from _db_dml_scope_models import ScopeDoc, ScopeOther, ScopeProj, doc, docs, other, proj, scope_db
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, no_tenant, tenant_context
 from sqlalchemy import delete, select, update
 
@@ -117,3 +117,20 @@ async def test_update_from_set_source_unbound_strict_fails_closed(scope_db):
     stmt = update(ScopeOther).values(name=select(doc.c.name).where(doc.c.id == 2).scalar_subquery())
     with no_tenant(), pytest.raises(TenantIsolationError):
         await scope_db.execute(stmt)
+
+
+@pytest.mark.parametrize("orm", [False, True], ids=["core", "orm"])
+@pytest.mark.parametrize("kind", ["update", "delete"])
+async def test_dml_returning_subquery_is_scoped(scope_db, orm, kind):
+    secret = (
+        select(ScopeDoc.name).where(ScopeDoc.id == 2)
+        if orm
+        else select(doc.c.name).where(doc.c.id == 2)
+    ).scalar_subquery()
+    target = ScopeProj if orm else proj
+    stmt = update(target).values(note="x") if kind == "update" else delete(target)
+    with tenant_context("a"):
+        result = await scope_db.execute(
+            stmt.where(target.id == 1 if orm else proj.c.id == 1).returning(secret)
+        )
+        assert result.scalar_one() is None

@@ -46,8 +46,8 @@ statement names, so all of these are scoped (#332):
   `union` / `intersect` / `except`, a table an `update()`/`delete()` joins in
   through its `WHERE` or its `SET` values (`update(t).values(name=other.c.name)`,
   an `UPDATE … FROM`), the `select` behind `insert().from_select()`, and a
-  subquery in an insert's `.values()` (single or multi-row) or in an
-  `on_conflict_do_update()` arm's `set_` / `where`, whatever the insert's
+  subquery in an insert's `.values()` (single or multi-row), its `RETURNING`
+  or an `on_conflict_do_update()` arm's `set_` / `where`, whatever the insert's
   target is — an untenanted table included. A DML on an aliased table
   (`delete(Doc.__table__.alias("v"))`) is scoped through the alias;
 - ORM **bulk UPDATE by primary key**, `session.execute(update(Doc), [{"id": …}, …])`:

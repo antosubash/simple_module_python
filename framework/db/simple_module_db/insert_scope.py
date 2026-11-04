@@ -1,12 +1,12 @@
-"""Scope what an INSERT reads: its SELECT source, CTEs and the subqueries in its values.
+"""Scope what an INSERT reads: its SELECT source, CTEs, and subqueries in values / RETURNING.
 
 ``insert(...).from_select(..., select(...))`` reads like any SELECT, and so
 does a subquery placed in ``.values()`` (single or multi-row) or in an
-``ON CONFLICT DO UPDATE`` arm's ``set_`` / ``where``. Those subqueries are
+``ON CONFLICT DO UPDATE`` arm's ``set_`` / ``where`` or in ``RETURNING``. Those subqueries are
 scoped whatever the insert's target is — an untenanted table is no less a
 place another tenant's data could be copied to.
 
-The values of an insert sit outside the reach of loader criteria, so an ORM
+The values and RETURNING of an insert sit outside the reach of loader criteria, so an ORM
 subquery there is deannotated first and scoped as a Core one: every tenant /
 soft-deletable table it reads gets its predicates (or, strict with no
 tenant, raises).
@@ -67,13 +67,24 @@ def _arm(arm: Any, scope: Scope) -> Any:
 
 
 def scope_insert(stmt: Any, scope: Scope) -> Any:
-    """``stmt`` with its SELECT source and its value subqueries scoped by ``scope``."""
-    # ``add_cte()``: a data-modifying CTE attached to the insert runs with it.
-    if getattr(stmt, "select", None) is not None or getattr(stmt, "_independent_ctes", None):
+    """``stmt`` with its SELECT source, CTEs, RETURNING and value subqueries scoped."""
+    # The parts a Core traversal must visit: the SELECT source, an ``add_cte()``
+    # CTE and RETURNING subqueries. Values and conflict arms are handled below.
+    # Gated, because the traversal clones even a plain insert.
+    if (
+        getattr(stmt, "select", None) is not None
+        or getattr(stmt, "_independent_ctes", None)
+        or any(_reads_rows(c) for c in stmt._returning)
+    ):
         stmt = scope(stmt)
+        if stmt._values is not None:
+            # The clone holds a plain dict; tenant stamping calls ``.union()`` on it.
+            stmt._values = immutabledict(stmt._values)
     values = stmt._values
     multi = stmt._multi_values
     arm = conflict_arm(stmt)
+    returning = stmt._returning
+    new_returning = tuple(_expr(c, scope) for c in returning)
     new_values = {k: _expr(v, scope) for k, v in values.items()} if values else values
     new_multi = tuple([_row(r, scope) for r in group] for group in multi) if multi else multi
     new_arm = _arm(arm, scope)
@@ -83,13 +94,16 @@ def scope_insert(stmt: Any, scope: Scope) -> Any:
         for ga, gb in zip(new_multi, multi, strict=True)
         for a, b in zip(ga, gb, strict=True)
     )
-    if values_same and multi_same and new_arm is arm:
+    returning_same = all(a is b for a, b in zip(new_returning, returning, strict=True))
+    if values_same and multi_same and returning_same and new_arm is arm:
         return stmt
     out = stmt._generate()
     out._values = immutabledict(new_values) if new_values else new_values
     out._multi_values = new_multi
     if new_arm is not arm:
         out._post_values_clause = new_arm
+    if not returning_same:
+        out._returning = new_returning
     return out
 
 

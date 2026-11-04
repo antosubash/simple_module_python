@@ -22,9 +22,9 @@ from sqlalchemy.exc import DBAPIError
 __all__ = ["captured_sql", "lax_db", "scope_db"]
 
 
-async def _run_cte(session, cte):
+async def _run(session, stmt):
     try:
-        await session.execute(select(cte.c.id))
+        await session.execute(stmt)
     except DBAPIError:
         if session.bind.dialect.name != "sqlite":
             raise
@@ -44,7 +44,7 @@ async def test_dml_cte_target_is_scoped(scope_db, captured_sql, operation, orm):
     returning = ScopeDoc.id if orm else doc.c.id
     stmt = update(target).values(note="cte") if operation == "update" else delete(target)
     with tenant_context("a"):
-        await _run_cte(scope_db, stmt.returning(returning).cte("w"))
+        await _run(scope_db, select(stmt.returning(returning).cte("w").c.id))
     assert _scoped_where(captured_sql, f"{operation.upper()} "), captured_sql
     assert (2, "b", "b-secret", None) in await docs(scope_db)
 
@@ -79,7 +79,7 @@ async def test_insert_cte_is_refused_unbound_on_single_tenant_install(lax_db):
 async def test_dml_cte_all_tenants_is_left_alone(scope_db, captured_sql):
     cte = update(doc).values(note="cte").returning(doc.c.id).cte("w")
     with all_tenants():
-        await _run_cte(scope_db, cte)
+        await _run(scope_db, select(cte.c.id))
     assert not _scoped_where(captured_sql, "UPDATE ")
 
 
@@ -159,14 +159,18 @@ async def test_insert_add_cte_dml_is_scoped(scope_db, captured_sql):
     cte = update(doc).values(note="cte").returning(doc.c.id).cte("w")
     stmt = insert(ScopeProj.__table__).values(id=7, note="z").add_cte(cte)
     with tenant_context("a"):
-        await _run_cte_insert(scope_db, stmt)
+        await _run(scope_db, stmt)
     assert _scoped_where(captured_sql, "UPDATE "), captured_sql
 
 
-async def _run_cte_insert(session, stmt):
-    try:
-        await session.execute(stmt)
-    except DBAPIError:
-        if session.bind.dialect.name != "sqlite":
-            raise
-        await session.rollback()
+async def test_insert_add_cte_insert_on_tenant_table_is_refused(scope_db):
+    cte = insert(doc).values(id=32, tenant_id="a").returning(doc.c.id).cte("i")
+    stmt = insert(ScopeProj.__table__).values(id=8, note="z").add_cte(cte)
+    with tenant_context("a"), pytest.raises(TenantIsolationError):
+        await scope_db.execute(stmt)
+
+
+async def test_insert_cte_all_tenants_is_left_alone(scope_db):
+    cte = insert(doc).values(id=33, tenant_id="b").returning(doc.c.id).cte("i")
+    with all_tenants():
+        await _run(scope_db, select(cte.c.id))

@@ -115,3 +115,19 @@ async def test_plain_values_unchanged(scope_db):
     with tenant_context("a"):
         await scope_db.execute(stmt)
     assert (await projs(scope_db))[2] == (14, "plain")
+
+
+@pytest.mark.parametrize("orm", [False, True], ids=["core", "orm"])
+async def test_returning_subquery_is_scoped(scope_db, orm):
+    with tenant_context("a"):
+        result = await scope_db.execute(
+            insert(ScopeProj).values(id=15, note="r").returning(_name_of(2, orm))
+        )
+        assert result.scalar_one() is None
+
+
+async def test_returning_subquery_unbound_strict_fails_closed(scope_db):
+    with no_tenant(), pytest.raises(TenantIsolationError):
+        await scope_db.execute(
+            insert(ScopeProj).values(id=16, note="r").returning(_name_of(2, False))
+        )
