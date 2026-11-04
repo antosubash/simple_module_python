@@ -15,7 +15,7 @@ and then evaluates the condition against it.
 
 from __future__ import annotations
 
-from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
+from simple_module_db import mark_written
 from sqlalchemy import delete, exists, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -64,6 +64,7 @@ async def remove_owner(db: AsyncSession, membership: Membership) -> bool:
 
 
 def _mark_written(db: AsyncSession) -> None:
-    # A Core-style statement is not a flush, so the request session would
-    # otherwise roll it back as a read-only request (#336).
-    db.sync_session.info[SESSION_HAS_WRITES_KEY] = True
+    # Goes through ``mark_written`` so the stamp follows savepoint rollbacks; a
+    # bare ``info[SESSION_HAS_WRITES_KEY] = True`` is dropped by an unrelated
+    # savepoint rollback (#809).
+    mark_written(db)

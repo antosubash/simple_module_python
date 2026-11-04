@@ -60,10 +60,10 @@ The per-request session opens once, and **the dependency commits or rolls back f
 | Outcome | What `get_db` does |
 |---|---|
 | Request succeeded **and** session has pending writes | `commit()` (one transaction) |
-| Request succeeded **and** session is read-only | `rollback()` (cheaper than commit on no-ops) |
+| Request succeeded **and** session is read-only | closes the transaction (rollback; loaded objects stay usable, no expiry) |
 | Request raised | `rollback()` |
 
-A pending-writes flag is set by an `after_flush` listener and by inspecting `session.new / dirty / deleted`. **Service code must not call `session.commit()`.** Manual commits double-commit on success and break the read-only optimization (which keeps read-only requests out of write-side profiling and pgBouncer transaction stats).
+A pending-writes flag is set by flushes and session-executed INSERT/UPDATE/DELETE (follows savepoints: a rolled-back savepoint's writes no longer count) and by inspecting `session.new / dirty / deleted`. **Service code must not call `session.commit()`.** Manual commits double-commit on success and break the read-only optimization (which keeps read-only requests out of write-side profiling and pgBouncer transaction stats).
 
 `session.flush()` is fine and sometimes necessary — use it when you need a DB-assigned primary key mid-request:
 

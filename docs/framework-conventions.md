@@ -316,7 +316,7 @@ Each request opens one session:
   await session.execute(text("UPDATE orders_order SET ..."))
   mark_written(session)
   ```
-- Read-only requests exit via rollback — cheaper, and keeps the session out of write-side profiling.
+- Read-only requests exit via rollback (loaded objects are not expired) — cheaper, and keeps the session out of write-side profiling.
 - Exceptions always rollback.
 
 Service code should not call `session.commit()` directly. Flush for intermediate reads if you need DB-assigned values, then let the framework commit. The injected

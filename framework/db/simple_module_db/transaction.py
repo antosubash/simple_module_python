@@ -16,11 +16,12 @@ client yet, so a failure there can still become a 500, and every caller —
 seeds, provisioning scripts, integration tests, single-run k8s jobs — gets the
 guarantee without changing a line of endpoint code.
 
-A session is finalized exactly once. Whichever runs first wins and the other
-becomes a no-op, so the framework stays correct when the middleware is absent
-(a bare ``get_db``, a WebSocket, a test calling the dependency directly) and on
-the error path, where FastAPI unwinds the dependency — rolling it back —
-*before* the error response is sent.
+A session's pending work is finalized once. Whichever runs first wins and the
+other becomes a no-op (``finalize_session`` re-arms for later writes), so the
+framework stays correct when the middleware is absent (a bare ``get_db``, a
+WebSocket, a test calling the dependency directly) and on the error path, where
+FastAPI unwinds the dependency — rolling it back — *before* the error response
+is sent.
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ def _elapsed_ms(session: AsyncSession) -> float:
 def _has_pending(session: AsyncSession) -> bool:
     """Whether ``session`` holds work that still needs committing.
 
-    ``has_writes`` is stamped by the after_flush listener and survives the flush
+    ``has_writes`` is stamped by flushes and session DML (see ``writes``) and survives the flush
     emptying ``session.new``/``.dirty``/``.deleted`` — the raw collections alone
     would report a flushed-but-uncommitted write as read-only.
     """
