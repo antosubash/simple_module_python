@@ -16,6 +16,7 @@ load_dotenv_into_environ(Path(os.environ["SM_PROJECT_ROOT"]) / ".env")
 from simple_module_hosting import create_app, merge_host_settings  # noqa: E402
 from simple_module_hosting.logging import setup_logging  # noqa: E402
 
+from host.e2e_inertia import mount_if_development as mount_e2e_inertia_if_development  # noqa: E402
 from host.routes import router as host_router  # noqa: E402
 from host.routes_legacy import router as legacy_router  # noqa: E402
 
@@ -32,6 +33,8 @@ setup_logging(
 
 app = create_app(settings)
 app.include_router(host_router)
+# Fixture pages for tests/e2e/inertia/; development only.
+mount_e2e_inertia_if_development(app, settings)
 # Mounted last: its catch-all {path:path} routes must not shadow a real
 # route that happens to share a legacy prefix.
 app.include_router(legacy_router)
