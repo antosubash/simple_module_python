@@ -94,8 +94,8 @@ A tenant-scoped (or soft-deletable) model used as a relationship's link table,
 lazy, `joinedload`, `selectinload`, `subqueryload` — and in joins through the
 relationship (writes through it skip the soft-delete condition). Only a link
 table mapped by a mixin class is filtered: a bare association `Table` with a
-`tenant_id` column is not, like every unmapped table. `aliased(Model,
-<subquery>)` over a selectable that reads a scoped table through Core is
+`tenant_id` column is not, like every unmapped table.
+`aliased(Model, <subquery>)` over a selectable that reads a scoped table through Core is
 refused unless that table is the entity's own (and the selectable does not
 group, aggregate or use a window function); build such selectables from ORM
 entities. Details in
