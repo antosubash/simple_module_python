@@ -25,6 +25,8 @@ from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy.sql import visitors
+from sqlalchemy.sql.elements import FunctionFilter, Over, WithinGroup
+from sqlalchemy.sql.functions import FunctionElement
 from sqlalchemy.sql.selectable import CompoundSelect, FromClause, Join, Select
 
 from simple_module_db._core_joins import _base_name, _is_orm, is_scoped_leaf
@@ -32,6 +34,20 @@ from simple_module_db._core_walk import aliased_selectable, froms_read, referenc
 from simple_module_db.tenancy import TenantIsolationError
 
 AliasedGuard = Callable[[Any, Any, set[str]], None]
+
+# Aggregates combine rows even without a GROUP BY: ``max(id)`` over every tenant's
+# rows next to ``min(tenant_id)``. Names, since ``func.<name>`` builds a plain
+# ``Function`` for any name SQLAlchemy has no class for.
+_AGGREGATES = frozenset(
+    {
+        "aggregate_strings", "array_agg", "avg", "bit_and", "bit_or", "bool_and",
+        "bool_or", "count", "every", "group_concat", "json_agg", "json_group_array",
+        "json_group_object", "json_object_agg", "jsonb_agg", "jsonb_object_agg",
+        "max", "min", "mode", "percentile_cont", "percentile_disc", "stddev",
+        "stddev_pop", "stddev_samp", "string_agg", "sum", "total", "var_pop",
+        "var_samp", "variance", "xmlagg",
+    }
+)  # fmt: skip
 
 
 class StatementParts:
@@ -84,14 +100,19 @@ def refuse_aliased_core(insp: Any, selectable: Any, names: set[str]) -> None:
 def _own_rows_only(insp: Any, selectable: Any, names: set[str]) -> bool:
     """``aliased(Doc, select(doc).where(doc.c.x == ...).subquery())``: one SELECT, own table.
 
-    No join, no other scoped table, and no nested SELECT reading one — so
-    every row it returns is a row of the entity's table, and the entity's
-    loader criteria, applied to the alias, filter exactly those rows.
+    No join, no grouping, aggregate or window function, no other scoped
+    table, and no nested SELECT reading one — so every row it returns is a
+    row of the entity's table, and the entity's loader criteria, applied to
+    the alias, filter exactly those rows.
     """
     inner = selectable.element
     if not isinstance(inner, Select) or inner._setup_joins:
         return False
     if any(isinstance(f, Join) for f in inner._from_obj):
+        return False
+    # Grouping, aggregates and window functions combine rows *before* the entity's
+    # criteria filter the result, so a row of this tenant could carry other tenants' data.
+    if inner._group_by_clauses or inner._having_criteria or _combines_rows(inner):
         return False
     own = insp.mapper.local_table
     if any(is_scoped_leaf(f, names) and f is not own for f in froms_read(inner)):
@@ -100,6 +121,21 @@ def _own_rows_only(insp: Any, selectable: Any, names: set[str]) -> bool:
         el is not inner and isinstance(el, (Select, CompoundSelect)) and references_plain(el, names)
         for el in visitors.iterate(inner)
     )
+
+
+def _combines_rows(inner: Select) -> bool:
+    """An aggregate or window function in ``inner`` itself (a nested SELECT is its own)."""
+    stack = list(inner.get_children())
+    while stack:
+        el = stack.pop()
+        if isinstance(el, (Select, CompoundSelect)):
+            continue
+        if isinstance(el, (Over, WithinGroup, FunctionFilter)):
+            return True
+        if isinstance(el, FunctionElement) and str(getattr(el, "name", "")).lower() in _AGGREGATES:
+            return True
+        stack.extend(el.get_children())
+    return False
 
 
 __all__ = ["AliasedGuard", "StatementParts", "check_entities", "refuse_aliased_core"]

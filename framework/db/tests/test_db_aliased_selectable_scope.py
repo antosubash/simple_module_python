@@ -10,7 +10,7 @@ it is refused (``_entity_selectables``).
 import pytest
 from _db_read_scope_models import RsChild, RsProj, child, lax_read_db, proj, read_db
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, tenant_context
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import aliased
 
 __all__ = ["lax_read_db", "read_db"]
@@ -84,3 +84,33 @@ async def test_aliased_selectable_via_select_from_is_not_rendered_twice(read_db)
     )
     with tenant_context("a"):
         assert (await read_db.execute(stmt)).scalars().all() == [1]
+
+
+# Each combines rows before the entity's criteria filter the result.
+_COMBINING = {
+    "group by": lambda: select(child).group_by(child.c.parent_id),
+    "having": lambda: select(child).having(func.count(child.c.id) > 0),
+    "window": lambda: select(
+        child, func.max(child.c.id).over(partition_by=child.c.parent_id).label("top")
+    ),
+    "aggregate": lambda: select(
+        func.max(child.c.id).label("id"), func.min(child.c.tenant_id).label("tenant_id")
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", list(_COMBINING))
+async def test_own_table_selectable_that_combines_rows_is_refused(read_db, shape):
+    child_alias = aliased(RsChild, _COMBINING[shape]().subquery())
+    with tenant_context("a"), pytest.raises(TenantIsolationError, match="read_scope_child"):
+        await read_db.execute(select(child_alias.id))
+
+
+async def test_row_wise_function_and_nested_unscoped_aggregate_stay_allowed(read_db):
+    top_proj = select(func.max(proj.c.child_id)).scalar_subquery()
+    sub = select(child).where(func.abs(child.c.id) > 0, child.c.id <= top_proj)
+    child_alias = aliased(RsChild, sub.subquery())
+    with tenant_context("a"):
+        assert sorted((await read_db.execute(select(child_alias.id))).scalars()) == [1, 2]
+    with tenant_context("b"):
+        assert sorted((await read_db.execute(select(child_alias.id))).scalars()) == [4]

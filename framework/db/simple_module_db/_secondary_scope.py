@@ -5,8 +5,8 @@ criteria never see: ``joinedload``, ``selectinload``, ``subqueryload`` and a
 ``join(Parent.links)`` build that join at compile time, from the
 relationship itself. (A lazy load names the table in its ``WHERE``, where
 ``core_scope`` finds it.) So once a mapper is configured, every relationship
-whose ``secondary`` is a tenant-scoped or soft-deletable table gets its
-``secondaryjoin`` extended with
+whose ``secondary`` is the table of a ``MultiTenantMixin`` /
+``SoftDeleteMixin`` model gets its ``secondaryjoin`` extended with
 
 * ``:all_tenants OR secondary.tenant_id = :tenant``, and
 * ``:include_deleted OR secondary.is_deleted IS false``.
@@ -16,6 +16,11 @@ The values are bound per execution, not per statement: the parameters are
 the scope ``record_execution_scope`` records just before — from the statement's
 execution options (``all_tenants`` / ``include_deleted``), the bound tenant
 and the engine's strict mode. Strict mode with no tenant matches no link row.
+Like the main filter, an UPDATE / DELETE skips the soft-delete criterion: writes
+may touch trashed rows. The scope is cleared after each execution.
+
+A bare association ``Table`` that no mapped mixin class owns is not scoped,
+``tenant_id`` column or not, like every other unmapped table.
 """
 
 from __future__ import annotations
@@ -115,14 +120,23 @@ def record_execution_scope(
         or is_all_tenants()
         or (tenant_id is None and not strict)
     )
-    _scope.set(_Scope(skip_tenant, tenant_id, bool(options.get(INCLUDE_DELETED_OPTION))))
+    is_write = bool(getattr(clause, "is_update", False) or getattr(clause, "is_delete", False))
+    skip_deleted = is_write or bool(options.get(INCLUDE_DELETED_OPTION))
+    _scope.set(_Scope(skip_tenant, tenant_id, skip_deleted))
 
 
-def install_execution_scope(engine: Any) -> None:
-    if isinstance(engine, Engine) and not event.contains(
-        engine, "before_execute", record_execution_scope
-    ):
-        event.listen(engine, "before_execute", record_execution_scope)
+def clear_execution_scope(*_args: Any) -> None:
+    """``after_execute``: forget the scope, so nothing outside an execution reads it."""
+    if _scope.get() is not None:
+        _scope.set(None)
 
 
-__all__ = ["install_execution_scope"]
+# On the ``Engine`` class, so every engine records the scope — bound to a policy or
+# not. A per-engine listener left an unbound engine reading the previous
+# execution's scope and ignoring its options. Each execution sets the scope
+# before its parameters are built and clears it afterwards; an execution that
+# fails leaves a value the next execution overwrites before reading.
+event.listen(Engine, "before_execute", record_execution_scope)
+event.listen(Engine, "after_execute", clear_execution_scope)
+
+__all__: list[str] = []

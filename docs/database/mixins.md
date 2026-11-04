@@ -92,9 +92,13 @@ When `SM_MULTI_TENANT=true` and a request has an active tenant, the `do_orm_exec
 A tenant-scoped (or soft-deletable) model used as a relationship's link table,
 `relationship(..., secondary=Link.__table__)`, is filtered in every loader —
 lazy, `joinedload`, `selectinload`, `subqueryload` — and in joins through the
-relationship. `aliased(Model, <subquery>)` over a selectable that reads a
-scoped table through Core is refused unless that table is the entity's own;
-build such selectables from ORM entities. Details in
+relationship (writes through it skip the soft-delete condition). Only a link
+table mapped by a mixin class is filtered: a bare association `Table` with a
+`tenant_id` column is not, like every unmapped table. `aliased(Model,
+<subquery>)` over a selectable that reads a scoped table through Core is
+refused unless that table is the entity's own (and the selectable does not
+group, aggregate or use a window function); build such selectables from ORM
+entities. Details in
 [multi-tenancy](../framework/multi-tenancy.md#what-the-filter-can-see).
 
 ### Automatic stamping
@@ -106,7 +110,7 @@ predicate). Conflicts with another tenant's row leave it unchanged. An explicit
 `all_tenants()` / `execution_options(all_tenants=True)` bypass permits deliberate
 cross-tenant upserts (#749).
 
-INSERTs populate `tenant_id` from the `current_tenant_id` contextvar. Creating a row for a different tenant than the active one — or changing `tenant_id` on an existing row — raises `TenantIsolationError`. Flushing an UPDATE or DELETE of an object made persistent in memory (`make_transient_to_detached()`, `merge(load=False)`) first reads its row's `tenant_id`; a row of another tenant raises `TenantIsolationError`.
+INSERTs populate `tenant_id` from the `current_tenant_id` contextvar. Creating a row for a different tenant than the active one — or changing `tenant_id` on an existing row — raises `TenantIsolationError`. Flushing an UPDATE or DELETE of an object the session did not load or insert (`make_transient_to_detached()`, `merge(load=False)`, a detached object passed to `session.add()`) first reads its row's `tenant_id`, once per identity; a row of another tenant raises `TenantIsolationError`.
 
 `insert(Model).from_select(...)` and Core table targets follow the same rules:
 when the target column list omits `tenant_id`, the guard adds it and a constant

@@ -9,7 +9,10 @@ or inserted through the session are trusted and cost no extra read.
 
 import pytest
 from _db_dml_scope_models import ScopeDoc, captured_sql, docs, scope_db
+from simple_module_db._persisted_owner import _OWNER_KEY
+from simple_module_db.flush_guard import guard_flush
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, tenant_context
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import make_transient, make_transient_to_detached
 from sqlalchemy.orm.exc import StaleDataError
@@ -118,3 +121,40 @@ async def test_detached_object_costs_one_read_then_none(scope_db, captured_sql):
         own.note = "second"
         await scope_db.flush()
     assert [sql.split()[0] for sql in captured_sql] == ["SELECT", "UPDATE", "UPDATE"]
+
+
+async def test_loaded_and_inserted_objects_are_not_marked(scope_db):
+    """Normal loads and inserts do no per-row bookkeeping; only re-attached objects do."""
+    with tenant_context("a"):
+        loaded = (await scope_db.execute(select(ScopeDoc).where(ScopeDoc.id == 1))).scalar_one()
+        fresh = ScopeDoc(id=6, name="new")
+        scope_db.add(fresh)
+        await scope_db.flush()
+        reattached = _in_memory(3, "a", "x")
+        scope_db.add(reattached)
+    assert _OWNER_KEY not in sa_inspect(loaded).info
+    assert _OWNER_KEY not in sa_inspect(fresh).info
+    assert _OWNER_KEY in sa_inspect(reattached).info
+
+
+async def test_missing_row_is_read_once(scope_db, captured_sql):
+    with tenant_context("a"):
+        ghost = _in_memory(99, "a", "ghost")
+        scope_db.add(ghost)
+        ghost.note = "x"
+        captured_sql.clear()
+        await scope_db.run_sync(guard_flush)
+        await scope_db.run_sync(guard_flush)
+    assert [sql.split()[0] for sql in captured_sql] == ["SELECT"]
+
+
+async def test_soft_delete_of_a_loaded_object_costs_no_read_later(scope_db, captured_sql):
+    with tenant_context("a"):
+        own = await scope_db.get(ScopeDoc, 1)
+        assert own is not None
+        await scope_db.delete(own)
+        await scope_db.flush()  # soft delete: expunged and re-added internally
+        captured_sql.clear()
+        own.note = "after"
+        await scope_db.flush()
+    assert [sql.split()[0] for sql in captured_sql] == ["UPDATE"]

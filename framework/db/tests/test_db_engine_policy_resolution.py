@@ -15,7 +15,7 @@ from _db_dml_scope_models import ScopeDoc, ScopeProj, scope_db
 from simple_module_db._engine_policies import policy_of, session_policy
 from simple_module_db.query_filter import EngineTenancy, _engine_policy, bind_engine_policy
 from simple_module_db.tenancy import TenantIsolationError, no_tenant, tenant_context
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -72,6 +72,33 @@ def test_strictest_bind_wins_for_a_session_with_several_engines():
     assert session_policy(session).tenant_strict is True
     lax.dispose()
     strict.dispose()
+
+
+def test_session_overriding_get_bind_keeps_the_routed_engines_policy():
+    lax, strict = create_engine("sqlite://"), create_engine("sqlite://")
+    bind_engine_policy(lax, EngineTenancy(tenant_strict=False))
+    bind_engine_policy(strict, EngineTenancy(tenant_strict=True))
+
+    class RoutingSession(Session):
+        def get_bind(self, mapper=None, **kwargs):
+            return strict if mapper is not None and inspect(mapper).class_ is ScopeDoc else lax
+
+    assert session_policy(RoutingSession()).tenant_strict is True
+    assert session_policy(RoutingSession(bind=lax)).tenant_strict is True
+    lax.dispose()
+    strict.dispose()
+
+
+def test_session_policy_is_memoized_per_bind():
+    first, second = create_engine("sqlite://"), create_engine("sqlite://")
+    bind_engine_policy(first, EngineTenancy(tenant_strict=False))
+    bind_engine_policy(second, EngineTenancy(tenant_strict=True))
+    session = Session(bind=first)
+    assert session_policy(session).tenant_strict is False
+    session.bind = second
+    assert session_policy(session).tenant_strict is True
+    first.dispose()
+    second.dispose()
 
 
 _EAGER_SCRIPT = textwrap.dedent(

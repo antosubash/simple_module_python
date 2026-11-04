@@ -36,13 +36,17 @@ statement names, so all of these are scoped (#332):
 - `select(Model)`, ORM `update()`/`delete()`/`insert()`;
 - relationship loads — lazy, `joinedload`, `selectinload`, `subqueryload` —
   and joins or `any()` through a relationship. A relationship whose
-  `secondary` is a tenant-scoped or soft-deletable table (`secondary=Link.__table__`)
-  filters the link rows too: its join condition carries
-  `(:all_tenants OR link.tenant_id = :tenant)` and
+  `secondary` is the table of a `MultiTenantMixin` / `SoftDeleteMixin` model
+  (`secondary=Link.__table__`) filters the link rows too: its join condition
+  carries `(:all_tenants OR link.tenant_id = :tenant)` and
   `(:include_deleted OR link.is_deleted IS false)`, bound on each execution
   from the bound tenant, `all_tenants()` and the statement's
   `all_tenants` / `include_deleted` options. With no tenant under strict mode
-  it matches no link row;
+  it matches no link row. An `update()` / `delete()` through the relationship
+  (`delete(Parent).where(Parent.links.any())`) keeps the tenant condition and
+  drops the soft-delete one, like every write. A bare association `Table`
+  that no mapped mixin class owns is not filtered, `tenant_id` column or not,
+  like every other unmapped table: map it with the mixins to have it scoped;
 - a table as a **join target**: `select(Project).join(Doc)`;
 - subqueries: `select(Doc.id).where(...).exists()`, a bare Core
   `exists().where(Doc.x == ...)`, `in_(select(Doc.x))`, scalar subqueries;
@@ -87,8 +91,9 @@ built over, which the filter does not rewrite. Built from ORM entities
 (`aliased(Proj, select(Proj).where(Proj.id.in_(select(Doc.proj_id))).subquery())`)
 it is scoped by the loader criteria. One that reads only the entity's own
 table (`aliased(Doc, select(Doc.__table__).where(…).subquery())`) is scoped
-on the rows it returns. Any other Core read of a scoped table inside it is
-refused (see below).
+on the rows it returns, unless it combines rows first (`GROUP BY`, `HAVING`,
+an aggregate or a window function). Any other Core read of a scoped table
+inside it is refused (see below).
 
 The engine's policy (strict mode, the fallback tenant, the audit sink) is
 found through a derived engine (`engine.execution_options(...)`) and through a
@@ -96,6 +101,14 @@ session bound per model (`binds={...}`, the strictest bind wins). A model's
 table is known to the filter as soon as the class is mapped, so a Core
 statement on `Model.__table__` is scoped even before any ORM use configures
 the mappers.
+
+The filter runs on `Session` executions. A statement run on a plain
+`Connection` (`connection.execute(select(Model))`, or Core on `Model.__table__`)
+is not scoped: no loader criteria, no Core predicates. Only the `secondary`
+conditions above apply to it, because they sit in the relationship's join and
+are read on every engine from the bound tenant, the statement's options and the
+engine's strict mode (off when no policy is bound). Run statements through a
+session.
 
 With no tenant under strict mode, a statement that *names* a tenant model, or
 reads a tenant table through Core anywhere in it, raises; an indirect ORM
@@ -146,12 +159,12 @@ prevented: give each tenant its own session (or `session.expunge_all()`
 between tenants) in jobs and CLI loops. Per-request sessions are unaffected.
 
 The unit of work updates and deletes by primary key, so the flush trusts an
-object's `tenant_id` only when the session loaded or inserted the object with
-its current identity. An object made persistent in memory —
-`make_transient_to_detached()`, `merge(load=False)`, a transient copy given
-another row's primary key — has its owner read from the table before the
-flush writes it (one `SELECT`, once), and a row of another tenant raises
-`TenantIsolationError`.
+object's `tenant_id` only when a session loaded or inserted it. An object
+attached as already persistent — `make_transient_to_detached()`,
+`merge(load=False)`, a transient copy given another row's primary key, any
+detached object passed to `session.add()` — has its owner read from the table
+before the flush writes it (one `SELECT` per identity, remembered whether or not
+the row exists), and a row of another tenant raises `TenantIsolationError`.
 
 ## Acting outside a request
 

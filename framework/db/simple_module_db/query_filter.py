@@ -19,13 +19,14 @@ from typing import Any
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
+from simple_module_db import _secondary_scope  # noqa: F401  (registers the execution-scope listener)
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_pk_update import is_bulk_pk_update, scoped_bulk_pk_update
 from simple_module_db._core_joins import _base_name, is_scoped_leaf
 from simple_module_db._engine_policies import _engine_policy, session_policy
 from simple_module_db._entity_selectables import refuse_aliased_core
-from simple_module_db._secondary_scope import install_execution_scope
 from simple_module_db.core_scope import scope_core
+from simple_module_db.insert_guard import TENANT_COLUMN as TENANT_COLUMN  # re-exported
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.insert_scope import scope_insert
 from simple_module_db.scope_predicates import (
@@ -42,8 +43,6 @@ from simple_module_db.tenancy import (
     is_all_tenants,
     missing_tenant_error,
 )
-
-TENANT_COLUMN = "tenant_id"
 
 # ``_engine_policy`` (imported above) is re-exported: the per-engine policy map lives in
 # ``_engine_policies``; modules/background_tasks/tests/test_worker_tenancy.py reads it here.
@@ -78,7 +77,6 @@ def bind_engine_policy(engine: Engine, policy: Any) -> None:
     bound to it per model (``binds={...}``) resolve to the same policy.
     """
     _engine_policy[engine] = policy
-    install_execution_scope(engine)
 
 
 def engine_policy(session: Session) -> Any:

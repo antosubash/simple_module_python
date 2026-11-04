@@ -94,7 +94,8 @@ def references_plain(stmt: Any, names: set[str], opaque: frozenset[int] = frozen
     except the selectable of an ``aliased(Model, <subquery>)`` entity, which
     is whatever the caller built and is walked like any FROM, unless its id
     is in ``opaque``. The answer depends only on *which* elements are
-    reachable, so an element met twice is expanded once. ``seen`` keeps the
+    reachable, so an element met twice — ORM-annotated and opaque ones
+    included — is looked at once. ``seen`` keeps the
     objects, not just their ids, so a temporary child list cannot free one
     and recycle its id.
     """
@@ -106,6 +107,7 @@ def references_plain(stmt: Any, names: set[str], opaque: frozenset[int] = frozen
             continue
         if el is not stmt and _nested_dml_on(el, names):
             return True  # its target is checked even when ORM-annotated
+        seen[id(el)] = el
         if _is_orm(el):
             selectable = aliased_selectable(el)
             if selectable is not None and id(selectable) not in opaque:
@@ -113,7 +115,6 @@ def references_plain(stmt: Any, names: set[str], opaque: frozenset[int] = frozen
             continue
         if id(el) in opaque:
             continue
-        seen[id(el)] = el
         target = el if isinstance(el, (TableClause, Alias)) else _table_of(el)
         if isinstance(target, (TableClause, Alias)) and is_scoped_leaf(target, names):
             return True
