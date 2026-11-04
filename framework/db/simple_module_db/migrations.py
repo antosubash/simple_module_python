@@ -70,9 +70,14 @@ def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaDa
 
     for mod in modules:
         pkg = get_module_package_name(mod)
+        models_module = f"{pkg}.models"
         try:
-            importlib.import_module(f"{pkg}.models")
-        except ModuleNotFoundError:
+            importlib.import_module(models_module)
+        except ModuleNotFoundError as exc:
+            if exc.name is None or not (
+                exc.name == models_module or models_module.startswith(f"{exc.name}.")
+            ):
+                raise
             logger.debug("No models submodule for module '%s' (pkg=%s)", mod.meta.name, pkg)
 
     combined = MetaData()
@@ -115,7 +120,12 @@ def make_include_object(
     ) -> bool:
         if type_ == "table":
             return name in allowlist
-        if ignore_unmodeled_fks and type_ == "foreign_key_constraint" and compare_to is None:
+        if (
+            ignore_unmodeled_fks
+            and type_ == "foreign_key_constraint"
+            and reflected
+            and compare_to is None
+        ):
             return False
         parent_table = getattr(object, "table", None)
         if parent_table is not None:

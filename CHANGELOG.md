@@ -73,6 +73,16 @@ All notable changes to this project are documented in this file. The format is b
 
   A single-tenant install with nothing bound keeps running the last two. See
   `docs/framework/multi-tenancy.md`.
+- Alembic autogenerate now emits newly modeled foreign keys on existing tables
+  while preserving migration-only reflected foreign keys (#812).
+- **Behaviour change:** StrEnum migration rendering preserves configured labels and enum storage options,
+  keeping runtime reads/writes and generated constraints consistent; a plain
+  `StrEnum` field now renders SQLAlchemy's member-name labels, matching what the
+  model binds (#813).
+- Metadata discovery propagates missing dependencies inside models modules instead
+  of silently producing an incomplete schema (#814).
+- **Behaviour change:** doctor data compatibility checks use framework DB sessions with soft-delete and
+  strict tenant filters; installation-wide checks must opt into `all_tenants()` (#815).
 - **Behaviour change:** `LocaleMiddleware` never picks a language the browser
   sends with `q=0` ("not acceptable"), including through a regional tag such
   as `es-MX;q=0` and when `q` follows another parameter or is spelled `Q`;
