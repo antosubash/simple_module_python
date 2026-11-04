@@ -53,8 +53,6 @@ def test_partial_invalid_shows_only_bad_field(page):
     expect(err(page, "default", "email")).to_be_empty()
 
 
-@pytest.mark.allow_resource_errors
-@pytest.mark.xfail(strict=False, reason="fixed by #818")
 def test_validated_route_returns_field_errors(page):
     page.goto("/__e2e/inertia/forms")
     seen = []
