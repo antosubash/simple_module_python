@@ -92,8 +92,10 @@ built over, which the filter does not rewrite. Built from ORM entities
 it is scoped by the loader criteria. One that reads only the entity's own
 table (`aliased(Doc, select(Doc.__table__).where(…).subquery())`) is scoped
 on the rows it returns, unless it combines rows first (`GROUP BY`, `HAVING`,
-an aggregate or a window function). Any other Core read of a scoped table
-inside it is refused (see below).
+an aggregate or a window function). So is `aliased(Doc, Doc.__table__.join(tag))`,
+a `Join` of the entity's own table with tables that are not scoped. Any other
+Core read of a scoped table inside it, and SQL text under an entity of a
+scoped table, is refused (see below).
 
 The engine's policy (strict mode, the fallback tenant, the audit sink) is
 found through a derived engine (`engine.execution_options(...)`) and through a
@@ -129,6 +131,12 @@ they read or write cannot be checked:
   `include_deleted=True` where soft-delete applies). A relationship loader's
   own statement (`subqueryload` wraps the parent query) is not refused: it
   was scoped when the parent query ran;
+- `aliased(Model, <join>)` (`Proj.__table__.join(Doc.__table__)`) whose join
+  reads a tenant-scoped or soft-deletable table through Core, other than the
+  entity's own table joined to unscoped tables (an alias of the entity's own
+  table counts as another table);
+- `aliased(Model, text(…).columns(…))`, bare or as a subquery or CTE, when
+  `Model` is tenant-scoped or soft-deletable: the filter cannot read SQL text;
 - an `INSERT` into a tenant table embedded in another statement as a CTE —
   run it as a statement of its own;
 - SQLite `insert(…).prefix_with("OR REPLACE")` on a tenant table while a

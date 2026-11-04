@@ -17,7 +17,8 @@ the scope ``record_execution_scope`` records just before — from the statement'
 execution options (``all_tenants`` / ``include_deleted``), the bound tenant
 and the engine's strict mode. Strict mode with no tenant matches no link row.
 Like the main filter, an UPDATE / DELETE skips the soft-delete criterion: writes
-may touch trashed rows. The scope is cleared after each execution.
+may touch trashed rows. The scope is cleared after each execution, failed
+ones included.
 
 A bare association ``Table`` that no mapped mixin class owns is not scoped,
 ``tenant_id`` column or not, like every other unmapped table.
@@ -126,7 +127,8 @@ def record_execution_scope(
 
 
 def clear_execution_scope(*_args: Any) -> None:
-    """``after_execute``: forget the scope, so nothing outside an execution reads it."""
+    """``after_execute`` / ``handle_error``: forget the scope, so nothing outside an
+    execution reads it."""
     if _scope.get() is not None:
         _scope.set(None)
 
@@ -134,9 +136,10 @@ def clear_execution_scope(*_args: Any) -> None:
 # On the ``Engine`` class, so every engine records the scope — bound to a policy or
 # not. A per-engine listener left an unbound engine reading the previous
 # execution's scope and ignoring its options. Each execution sets the scope
-# before its parameters are built and clears it afterwards; an execution that
-# fails leaves a value the next execution overwrites before reading.
+# before its parameters are built and clears it afterwards, or when it fails
+# (``handle_error``), so a failed one does not leave its scope behind.
 event.listen(Engine, "before_execute", record_execution_scope)
 event.listen(Engine, "after_execute", clear_execution_scope)
+event.listen(Engine, "handle_error", clear_execution_scope)
 
 __all__: list[str] = []

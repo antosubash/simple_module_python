@@ -89,6 +89,9 @@ All notable changes to this project are documented in this file. The format is b
     (or the entity's own table with `GROUP BY`, `HAVING`, an aggregate or a
     window function), unless inside `all_tenants()` (with
     `include_deleted=True`); build the selectable from ORM entities instead.
+    The same holds for `aliased(Model, <join>)` whose join holds a scoped
+    table other than the entity's own, and for `aliased(Model, text(…).columns(…))`
+    (bare, subquery or CTE) on a tenant-scoped or soft-deletable `Model`.
 - `subqueryload()` on a relationship between tenant-scoped or soft-deletable
   models no longer fails with a duplicate `anon_1` alias (#816).
 - Tenant scoping in `simple_module_db` now applies to more statement shapes:

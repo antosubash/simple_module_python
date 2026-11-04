@@ -101,6 +101,28 @@ def test_session_policy_is_memoized_per_bind():
     second.dispose()
 
 
+def test_session_without_a_policy_is_memoized_too():
+    engine, other = create_engine("sqlite://"), create_engine("sqlite://")  # no policy bound
+    calls = []
+
+    class CountingSession(Session):
+        def get_bind(self, mapper=None, **kwargs):
+            calls.append(mapper)
+            return self.bind
+
+    session = CountingSession(bind=engine)
+    assert session_policy(session) is None
+    first = len(calls)
+    assert first > 0
+    assert session_policy(session) is None
+    assert len(calls) == first  # the "no policy" answer was reused
+    session.bind = other
+    assert session_policy(session) is None
+    assert len(calls) > first  # a new bind is asked again
+    engine.dispose()
+    other.dispose()
+
+
 _EAGER_SCRIPT = textwrap.dedent(
     """
     import sqlalchemy as sa

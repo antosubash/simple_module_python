@@ -2,16 +2,18 @@
 
 ``_secondary_scope`` listens on the ``Engine`` class: an engine with no policy
 bound still records each execution's scope (and its options), and the scope is
-cleared once the execution is done. An UPDATE / DELETE skips the link table's
+cleared once the execution is done, or has failed. An UPDATE / DELETE skips the link table's
 soft-delete criterion, like the main filter skips soft-delete on writes.
 """
 
 import asyncio
 
+import pytest
 from _db_read_scope_models import Base, RsChild, RsParent, child, link, parent, read_db
 from simple_module_db import _secondary_scope
-from simple_module_db.tenancy import tenant_context
-from sqlalchemy import create_engine, insert, select, update
+from simple_module_db.tenancy import all_tenants, tenant_context
+from sqlalchemy import create_engine, insert, select, text, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
 
 __all__ = ["read_db"]
@@ -77,5 +79,17 @@ def test_engine_without_a_policy_applies_only_the_secondary_conditions():
             assert everything == [1, 2, 2]
             # The children themselves are not filtered: tenant b's child 4 is read.
             assert conn.execute(kids).scalars().all() == [1, 2, 4]
+    finally:
+        engine.dispose()
+
+
+def test_scope_is_cleared_after_a_failed_execution():
+    engine = _unbound_engine()
+    failing = select(RsParent.id).join(RsParent.linked).where(text("no_such_column = 1"))
+    try:
+        with engine.connect() as conn, all_tenants():
+            with pytest.raises(OperationalError):
+                conn.execute(failing)
+            assert _secondary_scope._scope.get() is None
     finally:
         engine.dispose()

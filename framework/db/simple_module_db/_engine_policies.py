@@ -21,6 +21,7 @@ from simple_module_db import model_registry as registry
 
 _POLICY_KEY = "sm_engine_policy"
 _engine_policy: WeakKeyDictionary[Engine, Any] = WeakKeyDictionary()
+_NO_POLICY = object()  # cached for a session none of whose binds has a policy
 
 
 def policy_of(bind: Any) -> Any:
@@ -41,14 +42,14 @@ def session_policy(session: Session) -> Any:
     Asked through the public ``Session.get_bind`` — once without a mapper and
     once per tenant-scoped model — so per-model binds and a subclass that
     overrides ``get_bind`` keep the strict policy of the engine they route to.
-    A policy found is memoized on ``session.info`` for the session's ``bind``
-    and the number of tenant models; a bind added with ``bind_mapper()`` after
-    the first statement is not seen.
+    The answer (a policy, or none) is memoized on ``session.info`` for the
+    session's ``bind`` and the number of tenant models; a bind added with
+    ``bind_mapper()`` after the first statement is not seen.
     """
     count = len(registry.tenant_classes)
     cached = session.info.get(_POLICY_KEY)
     if cached is not None and cached[0] is session.bind and cached[1] == count:
-        return cached[2]
+        return None if cached[2] is _NO_POLICY else cached[2]
     found: dict[int, Any] = {}
     for mapper in (None, *registry.tenant_classes):
         try:
@@ -61,8 +62,7 @@ def session_policy(session: Session) -> Any:
     policies = list(found.values())
     strict = [p for p in policies if getattr(p, "tenant_strict", False)]
     policy = (strict or policies or [None])[0]
-    if policy is not None:
-        session.info[_POLICY_KEY] = (session.bind, count, policy)
+    session.info[_POLICY_KEY] = (session.bind, count, _NO_POLICY if policy is None else policy)
     return policy
 
 
