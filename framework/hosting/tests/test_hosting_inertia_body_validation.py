@@ -38,7 +38,11 @@ async def form_client(app, authenticated_client: httpx.AsyncClient) -> httpx.Asy
     async def lookup(age: int) -> dict[str, int]:
         return {"age": age}
 
+    async def remove(item_id: int) -> dict[str, int]:
+        return {"removed": item_id}
+
     app.router.add_api_route(_FORM, form, methods=["GET"])
+    app.router.add_api_route(f"{_SUBMIT}/{{item_id}}", remove, methods=["DELETE"])
     app.router.add_api_route(_SUBMIT, submit, methods=["POST", "PUT", "PATCH"])
     app.router.add_api_route(_SUBMIT, lookup, methods=["GET"])
     return authenticated_client
@@ -87,3 +91,10 @@ async def test_api_client_keeps_json_detail(form_client: httpx.AsyncClient) -> N
     resp = await form_client.post(_SUBMIT, json={}, headers={"Accept": "application/json"})
     assert resp.status_code == 422
     assert {err["loc"][-1] for err in resp.json()["detail"]} == {"name", "age"}
+
+
+async def test_invalid_path_param_keeps_the_error_page(form_client: httpx.AsyncClient) -> None:
+    """No form field can show a bad path value; a silent redirect would hide it."""
+    resp = await form_client.delete(f"{_SUBMIT}/abc", headers=_inertia(form_client))
+    assert resp.status_code == 422
+    assert inertia_page(resp).component == "Error"

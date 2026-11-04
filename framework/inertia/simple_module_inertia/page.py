@@ -98,8 +98,8 @@ def _locate_failure(value: Any, path: str) -> str:
     return path
 
 
-# Plain page data is a few levels deep; anything deeper (or cyclic) goes to the
-# encoder, which raises a named PropEncodingError instead of looping here.
+# Plain page data is a few levels deep. The walk gives up past this depth, so a
+# cyclic structure ends here instead of looping; the encoder then handles it.
 _MAX_PLAIN_DEPTH = 64
 
 

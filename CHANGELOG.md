@@ -20,6 +20,10 @@ All notable changes to this project are documented in this file. The format is b
 - Inertia v3 protocol coverage and known gaps in the adapter README (#780).
 
 ### Changed
+- Inertia responses that carry the shared i18n catalog (every first page load)
+  render about 1.9 ms faster (measured with the 48 KB English catalog): the
+  prop resolver tests scalars before its dynamic-prop check, and plain-JSON
+  pages skip `jsonable_encoder`.
 - **Breaking (production CSP, #785):** `script-src`/`script-src-elem` are now
   `'self' 'nonce-<per-request>' 'strict-dynamic'` (plus `'wasm-unsafe-eval'`
   for WebAssembly) instead of `'unsafe-inline' 'unsafe-eval'`. The host and
@@ -54,13 +58,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 - **Behaviour change:** an Inertia form submission (POST/PUT/PATCH/DELETE)
-  whose body fails FastAPI request validation now redirects back (303) with
+  whose JSON body fails FastAPI request validation now redirects back (303) with
   one error per field, scoped by `X-Inertia-Error-Bag`, instead of rendering
   the 422 "invalid parameters" Error page over the form. GETs and non-Inertia
-  requests are unchanged.
-- Inertia responses that carry the shared i18n catalog (every first page load)
-  render about 1.9 ms faster: the prop resolver tests scalars before its
-  dynamic-prop check, and plain-JSON pages skip `jsonable_encoder`.
+  requests, and invalid path/query values, keep the 422 page / JSON.
 - **Behaviour change:** `LocaleMiddleware` never picks a language the browser
   sends with `q=0` ("not acceptable"), including through a regional tag such
   as `es-MX;q=0` and when `q` follows another parameter or is spelled `Q`;

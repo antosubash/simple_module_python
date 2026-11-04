@@ -176,6 +176,10 @@ class TestPlainJsonFastPath:
         page = {"component": "C", "props": {"by_id": {1: "a"}}, "url": "/"}
         assert encode_page(page) is not page
 
+    def test_sqlalchemy_state_keys_are_dropped_by_the_encoder(self) -> None:
+        page = {"component": "C", "props": {"_sa_instance_state": 1, "a": 1}, "url": "/"}
+        assert encode_page(page)["props"] == {"a": 1}
+
     def test_cyclic_data_is_not_walked_forever(self) -> None:
         from simple_module_inertia.page import _is_plain_json
 

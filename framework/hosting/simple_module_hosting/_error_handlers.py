@@ -22,6 +22,7 @@ from simple_module_hosting.inertia_utils import redirect_back_with_errors
 logger = logging.getLogger(__name__)
 
 _INERTIA_ERROR_STATUSES = frozenset({401, 403, 404, 413, 419, 422, 429, 500, 503})
+_FORM_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
@@ -54,12 +55,17 @@ async def request_validation_error_handler(
     Same negotiation rule as 403/404/500 (``_wants_json``), so one request
     never sees two different error shapes depending on the error class.
 
-    An Inertia form submission (any method but GET) is the exception: like a
-    hand-written ``redirect_back_with_errors``, it goes back to the form with
-    one message per field, so ``useForm`` shows them in place. A GET keeps
-    the error page, since redirecting back there could loop.
+    An Inertia form submission whose *body* is invalid is the exception: like
+    a hand-written ``redirect_back_with_errors``, it goes back to the form with
+    one message per field, so ``useForm`` shows them in place. Invalid path,
+    query or header values keep the error page: no form field can show them,
+    and a GET redirected back could loop.
     """
-    if is_inertia_request(request.scope) and request.method != "GET":
+    if (
+        request.method in _FORM_METHODS
+        and is_inertia_request(request.scope)
+        and any(tuple(error["loc"][:1]) == ("body",) for error in exc.errors())
+    ):
         errors = errors_from_validation(exc.errors(), request_source=True)
         return redirect_back_with_errors(request, errors)
     if _wants_json(request):
