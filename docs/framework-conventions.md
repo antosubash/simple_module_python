@@ -750,7 +750,7 @@ The default locale must be in the supported list (enforced by a pydantic validat
 Per request, `LocaleMiddleware` picks the active locale in this order:
 
 1. Cookie named by `SM_I18N_COOKIE_NAME` (default `locale`), validated against `SM_I18N_SUPPORTED_LOCALES`.
-2. `Accept-Language` header, with q-value parsing and longest-prefix match (`es-MX` → `es`).
+2. `Accept-Language` header, with q-value parsing and longest-prefix match (`es-MX` → `es`); a language sent with `q=0` is never chosen.
 3. `SM_I18N_DEFAULT_LOCALE`.
 
 The active locale lands on `request.state.locale`. The `<LocaleSwitcher />` component POSTs to `/i18n/set-locale`, which sets a 1-year cookie and redirects back.

@@ -53,6 +53,11 @@ All notable changes to this project are documented in this file. The format is b
   `account` or whose `azp` is another client (only `oidc` pins both).
 
 ### Fixed
+- **Behaviour change:** `LocaleMiddleware` never picks a language the browser
+  sends with `q=0` ("not acceptable"), including through a regional tag such
+  as `es-MX;q=0` and when `q` follows another parameter or is spelled `Q`;
+  `q=nan` and negative weights are ignored and weights above 1 count as 1
+  (#792).
 - **Behaviour change:** `RedactionFilter` on ordinary logging handlers masks
   secrets in tracebacks and stack information, including exception text not
   yet formatted when the filter runs (#789).

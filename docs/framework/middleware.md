@@ -187,7 +187,7 @@ Header lookup is **off unless you name a header**: `tenant_header` defaults to `
 
 Resolves the active locale in this order per request:
 1. Cookie named by `SM_I18N_COOKIE_NAME` (validated against supported locales).
-2. `Accept-Language` header with q-value parsing and longest-prefix match (`es-MX` → `es`).
+2. `Accept-Language` header with q-value parsing and longest-prefix match (`es-MX` → `es`); a language sent with `q=0` is never chosen.
 3. `SM_I18N_DEFAULT_LOCALE`.
 
 The resolved locale lands on `request.state.locale` and is used by `InertiaLayoutDataMiddleware` to pick the translation bundle for the shared props.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -73,14 +75,24 @@ class LocaleMiddleware:
             part = part.strip()
             if not part:
                 continue
-            tag, _, q_part = part.partition(";")
-            tag = tag.strip().lower()
-            q_part = q_part.strip().lower()
-            try:
-                q = float(q_part.split("=", 1)[1]) if q_part.startswith("q=") else 1.0
-            except ValueError:
-                q = 1.0
-            candidates.append((q, tag))
+            tag, *params = (piece.strip() for piece in part.split(";"))
+            tag = tag.lower()
+            q = 1.0
+            for param in params:
+                name, _, value = param.partition("=")
+                if name.strip().lower() != "q":
+                    continue
+                try:
+                    q = float(value.strip())
+                except ValueError:
+                    q = 1.0
+                break
+            # q=0 (or negative) means "not acceptable" (RFC 9110 §12.4.2); nan is
+            # no weight at all. Weights above 1 are out of range, so they count
+            # as 1 and cannot outrank an unweighted tag.
+            if math.isnan(q) or q <= 0:
+                continue
+            candidates.append((min(q, 1.0), tag))
 
         # Sort by q descending, stable.
         candidates.sort(key=lambda pair: -pair[0])
