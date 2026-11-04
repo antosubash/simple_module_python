@@ -30,6 +30,7 @@ from typing import Any, Final
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import ORMExecuteState
+from sqlalchemy.orm.util import LoaderCriteriaOption
 
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_audit_records import (  # noqa: F401  (re-exported)
@@ -117,7 +118,7 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
 def _single_params(params: Any) -> dict[str, Any] | None:
     """A single parameter dict (the SELECT ignores keys it does not bind), else ``None``.
 
-    An executemany list cannot be run as one SELECT, so it prefetches unparameterized.
+    The prefetch never runs for an executemany list, so only a dict reaches here.
     """
     return params if isinstance(params, dict) and params else None
 
@@ -129,7 +130,10 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
         cols = [getattr(cls, col.key) for col in sa_inspect(cls).primary_key]
     else:
         cols = list(stmt.table.primary_key.columns)
-    query = select(*cols).options(*stmt._with_options).limit(cap + 1)
+    # Loader criteria narrow the rows the DML touches; other options (load
+    # strategies) mean nothing on a PK-only SELECT and can refuse it.
+    criteria = [o for o in stmt._with_options if isinstance(o, LoaderCriteriaOption)]
+    query = select(*cols).options(*criteria).limit(cap + 1)
     if stmt.whereclause is not None:
         query = query.where(stmt.whereclause)
     options = {"include_deleted": True}

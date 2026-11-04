@@ -69,7 +69,7 @@ record_bulk_audit(session, Order, "bulk_updated", ids, {"status": "archived"})
 | `bulk_updated` / `bulk_deleted` / `bulk_soft_deleted` / `bulk_restored` | statement `UPDATE` / `DELETE` (see above), one per row or one `"*"` summary |
 | `bulk_inserted` | statement `INSERT`, one `"*"` summary per statement |
 
-`changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; hard deletes carry an empty change list. Soft-deletes and restores retain any other field edits made in the same flush, or carry an empty list when only the lifecycle flag changed. Column values are normalised to JSON-safe scalars (non-primitives are stringified).
+`changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; hard deletes carry an empty change list. Soft-deletes and restores retain any other field edits made in the same flush, or carry an empty list when only the lifecycle flag changed (a `VersionedMixin` model also lists its bumped `version`). Column values are normalised to JSON-safe scalars (non-primitives are stringified).
 
 ## Opting out
 
