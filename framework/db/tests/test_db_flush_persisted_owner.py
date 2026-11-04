@@ -12,6 +12,7 @@ from _db_dml_scope_models import ScopeDoc, captured_sql, docs, scope_db
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, tenant_context
 from sqlalchemy import select
 from sqlalchemy.orm import make_transient, make_transient_to_detached
+from sqlalchemy.orm.exc import StaleDataError
 
 __all__ = ["captured_sql", "scope_db"]
 
@@ -75,8 +76,6 @@ async def test_detached_object_of_the_bound_tenant_is_written(scope_db):
 
 
 async def test_missing_row_is_left_to_the_unit_of_work(scope_db):
-    from sqlalchemy.orm.exc import StaleDataError
-
     with tenant_context("a"):
         ghost = _in_memory(99, "a", "ghost")
         scope_db.add(ghost)

@@ -5,12 +5,14 @@ Parent 1 belongs to tenant ``a``. Its children (``parent_id = 1``): 1 and 2
 1 → child 1 (``a``), 2 → child 2 (``b``) and 3 → child 2 (``a``, trashed).
 """
 
+from collections.abc import Iterator
+
 import pytest
 from _models import _tenant_session
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
 from simple_module_db.tenancy import all_tenants, tenant_context
-from sqlalchemy import update
+from sqlalchemy import event, update
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship
 
@@ -98,3 +100,19 @@ async def lax_read_db():
     """A single-tenant install: strict mode off."""
     async for session in _tenant_session(Base.metadata, strict=False, seed=seed):
         yield session
+
+
+@pytest.fixture
+def read_sql(read_db) -> Iterator[list[tuple[str, object]]]:
+    """Every ``(statement, params)`` sent to ``read_db``'s engine while the test runs."""
+    seen: list[tuple[str, object]] = []
+    engine = read_db.bind.sync_engine
+
+    def capture(conn, cursor, statement, params, context, executemany):
+        seen.append((statement, params))
+
+    event.listen(engine, "before_cursor_execute", capture)
+    try:
+        yield seen
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)

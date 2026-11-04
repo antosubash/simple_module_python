@@ -10,12 +10,12 @@ its rows are filtered like the children's.
 import re
 
 import pytest
-from _db_read_scope_models import RsChild, RsParent, lax_read_db, link, read_db
+from _db_read_scope_models import RsChild, RsParent, lax_read_db, link, read_db, read_sql
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, no_tenant, tenant_context
-from sqlalchemy import event, select
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload, subqueryload
 
-__all__ = ["lax_read_db", "read_db"]
+__all__ = ["lax_read_db", "read_db", "read_sql"]
 
 LOADERS = {
     "lazy": None,
@@ -85,42 +85,22 @@ async def test_any_through_secondary_relationship_is_scoped(read_db):
         assert found.all() == [(1,)]
 
 
-async def test_secondary_criteria_are_bound_per_execution(read_db):
+async def test_secondary_criteria_are_bound_per_execution(read_db, read_sql):
     """One cached compiled form; the values come from each execution's scope."""
-    sql: list[tuple[str, object]] = []
-    engine = read_db.bind.sync_engine
-
-    def capture(conn, cursor, statement, params, context, executemany):
-        if link.name in statement:
-            sql.append((statement, params))
-
-    event.listen(engine, "before_cursor_execute", capture)
-    try:
-        for tenant in ("a", "b"):
-            with tenant_context(tenant):
-                stmt = select(RsParent).options(selectinload(RsParent.linked))
-                await read_db.execute(stmt.execution_options(all_tenants=True))
-                read_db.expunge_all()
-    finally:
-        event.remove(engine, "before_cursor_execute", capture)
+    for tenant in ("a", "b"):
+        with tenant_context(tenant):
+            stmt = select(RsParent).options(selectinload(RsParent.linked))
+            await read_db.execute(stmt.execution_options(all_tenants=True))
+            read_db.expunge_all()
+    sql = [(statement, params) for statement, params in read_sql if link.name in statement]
     assert len(sql) == 2 and sql[0][0] == sql[1][0]
     assert [
         list(params).count(tenant) for (_sql, params), tenant in zip(sql, "ab", strict=True)
     ] == [1, 1]
 
 
-async def test_subqueryload_renders_its_parent_subquery_once(read_db):
-    sql: list[str] = []
-    engine = read_db.bind.sync_engine
-
-    def capture(conn, cursor, statement, params, context, executemany):
-        sql.append(statement)
-
-    event.listen(engine, "before_cursor_execute", capture)
-    try:
-        with tenant_context("a"):
-            await read_db.execute(select(RsParent).options(subqueryload(RsParent.kids)))
-    finally:
-        event.remove(engine, "before_cursor_execute", capture)
-    loader_sql = sql[-1]
+async def test_subqueryload_renders_its_parent_subquery_once(read_db, read_sql):
+    with tenant_context("a"):
+        await read_db.execute(select(RsParent).options(subqueryload(RsParent.kids)))
+    loader_sql = read_sql[-1][0]
     assert len(re.findall(r"\) AS anon_1\b", loader_sql)) == 1, loader_sql

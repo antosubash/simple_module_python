@@ -43,7 +43,7 @@ class _Scope(NamedTuple):
 
 
 _scope: ContextVar[_Scope | None] = ContextVar("sm_secondary_scope", default=None)
-_scoped: list[Any] = []  # the relationships extended so far
+_any_scoped = False  # whether any relationship has been extended yet
 
 
 def _current() -> _Scope:
@@ -90,7 +90,8 @@ def scope_relationship(prop: Any) -> None:
     join_condition.secondaryjoin = and_(join_condition.secondaryjoin, *criteria)
     prop.secondaryjoin = join_condition.secondaryjoin
     setattr(prop, _SCOPED_MARK, True)
-    _scoped.append(prop)
+    global _any_scoped
+    _any_scoped = True
 
 
 @event.listens_for(Mapper, "mapper_configured")
@@ -104,7 +105,7 @@ def record_execution_scope(
     conn: Any, clause: Any, multiparams: Any, params: Any, options: Any
 ) -> None:
     """``before_execute``: record the scope the criteria above read for this execution."""
-    if not _scoped:
+    if not _any_scoped:
         return
     policy = policy_of(conn)
     strict = bool(policy is not None and policy.tenant_strict)
@@ -124,4 +125,4 @@ def install_execution_scope(engine: Any) -> None:
         event.listen(engine, "before_execute", record_execution_scope)
 
 
-__all__ = ["install_execution_scope", "scope_relationship", "secondary_criteria"]
+__all__ = ["install_execution_scope"]

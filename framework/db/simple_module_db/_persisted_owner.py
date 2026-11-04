@@ -21,18 +21,18 @@ from sqlalchemy import and_, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db.insert_guard import TENANT_COLUMN
 from simple_module_db.mixins import MultiTenantMixin
 
 _OWNER_KEY = "sm_loaded_owner"
-_TENANT = "tenant_id"
 
 
 def remember_owner(session: Session, obj: Any) -> None:
     """``loaded_as_persistent`` / ``pending_to_persistent``: note what the row holds."""
     if isinstance(obj, MultiTenantMixin):
         state = sa_inspect(obj)
-        if _TENANT in state.dict and state.key is not None:
-            state.info[_OWNER_KEY] = (state.key, state.dict[_TENANT])
+        if TENANT_COLUMN in state.dict and state.key is not None:
+            state.info[_OWNER_KEY] = (state.key, state.dict[TENANT_COLUMN])
 
 
 def is_known(obj: Any, owner: str | None) -> bool:
@@ -47,7 +47,7 @@ def persisted_owner(session: Session, obj: Any) -> tuple[bool, str | None]:
     mapper = state.mapper
     if state.key is None:
         return False, None
-    column = mapper.columns[_TENANT]
+    column = mapper.columns[TENANT_COLUMN]
     match = [col == value for col, value in zip(mapper.primary_key, state.key[1], strict=True)]
     stmt = select(column).select_from(mapper.persist_selectable).where(and_(*match))
     rows = session.connection(bind_arguments={"mapper": mapper}).execute(stmt).all()

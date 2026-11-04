@@ -53,13 +53,10 @@ class StatementParts:
                     annotated.append(el)
         # The annotated copies of an entity's selectable (``select_from(P)``)
         # are as much the entity's as the selectable itself.
-        self.keep = [sel for _insp, sel in self.entities.values()] + [
-            el for el in annotated if id(el._deannotate()) in self.entities
-        ]
-
-    @property
-    def opaque(self) -> frozenset[int]:
-        return frozenset(self.entities)
+        self.keep = [sel for _insp, sel in self.entities.values()]
+        if self.entities:
+            self.keep += [el for el in annotated if id(el._deannotate()) in self.entities]
+        self.opaque = frozenset(self.entities)
 
 
 def check_entities(parts: StatementParts, names: set[str], guard: AliasedGuard | None) -> None:
@@ -74,17 +71,14 @@ def refuse_aliased_core(insp: Any, selectable: Any, names: set[str]) -> None:
     """The guard for statements a caller wrote (not relationship loads)."""
     if _own_rows_only(insp, selectable, names):
         return
-    tables = sorted({str(_base_name(el)) for el in _scoped_leaves(selectable, names)})
+    leaves = (el for el in visitors.iterate(selectable) if is_scoped_leaf(el, names))
+    tables = sorted({str(_base_name(el)) for el in leaves})
     raise TenantIsolationError(
         f"aliased({insp.mapper.class_.__name__}) over a selectable that reads "
         f"{', '.join(repr(t) for t in tables) or 'a scoped table'} through Core is not "
         "tenant-scoped; build the selectable from ORM entities (select(Model)) or run "
         "it under all_tenants() (with include_deleted=True for trashed rows)"
     )
-
-
-def _scoped_leaves(selectable: Any, names: set[str]) -> list[Any]:
-    return [el for el in visitors.iterate(selectable) if is_scoped_leaf(el, names)]
 
 
 def _own_rows_only(insp: Any, selectable: Any, names: set[str]) -> bool:
