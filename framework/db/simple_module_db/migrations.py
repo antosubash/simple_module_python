@@ -88,16 +88,14 @@ def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaDa
     return combined
 
 
-def _fk_signature(fk: Any) -> tuple[frozenset[str], str, frozenset[str]] | None:
-    """Local columns, referred table and referred columns of a foreign key."""
+def _fk_signature(fk: Any) -> tuple[str, frozenset[tuple[str, str]]] | None:
+    """Referred table and (local column, referred column) pairs of a foreign key."""
     try:
         elements = list(fk.elements)
         referred = elements[0].column.table.fullname
     except (AttributeError, IndexError, LookupError, NoReferenceError):
         return None  # unresolvable target: never treat it as a match
-    local = frozenset(c.name for c in fk.columns)
-    remote = frozenset(e.column.name for e in elements)
-    return local, referred, remote
+    return referred, frozenset((e.parent.name, e.column.name) for e in elements)
 
 
 def _fk_replaced_in_model(metadata: MetaData, reflected_fk: SchemaItem) -> bool:

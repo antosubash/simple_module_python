@@ -135,49 +135,8 @@ def test_db_metadata_only_ignores_missing_models_module(tmp_path, monkeypatch, m
         assert exc.value.name == missing
 
 
-def test_db_autogenerate_replaces_fk_with_changed_options():
-    def build(ondelete):
-        metadata = sa.MetaData()
-        sa.Table("parent", metadata, sa.Column("id", sa.Integer, primary_key=True))
-        sa.Table(
-            "child",
-            metadata,
-            sa.Column("id", sa.Integer, primary_key=True),
-            sa.Column("parent_id", sa.Integer, sa.ForeignKey("parent.id", ondelete=ondelete)),
-        )
-        return metadata
-
-    old, target = build(None), build("CASCADE")
-    engine = sa.create_engine("sqlite://")
-    try:
-        old.create_all(engine)
-        with engine.connect() as conn:
-            ctx = MigrationContext.configure(
-                conn, opts={"include_object": make_include_object(target)}
-            )
-            ops = list(iter_ops_recursive(produce_migrations(ctx, target).upgrade_ops))
-        assert any(isinstance(op, CreateForeignKeyOp) for op in ops)
-        assert any(type(op).__name__ == "DropConstraintOp" for op in ops)
-    finally:
-        engine.dispose()
-
-
-def test_db_autogenerate_keeps_migration_only_fk_to_another_table():
-    def build(*, migration_fk):
-        metadata = sa.MetaData()
-        sa.Table("parent", metadata, sa.Column("id", sa.Integer, primary_key=True))
-        sa.Table("other", metadata, sa.Column("id", sa.Integer, primary_key=True))
-        target = "other.id" if migration_fk else "parent.id"
-        sa.Table(
-            "child",
-            metadata,
-            sa.Column("id", sa.Integer, primary_key=True),
-            sa.Column("parent_id", sa.Integer, sa.ForeignKey(target)),
-        )
-        return metadata
-
-    # The database carries a migration-only FK to ``other``; the model points at ``parent``.
-    live, target = build(migration_fk=True), build(migration_fk=False)
+def _autogenerate_ops(live, target):
+    """Ops autogenerate emits to bring a database shaped like ``live`` to ``target``."""
     engine = sa.create_engine("sqlite://")
     try:
         live.create_all(engine)
@@ -185,8 +144,43 @@ def test_db_autogenerate_keeps_migration_only_fk_to_another_table():
             ctx = MigrationContext.configure(
                 conn, opts={"include_object": make_include_object(target)}
             )
-            ops = list(iter_ops_recursive(produce_migrations(ctx, target).upgrade_ops))
-        assert any(isinstance(op, CreateForeignKeyOp) for op in ops)
-        assert not any(type(op).__name__ == "DropConstraintOp" for op in ops)
+            return list(iter_ops_recursive(produce_migrations(ctx, target).upgrade_ops))
     finally:
         engine.dispose()
+
+
+def _parent_child(target="parent.id", **fk_options):
+    metadata = sa.MetaData()
+    sa.Table("parent", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    sa.Table("other", metadata, sa.Column("id", sa.Integer, primary_key=True))
+    sa.Table(
+        "child",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("parent_id", sa.Integer, sa.ForeignKey(target, **fk_options)),
+    )
+    return metadata
+
+
+def test_db_autogenerate_replaces_fk_with_changed_options():
+    ops = _autogenerate_ops(_parent_child(), _parent_child(ondelete="CASCADE"))
+    assert any(isinstance(op, CreateForeignKeyOp) for op in ops)
+    assert any(type(op).__name__ == "DropConstraintOp" for op in ops)
+
+
+def test_db_autogenerate_keeps_migration_only_fk_to_another_table():
+    # The database carries a migration-only FK to ``other``; the model points at ``parent``.
+    ops = _autogenerate_ops(_parent_child("other.id"), _parent_child("parent.id"))
+    assert any(isinstance(op, CreateForeignKeyOp) for op in ops)
+    assert not any(type(op).__name__ == "DropConstraintOp" for op in ops)
+
+
+def test_db_fk_signature_pairs_local_and_referred_columns():
+    metadata = sa.MetaData()
+    sa.Table("p", metadata, sa.Column("x", sa.Integer), sa.Column("y", sa.Integer))
+    child = sa.Table("c", metadata, sa.Column("a", sa.Integer), sa.Column("b", sa.Integer))
+    straight = sa.ForeignKeyConstraint(["a", "b"], ["p.x", "p.y"])
+    swapped = sa.ForeignKeyConstraint(["a", "b"], ["p.y", "p.x"])
+    child.append_constraint(straight)
+    child.append_constraint(swapped)
+    assert migrations._fk_signature(straight) != migrations._fk_signature(swapped)

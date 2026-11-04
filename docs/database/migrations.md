@@ -6,8 +6,9 @@ Autogenerate's `make_include_object()` filter preserves foreign keys declared
 only in migrations by ignoring unmatched **reflected** constraints. Newly modeled
 foreign keys on existing tables still generate `CreateForeignKeyOp`; set
 `ignore_unmodeled_fks=False` to allow dropping database-only constraints (#812).
-A foreign key whose options change (`ondelete`, `deferrable`) is emitted as a drop
-plus a create. SQLite cannot `ALTER` constraints: wrap such ops in
+A foreign key with the same columns and target but different options (`ondelete`,
+`deferrable`) is emitted as a drop plus a create; one with other columns or another
+target is a different constraint and stays preserved. SQLite cannot `ALTER` constraints: wrap such ops in
 `op.batch_alter_table(...)` by hand before applying the revision there.
 
 For `sa.Enum` columns backed by Python `StrEnum`, generated revisions freeze the
