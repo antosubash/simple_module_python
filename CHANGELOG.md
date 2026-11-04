@@ -62,6 +62,18 @@ All notable changes to this project are documented in this file. The format is b
   one error per field, scoped by `X-Inertia-Error-Bag`, instead of rendering
   the 422 "invalid parameters" Error page over the form. GETs and non-Inertia
   requests, and invalid path/query values, keep the 422 page / JSON.
+- **Behaviour change (#807):** a failed request commit aborts the original
+  response and its background tasks before returning a JSON 500, preventing
+  follow-up writes from persisting after the failure. The 500 is still sent
+  when inner middleware or a dependency teardown swallows the abort.
+- **Behaviour change (#808):** read-only request finalization releases the
+  connection without expiring loaded ORM attributes, keeping them usable in
+  streaming bodies and background tasks without implicit async IO.
+- **Behaviour change (#809):** write markers follow savepoint release and
+  rollback; requests whose only writes were rolled back no longer commit or
+  run outer `on_commit` callbacks. A commit issued mid-request still runs the
+  request's `on_commit` callbacks at finalization, and `mark_written` no longer
+  begins a transaction.
 - Bulk-DML audit prefetch preserves statement options, including loader criteria,
   so it records only the rows selected by the UPDATE or DELETE (#810).
 - ORM restores now emit `restored` audit entries with translated action labels

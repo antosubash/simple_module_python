@@ -86,11 +86,13 @@ class FileStoragePublic:
     async def _release_connection(self, row: StoredFile) -> None:
         """End a read-only request transaction early, returning its connection.
 
-        ``row`` is detached first so its loaded attributes stay readable — the
-        rollback would otherwise expire it and the next access would try lazy
-        IO. A session holding writes is left alone: those commit (or roll back)
-        with the request as usual. ``finalize_session`` is re-armable, so any
-        later work in the request still opens a fresh transaction and commits.
+        Read-only finalization closes the transaction without expiring loaded
+        objects (#808), so ``row`` stays readable without lazy IO either way.
+        It is also detached, so no later work on this session can autoflush or
+        refresh it while the caller still holds it. A session holding writes is
+        left alone: those commit (or roll back) with the request as usual.
+        ``finalize_session`` is re-armable, so any later work in the request
+        still opens a fresh transaction and commits.
         """
         db = self.db
         if db.info.get(SESSION_HAS_WRITES_KEY) or db.new or db.dirty or db.deleted:

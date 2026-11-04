@@ -20,7 +20,8 @@ async def get_db(request: Request) -> AsyncGenerator[RequestSession, None]:
     """Yield an async database session, auto-closing on exit.
 
     Commits only when the session has pending writes (``new``, ``dirty``,
-    or ``deleted`` objects); read-only handlers exit via ``rollback``.
+    or ``deleted`` objects); read-only handlers close their transaction
+    without expiring loaded objects.
 
     The commit itself normally happens in
     :class:`~simple_module_db.transaction.CommitBeforeResponseMiddleware`,

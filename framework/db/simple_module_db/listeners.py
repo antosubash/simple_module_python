@@ -25,6 +25,7 @@ from simple_module_db.writes import (
     _is_purge,
     _mark_dml_written,
     _mark_session_written,
+    attach_write_listeners,
     hard_delete,
     mark_written,
 )
@@ -142,6 +143,7 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         event.listen(session_class, name, fn)
     # The legacy bulk_* methods reach no session event: guard them directly.
     install_bulk_guard(session_class)
+    attach_write_listeners(session_class)
     setattr(session_class, _LISTENERS_ATTACHED, True)
 
 

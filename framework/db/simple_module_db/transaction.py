@@ -16,15 +16,17 @@ client yet, so a failure there can still become a 500, and every caller —
 seeds, provisioning scripts, integration tests, single-run k8s jobs — gets the
 guarantee without changing a line of endpoint code.
 
-A session is finalized exactly once. Whichever runs first wins and the other
-becomes a no-op, so the framework stays correct when the middleware is absent
-(a bare ``get_db``, a WebSocket, a test calling the dependency directly) and on
-the error path, where FastAPI unwinds the dependency — rolling it back —
-*before* the error response is sent.
+A session's pending work is finalized once. Whichever runs first wins and the
+other becomes a no-op (``finalize_session`` re-arms for later writes), so the
+framework stays correct when the middleware is absent (a bare ``get_db``, a
+WebSocket, a test calling the dependency directly) and on the error path, where
+FastAPI unwinds the dependency — rolling it back — *before* the error response
+is sent.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -32,12 +34,13 @@ from collections.abc import MutableMapping
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from simple_module_db.callbacks import (
     discard_on_commit_callbacks,
     run_on_commit_callbacks,
 )
-from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
+from simple_module_db.writes import SESSION_HAS_WRITES_KEY, clear_written
 
 logger = logging.getLogger("simple_module.db")
 
@@ -52,6 +55,16 @@ _FINALIZED_KEY = "sm_db_finalized"
 _INTERNAL_ERROR_BODY = json.dumps({"detail": "Internal Server Error"}).encode()
 
 
+class _ResponseAbortedError(Exception):
+    """Unwind the original response before replacing it after commit failure."""
+
+
+def _close_read_only_transaction(session: Session) -> None:
+    # Transaction.close rolls back and releases connections without expiring ORM state.
+    while transaction := session.get_nested_transaction() or session.get_transaction():
+        transaction.close()
+
+
 def _elapsed_ms(session: AsyncSession) -> float:
     start = session.info.get(SESSION_START_KEY)
     return round((time.perf_counter() - start) * 1000, 2) if start else 0.0
@@ -60,7 +73,7 @@ def _elapsed_ms(session: AsyncSession) -> float:
 def _has_pending(session: AsyncSession) -> bool:
     """Whether ``session`` holds work that still needs committing.
 
-    ``has_writes`` is stamped by the after_flush listener and survives the flush
+    ``has_writes`` is stamped by flushes and session DML (see ``writes``) and survives the flush
     emptying ``session.new``/``.dirty``/``.deleted`` — the raw collections alone
     would report a flushed-but-uncommitted write as read-only.
     """
@@ -76,7 +89,7 @@ def _settle(session: AsyncSession) -> None:
     would try to re-commit a session whose work has already landed.
     """
     session.info[_FINALIZED_KEY] = True
-    session.info.pop(SESSION_HAS_WRITES_KEY, None)
+    clear_written(session)
 
 
 async def finalize_session(session: AsyncSession) -> None:
@@ -91,10 +104,9 @@ async def finalize_session(session: AsyncSession) -> None:
     never commit. So each call commits whatever is pending *at that moment*, and
     ``get_db``'s exit code still runs afterwards to catch the rest.
 
-    Read-only handlers exit via ``rollback`` — one round-trip cheaper than
-    ``commit``, and it keeps read-only queries from showing up as writes in
-    query logs / ``pg_stat_statements``. A repeat call with nothing new pending
-    returns immediately rather than paying for a second rollback.
+    Read-only handlers close their transaction, rolling back and releasing the
+    connection without expiring loaded objects needed by streams or tasks.
+    A repeat call with nothing new pending returns immediately.
 
     On commit failure the session is rolled back before the error propagates,
     so the caller never has to reason about a half-finalized session.
@@ -104,7 +116,7 @@ async def finalize_session(session: AsyncSession) -> None:
             return
         _settle(session)
         discard_on_commit_callbacks(session)
-        await session.rollback()
+        await session.run_sync(_close_read_only_transaction)
         logger.debug(
             "db.session.read_only",
             extra={"operation": "read_only_rollback", "db_duration_ms": _elapsed_ms(session)},
@@ -178,14 +190,15 @@ class CommitBeforeResponseMiddleware:
 
         sessions: list[AsyncSession] = []
         scope.setdefault("state", {})[REQUEST_SESSIONS_KEY] = sessions
+
         aborted = False
 
         async def send_wrapper(message) -> None:
             nonlocal aborted
             if aborted:
-                # The response we replaced is still streaming its body into a
-                # channel we've already closed off. Drop it.
-                return
+                # Inner code swallowed the abort and kept sending (an error
+                # handler's own response, more body): refuse it again.
+                raise _ResponseAbortedError
             if message["type"] == "http.response.start" and sessions:
                 try:
                     # A request normally has exactly one session (FastAPI caches
@@ -197,15 +210,21 @@ class CommitBeforeResponseMiddleware:
                     for session in sessions:
                         await finalize_session(session)
                 except Exception:
-                    aborted = True
                     logger.exception(
                         "db.session.commit_failed", extra={"operation": "commit_failed"}
                     )
-                    await _send_internal_error(send)
-                    return
+                    aborted = True
+                    raise _ResponseAbortedError from None
             await send(message)
 
-        await self.app(scope, receive, send_wrapper)
+        # ``suppress`` also strips the signal out of the ExceptionGroup a
+        # StreamingResponse may wrap it in (Python 3.12+).
+        with contextlib.suppress(_ResponseAbortedError):
+            await self.app(scope, receive, send_wrapper)
+        # Checked after a normal return too: an inner ``except Exception`` or a
+        # yield-dependency teardown can swallow the signal, leaving no response.
+        if aborted:
+            await _send_internal_error(send)
 
 
 async def _send_internal_error(send) -> None:
