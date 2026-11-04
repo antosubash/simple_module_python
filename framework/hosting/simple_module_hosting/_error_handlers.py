@@ -9,12 +9,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from simple_module_core.exceptions import NotFoundError
 from simple_module_core.permission_denied import PermissionDenied
+from simple_module_inertia import errors_from_validation, is_inertia_request
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 
 from simple_module_hosting._error_negotiation import _wants_json
 from simple_module_hosting._error_page import render_error_page
+from simple_module_hosting.inertia_utils import redirect_back_with_errors
 from simple_module_hosting._observability import CorrelationIdMiddleware
 
 logger = logging.getLogger(__name__)
@@ -51,7 +53,15 @@ async def request_validation_error_handler(
 
     Same negotiation rule as 403/404/500 (``_wants_json``), so one request
     never sees two different error shapes depending on the error class.
+
+    An Inertia form submission (any method but GET) is the exception: like a
+    hand-written ``redirect_back_with_errors``, it goes back to the form with
+    one message per field, so ``useForm`` shows them in place. A GET keeps
+    the error page, since redirecting back there could loop.
     """
+    if is_inertia_request(request.scope) and request.method != "GET":
+        errors = errors_from_validation(exc.errors(), request_source=True)
+        return redirect_back_with_errors(request, errors)
     if _wants_json(request):
         return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
     return await render_error_page(request, 422, "The requested URL contains invalid parameters.")

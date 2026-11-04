@@ -98,8 +98,37 @@ def _locate_failure(value: Any, path: str) -> str:
     return path
 
 
+_JSON_LEAVES = frozenset({str, int, float, bool, type(None)})
+
+
+def _is_plain_json(value: Any) -> bool:
+    """True when ``value`` is built only from exact JSON types.
+
+    Exact ``type()`` checks keep subclasses (``StrEnum``, ``IntEnum``) on the
+    ``jsonable_encoder`` path, which converts them; plain data, such as the
+    shared i18n catalog, skips a full encoder walk that costs about 5x a
+    ``json.dumps`` of the same dict.
+    """
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        kind = type(item)
+        if kind is dict:
+            for key, child in item.items():
+                if type(key) is not str:
+                    return False
+                stack.append(child)
+        elif kind is list:
+            stack.extend(item)
+        elif kind not in _JSON_LEAVES:
+            return False
+    return True
+
+
 def encode_page(page: dict[str, Any]) -> Any:
     """JSON-safe structure for both render branches; names the failing prop."""
+    if _is_plain_json(page):
+        return page
     try:
         return jsonable_encoder(page)
     except Exception as exc:

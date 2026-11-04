@@ -116,8 +116,11 @@ async def _resolve_tree(
     for key, raw in props.items():
         # Fast path: plain JSON leaves and containers carry no prop flags, so
         # they skip the Prop wrapper; only a partial filter needs their path.
-        if not _is_dynamic(raw):
-            if type(raw) in _SCALARS and not filtering:
+        # The scalar test runs first: it is far cheaper than _is_dynamic,
+        # and shared data such as the i18n catalog is hundreds of strings.
+        scalar = type(raw) in _SCALARS
+        if scalar or not _is_dynamic(raw):
+            if scalar and not filtering:
                 result[key] = raw
                 continue
             path = f"{prefix}.{key}" if prefix else key

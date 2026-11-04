@@ -148,3 +148,30 @@ class TestEncodePage:
         }
         with pytest.raises(PropEncodingError, match=r"props\.user\.avatar"):
             encode_page(page)
+
+
+class TestPlainJsonFastPath:
+    def test_plain_page_is_returned_as_is(self) -> None:
+        page = {
+            "component": "C",
+            "props": {"i18n": {"messages": {"a.b": "x"}}, "n": [1, 2.5, True, None]},
+            "url": "/",
+            "version": "v",
+        }
+        assert encode_page(page) is page
+
+    def test_enum_and_tuple_still_take_the_encoder(self) -> None:
+        from enum import StrEnum
+
+        class Colour(StrEnum):
+            RED = "red"
+
+        page = {"component": "C", "props": {"c": Colour.RED, "t": (1, 2)}, "url": "/"}
+        encoded = encode_page(page)
+        assert encoded is not page
+        assert type(encoded["props"]["c"]) is str
+        assert encoded["props"]["t"] == [1, 2]
+
+    def test_non_string_keys_take_the_encoder(self) -> None:
+        page = {"component": "C", "props": {"by_id": {1: "a"}}, "url": "/"}
+        assert encode_page(page) is not page
