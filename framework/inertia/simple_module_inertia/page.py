@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 
 from fastapi.encoders import jsonable_encoder
 
-from simple_module_inertia.resolve import ResolvedProps
+from simple_module_inertia.resolve import JSON_SCALARS, ResolvedProps
 
 
 class PropEncodingError(ValueError):
@@ -98,8 +98,44 @@ def _locate_failure(value: Any, path: str) -> str:
     return path
 
 
+# Plain page data is a few levels deep. The walk gives up past this depth, so a
+# cyclic structure ends here instead of looping; the encoder then handles it.
+_MAX_PLAIN_DEPTH = 64
+
+
+def _is_plain_json(value: Any) -> bool:
+    """True when ``value`` is built only from exact JSON types.
+
+    Exact ``type()`` checks keep subclasses (``StrEnum``, ``IntEnum``) on the
+    ``jsonable_encoder`` path, which converts them. Plain data, such as the
+    shared i18n catalog, only pays this read-only walk: the encoder rebuilds
+    every container and measured about 5x a ``json.dumps`` of the same dict.
+    Keys starting with ``_sa`` also stay on the encoder path, which drops them.
+    """
+    stack = [(value, 0)]
+    while stack:
+        item, depth = stack.pop()
+        kind = type(item)
+        if kind is dict:
+            if depth >= _MAX_PLAIN_DEPTH:
+                return False
+            for key, child in item.items():
+                if type(key) is not str or key.startswith("_sa"):
+                    return False
+                stack.append((child, depth + 1))
+        elif kind is list:
+            if depth >= _MAX_PLAIN_DEPTH:
+                return False
+            stack.extend((child, depth + 1) for child in item)
+        elif kind not in JSON_SCALARS:
+            return False
+    return True
+
+
 def encode_page(page: dict[str, Any]) -> Any:
     """JSON-safe structure for both render branches; names the failing prop."""
+    if _is_plain_json(page):
+        return page
     try:
         return jsonable_encoder(page)
     except Exception as exc:
