@@ -23,6 +23,12 @@ successful stream or background task. The session remains usable after
 read-only finalization, including for later writes (#808). Without the
 middleware, finalization happens when the dependency exits.
 
+Read-only finalization closes the transaction (`SessionTransaction.close()`)
+rather than calling `session.rollback()`. Session listeners see
+`after_transaction_end` for each closed transaction, but **not**
+`after_rollback` or `after_soft_rollback`; a listener that must observe the end
+of every request transaction should hook `after_transaction_end`.
+
 Usage in endpoints:
 
 ```python
@@ -66,6 +72,12 @@ rolled back, finalization takes the read-only path and discards outer
 `on_commit` callbacks (#809). Callbacks registered inside a rolled-back
 savepoint are also discarded, while callbacks outside it survive if other
 writes commit. A full rollback clears all write markers and callbacks.
+
+A commit issued mid-request (fastapi-users commits inside `create` and
+`update`) keeps the session on the write path: finalization still commits, and
+`on_commit` callbacks queued before or after that commit run then. A later
+savepoint rollback does not take that back. `mark_written` never begins a
+transaction; with none open it only sets the flag.
 
 ## Why not always commit?
 

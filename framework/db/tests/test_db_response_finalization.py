@@ -172,6 +172,7 @@ async def test_read_only_finalize_closes_open_savepoints_and_releases_connection
     async with state.session_factory() as db:
         db.add(_TxnThing(name="seed"))
         await db.commit()
+    async with state.session_factory() as db:
         row = (await db.execute(select(_TxnThing))).scalar_one()
         await db.begin_nested()
         await db.begin_nested()
@@ -185,3 +186,58 @@ async def test_read_only_finalize_closes_open_savepoints_and_releases_connection
         # a later use autobegins cleanly and is rolled back by the next finalize
         assert (await db.execute(select(_TxnThing.name))).scalar_one() == "seed"
         assert db.in_transaction()
+
+
+class _SwallowingMiddleware:
+    """An inner error handler that eats every exception, optionally answering itself."""
+
+    def __init__(self, app, *, answer: bool):
+        self.app, self.answer = app, answer
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await self.app(scope, receive, send)
+        except Exception:
+            if not self.answer:
+                return
+            try:
+                await send({"type": "http.response.start", "status": 503, "headers": []})
+                await send({"type": "http.response.body", "body": b"inner"})
+            except Exception:
+                return
+
+
+@pytest.mark.parametrize("answer", [False, True])
+async def test_swallowed_abort_still_sends_one_internal_error(state, monkeypatch, answer):
+    async def fail(session):
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(RequestSession, "commit", fail)
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(db=state)
+    app.add_middleware(_SwallowingMiddleware, answer=answer)
+    app.add_middleware(CommitBeforeResponseMiddleware)
+
+    @app.post("/")
+    async def endpoint(db: RequestSession = Depends(get_db)):
+        db.add(_TxnThing(name="endpoint"))
+        await db.flush()
+        return {}
+
+    starts = []
+
+    async def counting(scope, receive, send):
+        async def counting_send(message):
+            if message["type"] == "http.response.start":
+                starts.append(message["status"])
+            await send(message)
+
+        await app(scope, receive, counting_send)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=counting), base_url="http://test"
+    ) as client:
+        response = await client.post("/")
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal Server Error"}
+    assert starts == [500]

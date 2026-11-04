@@ -26,6 +26,7 @@ is sent.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -39,7 +40,7 @@ from simple_module_db.callbacks import (
     discard_on_commit_callbacks,
     run_on_commit_callbacks,
 )
-from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
+from simple_module_db.writes import SESSION_HAS_WRITES_KEY, clear_written
 
 logger = logging.getLogger("simple_module.db")
 
@@ -88,7 +89,7 @@ def _settle(session: AsyncSession) -> None:
     would try to re-commit a session whose work has already landed.
     """
     session.info[_FINALIZED_KEY] = True
-    session.info.pop(SESSION_HAS_WRITES_KEY, None)
+    clear_written(session)
 
 
 async def finalize_session(session: AsyncSession) -> None:
@@ -190,7 +191,14 @@ class CommitBeforeResponseMiddleware:
         sessions: list[AsyncSession] = []
         scope.setdefault("state", {})[REQUEST_SESSIONS_KEY] = sessions
 
+        aborted = False
+
         async def send_wrapper(message) -> None:
+            nonlocal aborted
+            if aborted:
+                # Inner code swallowed the abort and kept sending (an error
+                # handler's own response, more body): refuse it again.
+                raise _ResponseAbortedError
             if message["type"] == "http.response.start" and sessions:
                 try:
                     # A request normally has exactly one session (FastAPI caches
@@ -205,13 +213,17 @@ class CommitBeforeResponseMiddleware:
                     logger.exception(
                         "db.session.commit_failed", extra={"operation": "commit_failed"}
                     )
+                    aborted = True
                     raise _ResponseAbortedError from None
             await send(message)
 
-        try:
+        # ``suppress`` also strips the signal out of the ExceptionGroup a
+        # StreamingResponse may wrap it in (Python 3.12+).
+        with contextlib.suppress(_ResponseAbortedError):
             await self.app(scope, receive, send_wrapper)
-        except* _ResponseAbortedError:
-            # StreamingResponse may wrap the signal in an ExceptionGroup.
+        # Checked after a normal return too: an inner ``except Exception`` or a
+        # yield-dependency teardown can swallow the signal, leaving no response.
+        if aborted:
             await _send_internal_error(send)
 
 

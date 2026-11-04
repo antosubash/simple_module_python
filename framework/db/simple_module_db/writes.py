@@ -22,7 +22,15 @@ from simple_module_db.mixins import SoftDeleteMixin
 # Key on ``Session.info`` distinguishing read-only requests from write requests
 # after flush has cleared ``session.new/.dirty/.deleted``.
 SESSION_HAS_WRITES_KEY = "has_writes"
+# Open transactions (root or savepoint) holding writes that have not committed.
 _WRITE_TRANSACTIONS_KEY = "sm_db_write_transactions"
+# Writes no open transaction owns: a commit the caller issued mid-request
+# (fastapi-users commits inside ``update``/``create``) or a mark made with no
+# transaction begun. Only ``clear_written`` or a full rollback drops it, so a
+# later savepoint rollback cannot discard the on-commit work of durable writes.
+_UNTRACKED_WRITES_KEY = "sm_db_untracked_writes"
+# Class marker for the transaction listeners; see ``attach_write_listeners``.
+_WRITE_LISTENERS_ATTACHED = "_sm_write_listeners_attached"
 
 # Key on ``Session.info`` holding ``id()`` of instances the caller asked to
 # hard-delete, consumed by the before_flush soft-delete rewrite.
@@ -39,42 +47,76 @@ def mark_written(session: Session | AsyncSession) -> None:
     Without it that write is rolled back at request end, silently (GH #336).
 
     Accepts either an ``AsyncSession`` or the underlying sync ``Session``.
-    Savepoint releases transfer the marker to the parent; rollbacks discard it.
+    The mark belongs to the innermost open transaction: releasing a savepoint
+    hands it to the parent, rolling one back discards it. It never begins a
+    transaction; with none open the flag is simply set.
     """
     sync_session = session.sync_session if isinstance(session, AsyncSession) else session
-    if not event.contains(sync_session, "after_commit", _merge_written_transaction):
+    if not _class_wired(type(sync_session)) and not event.contains(
+        sync_session, "after_commit", _merge_written_transaction
+    ):
+        # A session class the framework never wired (a bare test session).
         event.listen(sync_session, "after_commit", _merge_written_transaction)
         event.listen(sync_session, "after_soft_rollback", _discard_written_transaction)
+    info = sync_session.info
     transaction = sync_session.get_nested_transaction() or sync_session.get_transaction()
     if transaction is None:
-        transaction = sync_session.begin()
-    session.info.setdefault(_WRITE_TRANSACTIONS_KEY, set()).add(transaction)
-    session.info[SESSION_HAS_WRITES_KEY] = True
+        info[_UNTRACKED_WRITES_KEY] = True
+    else:
+        info.setdefault(_WRITE_TRANSACTIONS_KEY, set()).add(transaction)
+    info[SESSION_HAS_WRITES_KEY] = True
+
+
+def clear_written(session: Session | AsyncSession) -> None:
+    """Forget every write mark: the session's work was finalized."""
+    for key in (SESSION_HAS_WRITES_KEY, _WRITE_TRANSACTIONS_KEY, _UNTRACKED_WRITES_KEY):
+        session.info.pop(key, None)
+
+
+def attach_write_listeners(session_class: type[Session]) -> None:
+    """Track write marks across commits and savepoint rollbacks; idempotent.
+
+    Registered once per session class (``attach_session_listeners``); a
+    subclass inherits class-level session listeners, so it is skipped.
+    """
+    if _class_wired(session_class):
+        return
+    event.listen(session_class, "after_commit", _merge_written_transaction)
+    event.listen(session_class, "after_soft_rollback", _discard_written_transaction)
+    setattr(session_class, _WRITE_LISTENERS_ATTACHED, True)
+
+
+def _class_wired(session_class: type) -> bool:
+    return any(base.__dict__.get(_WRITE_LISTENERS_ATTACHED) for base in session_class.__mro__)
 
 
 def _merge_written_transaction(session: Session) -> None:
+    # ``after_commit`` fires for the root and for released savepoints, while
+    # the committing transaction is still the current one.
     transaction = session.get_nested_transaction() or session.get_transaction()
     if transaction is None:
         return
+    written: set[SessionTransaction] = session.info.get(_WRITE_TRANSACTIONS_KEY, set())
+    if transaction not in written:
+        return
+    written.remove(transaction)
     if transaction.parent is None:
-        session.info.pop(_WRITE_TRANSACTIONS_KEY, None)
-        session.info.pop(SESSION_HAS_WRITES_KEY, None)
+        # Durable now, but its on-commit work still waits for finalization.
+        session.info[_UNTRACKED_WRITES_KEY] = True
     else:
-        written = session.info.get(_WRITE_TRANSACTIONS_KEY, set())
-        if transaction in written:
-            written.remove(transaction)
-            written.add(transaction.parent)
+        written.add(transaction.parent)
 
 
 def _discard_written_transaction(session: Session, transaction: SessionTransaction) -> None:
     if transaction.parent is None:
-        session.info.pop(_WRITE_TRANSACTIONS_KEY, None)
+        clear_written(session)
+        return
+    written: set[SessionTransaction] = session.info.get(_WRITE_TRANSACTIONS_KEY, set())
+    if transaction not in written:
+        return
+    written.remove(transaction)
+    if not written and not session.info.get(_UNTRACKED_WRITES_KEY):
         session.info.pop(SESSION_HAS_WRITES_KEY, None)
-    elif transaction.nested:
-        written = session.info.get(_WRITE_TRANSACTIONS_KEY, set())
-        written.discard(transaction)
-        if not written:
-            session.info.pop(SESSION_HAS_WRITES_KEY, None)
 
 
 def _mark_session_written(session: Session, flush_context: object) -> None:
