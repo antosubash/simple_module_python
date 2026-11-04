@@ -1,6 +1,6 @@
 """Every mapped tenant-scoped and soft-deletable model, known to the filters.
 
-Filled as mappers configure (and topped up from any statement that names a
+Filled as mappers are constructed (and topped up from any statement that names a
 model), so criteria can be attached for models a statement does *not* name:
 a join target, a subquery, a count (#332).
 """
@@ -50,4 +50,12 @@ def register(cls: type) -> None:
 
 @event.listens_for(Mapper, "mapper_configured")
 def _on_mapper_configured(mapper: Mapper, cls: type) -> None:
+    register(cls)
+
+
+@event.listens_for(Mapper, "after_mapper_constructed")
+def _on_mapper_constructed(mapper: Mapper, cls: type) -> None:
+    # Registered as soon as the class is mapped, not when mappers configure:
+    # a Core statement over ``Model.__table__`` run before any ORM use would
+    # otherwise find the table unknown, and unscoped.
     register(cls)

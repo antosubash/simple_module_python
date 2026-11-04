@@ -29,7 +29,7 @@ dependencies = [
     # URL to +psycopg2 because Alembic's online migrations are sync-only.
     "psycopg2-binary>=2.9,<3",
     "simple_module_core==0.0.42",
-    "sqlalchemy[asyncio]>=2.0,<3",
+    "sqlalchemy[asyncio]>=2.0.2,<3",
     "sqlmodel>=0.0.22,<0.1",
 ]
 

@@ -3271,7 +3271,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30,<0.33" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
     { name = "simple-module-core", editable = "framework/core" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.2,<3" },
     { name = "sqlmodel", specifier = ">=0.0.22,<0.1" },
 ]
 

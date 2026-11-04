@@ -12,6 +12,7 @@ from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db._persisted_owner import mark_unverified, owner_mark, restore_owner_mark
 from simple_module_db.bulk_audit import audit_statement
 from simple_module_db.bulk_guard import install_bulk_guard
 from simple_module_db.flush_guard import guard_flush
@@ -130,6 +131,7 @@ def attach_session_listeners(session_class: type[Session]) -> None:
     for name, fn in (
         ("before_flush", _before_flush_listener),
         ("after_flush", _mark_session_written),
+        ("detached_to_persistent", mark_unverified),
         ("after_flush_postexec", _after_flush_audit),
         ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
@@ -203,13 +205,15 @@ def _before_flush_listener(
     hard_delete_ids = session.info.pop(_HARD_DELETE_KEY, frozenset())
     for obj in list(session.deleted):
         if isinstance(obj, SoftDeleteMixin) and not _is_purge(obj, hard_delete_ids):
-            # Cancel the hard delete
+            # Cancel the hard delete; the re-add keeps the object's owner mark.
+            mark = owner_mark(obj)
             session.expunge(obj)
             # Merge back as modified with soft-delete fields set
             obj.is_deleted = True
             obj.deleted_at = now
             obj.deleted_by = user_id
             session.add(obj)
+            restore_owner_mark(obj, mark)
 
             _log_entity_change(
                 obj,

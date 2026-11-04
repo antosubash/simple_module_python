@@ -32,12 +32,8 @@ from sqlalchemy.sql import visitors
 
 from simple_module_db._core_joins import Predicates, is_plain_leaf, same_from, scope_joins
 from simple_module_db._core_walk import froms_read, references_plain
+from simple_module_db._entity_selectables import AliasedGuard, StatementParts, check_entities
 from simple_module_db._outer_joins import is_excluded, orm_outer_join_tables
-
-
-def _executable_options(stmt: Any) -> list[Any]:
-    """ORM options anywhere in ``stmt``: shared as they are, never cloned."""
-    return [o for el in visitors.iterate(stmt) for o in getattr(el, "_with_options", ())]
 
 
 def _add_where(stmt: Any, preds: list[Any]) -> None:
@@ -86,20 +82,28 @@ def scope_core(
     names: set[str],
     orm_covered: Any = None,
     nested: Predicates | None = None,
+    aliased: AliasedGuard | None = None,
 ) -> Any:
     """Return ``stmt`` with every plain scoped table filtered, or ``stmt`` itself.
 
     ``names`` are the scoped table names. ``orm_covered`` are the classes the
     caller gives loader criteria (for the #417 exclusion), or ``None``.
     ``nested`` gives the predicates for the target of a DML embedded in
-    ``stmt`` (or raises); ``stmt``'s own target is the caller's.
+    ``stmt`` (or raises); ``stmt``'s own target is the caller's. ``aliased``
+    vets the selectable of each ``aliased(Model, <subquery>)`` entity that
+    reads a scoped table (``_entity_selectables``); such a selectable, and the
+    ORM options, are shared as they are, never cloned.
     """
     if not names or not references_plain(stmt, names):
+        return stmt
+    parts = StatementParts(stmt)
+    check_entities(parts, names, aliased)
+    if parts.entities and not references_plain(stmt, names, parts.opaque):
         return stmt
     visitor = _Visitor(predicates_for, orm_covered)
     out = visitors.cloned_traverse(
         stmt,
-        {"stop_on": _executable_options(stmt)},
+        {"stop_on": [*parts.options, *parts.keep]},
         {
             "select": visitor.select,
             "update": visitor.update_delete,

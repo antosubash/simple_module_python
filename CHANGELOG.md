@@ -67,6 +67,33 @@ All notable changes to this project are documented in this file. The format is b
 - ORM restores now emit `restored` audit entries with translated action labels
   and ORM primary-key updates include the old and new key in their diffs
   (behaviour change: both used to leave no entry) (#811).
+- Tenant and soft-delete scoping in `simple_module_db` now also applies to:
+  relationships whose `secondary` is the table of a mapped `MultiTenantMixin` /
+  `SoftDeleteMixin` model (a bare association `Table` is not filtered), in
+  `joinedload()`, `selectinload()`, `subqueryload()` and joins through the
+  relationship (lazy loads already were; writes through it skip the
+  soft-delete condition, like every write); Core statements on
+  `Model.__table__` run before any ORM use has configured the mappers; and
+  sessions on a derived engine (`engine.execution_options(...)`), bound per
+  model (`binds={...}`) or routing through an overridden `get_bind()`, which
+  now keep the engine's strict mode, fallback tenant and audit sink.
+  `simple_module_db` now requires SQLAlchemy 2.0.2 or later.
+- **Behaviour change:** these shapes now raise `TenantIsolationError`:
+  - flushing an UPDATE or DELETE of an object the session did not load or
+    insert (`make_transient_to_detached()`, `merge(load=False)`, a detached
+    object passed to `session.add()`) whose row belongs to another tenant —
+    its `tenant_id` is read from the table first (only for such objects; a
+    found owner is read once, a missing row is read again on the next flush);
+  - `aliased(Model, <subquery or CTE>)` whose selectable reads a tenant-scoped
+    or soft-deletable table through Core, other than the entity's own table
+    (or the entity's own table with `GROUP BY`, `HAVING`, a window function
+    or any function other than a row-wise one such as `lower`), unless inside `all_tenants()` (with
+    `include_deleted=True`); build the selectable from ORM entities instead.
+    The same holds for `aliased(Model, <join>)` whose join holds a scoped
+    table other than the entity's own, and for `aliased(Model, text(…).columns(…))`
+    (bare, subquery or CTE) on a tenant-scoped or soft-deletable `Model`.
+- `subqueryload()` on a relationship between tenant-scoped or soft-deletable
+  models no longer fails with a duplicate `anon_1` alias (#816).
 - Tenant scoping in `simple_module_db` now applies to more statement shapes:
   ORM bulk UPDATE by primary key (`session.execute(update(Model), rows)`),
   `update().ordered_values()` (assigning `tenant_id` raises like `.values()`),

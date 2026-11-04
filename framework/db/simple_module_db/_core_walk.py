@@ -21,7 +21,14 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy.sql.elements import ClauseElement, ColumnClause, ColumnElement
-from sqlalchemy.sql.selectable import Alias, Join, Select, TableClause
+from sqlalchemy.sql.selectable import (
+    Alias,
+    CompoundSelect,
+    Join,
+    Select,
+    TableClause,
+    TextualSelect,
+)
 from sqlalchemy.sql.traversals import _get_children
 
 from simple_module_db._core_joins import _base_name, _is_orm, is_scoped_leaf
@@ -86,14 +93,18 @@ def core_where_froms(stmt: Select) -> list[Any]:
     return found
 
 
-def references_plain(stmt: Any, names: set[str]) -> bool:
+def references_plain(stmt: Any, names: set[str], opaque: frozenset[int] = frozenset()) -> bool:
     """Whether ``stmt`` reads a scoped table outside the ORM's annotations.
 
     ORM-annotated elements are not descended into: their tables are the
-    loader criteria's business, and every ORM column leads to a plain table.
+    loader criteria's business, and every ORM column leads to a plain table —
+    except the selectable of an ``aliased(Model, <subquery or join>)`` entity,
+    which is whatever the caller built and is walked like any FROM, unless its
+    id is in ``opaque`` (SQL text under a scoped entity counts as a read).
     The answer depends only on *which* elements are reachable, so an element
-    met twice is expanded once. ``seen`` keeps the objects, not just their
-    ids, so a temporary child list cannot free one and recycle its id.
+    met twice — ORM-annotated and opaque ones included — is looked at once.
+    ``seen`` keeps the objects, not just their ids, so a temporary child list
+    cannot free one and recycle its id.
     """
     stack = [stmt]
     seen: dict[int, Any] = {}
@@ -103,15 +114,52 @@ def references_plain(stmt: Any, names: set[str]) -> bool:
             continue
         if el is not stmt and _nested_dml_on(el, names):
             return True  # its target is checked even when ORM-annotated
-        if _is_orm(el):
-            continue
         seen[id(el)] = el
+        if _is_orm(el):
+            selectable = aliased_selectable(el)
+            if selectable is not None and id(selectable) not in opaque:
+                if reads_text_as_scoped(el._annotations["parententity"], selectable, names):
+                    return True  # SQL text: nothing in it can be seen, let alone scoped
+                stack.append(selectable)
+            continue
+        if id(el) in opaque:
+            continue
         target = el if isinstance(el, (TableClause, Alias)) else _table_of(el)
         if isinstance(target, (TableClause, Alias)) and is_scoped_leaf(target, names):
             return True
         if el.__visit_name__ != "bindparam":  # a bound value: no clause children
             stack.extend(_children(el))
     return False
+
+
+def aliased_selectable(el: Any) -> Any | None:
+    """The selectable an ``aliased(Model, selectable)`` entity of ``el`` reads, if any.
+
+    A subquery / CTE of a SELECT (or of SQL text), a bare ``text().columns()``
+    or a ``Join`` of tables: whatever the caller built. ``aliased(Model)`` (an
+    alias of the mapped table) and other entities give ``None``: their tables
+    are covered by the loader criteria.
+    """
+    insp = el._annotations.get("parententity")
+    if insp is None or not insp.is_aliased_class:
+        return None
+    selectable = insp.selectable
+    if isinstance(selectable, (Join, TextualSelect)):
+        return selectable
+    inner = getattr(selectable, "element", None)
+    return selectable if isinstance(inner, (Select, CompoundSelect, TextualSelect)) else None
+
+
+def is_textual(selectable: Any) -> bool:
+    """``text(...).columns(...)``, bare or as a subquery / CTE."""
+    return isinstance(selectable, TextualSelect) or isinstance(
+        getattr(selectable, "element", None), TextualSelect
+    )
+
+
+def reads_text_as_scoped(insp: Any, selectable: Any, names: set[str]) -> bool:
+    """An entity of a scoped table whose rows come from SQL text, which no filter can read."""
+    return is_textual(selectable) and _base_name(insp.mapper.local_table) in names
 
 
 _DML = ("insert", "update", "delete")
