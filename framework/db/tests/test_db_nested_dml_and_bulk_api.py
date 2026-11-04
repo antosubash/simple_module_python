@@ -5,7 +5,16 @@ engine is sent; on Postgres the statement runs and the rows are checked too.
 """
 
 import pytest
-from _db_dml_scope_models import ScopeDoc, ScopeProj, captured_sql, doc, docs, lax_db, scope_db
+from _db_dml_scope_models import (
+    ScopeDoc,
+    ScopeProj,
+    captured_sql,
+    doc,
+    docs,
+    lax_db,
+    requires_sqlite,
+    scope_db,
+)
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, no_tenant, tenant_context
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import DBAPIError
@@ -77,16 +86,14 @@ async def test_insert_or_replace_is_refused(scope_db, prefix):
 
 
 async def test_insert_or_ignore_is_allowed(scope_db):
-    if scope_db.bind.dialect.name != "sqlite":
-        pytest.skip("SQLite prefix")
+    requires_sqlite(scope_db, "SQLite prefix")
     with tenant_context("a"):
         await scope_db.execute(insert(doc).prefix_with("OR IGNORE").values(id=2, name="x"))
     assert (2, "b", "b-secret", None) in await docs(scope_db)
 
 
 async def test_insert_or_replace_all_tenants(scope_db):
-    if scope_db.bind.dialect.name != "sqlite":
-        pytest.skip("SQLite prefix")
+    requires_sqlite(scope_db, "SQLite prefix")
     stmt = insert(doc).prefix_with("OR REPLACE").values(id=2, name="new", tenant_id="b")
     with all_tenants():
         await scope_db.execute(stmt)

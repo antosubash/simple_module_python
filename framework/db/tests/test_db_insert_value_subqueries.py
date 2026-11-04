@@ -6,7 +6,16 @@ the insert's target is.
 """
 
 import pytest
-from _db_dml_scope_models import ScopeDoc, ScopeProj, doc, docs, lax_db, projs, scope_db
+from _db_dml_scope_models import (
+    ScopeDoc,
+    ScopeProj,
+    doc,
+    docs,
+    lax_db,
+    projs,
+    requires_sqlite,
+    scope_db,
+)
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, no_tenant, tenant_context
 from sqlalchemy import String, cast, func, insert, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -18,11 +27,6 @@ def _name_of(doc_id, orm):
     if orm:
         return select(ScopeDoc.name).where(ScopeDoc.id == doc_id).scalar_subquery()
     return select(doc.c.name).where(doc.c.id == doc_id).scalar_subquery()
-
-
-def _requires_sqlite(session):
-    if session.bind.dialect.name != "sqlite":
-        pytest.skip("SQLite upsert syntax")
 
 
 @pytest.mark.parametrize("orm", [False, True], ids=["core", "orm"])
@@ -88,7 +92,7 @@ async def test_values_subquery_all_tenants_reads_every_tenant(scope_db):
 
 @pytest.mark.parametrize("orm", [False, True], ids=["core", "orm"])
 async def test_upsert_set_subquery(scope_db, orm):
-    _requires_sqlite(scope_db)
+    requires_sqlite(scope_db, "SQLite upsert syntax")
     stmt = sqlite_insert(ScopeDoc).values(id=1, name="x")
     stmt = stmt.on_conflict_do_update(index_elements=["id"], set_={"note": _name_of(2, orm)})
     with tenant_context("a"):
@@ -97,7 +101,7 @@ async def test_upsert_set_subquery(scope_db, orm):
 
 
 async def test_upsert_where_subquery(scope_db):
-    _requires_sqlite(scope_db)
+    requires_sqlite(scope_db, "SQLite upsert syntax")
     probe = select(doc.c.id).where(doc.c.name == "b-secret").exists()
     stmt = sqlite_insert(ScopeDoc).values(id=1, name="x")
     stmt = stmt.on_conflict_do_update(index_elements=["id"], set_={"note": "hit"}, where=probe)

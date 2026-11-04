@@ -15,10 +15,8 @@ from typing import Any
 
 from simple_module_db import model_registry as registry
 from simple_module_db._core_joins import _base_name
-from simple_module_db.insert_guard import statement_values
+from simple_module_db.insert_guard import TENANT_COLUMN, statement_values
 from simple_module_db.tenancy import TenantIsolationError, missing_tenant_error
-
-TENANT_COLUMN = "tenant_id"
 
 
 def scoped_names(skip_soft_delete: bool, skip_tenant: bool) -> set[str]:

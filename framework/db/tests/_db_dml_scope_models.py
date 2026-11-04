@@ -91,3 +91,9 @@ def captured_sql(scope_db):
     event.listen(engine, "before_cursor_execute", capture)
     yield found
     event.remove(engine, "before_cursor_execute", capture)
+
+
+def requires_sqlite(session, reason: str) -> None:
+    """Skip unless ``session`` runs on SQLite (dialect-specific syntax)."""
+    if session.bind.dialect.name != "sqlite":
+        pytest.skip(reason)

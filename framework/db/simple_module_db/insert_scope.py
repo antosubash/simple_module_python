@@ -75,7 +75,7 @@ def scope_insert(stmt: Any, scope: Scope) -> Any:
     arm = getattr(stmt, "_post_values_clause", None)
     new_values = {k: _expr(v, scope) for k, v in values.items()} if values else values
     new_multi = tuple([_row(r, scope) for r in group] for group in multi) if multi else multi
-    new_arm = _arm(arm, scope) if arm is not None else arm
+    new_arm = _arm(arm, scope)
     values_same = not values or all(new_values[k] is v for k, v in values.items())
     multi_same = not multi or all(
         _same_row(a, b)

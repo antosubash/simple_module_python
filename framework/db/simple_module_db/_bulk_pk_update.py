@@ -17,7 +17,7 @@ from typing import Any
 
 from sqlalchemy.orm import ORMExecuteState
 
-from simple_module_db.insert_guard import _param_rows
+from simple_module_db.insert_guard import TENANT_COLUMN, _param_rows
 
 _NO_SYNC = (False, None)
 
@@ -57,7 +57,7 @@ def _synchronize(execute_state: ORMExecuteState, tenant_id: str) -> None:
         state = identity_map.fast_get_state(
             mapper.identity_key_from_primary_key(tuple(row[key] for key in pk_keys))
         )
-        if state is None or state.dict.get("tenant_id") != tenant_id:
+        if state is None or state.dict.get(TENANT_COLUMN) != tenant_id:
             continue
         evaluated = state.unmodified.intersection(set(row).difference(pk_keys))
         for key in evaluated:

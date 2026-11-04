@@ -44,10 +44,6 @@ def statement_values(stmt: Any) -> dict[str, Any]:
     return {_column_name(k): _bound_value(v) for k, v in raw.items()}
 
 
-def _statement_values(execute_state: ORMExecuteState) -> dict[str, Any]:
-    return statement_values(execute_state.statement)
-
-
 def _param_rows(execute_state: ORMExecuteState) -> list[dict[str, Any]]:
     params = execute_state.parameters
     if isinstance(params, dict):
@@ -57,7 +53,7 @@ def _param_rows(execute_state: ORMExecuteState) -> list[dict[str, Any]]:
 
 def assigned_tenant_ids(execute_state: ORMExecuteState) -> list[Any]:
     found = []
-    stmt_values = _statement_values(execute_state)
+    stmt_values = statement_values(execute_state.statement)
     if TENANT_COLUMN in stmt_values:
         found.append(stmt_values[TENANT_COLUMN])
     found.extend(row[TENANT_COLUMN] for row in _param_rows(execute_state) if TENANT_COLUMN in row)
@@ -102,7 +98,7 @@ def guard_insert(
             raise _foreign_insert(value, tenant_id)
 
     rows = _param_rows(execute_state)
-    stmt_has_tenant = TENANT_COLUMN in _statement_values(execute_state)
+    stmt_has_tenant = TENANT_COLUMN in statement_values(execute_state.statement)
     missing = (
         [r for r in rows if TENANT_COLUMN not in r] if rows else ([] if stmt_has_tenant else [None])
     )
