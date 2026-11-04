@@ -36,6 +36,12 @@ describe('ChangesList', () => {
     expect(screen.getByText('no changes recorded')).toBeInTheDocument();
   });
 
+  test('a restore without field edits explains the empty diff', () => {
+    render(<ChangesList action="restored" changes={[]} />);
+
+    expect(screen.getByText('no changes recorded')).toBeInTheDocument();
+  });
+
   test('a create counts the fields instead of listing them', () => {
     render(<ChangesList action="created" changes={FOUR} />);
 

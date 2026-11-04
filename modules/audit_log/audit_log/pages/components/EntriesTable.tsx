@@ -42,6 +42,7 @@ const ACTION_PILL: Record<string, string> = {
   updated: 'bg-blue-50 text-blue-700',
   deleted: 'bg-red-50 text-red-700',
   soft_deleted: 'bg-amber-50 text-amber-700',
+  restored: 'bg-blue-50 text-blue-700',
   bulk_inserted: 'bg-primary-600/10 text-primary-700',
   bulk_updated: 'bg-blue-50 text-blue-700',
   bulk_deleted: 'bg-red-50 text-red-700',

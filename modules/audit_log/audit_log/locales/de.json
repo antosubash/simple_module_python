@@ -38,6 +38,7 @@
     "updated": "aktualisiert",
     "deleted": "gelöscht",
     "soft_deleted": "archiviert",
+    "restored": "wiederhergestellt",
     "bulk_inserted": "massenweise erstellt",
     "bulk_updated": "massenweise geändert",
     "bulk_deleted": "massenweise gelöscht",

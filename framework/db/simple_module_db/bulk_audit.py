@@ -46,7 +46,6 @@ from simple_module_db._bulk_audit_records import (  # noqa: F401  (re-exported)
     _current_user,
     _deliver,
     _summary,
-    _where_params,
     record_bulk_audit,
 )
 from simple_module_db.audit import _excluded_fields, format_pk
@@ -115,6 +114,14 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     return ctx
 
 
+def _single_params(params: Any) -> dict[str, Any] | None:
+    """A single parameter dict (the SELECT ignores keys it does not bind), else ``None``.
+
+    An executemany list cannot be run as one SELECT, so it prefetches unparameterized.
+    """
+    return params if isinstance(params, dict) and params else None
+
+
 def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[str]:
     """Primary keys of the rows the statement will touch, at most ``cap + 1``."""
     stmt = execute_state.statement
@@ -122,14 +129,14 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
         cols = [getattr(cls, col.key) for col in sa_inspect(cls).primary_key]
     else:
         cols = list(stmt.table.primary_key.columns)
-    query = select(*cols).limit(cap + 1)
+    query = select(*cols).options(*stmt._with_options).limit(cap + 1)
     if stmt.whereclause is not None:
         query = query.where(stmt.whereclause)
     options = {"include_deleted": True}
     if execute_state.execution_options.get(ALL_TENANTS_OPTION):
         options[ALL_TENANTS_OPTION] = True
     rows = execute_state.session.execute(
-        query.execution_options(**options), _where_params(stmt, execute_state.parameters)
+        query.execution_options(**options), _single_params(execute_state.parameters)
     ).all()
     return [format_pk(tuple(row)) for row in rows]
 

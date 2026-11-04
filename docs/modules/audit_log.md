@@ -1,6 +1,6 @@
 # audit_log
 
-Automatic field-level audit trail for every SQLModel entity in the app. Each create / update / delete / soft-delete is captured in `audit_log_audit_entry` with the changed fields, the user who made the change, and the request correlation id — **no instrumentation required in module code**. Entities opt out, they don't opt in.
+Automatic field-level audit trail for every SQLModel entity in the app. Each create / update / delete / soft-delete / restore is captured in `audit_log_audit_entry` with the changed fields, the user who made the change, and the request correlation id — **no instrumentation required in module code**. Entities opt out, they don't opt in.
 
 ## ModuleMeta
 
@@ -37,7 +37,7 @@ audit_log = "audit_log.capture:audit_callback"
 
 `session.execute(update(Model)...)`, its `delete()` / `insert()` siblings and Core DML on `Model.__table__` never reach a flush, so a `do_orm_execute` listener (`simple_module_db.bulk_audit`) audits them instead, through the same per-engine `audit_callback` (requests and Celery workers alike):
 
-- **`UPDATE` / `DELETE`.** Before the statement runs, the listener reads the primary keys it will touch, with the same `WHERE` and the same tenant scope (soft-deleted rows included, as the write includes them). Up to 500 rows each get one entry (`bulk_updated`, `bulk_deleted`; an update that writes `is_deleted` is `bulk_soft_deleted` when the value is truthy or SQL such as `sa.true()`, else `bulk_restored`, decided per row for executemany; the statement's other written columns stay in `changes`); `changes` holds the `SET` values as `{field, new}` (a SQL expression is stored as SQL with bind placeholders). `session.execute(update(Model), [{"id": ..., ...}, ...])` takes the ids from the rows instead.
+- **`UPDATE` / `DELETE`.** Before the statement runs, the listener reads the primary keys it will touch, with the same `WHERE`, statement options (including `with_loader_criteria`) and tenant scope (soft-deleted rows included, as the write includes them). Up to 500 rows each get one entry (`bulk_updated`, `bulk_deleted`; an update that writes `is_deleted` is `bulk_soft_deleted` when the value is truthy or SQL such as `sa.true()`, else `bulk_restored`, decided per row for executemany; the statement's other written columns stay in `changes`); `changes` holds the `SET` values as `{field, new}` (a SQL expression is stored as SQL with bind placeholders). `session.execute(update(Model), [{"id": ..., ...}, ...])` takes the ids from the rows instead.
 - **More than 500 rows.** One summary entry with `entity_id` `"*"`: the `SET` values plus `where_sql` (the `WHERE` with bind placeholders, never the literal values), `rowcount` and `truncated: true`.
 - **`INSERT`.** One `bulk_inserted` summary entry per statement (`entity_id` `"*"`, the column values, or the column names for a multi-row insert).
 - **Only real targets count.** `changes` comes from the statement's `SET` / `VALUES` targets, each resolved to its model attribute (bound values read through the execute params). An execute-param key that names a column (and is not one of the statement's bind parameters) is written by SQLAlchemy, so it is a target too, for a single dict and for every executemany row; any other param key is ignored. Primary-key and `is_deleted` writes are never treated as excluded bookkeeping.
@@ -64,11 +64,12 @@ record_bulk_audit(session, Order, "bulk_updated", ids, {"status": "archived"})
 | `created` | object in `session.new` |
 | `updated` | object in `session.dirty` with real column changes (empty diffs are skipped) |
 | `deleted` | object in `session.deleted` (hard delete) |
-| `soft_deleted` | a `SoftDeleteMixin` row the soft-delete listener moved into `session.new` with `is_deleted=True` |
+| `soft_deleted` | a persistent `SoftDeleteMixin` row whose `is_deleted` changes to `True` (including a delete intercepted by the soft-delete listener) |
+| `restored` | a persistent `SoftDeleteMixin` row whose `is_deleted` changes from `True` to `False` |
 | `bulk_updated` / `bulk_deleted` / `bulk_soft_deleted` / `bulk_restored` | statement `UPDATE` / `DELETE` (see above), one per row or one `"*"` summary |
 | `bulk_inserted` | statement `INSERT`, one `"*"` summary per statement |
 
-`changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; deletes and soft-deletes carry an empty change list. Column values are normalised to JSON-safe scalars (non-primitives are stringified).
+`changes` is a list of `{field, new}` (creates) or `{field, old, new}` (updates) entries; hard deletes carry an empty change list. Soft-deletes and restores retain any other field edits made in the same flush, or carry an empty list when only the lifecycle flag changed. Column values are normalised to JSON-safe scalars (non-primitives are stringified).
 
 ## Opting out
 
@@ -99,7 +100,7 @@ class Cache(Base, table=True):
 
 An update whose changed columns are *all* excluded writes no audit row at all, so excluding a model's volatile columns is how to audit its meaningful transitions without one row per heartbeat. `background_tasks` does both: `OutboxMessage` (delivery bookkeeping) sets `__audit_exclude__ = True`, and `TaskExecution` excludes `heartbeat_at`, `queued_at`, `started_at`, `finished_at` and `retries`, so its creation and status changes are audited while the writes in between are not. This applies to request-path and Celery-worker writes alike.
 
-Primary-key columns and the bookkeeping fields injected by `AuditMixin` (`created_at`, `updated_at`, `created_by`, `updated_by`) and `SoftDeleteMixin` (`is_deleted`, `deleted_at`, `deleted_by`) are excluded from diffs automatically.
+Primary-key columns are excluded on create; ORM updates include their old and new values, and `entity_id` resolves to the new key after flush (#811). The bookkeeping fields injected by `AuditMixin` (`created_at`, `updated_at`, `created_by`, `updated_by`) and `SoftDeleteMixin` (`is_deleted`, `deleted_at`, `deleted_by`) are excluded from diffs automatically.
 
 ## Routes
 
@@ -146,7 +147,7 @@ from audit_log.contracts.schemas import AuditEntryRead, AuditEntryList
 | `id` | `UUID` | PK |
 | `entity_type` | `str(255)` | indexed; the model class name |
 | `entity_id` | `str(255)` | indexed; the resolved PK as a string |
-| `action` | `str(20)` | `created` / `updated` / `deleted` / `soft_deleted` |
+| `action` | `str(20)` | `created` / `updated` / `deleted` / `soft_deleted` / `restored`, plus the statement-DML actions above |
 | `changes` | JSON | list of field diffs |
 | `user_id` | `str(255) \| None` | indexed; from the request's `current_user_id` |
 | `correlation_id` | `str(255) \| None` | request correlation id |

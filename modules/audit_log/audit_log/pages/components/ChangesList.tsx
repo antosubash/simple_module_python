@@ -20,6 +20,7 @@ const VISIBLE_LIMIT = 2;
 const NO_DIFF_ACTIONS = new Set([
   'deleted',
   'soft_deleted',
+  'restored',
   'bulk_deleted',
   'bulk_soft_deleted',
   'bulk_restored',
