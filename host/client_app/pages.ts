@@ -31,9 +31,7 @@ const hostPages = {
   ]),
   // The e2e fixture pages back routes the host mounts only in development
   // (host/e2e_inertia); a production build constant-folds DEV and drops them.
-  ...(import.meta.env.DEV
-    ? import.meta.glob<PageModule>(['./pages/E2eInertia/*.tsx'])
-    : {}),
+  ...(import.meta.env.DEV ? import.meta.glob<PageModule>(['./pages/E2eInertia/*.tsx']) : {}),
 };
 
 const pages: Record<string, PageLoader> = {};
