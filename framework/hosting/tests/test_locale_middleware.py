@@ -124,3 +124,11 @@ def test_non_finite_and_out_of_range_q_values() -> None:
     assert mw._negotiate("en, es;q=5") == "en"
     # A negative weight is below 0 and therefore not acceptable.
     assert mw._negotiate("es;q=-1") is None
+
+
+def test_q_zero_is_found_among_other_parameters_and_spacing() -> None:
+    mw = LocaleMiddleware(lambda *a: None, supported_locales=["en", "es"], default_locale="en")
+    assert mw._negotiate("es;charset=utf-8;q=0") is None
+    assert mw._negotiate("es; q = 0, en;q=0.1") == "en"
+    assert mw._negotiate("es;q=0;") is None
+    assert mw._negotiate("es;Q=0") is None
