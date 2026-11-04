@@ -7,7 +7,9 @@ from alembic.runtime.migration import MigrationContext
 from simple_module_core.data_compatibility import collect_data_compatibility
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.module import ModuleBase
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from simple_module_db.listeners import register_listeners
+from simple_module_db.session import init_db
 
 DATA_COMPATIBILITY_CODE = "SM033"
 
@@ -15,11 +17,19 @@ DATA_COMPATIBILITY_CODE = "SM033"
 async def database_compatibility_diagnostics(
     modules: Sequence[ModuleBase], database_url: str
 ) -> list[Diagnostic]:
+    state = None
     try:
         if not _database_exists(database_url):
             return []  # Nothing migrated yet; opening it would create an empty SQLite file.
-        engine = create_async_engine(database_url)
+        # Read-only diagnostics: never switch a legacy SQLite file to WAL.
+        state = init_db(database_url, sqlite_wal=False)
+        # Doctor has no host settings: checks must explicitly opt into all tenants.
+        state.tenant_strict = True
+        register_listeners(state)
+        engine = state.engine
     except Exception:
+        if state is not None:
+            await state.engine.dispose()
         # A malformed or non-async URL must be a finding, not a traceback; the URL can
         # carry credentials, so it is not echoed.
         return [_problem(DiagnosticLevel.WARNING, "Could not open the database URL.")]
@@ -37,7 +47,7 @@ async def database_compatibility_diagnostics(
         if not migrated:
             return []
         try:
-            async with async_sessionmaker(engine)() as db:
+            async with state.session_factory() as db:
                 issues = await collect_data_compatibility(modules, db)
         except Exception as exc:
             # A check that crashes is a bug to fix, not a pass: doctor must fail.

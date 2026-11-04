@@ -43,9 +43,9 @@ process_revision_directives = make_process_revision_directives(target_metadata)
 # context.configure(..., render_item=render_item)
 ```
 
-`build_module_metadata()` walks the `simple_module` entry-point group, imports each module's `models` submodule, and merges every module's per-module `MetaData` into one unified `MetaData`. `make_include_object(metadata)` allowlists only tables owned by installed modules — any host-owned tables (and `alembic_version`) outside the module system are preserved untouched. So one autogenerate call covers every installed module in a single pass; editable installs and wheels behave identically.
+`build_module_metadata()` walks the `simple_module` entry-point group, imports each module's `models` submodule (a missing `models` module is skipped; a missing dependency inside it raises), and merges every module's per-module `MetaData` into one unified `MetaData`. `make_include_object(metadata)` allowlists only tables owned by installed modules — any host-owned tables (and `alembic_version`) outside the module system are preserved untouched. So one autogenerate call covers every installed module in a single pass; editable installs and wheels behave identically.
 
-Two extras matter for correctness: `render_item` collapses SQLModel's `AutoString` to `sa.String` and renders `StrEnum` columns so the generated file imports cleanly, and `make_process_revision_directives` re-emits expression-based (functional) indexes — e.g. `lower(email)` — that autogenerate silently drops under SQLite.
+Two extras matter for correctness: `render_item` collapses SQLModel's `AutoString` to `sa.String` and renders `StrEnum` columns with the runtime type's labels so the generated file imports cleanly, and `make_process_revision_directives` re-emits expression-based (functional) indexes — e.g. `lower(email)` — that autogenerate silently drops under SQLite.
 
 All module tables live in the **host's single shared schema** on both Postgres and SQLite (each module still owns its own `MetaData` purely so autogenerate can attribute a table to its module). There is no schema-per-module; `__tablename__` is prefixed with the module name (`orders_order`) to avoid collisions, and a cross-module FK is an ordinary same-schema reference.
 

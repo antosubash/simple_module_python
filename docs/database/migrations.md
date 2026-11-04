@@ -2,6 +2,23 @@
 
 All migrations live in `host/migrations/versions/` — **not** in module packages. Alembic runs from the repo root via `host/alembic.ini` and shares the app's `.env` / `SM_DATABASE_URL`.
 
+Autogenerate's `make_include_object()` filter preserves foreign keys declared
+only in migrations by ignoring unmatched **reflected** constraints. Newly modeled
+foreign keys on existing tables still generate `CreateForeignKeyOp`; set
+`ignore_unmodeled_fks=False` to allow dropping database-only constraints (#812).
+A foreign key with the same columns and target but different options (`ondelete`,
+`deferrable`) is emitted as a drop plus a create; one with other columns or another
+target is a different constraint and stays preserved. SQLite cannot `ALTER` constraints: wrap such ops in
+`op.batch_alter_table(...)` by hand before applying the revision there.
+
+For `sa.Enum` columns backed by Python `StrEnum`, generated revisions freeze the
+column's actual configured labels and preserve `name`, `native_enum`,
+`create_constraint`, `length` and configured `values_callable` behavior without
+importing application enums/callables. Plain enum fields store member names
+(e.g. `READY`); to store values (e.g. `ready`), configure the **runtime** type with
+`values_callable=lambda e: [m.value for m in e]`. Custom callable labels are frozen
+in the revision. Existing revisions are not rewritten (#813).
+
 ## Why centralized?
 
 - **Dependency ordering is global.** If `invoices` depends on `orders_order.id`, their migrations must order correctly. One shared Alembic history, with `down_revision` links between modules, enforces this.
@@ -30,6 +47,14 @@ refuses boot outside development, while obsolete mail keys warn. Never-migrated
 first runs defer checks until the wizard applies migrations. No automatic
 credential deletion happens at startup. See the [scaffolded host upgrade
 guide](../guide/upgrading.md) for the operator workflow and token sign-out risk.
+
+Doctor uses the DB session factory and listeners used at boot: soft-deleted
+rows are hidden and tenant queries are scoped. Because doctor has no host settings,
+it always enforces strict tenant isolation, which is stricter than a single-tenant
+boot: a check that passes doctor also passes boot. A check must use `tenant_context(id)`
+for one tenant or explicitly use `all_tenants()` / `execution_options(all_tenants=True)`
+for an installation-wide check. Add `execution_options(include_deleted=True)`
+only when the check also needs trashed rows. These opt-ins work at boot too (#815).
 
 ## The real graph
 
@@ -174,7 +199,7 @@ context.configure(
 
 - `target_metadata` — union of every module's `MetaData`.
 - `include_object` — accepts only tables present in `target_metadata`, so autogenerate never diffs system tables (`alembic_version`) or any host-owned tables outside the module system.
-- `render_item` — collapses SQLModel's `AutoString` to `sa.String` and renders `StrEnum` columns with `values_callable` so generated migrations are importable.
+- `render_item` — collapses SQLModel's `AutoString` to `sa.String` and renders `StrEnum` columns with their configured labels and storage options (no application imports in revisions, #813).
 - `process_revision_directives` — re-emits expression-based (functional) indexes that autogenerate silently drops under SQLite.
 
 ## Boot-time migration check

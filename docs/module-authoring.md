@@ -376,8 +376,9 @@ generated file against this checklist before treating it as portable
    `sa.Enum(Status)` the stored label is the member *name*
    (`server_default="PUBLISH"`), not its value (`"publish"`). SQLite accepts
    either; PostgreSQL rejects the value with `invalid input value for enum`.
-   (A `StrEnum` rendered with `values_callable`, which is what `render_item`
-   emits, stores the *value* — match the default to whichever the column uses.)
+   (A `StrEnum` column whose runtime type sets `values_callable` stores the
+   *value*; `render_item` freezes whichever labels the runtime type uses, so
+   match the default to the column's labels.)
 
 Prove it on PostgreSQL before merging. Create a disposable database once
 (`createdb sm_migrations_check` on the shared dev Postgres), then:
