@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Query
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia import always, deep_merge, defer, merge, once, optional, prepend, scroll
+from starlette.responses import RedirectResponse
 
 from host.e2e_inertia import constants as c
 from host.e2e_inertia.probes import count, counters, loader
@@ -145,13 +146,26 @@ async def visible(inertia: InertiaDep):
     )
 
 
+@router.get("/history/moved")
+async def history_moved():
+    # The visit's URL changes on the redirect, so only preserveFragment keeps its #hash.
+    return RedirectResponse(f"{c.ROUTE_PREFIX}/history/fragment", status_code=302)
+
+
+@router.get("/history/moved-plain")
+async def history_moved_plain():
+    return RedirectResponse(f"{c.ROUTE_PREFIX}/history/plain", status_code=302)
+
+
 @router.get("/history")
 @router.get("/history/{mode}")
-async def history(inertia: InertiaDep, mode: Literal["encrypt", "clear", "fragment"] = "encrypt"):
+async def history(
+    inertia: InertiaDep, mode: Literal["encrypt", "clear", "fragment", "plain"] = "encrypt"
+):
     if mode == "encrypt":
         inertia.encrypt_history()
     elif mode == "clear":
         inertia.clear_history()
-    else:
+    elif mode == "fragment":
         inertia.preserve_fragment()
     return await inertia.render(c.PAGE_HISTORY, {"mode": mode})

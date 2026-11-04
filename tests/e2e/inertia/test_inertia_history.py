@@ -78,9 +78,17 @@ def test_clear_history_forces_refetch_of_earlier_encrypted_entries(page, base_ur
     assert page.evaluate("window.__marker") == 1
 
 
-def test_preserve_fragment_keeps_hash(page):
+def test_preserve_fragment_keeps_hash_across_a_redirect(page):
     page.goto("/__e2e/inertia/history")
     page.get_by_test_id("e2e-history-fragment").click()
     expect(page.get_by_test_id("e2e-value-history-mode")).to_have_text('"fragment"')
     expect(page).to_have_url(re.compile(r"/__e2e/inertia/history/fragment#history-section$"))
     expect(page.get_by_test_id("e2e-history-section")).to_be_in_viewport()
+
+
+def test_redirect_without_preserve_fragment_drops_hash(page):
+    """Control: proves the test above depends on the flag, not default client behaviour."""
+    page.goto("/__e2e/inertia/history")
+    page.get_by_test_id("e2e-history-fragment-plain").click()
+    expect(page.get_by_test_id("e2e-value-history-mode")).to_have_text('"plain"')
+    expect(page).to_have_url(re.compile(r"/__e2e/inertia/history/plain$"))

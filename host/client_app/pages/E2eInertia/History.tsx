@@ -14,10 +14,16 @@ export default function History({ mode }: { mode: string }) {
           Clear history
         </Link>
         <Link
-          href="/__e2e/inertia/history/fragment#history-section"
+          href="/__e2e/inertia/history/moved#history-section"
           data-testid="e2e-history-fragment"
         >
-          Visit with fragment
+          Redirect keeping fragment
+        </Link>
+        <Link
+          href="/__e2e/inertia/history/moved-plain#history-section"
+          data-testid="e2e-history-fragment-plain"
+        >
+          Redirect without preserveFragment
         </Link>
         <button
           type="button"
