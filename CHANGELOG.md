@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.43] — 2026-11-04
+
 ### Added
 - `simple_module_test.InertiaPage` and `inertia_page()` parse HTML/JSON pages,
   provide chained prop assertions, and load partial/deferred props (#779).
@@ -1760,7 +1762,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.43...HEAD
+[0.0.43]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...v0.0.43
 [0.0.42]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...v0.0.42
 [0.0.41]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...v0.0.41
 [0.0.40]: https://github.com/antosubash/simple_module_python/compare/v0.0.39...v0.0.40
