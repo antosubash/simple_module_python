@@ -2,14 +2,14 @@
 
 ``insert(...).from_select(..., select(...))`` reads like any SELECT, and so
 does a subquery placed in ``.values()`` (single or multi-row) or in an
-``ON CONFLICT DO UPDATE`` arm's ``set_`` / ``where`` or in ``RETURNING``. Those subqueries are
-scoped whatever the insert's target is — an untenanted table is no less a
-place another tenant's data could be copied to.
+``ON CONFLICT DO UPDATE`` arm's ``set_`` / ``where`` or in ``RETURNING``.
+Those subqueries are scoped whatever the insert's target is — an untenanted
+table is no less a place another tenant's data could be copied to.
 
-The values and RETURNING of an insert sit outside the reach of loader criteria, so an ORM
-subquery there is deannotated first and scoped as a Core one: every tenant /
-soft-deletable table it reads gets its predicates (or, strict with no
-tenant, raises).
+The values and RETURNING of an insert sit outside the reach of loader
+criteria, so an ORM subquery there is deannotated first and scoped as a Core
+one: every tenant / soft-deletable table it reads gets its predicates (or,
+strict with no tenant, raises).
 """
 
 from __future__ import annotations

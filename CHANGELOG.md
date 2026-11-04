@@ -57,8 +57,8 @@ All notable changes to this project are documented in this file. The format is b
   ORM bulk UPDATE by primary key (`session.execute(update(Model), rows)`),
   `update().ordered_values()` (assigning `tenant_id` raises like `.values()`),
   subqueries in an insert's `.values()` / multi-row values / `RETURNING` /
-  `on_conflict_do_update()` `set_` and `where` (whatever the insert's target; strict mode with no tenant
-  raises), UPDATE / DELETE embedded as a CTE, UPDATE / DELETE on an aliased Core
+  `on_conflict_do_update()` `set_` and `where` (whatever the insert's target;
+  strict mode with no tenant raises), UPDATE / DELETE embedded as a CTE, UPDATE / DELETE on an aliased Core
   table, and a table read only through an UPDATE's `SET` values (`UPDATE … FROM`).
 - **Behaviour change:** these shapes now raise `TenantIsolationError`:
   - an INSERT into a tenant table embedded in another statement (as a CTE, or
