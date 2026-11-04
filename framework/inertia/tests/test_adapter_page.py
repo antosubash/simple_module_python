@@ -175,3 +175,10 @@ class TestPlainJsonFastPath:
     def test_non_string_keys_take_the_encoder(self) -> None:
         page = {"component": "C", "props": {"by_id": {1: "a"}}, "url": "/"}
         assert encode_page(page) is not page
+
+    def test_cyclic_data_is_not_walked_forever(self) -> None:
+        from simple_module_inertia.page import _is_plain_json
+
+        props: dict[str, object] = {}
+        props["self"] = props
+        assert _is_plain_json({"props": props}) is False

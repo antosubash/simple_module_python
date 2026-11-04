@@ -18,7 +18,7 @@ from simple_module_inertia.request import InertiaRequest
 
 logger = logging.getLogger(__name__)
 
-_SCALARS = frozenset({str, int, float, bool, type(None)})
+JSON_SCALARS = frozenset({str, int, float, bool, type(None)})
 
 
 def _is_dynamic(value: Any) -> bool:
@@ -118,7 +118,7 @@ async def _resolve_tree(
         # they skip the Prop wrapper; only a partial filter needs their path.
         # The scalar test runs first: it is far cheaper than _is_dynamic,
         # and shared data such as the i18n catalog is hundreds of strings.
-        scalar = type(raw) in _SCALARS
+        scalar = type(raw) in JSON_SCALARS
         if scalar or not _is_dynamic(raw):
             if scalar and not filtering:
                 result[key] = raw
@@ -180,7 +180,7 @@ async def _resolve_children(
     if isinstance(value, list):
         items: list[Any] = []
         for index, child in enumerate(value):
-            if type(child) in _SCALARS or not (
+            if type(child) in JSON_SCALARS or not (
                 _is_dynamic(child) or isinstance(child, (dict, list))
             ):
                 items.append(child)
