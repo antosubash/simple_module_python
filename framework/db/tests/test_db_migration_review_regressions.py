@@ -133,3 +133,30 @@ def test_db_metadata_only_ignores_missing_models_module(tmp_path, monkeypatch, m
         with pytest.raises(ModuleNotFoundError) as exc:
             migrations.build_module_metadata([module])
         assert exc.value.name == missing
+
+
+def test_db_autogenerate_replaces_fk_with_changed_options():
+    def build(ondelete):
+        metadata = sa.MetaData()
+        sa.Table("parent", metadata, sa.Column("id", sa.Integer, primary_key=True))
+        sa.Table(
+            "child",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("parent_id", sa.Integer, sa.ForeignKey("parent.id", ondelete=ondelete)),
+        )
+        return metadata
+
+    old, target = build(None), build("CASCADE")
+    engine = sa.create_engine("sqlite://")
+    try:
+        old.create_all(engine)
+        with engine.connect() as conn:
+            ctx = MigrationContext.configure(
+                conn, opts={"include_object": make_include_object(target)}
+            )
+            ops = list(iter_ops_recursive(produce_migrations(ctx, target).upgrade_ops))
+        assert any(isinstance(op, CreateForeignKeyOp) for op in ops)
+        assert any(type(op).__name__ == "DropConstraintOp" for op in ops)
+    finally:
+        engine.dispose()

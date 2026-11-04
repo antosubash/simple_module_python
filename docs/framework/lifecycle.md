@@ -368,7 +368,7 @@ Use stable semantic ids and inspect actual schema/data state so hosts with
 independently ported revisions pass. Checks run before module DB-settings
 hydration and `on_startup`; errors refuse boot outside development. A never-
 migrated first run defers checks until migrations have been applied. Doctor
-reports the same issues as `SM033`. Checks must never clear credentials or apply
+reports the same issues as `SM033`, through the same filtered sessions (soft-deleted rows hidden, strict tenancy: use `tenant_context()` or `all_tenants()`). Checks must never clear credentials or apply
 migrations; see [Migrations](../database/migrations.md).
 
 ## `on_startup()` / `on_shutdown()`
