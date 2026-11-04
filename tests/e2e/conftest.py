@@ -99,11 +99,3 @@ def mint_verify_token(user_id: str, email: str, secret: str) -> str:
         secret,
         3600,
     )
-
-
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "allow_resource_errors: tolerate 'Failed to load resource' console errors "
-        "(test_inertia_* fixtures only)",
-    )

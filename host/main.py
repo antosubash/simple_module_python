@@ -33,7 +33,7 @@ setup_logging(
 
 app = create_app(settings)
 app.include_router(host_router)
-# Fixture pages for tests/e2e/test_inertia_*.py; development only.
+# Fixture pages for tests/e2e/inertia/; development only.
 mount_e2e_inertia_if_development(app, settings)
 # Mounted last: its catch-all {path:path} routes must not shadow a real
 # route that happens to share a legacy prefix.

@@ -1,14 +1,6 @@
 import pytest
 from playwright.sync_api import expect
 
-from tests.e2e.inertia_support import (  # noqa: F401
-    inertia_context,
-    inertia_storage_state,
-    page,
-    probes,
-    reset_probes,
-)
-
 pytestmark = pytest.mark.e2e
 
 
@@ -40,7 +32,7 @@ def test_once_expiry_refetches(page, probes):
     assert probes()["expiring"] == 1
     page.get_by_test_id("e2e-once-away").click()
     expect(page.get_by_test_id("e2e-user-email")).to_be_visible()
-    page.wait_for_timeout(5500)  # the one allowed sleep: real 5s expiry
+    page.wait_for_timeout(5500)  # real 5s server-side expiry; no event to wait on
     page.get_by_test_id("e2e-link-once").click()
     expect(val(page, "expiring")).to_have_text("2")
     assert probes()["expiring"] == 2

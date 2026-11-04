@@ -3,7 +3,7 @@
 The framework's own pages never use partial reloads, deferred props, merge
 props, once props, infinite scroll, error bags, history encryption,
 ``WhenVisible``, polling or prefetch. These routes exist so
-``tests/e2e/test_inertia_*.py`` can drive those client features in a real
+``tests/e2e/inertia/`` can drive those client features in a real
 browser. The host mounts them only when ``settings.is_development`` is true.
 """
 

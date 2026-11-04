@@ -1,13 +1,10 @@
-"""Shared fixtures for the ``test_inertia_*.py`` browser tests.
+"""Fixtures for the Inertia fixture-page browser tests in this directory.
 
-Test modules import the fixtures they need::
-
-    from tests.e2e.inertia_support import page, probes, reset_probes  # noqa: F401
-
-They drive the development-only fixture pages under ``/__e2e/inertia``
-(``host/e2e_inertia``). ``page`` is signed in through one API login per session
-and fails the test on any console error or uncaught page error; the existing
-e2e tests keep pytest-playwright's plain ``page``.
+They drive the development-only pages under ``/__e2e/inertia``
+(``host/e2e_inertia``). ``page`` is overridden here, so only tests in this
+directory get it: signed in through one API login per session, failing the
+test on any console error or uncaught page error. The rest of the e2e suite
+keeps pytest-playwright's plain ``page``.
 """
 
 from __future__ import annotations
@@ -94,3 +91,11 @@ def probes(inertia_context: BrowserContext) -> Callable[[], dict[str, int]]:
         return json.loads(inertia_context.request.get(f"{PREFIX}/_probes").text())
 
     return read
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "allow_resource_errors: tolerate 'Failed to load resource' console errors "
+        "(tests/e2e/inertia only)",
+    )

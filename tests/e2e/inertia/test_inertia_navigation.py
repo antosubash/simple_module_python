@@ -1,20 +1,12 @@
 import pytest
 from playwright.sync_api import expect
 
-from tests.e2e.inertia_support import (  # noqa: F401
-    inertia_context,
-    inertia_storage_state,
-    page,
-    probes,
-    reset_probes,
-)
-
 pytestmark = pytest.mark.e2e
 
 
-def test_index_renders(page):
+def test_index_renders(page, e2e_username):
     page.goto("/__e2e/inertia/")
-    expect(page.get_by_test_id("e2e-user-email")).to_have_text("admin@example.com")
+    expect(page.get_by_test_id("e2e-user-email")).to_have_text(e2e_username)
     expect(page.get_by_test_id("e2e-link-partial")).to_be_visible()
 
 

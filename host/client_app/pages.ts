@@ -22,11 +22,19 @@ type PageLoader = () => Promise<PageModule>;
 // into the production bundle, shipping the test and dragging testing-library
 // into a vendor chunk. Mirrors TEST_FILE_SUFFIXES in the manifest generator,
 // which emits the same negations for module pages.
-const hostPages = import.meta.glob<PageModule>([
-  './pages/**/*.tsx',
-  '!./pages/**/*.test.tsx',
-  '!./pages/**/*.spec.tsx',
-]);
+const hostPages = {
+  ...import.meta.glob<PageModule>([
+    './pages/**/*.tsx',
+    '!./pages/**/*.test.tsx',
+    '!./pages/**/*.spec.tsx',
+    '!./pages/E2eInertia/**',
+  ]),
+  // The e2e fixture pages back routes the host mounts only in development
+  // (host/e2e_inertia); a production build constant-folds DEV and drops them.
+  ...(import.meta.env.DEV
+    ? import.meta.glob<PageModule>(['./pages/E2eInertia/*.tsx'])
+    : {}),
+};
 
 const pages: Record<string, PageLoader> = {};
 

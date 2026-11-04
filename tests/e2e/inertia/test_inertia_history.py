@@ -4,14 +4,6 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-from tests.e2e.inertia_support import (  # noqa: F401
-    inertia_context,
-    inertia_storage_state,
-    page,
-    probes,
-    reset_probes,
-)
-
 pytestmark = pytest.mark.e2e
 
 STATE = "JSON.stringify(window.history.state)"
