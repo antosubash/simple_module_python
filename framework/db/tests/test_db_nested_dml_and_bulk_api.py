@@ -70,6 +70,12 @@ async def test_insert_cte_is_refused(scope_db, orm):
         await scope_db.execute(select(cte.c.id))
 
 
+async def test_insert_cte_is_refused_unbound_on_single_tenant_install(lax_db):
+    cte = insert(doc).values(id=31, name="x").returning(doc.c.id).cte("i")
+    with pytest.raises(TenantIsolationError):
+        await lax_db.execute(select(cte.c.id))
+
+
 async def test_dml_cte_all_tenants_is_left_alone(scope_db, captured_sql):
     cte = update(doc).values(note="cte").returning(doc.c.id).cte("w")
     with all_tenants():
@@ -133,3 +139,34 @@ async def test_legacy_bulk_api_allowed_unbound_on_single_tenant_install(lax_db):
 async def test_legacy_bulk_api_untenanted_model_unaffected(scope_db):
     with tenant_context("a"):
         await scope_db.run_sync(lambda s: s.bulk_insert_mappings(ScopeProj, [{"id": 9}]))
+
+
+async def test_legacy_bulk_api_keyword_arguments(scope_db):
+    with tenant_context("a"):
+        await scope_db.run_sync(
+            lambda s: s.bulk_insert_mappings(mapper=ScopeProj, mappings=[{"id": 9}])
+        )
+        await scope_db.run_sync(lambda s: s.bulk_save_objects(objects=iter([ScopeProj(id=10)])))
+        with pytest.raises(TenantIsolationError):
+            await scope_db.run_sync(
+                lambda s: s.bulk_insert_mappings(mapper=ScopeDoc, mappings=[{"id": 20}])
+            )
+        with pytest.raises(TenantIsolationError):
+            await scope_db.run_sync(lambda s: s.bulk_save_objects(objects=iter([ScopeDoc(id=21)])))
+
+
+async def test_insert_add_cte_dml_is_scoped(scope_db, captured_sql):
+    cte = update(doc).values(note="cte").returning(doc.c.id).cte("w")
+    stmt = insert(ScopeProj.__table__).values(id=7, note="z").add_cte(cte)
+    with tenant_context("a"):
+        await _run_cte_insert(scope_db, stmt)
+    assert _scoped_where(captured_sql, "UPDATE "), captured_sql
+
+
+async def _run_cte_insert(session, stmt):
+    try:
+        await session.execute(stmt)
+    except DBAPIError:
+        if session.bind.dialect.name != "sqlite":
+            raise
+        await session.rollback()

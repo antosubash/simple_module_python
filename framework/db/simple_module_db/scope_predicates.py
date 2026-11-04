@@ -81,15 +81,17 @@ def nested_dml_guard(
         if skip_tenant or name not in registry.tenant_table_names:
             return []
         op = stmt.__visit_name__.upper()
-        if tenant_id is None:
-            if strict:
-                raise missing_tenant_error(name, op)
-            return []
         if op == "INSERT":
+            # Refused with or without a bound tenant: its rows can be neither
+            # checked nor stamped with the fallback tenant.
             raise TenantIsolationError(
                 f"INSERT into tenant-scoped '{name}' inside another statement is not "
                 "tenant-scoped; run it as a statement of its own"
             )
+        if tenant_id is None:
+            if strict:
+                raise missing_tenant_error(name, op)
+            return []
         if op == "UPDATE" and TENANT_COLUMN in statement_values(stmt):
             raise TenantIsolationError("Cannot change tenant_id of existing rows")
         return [stmt.table.c.tenant_id == tenant_id]

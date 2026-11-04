@@ -24,7 +24,8 @@ from sqlalchemy.sql.elements import ClauseElement, ColumnClause, ColumnElement
 from sqlalchemy.sql.selectable import Alias, Join, Select, TableClause
 from sqlalchemy.sql.traversals import _get_children
 
-from simple_module_db._core_joins import _base_name, _is_orm, is_plain_leaf
+from simple_module_db._core_joins import _base_name, _is_orm, is_scoped_leaf
+from simple_module_db.insert_guard import raw_values
 
 
 def orm_less(stmt: Any) -> bool:
@@ -58,8 +59,7 @@ def set_froms(stmt: Any) -> list[Any]:
     in the ``WHERE``. A scalar subquery adds no FROM; its own SELECT is
     scoped where it is visited.
     """
-    raw = getattr(stmt, "_values", None) or dict(getattr(stmt, "_ordered_values", None) or ())
-    return [f for value in raw.values() for f in getattr(value, "_from_objects", ())]
+    return [f for value in raw_values(stmt).values() for f in getattr(value, "_from_objects", ())]
 
 
 def core_where_froms(stmt: Select) -> list[Any]:
@@ -107,11 +107,7 @@ def references_plain(stmt: Any, names: set[str]) -> bool:
             continue
         seen[id(el)] = el
         target = el if isinstance(el, (TableClause, Alias)) else _table_of(el)
-        if (
-            isinstance(target, (TableClause, Alias))
-            and is_plain_leaf(target)
-            and _base_name(target) in names
-        ):
+        if isinstance(target, (TableClause, Alias)) and is_scoped_leaf(target, names):
             return True
         if el.__visit_name__ != "bindparam":  # a bound value: no clause children
             stack.extend(_children(el))

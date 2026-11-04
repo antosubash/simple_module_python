@@ -51,10 +51,3 @@ def register(cls: type) -> None:
 @event.listens_for(Mapper, "mapper_configured")
 def _on_mapper_configured(mapper: Mapper, cls: type) -> None:
     register(cls)
-
-
-def is_plain_table(from_obj: Any, names: set[str]) -> bool:
-    """A Core table (``Model.__table__``), not an ORM-annotated occurrence."""
-    return getattr(from_obj, "name", None) in names and "parententity" not in getattr(
-        from_obj, "_annotations", {}
-    )

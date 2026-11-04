@@ -69,7 +69,7 @@ async def lax_db():
 
 
 async def docs(session):
-    """Every doc row as ``(id, tenant_id, name, note)``, bypassing both filters."""
+    """Every doc row as ``(id, tenant_id, name, note)``, ignoring both filters."""
     stmt = select(doc.c.id, doc.c.tenant_id, doc.c.name, doc.c.note).order_by(doc.c.id)
     stmt = stmt.execution_options(all_tenants=True, include_deleted=True)
     return [tuple(r) for r in (await session.execute(stmt)).all()]

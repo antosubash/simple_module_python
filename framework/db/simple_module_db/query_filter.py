@@ -22,7 +22,7 @@ from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_pk_update import is_bulk_pk_update, scoped_bulk_pk_update
-from simple_module_db._core_joins import _base_name, is_plain_leaf
+from simple_module_db._core_joins import _base_name, is_scoped_leaf
 from simple_module_db.core_scope import scope_core
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.insert_scope import scope_insert
@@ -199,9 +199,7 @@ def _dml_target(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
         return []
     target = getattr(execute_state.statement, "table", None)
     # ``delete(Model.__table__.alias("v"))`` is named after the alias.
-    if target is None or not is_plain_leaf(target) or _base_name(target) not in names:
-        return []
-    return [target]
+    return [target] if target is not None and is_scoped_leaf(target, names) else []
 
 
 def _tenant_criteria(

@@ -1,4 +1,4 @@
-"""Scope what an INSERT reads: its SELECT source and the subqueries in its values.
+"""Scope what an INSERT reads: its SELECT source, CTEs and the subqueries in its values.
 
 ``insert(...).from_select(..., select(...))`` reads like any SELECT, and so
 does a subquery placed in ``.values()`` (single or multi-row) or in an
@@ -18,12 +18,12 @@ from collections.abc import Callable
 from copy import copy
 from typing import Any
 
-from sqlalchemy.dialects.postgresql.dml import OnConflictDoUpdate as PgConflictUpdate
-from sqlalchemy.dialects.sqlite.dml import OnConflictDoUpdate as SqliteConflictUpdate
 from sqlalchemy.sql import visitors
 from sqlalchemy.sql.annotation import _deep_deannotate
 from sqlalchemy.sql.elements import BindParameter, ClauseElement
 from sqlalchemy.util import immutabledict
+
+from simple_module_db.insert_guard import conflict_arm
 
 Scope = Callable[[Any], Any]
 
@@ -52,8 +52,8 @@ def _row(row: Any, scope: Scope) -> Any:
 
 
 def _arm(arm: Any, scope: Scope) -> Any:
-    if not isinstance(arm, (PgConflictUpdate, SqliteConflictUpdate)):
-        return arm
+    if arm is None:
+        return None
     values = [(k, _expr(v, scope)) for k, v in arm.update_values_to_set]
     where = arm.update_whereclause
     scoped_where = None if where is None else _expr(where, scope)
@@ -68,11 +68,12 @@ def _arm(arm: Any, scope: Scope) -> Any:
 
 def scope_insert(stmt: Any, scope: Scope) -> Any:
     """``stmt`` with its SELECT source and its value subqueries scoped by ``scope``."""
-    if getattr(stmt, "select", None) is not None:
+    # ``add_cte()``: a data-modifying CTE attached to the insert runs with it.
+    if getattr(stmt, "select", None) is not None or getattr(stmt, "_independent_ctes", None):
         stmt = scope(stmt)
     values = stmt._values
     multi = stmt._multi_values
-    arm = getattr(stmt, "_post_values_clause", None)
+    arm = conflict_arm(stmt)
     new_values = {k: _expr(v, scope) for k, v in values.items()} if values else values
     new_multi = tuple([_row(r, scope) for r in group] for group in multi) if multi else multi
     new_arm = _arm(arm, scope)

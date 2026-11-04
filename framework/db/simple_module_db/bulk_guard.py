@@ -47,13 +47,24 @@ def _check(session: Session, method: str, classes: Iterable[type]) -> None:
             )
 
 
-def _wrap(original: Callable[..., Any], method: str, classes_of: Callable[..., Any]) -> Any:
+def _wrap(
+    original: Callable[..., Any], method: str, subject: str, classes_of: Callable[..., Any]
+) -> Any:
+    """Check ``subject`` (the first parameter, positional or by keyword) before the call."""
+
     @functools.wraps(original)
-    def guarded(self: Session, first: Any, *args: Any, **kwargs: Any) -> Any:
-        if method == "bulk_save_objects":
-            first = list(first)  # may be a one-shot iterator
-        _check(self, method, classes_of(first))
-        return original(self, first, *args, **kwargs)
+    def guarded(self: Session, *args: Any, **kwargs: Any) -> Any:
+        if args:
+            first, rest = args[0], args[1:]
+            if method == "bulk_save_objects":
+                first = list(first)  # may be a one-shot iterator
+            _check(self, method, classes_of(first))
+            return original(self, first, *rest, **kwargs)
+        if subject in kwargs:
+            if method == "bulk_save_objects":
+                kwargs[subject] = list(kwargs[subject])
+            _check(self, method, classes_of(kwargs[subject]))
+        return original(self, **kwargs)
 
     return guarded
 
@@ -62,12 +73,16 @@ def install_bulk_guard(session_class: type[Session]) -> None:
     """Guard the legacy bulk methods of ``session_class``; idempotent."""
     if any(base.__dict__.get(_GUARDED_ATTR) for base in session_class.__mro__):
         return
-    for method, classes_of in (
-        ("bulk_save_objects", lambda objects: {type(o) for o in objects}),
-        ("bulk_insert_mappings", lambda mapper: [_mapped_class(mapper)]),
-        ("bulk_update_mappings", lambda mapper: [_mapped_class(mapper)]),
+    for method, subject, classes_of in (
+        ("bulk_save_objects", "objects", lambda objects: {type(o) for o in objects}),
+        ("bulk_insert_mappings", "mapper", lambda mapper: [_mapped_class(mapper)]),
+        ("bulk_update_mappings", "mapper", lambda mapper: [_mapped_class(mapper)]),
     ):
-        setattr(session_class, method, _wrap(getattr(session_class, method), method, classes_of))
+        setattr(
+            session_class,
+            method,
+            _wrap(getattr(session_class, method), method, subject, classes_of),
+        )
     setattr(session_class, _GUARDED_ATTR, True)
 
 
