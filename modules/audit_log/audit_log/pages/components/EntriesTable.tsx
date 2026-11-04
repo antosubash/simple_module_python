@@ -37,7 +37,7 @@ export interface AuditEntryRead {
 
 // Borderless tints, lowercase values: the pill is a value in a dense table,
 // not a badge competing with the row's links for attention.
-const ACTION_PILL: Record<string, string> = {
+const ACTION_PILL: Record<(typeof ACTIONS)[number], string> = {
   created: 'bg-primary-600/10 text-primary-700',
   updated: 'bg-blue-50 text-blue-700',
   deleted: 'bg-red-50 text-red-700',
