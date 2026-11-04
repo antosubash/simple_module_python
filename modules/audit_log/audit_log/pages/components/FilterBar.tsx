@@ -20,6 +20,7 @@ export const ACTIONS = [
   'updated',
   'deleted',
   'soft_deleted',
+  'restored',
   'bulk_inserted',
   'bulk_updated',
   'bulk_deleted',

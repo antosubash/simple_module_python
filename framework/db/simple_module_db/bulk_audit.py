@@ -30,6 +30,9 @@ from typing import Any, Final
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import ORMExecuteState
+from sqlalchemy.orm.util import LoaderCriteriaOption
+from sqlalchemy.sql.elements import BindParameter
+from sqlalchemy.sql.visitors import iterate
 
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_audit_records import (  # noqa: F401  (re-exported)
@@ -46,7 +49,6 @@ from simple_module_db._bulk_audit_records import (  # noqa: F401  (re-exported)
     _current_user,
     _deliver,
     _summary,
-    _where_params,
     record_bulk_audit,
 )
 from simple_module_db.audit import _excluded_fields, format_pk
@@ -115,6 +117,24 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     return ctx
 
 
+def _bound_params(params: Any, *clauses: Any) -> dict[str, Any] | None:
+    """The execute params the prefetch's own clauses bind (``WHERE`` and loader criteria).
+
+    Only those keys pass, so a caller's param cannot collide with a bind the SELECT
+    adds itself (its ``LIMIT``). An executemany list never reaches the prefetch.
+    """
+    if not isinstance(params, dict) or not params:
+        return None
+    keys = {
+        el.key
+        for clause in clauses
+        if clause is not None
+        for el in iterate(clause)
+        if isinstance(el, BindParameter)
+    }
+    return {k: v for k, v in params.items() if k in keys} or None
+
+
 def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[str]:
     """Primary keys of the rows the statement will touch, at most ``cap + 1``."""
     stmt = execute_state.statement
@@ -122,14 +142,22 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
         cols = [getattr(cls, col.key) for col in sa_inspect(cls).primary_key]
     else:
         cols = list(stmt.table.primary_key.columns)
-    query = select(*cols).limit(cap + 1)
+    # Loader criteria narrow the rows the DML touches; other options (load
+    # strategies) mean nothing on a PK-only SELECT and can refuse it.
+    criteria = [o for o in stmt._with_options if isinstance(o, LoaderCriteriaOption)]
+    query = select(*cols).options(*criteria).limit(cap + 1)
     if stmt.whereclause is not None:
         query = query.where(stmt.whereclause)
     options = {"include_deleted": True}
     if execute_state.execution_options.get(ALL_TENANTS_OPTION):
         options[ALL_TENANTS_OPTION] = True
     rows = execute_state.session.execute(
-        query.execution_options(**options), _where_params(stmt, execute_state.parameters)
+        query.execution_options(**options),
+        _bound_params(
+            execute_state.parameters,
+            stmt.whereclause,
+            *(c.where_criteria for c in criteria),
+        ),
     ).all()
     return [format_pk(tuple(row)) for row in rows]
 

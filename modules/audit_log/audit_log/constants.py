@@ -28,6 +28,7 @@ ACTION_CREATED: Final = "created"
 ACTION_UPDATED: Final = "updated"
 ACTION_DELETED: Final = "deleted"
 ACTION_SOFT_DELETED: Final = "soft_deleted"
+ACTION_RESTORED: Final = "restored"
 # Statement DML (#557); the names match ``simple_module_db.bulk_audit``.
 ACTION_BULK_INSERTED: Final = "bulk_inserted"
 ACTION_BULK_UPDATED: Final = "bulk_updated"
@@ -39,6 +40,7 @@ ALL_ACTIONS: Final = (
     ACTION_UPDATED,
     ACTION_DELETED,
     ACTION_SOFT_DELETED,
+    ACTION_RESTORED,
     ACTION_BULK_INSERTED,
     ACTION_BULK_UPDATED,
     ACTION_BULK_DELETED,

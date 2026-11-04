@@ -86,6 +86,7 @@ export default {
     'audit_log.actions.bulk_updated': '',
     'audit_log.actions.created': '',
     'audit_log.actions.deleted': '',
+    'audit_log.actions.restored': '',
     'audit_log.actions.soft_deleted': '',
     'audit_log.actions.updated': '',
     'audit_log.browse.clear_filters': '',

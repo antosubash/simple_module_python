@@ -42,6 +42,33 @@ before the first `make dev` run.
 uv run pytest -m e2e tests/e2e
 ```
 
+## Inertia v3 fixture pages
+
+The framework's own pages never use partial reloads, deferred, merge or `once`
+props, infinite scroll, error bags, history encryption, `WhenVisible`, polling
+or prefetch. The dev host therefore ships fixture pages that do, so
+`tests/e2e/inertia/` can drive those client features in a real
+browser:
+
+- Routes: [`host/e2e_inertia/`](../host/e2e_inertia/) under
+  `/__e2e/inertia/*`, plus loader counters at `GET /__e2e/inertia/_probes`
+  (reset with `POST /__e2e/inertia/_probes/reset`).
+- Pages: `host/client_app/pages/E2eInertia/*.tsx`, rendered as
+  `E2eInertia/<Page>`. They are marked `i18n-exempt-file` and never shown to
+  users.
+- Gating: `host/main.py` mounts the router only when `SM_ENVIRONMENT` is
+  `development`, and every route needs a signed-in user. In any other
+  environment the paths do not exist (`host/tests/test_e2e_inertia_gating.py`).
+- Fixtures: `tests/e2e/inertia/conftest.py` (scoped to that directory, so every other e2e test keeps the plain `page`) signs in once per session through
+  the API and fails a test on any console or page error. Mark a test
+  `allow_resource_errors` when it provokes a 4xx/5xx on purpose.
+
+Run them against a development server (Vite required, as for every e2e test):
+
+```bash
+uv run pytest -m e2e tests/e2e/inertia
+```
+
 ## Configuration
 
 When you write e2e tests, read these environment variables (all optional):

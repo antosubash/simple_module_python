@@ -61,7 +61,7 @@ class _PendingChange:
 
     obj_ref: object
     entity_type: str
-    action: str  # "created" | "updated" | "deleted" | "soft_deleted"
+    action: str  # "created" | "updated" | "deleted" | "soft_deleted" | "restored"
     changes: list[dict[str, Any]]
     user_id: str | None
     correlation_id: str | None
@@ -116,13 +116,11 @@ def _serialize(value: Any) -> Any:
     return str(value)
 
 
-def _column_diffs(
-    obj: object, inspector: Any, excl: frozenset[str], pk_cols: set[str]
-) -> list[dict[str, Any]]:
-    """Old/new diffs for the changed, non-excluded, non-PK columns of *obj*."""
+def _column_diffs(obj: object, inspector: Any, excl: frozenset[str]) -> list[dict[str, Any]]:
+    """Old/new diffs for the changed, non-excluded columns of *obj*."""
     changes: list[dict[str, Any]] = []
     for col_name in _column_names(obj):
-        if col_name in excl or col_name in pk_cols:
+        if col_name in excl:
             continue
         hist = inspector.attrs[col_name].history
         if not hist.has_changes():
@@ -197,19 +195,15 @@ def snapshot_changes(
         if _is_excluded(obj):
             continue
         inspector = sa_inspect(obj)
-        changes = _column_diffs(obj, inspector, _get_excluded(obj), _get_pk_cols(obj))
+        changes = _column_diffs(obj, inspector, _get_excluded(obj))
         # The soft-delete listener re-adds persistent objects as dirty. Edits made in
-        # the same flush stay on the soft_deleted record.
-        if (
-            isinstance(obj, SoftDeleteMixin)
-            and obj.is_deleted
-            and inspector.attrs.is_deleted.history.has_changes()
-        ):
+        # the same flush stay on the lifecycle record, including a restore.
+        if isinstance(obj, SoftDeleteMixin) and inspector.attrs.is_deleted.history.has_changes():
             pending.append(
                 _PendingChange(
                     obj_ref=obj,
                     entity_type=type(obj).__name__,
-                    action="soft_deleted",
+                    action="soft_deleted" if obj.is_deleted else "restored",
                     changes=changes,
                     user_id=user_id,
                     correlation_id=correlation_id,
