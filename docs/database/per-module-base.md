@@ -34,7 +34,7 @@ target_metadata = build_module_metadata()
 
 This function iterates every discovered module, imports its `models` submodule (if one exists), and unions all the per-module `MetaData`s into one. Autogenerate then diffs the DB against that union.
 
-If a module has no `models.py`, it contributes nothing — fine. If a module has a `models.py` that doesn't import, the union fails — fix the import.
+If a module has no `models.py` (or its parent package is absent), it contributes nothing — fine. If an existing `models.py` fails to import a dependency, the union fails with that import error — fix the import. Only `ModuleNotFoundError` naming the models module itself or one of its parents is skipped; missing sibling modules and dependencies are errors (#814).
 
 ## `make_include_object()`
 
@@ -42,7 +42,7 @@ Alembic's `include_object` callback filters which tables `autogenerate` consider
 
 - **Include** only tables present in the combined module `MetaData` (the allowlist is `{t.name for t in metadata.tables.values()}`).
 - **Exclude** everything else — tables owned by the Alembic runtime (`alembic_version`) and any host-owned tables that aren't part of an installed module.
-- Optionally skip unmodeled foreign-key constraints (`ignore_unmodeled_fks=True` by default) so migration-level cross-module FKs aren't dropped on every autogen run.
+- Skip unmatched reflected foreign-key constraints (`ignore_unmodeled_fks=True` by default) so migration-level cross-module FKs aren't dropped on every autogen run. Newly modeled FKs on existing tables are still included (#812).
 
 If you write a one-off host-level table that autogenerate shouldn't track, keep it out of the module metadata — `make_include_object` already excludes anything not in the allowlist.
 

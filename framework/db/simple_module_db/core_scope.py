@@ -17,7 +17,10 @@ in it, innermost first, gets:
   columns, its FROM list and its ``WHERE`` clause.
 
 An UPDATE / DELETE gets ``WHERE`` predicates for the tables its ``WHERE``
-joins in; its target is scoped by the caller. Under strict mode with no
+and its ``SET`` values join in. The target of the statement itself is
+scoped by the caller; the target of a DML *nested* in it (an
+``update(...).cte()`` read by a SELECT) is handed to ``nested``, which
+returns that DML's own predicates or refuses it. Under strict mode with no
 tenant bound, ``predicates_for`` raises: every Core reference fails closed.
 """
 
@@ -46,6 +49,7 @@ class _Visitor:
     def __init__(self, predicates_for: Predicates, orm_covered: Any) -> None:
         self.predicates_for = predicates_for
         self.orm_covered = orm_covered
+        self.dml: list[Any] = []
 
     def _preds(self, candidates: list[Any], skip: list[Any]) -> list[Any]:
         preds: list[Any] = []
@@ -67,27 +71,51 @@ class _Visitor:
         candidates = [f for f in froms_read(stmt) if not (outer and is_excluded(f, outer))]
         _add_where(stmt, [*joined.where, *self._preds(candidates, joined.covered)])
 
-    def dml(self, stmt: Any) -> None:
-        """The tables an UPDATE / DELETE joins in through its ``WHERE``."""
+    def update_delete(self, stmt: Any) -> None:
+        """The tables an UPDATE / DELETE joins in through its ``WHERE`` or ``SET``."""
         _add_where(stmt, self._preds(froms_read(stmt), []))
+        self.dml.append(stmt)
+
+    def insert(self, stmt: Any) -> None:
+        self.dml.append(stmt)
 
 
 def scope_core(
-    stmt: Any, predicates_for: Predicates, names: set[str], orm_covered: Any = None
+    stmt: Any,
+    predicates_for: Predicates,
+    names: set[str],
+    orm_covered: Any = None,
+    nested: Predicates | None = None,
 ) -> Any:
     """Return ``stmt`` with every plain scoped table filtered, or ``stmt`` itself.
 
     ``names`` are the scoped table names. ``orm_covered`` are the classes the
     caller gives loader criteria (for the #417 exclusion), or ``None``.
+    ``nested`` gives the predicates for the target of a DML embedded in
+    ``stmt`` (or raises); ``stmt``'s own target is the caller's.
     """
     if not names or not references_plain(stmt, names):
         return stmt
     visitor = _Visitor(predicates_for, orm_covered)
-    return visitors.cloned_traverse(
+    out = visitors.cloned_traverse(
         stmt,
         {"stop_on": _executable_options(stmt)},
-        {"select": visitor.select, "update": visitor.dml, "delete": visitor.dml},
+        {
+            "select": visitor.select,
+            "update": visitor.update_delete,
+            "delete": visitor.update_delete,
+            "insert": visitor.insert,
+        },
     )
+    if nested is not None:
+        # The traversal is post-order: the root is reached last, so it is
+        # only known now. The nested clones are this traversal's own.
+        for dml in visitor.dml:
+            if dml is not out:
+                preds = nested(dml)
+                if dml.__visit_name__ != "insert":
+                    _add_where(dml, preds)
+    return out
 
 
 __all__ = ["scope_core"]

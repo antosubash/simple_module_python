@@ -18,10 +18,10 @@ def render_item(type_, obj, autogen_context):
       to ``sa.DateTime(timezone=True)`` so migrations don't need to
       ``import sqlmodel`` (GH #440). Any other ``sqlmodel`` type still gets
       the import added, so the migration stays importable.
-    * Renders Python ``StrEnum`` columns with ``values_callable`` so the
-      Postgres enum labels match the lowercase ``StrEnum`` values rather than
-      SQLAlchemy's default of using uppercase attribute names. This means raw
-      SQL like ``WHERE status = 'ready'`` actually works against the live DB.
+    * Renders Python ``StrEnum`` columns using their configured labels and
+      storage options, without importing application enums into revisions.
+      Value-based labels require ``values_callable`` on the runtime type too;
+      plain enum columns keep SQLAlchemy's member-name labels.
     * Renders ``true()``/``false()`` server defaults as ``sa.true()``/``sa.false()``
       instead of the dialect-specific ``sa.text('1')``/``sa.text('0')`` (GH #342).
     * Renders ``LTree``/``TSVector`` through ``simple_module_db.types`` (with
@@ -63,10 +63,19 @@ def render_item(type_, obj, autogen_context):
     if isinstance(obj, sa.Enum):
         python_type = getattr(obj, "enum_class", None)
         if isinstance(python_type, type) and issubclass(python_type, StrEnum):
-            name = getattr(obj, "name", None) or python_type.__name__.lower()
-            members = ", ".join(repr(m.value) for m in python_type)
-            return (
-                f"sa.Enum({members}, name={name!r}, values_callable=lambda e: [m.value for m in e])"
-            )
+            members = ", ".join(repr(label) for label in obj.enums)
+            options = [f"name={obj.name!r}"]
+            if not obj.native_enum:
+                options.append("native_enum=False")
+            if obj.create_constraint:
+                options.append("create_constraint=True")
+            if obj.length != max((len(label) for label in obj.enums), default=0):
+                options.append(f"length={obj.length!r}")
+            if obj.values_callable is not None:
+                # Freeze custom labels; revisions must not import application callables.
+                values = [member.value for member in python_type]
+                callable_body = "[m.value for m in e]" if obj.enums == values else repr(obj.enums)
+                options.append(f"values_callable=lambda e: {callable_body}")
+            return f"sa.Enum({members}, {', '.join(options)})"
 
     return False  # let alembic use its default rendering

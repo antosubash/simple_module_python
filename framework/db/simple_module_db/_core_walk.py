@@ -24,7 +24,8 @@ from sqlalchemy.sql.elements import ClauseElement, ColumnClause, ColumnElement
 from sqlalchemy.sql.selectable import Alias, Join, Select, TableClause
 from sqlalchemy.sql.traversals import _get_children
 
-from simple_module_db._core_joins import _base_name, _is_orm, is_plain_leaf
+from simple_module_db._core_joins import _base_name, _is_orm, is_scoped_leaf
+from simple_module_db.insert_guard import raw_values
 
 
 def orm_less(stmt: Any) -> bool:
@@ -46,9 +47,19 @@ def froms_read(stmt: Any) -> list[Any]:
     """The FROMs a SELECT reads besides its joins, and the extra FROMs of a DML."""
     if not isinstance(stmt, Select):
         target = stmt.table._deannotate()
-        return [f for f in where_froms(stmt) if f is not target]
+        return [f for f in (*where_froms(stmt), *set_froms(stmt)) if f is not target]
     froms = [*stmt.columns_clause_froms, *(f for f in stmt._from_obj if not isinstance(f, Join))]
     return [*froms, *(where_froms(stmt) if orm_less(stmt) else core_where_froms(stmt))]
+
+
+def set_froms(stmt: Any) -> list[Any]:
+    """The FROMs an UPDATE's ``SET`` values pull in: ``values(name=other.c.name)``.
+
+    Such a table is joined in as ``UPDATE ... FROM``, exactly like one named
+    in the ``WHERE``. A scalar subquery adds no FROM; its own SELECT is
+    scoped where it is visited.
+    """
+    return [f for value in raw_values(stmt).values() for f in getattr(value, "_from_objects", ())]
 
 
 def core_where_froms(stmt: Select) -> list[Any]:
@@ -88,19 +99,26 @@ def references_plain(stmt: Any, names: set[str]) -> bool:
     seen: dict[int, Any] = {}
     while stack:
         el = stack.pop()
-        if id(el) in seen or _is_orm(el):
+        if id(el) in seen:
+            continue
+        if el is not stmt and _nested_dml_on(el, names):
+            return True  # its target is checked even when ORM-annotated
+        if _is_orm(el):
             continue
         seen[id(el)] = el
         target = el if isinstance(el, (TableClause, Alias)) else _table_of(el)
-        if (
-            isinstance(target, (TableClause, Alias))
-            and is_plain_leaf(target)
-            and _base_name(target) in names
-        ):
+        if isinstance(target, (TableClause, Alias)) and is_scoped_leaf(target, names):
             return True
         if el.__visit_name__ != "bindparam":  # a bound value: no clause children
             stack.extend(_children(el))
     return False
+
+
+_DML = ("insert", "update", "delete")
+
+
+def _nested_dml_on(el: Any, names: set[str]) -> bool:
+    return el.__visit_name__ in _DML and _base_name(el.table) in names
 
 
 _SELECT_OMIT = ("_correlate", "_correlate_except")

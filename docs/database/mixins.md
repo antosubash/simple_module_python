@@ -110,6 +110,12 @@ for automatic stamping, or use an explicit `all_tenants` bypass for deliberate
 cross-tenant copies. Strict mode requires a tenant even if the source reads no
 tenant tables and explicitly supplies `tenant_id` (#693).
 
+What an insert *reads* is scoped like a SELECT: the `from_select()` source and
+any subquery in `.values()` or in an `on_conflict_do_update()` arm, into a
+tenant table or not. SQLite `OR REPLACE` inserts into a tenant table are
+refused while a tenant is bound, and so are the legacy `Session.bulk_*`
+methods (see [multi-tenancy](../framework/multi-tenancy.md#what-the-filter-can-see)).
+
 ### Bypass
 
 Without an active tenant, strict mode raises `TenantIsolationError` (`MissingTenantError`) for every insert form, even when the rows name
