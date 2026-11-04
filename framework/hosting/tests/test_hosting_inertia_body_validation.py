@@ -98,3 +98,18 @@ async def test_invalid_path_param_keeps_the_error_page(form_client: httpx.AsyncC
     resp = await form_client.delete(f"{_SUBMIT}/abc", headers=_inertia(form_client))
     assert resp.status_code == 422
     assert inertia_page(resp).component == "Error"
+
+
+async def test_only_body_errors_reach_the_form(app, form_client: httpx.AsyncClient) -> None:
+    """A bad query value next to a bad body must not flash a stray field error."""
+
+    async def paged(data: _Signup, page: int) -> dict[str, int]:
+        return {"page": page}
+
+    app.router.add_api_route(f"{_SUBMIT}-paged", paged, methods=["POST"])
+    resp = await form_client.post(
+        f"{_SUBMIT}-paged?page=x", json={"age": "old"}, headers=_inertia(form_client)
+    )
+    assert resp.status_code == 303
+    page = inertia_page(await form_client.get(_FORM, headers={"X-Inertia": "true"}))
+    assert set(page.props["errors"]) == {"name", "age"}

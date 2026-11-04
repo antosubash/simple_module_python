@@ -61,13 +61,12 @@ async def request_validation_error_handler(
     query or header values keep the error page: no form field can show them,
     and a GET redirected back could loop.
     """
-    if (
-        request.method in _FORM_METHODS
-        and is_inertia_request(request.scope)
-        and any(tuple(error["loc"][:1]) == ("body",) for error in exc.errors())
-    ):
-        errors = errors_from_validation(exc.errors(), request_source=True)
-        return redirect_back_with_errors(request, errors)
+    if request.method in _FORM_METHODS and is_inertia_request(request.scope):
+        body_errors = [error for error in exc.errors() if tuple(error["loc"][:1]) == ("body",)]
+        if body_errors:
+            # Only body errors: a bad path/query value alongside them is no form field.
+            errors = errors_from_validation(body_errors, request_source=True)
+            return redirect_back_with_errors(request, errors)
     if _wants_json(request):
         return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
     return await render_error_page(request, 422, "The requested URL contains invalid parameters.")

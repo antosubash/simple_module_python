@@ -58,7 +58,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 - **Behaviour change:** an Inertia form submission (POST/PUT/PATCH/DELETE)
-  whose JSON body fails FastAPI request validation now redirects back (303) with
+  whose request body fails FastAPI request validation now redirects back (303) with
   one error per field, scoped by `X-Inertia-Error-Bag`, instead of rendering
   the 422 "invalid parameters" Error page over the form. GETs and non-Inertia
   requests, and invalid path/query values, keep the 422 page / JSON.
