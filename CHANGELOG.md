@@ -74,7 +74,9 @@ All notable changes to this project are documented in this file. The format is b
   A single-tenant install with nothing bound keeps running the last two. See
   `docs/framework/multi-tenancy.md`.
 - Alembic autogenerate now emits newly modeled foreign keys on existing tables
-  while preserving migration-only reflected foreign keys (#812).
+  while preserving migration-only reflected foreign keys (#812). A foreign key
+  whose options change (`ondelete`, `deferrable`) is emitted as a drop plus a
+  create; on SQLite wrap those ops in `op.batch_alter_table(...)` by hand.
 - **Behaviour change:** StrEnum migration rendering preserves configured labels and enum storage options,
   keeping runtime reads/writes and generated constraints consistent; a plain
   `StrEnum` field now renders SQLAlchemy's member-name labels, matching what the

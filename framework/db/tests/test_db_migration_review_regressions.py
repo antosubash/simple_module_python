@@ -160,3 +160,33 @@ def test_db_autogenerate_replaces_fk_with_changed_options():
         assert any(type(op).__name__ == "DropConstraintOp" for op in ops)
     finally:
         engine.dispose()
+
+
+def test_db_autogenerate_keeps_migration_only_fk_to_another_table():
+    def build(*, migration_fk):
+        metadata = sa.MetaData()
+        sa.Table("parent", metadata, sa.Column("id", sa.Integer, primary_key=True))
+        sa.Table("other", metadata, sa.Column("id", sa.Integer, primary_key=True))
+        target = "other.id" if migration_fk else "parent.id"
+        sa.Table(
+            "child",
+            metadata,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("parent_id", sa.Integer, sa.ForeignKey(target)),
+        )
+        return metadata
+
+    # The database carries a migration-only FK to ``other``; the model points at ``parent``.
+    live, target = build(migration_fk=True), build(migration_fk=False)
+    engine = sa.create_engine("sqlite://")
+    try:
+        live.create_all(engine)
+        with engine.connect() as conn:
+            ctx = MigrationContext.configure(
+                conn, opts={"include_object": make_include_object(target)}
+            )
+            ops = list(iter_ops_recursive(produce_migrations(ctx, target).upgrade_ops))
+        assert any(isinstance(op, CreateForeignKeyOp) for op in ops)
+        assert not any(type(op).__name__ == "DropConstraintOp" for op in ops)
+    finally:
+        engine.dispose()

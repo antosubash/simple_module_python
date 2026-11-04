@@ -17,13 +17,14 @@ from __future__ import annotations
 import importlib
 import logging
 from collections.abc import Callable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from alembic.operations.ops import CreateIndexOp, CreateTableOp, DropIndexOp, DropTableOp
 from simple_module_core import ModuleBase
 from simple_module_core.diagnostics._expression_index import index_is_expression_based
 from simple_module_core.discovery import discover_modules, get_module_package_name
 from sqlalchemy import Index, MetaData
+from sqlalchemy.exc import NoReferenceError
 from sqlalchemy.schema import SchemaItem
 
 from simple_module_db._migration_render import render_item  # noqa: F401  (re-exported)
@@ -87,19 +88,32 @@ def build_module_metadata(modules: Sequence[ModuleBase] | None = None) -> MetaDa
     return combined
 
 
+def _fk_signature(fk: Any) -> tuple[frozenset[str], str, frozenset[str]] | None:
+    """Local columns, referred table and referred columns of a foreign key."""
+    try:
+        elements = list(fk.elements)
+        referred = elements[0].column.table.fullname
+    except (AttributeError, IndexError, LookupError, NoReferenceError):
+        return None  # unresolvable target: never treat it as a match
+    local = frozenset(c.name for c in fk.columns)
+    remote = frozenset(e.column.name for e in elements)
+    return local, referred, remote
+
+
 def _fk_replaced_in_model(metadata: MetaData, reflected_fk: SchemaItem) -> bool:
-    """Whether the model declares a foreign key on the same columns as this reflected one.
+    """Whether the model declares the same foreign key with different options.
 
     A changed option (``ondelete``, ``deferrable``...) makes Alembic report the old
     constraint as removed and the new one as added. Hiding only the removal would
-    leave the database with two foreign keys on the same columns.
+    leave the database with two foreign keys on the same columns. A key that differs
+    in its columns or its target is a different constraint and stays preserved.
     """
     table = getattr(reflected_fk, "table", None)
-    columns = {c.name for c in getattr(reflected_fk, "columns", ())}
     modeled = metadata.tables.get(table.fullname) if table is not None else None
-    if modeled is None or not columns:
+    signature = _fk_signature(reflected_fk)
+    if modeled is None or signature is None:
         return False
-    return any({c.name for c in fk.columns} == columns for fk in modeled.foreign_key_constraints)
+    return any(_fk_signature(fk) == signature for fk in modeled.foreign_key_constraints)
 
 
 def make_include_object(
