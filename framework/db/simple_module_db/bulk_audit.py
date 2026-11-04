@@ -31,6 +31,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import ORMExecuteState
 from sqlalchemy.orm.util import LoaderCriteriaOption
+from sqlalchemy.sql.elements import BindParameter
+from sqlalchemy.sql.visitors import iterate
 
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_audit_records import (  # noqa: F401  (re-exported)
@@ -115,12 +117,22 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     return ctx
 
 
-def _single_params(params: Any) -> dict[str, Any] | None:
-    """A single parameter dict (the SELECT ignores keys it does not bind), else ``None``.
+def _bound_params(params: Any, *clauses: Any) -> dict[str, Any] | None:
+    """The execute params the prefetch's own clauses bind (``WHERE`` and loader criteria).
 
-    The prefetch never runs for an executemany list, so only a dict reaches here.
+    Only those keys pass, so a caller's param cannot collide with a bind the SELECT
+    adds itself (its ``LIMIT``). An executemany list never reaches the prefetch.
     """
-    return params if isinstance(params, dict) and params else None
+    if not isinstance(params, dict) or not params:
+        return None
+    keys = {
+        el.key
+        for clause in clauses
+        if clause is not None
+        for el in iterate(clause)
+        if isinstance(el, BindParameter)
+    }
+    return {k: v for k, v in params.items() if k in keys} or None
 
 
 def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[str]:
@@ -140,7 +152,12 @@ def _prefetch_ids(execute_state: ORMExecuteState, cls: type, cap: int) -> list[s
     if execute_state.execution_options.get(ALL_TENANTS_OPTION):
         options[ALL_TENANTS_OPTION] = True
     rows = execute_state.session.execute(
-        query.execution_options(**options), _single_params(execute_state.parameters)
+        query.execution_options(**options),
+        _bound_params(
+            execute_state.parameters,
+            stmt.whereclause,
+            *(c.where_criteria for c in criteria),
+        ),
     ).all()
     return [format_pk(tuple(row)) for row in rows]
 
