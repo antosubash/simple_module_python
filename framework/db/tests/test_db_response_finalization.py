@@ -163,3 +163,25 @@ async def test_released_child_write_belongs_to_parent_savepoint(state, rollback_
         assert (await db.execute(select(_TxnThing.name))).scalars().all() == (
             [] if rollback_parent else ["child"]
         )
+
+
+async def test_read_only_finalize_closes_open_savepoints_and_releases_connection(state):
+    checked_out = []
+    event.listen(state.engine.sync_engine, "checkout", lambda *args: checked_out.append(1))
+    event.listen(state.engine.sync_engine, "checkin", lambda *args: checked_out.pop())
+    async with state.session_factory() as db:
+        db.add(_TxnThing(name="seed"))
+        await db.commit()
+        row = (await db.execute(select(_TxnThing))).scalar_one()
+        await db.begin_nested()
+        await db.begin_nested()
+        await db.execute(select(_TxnThing))
+        db.on_commit(lambda: pytest.fail("discarded on read-only finalize"))
+        await finalize_session(db)
+        assert checked_out == []
+        assert not db.in_transaction()
+        assert not db.sync_session.get_nested_transaction()
+        assert row.name == "seed"  # still loaded, no implicit IO
+        # a later use autobegins cleanly and is rolled back by the next finalize
+        assert (await db.execute(select(_TxnThing.name))).scalar_one() == "seed"
+        assert db.in_transaction()

@@ -11,6 +11,8 @@ read-only transaction. Closing rolls back and releases the connection without
 expiring or detaching loaded ORM objects. A streaming body or background task
 can read already-loaded attributes without database IO; unloaded attributes
 still require an explicit async load.
+Those objects keep the values they were loaded with: a later query in the same
+session does not refresh them unless it uses `populate_existing()`.
 
 If commit fails, the framework rolls back and unwinds the original response,
 including its streaming body and background tasks, then sends a JSON 500.
