@@ -16,8 +16,8 @@ from starlette.responses import Response
 
 from simple_module_hosting._error_negotiation import _wants_json
 from simple_module_hosting._error_page import render_error_page
-from simple_module_hosting.inertia_utils import redirect_back_with_errors
 from simple_module_hosting._observability import CorrelationIdMiddleware
+from simple_module_hosting.inertia_utils import redirect_back_with_errors
 
 logger = logging.getLogger(__name__)
 
