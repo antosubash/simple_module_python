@@ -58,6 +58,11 @@ def is_plain_leaf(node: Any) -> bool:
     return isinstance(base, TableClause)
 
 
+def is_scoped_leaf(node: Any, names: set[str]) -> bool:
+    """A plain Core table (or alias of one) whose base table is one of ``names``."""
+    return is_plain_leaf(node) and _base_name(node) in names
+
+
 def _padded(leaf: Any) -> Any | None:
     """``leaf``'s row is the NULL padding of an outer join: its primary key is NULL."""
     pk = list(leaf.primary_key)

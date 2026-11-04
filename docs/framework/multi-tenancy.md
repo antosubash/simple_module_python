@@ -16,11 +16,12 @@ tenant a request acts for.
 | Operation on a `MultiTenantMixin` model | Tenant set | No tenant, strict (`multi_tenant` on) | No tenant, not strict |
 |---|---|---|---|
 | `SELECT` | filtered to the tenant | `MissingTenantError` | unfiltered |
-| ORM `update()` / `delete()` | filtered to the tenant; `update().values(tenant_id=…)` raises | `MissingTenantError` | unfiltered |
+| ORM `update()` / `delete()` (also bulk UPDATE by primary key) | filtered to the tenant; assigning `tenant_id` (`.values()` or `.ordered_values()`) raises | `MissingTenantError` | unfiltered |
 | `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError`, even with an explicit `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
 | ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError`, even when every row sets `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
 | Flushing a change to, or a delete of, a loaded object | only if it belongs to the bound tenant | `MissingTenantError` | allowed |
 | Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
+| Legacy `Session.bulk_save_objects` / `bulk_insert_mappings` / `bulk_update_mappings` | `TenantIsolationError` | `TenantIsolationError` | allowed, unscoped |
 
 `MissingTenantError` is a `TenantIsolationError`. Fail closed is the point: a
 request, job or command that forgot to establish a tenant errors instead of
@@ -43,7 +44,20 @@ statement names, so all of these are scoped (#332):
   stamped, and so is every other Core reference — a subquery, a CTE, a
   scalar or `exists()` subquery (also inside a join's `ON`), each member of a
   `union` / `intersect` / `except`, a table an `update()`/`delete()` joins in
-  through its `WHERE`, and the `select` behind `insert().from_select()`;
+  through its `WHERE` or its `SET` values (`update(t).values(name=other.c.name)`,
+  an `UPDATE … FROM`), the `select` behind `insert().from_select()`, and a
+  subquery in an insert's `.values()` (single or multi-row), its `RETURNING`
+  or an `on_conflict_do_update()` arm's `set_` / `where`, whatever the insert's
+  target is — an untenanted table included. A DML on an aliased table
+  (`delete(Doc.__table__.alias("v"))`) is scoped through the alias;
+- ORM **bulk UPDATE by primary key**, `session.execute(update(Doc), [{"id": …}, …])`:
+  each row's UPDATE gets `WHERE tenant_id = …`, so a primary key of another
+  tenant updates nothing. SQLAlchemy cannot synchronize the session for that
+  shape, so the filter does: objects of the bound tenant already loaded get
+  the new values, as `synchronize_session="evaluate"` would give them;
+- a DML embedded in another statement as a CTE (`select(update(t).returning(…).cte())`):
+  its `UPDATE` / `DELETE` gets `WHERE tenant_id = …` and may not assign
+  `tenant_id`;
 - Core **joins**: an outer join's nullable side gets its predicates in the
   `ON` clause, so `tag.outerjoin(link, …)` keeps tags without links and never
   counts another tenant's links. A `full=True` join puts both sides'
@@ -66,6 +80,22 @@ statement looking for a plain (non-ORM) reference to a scoped table (about
 20–40 µs for a typical ORM select); only a statement that has one is cloned
 and rewritten. Both are skipped when no tenant-scoped or soft-deletable model
 is installed.
+
+Refused outside `all_tenants()` (`TenantIsolationError`), because the rows
+they write cannot be checked:
+
+- an `INSERT` into a tenant table embedded in another statement as a CTE —
+  run it as a statement of its own;
+- SQLite `insert(…).prefix_with("OR REPLACE")` on a tenant table while a
+  tenant is bound: the conflicting row it deletes may be another tenant's.
+  Use `on_conflict_do_update()`, which is scoped (`OR IGNORE` is allowed);
+- the legacy bulk methods `Session.bulk_save_objects()`,
+  `bulk_insert_mappings()` and `bulk_update_mappings()` on a tenant model
+  while scoping is in force (a tenant bound, or strict mode on). They write
+  without `before_flush` or `do_orm_execute`, so neither guard sees them.
+  Use `session.execute(insert(Model), rows)` / `session.execute(update(Model), rows)`.
+  On a single-tenant install with nothing bound they run unscoped, like
+  every other write there.
 
 Not covered, by design:
 

@@ -38,9 +38,14 @@ def _column_name(key: Any) -> str:
     return getattr(key, "key", None) or getattr(key, "name", None) or str(key)
 
 
-def _statement_values(execute_state: ORMExecuteState) -> dict[str, Any]:
-    raw = getattr(execute_state.statement, "_values", None) or {}
-    return {_column_name(k): _bound_value(v) for k, v in raw.items()}
+def raw_values(stmt: Any) -> dict[Any, Any]:
+    """The unprocessed ``SET`` / ``VALUES`` mapping of a DML, keyed by column."""
+    return getattr(stmt, "_values", None) or dict(getattr(stmt, "_ordered_values", None) or ())
+
+
+def statement_values(stmt: Any) -> dict[str, Any]:
+    """The ``SET`` / ``VALUES`` of a DML, ``.values()`` and ``.ordered_values()`` alike."""
+    return {_column_name(k): _bound_value(v) for k, v in raw_values(stmt).items()}
 
 
 def _param_rows(execute_state: ORMExecuteState) -> list[dict[str, Any]]:
@@ -52,7 +57,7 @@ def _param_rows(execute_state: ORMExecuteState) -> list[dict[str, Any]]:
 
 def assigned_tenant_ids(execute_state: ORMExecuteState) -> list[Any]:
     found = []
-    stmt_values = _statement_values(execute_state)
+    stmt_values = statement_values(execute_state.statement)
     if TENANT_COLUMN in stmt_values:
         found.append(stmt_values[TENANT_COLUMN])
     found.extend(row[TENANT_COLUMN] for row in _param_rows(execute_state) if TENANT_COLUMN in row)
@@ -81,6 +86,8 @@ def guard_insert(
     # the bound tenant, else the install's fallback (#380).
     bound = current_tenant_id.get()
     if not bypass:
+        if bound is not None:
+            _refuse_replace(execute_state.statement)
         _guard_conflict_update(execute_state, bound)
     tenant_id = None if bypass else bound
     stamp = bound or fallback
@@ -95,7 +102,7 @@ def guard_insert(
             raise _foreign_insert(value, tenant_id)
 
     rows = _param_rows(execute_state)
-    stmt_has_tenant = TENANT_COLUMN in _statement_values(execute_state)
+    stmt_has_tenant = TENANT_COLUMN in statement_values(execute_state.statement)
     missing = (
         [r for r in rows if TENANT_COLUMN not in r] if rows else ([] if stmt_has_tenant else [None])
     )
@@ -177,11 +184,31 @@ def _guard_multi_values(execute_state: ORMExecuteState, tenant_id: str | None, s
     return None
 
 
+def _refuse_replace(stmt: Any) -> None:
+    """SQLite ``INSERT OR REPLACE``: a conflict deletes the existing row, whoever owns it.
+
+    The row it replaces is never checked against the bound tenant, so the
+    prefix is refused on a tenant table outside ``all_tenants()``; use
+    ``on_conflict_do_update()``, which is scoped.
+    """
+    for prefix, _dialect in getattr(stmt, "_prefixes", ()):
+        if "REPLACE" in str(prefix).upper():
+            raise TenantIsolationError(
+                "INSERT OR REPLACE is not tenant-scoped; use on_conflict_do_update()"
+            )
+
+
+def conflict_arm(stmt: Any) -> Any:
+    """The ``ON CONFLICT DO UPDATE`` arm of an insert, or ``None``."""
+    arm = getattr(stmt, "_post_values_clause", None)
+    return arm if isinstance(arm, (PgConflictUpdate, SqliteConflictUpdate)) else None
+
+
 def _guard_conflict_update(execute_state: ORMExecuteState, tenant_id: str | None) -> None:
     """Conflict updates are UPDATEs: preserve ownership and scope their target."""
     stmt = execute_state.statement
-    arm = getattr(stmt, "_post_values_clause", None)
-    if not isinstance(arm, (PgConflictUpdate, SqliteConflictUpdate)):
+    arm = conflict_arm(stmt)
+    if arm is None:
         return
     if any(
         # excluded.tenant_id is harmless only once the arm is scoped below.

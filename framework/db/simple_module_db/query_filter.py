@@ -6,8 +6,9 @@ names, so a table reached through a join target, an ORM ``exists()`` /
 ``in_()`` / scalar subquery or ``select(func.count()).select_from(Model)`` is
 filtered too. Core references to ``Model.__table__`` (or an alias of it) get
 explicit predicates at any depth — joins, subqueries, CTEs, compound
-selects, the extra FROM of an UPDATE / DELETE, an INSERT's SELECT source —
-see ``core_scope``.
+selects, the extra FROM of an UPDATE / DELETE (from its ``WHERE`` or its
+``SET``), an INSERT's SELECT source and the subqueries in its values, and a
+DML embedded as a CTE — see ``core_scope`` and ``insert_scope``.
 """
 
 from __future__ import annotations
@@ -20,9 +21,17 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
 from simple_module_db import model_registry as registry
-from simple_module_db._core_joins import _base_name
+from simple_module_db._bulk_pk_update import is_bulk_pk_update, scoped_bulk_pk_update
+from simple_module_db._core_joins import _base_name, is_scoped_leaf
 from simple_module_db.core_scope import scope_core
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
+from simple_module_db.insert_scope import scope_insert
+from simple_module_db.scope_predicates import (
+    nested_dml_guard,
+    orm_covered,
+    scoped_names,
+    subquery_predicates,
+)
 from simple_module_db.tenancy import (
     ALL_TENANTS_OPTION,
     DEFAULT_TENANT_ID,
@@ -142,9 +151,10 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
             named.append(mapper.class_)
     execute_state.statement = scope_core(
         execute_state.statement,
-        _subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
-        _scoped_names(skip_soft_delete, skip_tenant),
-        _orm_covered(skip_soft_delete, skip_tenant, tenant_id),
+        subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
+        scoped_names(skip_soft_delete, skip_tenant),
+        orm_covered(skip_soft_delete, skip_tenant, tenant_id),
+        nested_dml_guard(skip_tenant, tenant_id, strict),
     )
     if not skip_soft_delete:
         options.extend(
@@ -156,67 +166,27 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
 
     if options:
         execute_state.statement = execute_state.statement.options(*options)
+    if named and tenant_id is not None and not skip_tenant and is_bulk_pk_update(execute_state):
+        return scoped_bulk_pk_update(execute_state, named, tenant_id)
     return None
 
 
 def _scope_insert_source(execute_state: ORMExecuteState) -> None:
-    """``insert(...).from_select(..., select(t...))``: the source reads like any SELECT."""
-    if getattr(execute_state.statement, "select", None) is None:
-        return
+    """What an INSERT reads — its SELECT source, its value subqueries — like any SELECT."""
     options = execute_state.execution_options
     skip_soft_delete = options.get("include_deleted", False)
     skip_tenant = options.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
+    names = scoped_names(skip_soft_delete, skip_tenant)
+    if not names:
+        return
     tenant_id = current_tenant_id.get()
     strict = strict_configured(execute_state.session)
-    execute_state.statement = scope_core(
+    predicates_for = subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict)
+    nested = nested_dml_guard(skip_tenant, tenant_id, strict)
+    execute_state.statement = scope_insert(
         execute_state.statement,
-        _subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
-        _scoped_names(skip_soft_delete, skip_tenant),
+        lambda el: scope_core(el, predicates_for, names, nested=nested),
     )
-
-
-def _scoped_names(skip_soft_delete: bool, skip_tenant: bool) -> set[str]:
-    names: set[str] = set()
-    if not skip_soft_delete:
-        names |= registry.soft_delete_table_names
-    if not skip_tenant:
-        names |= registry.tenant_table_names
-    return names
-
-
-def _orm_covered(skip_soft_delete: bool, skip_tenant: bool, tenant_id: str | None) -> set[type]:
-    """Classes whose every predicate the loader criteria put in a join's ``ON`` (#417).
-
-    Strict mode without a tenant gives no tenant ``ON`` predicate worth the
-    name, so a tenant class is covered only once a tenant is bound: a bare
-    reference to it keeps refusing.
-    """
-    covered = set(registry.soft_delete_classes) if not skip_soft_delete else set()
-    if skip_tenant or tenant_id is not None:
-        covered |= registry.tenant_classes
-    else:
-        covered -= registry.tenant_classes
-    return covered
-
-
-def _subquery_predicates(
-    skip_soft_delete: bool, skip_tenant: bool, tenant_id: str | None, strict: bool
-):
-    def predicates_for(from_obj: Any) -> list[Any]:
-        # ``aliased(Model)`` / ``table.alias()`` is named after the alias, not
-        # the table: resolve to the underlying table, filter on the alias.
-        name = _base_name(from_obj)
-        preds = []
-        if not skip_soft_delete and name in registry.soft_delete_table_names:
-            preds.append(from_obj.c.is_deleted.is_(False))
-        if not skip_tenant and name in registry.tenant_table_names:
-            if tenant_id is not None:
-                preds.append(from_obj.c.tenant_id == tenant_id)
-            elif strict:
-                raise missing_tenant_error(name, "SELECT")
-        return preds
-
-    return predicates_for
 
 
 def _dml_target(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
@@ -228,7 +198,8 @@ def _dml_target(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
     if execute_state.is_select:
         return []
     target = getattr(execute_state.statement, "table", None)
-    return [target] if registry.is_plain_table(target, names) else []
+    # ``delete(Model.__table__.alias("v"))`` is named after the alias.
+    return [target] if target is not None and is_scoped_leaf(target, names) else []
 
 
 def _tenant_criteria(
@@ -242,7 +213,7 @@ def _tenant_criteria(
         if not strict:
             return []
         if named or core:
-            raise missing_tenant_error(named[0].__name__ if named else core[0].name, op)
+            raise missing_tenant_error(named[0].__name__ if named else str(_base_name(core[0])), op)
         # Indirect references (joins, subqueries) with no tenant bound match
         # nothing — tenant_id is NOT NULL — rather than every tenant.
         return [
