@@ -38,9 +38,14 @@ def _column_name(key: Any) -> str:
     return getattr(key, "key", None) or getattr(key, "name", None) or str(key)
 
 
-def _statement_values(execute_state: ORMExecuteState) -> dict[str, Any]:
-    raw = getattr(execute_state.statement, "_values", None) or {}
+def statement_values(stmt: Any) -> dict[str, Any]:
+    """The ``SET`` / ``VALUES`` of a DML, ``.values()`` and ``.ordered_values()`` alike."""
+    raw = getattr(stmt, "_values", None) or dict(getattr(stmt, "_ordered_values", None) or ())
     return {_column_name(k): _bound_value(v) for k, v in raw.items()}
+
+
+def _statement_values(execute_state: ORMExecuteState) -> dict[str, Any]:
+    return statement_values(execute_state.statement)
 
 
 def _param_rows(execute_state: ORMExecuteState) -> list[dict[str, Any]]:
@@ -81,6 +86,8 @@ def guard_insert(
     # the bound tenant, else the install's fallback (#380).
     bound = current_tenant_id.get()
     if not bypass:
+        if bound is not None:
+            _refuse_replace(execute_state.statement)
         _guard_conflict_update(execute_state, bound)
     tenant_id = None if bypass else bound
     stamp = bound or fallback
@@ -175,6 +182,20 @@ def _guard_multi_values(execute_state: ORMExecuteState, tenant_id: str | None, s
     stamped._multi_values = tuple(groups)
     execute_state.statement = stamped
     return None
+
+
+def _refuse_replace(stmt: Any) -> None:
+    """SQLite ``INSERT OR REPLACE``: a conflict deletes the existing row, whoever owns it.
+
+    The row it replaces is never checked against the bound tenant, so the
+    prefix is refused on a tenant table outside ``all_tenants()``; use
+    ``on_conflict_do_update()``, which is scoped.
+    """
+    for prefix, _dialect in getattr(stmt, "_prefixes", ()):
+        if "REPLACE" in str(prefix).upper():
+            raise TenantIsolationError(
+                "INSERT OR REPLACE is not tenant-scoped; use on_conflict_do_update()"
+            )
 
 
 def _guard_conflict_update(execute_state: ORMExecuteState, tenant_id: str | None) -> None:

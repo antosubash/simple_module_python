@@ -79,6 +79,7 @@ async def create_order(session: AsyncSession, payload: OrderCreate) -> Order:
 ## Pitfalls
 
 - **Setting `tenant_id` manually.** `MultiTenantMixin` populates it on insert from request state (`current_tenant_id`). Setting it to a *different* tenant than the active context raises `TenantIsolationError`; changing it on an existing row raises too.
+- **Legacy bulk APIs on tenant models.** `Session.bulk_save_objects()`, `bulk_insert_mappings()` and `bulk_update_mappings()` raise `TenantIsolationError` on a `MultiTenantMixin` model while a tenant is bound or strict mode is on; use `session.execute(insert(Model), rows)` / `session.execute(update(Model), rows)`, which are scoped. SQLite `INSERT OR REPLACE` into a tenant table and an INSERT embedded as a CTE are refused the same way.
 - **Querying `WHERE is_deleted = false` by hand.** The listener already does it. Use `execution_options(include_deleted=True)` only when you genuinely want deleted rows.
 
 ## Related skills

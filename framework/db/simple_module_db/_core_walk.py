@@ -46,9 +46,20 @@ def froms_read(stmt: Any) -> list[Any]:
     """The FROMs a SELECT reads besides its joins, and the extra FROMs of a DML."""
     if not isinstance(stmt, Select):
         target = stmt.table._deannotate()
-        return [f for f in where_froms(stmt) if f is not target]
+        return [f for f in (*where_froms(stmt), *set_froms(stmt)) if f is not target]
     froms = [*stmt.columns_clause_froms, *(f for f in stmt._from_obj if not isinstance(f, Join))]
     return [*froms, *(where_froms(stmt) if orm_less(stmt) else core_where_froms(stmt))]
+
+
+def set_froms(stmt: Any) -> list[Any]:
+    """The FROMs an UPDATE's ``SET`` values pull in: ``values(name=other.c.name)``.
+
+    Such a table is joined in as ``UPDATE ... FROM``, exactly like one named
+    in the ``WHERE``. A scalar subquery adds no FROM; its own SELECT is
+    scoped where it is visited.
+    """
+    raw = getattr(stmt, "_values", None) or dict(getattr(stmt, "_ordered_values", None) or ())
+    return [f for value in raw.values() for f in getattr(value, "_from_objects", ())]
 
 
 def core_where_froms(stmt: Select) -> list[Any]:
@@ -88,7 +99,11 @@ def references_plain(stmt: Any, names: set[str]) -> bool:
     seen: dict[int, Any] = {}
     while stack:
         el = stack.pop()
-        if id(el) in seen or _is_orm(el):
+        if id(el) in seen:
+            continue
+        if el is not stmt and _nested_dml_on(el, names):
+            return True  # its target is checked even when ORM-annotated
+        if _is_orm(el):
             continue
         seen[id(el)] = el
         target = el if isinstance(el, (TableClause, Alias)) else _table_of(el)
@@ -101,6 +116,13 @@ def references_plain(stmt: Any, names: set[str]) -> bool:
         if el.__visit_name__ != "bindparam":  # a bound value: no clause children
             stack.extend(_children(el))
     return False
+
+
+_DML = ("insert", "update", "delete")
+
+
+def _nested_dml_on(el: Any, names: set[str]) -> bool:
+    return el.__visit_name__ in _DML and _base_name(el.table) in names
 
 
 _SELECT_OMIT = ("_correlate", "_correlate_except")

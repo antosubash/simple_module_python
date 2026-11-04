@@ -13,6 +13,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from simple_module_db.bulk_audit import audit_statement
+from simple_module_db.bulk_guard import install_bulk_guard
 from simple_module_db.flush_guard import guard_flush
 from simple_module_db.mixins import AuditMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.query_filter import bind_engine_policy, engine_policy, filter_statements
@@ -137,6 +138,8 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         ("do_orm_execute", audit_statement),
     ):
         event.listen(session_class, name, fn)
+    # The legacy bulk_* methods reach no session event: guard them directly.
+    install_bulk_guard(session_class)
     setattr(session_class, _LISTENERS_ATTACHED, True)
 
 
