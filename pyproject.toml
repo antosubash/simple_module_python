@@ -68,6 +68,10 @@ ignore = [
     "B027",   # Empty methods in ABC without @abstractmethod — used for optional hooks
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Fixtures imported from tests/e2e/inertia_support.py are consumed as same-named test arguments.
+"tests/e2e/test_inertia_*.py" = ["F811"]
+
 [tool.ty.environment]
 extra-paths = [
     "framework/cli",
