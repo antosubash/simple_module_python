@@ -23,7 +23,8 @@ from simple_module_db import _secondary_scope  # noqa: F401  (registers the exec
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_pk_update import is_bulk_pk_update, scoped_bulk_pk_update
 from simple_module_db._core_joins import _base_name, is_scoped_leaf
-from simple_module_db._engine_policies import _engine_policy, session_policy
+from simple_module_db._engine_policies import _engine_policy as _engine_policy  # re-exported
+from simple_module_db._engine_policies import session_policy, set_policy
 from simple_module_db._entity_selectables import refuse_aliased_core
 from simple_module_db.core_scope import scope_core
 from simple_module_db.insert_guard import TENANT_COLUMN as TENANT_COLUMN  # re-exported
@@ -76,7 +77,7 @@ def bind_engine_policy(engine: Engine, policy: Any) -> None:
     Engines derived from it (``engine.execution_options(...)``) and sessions
     bound to it per model (``binds={...}``) resolve to the same policy.
     """
-    _engine_policy[engine] = policy
+    set_policy(engine, policy)
 
 
 def engine_policy(session: Session) -> Any:

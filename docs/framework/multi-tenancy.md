@@ -90,9 +90,10 @@ statement names, so all of these are scoped (#332):
 built over, which the filter does not rewrite. Built from ORM entities
 (`aliased(Proj, select(Proj).where(Proj.id.in_(select(Doc.proj_id))).subquery())`)
 it is scoped by the loader criteria. One that reads only the entity's own
-table (`aliased(Doc, select(Doc.__table__).where(…).subquery())`) is scoped
-on the rows it returns, unless it combines rows first (`GROUP BY`, `HAVING`,
-an aggregate or a window function). So is `aliased(Doc, Doc.__table__.join(tag))`,
+tables (`aliased(Doc, select(Doc.__table__).where(…).subquery())`; for joined
+inheritance, the tables of its mapper) is scoped on the rows it returns, unless
+it may combine rows first: `GROUP BY`, `HAVING`, a window function, or any
+function other than a row-wise one such as `lower`, `coalesce` or `abs`. So is `aliased(Doc, Doc.__table__.join(tag))`,
 a `Join` of the entity's own table with tables that are not scoped. Any other
 Core read of a scoped table inside it, and SQL text under an entity of a
 scoped table, is refused (see below).
@@ -133,8 +134,8 @@ they read or write cannot be checked:
   was scoped when the parent query ran;
 - `aliased(Model, <join>)` (`Proj.__table__.join(Doc.__table__)`) whose join
   reads a tenant-scoped or soft-deletable table through Core, other than the
-  entity's own table joined to unscoped tables (an alias of the entity's own
-  table counts as another table);
+  entity's own table joined to unscoped tables (a second occurrence of the
+  entity's own table, an alias of it included, counts as another table);
 - `aliased(Model, text(…).columns(…))`, bare or as a subquery or CTE, when
   `Model` is tenant-scoped or soft-deletable: the filter cannot read SQL text;
 - an `INSERT` into a tenant table embedded in another statement as a CTE —
@@ -171,8 +172,10 @@ object's `tenant_id` only when a session loaded or inserted it. An object
 attached as already persistent — `make_transient_to_detached()`,
 `merge(load=False)`, a transient copy given another row's primary key, any
 detached object passed to `session.add()` — has its owner read from the table
-before the flush writes it (one `SELECT` per identity, remembered whether or not
-the row exists), and a row of another tenant raises `TenantIsolationError`.
+before the flush writes it, and a row of another tenant raises
+`TenantIsolationError`. A found owner is read once per identity; a missing row
+is read again on the next flush. On a non-strict install with no bound tenant
+the flush guard does not check owners, as before.
 
 ## Acting outside a request
 

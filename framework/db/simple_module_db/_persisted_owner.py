@@ -11,8 +11,9 @@ Its ``tenant_id`` is then whatever was set in memory.
 Every such object enters the session through ``detached_to_persistent``, and
 only those are marked (``mark_unverified``): loads and inserts cost nothing.
 A marked object has its owner read from the table (``persisted_owner``) before
-the flush may write it; the answer — a row's ``tenant_id``, or no row — is
-remembered with the identity it was read for, so it costs one ``SELECT``, once.
+the flush may write it. A found owner is remembered with the identity it was
+read for, so it costs one ``SELECT``, once; a missing row is not remembered and
+is read again on the next flush (a row inserted since must still be checked).
 """
 
 from __future__ import annotations
@@ -27,7 +28,6 @@ from simple_module_db.insert_guard import TENANT_COLUMN
 from simple_module_db.mixins import MultiTenantMixin
 
 _OWNER_KEY = "sm_unverified_owner"
-_MISSING = object()  # the row was not found: the unit of work reports it
 _UNCHECKED = (None, None)  # ``state.key`` is never ``None`` for a persistent object
 
 
@@ -57,7 +57,7 @@ def is_known(obj: Any, owner: str | None) -> bool:
     if mark is None:
         return True
     key, persisted = mark
-    return key is not None and key == state.key and (persisted is _MISSING or persisted == owner)
+    return key is not None and key == state.key and persisted == owner
 
 
 def persisted_owner(session: Session, obj: Any) -> tuple[bool, str | None]:
@@ -70,8 +70,7 @@ def persisted_owner(session: Session, obj: Any) -> tuple[bool, str | None]:
     match = [col == value for col, value in zip(mapper.primary_key, state.key[1], strict=True)]
     stmt = select(column).select_from(mapper.persist_selectable).where(and_(*match))
     rows = session.connection(bind_arguments={"mapper": mapper}).execute(stmt).all()
-    if not rows:
-        state.info[_OWNER_KEY] = (state.key, _MISSING)
+    if not rows:  # not memoized: a row inserted before the next flush is read then
         return False, None
     owner = rows[0][0]
     state.info[_OWNER_KEY] = (state.key, owner)

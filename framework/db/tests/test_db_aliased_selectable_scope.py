@@ -96,6 +96,10 @@ _COMBINING = {
     "aggregate": lambda: select(
         func.max(child.c.id).label("id"), func.min(child.c.tenant_id).label("tenant_id")
     ),
+    # Not a known aggregate name: an unknown function is not trusted to be row-wise.
+    "unlisted aggregate": lambda: select(
+        func.any_value(child.c.id).label("id"), func.any_value(child.c.tenant_id).label("tenant_id")
+    ),
 }
 
 
@@ -108,7 +112,8 @@ async def test_own_table_selectable_that_combines_rows_is_refused(read_db, shape
 
 async def test_row_wise_function_and_nested_unscoped_aggregate_stay_allowed(read_db):
     top_proj = select(func.max(proj.c.child_id)).scalar_subquery()
-    sub = select(child).where(func.abs(child.c.id) > 0, child.c.id <= top_proj)
+    row_wise = func.coalesce(func.lower(child.c.tenant_id), "") != "z"
+    sub = select(child).where(func.abs(child.c.id) > 0, row_wise, child.c.id <= top_proj)
     child_alias = aliased(RsChild, sub.subquery())
     with tenant_context("a"):
         assert sorted((await read_db.execute(select(child_alias.id))).scalars()) == [1, 2]

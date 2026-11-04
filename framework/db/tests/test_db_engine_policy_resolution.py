@@ -12,6 +12,7 @@ import textwrap
 
 import pytest
 from _db_dml_scope_models import ScopeDoc, ScopeProj, scope_db
+from simple_module_db import model_registry
 from simple_module_db._engine_policies import policy_of, session_policy
 from simple_module_db.query_filter import EngineTenancy, _engine_policy, bind_engine_policy
 from simple_module_db.tenancy import TenantIsolationError, no_tenant, tenant_context
@@ -99,6 +100,31 @@ def test_session_policy_is_memoized_per_bind():
     assert session_policy(session).tenant_strict is True
     first.dispose()
     second.dispose()
+
+
+def test_policy_bound_after_a_memoized_answer_is_seen():
+    engine = create_engine("sqlite://")
+    session = Session(bind=engine)
+    assert session_policy(session) is None
+    policy = EngineTenancy(tenant_strict=True)
+    bind_engine_policy(engine, policy)
+    assert session_policy(session) is policy
+    engine.dispose()
+
+
+@pytest.mark.parametrize("bound", [True, False])
+def test_unmapped_class_among_tenant_models_is_skipped(monkeypatch, bound):
+    class _NotMapped:  # e.g. a model whose registry was disposed
+        pass
+
+    engine = create_engine("sqlite://")
+    policy = EngineTenancy(tenant_strict=True)
+    bind_engine_policy(engine, policy)
+    stale = {*model_registry.tenant_classes, _NotMapped}
+    monkeypatch.setattr(model_registry, "tenant_classes", stale)
+    session = Session(bind=engine) if bound else Session(binds={ScopeDoc: engine})
+    assert session_policy(session) is policy
+    engine.dispose()
 
 
 def test_session_without_a_policy_is_memoized_too():

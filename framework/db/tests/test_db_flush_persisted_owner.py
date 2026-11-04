@@ -137,7 +137,7 @@ async def test_loaded_and_inserted_objects_are_not_marked(scope_db):
     assert _OWNER_KEY in sa_inspect(reattached).info
 
 
-async def test_missing_row_is_read_once(scope_db, captured_sql):
+async def test_missing_row_is_read_again_on_the_next_flush(scope_db, captured_sql):
     with tenant_context("a"):
         ghost = _in_memory(99, "a", "ghost")
         scope_db.add(ghost)
@@ -145,7 +145,26 @@ async def test_missing_row_is_read_once(scope_db, captured_sql):
         captured_sql.clear()
         await scope_db.run_sync(guard_flush)
         await scope_db.run_sync(guard_flush)
-    assert [sql.split()[0] for sql in captured_sql] == ["SELECT"]
+    assert [sql.split()[0] for sql in captured_sql] == ["SELECT", "SELECT"]
+
+
+async def test_row_inserted_after_a_missing_read_is_checked(scope_db):
+    with tenant_context("a"):
+        obj = _in_memory(99, "a", "late")
+        scope_db.add(obj)
+        obj.note = "x"
+        await scope_db.run_sync(guard_flush)  # no row yet: left to the unit of work
+    with tenant_context("b"):
+        await scope_db.run_sync(_insert_doc_99_for_b)
+    with tenant_context("a"), pytest.raises(TenantIsolationError, match="tenant 'b'"):
+        await scope_db.run_sync(guard_flush)
+
+
+def _insert_doc_99_for_b(session):
+    table = ScopeDoc.__table__
+    session.connection().execute(
+        table.insert().values(id=99, name="b-late", tenant_id="b", is_deleted=False)
+    )
 
 
 async def test_soft_delete_of_a_loaded_object_costs_no_read_later(scope_db, captured_sql):

@@ -106,8 +106,8 @@ def _check_persisted_owner(
     """The unit of work writes by primary key: the row itself must be the bound tenant's.
 
     Only an object the session did not load or insert costs a read — one made
-    persistent in memory, whose ``tenant_id`` proves nothing — and only once
-    per identity.
+    persistent in memory, whose ``tenant_id`` proves nothing. A found owner is
+    read once per identity; a missing row is read again on the next flush.
     """
     if is_known(obj, owner):
         return

@@ -82,12 +82,12 @@ All notable changes to this project are documented in this file. The format is b
   - flushing an UPDATE or DELETE of an object the session did not load or
     insert (`make_transient_to_detached()`, `merge(load=False)`, a detached
     object passed to `session.add()`) whose row belongs to another tenant —
-    its `tenant_id` is read from the table first (one `SELECT` per identity,
-    only for such objects);
+    its `tenant_id` is read from the table first (only for such objects; a
+    found owner is read once, a missing row is read again on the next flush);
   - `aliased(Model, <subquery or CTE>)` whose selectable reads a tenant-scoped
     or soft-deletable table through Core, other than the entity's own table
-    (or the entity's own table with `GROUP BY`, `HAVING`, an aggregate or a
-    window function), unless inside `all_tenants()` (with
+    (or the entity's own table with `GROUP BY`, `HAVING`, a window function
+    or any function other than a row-wise one such as `lower`), unless inside `all_tenants()` (with
     `include_deleted=True`); build the selectable from ORM entities instead.
     The same holds for `aliased(Model, <join>)` whose join holds a scoped
     table other than the entity's own, and for `aliased(Model, text(…).columns(…))`

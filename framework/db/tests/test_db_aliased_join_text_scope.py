@@ -9,7 +9,7 @@ is refused outright: no filter can read it. Both run under ``all_tenants()``
 
 import pytest
 from _db_read_scope_models import RsChild, RsProj, child, proj, read_db
-from simple_module_db._entity_selectables import _own_join_only
+from simple_module_db._entity_selectables import _own_join_only, _own_rows_only
 from simple_module_db.tenancy import TenantIsolationError, all_tenants, tenant_context
 from sqlalchemy import ForeignKey, Integer, String, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, aliased, mapped_column, with_polymorphic
@@ -100,3 +100,16 @@ def test_orm_built_flat_join_of_an_inheriting_entity_is_its_own(make):
     names = {"aliased_join_animal", "aliased_join_dog"}
     assert isinstance(insp.selectable, Join)
     assert _own_join_only(insp, insp.selectable, names)
+
+
+def test_subquery_over_an_inheriting_entitys_own_tables_is_its_own():
+    # Both tables are _Dog's (its mapper's base and local table): not another table.
+    animal, dog = _Animal.__table__, _Dog.__table__
+    sub = select(animal.c.id, animal.c.kind).where(animal.c.id == dog.c.id).subquery()
+    insp = inspect(aliased(_Dog, sub))
+    names = {"aliased_join_animal", "aliased_join_dog"}
+    assert _own_rows_only(insp, insp.selectable, names)
+    other = animal.alias("other")
+    second = select(animal.c.id, animal.c.kind).where(animal.c.id == other.c.id).subquery()
+    insp = inspect(aliased(_Dog, second))
+    assert not _own_rows_only(insp, insp.selectable, names)
