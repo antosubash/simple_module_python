@@ -19,7 +19,7 @@ tenant a request acts for.
 | ORM `update()` / `delete()` (also bulk UPDATE by primary key) | filtered to the tenant; assigning `tenant_id` (`.values()` or `.ordered_values()`) raises | `MissingTenantError` | unfiltered |
 | `session.add` + flush | `tenant_id` filled in; a different explicit value raises | `MissingTenantError`, even with an explicit `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
 | ORM `insert(Model)` (bulk / `.values()`) | `tenant_id` filled in; a different explicit value raises | `MissingTenantError`, even when every row sets `tenant_id` | `tenant_id` filled in with the install's fallback tenant unless set |
-| Flushing a change to, or a delete of, a loaded object | only if it belongs to the bound tenant | `MissingTenantError` | allowed |
+| Flushing a change to, or a delete of, a persistent object | only if its row belongs to the bound tenant (an object made persistent in memory has its owner read from the table first) | `MissingTenantError` | allowed |
 | Changing `tenant_id` | raises | raises | raises (only an `all_tenants()` block may move a row) |
 | Legacy `Session.bulk_save_objects` / `bulk_insert_mappings` / `bulk_update_mappings` | `TenantIsolationError` | `TenantIsolationError` | allowed, unscoped |
 
@@ -33,7 +33,16 @@ Tenant criteria — and soft-delete criteria, on reads — are attached for
 **every** tenant-scoped / soft-deletable model, not only the entities a
 statement names, so all of these are scoped (#332):
 
-- `select(Model)`, relationship loads, ORM `update()`/`delete()`/`insert()`;
+- `select(Model)`, ORM `update()`/`delete()`/`insert()`;
+- relationship loads — lazy, `joinedload`, `selectinload`, `subqueryload` —
+  and joins or `any()` through a relationship. A relationship whose
+  `secondary` is a tenant-scoped or soft-deletable table (`secondary=Link.__table__`)
+  filters the link rows too: its join condition carries
+  `(:all_tenants OR link.tenant_id = :tenant)` and
+  `(:include_deleted OR link.is_deleted IS false)`, bound on each execution
+  from the bound tenant, `all_tenants()` and the statement's
+  `all_tenants` / `include_deleted` options. With no tenant under strict mode
+  it matches no link row;
 - a table as a **join target**: `select(Project).join(Doc)`;
 - subqueries: `select(Doc.id).where(...).exists()`, a bare Core
   `exists().where(Doc.x == ...)`, `in_(select(Doc.x))`, scalar subqueries;
@@ -73,6 +82,21 @@ statement names, so all of these are scoped (#332):
   loader criteria sit in `WHERE`, and a table with no primary key, whose
   padding cannot be told apart from a real row.
 
+`aliased(Model, <subquery or CTE>)` is rendered from the selectable it was
+built over, which the filter does not rewrite. Built from ORM entities
+(`aliased(Proj, select(Proj).where(Proj.id.in_(select(Doc.proj_id))).subquery())`)
+it is scoped by the loader criteria. One that reads only the entity's own
+table (`aliased(Doc, select(Doc.__table__).where(…).subquery())`) is scoped
+on the rows it returns. Any other Core read of a scoped table inside it is
+refused (see below).
+
+The engine's policy (strict mode, the fallback tenant, the audit sink) is
+found through a derived engine (`engine.execution_options(...)`) and through a
+session bound per model (`binds={...}`, the strictest bind wins). A model's
+table is known to the filter as soon as the class is mapped, so a Core
+statement on `Model.__table__` is scoped even before any ORM use configures
+the mappers.
+
 With no tenant under strict mode, a statement that *names* a tenant model, or
 reads a tenant table through Core anywhere in it, raises; an indirect ORM
 reference (a join, a subquery) matches nothing. The cost is one walk of the
@@ -82,8 +106,16 @@ and rewritten. Both are skipped when no tenant-scoped or soft-deletable model
 is installed.
 
 Refused outside `all_tenants()` (`TenantIsolationError`), because the rows
-they write cannot be checked:
+they read or write cannot be checked:
 
+- `aliased(Model, <subquery or CTE>)` whose selectable reads a tenant-scoped
+  or soft-deletable table through Core — `select(Doc.__table__)` joined to
+  another table, a nested `select(doc.c.x)`, an `exists()` over one — other
+  than the entity's own table in its own `FROM`. Build the selectable from
+  ORM entities, or run it under `all_tenants()` (with
+  `include_deleted=True` where soft-delete applies). A relationship loader's
+  own statement (`subqueryload` wraps the parent query) is not refused: it
+  was scoped when the parent query ran;
 - an `INSERT` into a tenant table embedded in another statement as a CTE —
   run it as a statement of its own;
 - SQLite `insert(…).prefix_with("OR REPLACE")` on a tenant table while a
@@ -112,6 +144,14 @@ across `tenant_context` blocks can hand back an object loaded for another
 tenant. The flush refuses to write or delete it, but reading it is not
 prevented: give each tenant its own session (or `session.expunge_all()`
 between tenants) in jobs and CLI loops. Per-request sessions are unaffected.
+
+The unit of work updates and deletes by primary key, so the flush trusts an
+object's `tenant_id` only when the session loaded or inserted the object with
+its current identity. An object made persistent in memory —
+`make_transient_to_detached()`, `merge(load=False)`, a transient copy given
+another row's primary key — has its owner read from the table before the
+flush writes it (one `SELECT`, once), and a row of another tenant raises
+`TenantIsolationError`.
 
 ## Acting outside a request
 

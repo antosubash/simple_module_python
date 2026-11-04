@@ -67,6 +67,25 @@ All notable changes to this project are documented in this file. The format is b
 - ORM restores now emit `restored` audit entries with translated action labels
   and ORM primary-key updates include the old and new key in their diffs
   (behaviour change: both used to leave no entry) (#811).
+- Tenant and soft-delete scoping in `simple_module_db` now also applies to:
+  relationships whose `secondary` is a `MultiTenantMixin` / `SoftDeleteMixin`
+  table, in `joinedload()`, `selectinload()`, `subqueryload()` and joins
+  through the relationship (lazy loads already were); Core statements on
+  `Model.__table__` run before any ORM use has configured the mappers; and
+  sessions on a derived engine (`engine.execution_options(...)`) or bound per
+  model (`binds={...}`), which now keep the engine's strict mode, fallback
+  tenant and audit sink.
+- **Behaviour change:** these shapes now raise `TenantIsolationError`:
+  - flushing an UPDATE or DELETE of an object made persistent in memory
+    (`make_transient_to_detached()`, `merge(load=False)`) whose row belongs to
+    another tenant — its `tenant_id` is read from the table first (one
+    `SELECT`, only for such objects);
+  - `aliased(Model, <subquery or CTE>)` whose selectable reads a tenant-scoped
+    or soft-deletable table through Core, other than the entity's own table,
+    unless inside `all_tenants()` (with `include_deleted=True`); build the
+    selectable from ORM entities instead.
+- `subqueryload()` on a relationship between tenant-scoped or soft-deletable
+  models no longer fails with a duplicate `anon_1` alias (#816).
 - Tenant scoping in `simple_module_db` now applies to more statement shapes:
   ORM bulk UPDATE by primary key (`session.execute(update(Model), rows)`),
   `update().ordered_values()` (assigning `tenant_id` raises like `.values()`),

@@ -15,14 +15,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
-from weakref import WeakKeyDictionary
 
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
 
+from simple_module_db import _engine_policies
 from simple_module_db import model_registry as registry
 from simple_module_db._bulk_pk_update import is_bulk_pk_update, scoped_bulk_pk_update
 from simple_module_db._core_joins import _base_name, is_scoped_leaf
+from simple_module_db._engine_policies import session_policy
+from simple_module_db._entity_selectables import refuse_aliased_core
+from simple_module_db._secondary_scope import install_execution_scope
 from simple_module_db.core_scope import scope_core
 from simple_module_db.insert_guard import assigned_tenant_ids, guard_insert
 from simple_module_db.insert_scope import scope_insert
@@ -43,13 +46,8 @@ from simple_module_db.tenancy import (
 
 TENANT_COLUMN = "tenant_id"
 
-# Per-engine tenancy policy. Keyed by engine rather than held in a module
-# global so two ``DatabaseState``s in one process (tests, a CLI next to an
-# app) cannot switch each other's strict mode off. Values expose
-# ``tenant_strict`` (and optionally ``default_tenant_id``) — a
-# ``DatabaseState``, or an ``EngineTenancy`` for a bare sync engine such as
-# the Celery worker's.
-_engine_policy: WeakKeyDictionary[Engine, Any] = WeakKeyDictionary()
+# Re-exported: the per-engine policy map lives in ``_engine_policies``.
+_engine_policy = _engine_policies._engine_policy
 
 
 class EngineTenancy:
@@ -75,16 +73,18 @@ class EngineTenancy:
 
 
 def bind_engine_policy(engine: Engine, policy: Any) -> None:
-    """Attach a policy (anything with ``tenant_strict``) to a sync engine."""
+    """Attach a policy (anything with ``tenant_strict``) to a sync engine.
+
+    Engines derived from it (``engine.execution_options(...)``) and sessions
+    bound to it per model (``binds={...}``) resolve to the same policy.
+    """
     _engine_policy[engine] = policy
+    install_execution_scope(engine)
 
 
 def engine_policy(session: Session) -> Any:
     """The policy bound to this session's engine, or ``None``."""
-    bind = session.bind
-    if isinstance(bind, Connection):
-        bind = bind.engine
-    return _engine_policy.get(bind) if isinstance(bind, Engine) else None
+    return session_policy(session)
 
 
 def strict_configured(session: Session) -> bool:
@@ -155,6 +155,8 @@ def filter_statements(execute_state: ORMExecuteState) -> Any:
         scoped_names(skip_soft_delete, skip_tenant),
         orm_covered(skip_soft_delete, skip_tenant, tenant_id),
         nested_dml_guard(skip_tenant, tenant_id, strict),
+        # A relationship loader's statement wraps one that was scoped when it ran.
+        None if execute_state.is_relationship_load else refuse_aliased_core,
     )
     if not skip_soft_delete:
         options.extend(
@@ -185,7 +187,9 @@ def _scope_insert_source(execute_state: ORMExecuteState) -> None:
     nested = nested_dml_guard(skip_tenant, tenant_id, strict)
     execute_state.statement = scope_insert(
         execute_state.statement,
-        lambda el: scope_core(el, predicates_for, names, nested=nested),
+        lambda el: scope_core(
+            el, predicates_for, names, nested=nested, aliased=refuse_aliased_core
+        ),
     )
 
 

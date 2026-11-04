@@ -5,6 +5,9 @@ The query filter scopes what a statement *reads*; this guards what a flush
 added with ``session.add``, and objects that came out of the identity map —
 ``session.get`` answers from it without SQL, so a session reused across a
 ``tenant_context`` switch can hand back, and then write, another tenant's row.
+An object made persistent in memory (``make_transient_to_detached``,
+``merge(load=False)``) has its owner read from the table first
+(``_persisted_owner``).
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from __future__ import annotations
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db._persisted_owner import is_known, persisted_owner
 from simple_module_db.mixins import MultiTenantMixin
 from simple_module_db.query_filter import fallback_tenant_id, is_strict, strict_configured
 from simple_module_db.tenancy import (
@@ -87,6 +91,26 @@ def guard_flush(session: Session) -> None:
             )
         if tenant_id is None and strict:
             raise missing_tenant_error(type(obj).__name__, op)
+        if tenant_id is not None:
+            _check_persisted_owner(session, obj, owner, tenant_id, op)
+
+
+def _check_persisted_owner(
+    session: Session, obj: MultiTenantMixin, owner: str | None, tenant_id: str, op: str
+) -> None:
+    """The unit of work writes by primary key: the row itself must be the bound tenant's.
+
+    Only an object not loaded or inserted with its current identity and
+    ``tenant_id`` costs a read — one made persistent in memory, whose
+    ``tenant_id`` proves nothing.
+    """
+    if is_known(obj, owner):
+        return
+    found, persisted = persisted_owner(session, obj)
+    if found and persisted != tenant_id:
+        raise TenantIsolationError(
+            f"Cannot {op} an object of tenant '{persisted}' in context of tenant '{tenant_id}'"
+        )
 
 
 __all__ = ["guard_flush"]

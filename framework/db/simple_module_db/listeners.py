@@ -12,6 +12,7 @@ from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db._persisted_owner import remember_owner
 from simple_module_db.bulk_audit import audit_statement
 from simple_module_db.bulk_guard import install_bulk_guard
 from simple_module_db.flush_guard import guard_flush
@@ -130,6 +131,8 @@ def attach_session_listeners(session_class: type[Session]) -> None:
     for name, fn in (
         ("before_flush", _before_flush_listener),
         ("after_flush", _mark_session_written),
+        ("loaded_as_persistent", remember_owner),
+        ("pending_to_persistent", remember_owner),
         ("after_flush_postexec", _after_flush_audit),
         ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
