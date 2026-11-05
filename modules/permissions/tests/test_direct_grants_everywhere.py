@@ -13,7 +13,7 @@ import uuid
 import httpx
 import pytest
 from fastapi import FastAPI
-from feature_flags.constants import PERM_FEATURE_FLAGS_VIEW, VIEW_PREFIX
+from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW, VIEW_PREFIX
 from permissions.deps import RequiresPermission as ModuleRequiresPermission
 from permissions.grants import clear_grants_cache
 from simple_module_hosting.permissions import RequiresPermission

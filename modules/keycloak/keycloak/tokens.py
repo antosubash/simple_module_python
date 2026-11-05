@@ -1,10 +1,11 @@
-"""Provider-scoped refresh-token encryption; preserves existing session ciphertext."""
+"""Moved to :mod:`keycloak.identity.tokens`; this alias goes in 0.0.46 (module layout)."""
 
-from auth.oidc_common.tokens import provider_tokens
+from __future__ import annotations
 
-from keycloak.constants import SESSION_REFRESH_TOKEN_KEY
+import importlib
+import sys
 
-_TOKENS = provider_tokens(info=b"keycloak-refresh-token", session_key=SESSION_REFRESH_TOKEN_KEY)
-seal_refresh_token = _TOKENS.seal_refresh_token
-open_refresh_token = _TOKENS.open_refresh_token
-store_refresh_token = _TOKENS.store_refresh_token
+from simple_module_core.deprecation import deprecated_module
+
+deprecated_module("keycloak.tokens", remove_in="0.0.46", use="keycloak.identity.tokens")
+sys.modules[__name__] = importlib.import_module("keycloak.identity.tokens")

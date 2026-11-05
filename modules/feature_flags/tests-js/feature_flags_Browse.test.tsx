@@ -21,7 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
 import Browse from '../feature_flags/pages/Browse';
-import type { FeatureFlag } from '../feature_flags/pages/types';
+import type { FeatureFlag } from '../feature_flags/ui/types';
 
 const FLAGS: FeatureFlag[] = [
   {
