@@ -210,6 +210,6 @@ when a later module PR moves files.
 | permissions | 12 | 14 | flat |
 | settings | 31 | 43 | flat |
 | sharing | 13 | 6 | flat |
-| site_lock | 8 | 5 | flat |
+| site_lock | 2 (+1 shim) | 0 | follows this layout |
 | tenants | 19 | 23 | flat |
 | users | 31 | 97 | flat |

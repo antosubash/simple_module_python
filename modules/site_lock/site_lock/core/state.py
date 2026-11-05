@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from site_lock import constants as c
-from site_lock.rate_limit import AttemptLimiter
-from site_lock.settings import SiteLockSettings
+from site_lock.core import constants as c
+from site_lock.core.settings import SiteLockSettings
+from site_lock.web.rate_limit import AttemptLimiter
 
 
 def _default_limiter() -> AttemptLimiter:

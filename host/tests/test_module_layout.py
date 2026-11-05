@@ -127,11 +127,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         services.py settings.py tenant_cleanup.py user_cleanup.py
         """.split()
     ),
-    "site_lock": frozenset(
-        """
-        constants.py middleware.py page.py rate_limit.py settings.py state.py templates
-        """.split()
-    ),
     "tenants": frozenset(
         """
         _deletion.py _membership_ops.py _owner_guard.py components constants.py deps.py

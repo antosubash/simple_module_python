@@ -9,8 +9,8 @@ caught even though every unit test would still pass.
 from __future__ import annotations
 
 import pytest
-from site_lock import constants as c
-from site_lock.settings import SiteLockSettings
+from site_lock.core import constants as c
+from site_lock.core.settings import SiteLockSettings
 
 
 def test_module_state_is_mounted_and_disabled_by_default(app) -> None:
