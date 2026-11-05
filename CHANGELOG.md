@@ -15,6 +15,10 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- `SM034` diagnostic (WARNING, `make doctor` and dev boot) for a
+  `subscribe_durable(...)` call without `name=`: the default name is the import
+  path, so moving the handler strands undelivered outbox rows. `permissions` and
+  `tenants` pin their user-cleanup handlers to their existing names (#847).
 - Development responses carry a `Server-Timing` header with the request's app
   time, database time and SQL statement count (`app;dur=…, db;dur=…;desc="N
   queries"`), so an N+1 shows in the browser's network panel. Never sent

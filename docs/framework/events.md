@@ -145,7 +145,7 @@ from simple_module_core import DurableContext
 
 
 def register_event_handlers(self, bus: EventBus, app=None) -> None:
-    bus.subscribe_durable(OrderPlaced, create_invoice)  # name defaults to the import path
+    bus.subscribe_durable(OrderPlaced, create_invoice, name=INVOICE_HANDLER)
 
 
 async def create_invoice(event: OrderPlaced, ctx: DurableContext) -> None:
@@ -156,6 +156,11 @@ async def create_invoice(event: OrderPlaced, ctx: DurableContext) -> None:
 await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 ```
 
+- Always pass `name=` (a constant from `constants.py`). Outbox rows are keyed by
+  the name, which otherwise defaults to the handler's import path, so moving or
+  renaming the handler strands every undelivered row. `make doctor` reports a
+  `subscribe_durable` call without it as `SM034`. To adopt it on an existing
+  handler, set the constant to the current default name (`module.path.function`).
 - `publish_durable(event, db)` hands the event to `bus.durable_transport`, which
   writes it in `db`'s transaction: a rollback means it was never published. With
   no transport installed it raises `DurableDeliveryUnavailable` rather than
