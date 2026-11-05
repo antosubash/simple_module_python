@@ -47,7 +47,7 @@ The active auth provider installs its directory in `register_settings` with
 | Provider | Directory | Knows |
 |---|---|---|
 | `users` | `users.directory.UsersDirectory` | every local account, roles via `users_user_role`, all three stats |
-| `keycloak` | `keycloak.directory.KeycloakDirectory` | users who have signed in at least once (`keycloak_user_cache`); roles `None`; `created_this_month` `None`; `entity_type` `None` |
+| `keycloak` | `keycloak.identity.directory.KeycloakDirectory` | users who have signed in at least once (`keycloak_user_cache`); roles `None`; `created_this_month` `None`; `entity_type` `None` |
 | none | `NullUserDirectory` | nobody; every stat `None`; `match_ids` `None` |
 
 A new provider implements the four methods and `entity_type`, and registers

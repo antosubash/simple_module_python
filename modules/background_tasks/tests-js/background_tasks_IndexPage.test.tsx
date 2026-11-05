@@ -72,6 +72,25 @@ describe('background_tasks Index page', () => {
     vi.clearAllMocks();
   });
 
+  it('says it is checking for workers while the deferred poll runs, then answers', () => {
+    const empty = {
+      executions: [],
+      pagination: { page: 1, per_page: 20, total: 0 },
+      has_executions: false,
+    };
+    const props = () => state.props as unknown as ComponentProps<typeof Index>;
+    setProps({ ...empty, worker_presence: undefined });
+    const { rerender } = render(<Index {...props()} />);
+    expect(screen.getByText(keys.background_tasks.tasks_empty.checking_title)).toBeInTheDocument();
+
+    setProps({ ...empty, worker_presence: { broker_reachable: true, worker_count: 0 } });
+    rerender(<Index {...props()} />);
+    expect(
+      screen.getByText(keys.background_tasks.tasks_empty.no_workers_title),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(keys.background_tasks.tasks_empty.checking_title)).toBeNull();
+  });
+
   it('lists executions and offers retry controls to managers only', () => {
     render(<Index {...(state.props as unknown as ComponentProps<typeof Index>)} />);
     expect(screen.getByText('demo.task')).toBeInTheDocument();

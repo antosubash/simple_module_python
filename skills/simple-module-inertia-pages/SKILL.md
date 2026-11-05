@@ -108,3 +108,4 @@ The typed client (#504):
 
 - **simple-module-creating** — where the PascalCase rule originates (matching `ModuleMeta.name`)
 - **simple-module-doctor** — full reference for `SM003` / `SM004` / `SM018` / `SM019`
+- **simple-module-page-perf** — auditing a page's speed, N+1s, deferred props and loading UX

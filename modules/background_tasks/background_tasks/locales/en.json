@@ -125,7 +125,9 @@
     "no_workers_title": "No worker is running",
     "no_workers_description": "The broker is up, but nothing is consuming the queue. Tasks enqueued now will wait rather than run.",
     "healthy_title": "No task has run yet",
-    "healthy_description": "Registered tasks appear here the first time they execute."
+    "healthy_description": "Registered tasks appear here the first time they execute.",
+    "checking_title": "Checking for workers…",
+    "checking_description": "Asking the broker whether anything is running to execute tasks."
   },
   "workers": {
     "title": "Workers",
@@ -155,7 +157,9 @@
     "routes_module": "Set by",
     "routes_override": "Operator override",
     "routes_default_queue": "Default queue",
-    "routes_empty": "No task routes are configured, so every task goes to the default queue. Add routes in a module's task_config.py (TASK_ROUTES)."
+    "routes_empty": "No task routes are configured, so every task goes to the default queue. Add routes in a module's task_config.py (TASK_ROUTES).",
+    "checking": "Polling the broker…",
+    "checking_label": "Loading workers"
   },
   "nav": {
     "background_tasks": "Background tasks",

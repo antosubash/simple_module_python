@@ -18,6 +18,7 @@ from simple_module_hosting._cors import CorsMiddleware, host_policy
 from simple_module_hosting._forwarded_host import ForwardedHostMiddleware
 from simple_module_hosting._rate_limit import RateLimitMiddleware
 from simple_module_hosting._route_access import API_PREFIX
+from simple_module_hosting._server_timing import ServerTimingMiddleware
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -174,6 +175,10 @@ def install_middleware(
     if api_policy is not None:
         cors_registry.add_prefix(API_PREFIX, api_policy)
     app.add_middleware(CorsMiddleware, registry=cors_registry)
+    if settings.is_development:
+        # Inside RequestLogging, outside everything that does work: its ``app``
+        # time covers the whole pipeline and every query the request ran.
+        app.add_middleware(ServerTimingMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
     if sentry.is_enabled():
