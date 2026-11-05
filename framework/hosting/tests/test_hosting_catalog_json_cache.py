@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 from simple_module_core.i18n import I18nRegistry
+from simple_module_hosting._i18n_json import catalog_json
 from simple_module_hosting._inertia_shared import build_i18n_block
 from starlette.requests import Request
 
@@ -51,3 +52,13 @@ def test_catalog_json_cache_tracks_locale_audience_and_reload(tmp_path):
     updated = _block(registry)["messages"]
     assert updated == {"public.title": "Updated"}
     assert updated is not first
+
+
+def test_a_registry_that_cannot_be_weak_referenced_is_served_uncached():
+    class _Stub:
+        __slots__ = ()
+
+        def messages_snapshot(self, locale, *, include_admin):
+            return {"a": "A"}
+
+    assert catalog_json(_Stub(), "en", include_admin=True) == {"a": "A"}

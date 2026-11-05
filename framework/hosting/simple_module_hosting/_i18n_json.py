@@ -12,7 +12,12 @@ _catalogs: WeakKeyDictionary[
 
 def catalog_json(registry: I18nRegistry, locale: str, *, include_admin: bool) -> JsonSnapshot:
     snapshot = registry.messages_snapshot(locale, include_admin=include_admin)
-    pool = _catalogs.setdefault(registry, {})
+    try:
+        pool = _catalogs.setdefault(registry, {})
+    except TypeError:
+        # A stub registry (``__slots__``, unhashable dataclass) cannot key a weak
+        # dict; serve it uncached rather than fail the request.
+        return JsonSnapshot(snapshot)
     key = (locale, include_admin)
     cached = pool.get(key)
     # load() replaces snapshots: identity is the catalog version, without a hash
