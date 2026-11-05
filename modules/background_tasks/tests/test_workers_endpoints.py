@@ -8,6 +8,7 @@ import httpx
 import pytest
 from background_tasks import worker_inspector as wi
 from background_tasks.contracts.schemas import WorkerInfo, WorkerSnapshot
+from simple_module_test import InertiaPage
 
 JSON_BASE = "/api/background_tasks/admin"
 VIEW_BASE = "/admin/background-tasks"
@@ -92,9 +93,10 @@ class TestWorkersInertiaView:
             headers={"X-Inertia": "true", "Accept": "application/json"},
         )
         assert resp.status_code == 200
-        body = resp.json()
-        assert body["component"] == "BackgroundTasks/Workers"
-        snapshot = body["props"]["snapshot"]
+        page = InertiaPage.from_response(resp).assert_component("BackgroundTasks/Workers")
+        # Deferred: the broker poll can take ~1s, so the page paints without it.
+        page.deferred("workers", "snapshot").missing("snapshot")
+        snapshot = (await page.load_deferred(authenticated_client, "workers")).props["snapshot"]
         assert snapshot["broker_reachable"] is True
         assert snapshot["workers"][0]["hostname"] == "celery@host-a"
 

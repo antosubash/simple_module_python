@@ -120,7 +120,8 @@ class TestEveryProviderConsumesTheStashedTarget:
 
 
 @pytest.mark.parametrize(
-    "relative", ["modules/keycloak/keycloak/endpoints/api.py", "modules/oidc/oidc/endpoints/api.py"]
+    "relative",
+    ["modules/keycloak/keycloak/web/endpoints/api.py", "modules/oidc/oidc/endpoints/api.py"],
 )
 def test_oidc_providers_complete_login_through_the_shared_sign_in(relative: str) -> None:
     # The shared helper honours SESSION_NEXT_KEY; a provider that stopped

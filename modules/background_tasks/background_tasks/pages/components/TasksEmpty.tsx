@@ -17,8 +17,11 @@ interface TasksEmptyRowProps {
   /** A search term or status filter is narrowing the list. */
   filtered: boolean;
   columnCount: number;
-  /** Fleet state, polled by the server only when the unfiltered list is empty. */
-  presence: WorkerPresence | null;
+  /**
+   * Fleet state, polled by the server only when the unfiltered list is empty.
+   * `undefined` while that (deferred) poll is still in flight.
+   */
+  presence: WorkerPresence | null | undefined;
   onClear: () => void;
 }
 
@@ -37,7 +40,16 @@ interface EmptyCopy {
  * messages. A filtered-empty list is handled by the caller — the fleet is not
  * why those rows are missing.
  */
-function emptyCopy(t: TFunction, presence: WorkerPresence | null): EmptyCopy {
+function emptyCopy(t: TFunction, presence: WorkerPresence | null | undefined): EmptyCopy {
+  // Same component and action as the answer it stands in for, so the row
+  // keeps its height when the poll lands instead of shifting the page.
+  if (presence === undefined) {
+    return {
+      icon: ServerCog,
+      title: t(keys.background_tasks.tasks_empty.checking_title),
+      description: t(keys.background_tasks.tasks_empty.checking_description),
+    };
+  }
   const state = presence
     ? diagnoseWorkerHealth({
         brokerReachable: presence.broker_reachable,
@@ -71,32 +83,35 @@ export function TasksEmptyRow({ filtered, columnCount, presence, onClear }: Task
   const copy = emptyCopy(t, presence);
   return (
     <TableEmptyRow columnCount={columnCount}>
-      {filtered ? (
-        <EmptyState
-          icon={Activity}
-          title={t(keys.background_tasks.tasks_empty.filtered_title)}
-          description={t(keys.background_tasks.tasks_empty.filtered_description)}
-          action={
-            <Button variant="outline" onClick={onClear}>
-              {t(keys.background_tasks.tasks_empty.clear_filters)}
-            </Button>
-          }
-        />
-      ) : (
-        <EmptyState
-          icon={copy.icon}
-          title={copy.title}
-          description={copy.description}
-          action={
-            <Button variant="outline" asChild>
-              <Link href={`${VIEW_BASE}/workers`}>
-                <ServerCog className="mr-2 size-4" />
-                {t(keys.background_tasks.worker_health.view_workers)}
-              </Link>
-            </Button>
-          }
-        />
-      )}
+      {/* aria-busy: assistive tech waits for the poll's answer instead of reading the placeholder. */}
+      <div aria-busy={!filtered && presence === undefined}>
+        {filtered ? (
+          <EmptyState
+            icon={Activity}
+            title={t(keys.background_tasks.tasks_empty.filtered_title)}
+            description={t(keys.background_tasks.tasks_empty.filtered_description)}
+            action={
+              <Button variant="outline" onClick={onClear}>
+                {t(keys.background_tasks.tasks_empty.clear_filters)}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={copy.icon}
+            title={copy.title}
+            description={copy.description}
+            action={
+              <Button variant="outline" asChild>
+                <Link href={`${VIEW_BASE}/workers`}>
+                  <ServerCog className="mr-2 size-4" />
+                  {t(keys.background_tasks.worker_health.view_workers)}
+                </Link>
+              </Button>
+            }
+          />
+        )}
+      </div>
     </TableEmptyRow>
   );
 }
