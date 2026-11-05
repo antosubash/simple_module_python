@@ -17,8 +17,8 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 
-from branding import constants
-from branding.constants import MENU_URL
+from branding.core import constants
+from branding.core.constants import MENU_URL
 
 if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
@@ -38,8 +38,8 @@ class BrandingModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_core.module_settings import register_module_settings
 
-        from branding.services import BrandingServices
-        from branding.settings import BrandingSettings
+        from branding.core.services import BrandingServices
+        from branding.core.settings import BrandingSettings
 
         register_module_settings(
             app,
@@ -52,12 +52,12 @@ class BrandingModule(ModuleBase):
         )
         # Tenants may override a subset for themselves (#373), through
         # settings' tenant surface; resolved per request by tenant_branding.
-        from branding.tenant_definitions import register_tenant_definitions
+        from branding.core.tenant_definitions import register_tenant_definitions
 
         register_tenant_definitions(app)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
-        from branding.tenant_branding import subscribe
+        from branding.core.tenant_branding import subscribe
 
         subscribe(bus, app)
 
@@ -97,10 +97,10 @@ class BrandingModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from branding.endpoints.api import router as api
-        from branding.endpoints.assets import router as assets
-        from branding.endpoints.tenant_api import router as tenant_api
-        from branding.endpoints.views import router as views
+        from branding.web.endpoints.api import router as api
+        from branding.web.endpoints.assets import router as assets
+        from branding.web.endpoints.tenant_api import router as tenant_api
+        from branding.web.endpoints.views import router as views
 
         api_router.include_router(api)
         # Tenant owners/admins upload their organisation's own images (#373).
@@ -113,7 +113,7 @@ class BrandingModule(ModuleBase):
     async def on_startup(self, app: FastAPI) -> None:
         from simple_module_hosting.shared_props import register_inertia_shared_provider
 
-        from branding.shared_props import branding_shared_props
+        from branding.web.shared_props import branding_shared_props
 
         register_inertia_shared_provider(app, branding_shared_props)
 

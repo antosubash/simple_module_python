@@ -24,7 +24,8 @@ def test_finalize_cuts_changelog_before_commit_and_extracts_dated_notes() -> Non
     action = (REPO_ROOT / ".github/actions/bump-version/action.yml").read_text(encoding="utf-8")
     cut_step = action.split("- name: Cut CHANGELOG section", 1)[1]
     assert "if: inputs.cut-changelog == 'true'" in cut_step
-    assert 'run: uv run python scripts/cut_changelog.py "${{ inputs.version }}"' in cut_step
+    assert "VERSION: ${{ inputs.version }}" in cut_step
+    assert 'run: uv run python scripts/cut_changelog.py "$VERSION"' in cut_step
     assert "--notes" not in cut_step
 
 

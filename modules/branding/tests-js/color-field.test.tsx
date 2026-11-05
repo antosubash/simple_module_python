@@ -14,10 +14,10 @@ configureI18n({
   },
 });
 
-import { type PreviewBrand, previewInk } from '../branding/components/BrandingPreview';
-import { ColorField } from '../branding/components/ColorField';
-import { isValidColor, normalizeHex } from '../branding/components/hex';
-import { SignInPreview } from '../branding/components/PreviewSurfaces';
+import { type PreviewBrand, previewInk } from '../branding/ui/components/BrandingPreview';
+import { ColorField } from '../branding/ui/components/ColorField';
+import { isValidColor, normalizeHex } from '../branding/ui/components/hex';
+import { SignInPreview } from '../branding/ui/components/PreviewSurfaces';
 
 function Harness({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);

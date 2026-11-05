@@ -33,13 +33,13 @@ class SharingModule(ModuleBase):
 
         from sharing.core.tenant_cleanup import purge_tenant_data
 
-        bus.subscribe_durable(TenantDeleted, purge_tenant_data)
+        bus.subscribe_durable(TenantDeleted, purge_tenant_data, name=c.TENANT_CLEANUP_HANDLER)
 
         from simple_module_core.user_events import UserDeleted
 
         from sharing.core.user_cleanup import purge_user_shares
 
-        bus.subscribe_durable(UserDeleted, purge_user_shares)
+        bus.subscribe_durable(UserDeleted, purge_user_shares, name=c.USER_CLEANUP_HANDLER)
 
     def register_settings(self, app: FastAPI) -> None:
         from sharing.core.services import SharingServices
