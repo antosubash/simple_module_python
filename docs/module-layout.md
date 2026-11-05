@@ -131,29 +131,36 @@ Inventory old import paths used outside the module, both in this repository
 and downstream. Every such old path becomes a shim using
 `simple_module_core.deprecation.deprecated_module`, with `remove_in="0.0.46"`.
 Update internal imports to the new path; do not make new code depend on shims.
-Register every shim in `host/tests/test_deprecation_expiry.py`'s import list.
-The expiry test fails once the installed framework reaches the removal release.
+A shim built as the `sys.modules` alias below is discovered automatically by
+`host/tests/test_deprecation_expiry.py` (`_layout_shims()`), so it needs no manual
+registration. The expiry test fails once the installed framework reaches the removal release.
 See [Deprecations](framework/deprecations.md) for the API.
 
 For example, after moving `orders.service` to `orders.web.service`, leave this
 at `orders/service.py` if external callers use that old path:
 
 ```python
-"""Compatibility import for the module-layout migration."""
+"""Moved to :mod:`orders.web.service`; this alias goes in 0.0.46 (module layout)."""
+
+from __future__ import annotations
+
+import importlib
+import sys
 
 from simple_module_core.deprecation import deprecated_module
 
-from orders.web.service import OrderService as OrderService
-
 deprecated_module("orders.service", remove_in="0.0.46", use="orders.web.service")
+sys.modules[__name__] = importlib.import_module("orders.web.service")
 ```
 
-Add `"orders.service"` to both the expiry test's `_SHIM_MODULES` tuple and
-`_EXPECTED` set, and pin that
-both paths expose the same class, with an import-time `DeprecationWarning`.
-Keep `service.py` in the module's frozen legacy entries until the shim is
-removed. A completely migrated module leaves `LEGACY_FLAT` only when its extra
-roots, including compatibility shims, are gone and its Python tests are nested.
+The alias makes both paths the same module object, so mocks and
+`monkeypatch` strings keep working. Files containing both `deprecated_module(`
+and `sys.modules[__name__]` are auto-discovered by the expiry test and ignored
+by the root-layout test, so the module can leave `LEGACY_FLAT` while they
+remain. A shim that is a plain re-export instead (not an alias) must be added
+by hand to the expiry test's `_SHIM_MODULES` tuple and `_EXPECTED` set and kept
+in the module's frozen legacy entries until removed. A completely migrated
+module leaves `LEGACY_FLAT` once its Python tests are nested.
 
 ## Moving an existing module
 
@@ -169,8 +176,9 @@ One module per PR; no logic changes in a move PR.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
    package initializers and prefix each basename with the module name.
    JS tests remain in `tests-js/`.
-4. Add external-import shims with removal release `0.0.46`, register them in
-   the expiry test, shrink the exact frozen root exceptions, and update the
+4. Add external-import shims with removal release `0.0.46`, alias shims are
+   auto-discovered by the expiry test (re-export shims are registered by hand),
+   shrink the exact frozen root exceptions, and update the
    status table below. Domain areas must be named in `DOMAIN_AREAS`.
 5. Run `python -c "import <pkg>.<mod>"` in a **fresh interpreter for every
    module**, not one interpreter importing all modules in sequence.
@@ -183,7 +191,7 @@ One module per PR; no logic changes in a move PR.
 ## Migration status (2026-11-05)
 
 Counts refer to the source package root and direct `tests/test_*.py` files;
-cache directories are ignored. All modules are flat in PR 0. Update this table
+cache directories are ignored. Shim files left at old paths are counted separately. Update this table
 when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
@@ -197,11 +205,11 @@ when a later module PR moves files.
 | feature_flags | 8 | 9 | flat |
 | file_storage | 39 | 65 | flat |
 | keycloak | 13 | 19 | flat |
-| mail | 8 | 5 | flat |
+| mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 16 | 24 | flat |
 | permissions | 12 | 14 | flat |
 | settings | 31 | 43 | flat |
 | sharing | 13 | 6 | flat |
-| site_lock | 8 | 5 | flat |
+| site_lock | 2 (+1 shim) | 0 | follows this layout |
 | tenants | 19 | 23 | flat |
 | users | 31 | 97 | flat |

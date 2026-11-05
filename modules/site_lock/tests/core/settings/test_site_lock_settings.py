@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-from site_lock.settings import SiteLockSettings
+from site_lock.core.settings import SiteLockSettings
 
 
 def test_disabled_by_default() -> None:

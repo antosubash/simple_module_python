@@ -31,7 +31,9 @@ ALLOWED_ROOT = frozenset(
     }
 )
 # Add named domain areas here only when they contain several related features.
-DOMAIN_AREAS: dict[str, frozenset[str]] = {}
+DOMAIN_AREAS: dict[str, frozenset[str]] = {
+    "mail": frozenset({"delivery"}),
+}
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
 LEGACY_FLAT: dict[str, frozenset[str]] = {
@@ -98,11 +100,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         renewal.py settings.py state.py tokens.py
         """.split()
     ),
-    "mail": frozenset(
-        """
-        constants.py data_compatibility.py runtime.py sender.py settings.py state.py
-        """.split()
-    ),
     "oidc": frozenset(
         """
         client.py constants.py directory.py discovery.py endpoints jwks.py persistence.py
@@ -130,11 +127,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         services.py settings.py tenant_cleanup.py user_cleanup.py
         """.split()
     ),
-    "site_lock": frozenset(
-        """
-        constants.py middleware.py page.py rate_limit.py settings.py state.py templates
-        """.split()
-    ),
     "tenants": frozenset(
         """
         _deletion.py _membership_ops.py _owner_guard.py components constants.py deps.py
@@ -156,6 +148,12 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
 }
 
 
+def _is_layout_shim(path: Path) -> bool:
+    """A moved module's old path: a deprecated alias, allowed until its remove_in."""
+    text = path.read_text(encoding="utf-8")
+    return "deprecated_module(" in text and "sys.modules[__name__]" in text
+
+
 @pytest.mark.parametrize("module", sorted(p.name for p in MODULES.iterdir() if p.is_dir()))
 def test_module_root_layout(module: str) -> None:
     package = MODULES / module / module
@@ -163,7 +161,8 @@ def test_module_root_layout(module: str) -> None:
     entries = {
         p.name
         for p in package.iterdir()
-        if p.suffix == ".py" or (p.is_dir() and p.name != "__pycache__")
+        if (p.suffix == ".py" and not _is_layout_shim(p))
+        or (p.is_dir() and p.name != "__pycache__")
     }
     allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
     legacy = LEGACY_FLAT.get(module, frozenset())

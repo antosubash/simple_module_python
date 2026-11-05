@@ -25,7 +25,7 @@ _ERROR_BLOCK = '<p class="error" role="alert">{message}</p>'
 
 # ``safe_next`` is imported, not defined here: the implementation moved to
 # ``simple_module_core.redirect_safety`` once AuthMiddleware needed the same
-# rules. Re-exported so existing ``site_lock.page.safe_next`` callers keep
+# rules. Re-exported so existing ``site_lock.web.page.safe_next`` callers keep
 # working.
 __all__ = ["render_unlock_page", "safe_next"]
 

@@ -28,8 +28,8 @@ from starlette.responses import (
 )
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from site_lock import constants as c
-from site_lock.page import render_unlock_page, safe_next
+from site_lock.core import constants as c
+from site_lock.web.page import render_unlock_page, safe_next
 
 logger = logging.getLogger(__name__)
 
