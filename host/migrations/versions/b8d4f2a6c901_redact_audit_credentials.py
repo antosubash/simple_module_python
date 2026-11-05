@@ -59,11 +59,12 @@ def upgrade() -> None:
             elif isinstance(changes, dict):
                 changes = {k: _REDACTED if k in fields else v for k, v in changes.items()}
             identity = _REDACTED if row["entity_type"] in _REDACT_IDS else row["entity_id"]
-            conn.execute(
-                audit.update()
-                .where(audit.c.id == row["id"])
-                .values(changes=changes, entity_id=identity)
-            )
+            if changes != row["changes"] or identity != row["entity_id"]:
+                conn.execute(
+                    audit.update()
+                    .where(audit.c.id == row["id"])
+                    .values(changes=changes, entity_id=identity)
+                )
         last_id = rows[-1]["id"]
 
 

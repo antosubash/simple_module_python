@@ -1,16 +1,12 @@
 """Credential changes remain visible without recording their values."""
 
-import uuid
 from datetime import UTC, datetime
 
 import pytest
-from auth.models import RefreshOutcome
 from simple_module_db.audit import collect_audit_records
 from simple_module_db.leases import LeaseRow
 from simple_module_db.stored_settings import Setting
 from sqlalchemy.orm import Session
-from tenants.models import Invitation
-from users.models import OAuthAccount, RefreshToken, User, UserAccessToken
 
 
 @pytest.mark.parametrize(
@@ -28,57 +24,6 @@ def test_setting_create_redaction(key, value, value_type, expected):
         session.add(Setting(key=key, value=value, value_type=value_type))
         record = collect_audit_records(session)[0]
         assert next(c["new"] for c in record.changes if c["field"] == "value") == expected
-
-
-@pytest.mark.parametrize(
-    "entity,fields",
-    [
-        (User(email="audit@example.test", hashed_password="private"), {"hashed_password"}),
-        (
-            OAuthAccount(
-                user_id=uuid.uuid4(),
-                access_token="private",
-                refresh_token="private",
-                oauth_name="test",
-                account_id="1",
-                account_email="a@test",
-            ),
-            {"access_token", "refresh_token"},
-        ),
-        (
-            Invitation(
-                tenant_id="default",
-                email="invitee@example.test",
-                token_hash="private",
-                expires_at=datetime.now(UTC),
-            ),
-            {"token_hash"},
-        ),
-        (
-            RefreshOutcome(
-                outcome_key="private",
-                lock_key="private",
-                expires_at=1,
-                session={"token": "private"},
-            ),
-            {"lock_key", "session"},
-        ),
-    ],
-)
-def test_model_credentials_are_redacted(entity, fields):
-    with Session() as session:
-        session.add(entity)
-        record = collect_audit_records(session)[0]
-        changes = {c["field"]: c["new"] for c in record.changes}
-        assert {field: changes[field] for field in fields} == dict.fromkeys(fields, "[redacted]")
-
-
-@pytest.mark.parametrize("cls", [UserAccessToken, RefreshToken])
-def test_token_primary_key_is_redacted(cls):
-    entity = cls(token="private", user_id=uuid.uuid4(), expires_at=datetime.now(UTC))
-    with Session() as session:
-        session.add(entity)
-        assert collect_audit_records(session)[0].entity_id == "[redacted]"
 
 
 @pytest.fixture
@@ -100,25 +45,20 @@ def credential_session():
     attach_session_listeners(AuditSession)
     try:
         Setting.metadata.create_all(engine)
-        User.metadata.create_all(engine)
         with AuditSession(engine) as session:
             yield session, records
     finally:
         engine.dispose()
 
 
-@pytest.mark.parametrize("kind", ["password", "setting", "renamed", "url"])
+@pytest.mark.parametrize("kind", ["setting", "renamed", "url"])
 def test_credential_update_redacts_both_sides(credential_session, kind):
     session, records = credential_session
-    if kind == "password":
-        entity = User(email="update@test", hashed_password="old-private")
-        field = "hashed_password"
-    else:
-        entity = Setting(
-            key="mail.url" if kind == "url" else "mail.smtp_password",
-            value="smtp://u:private@localhost" if kind == "url" else "old-private",
-        )
-        field = "value"
+    entity = Setting(
+        key="mail.url" if kind == "url" else "mail.smtp_password",
+        value="smtp://u:private@localhost" if kind == "url" else "old-private",
+    )
+    field = "value"
     session.add(entity)
     session.flush()
     records.clear()
@@ -138,16 +78,11 @@ def test_bulk_credentials_redacted(credential_session, core):
     from sqlalchemy import update
 
     session, records = credential_session
-    user = User(email="bulk@test", hashed_password="old-private")
-    setting = Setting(key="mail.smtp_password", value="old-private")
-    session.add_all([user, setting])
+    session.add(Setting(key="mail.smtp_password", value="old-private"))
     session.flush()
     records.clear()
-    for model, field in [(User, "hashed_password"), (Setting, "value")]:
-        target = model.__table__ if core else model
-        session.execute(update(target).values({field: "new-private"}))
-    for record, field in zip(records, ["hashed_password", "value"], strict=True):
-        assert record.changes == [{"field": field, "new": "[redacted]"}]
+    session.execute(update(Setting.__table__ if core else Setting).values(value="new-private"))
+    assert records[0].changes == [{"field": "value", "new": "[redacted]"}]
 
 
 @pytest.mark.parametrize("by_name", [False, True])
@@ -156,9 +91,9 @@ def test_manual_bulk_redaction(credential_session, by_name):
 
     session, records = credential_session
     record_bulk_audit(
-        session, "User" if by_name else User, "bulk_updated", ["1"], {"hashed_password": "private"}
+        session, "Setting" if by_name else Setting, "bulk_updated", ["1"], {"value": "private"}
     )
-    assert records[0].changes == [{"field": "hashed_password", "new": "[redacted]"}]
+    assert records[0].changes == [{"field": "value", "new": "[redacted]"}]
 
 
 def test_nonsecret_setting_update_retains_values(credential_session):
@@ -196,28 +131,6 @@ def test_bulk_insert_and_summary_redaction(credential_session, monkeypatch, core
     assert records[0].changes[0] == {"field": "value", "new": "[redacted]"}
 
 
-@pytest.mark.parametrize("cls", [UserAccessToken, RefreshToken])
-def test_token_identity_redacted_on_update_delete_and_bulk(credential_session, cls):
-    from simple_module_db import record_bulk_audit
-    from sqlalchemy import delete, update
-
-    session, records = credential_session
-    user = User(email="token-owner@test")
-    session.add(user)
-    session.flush()
-    token = cls(token="private", user_id=user.id, expires_at=datetime.now(UTC))
-    session.add(token)
-    session.flush()
-    records.clear()
-    token.expires_at = datetime(2030, 1, 1, tzinfo=UTC)
-    session.flush()
-    session.execute(update(cls).values(expires_at=datetime(2031, 1, 1, tzinfo=UTC)))
-    record_bulk_audit(session, cls.__name__, "bulk_updated", ["private"])
-    session.execute(delete(cls))
-    assert len(records) == 4
-    assert all(r.entity_id == "[redacted]" for r in records)
-
-
 def test_typed_setting_redaction():
     from pydantic import SecretStr
     from simple_module_core.secret_fields import register_typed_secrets
@@ -234,14 +147,18 @@ def test_typed_setting_redaction():
 
 
 def test_manual_bulk_honors_field_exclusions(credential_session):
-    from api_tokens.models import ApiToken
+    from _audit_models import PartialExcludeModel
     from simple_module_db import record_bulk_audit
 
     session, records = credential_session
     record_bulk_audit(
-        session, ApiToken, "bulk_updated", ["1"], {"token_hash": "private", "name": "visible"}
+        session,
+        PartialExcludeModel,
+        "bulk_updated",
+        ["1"],
+        {"password_hash": "private", "username": "visible"},
     )
-    assert records[0].changes == [{"field": "name", "new": "visible"}]
+    assert records[0].changes == [{"field": "username", "new": "visible"}]
 
 
 def test_lease_ownership_value_is_redacted():

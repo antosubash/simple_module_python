@@ -19,8 +19,8 @@ from settings.contracts.schemas import SettingOut
 def is_masked(entity: Setting) -> bool:
     """Whether this row's stored value must not leave the service.
 
-    :data:`SENSITIVE_KEYS` names the one key the hosting layer owns
-    (``host.secret_key``). Everything else is judged by the same name/value
+    ``conceals_secret`` covers the one key the hosting layer owns
+    (``host.secret_key``) and judges everything else by the same name/value
     rule the module editor uses, because the store is the *same data* seen
     through a different screen: an override named ``mail.smtp_password``, or
     any override holding a ``postgresql://user:pw@host/db``, was rendered in

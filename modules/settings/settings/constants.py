@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from simple_module_core.secret_fields import SENSITIVE_KEYS as SENSITIVE_KEYS
-
 # Re-exported (#500): these now live with the table in the framework.
 from simple_module_db.stored_settings import (  # noqa: F401
     ALL_VALUE_TYPES,
@@ -47,7 +45,7 @@ LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
 
 # ── Secrets ──────────────────────────────────────────────────────────
-# ``SENSITIVE_KEYS`` is re-exported from ``simple_module_core.secret_fields``.
+# The sensitive-key allowlist lives in ``simple_module_core.secret_fields``.
 SENSITIVE_PLACEHOLDER: Final = "********"
 
 # ── Routing ──────────────────────────────────────────────────────────

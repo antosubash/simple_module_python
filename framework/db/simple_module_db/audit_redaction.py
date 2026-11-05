@@ -26,6 +26,8 @@ def redact_changes(
     A row predicate receives both the current and pre-edit column values. With
     no row (statement/manual capture) it receives None and must fail closed.
     """
+    if not changes:
+        return changes
     fields = set(getattr(model, "__audit_redact_fields__", ()))
     predicate = getattr(model, "__audit_redact_row__", None)
     if predicate is not None:
@@ -57,10 +59,13 @@ def redact_changes(
     ]
 
 
-def redact_entity_id(model: type | None, entity_id: str) -> str:
+def pk_is_redacted(model: type | None) -> bool:
+    """True when a primary-key column of ``model`` is itself a redacted credential."""
     fields = getattr(model, "__audit_redact_fields__", None)
     if model is None or not fields:
-        return entity_id
-    if any(col.key in fields for col in inspect(model).primary_key):
-        return AUDIT_REDACTED
-    return entity_id
+        return False
+    return any(col.key in fields for col in inspect(model).primary_key)
+
+
+def redact_entity_id(model: type | None, entity_id: str) -> str:
+    return AUDIT_REDACTED if pk_is_redacted(model) else entity_id

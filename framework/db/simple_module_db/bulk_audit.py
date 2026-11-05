@@ -86,7 +86,7 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
     """The record shape for this statement, or ``None`` when nothing is audited."""
     name = cls.__name__
     if execute_state.is_delete:
-        return _Ctx(name, ACTION_BULK_DELETED, [])
+        return _Ctx(name, ACTION_BULK_DELETED, [], cls)
     rows, many = _targets(execute_state, cls)
     default = ACTION_BULK_INSERTED if execute_state.is_insert else ACTION_BULK_UPDATED
     # The soft-delete flag picks a row's action; it is never a change, and
@@ -113,7 +113,7 @@ def _plan(execute_state: ORMExecuteState, cls: type) -> _Ctx | None:
         changes = [{"field": k} for k in kept]
     else:
         changes = [{"field": k, "new": _shown(rows[0][k])} for k in kept]
-    ctx = _Ctx(name, actions[0] if actions else default, redact_changes(cls, changes))
+    ctx = _Ctx(name, actions[0] if actions else default, redact_changes(cls, changes), cls)
     ctx.row_actions = actions or [default]
     return ctx
 

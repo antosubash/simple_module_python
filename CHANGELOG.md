@@ -22,6 +22,12 @@ All notable changes to this project are documented in this file. The format is b
   values. Downgrading does not restore these values. Operators should rotate
   credentials saved through the settings UI on earlier versions, and handle
   existing backups and audit exports according to their retention policies.
+- Entity update/delete log events mask primary keys that are themselves
+  credentials (session and refresh tokens), as the audit trail does.
+
+### Removed
+- `settings.constants.SENSITIVE_KEYS`; the set now lives in
+  `simple_module_core.secret_fields.SENSITIVE_KEYS`.
 
 ## [0.0.43] — 2026-11-04
 
