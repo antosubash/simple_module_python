@@ -13,6 +13,4 @@ def test_refresh_outcome_credentials_are_redacted():
             )
         )
         changes = {c["field"]: c["new"] for c in collect_audit_records(session)[0].changes}
-    assert {f: changes[f] for f in ("lock_key", "session")} == dict.fromkeys(
-        ("lock_key", "session"), "[redacted]"
-    )
+    assert changes["lock_key"] == changes["session"] == "[redacted]"

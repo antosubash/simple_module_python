@@ -87,6 +87,7 @@ class Setting(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
 
     @staticmethod
     def __audit_redact_row__(row: dict | None) -> set[str]:
+        # Fail closed: no row (bulk/manual capture) or a partly loaded one hides the value.
         if (
             row is None
             or any(row.get(k) is None for k in (COL_KEY, COL_VALUE, COL_VALUE_TYPE))

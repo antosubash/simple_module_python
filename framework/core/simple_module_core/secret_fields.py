@@ -22,8 +22,8 @@ _SECRET_PATTERNS = re.compile(
 )
 
 SECRET_MASK = "••••••••"
-# Keys whose stored value must never leave the settings API or the raw
-# key/value browse screen. ``host.secret_key`` is the session-signing key: the
+# Keys whose stored value must never leave the settings API, the raw
+# key/value browse screen or the audit trail. ``host.secret_key`` is the session-signing key: the
 # hosting layer generates and persists it here when SM_SECRET_KEY is unset, and
 # anyone who can read it can forge a session cookie for any account. Masked on
 # the way out only — the boot-time reader goes straight to SQL, so hiding it
