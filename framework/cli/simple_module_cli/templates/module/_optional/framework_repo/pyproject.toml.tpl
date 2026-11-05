@@ -32,6 +32,7 @@ build-backend = "hatchling.build"
 # this the wheel builds empty and the entry point fails to import.
 [tool.hatch.build.targets.wheel]
 packages = ["{{PACKAGE_NAME}}"]
+exclude = ["**/*.test.*", "**/*.spec.*", "**/test-dom.tsx", "**/page-tests/**"]
 
 # Ship the module-root package.json inside the wheel so the host can
 # discover JS deps via importlib.resources after a pip install.

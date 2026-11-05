@@ -14,6 +14,7 @@ type ModuleAsset = {
   package: string;
   npm_name?: string | null;
   components?: string | null;
+  ui?: string | null;
 };
 
 export type Alias = { find: string; replacement: string };
@@ -25,7 +26,7 @@ export type ModuleAssetIndex = {
   optimizeEntries: string[];
   /** Each module's package.json — its deps declare what its pages may import. */
   pkgJsonPaths: string[];
-  /** `<dir><sep>` prefixes for module-owned TSX (pages/ and components/),
+  /** `<dir><sep>` prefixes for module-owned TSX (pages/, ui/ and legacy components/),
    * for cheaply testing "is this importer module source?". */
   pagesPrefixes: string[];
   /** `#module/<pkg>` and `<npm_name>` aliases. */
@@ -113,10 +114,11 @@ export function loadModuleAssets(clientAppDir: string): ModuleAssetIndex {
     // resolver below skips them and a widget's `@simple-module-py/ui` import
     // dies with "Failed to resolve import" — the JS half of GH #258, whose
     // CSS half is the @source emission in simple_module_hosting.assets.
-    if (entry.components) {
-      const prefix = entry.components + path.sep;
+    for (const source of [entry.components, entry.ui]) {
+      if (!source) continue;
+      const prefix = source + path.sep;
       if (!pagesPrefixes.includes(prefix)) pagesPrefixes.push(prefix);
-      optimizeEntries.push(path.join(entry.components, '**/*.tsx'));
+      optimizeEntries.push(path.join(source, '**/*.{ts,tsx}'));
     }
   }
 

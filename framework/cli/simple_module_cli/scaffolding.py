@@ -194,6 +194,9 @@ def create_module(
 ) -> Path:
     """Scaffold a module package at ``dest``.
 
+    Implementation lives in ``core/`` and ``web/``; nested tests mirror those
+    areas without test-package initializers. Root lookup paths stay stable.
+
     When ``framework_version`` is a concrete version, the template's
     forward-looking ``simple_module_*`` ranges are rewritten to an exact pin so
     the module resolves against that framework version (e.g. ``uv add`` into the

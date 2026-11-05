@@ -14,7 +14,7 @@ export type ModuleAssetIndex = {
   fsAllow: string[];
   optimizeEntries: string[];
   pkgJsonPaths: string[];
-  /** `<dir><sep>` prefixes for module-owned TSX (pages/ and components/). */
+  /** `<dir><sep>` prefixes for module-owned TSX (pages/, ui/ and legacy components/). */
   pagesPrefixes: string[];
   aliases: Alias[];
   npmNames: Set<string>;
@@ -93,6 +93,7 @@ export function loadModuleAssets(clientAppDir: string): ModuleAssetIndex {
     npm_name?: string | null;
     // Wheel modules ship widgets here; the pages-keyed manifest never sees them.
     components?: string | null;
+    ui?: string | null;
   };
   const aliases: { find: string; replacement: string }[] = [];
   const npmNames = new Set<string>();
@@ -112,10 +113,11 @@ export function loadModuleAssets(clientAppDir: string): ModuleAssetIndex {
     if (!fsAllow.includes(entry.package)) fsAllow.push(entry.package);
     // Without this the bare-specifier fallback below skips widgets, and a
     // component's `@simple-module-py/ui` import fails to resolve.
-    if (entry.components) {
-      const prefix = entry.components + path.sep;
+    for (const source of [entry.components, entry.ui]) {
+      if (!source) continue;
+      const prefix = source + path.sep;
       if (!pagesPrefixes.includes(prefix)) pagesPrefixes.push(prefix);
-      optimizeEntries.push(path.join(entry.components, '**/*.tsx'));
+      optimizeEntries.push(path.join(source, '**/*.{ts,tsx}'));
     }
   }
   // Keep the alias list in a stable, longest-first order. Vite matches a string
