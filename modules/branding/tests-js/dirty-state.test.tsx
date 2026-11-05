@@ -10,8 +10,8 @@ configureI18n({
   },
 });
 
-import { type BrandingForm, countBrandingChanges } from '../branding/components/dirty';
-import { PresetField } from '../branding/components/PresetField';
+import { type BrandingForm, countBrandingChanges } from '../branding/ui/components/dirty';
+import { PresetField } from '../branding/ui/components/PresetField';
 
 const BASELINE: BrandingForm = {
   appName: 'Acme Admin',

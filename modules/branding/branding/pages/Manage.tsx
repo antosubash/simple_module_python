@@ -10,15 +10,15 @@ import { type ApiResult, apiFetch, apiResult } from '@simple-module-py/ui/lib/ap
 import type { SharedProps } from '@simple-module-py/ui/types';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { BannerField, type BannerSeverity } from '../components/BannerField';
-import { ColorField } from '../components/ColorField';
-import { DesignPackField, type DesignPackOption } from '../components/DesignPackField';
-import { type BrandingForm, countBrandingChanges } from '../components/dirty';
-import { FooterField } from '../components/FooterField';
-import { isValidColor, normalizeHex } from '../components/hex';
-import { ImageDropzones, type ImageKind } from '../components/ImageDropzones';
-import { PresetField, type PresetOption } from '../components/PresetField';
-import { PreviewTabs } from '../components/PreviewTabs';
+import { BannerField, type BannerSeverity } from '../ui/components/BannerField';
+import { ColorField } from '../ui/components/ColorField';
+import { DesignPackField, type DesignPackOption } from '../ui/components/DesignPackField';
+import { type BrandingForm, countBrandingChanges } from '../ui/components/dirty';
+import { FooterField } from '../ui/components/FooterField';
+import { isValidColor, normalizeHex } from '../ui/components/hex';
+import { ImageDropzones, type ImageKind } from '../ui/components/ImageDropzones';
+import { PresetField, type PresetOption } from '../ui/components/PresetField';
+import { PreviewTabs } from '../ui/components/PreviewTabs';
 import { api } from './api';
 
 /** Matches `BUILTIN_PRESETS[0]` in `branding/presets.py`. */
