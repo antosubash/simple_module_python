@@ -9,8 +9,8 @@ import pytest
 from auth.contracts.schemas import UserContext
 from keycloak.core.settings import KeycloakSettings
 from keycloak.identity.provider import KeycloakAuthProvider
-from oidc.provider import OidcAuthProvider
-from oidc.settings import OidcSettings
+from oidc.core.settings import OidcSettings
+from oidc.identity.provider import OidcAuthProvider
 from simple_module_hosting.session import SessionMiddleware
 from starlette.requests import Request
 

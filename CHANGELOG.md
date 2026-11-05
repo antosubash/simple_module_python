@@ -39,6 +39,7 @@ All notable changes to this project are documented in this file. The format is b
 - `dashboard` follows the module layout: `dashboard.core.constants`, `dashboard.web.{endpoints,stats,doctor}`, and the page components move from `pages/components/` to `ui/components/`. Nothing outside the module imported the old paths, so no aliases remain.
 - `feature_flags` follows the module layout: `feature_flags.core.{constants,service,invalidation,tenant_cleanup}`, `feature_flags.web.{deps,endpoints}`, and the page components and types move to `ui/`. `feature_flags.constants` still imports, with a `DeprecationWarning`, until 0.0.46.
 - `keycloak` follows the module layout: `keycloak.core.{constants,settings,state}`, `keycloak.identity.{provider,oidc,renewal,directory,persistence,tokens,jwks}` and `keycloak.web.endpoints`. `keycloak.{constants,settings,provider,jwks,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
+- `oidc` follows the module layout: `oidc.core.{constants,settings,presets,state,runtime}`, `oidc.identity.{provider,client,discovery,renewal,directory,persistence,tokens,jwks}` and `oidc.web.endpoints`. `oidc.{settings,provider,jwks}` still import, with a `DeprecationWarning`, until 0.0.46; other old `oidc.*` paths are gone.
 
 ### Fixed
 - Users password creation, forgot-password fingerprints, reset verification and

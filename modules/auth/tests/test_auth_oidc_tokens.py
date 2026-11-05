@@ -8,7 +8,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from keycloak.identity import tokens as keycloak_tokens
-from oidc import tokens as oidc_tokens
+from oidc.identity import tokens as oidc_tokens
 
 
 @pytest.fixture(params=[("keycloak", keycloak_tokens), ("oidc", oidc_tokens)])
