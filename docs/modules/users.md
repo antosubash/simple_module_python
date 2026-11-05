@@ -559,12 +559,15 @@ retain its session cookie. Signing in rotates the token: read the next page's
 prop before another mutation. Missing or mismatched tokens return 403.
 
 Requests with `Origin`, `Referer` or `Sec-Fetch-Site` are treated as browser
-requests. Foreign origins and `Sec-Fetch-Site: cross-site` are refused even with
-a token; same-site sibling origins still need a token. Origin comparison uses
-the request's effective scheme, host and port, so deployments behind a proxy
-must configure the framework's trusted proxy handling correctly. The Inertia
-`POST /users/logout` uses the origin check without requiring a token header,
-so the existing menu submission continues to work.
+requests and must carry the session token. `Sec-Fetch-Site: cross-site` is refused
+even with a token. `Origin`/`Referer` are not compared with the request's own
+origin, so deployments behind a TLS-terminating proxy work without extra
+configuration; the token is what defeats login CSRF. A cross-site form always
+carries `Origin` in current browsers, so it cannot skip the token; a very old
+browser sending none of the three headers would be treated as a native client,
+which is why the session cookie stays `SameSite=Lax`. The Inertia
+`POST /users/logout` applies only the cross-site refusal and needs no token
+header, so the existing menu submission continues to work.
 
 Native JSON/form API clients without browser headers continue to work without
 first fetching an HTML page. If they explicitly send `X-CSRF-Token`, it is

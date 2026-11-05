@@ -46,15 +46,24 @@ async def test_anonymous_page_token_allows_login_and_rotates(anon_client):
     assert (await anon_client.post(LOGIN, data=CREDENTIALS, headers=headers)).status_code == 403
 
 
-@pytest.mark.parametrize("header", ["Origin", "Referer"])
-async def test_foreign_source_refused_even_with_token(anon_client, header):
+async def test_cross_site_fetch_metadata_refused_even_with_token(anon_client):
     token = await _login_token(anon_client)
     response = await anon_client.post(
         LOGIN,
         data=CREDENTIALS,
-        headers={header: "https://other.example", "X-CSRF-Token": token},
+        headers={"Sec-Fetch-Site": "cross-site", "X-CSRF-Token": token},
     )
     assert response.status_code == 403
+
+
+async def test_proxied_origin_with_token_is_accepted(anon_client):
+    token = await _login_token(anon_client)
+    response = await anon_client.post(
+        LOGIN,
+        data=CREDENTIALS,
+        headers={"Origin": "https://app.example", "X-CSRF-Token": token},
+    )
+    assert response.status_code == 204
 
 
 async def test_non_browser_password_client_keeps_working(anon_client):
@@ -63,7 +72,7 @@ async def test_non_browser_password_client_keeps_working(anon_client):
 
 async def test_view_logout_accepts_same_origin_inertia_post(anon_client):
     assert (await anon_client.post(LOGIN, data=CREDENTIALS)).status_code == 204
-    refused = await anon_client.post("/users/logout", headers={"Origin": "https://other.example"})
+    refused = await anon_client.post("/users/logout", headers={"Sec-Fetch-Site": "cross-site"})
     assert refused.status_code == 403
     assert (
         await anon_client.post("/users/logout", headers={"Origin": "http://testserver"})

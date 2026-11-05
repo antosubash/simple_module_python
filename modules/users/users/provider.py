@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import uuid as uuid_mod
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from auth.constants import SESSION_ID_KEY
@@ -196,7 +197,7 @@ class UsersAuthProvider:
         if hit:
             return cached is not None and int(cached) == _stamped_version(session)
         try:
-            from sqlalchemy import select
+            from sqlalchemy import and_, select
 
             from users.models import RevokedSession, User
 
@@ -205,7 +206,13 @@ class UsersAuthProvider:
                 rows = (
                     await db_session.execute(
                         select(User.session_version, RevokedSession.session_id)
-                        .outerjoin(RevokedSession, col(RevokedSession.user_id) == User.id)
+                        .outerjoin(
+                            RevokedSession,
+                            and_(
+                                col(RevokedSession.user_id) == User.id,
+                                col(RevokedSession.expires_at) > datetime.now(UTC),
+                            ),
+                        )
                         .where(User.id == user_id)
                     )
                 ).all()

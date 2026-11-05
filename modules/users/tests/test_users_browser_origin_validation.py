@@ -1,4 +1,4 @@
-"""Source normalization and token validation at the browser boundary."""
+"""Fetch-metadata refusal and token validation at the browser boundary."""
 
 import pytest
 from fastapi import HTTPException, Request
@@ -10,14 +10,8 @@ from users.auth_local.browser_guard import require_browser_csrf
     ("headers", "allowed"),
     [
         ({"origin": "http://testserver:80"}, True),
+        ({"origin": "https://app.example"}, True),  # proxy: scheme/host differ from base_url
         ({"referer": "http://testserver/login?next=%2F"}, True),
-        ({"origin": "https://testserver"}, False),
-        ({"origin": "http://testserver:8080"}, False),
-        ({"origin": "http://testserver:0"}, False),
-        ({"origin": "http://testserver:invalid"}, False),
-        ({"origin": "http://testserver.evil.example"}, False),
-        ({"origin": "http://person@testserver"}, False),
-        ({"origin": "http://[broken"}, False),
         ({"sec-fetch-site": "cross-site"}, False),
         ({"sec-fetch-site": "same-site"}, True),
     ],

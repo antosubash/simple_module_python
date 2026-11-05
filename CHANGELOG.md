@@ -15,8 +15,8 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Security
-- **Behaviour change:** local browser auth mutations now validate their source
-  and session-bound CSRF token, extending the shared token support (#504).
+- **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
+  and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
   Native API clients without browser headers retain their existing workflow.
 - **Behaviour change:** local logout retires only the current browser session,
   using the existing account-cache invalidation channel (#318). Migration

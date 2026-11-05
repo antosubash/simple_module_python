@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from auth.constants import SESSION_ID_KEY
 from fastapi import Request
 from simple_module_db.callbacks import register_on_commit
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
+from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, SESSION_SIGNATURE_MAX_AGE
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -24,13 +24,17 @@ async def revoke_browser_session(request: Request, db: AsyncSession) -> None:
     if not identity or not user_id:
         return
     now = datetime.now(UTC)
+    deadline = session.get(SESSION_EXPIRES_AT_KEY)
+    if isinstance(deadline, bool) or not isinstance(deadline, (int, float)):
+        # No usable deadline: hold the record for the longest the signer accepts.
+        deadline = now.timestamp() + SESSION_SIGNATURE_MAX_AGE
     await db.execute(delete(RevokedSession).where(col(RevokedSession.expires_at) <= now))
     # Merge makes repeated logout requests for the same cookie idempotent.
     await db.merge(
         RevokedSession(
             session_id=identity,
             user_id=uuid.UUID(user_id),
-            expires_at=datetime.fromtimestamp(session[SESSION_EXPIRES_AT_KEY], UTC),
+            expires_at=datetime.fromtimestamp(deadline, UTC),
         )
     )
     await db.flush()
