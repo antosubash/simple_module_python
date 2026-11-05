@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from simple_module_core.discovery import discover_modules
 from simple_module_core.events import EventBus
+from simple_module_db.tenant_cleanup import register_tenant_cleanup
 
 _TENANT_DELETED = "simple_module_core.tenant_events.TenantDeleted"
 _USER_DELETED = "simple_module_core.user_events.UserDeleted"
@@ -25,6 +26,7 @@ EXPECTED: dict[str, frozenset[str]] = {
             "api_tokens.tenant_cleanup.purge_tenant_data",
             "feature_flags.tenant_cleanup.purge_tenant_data",
             "file_storage.tenant_deletion.purge_rows",
+            "simple_module_db.tenant_cleanup.delete_tenant_settings",
             "sharing.tenant_cleanup.purge_tenant_data",
         }
     ),
@@ -42,6 +44,7 @@ EXPECTED: dict[str, frozenset[str]] = {
 
 def _registered() -> dict[str, frozenset[str]]:
     bus = EventBus()
+    register_tenant_cleanup(bus)  # framework-owned, registered by the host and workers
     for module in discover_modules():
         # The worker registers durable handlers the same way, with no app.
         module.register_event_handlers(bus, None)
