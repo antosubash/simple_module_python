@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from simple_module_core.permissions import grants
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.pagination import LenientPageParamsDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from simple_module_inertia import InertiaResponse
 
@@ -65,6 +66,7 @@ async def members(
     inertia: InertiaDep,
     service: TenantServiceDep,
     invitations: InvitationServiceDep,
+    params: LenientPageParamsDep,
 ) -> InertiaResponse | RedirectResponse:
     tenant_id = getattr(request.state, "tenant_id", None)
     tenant = await service.get(tenant_id) if tenant_id else None
@@ -75,6 +77,9 @@ async def members(
         and getattr(request.state, "tenant_role", None) in MANAGER_ROLES
     )
     pending = await invitations.list_pending(tenant.id) if can_manage else []
+    page = await service.list_members(tenant.id, params)
+    # ``page.total`` counts the same rows as the seat count: every membership.
+    seats_used = await service.seats_used(tenant.id, members=page.total)
     limit = await service.entitlements.limit(tenant.id, ENTITLEMENT_SEATS)
     return await inertia.render(
         PAGE_MEMBERS,
@@ -90,10 +95,11 @@ async def members(
                     "role": m.role,
                     "joined_at": m.created_at.isoformat() if m.created_at else None,
                 }
-                for m in await service.list_members(tenant.id)
+                for m in page.items
             ],
+            "pagination": {"page": page.page, "per_page": page.per_page, "total": page.total},
             "invitations": [i.model_dump(mode="json", exclude={"token_hash"}) for i in pending],
-            "seats": {"used": await service.seats_used(tenant.id), "limit": limit},
+            "seats": {"used": seats_used, "limit": limit},
         },
     )
 

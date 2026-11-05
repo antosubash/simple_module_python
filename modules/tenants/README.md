@@ -44,6 +44,10 @@ scoped to them.
 | `POST /api/tenants/invitations/accept` | signed in as the invited email | Join |
 | `POST /api/tenants/admin/{id}/suspend` · `/reactivate` | `tenants.platform.manage` | Lifecycle |
 
+Member lists accept `page` and `per_page` (default 25, max 200) and return
+`{items, total, page, per_page, pages}`. The Members page uses the same pagination;
+see [the tenant guide](../../docs/modules/tenants.md#member-pagination-and-resolver-caches).
+
 Tenant-level routes act on the *active* tenant (`/current`), never on an id
 from the URL.
 

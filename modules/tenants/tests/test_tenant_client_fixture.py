@@ -9,7 +9,7 @@ from simple_module_core.tenancy import TenantRole, tenant_role
 @pytest.mark.parametrize("role", list(TenantRole))
 async def test_fixture_creates_a_member_with_the_role(tenant_client, role):
     async with tenant_client(role) as (client, tenant_id, user_id):
-        members = (await client.get("/api/tenants/current/members")).json()
+        members = (await client.get("/api/tenants/current/members")).json()["items"]
         assert [(m["user_id"], m["role"]) for m in members] == [(user_id, role)]
         mine = (await client.get("/api/tenants/")).json()
         assert [t["id"] for t in mine] == [tenant_id]

@@ -35,7 +35,7 @@ async def test_invite_and_accept(user_client):
         assert accepted.json()["id"] == tenant["id"]
         assert accepted.json()["role"] == "admin"
 
-        members = (await owner.get("/api/tenants/current/members")).json()
+        members = (await owner.get("/api/tenants/current/members")).json()["items"]
         assert {m["user_id"] for m in members} >= {new_id}
 
         again = await new.post("/api/tenants/invitations/accept", json={"token": token})

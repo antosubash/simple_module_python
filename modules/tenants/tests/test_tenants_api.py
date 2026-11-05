@@ -15,7 +15,7 @@ async def test_creator_becomes_owner_and_active(user_client):
         assert tenant["role"] == "owner"
         assert tenant["slug"] == "acme-inc"
 
-        members = (await client.get("/api/tenants/current/members")).json()
+        members = (await client.get("/api/tenants/current/members")).json()["items"]
         assert [(m["user_id"], m["role"], m["email"]) for m in members] == [
             (user_id, "owner", "owner@acme.io")
         ]

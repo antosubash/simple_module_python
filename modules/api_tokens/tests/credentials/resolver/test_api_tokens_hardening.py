@@ -32,7 +32,7 @@ MEMBERS_URL = "/api/tenants/current/members"
 
 async def _member_ids(resp: httpx.Response) -> set[str]:
     assert resp.status_code == 200, resp.text
-    return {str(m["user_id"]) for m in resp.json()}
+    return {str(m["user_id"]) for m in resp.json()["items"]}
 
 
 async def test_pat_is_pinned_to_its_tenant_whatever_the_header_says(app, actor, bearer):

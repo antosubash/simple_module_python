@@ -17,12 +17,14 @@ from __future__ import annotations
 import dataclasses
 import logging
 from typing import Any
+from weakref import WeakKeyDictionary
 
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, AUTH_KIND_SESSION
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.singleflight import MISS, SingleFlight, fill
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from simple_module_hosting.middleware import TenantResolution
@@ -54,6 +56,9 @@ _MEMBERSHIPS: TTLCache[str, list[MyTenantView]] = TTLCache(
 )
 
 
+_FLIGHTS: WeakKeyDictionary[FastAPI, SingleFlight] = WeakKeyDictionary()
+
+
 # Bumped by every invalidation. A read that started before an invalidation
 # must not store its (possibly stale) result afterwards: otherwise a member
 # removed while their own request was mid-read is re-cached as a member for a
@@ -62,6 +67,11 @@ _epoch = 0
 
 
 def forget(key: str | None) -> None:
+    """Drop one user's memberships, or every user's (and every host lookup) on ``None``.
+
+    Keys on this channel are always user ids; slug evictions travel on
+    ``HOSTS_INVALIDATION_CHANNEL`` (see ``host_resolver``).
+    """
     global _epoch
     _epoch += 1
     if key is None:
@@ -97,18 +107,30 @@ async def memberships_for(app: FastAPI, user_id: str) -> list[MyTenantView]:
     cached = _MEMBERSHIPS.get(user_id)
     if cached is not None:
         return cached
-    started = _epoch
+    if (flight := _FLIGHTS.get(app)) is None:
+        flight = _FLIGHTS[app] = SingleFlight()
+    async with flight.hold(user_id):
+
+        def store(views: list[MyTenantView]) -> None:
+            _MEMBERSHIPS[user_id] = views
+
+        return await fill(
+            lambda: _read_memberships(app, user_id),
+            epoch=lambda: _epoch,
+            store=store,
+            cached=lambda: _MEMBERSHIPS.get(user_id, MISS),
+        )
+
+
+async def _read_memberships(app: FastAPI, user_id: str) -> list[MyTenantView]:
     async with app.state.sm.db.session_factory() as db:
         rows = await TenantService(db).list_for_user(user_id)
-    views = [
+    return [
         MyTenantView(
             id=t.id, slug=t.slug, name=t.name, status=t.status, created_at=t.created_at, role=role
         )
         for t, role in rows
     ]
-    if _epoch == started:
-        _MEMBERSHIPS[user_id] = views
-    return views
 
 
 def pick_active(memberships: list[MyTenantView], preferred: str | None) -> MyTenantView | None:

@@ -119,9 +119,11 @@ class TenantsModule(ModuleBase):
         install_exception_handlers(app)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from tenants.host_resolver import subscribe_hosts
         from tenants.resolver import subscribe
 
         subscribe(bus)
+        subscribe_hosts(bus)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from tenants.endpoints.admin import api as admin_api
