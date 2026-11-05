@@ -74,11 +74,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         services.py settings.py shared_props.py tenant_branding.py tenant_definitions.py
         """.split()
     ),
-    "feature_flags": frozenset(
-        """
-        constants.py deps.py endpoints invalidation.py service.py tenant_cleanup.py
-        """.split()
-    ),
     "file_storage": frozenset(
         """
         aggregates.py audit_labels.py backend_guard.py backends body_limits.py checksum.py
@@ -116,12 +111,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         reload.py service.py services.py settings.py store.py tenant_scope.py tenant_view.py
         """.split()
     ),
-    "sharing": frozenset(
-        """
-        audience.py constants.py deps.py endpoints policy.py present.py service.py
-        services.py settings.py tenant_cleanup.py user_cleanup.py
-        """.split()
-    ),
     "tenants": frozenset(
         """
         _deletion.py _membership_ops.py _owner_guard.py components constants.py deps.py
@@ -149,6 +138,12 @@ def _is_layout_shim(path: Path) -> bool:
     return "deprecated_module(" in text and "sys.modules[__name__]" in text
 
 
+def _is_shim_package(path: Path) -> bool:
+    """An old package path kept only for its aliases: shims plus a docstring __init__."""
+    files = [f for f in path.glob("*.py") if f.name != "__init__.py"]
+    return bool(files) and all(_is_layout_shim(f) for f in files)
+
+
 @pytest.mark.parametrize("module", sorted(p.name for p in MODULES.iterdir() if p.is_dir()))
 def test_module_root_layout(module: str) -> None:
     package = MODULES / module / module
@@ -157,7 +152,7 @@ def test_module_root_layout(module: str) -> None:
         p.name
         for p in package.iterdir()
         if (p.suffix == ".py" and not _is_layout_shim(p))
-        or (p.is_dir() and p.name != "__pycache__")
+        or (p.is_dir() and p.name != "__pycache__" and not _is_shim_package(p))
     }
     allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
     legacy = LEGACY_FLAT.get(module, frozenset())

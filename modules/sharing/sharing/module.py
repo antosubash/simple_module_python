@@ -12,7 +12,7 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.tenancy import TenantRole, tenant_role
 
-from sharing import constants as c
+from sharing.core import constants as c
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -31,27 +31,27 @@ class SharingModule(ModuleBase):
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
-        from sharing.tenant_cleanup import purge_tenant_data
+        from sharing.core.tenant_cleanup import purge_tenant_data
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
 
         from simple_module_core.user_events import UserDeleted
 
-        from sharing.user_cleanup import purge_user_shares
+        from sharing.core.user_cleanup import purge_user_shares
 
         bus.subscribe_durable(UserDeleted, purge_user_shares)
 
     def register_settings(self, app: FastAPI) -> None:
-        from sharing.services import SharingServices
-        from sharing.settings import SharingSettings
+        from sharing.core.services import SharingServices
+        from sharing.core.settings import SharingSettings
 
         register_module_settings(
             app, c.MODULE_PACKAGE, SharingSettings, lambda s: SharingServices(settings=s)
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from sharing.endpoints.api import router as api
-        from sharing.endpoints.views import router as views
+        from sharing.web.endpoints.api import router as api
+        from sharing.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)

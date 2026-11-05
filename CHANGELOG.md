@@ -21,7 +21,9 @@ All notable changes to this project are documented in this file. The format is b
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
 - `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.
+- `sharing` follows the module layout: `sharing.core.{constants,settings,services,service,policy,audience,tenant_cleanup,user_cleanup}`, `sharing.web.{deps,present,endpoints}`, and the page components and types move to `ui/`. `sharing.policy`, `sharing.constants` and `sharing.endpoints.api` still import, with a `DeprecationWarning`, until 0.0.46; new code imports `sharing.core.policy`.
 - `dashboard` follows the module layout: `dashboard.core.constants`, `dashboard.web.{endpoints,stats,doctor}`, and the page components move from `pages/components/` to `ui/components/`. Nothing outside the module imported the old paths, so no aliases remain.
+- `feature_flags` follows the module layout: `feature_flags.core.{constants,service,invalidation,tenant_cleanup}`, `feature_flags.web.{deps,endpoints}`, and the page components and types move to `ui/`. `feature_flags.constants` still imports, with a `DeprecationWarning`, until 0.0.46.
 
 ### Fixed
 

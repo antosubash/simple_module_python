@@ -24,7 +24,7 @@ Declare the resource type in the owning module and hand the policy a
 `share_exists` factory:
 
 ```python
-from sharing.policy import share_exists_for
+from sharing.core.policy import share_exists_for
 
 NOTE_POLICY = OwnedResourcePolicy(
     Note.owner_id,

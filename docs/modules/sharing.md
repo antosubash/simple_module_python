@@ -20,7 +20,7 @@ own share model. Nothing depends on it: the framework only sees the
 ```python
 from simple_module_core.resources import ResourceType
 from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
-from sharing.policy import share_exists_for
+from sharing.core.policy import share_exists_for
 
 NOTE_TYPE = "notes.note"
 NOTE_POLICY = OwnedResourcePolicy(
@@ -37,7 +37,7 @@ class NotesModule(ModuleBase):
         )
 ```
 
-A module that uses `sharing.policy` must list `Sharing` in `depends_on`.
+A module that uses `sharing.core.policy` must list `Sharing` in `depends_on`.
 
 By default, `ROLE_IMPLIES` supplies two roles: `view` grants view; `edit` grants
 view and edit. Set the keyword-only `ResourceType.share_roles` to a mapping of
