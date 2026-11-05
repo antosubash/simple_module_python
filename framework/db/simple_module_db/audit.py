@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db.audit_redaction import redact_changes, redact_entity_id
 from simple_module_db.mixins import SoftDeleteMixin
 
 # Fields injected by AuditMixin — always excluded from change diffs
@@ -97,8 +98,10 @@ def _entity_pk_str(obj: object) -> str:
     if identity is None:
         # Pre-flush: fall back to the mapper-level key attrs
         mapper = inspector.mapper
-        return format_pk([getattr(obj, col.key) for col in mapper.primary_key])
-    return format_pk(identity)
+        return redact_entity_id(
+            type(obj), format_pk([getattr(obj, col.key) for col in mapper.primary_key])
+        )
+    return redact_entity_id(type(obj), format_pk(identity))
 
 
 def _column_names(obj: object) -> list[str]:
@@ -128,7 +131,7 @@ def _column_diffs(obj: object, inspector: Any, excl: frozenset[str]) -> list[dic
         old_val = hist.deleted[0] if hist.deleted else None
         new_val = hist.added[0] if hist.added else None
         changes.append({"field": col_name, "old": _serialize(old_val), "new": _serialize(new_val)})
-    return changes
+    return redact_changes(type(obj), changes, obj)
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +185,7 @@ def snapshot_changes(
                 obj_ref=obj,
                 entity_type=type(obj).__name__,
                 action="created",
-                changes=changes,
+                changes=redact_changes(type(obj), changes, obj),
                 user_id=user_id,
                 correlation_id=correlation_id,
             )

@@ -52,3 +52,33 @@ class Cache(Base, table=True):
 ## License
 
 MIT
+
+
+## Credential redaction
+
+Set `__audit_redact_fields__: ClassVar[set[str]] = {"credential"}` on a
+model to keep a field in the audit diff while replacing every recorded `old`
+and `new` value with `[redacted]`. Unlike `__audit_exclude_fields__`, which
+omits a field entirely, redaction preserves the fact that it changed.
+Exclusion takes precedence. A redacted primary key also masks `entity_id`.
+
+For row-dependent rules, define a static `__audit_redact_row__(row)` method
+returning a set of field names. ORM capture evaluates the current and pre-edit
+column dictionaries and redacts fields identified by either. Bulk and manual
+capture pass `None`; the predicate must conservatively return every field
+that could hold a credential when row context is unavailable. Manual capture
+accepts the mapped class or its registered class name to apply its policy.
+
+Built-in policies cover stored secret settings, user password hashes, OAuth
+credentials, tenant invitation hashes, bearer tokens, lease ownership tokens and auth refresh outcomes.
+Settings use the same secret rule as the settings UI. Non-secret ORM settings
+retain their values; bulk settings values are always redacted because the
+statement may affect rows with different keys or prior values. API token
+hashes remain excluded from automatic diffs.
+
+Migration `b8d4f2a6c901` hardens existing entries, conservatively redacting all
+historical settings values because old diffs may lack the key or type needed
+to classify them. It also masks historical credential primary-key identities.
+Its downgrade is a no-op: credential values cannot be recovered. Operators
+should rotate credentials saved through the settings UI on earlier versions;
+the migration does not rewrite backups or previously exported audit data.

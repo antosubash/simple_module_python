@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from simple_module_core.secret_fields import SENSITIVE_KEYS as SENSITIVE_KEYS
+
 # Re-exported (#500): these now live with the table in the framework.
 from simple_module_db.stored_settings import (  # noqa: F401
     ALL_VALUE_TYPES,
@@ -51,7 +53,6 @@ ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
 # anyone who can read it can forge a session cookie for any account. Masked on
 # the way out only — the boot-time reader goes straight to SQL, so hiding it
 # here costs nothing.
-SENSITIVE_KEYS: Final = frozenset({"host.secret_key"})
 SENSITIVE_PLACEHOLDER: Final = "********"
 
 # ── Routing ──────────────────────────────────────────────────────────

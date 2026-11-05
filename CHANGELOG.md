@@ -14,6 +14,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+- **Audit hardening:** audit entries no longer record credential values.
+  Redacted fields retain change indicators using `[redacted]`; credential
+  primary-key identities are masked too. Migration `b8d4f2a6c901` redacts
+  historical credential entries and, conservatively, all historical settings
+  values. Downgrading does not restore these values. Operators should rotate
+  credentials saved through the settings UI on earlier versions, and handle
+  existing backups and audit exports according to their retention policies.
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

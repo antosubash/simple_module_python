@@ -20,6 +20,8 @@ from pydantic import BaseModel, SecretBytes, SecretStr
 _SECRET_PATTERNS = re.compile(
     r"(password|secret|api[_-]?key|private[_-]?key|token[_-]?secret)", re.I
 )
+SENSITIVE_KEYS = frozenset({"host.secret_key"})
+
 SECRET_MASK = "••••••••"
 
 # Value types that cannot carry credential material, so a secret-ish *name*
@@ -92,7 +94,10 @@ def conceals_secret(name: str, value: Any, value_type: str | None = None) -> boo
     ``broker_url``, while that field's password-free default is still shown.
     """
     return (
-        name in _TYPED_SECRET_KEYS or is_named_secret(name, value_type) or embeds_credential(value)
+        name in SENSITIVE_KEYS
+        or name in _TYPED_SECRET_KEYS
+        or is_named_secret(name, value_type)
+        or embeds_credential(value)
     )
 
 

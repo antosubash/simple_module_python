@@ -12,7 +12,7 @@ from __future__ import annotations
 from simple_module_core.secret_fields import conceals_secret
 from simple_module_db.stored_settings import Setting
 
-from settings.constants import SENSITIVE_KEYS, SENSITIVE_PLACEHOLDER
+from settings.constants import SENSITIVE_PLACEHOLDER
 from settings.contracts.schemas import SettingOut
 
 
@@ -27,9 +27,7 @@ def is_masked(entity: Setting) -> bool:
     clear text in the browse table and pre-filled into the edit form purely
     because the allowlist had a single entry in it.
     """
-    return entity.key in SENSITIVE_KEYS or conceals_secret(
-        entity.key, entity.value, entity.value_type
-    )
+    return conceals_secret(entity.key, entity.value, entity.value_type)
 
 
 def out(entity: Setting) -> SettingOut:
