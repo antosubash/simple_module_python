@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import warnings
 from importlib.metadata import version
+from pathlib import Path
 
 import pytest
 from simple_module_core.deprecation import (
@@ -48,10 +49,27 @@ _EXPECTED = {
 }
 
 
+_MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"
+
+
+def _layout_shims() -> list[str]:
+    """Old import paths left behind by module-layout moves (docs/module-layout.md)."""
+    found = []
+    # Package sources only: ``modules/<m>/<m>/``, not tests or node_modules.
+    for path in sorted(_MODULES_DIR.glob("*/*/**/*.py")):
+        if path.relative_to(_MODULES_DIR).parts[0] != path.relative_to(_MODULES_DIR).parts[1]:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "deprecated_module(" in text and "sys.modules[__name__]" in text:
+            rel = path.relative_to(_MODULES_DIR).with_suffix("").parts[1:]
+            found.append(".".join(rel))
+    return found
+
+
 def _register_all() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
-        for name in _SHIM_MODULES:
+        for name in (*_SHIM_MODULES, *_layout_shims()):
             importlib.import_module(name)
     # Overrides own event-hook calls, so omission cannot warn reliably at the base.
     from simple_module_core.module import EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN
@@ -71,6 +89,12 @@ def _register_all() -> None:
 def test_every_known_shim_is_registered() -> None:
     _register_all()
     assert {d.name for d in registered_deprecations()} >= _EXPECTED
+
+
+def test_every_layout_shim_registers_its_old_path() -> None:
+    _register_all()
+    registered = {d.name for d in registered_deprecations()}
+    assert set(_layout_shims()) <= registered
 
 
 def test_no_shim_outlives_its_remove_in_release() -> None:

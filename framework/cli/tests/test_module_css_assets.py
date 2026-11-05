@@ -251,6 +251,7 @@ class TestAssetsManifest:
             "package",
             "pages",
             "components",
+            "ui",
             "theme",
             "styles",
             "npm_name",

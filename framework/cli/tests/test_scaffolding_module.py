@@ -17,13 +17,16 @@ class TestCreateModule:
             "pyproject.toml",
             "my_feature/__init__.py",
             "my_feature/module.py",
-            "my_feature/endpoints/__init__.py",
-            "my_feature/endpoints/api.py",
-            "tests/test_my_feature.py",
+            "my_feature/web/endpoints/__init__.py",
+            "my_feature/web/endpoints/api.py",
+            "tests/core/module/test_my_feature_module.py",
             ".gitignore",
             "README.md",
         ]:
             assert (dest / relpath).is_file(), f"missing: {relpath}"
+
+        assert not list((dest / "tests").rglob("__init__.py"))
+        assert not list((dest / "tests").glob("test_*.py"))
 
         # `tests/__init__.py` is intentionally NOT shipped: under
         # `--import-mode=importlib`, having one in two modules makes
@@ -36,7 +39,7 @@ class TestCreateModule:
 
         dest = tmp_path / "simple-module-my-feature"
         create_module(dest, name="MyFeature")
-        text = (dest / "tests" / "test_my_feature.py").read_text()
+        text = (dest / "tests" / "core" / "module" / "test_my_feature_module.py").read_text()
         assert "effective_route_paths(app)" in text
         assert "app.routes" not in text.replace("``app.routes``", "")
 
@@ -54,11 +57,19 @@ class TestCreateModule:
         alpha = create_module(tmp_path / "alpha", name="Alpha")
         beta = create_module(tmp_path / "beta", name="Beta")
 
-        alpha_tests = [p.name for p in (alpha / "tests").glob("test_*.py")]
-        beta_tests = [p.name for p in (beta / "tests").glob("test_*.py")]
+        alpha_tests = [p.name for p in (alpha / "tests").rglob("test_*.py")]
+        beta_tests = [p.name for p in (beta / "tests").rglob("test_*.py")]
 
-        assert alpha_tests == ["test_alpha.py"]
-        assert beta_tests == ["test_beta.py"]
+        assert sorted(alpha_tests) == [
+            "test_alpha_crud.py",
+            "test_alpha_module.py",
+            "test_alpha_schemas.py",
+        ]
+        assert sorted(beta_tests) == [
+            "test_beta_crud.py",
+            "test_beta_module.py",
+            "test_beta_schemas.py",
+        ]
         assert not set(alpha_tests) & set(beta_tests)
 
     async def test_pyproject_declares_entry_point_and_deps(self, tmp_path):

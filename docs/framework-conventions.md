@@ -4,23 +4,37 @@ Short reference for the invariants module authors rely on. When in doubt, read t
 
 ## Module structure
 
-```
+```text
 modules/<name>/
-├── pyproject.toml            # entry point: simple_module = "<name>.module:<Class>Module"
-└── <name>/
-    ├── __init__.py
-    ├── module.py             # ModuleBase subclass with meta = ModuleMeta(...)
-    ├── models.py             # SQLModel tables (optional)
-    ├── service.py            # business logic
-    ├── deps.py               # FastAPI dependencies
-    ├── contracts/            # SQLModel DTOs (public surface)
-    ├── endpoints/
-    │   ├── api.py            # REST endpoints (JSON)
-    │   └── views.py          # Inertia view endpoints
-    └── pages/                # *.tsx — auto-discovered by Vite
+├── pyproject.toml, package.json, tsconfig.json
+├── <name>/
+│   ├── __init__.py, py.typed, module.py
+│   ├── models.py                 # or models/; discovered by name
+│   ├── contracts/                # public SQLModel DTOs and extension contracts
+│   ├── core/                     # constants.py, settings.py, services.py, errors.py
+│   ├── web/                      # deps.py, service.py (or services/), private schemas
+│   │   └── endpoints/            # api.py, views.py
+│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── locales/                  # <lang>.json
+│   ├── ui/                       # components/, hooks/, utils/ (when needed)
+│   └── tasks.py, theme.css, styles.css  # optional root lookup files
+└── tests/
+    ├── conftest.py                # module-wide fixtures
+    ├── core/module/test_<name>_module.py
+    ├── core/contracts/test_<name>_schemas.py
+    └── web/crud/test_<name>_crud.py
 ```
 
-Scaffold a fresh module with `smpy create-module <name> --dest modules/<name>` — it generates a working CRUD sample (`module.py`, `constants.py`, `models.py`, `contracts/`, `service.py`, `deps.py`, `settings.py`, `services.py`, `endpoints/{api,views}.py`, `pages/{Browse,Create,Edit}.tsx`, `locales/en.json`, plus packaging files and tests). `make new-module` uses the same templates for a module inside this repo. Then run `uv add ./modules/<name>` to register it on your app.
+New scaffolded modules use `core/` and `web/`; existing modules migrate one at a
+time. See [Module layout](module-layout.md) for the root lookup table, area
+selection, test naming, and compatibility policy. Area initializers contain
+only a docstring. Keep private helpers in the area they serve.
+
+Scaffold with `smpy create-module <name> --dest modules/<name>` (or
+`make new-module name=<name>` inside this repo). Both generate the CRUD sample,
+settings container, contracts, pages, locales, and nested tests from the same
+templates. Tests have no package initializers, keep `conftest.py` at the tests
+root, and use unique `test_<name>_*.py` basenames. JS tests stay in `tests-js/`.
 
 ## ModuleMeta
 
@@ -478,7 +492,7 @@ single tokens; an invalid declaration raises at boot.
 
 Production script directives use a per-request nonce and `strict-dynamic`.
 In CSP3 browsers, script host allowlists are ignored: executable scripts in
-custom templates must carry `nonce="{{ request.state.csp_nonce }}"`, including
+custom templates must carry <code v-pre>nonce="{{ request.state.csp_nonce }}"</code>, including
 external script entries. The Inertia adapter adds it to its module scripts;
 imports loaded by those trusted entries inherit trust. Registered script
 origins remain in the policy for older browsers; other asset directives
