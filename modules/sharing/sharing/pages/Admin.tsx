@@ -8,8 +8,8 @@ import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Building2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ShareTable } from './components/ShareTable';
-import type { Share } from './types';
+import { ShareTable } from '../ui/components/ShareTable';
+import type { Share } from '../ui/types';
 
 interface Props {
   shares: Share[];

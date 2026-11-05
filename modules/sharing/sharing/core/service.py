@@ -25,8 +25,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from sharing.audience import Audience, OpenAudience
-from sharing.constants import (
+from sharing.contracts.schemas import ShareGrant
+from sharing.core.audience import Audience, OpenAudience
+from sharing.core.constants import (
     ERR_BAD_ROLE,
     ERR_EXPIRED,
     ERR_FORBIDDEN,
@@ -37,9 +38,8 @@ from sharing.constants import (
     PERM_MANAGE,
     SUBJECT_USER,
 )
-from sharing.contracts.schemas import ShareGrant
+from sharing.core.policy import resolve_roles, row_id
 from sharing.models import ResourceShare
-from sharing.policy import resolve_roles, row_id
 
 
 class SharingError(Exception):

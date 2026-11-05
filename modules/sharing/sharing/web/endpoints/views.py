@@ -16,11 +16,11 @@ from simple_module_inertia import InertiaResponse
 from sqlmodel import col, select
 from starlette.responses import RedirectResponse
 
-from sharing.constants import ADMIN_URL, PAGE_ADMIN, PERM_MANAGE, PERM_VIEW
-from sharing.deps import SharingServiceDep, http_error
+from sharing.core.constants import ADMIN_URL, PAGE_ADMIN, PERM_MANAGE, PERM_VIEW
+from sharing.core.service import SharingError
 from sharing.models import ResourceShare
-from sharing.present import present_shares
-from sharing.service import SharingError
+from sharing.web.deps import SharingServiceDep, http_error
+from sharing.web.present import present_shares
 
 router = APIRouter()
 

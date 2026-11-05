@@ -8,8 +8,8 @@ from typing import Any
 
 from simple_module_core.user_directory import UserDirectory, resolve_user_labels
 
-from sharing.audience import Audience, OpenAudience
 from sharing.contracts.schemas import ShareOut
+from sharing.core.audience import Audience, OpenAudience
 from sharing.models import ResourceShare
 
 
