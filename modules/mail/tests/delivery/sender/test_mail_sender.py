@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from mail.delivery.sender import SmtpMailSender, build_sender
 from mail.core.settings import MailSettings
+from mail.delivery.sender import SmtpMailSender, build_sender
 from simple_module_core.mail import ConsoleMailSender, MailMessage
 
 
@@ -85,8 +85,8 @@ async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
 
 def test_console_backend_outside_development_does_not_log_bodies() -> None:
     """Reset and invite bodies carry one-time tokens (production console backend)."""
-    from mail.delivery.sender import build_sender
     from mail.core.settings import MailSettings
+    from mail.delivery.sender import build_sender
 
     assert build_sender(MailSettings(), log_bodies=False).include_body is False
     assert build_sender(MailSettings()).include_body is True

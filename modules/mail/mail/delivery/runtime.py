@@ -13,8 +13,8 @@ from simple_module_core.mail import MailSender, current_mail_sender, install_mai
 from simple_module_core.settings_hydrate import hydrate_settings
 
 from mail.core import constants as c
-from mail.delivery.sender import build_sender
 from mail.core.settings import MailSettings
+from mail.delivery.sender import build_sender
 
 
 async def resolve_sender_from_db(db: Any) -> MailSender:
