@@ -120,6 +120,12 @@ loads non-package tests by basename, even when they live in different folders.
 Existing flat test names are grandfathered only while their module remains
 in `LEGACY_FLAT`; migration renames them with the module prefix.
 
+A helper shared by several test folders stays at `tests/` root as
+`_<module>_support.py`. The root `conftest.py` puts that directory on
+`sys.path`, so `from _<module>_support import ...` keeps working from nested
+folders; a module that has helpers needs that `conftest.py` even when it holds
+no fixtures.
+
 The root `pyproject.toml:137` lists `modules/<name>/tests` in `testpaths`, and
 `framework/cli/simple_module_cli/framework_repo.py` wires that root. Pytest
 recursively collects nested areas without listing each child directory.
@@ -157,7 +163,10 @@ The alias makes both paths the same module object, so mocks and
 `monkeypatch` strings keep working. Files containing both `deprecated_module(`
 and `sys.modules[__name__]` are auto-discovered by the expiry test and ignored
 by the root-layout test, so the module can leave `LEGACY_FLAT` while they
-remain. A shim that is a plain re-export instead (not an alias) must be added
+remain. When the old path was inside a package that moved (for example
+`orders.endpoints.api`), keep that package with a docstring-only `__init__.py`
+and alias each module in it; a package holding only aliases is ignored by the
+root-layout test too. A shim that is a plain re-export instead (not an alias) must be added
 by hand to the expiry test's `_SHIM_MODULES` tuple and `_EXPECTED` set and kept
 in the module's frozen legacy entries until removed. A completely migrated
 module leaves `LEGACY_FLAT` once its Python tests are nested.
@@ -201,15 +210,15 @@ when a later module PR moves files.
 | auth | 8 | 20 | flat |
 | background_tasks | 49 | 83 | flat |
 | branding | 13 | 20 | flat |
-| dashboard | 5 | 8 | flat |
-| feature_flags | 8 | 9 | flat |
+| dashboard | 2 | 0 | follows this layout |
+| feature_flags | 3 (+1 shim) | 0 | follows this layout |
 | file_storage | 39 | 65 | flat |
-| keycloak | 13 | 19 | flat |
+| keycloak | 3 (+5 shims) | 0 | follows this layout |
 | mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 16 | 24 | flat |
 | permissions | 12 | 14 | flat |
 | settings | 31 | 43 | flat |
-| sharing | 13 | 6 | flat |
+| sharing | 3 (+3 shims) | 0 | follows this layout |
 | site_lock | 2 (+1 shim) | 0 | follows this layout |
 | tenants | 19 | 23 | flat |
 | users | 31 | 97 | flat |

@@ -32,6 +32,7 @@ ALLOWED_ROOT = frozenset(
 )
 # Add named domain areas here only when they contain several related features.
 DOMAIN_AREAS: dict[str, frozenset[str]] = {
+    "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
 }
 
@@ -74,16 +75,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         services.py settings.py shared_props.py tenant_branding.py tenant_definitions.py
         """.split()
     ),
-    "dashboard": frozenset(
-        """
-        constants.py doctor.py endpoints stats.py
-        """.split()
-    ),
-    "feature_flags": frozenset(
-        """
-        constants.py deps.py endpoints invalidation.py service.py tenant_cleanup.py
-        """.split()
-    ),
     "file_storage": frozenset(
         """
         aggregates.py audit_labels.py backend_guard.py backends body_limits.py checksum.py
@@ -92,12 +83,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         reads.py resolve.py scope.py service.py services.py serving.py settings.py
         tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
         uploads.py visibility.py worker.py worker_support.py
-        """.split()
-    ),
-    "keycloak": frozenset(
-        """
-        constants.py directory.py endpoints jwks.py oidc.py persistence.py provider.py
-        renewal.py settings.py state.py tokens.py
         """.split()
     ),
     "oidc": frozenset(
@@ -119,12 +104,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         browse_query.py constants.py deps.py endpoints env_vars.py errors.py exceptions.py
         hydrate.py invalidation.py known_keys.py module_registry.py registration.py
         reload.py service.py services.py settings.py store.py tenant_scope.py tenant_view.py
-        """.split()
-    ),
-    "sharing": frozenset(
-        """
-        audience.py constants.py deps.py endpoints policy.py present.py service.py
-        services.py settings.py tenant_cleanup.py user_cleanup.py
         """.split()
     ),
     "tenants": frozenset(
@@ -154,6 +133,17 @@ def _is_layout_shim(path: Path) -> bool:
     return "deprecated_module(" in text and "sys.modules[__name__]" in text
 
 
+def _only_bytecode(path: Path) -> bool:
+    """A directory an older checkout left behind holding only ``__pycache__``."""
+    return all(child.name == "__pycache__" for child in path.iterdir())
+
+
+def _is_shim_package(path: Path) -> bool:
+    """An old package path kept only for its aliases: shims plus a docstring __init__."""
+    files = [f for f in path.glob("*.py") if f.name != "__init__.py"]
+    return bool(files) and all(_is_layout_shim(f) for f in files)
+
+
 @pytest.mark.parametrize("module", sorted(p.name for p in MODULES.iterdir() if p.is_dir()))
 def test_module_root_layout(module: str) -> None:
     package = MODULES / module / module
@@ -162,7 +152,12 @@ def test_module_root_layout(module: str) -> None:
         p.name
         for p in package.iterdir()
         if (p.suffix == ".py" and not _is_layout_shim(p))
-        or (p.is_dir() and p.name != "__pycache__")
+        or (
+            p.is_dir()
+            and p.name != "__pycache__"
+            and not _only_bytecode(p)
+            and not _is_shim_package(p)
+        )
     }
     allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
     legacy = LEGACY_FLAT.get(module, frozenset())

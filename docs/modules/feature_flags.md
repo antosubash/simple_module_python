@@ -35,7 +35,7 @@ Once registered, the flag shows up at `/admin/feature-flags` in the admin UI. Un
 ## Reading a flag at request time
 
 ```python
-from feature_flags.deps import FeatureFlagRegistryDep
+from feature_flags.web.deps import FeatureFlagRegistryDep
 
 
 @router.post("/checkout")
