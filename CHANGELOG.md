@@ -14,7 +14,42 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+- **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
+  and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
+  Native API clients without browser headers retain their existing workflow.
+- **Behaviour change:** local logout retires only the current browser session,
+  using the existing account-cache invalidation channel (#318). Migration
+  `e805a1b2c3d4` adds expiring session retirement records. Sessions issued before
+  the upgrade remain compatible until expiry or next sign-in.
+- **Audit hardening:** audit entries no longer record credential values.
+  Redacted fields retain change indicators using `[redacted]`; credential
+  primary-key identities are masked too. Migration `b8d4f2a6c901` redacts
+  historical credential entries and, conservatively, all historical settings
+  values. Downgrading does not restore these values. Operators should rotate
+  credentials saved through the settings UI on earlier versions, and handle
+  existing backups and audit exports according to their retention policies.
+- Entity update/delete log events mask primary keys that are themselves
+  credentials (session and refresh tokens), as the audit trail does.
+
+### Removed
+- `settings.constants.SENSITIVE_KEYS`; the set now lives in
+  `simple_module_core.secret_fields.SENSITIVE_KEYS`.
+- **Behaviour change (#687):** delegated permission edits are bounded by
+  platform-level access. Global user and role permission writes require
+  platform-level `permissions.manage`; tenant-role mappings do not contribute
+  to delegation or target-access checks. API-token scope caps still apply;
+  unscoped platform admins remain unrestricted.
+- The release workflow passes dispatch inputs to its scripts through the
+  environment instead of templating them into shell source, and runs
+  read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub
+  Release).
+
 ### Added
+- `SM034` diagnostic (WARNING, `make doctor` and dev boot) for a
+  `subscribe_durable(...)` call without `name=`: the default name is the import
+  path, so moving the handler strands undelivered outbox rows. `permissions` and
+  `tenants` pin their user-cleanup handlers to their existing names (#847).
 - Development responses carry a `Server-Timing` header with the request's app
   time, database time and SQL statement count (`app;dur=…, db;dur=…;desc="N
   queries"`), so an N+1 shows in the browser's network panel. Never sent
@@ -32,6 +67,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- `OidcAuthProvider` and `KeycloakAuthProvider` gain a public `sign_in_from_claims(request, claims)`; the OIDC and Keycloak login callbacks call it instead of the private `_identity`/`_upsert_user_cache`/`_claims_to_user_context` helpers (#848). The OIDC variant returns `(UserContext, identity)` and raises the new `IdentityUnavailableError` when the user cache refuses the identity. No behaviour change.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`. Moved modules log under their new paths (for example `mail.delivery.sender`), so logging config that names an old logger needs the new name.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
 - `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.
@@ -40,6 +76,8 @@ All notable changes to this project are documented in this file. The format is b
 - `feature_flags` follows the module layout: `feature_flags.core.{constants,service,invalidation,tenant_cleanup}`, `feature_flags.web.{deps,endpoints}`, and the page components and types move to `ui/`. `feature_flags.constants` still imports, with a `DeprecationWarning`, until 0.0.46.
 - `keycloak` follows the module layout: `keycloak.core.{constants,settings,state}`, `keycloak.identity.{provider,oidc,renewal,directory,persistence,tokens,jwks}` and `keycloak.web.endpoints`. `keycloak.{constants,settings,provider,jwks,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 - `oidc` follows the module layout: `oidc.core.{constants,settings,presets,state,runtime}`, `oidc.identity.{provider,client,discovery,renewal,directory,persistence,tokens,jwks}` and `oidc.web.endpoints`. `oidc.{settings,provider,jwks}` still import, with a `DeprecationWarning`, until 0.0.46; other old `oidc.*` paths are gone.
+- `api_tokens` follows the module layout: `api_tokens.core.{constants,settings,services,tenant_cleanup,user_cleanup}`, `api_tokens.credentials.{format,scopes,owner,service,resolver,audit}` (`tokens.py` is now `credentials/format.py`), `api_tokens.web.{deps,endpoints}`, and the page components and types move to `ui/`. `api_tokens.{constants,service,resolver,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
+- `branding` follows the module layout: `branding.core.{constants,settings,services,service,presets,tenant_definitions,tenant_branding}`, `branding.assets.{images,reaper}`, `branding.web.{deps,shared_props,endpoints}`, and the form components move from `components/` to `ui/components/`. `branding.{constants,settings,services,tenant_branding,images}` and `branding.endpoints.assets` still import, with a `DeprecationWarning`, until 0.0.46.
 
 ### Fixed
 

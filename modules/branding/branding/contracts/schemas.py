@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
-from branding.constants import (
+from branding.core.constants import (
     BANNER_SEVERITIES,
     BANNER_SEVERITY_ERROR,
     DESIGN_PACK_ERROR,

@@ -10,6 +10,7 @@ metaclass — same constraint as ``User`` / ``UserAccessToken``).
 # Relationship resolution requires runtime annotations.
 
 import uuid
+from typing import ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from sqlmodel import Field
@@ -19,6 +20,8 @@ from users.models._base import Base
 
 class OAuthAccount(Base, table=True):  # ty: ignore[unsupported-base]
     """One row per (provider, account_id) link to a local User."""
+
+    __audit_redact_fields__: ClassVar[set[str]] = {"refresh_token", "access_token"}
 
     __tablename__ = "users_oauth_account"
 

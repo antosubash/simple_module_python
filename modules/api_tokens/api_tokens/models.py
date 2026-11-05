@@ -20,7 +20,7 @@ from simple_module_db.types import AwareDateTime
 from sqlalchemy import Index
 from sqlmodel import Field
 
-from api_tokens.constants import IX_TOKEN_HASH, NAME_MAX_LENGTH, TABLE_TOKEN, TokenKind
+from api_tokens.core.constants import IX_TOKEN_HASH, NAME_MAX_LENGTH, TABLE_TOKEN, TokenKind
 
 Base = create_module_base("api_tokens")
 

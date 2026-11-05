@@ -44,6 +44,7 @@ _OWNER: dict[str, str] = {
     "a625f0b7c912": "users",  # refresh-token families (#625)
     "a626b1c8d023": "users",  # hashed bearer tokens (#626)
     "e731a1b2c3d4": "users",  # unique lower(email) (#731)
+    "e805a1b2c3d4": "users",  # browser session retirement
     "51b2058d8afd": "api_tokens",
     "168a2882f443": "keycloak",
     "f6a3b9d2e8c4": "keycloak",
@@ -52,6 +53,7 @@ _OWNER: dict[str, str] = {
     "f1a9c3d7b2e4": "tenants",
     "70786227af4c": "audit_log",
     "a7c2e91d4b58": "audit_log",
+    "b8d4f2a6c901": "audit_log",
     "f733c7938fd1": "sharing",
     "a738c2e4f601": "auth",
     "d263ea727663": "leases",  # framework-owned sm_lease (#539)
@@ -68,8 +70,8 @@ _ROOTS = {
 
 # head revision -> module owning the tables it creates or alters.
 _HEADS = {
-    "a7c2e91d4b58": "audit_log",
-    "e731a1b2c3d4": "users",  # also carries ``api_tokens``, ``background_tasks``, ``file_storage``
+    "b8d4f2a6c901": "audit_log",
+    "e805a1b2c3d4": "users",  # also carries ``api_tokens``, ``background_tasks``, ``file_storage``
     "f1a9c3d7b2e4": "tenants",
     "f6a3b9d2e8c4": "keycloak",
     "c9d2e4f6a810": "oidc",
@@ -117,6 +119,7 @@ _INHERITED_MISLABELS = {
     "b31a70971001": "api_tokens",
     "f5b1c3e8a207": "api_tokens",
     "e731a1b2c3d4": "api_tokens",
+    "e805a1b2c3d4": "api_tokens",
     "a626b1c8d023": "api_tokens",  # also inherits ``background_tasks``
     "51b2058d8afd": "api_tokens",  # ancestors of a labelled revision inherit its label too
 }

@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class IdentityUnavailableError(Exception):
+    """The user cache could not record the signed-in identity."""
+
+
 class OidcAuthProvider(CachePersistence, SessionRenewal):
     """Generic OIDC authentication with issuer-scoped identities."""
 
@@ -112,6 +116,23 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
             return True
         logger.info("OIDC bearer token from a client not in api_allowed_client_ids")
         return False
+
+    async def sign_in_from_claims(
+        self, request: Request, claims: dict[str, Any]
+    ) -> tuple[UserContext, tuple[str, str]]:
+        """Turn verified ID-token claims into a browser sign-in.
+
+        Returns the session ``UserContext`` and the ``(issuer, subject)``
+        identity to pin the session to. The caller has already validated the
+        token, nonce and expiry. Raises ``ValueError`` when the claims carry no
+        usable identity and ``IdentityUnavailableError`` when the user cache
+        refuses it.
+        """
+        identity = self._identity(claims)
+        cache_id = await self._upsert_user_cache(request, claims)
+        if cache_id is None:
+            raise IdentityUnavailableError("OIDC identity unavailable")
+        return self._claims_to_user_context(claims, cache_id=cache_id), identity
 
     def _claims_to_user_context(
         self,

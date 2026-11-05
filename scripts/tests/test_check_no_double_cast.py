@@ -31,7 +31,7 @@ def test_marker_two_lines_above_does_not_count():
 def test_is_checked_directories():
     assert is_checked(Path("modules/users/users/pages/Login.tsx"))
     assert is_checked(Path("modules/users/users/pages/Users/Edit.tsx"))
-    assert is_checked(Path("modules/branding/branding/components/dirty.ts"))
+    assert is_checked(Path("modules/branding/branding/ui/components/dirty.ts"))
     assert is_checked(Path("modules/users/users/hooks/useThing.ts"))
     assert is_checked(Path("modules/users/users/ui/utils/format.ts"))
     assert is_checked(Path("modules/users/users/auth_local/components/AuthIntro.tsx"))

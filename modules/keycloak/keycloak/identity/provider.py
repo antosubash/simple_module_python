@@ -97,6 +97,14 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
         ctx.auth_kind = AUTH_KIND_BEARER
         return ctx
 
+    async def sign_in_from_claims(self, request: Request, claims: dict[str, Any]) -> UserContext:
+        """Turn verified access-token claims into the session ``UserContext``.
+
+        The caller has already validated the tokens, nonce and expiry.
+        """
+        cache_id = await self._upsert_user_cache(request, claims)
+        return self._claims_to_user_context(claims, cache_id=cache_id)
+
     def _claims_to_user_context(
         self,
         claims: dict[str, Any],

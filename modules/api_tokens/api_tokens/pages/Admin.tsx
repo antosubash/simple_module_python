@@ -7,14 +7,14 @@ import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Building2, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { CreatedTokenDialog } from '../ui/components/CreatedTokenDialog';
+import { CreateTokenDialog } from '../ui/components/CreateTokenDialog';
+import { RevokeTokenDialog } from '../ui/components/RevokeTokenDialog';
+import { TokenPagination } from '../ui/components/TokenPagination';
+import { TokenTable } from '../ui/components/TokenTable';
+import { useTokenActions } from '../ui/components/useTokenActions';
+import type { CreatePayload, TokenFormProps } from '../ui/types';
 import { api, csrfHeaders } from './api';
-import { CreatedTokenDialog } from './components/CreatedTokenDialog';
-import { CreateTokenDialog } from './components/CreateTokenDialog';
-import { RevokeTokenDialog } from './components/RevokeTokenDialog';
-import { TokenPagination } from './components/TokenPagination';
-import { TokenTable } from './components/TokenTable';
-import { useTokenActions } from './components/useTokenActions';
-import type { CreatePayload, TokenFormProps } from './types';
 
 interface Props extends TokenFormProps {
   roles: string[];

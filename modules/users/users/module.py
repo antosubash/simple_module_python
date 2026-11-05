@@ -218,6 +218,7 @@ class UsersModule(ModuleBase):
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router
         from users.auth_local import api as auth_local_api
+        from users.auth_local.browser_guard import require_browser_csrf
         from users.auth_local.token_api import router as token_router
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
@@ -226,30 +227,35 @@ class UsersModule(ModuleBase):
         from users.oauth.api import register_oauth_routes
 
         api_router.include_router(auth_local_api.router)
-        api_router.include_router(demo_router)
+        api_router.include_router(demo_router, dependencies=[Depends(require_browser_csrf)])
+        # Bearer-token routes set no cookie and touch no session, so a
+        # cross-origin client (CORS SPA, mobile) needs no session CSRF token.
         api_router.include_router(token_router)
         api_router.include_router(admin_router)
+        csrf = Depends(require_browser_csrf)
+        throughput = Depends(auth_local_api.enforce_auth_throughput_limit)
         # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``
         # gates /register at request time so ``allow_signup`` is hot-reloadable.
         api_router.include_router(
             fastapi_users.get_reset_password_router(),
             prefix="/auth",
             tags=["users-auth"],
-            dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
+            dependencies=[csrf, throughput],
         )
         api_router.include_router(
             fastapi_users.get_verify_router(UserRead),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
-            dependencies=[Depends(auth_local_api.enforce_auth_throughput_limit)],
+            dependencies=[csrf, throughput],
         )
         api_router.include_router(
             fastapi_users.get_register_router(UserRead, UserCreate),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[
+                csrf,
                 Depends(auth_local_api.require_signup_enabled),
-                Depends(auth_local_api.enforce_auth_throughput_limit),
+                throughput,
             ],
         )
         register_oauth_routes(api_router)
