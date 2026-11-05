@@ -16,24 +16,28 @@ async def test_spool_io_runs_off_loop(wire_backend, monkeypatch, size):
     calls = []
 
     class CheckedSpool(SpooledTemporaryFile):
-        def write(self, data):
-            calls.append(threading.get_ident())
-            return super().write(data)
+        def _note(self, extra=0):
+            disk = self._rolled or self.tell() + extra > self._max_size
+            calls.append((threading.get_ident(), disk))
 
-        def read(self, *args):
-            calls.append(threading.get_ident())
-            return super().read(*args)
+        def write(self, s):
+            self._note(len(s))
+            return super().write(s)
 
-        def seek(self, *args):
-            calls.append(threading.get_ident())
-            return super().seek(*args)
+        def read(self, n=-1, /):
+            self._note()
+            return super().read(n)
 
-        def truncate(self, *args):
-            calls.append(threading.get_ident())
-            return super().truncate(*args)
+        def seek(self, offset, whence=0):
+            self._note()
+            return super().seek(offset, whence)
+
+        def truncate(self, size=None):
+            self._note()
+            return super().truncate(size)
 
         def close(self):
-            calls.append(threading.get_ident())
+            self._note()
             return super().close()
 
     monkeypatch.setattr(s3_put, "SpooledTemporaryFile", CheckedSpool)
@@ -52,7 +56,9 @@ async def test_spool_io_runs_off_loop(wire_backend, monkeypatch, size):
     payload = b"123456" if size == 6 else b"1234567890"
     await backend.put("key", chunks(payload), content_type="text/plain", size=size)
     assert (wire.single if size == 6 else b"".join(wire.parts)) == payload
-    assert calls and loop_thread not in calls
+    # In-memory operations run inline by design; anything on disk must be off-loop.
+    assert any(thread != loop_thread for thread, _ in calls)
+    assert all(thread != loop_thread for thread, disk in calls if disk)
 
 
 @pytest.mark.parametrize("fail_completion", [False, True])
@@ -97,15 +103,17 @@ async def test_cancellation_waits_for_write_before_closing(
             super().__init__(**kw)
             files.append(self)
 
-        def write(self, data):
+        def write(self, s):
             entered.set()
             assert release.wait(3)
             assert not self.closed
             if write_fails:
                 raise OSError("disk failed after cancellation")
-            return super().write(data)
+            return super().write(s)
 
     monkeypatch.setattr(s3_put, "SpooledTemporaryFile", SlowSpool)
+    # Writes that stay in memory run inline; force the disk path this test models.
+    monkeypatch.setattr(s3_put.constants, "SPOOL_MAX_SIZE_BYTES", 1)
     wire, backend = wire_backend
     backend.multipart_threshold_bytes = 1
     task = asyncio.create_task(

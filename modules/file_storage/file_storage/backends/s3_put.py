@@ -19,6 +19,65 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# Replay blocks are read from disk once per executor hop; keep them well above the
+# request-chunk size so a rolled-over spool costs few hops, yet bounded.
+_REPLAY_BLOCK = 1024 * 1024
+_INLINE_WRITE_LIMIT = 2 * 1024 * 1024
+
+
+class _Buf:
+    """A SpooledTemporaryFile whose in-memory operations run inline.
+
+    Executor hops cost more than a memcpy, so only operations that touch disk (the
+    spool already rolled over, or this write would roll it) are offloaded.
+    """
+
+    def __init__(self) -> None:
+        self.max_size = constants.SPOOL_MAX_SIZE_BYTES
+        self.file = SpooledTemporaryFile(max_size=self.max_size)  # noqa: SIM115 — closed in aclose
+        self.pos = 0
+
+    def _in_memory(self, extra: int = 0) -> bool:
+        # `_rolled` is the only signal SpooledTemporaryFile exposes.
+        return not getattr(self.file, "_rolled", True) and self.pos + extra <= self.max_size
+
+    def _inline_write(self, size: int) -> bool:
+        # Growing a large BytesIO reallocates and faults pages: keep that off the loop too.
+        return self._in_memory(size) and self.pos + size <= _INLINE_WRITE_LIMIT
+
+    async def write(self, data) -> None:
+        if self._inline_write(len(data)):
+            self.file.write(data)
+        else:
+            await _io(self.file.write, data)
+        self.pos += len(data)
+
+    async def read(self, size: int) -> bytes:
+        if self._in_memory():
+            return self.file.read(size)
+        return await _io(self.file.read, size)
+
+    async def rewind(self) -> None:
+        self.pos = 0
+        if self._in_memory():
+            self.file.seek(0)
+        else:
+            await _io(self.file.seek, 0)
+
+    async def reset(self) -> None:
+        await self.rewind()
+        if self._in_memory():
+            self.file.truncate()
+        else:
+            await _io(self.file.truncate)
+
+    async def aclose(self) -> None:
+        if self._in_memory():
+            self.file.close()
+        else:
+            await _io(self.file.close)
+
+
 async def put_stream(
     backend: S3Backend, key: str, stream: AsyncIterator[bytes], content_type: str, size: int
 ) -> None:
@@ -31,36 +90,35 @@ async def put_stream(
     async with _spool() as prefix:
         if size <= threshold:
             async for chunk in iterator:
-                take = min(len(chunk), threshold + 1 - (await _io(prefix.tell)))
-                await _io(prefix.write, memoryview(chunk)[:take])
-                if await _io(prefix.tell) > threshold:
+                take = min(len(chunk), threshold + 1 - prefix.pos)
+                await prefix.write(memoryview(chunk)[:take])
+                if prefix.pos > threshold:
                     tail = memoryview(chunk)[take:]
                     break
             else:
-                length = await _io(prefix.tell)
+                length = prefix.pos
                 if size and length != size:
                     raise SizeMismatchError(size, length)
-                await _io(prefix.seek, 0)
+                await prefix.rewind()
                 try:
                     async with backend._client() as client:
                         await client.put_object(
                             Bucket=backend.bucket,
                             Key=key,
-                            Body=prefix,
+                            Body=prefix.file,
                             ContentType=content_type,
                             ContentLength=length,
                         )
                 except Exception as exc:
                     raise StorageBackendError(f"S3 put_object failed: {exc}") from exc
                 return
-        await _io(prefix.seek, 0)
+        await prefix.rewind()
 
         async def body() -> AsyncIterator[bytes]:
-            while chunk := await _io(prefix.read, constants.DEFAULT_CHUNK_SIZE):
+            while chunk := await prefix.read(_REPLAY_BLOCK):
                 yield chunk
             if tail is not None:
-                for offset in range(0, len(tail), constants.DEFAULT_CHUNK_SIZE):
-                    yield bytes(tail[offset : offset + constants.DEFAULT_CHUNK_SIZE])
+                yield bytes(tail)
             async for chunk in iterator:
                 yield chunk
 
@@ -93,16 +151,15 @@ async def _upload(client, backend, key, stream, content_type, size, part_size):
                     raise SizeMismatchError(size, seen)
                 remaining = memoryview(chunk)
                 while remaining:
-                    take = min(len(remaining), part_size - (await _io(buf.tell)))
-                    await _io(buf.write, remaining[:take])
+                    take = min(len(remaining), part_size - buf.pos)
+                    await buf.write(remaining[:take])
                     remaining = remaining[take:]
-                    if await _io(buf.tell) == part_size:
+                    if buf.pos == part_size:
                         parts.append(await _send(client, backend, key, upload_id, parts, buf))
-                        await _io(buf.seek, 0)
-                        await _io(buf.truncate)
+                        await buf.reset()
             if size and seen != size:
                 raise SizeMismatchError(size, seen)
-            if await _io(buf.tell) or not parts:
+            if buf.pos or not parts:
                 parts.append(await _send(client, backend, key, upload_id, parts, buf))
         try:
             await client.complete_multipart_upload(
@@ -121,19 +178,19 @@ async def _upload(client, backend, key, stream, content_type, size, part_size):
         raise
 
 
-async def _send(client, backend: S3Backend, key, upload_id, parts, buf) -> Part:
+async def _send(client, backend: S3Backend, key, upload_id, parts, buf: _Buf) -> Part:
     number = len(parts) + 1
     if number > constants.MAX_UPLOAD_PARTS:
         raise ValueError("S3 upload exceeds maximum part count")
-    length = await _io(buf.tell)
-    await _io(buf.seek, 0)
+    length = buf.pos
+    await buf.rewind()
     try:
         result = await client.upload_part(
             Bucket=backend.bucket,
             Key=key,
             UploadId=upload_id,
             PartNumber=number,
-            Body=buf,
+            Body=buf.file,
             ContentLength=length,
         )
     except Exception as exc:
@@ -162,8 +219,8 @@ async def _io(fn, *args):
 
 @asynccontextmanager
 async def _spool():
-    spool = SpooledTemporaryFile(max_size=constants.SPOOL_MAX_SIZE_BYTES)  # noqa: SIM115 — async close below
+    buf = _Buf()
     try:
-        yield spool
+        yield buf
     finally:
-        await _io(spool.close)
+        await buf.aclose()

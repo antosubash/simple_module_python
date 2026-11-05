@@ -14,20 +14,28 @@ Two concurrent uploads (32 MiB and 64 MiB), 1 MiB source chunks, real temporary
 files with the existing 10 MiB spool limit, and the existing `S3Wire` fake.
 The wire consumed file bodies in executor threads, like aiohttp's file payload,
 without simulating network latency. A 1 ms asyncio timer sampled scheduling
-lag. Known sizes used the actual length; unknown sizes used zero. Each row is
-one before/after run, so small sample sizes and filesystem cache effects apply.
+lag. Known sizes used the actual length; unknown sizes used zero. Each cell is
+the median of three runs. Three implementations were compared in one process:
+`4920a13a` (origin/main), the first offloading change where every spool call
+went through the executor ("all-offload"), and the final change, where spool
+operations that stay in memory (up to 2 MiB) run inline and only operations that
+touch disk are offloaded. The final change also replays the prefix in 1 MiB
+blocks instead of 64 KiB and tracks the spool position itself instead of
+calling `tell()` through the executor.
 
-| Threshold | Size known | Loop lag p99 before → after | Elapsed before → after | Client opens before → after |
+| Threshold | Size known | Loop lag p99, main / all-offload / final | Elapsed, main / all-offload / final | Client opens main → final |
 | --- | --- | --- | --- | --- |
-| 16 MiB (force multipart) | yes | 30.617 → 9.282 ms | 0.235 → 0.499 s | 10 → 2 |
-| 16 MiB (force multipart) | no | 60.710 → 0.953 ms | 0.290 → 1.784 s | 10 → 2 |
-| 64 MiB (default; single PUT) | yes | 38.319 → 9.581 ms | 0.249 → 0.504 s | 2 → 2 |
-| 64 MiB (default; single PUT) | no | 38.173 → 6.892 ms | 0.280 → 0.432 s | 2 → 2 |
+| 16 MiB (force multipart) | yes | 28.9 / 7.2 / 13.4 ms | 0.234 / 0.306 / 0.297 s | 10 → 2 |
+| 16 MiB (force multipart) | no | 54.8 / 1.5 / 11.4 ms | 0.251 / 0.794 / 0.340 s | 10 → 2 |
+| 64 MiB (default; single PUT) | yes | 37.1 / 10.4 / 13.8 ms | 0.261 / 0.314 / 0.301 s | 2 → 2 |
+| 64 MiB (default; single PUT) | no | 36.8 / 11.5 / 12.8 ms | 0.257 / 0.340 / 0.290 s | 2 → 2 |
 
-Offloading improves responsiveness but adds executor overhead. This fake-only
-run cannot establish end-to-end throughput or connection reuse at the network
-level. In particular, unknown-size multipart uploads replay the prefix in
-64 KiB chunks, causing more executor round trips.
+The final change keeps most of the loop-lag gain (p99 2-4x lower than main) and
+removes most of the throughput regression: elapsed is within 10-35% of main
+(unknown-size multipart was 3.2x slower with full offloading, now 1.35x),
+at the cost of a somewhat higher p99 than full offloading (inline memory copies
+and the remaining executor hops). This fake-only run cannot establish
+end-to-end throughput or connection reuse at the network level.
 
 This sandbox stalled on asyncio executor-completion wakeups despite idle
 worker threads. Tests and measurements used a temporary pytest fixture with a
