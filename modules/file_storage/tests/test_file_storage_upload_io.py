@@ -123,10 +123,15 @@ async def test_io_task_cancelled_by_loop_shutdown_does_not_spin():
     """Cancelling the inner executor task (as loop shutdown does) must propagate."""
     gate = threading.Event()
     waiter = asyncio.create_task(s3_put._io(gate.wait, 3))
-    await asyncio.sleep(0.01)
-    inner = next(
-        t for t in asyncio.all_tasks() if t is not waiter and t is not asyncio.current_task()
-    )
+
+    me = asyncio.current_task()
+    inner = None
+    for _ in range(1000):  # yield until _io has scheduled its executor task
+        await asyncio.sleep(0)
+        inner = next((t for t in asyncio.all_tasks() if t not in (waiter, me)), None)
+        if inner is not None:
+            break
+    assert inner is not None
     inner.cancel()
     try:
         with pytest.raises(asyncio.CancelledError):
