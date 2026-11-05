@@ -13,6 +13,12 @@ uv add ./modules/orders
 
 This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table, and adds the package to your app's dependencies. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
 
+New modules put shared settings and constants in `core/`, HTTP code in `web/`,
+and reusable frontend code in `ui/`. Root lookup paths (`models.py`, `contracts/`,
+`pages/`, `locales/`) stay fixed. Tests mirror `tests/<area>/<feature>/`, without
+`__init__.py`, with module-prefixed basenames and root `conftest.py`; JS tests
+stay in `tests-js/`. See [Module layout](/module-layout).
+
 ## 2. Define your domain model
 
 Edit `modules/orders/orders/models.py`:
@@ -93,7 +99,7 @@ make migrate
 The scaffold already generated working CRUD. Trim it to match your domain or extend it:
 
 ```python
-# modules/orders/orders/service.py
+# modules/orders/orders/web/service.py
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -136,8 +142,8 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.permissions import PermissionRegistry
 
-from orders.endpoints.api import router as api_router
-from orders.endpoints.views import router as view_router
+from orders.web.endpoints.api import router as api_router
+from orders.web.endpoints.views import router as view_router
 
 
 class OrdersModule(ModuleBase):
@@ -172,8 +178,8 @@ class OrdersModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from orders.endpoints.api import router as api
-        from orders.endpoints.views import router as views
+        from orders.web.endpoints.api import router as api
+        from orders.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
@@ -185,12 +191,12 @@ class OrdersModule(ModuleBase):
 ## 7. Enforce permissions on endpoints
 
 ```python
-# modules/orders/orders/endpoints/api.py
+# modules/orders/orders/web/endpoints/api.py
 from fastapi import APIRouter, Depends
 from simple_module_hosting.permissions import RequiresPermission
 
 from orders.contracts.schemas import OrderCreate, OrderOut
-from orders.deps import OrderServiceDep
+from orders.web.deps import OrderServiceDep
 
 router = APIRouter(tags=["orders"])
 
@@ -279,7 +285,7 @@ Keys flatten at boot: `orders.menu.orders`, `orders.browse.title`, etc. See [Int
 ## 9. Write a test
 
 ```python
-# modules/orders/tests/test_orders.py
+# modules/orders/tests/web/crud/test_orders_crud.py
 import pytest
 
 

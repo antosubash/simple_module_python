@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mail.settings import MailSettings
+from mail.core.settings import MailSettings
 
 
 @dataclass

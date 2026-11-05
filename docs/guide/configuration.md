@@ -86,7 +86,7 @@ From then on, edit at `/admin/settings/` (requires the `settings.manage` permiss
 When you write your own module, declare settings as a `DbBackedSettings` subclass (`simple_module_core.settings_base`; constructor + DB, no env source) and register it from `register_settings(app)` with `register_module_settings`, which mounts your services object on `app.state.<module_lower>` (the lowercase package name) and lets the host hydrate it from the database before `on_startup`.
 
 ```python
-# modules/orders/orders/settings.py
+# modules/orders/orders/core/settings.py
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_base import DbBackedSettings
 
@@ -97,9 +97,9 @@ class OrdersSettings(DbBackedSettings):
     max_items_per_order: int = 100
 
 
-# modules/orders/orders/services.py
+# modules/orders/orders/core/services.py
 from dataclasses import dataclass
-from orders.settings import OrdersSettings
+from orders.core.settings import OrdersSettings
 
 
 @dataclass
@@ -113,8 +113,8 @@ from simple_module_core.module_settings import register_module_settings
 
 class OrdersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from orders.services import OrdersServices
-        from orders.settings import OrdersSettings
+        from orders.core.services import OrdersServices
+        from orders.core.settings import OrdersSettings
 
         register_module_settings(
             app, "orders", OrdersSettings, lambda s: OrdersServices(settings=s)

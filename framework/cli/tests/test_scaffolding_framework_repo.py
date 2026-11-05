@@ -55,7 +55,8 @@ class TestRichModuleContent:
         for py in dest.rglob("*.py"):
             ast.parse(py.read_text(), filename=str(py))
         for rel in [
-            "constants.py", "models.py", "service.py", "deps.py", "py.typed",
+            "core/constants.py", "models.py", "web/service.py", "web/deps.py", "py.typed",
+            "core/__init__.py", "core/settings.py", "core/services.py", "web/__init__.py",
             "contracts/schemas.py", "locales/en.json", "pages/Browse.tsx", "pages/Edit.tsx",
         ]:  # fmt: skip
             assert (pkg / rel).is_file(), rel
@@ -83,14 +84,14 @@ class TestRichModuleContent:
         """Permissions, page keys and menu labels come from constants.py."""
         pkg = orders / "orders"
         module_py = (pkg / "module.py").read_text()
-        views = (pkg / "endpoints" / "views.py").read_text()
+        views = (pkg / "web" / "endpoints" / "views.py").read_text()
         assert "label_key=MENU_LABEL_KEY" in module_py
         assert "register_module_settings(" in module_py
         assert "app.state.orders =" not in module_py
         assert "PAGE_BROWSE," in views
         assert 'render("Orders/' not in views
         assert '"orders.view"' not in module_py
-        assert 'PERM_ORDERS_VIEW = "orders.view"' in (pkg / "constants.py").read_text()
+        assert 'PERM_ORDERS_VIEW = "orders.view"' in (pkg / "core" / "constants.py").read_text()
 
     def test_locale_catalog_carries_the_menu_key(self, orders: Path):
         data = json.loads((orders / "orders" / "locales" / "en.json").read_text())

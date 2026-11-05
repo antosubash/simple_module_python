@@ -6,7 +6,7 @@ from fastapi import Depends
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from {{PACKAGE_NAME}}.service import {{SINGULAR_CLASS}}Service
+from {{PACKAGE_NAME}}.web.service import {{SINGULAR_CLASS}}Service
 
 
 async def get_{{SINGULAR}}_service(

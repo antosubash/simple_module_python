@@ -1,30 +1,11 @@
-"""Mail module settings — DB-backed via ``register_module_settings``.
-
-``smtp_password`` is masked by the settings UI because its name matches the
-secret-field pattern (``simple_module_core.secret_fields.is_secret_field``).
-"""
+"""Moved to :mod:`mail.core.settings`; this alias goes in 0.0.46 (module layout)."""
 
 from __future__ import annotations
 
-from typing import Literal
+import importlib
+import sys
 
-from pydantic import Field
-from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.deprecation import deprecated_module
 
-from mail import constants as c
-
-
-class MailSettings(DbBackedSettings):
-    """Which transport sends mail, and the SMTP account it uses."""
-
-    # ``DbBackedSettings`` so the DB is the only source (GH #283).
-    model_config = SettingsConfigDict(extra="ignore")
-
-    backend: Literal["console", "smtp"] = c.BACKEND_CONSOLE
-    smtp_host: str = ""
-    smtp_port: int = Field(default=c.DEFAULT_SMTP_PORT, ge=c.MIN_PORT, le=c.MAX_PORT)
-    smtp_username: str = ""
-    smtp_password: str = ""
-    smtp_from: str = c.DEFAULT_FROM
-    smtp_tls: bool = True
+deprecated_module("mail.settings", remove_in="0.0.46", use="mail.core.settings")
+sys.modules[__name__] = importlib.import_module("mail.core.settings")

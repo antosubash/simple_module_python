@@ -20,6 +20,15 @@ All notable changes to this project are documented in this file. The format is b
   read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub
   Release).
 
+### Changed
+
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
+- `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
+
+### Fixed
+
+- Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

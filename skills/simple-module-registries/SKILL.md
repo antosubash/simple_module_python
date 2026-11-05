@@ -131,7 +131,7 @@ class NotificationsModule(ModuleBase):
 ```
 
 ```python
-# orders/service.py
+# orders/web/service.py
 async def place_order(self, ...):
     order = ...
     await self._bus.publish(OrderPlaced(order_id=order.id, ...))

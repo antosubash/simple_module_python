@@ -29,6 +29,14 @@ Document the real routes, settings and any events the module emits here.
 
 ## Configuration
 
-Settings are a `DbBackedSettings` subclass (`{{PACKAGE_NAME}}/settings.py`) read
+Settings are a `DbBackedSettings` subclass (`{{PACKAGE_NAME}}/core/settings.py`) read
 from the settings table and exposed on `app.state.{{PACKAGE_NAME}}`; nothing is
 read from environment variables.
+
+## Source layout
+
+Shared settings and constants live in `{{PACKAGE_NAME}}/core/`; HTTP code
+lives in `{{PACKAGE_NAME}}/web/`. Root lookup files stay in place. Reusable
+frontend code belongs in `ui/`; JS tests stay in `tests-js/`. Python tests
+mirror `tests/<area>/<feature>/test_{{PACKAGE_NAME}}_*.py`, without package
+initializers. See the repository's `docs/module-layout.md` for migration rules.
