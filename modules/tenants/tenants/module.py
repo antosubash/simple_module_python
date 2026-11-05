@@ -91,7 +91,7 @@ class TenantsModule(ModuleBase):
 
         from tenants.user_cleanup import purge_user_memberships
 
-        bus.subscribe_durable(UserDeleted, purge_user_memberships)
+        bus.subscribe_durable(UserDeleted, purge_user_memberships, name=c.USER_CLEANUP_HANDLER)
 
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_hosting.shared_props import register_inertia_shared_provider

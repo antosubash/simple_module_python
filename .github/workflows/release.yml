@@ -22,9 +22,9 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+# Read-only by default; only the jobs that publish or push widen it.
 permissions:
-  contents: write
-  id-token: write  # OIDC for PyPI and npm Trusted Publishing
+  contents: read
 
 env:
   NODE_VERSION: "24"
@@ -47,11 +47,16 @@ jobs:
         run: bash scripts/check_release_ref.sh
       - id: compute
         shell: bash
+        # Inputs reach the script through the environment, never interpolated
+        # into it, so a crafted value is data rather than shell source.
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            ver="${{ inputs.version }}"
+          if [ -n "${INPUT_VERSION}" ]; then
+            ver="${INPUT_VERSION}"
           else
-            ver=$(BUMP="${{ inputs.bump }}" python3 <<'PY'
+            ver=$(python3 <<'PY'
           import os, pathlib, re, tomllib
           cur = tomllib.loads(pathlib.Path("framework/core/pyproject.toml").read_text())["project"]["version"]
           m = re.match(r"^(\d+)\.(\d+)\.(\d+)", cur)
@@ -278,6 +283,8 @@ jobs:
     needs: [resolve, publish-pypi, publish-npm]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write  # push the release commit + tag, create the GitHub Release
     steps:
       - uses: actions/checkout@v7
         with:

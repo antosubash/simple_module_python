@@ -71,6 +71,8 @@ PAGE_ADMIN = "Tenants/AdminBrowse"
 __all__ = ["TENANT_ROLE_PREFIX", "MembershipRole", "tenant_role"]
 
 INVITATION_MAIL_HANDLER = "tenants.send_invitation_email"
+# Durable handler name (outbox key); pinned to the original import-path default.
+USER_CLEANUP_HANDLER = "tenants.user_cleanup.purge_user_memberships"
 INVITATION_MAIL_SUBJECT = "You're invited to join {tenant_name}"
 INVITATION_TEMPLATE = "templates/invitation.txt"
 MAIL_URL_SCHEMES = frozenset({"http", "https"})

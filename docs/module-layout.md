@@ -33,6 +33,7 @@ checkers, not a framework runtime lookup.
 | `module.py` | `framework/core/simple_module_core/discovery.py:80` loads the `simple_module` entry point; the scaffold declares its target in `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:15`. |
 | `models.py` or `models/` | `framework/db/simple_module_db/migrations.py:74` imports the module's models for metadata; `framework/core/simple_module_core/diagnostics/_tenancy.py:94` and `framework/core/simple_module_core/diagnostics/_expression_index.py:52` do the same. A `models/` package must load its tables. |
 | `tasks.py` | `modules/background_tasks/background_tasks/celery_app.py:215` autodiscovers with `related_name="tasks"`; `framework/core/simple_module_core/diagnostics/_heavy_task_imports.py:65` checks this root file (SM028). |
+| `task_config.py` | `modules/background_tasks/background_tasks/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
 | `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
 | `pages/api.ts`, `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py:130` selects the root pages directory for generation; `framework/cli/simple_module_cli/templates/module/__PACKAGE__/pages/api.ts.tpl:8` consumes the generated types. |
@@ -182,6 +183,12 @@ One module per PR; no logic changes in a move PR.
    `from <pkg> import x`, `mock.patch` targets and `monkeypatch` dotted strings.
    Rewrite relative TS imports from their old location. Do not rewrite
    `app.state.<pkg>` attributes: these are runtime containers, not imports.
+   Do not rewrite strings that only look like paths: i18n keys
+   (`<pkg>.audit.token`), permission names and upgrade ids share the prefix.
+   Durable event keys and handler names are wire names derived from the
+   import path: a moved durable handler keeps its old name with
+   `subscribe_durable(..., name=<constant>)`, and a moved durable event class
+   needs a data migration. `host/tests/test_durable_wire_names.py` freezes both.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
    package initializers and prefix each basename with the module name.
    JS tests remain in `tests-js/`.
@@ -205,17 +212,17 @@ when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
 | --- | ---: | ---: | --- |
-| api_tokens | 15 | 13 | flat |
+| api_tokens | 3 (+4 shims) | 0 | follows this layout |
 | audit_log | 13 | 18 | flat |
 | auth | 8 | 20 | flat |
 | background_tasks | 49 | 83 | flat |
-| branding | 13 | 20 | flat |
+| branding | 2 (+6 shims) | 0 | follows this layout |
 | dashboard | 2 | 0 | follows this layout |
 | feature_flags | 3 (+1 shim) | 0 | follows this layout |
 | file_storage | 39 | 65 | flat |
 | keycloak | 3 (+5 shims) | 0 | follows this layout |
 | mail | 2 (+2 shims) | 0 | follows this layout |
-| oidc | 16 | 24 | flat |
+| oidc | 3 (+3 shims) | 0 | follows this layout |
 | permissions | 12 | 14 | flat |
 | settings | 31 | 43 | flat |
 | sharing | 3 (+3 shims) | 0 | follows this layout |

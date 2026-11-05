@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
 
-import { CreatedTokenDialog } from '../api_tokens/pages/components/CreatedTokenDialog';
+import { CreatedTokenDialog } from '../api_tokens/ui/components/CreatedTokenDialog';
 
 const SECRET = 'smpy_pat_0123456789abcdef';
 const c = keys.api_tokens.created;

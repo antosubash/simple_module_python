@@ -8,7 +8,7 @@ from datetime import datetime
 from pydantic import ConfigDict, field_validator
 from sqlmodel import Field, SQLModel
 
-from api_tokens.constants import MAX_SCOPES, NAME_MAX_LENGTH
+from api_tokens.core.constants import MAX_SCOPES, NAME_MAX_LENGTH
 
 
 class TokenView(SQLModel):
