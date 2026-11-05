@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Load-test Inertia visits now send the initial page's asset version and cached i18n catalog marker, measuring real page responses instead of version conflicts and repeated catalog downloads. Invalid bootstrap pages stop the simulated user; 409 responses remain failures.
+
 ### Changed
 
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
