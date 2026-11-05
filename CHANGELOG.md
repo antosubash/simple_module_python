@@ -15,6 +15,19 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Security
+- **Audit hardening:** audit entries no longer record credential values.
+  Redacted fields retain change indicators using `[redacted]`; credential
+  primary-key identities are masked too. Migration `b8d4f2a6c901` redacts
+  historical credential entries and, conservatively, all historical settings
+  values. Downgrading does not restore these values. Operators should rotate
+  credentials saved through the settings UI on earlier versions, and handle
+  existing backups and audit exports according to their retention policies.
+- Entity update/delete log events mask primary keys that are themselves
+  credentials (session and refresh tokens), as the audit trail does.
+
+### Removed
+- `settings.constants.SENSITIVE_KEYS`; the set now lives in
+  `simple_module_core.secret_fields.SENSITIVE_KEYS`.
 - **Behaviour change (#687):** delegated permission edits are bounded by
   platform-level access. Global user and role permission writes require
   platform-level `permissions.manage`; tenant-role mappings do not contribute
