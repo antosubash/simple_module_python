@@ -183,6 +183,12 @@ One module per PR; no logic changes in a move PR.
    `from <pkg> import x`, `mock.patch` targets and `monkeypatch` dotted strings.
    Rewrite relative TS imports from their old location. Do not rewrite
    `app.state.<pkg>` attributes: these are runtime containers, not imports.
+   Do not rewrite strings that only look like paths: i18n keys
+   (`<pkg>.audit.token`), permission names and upgrade ids share the prefix.
+   Durable event keys and handler names are wire names derived from the
+   import path: a moved durable handler keeps its old name with
+   `subscribe_durable(..., name=<constant>)`, and a moved durable event class
+   needs a data migration. `host/tests/test_durable_wire_names.py` freezes both.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
    package initializers and prefix each basename with the module name.
    JS tests remain in `tests-js/`.
