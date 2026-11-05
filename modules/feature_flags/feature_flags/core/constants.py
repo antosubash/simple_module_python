@@ -48,3 +48,7 @@ AUDIT_LINK_LABEL_KEY = "feature_flags.audit.override"
 # flags work perfectly well without an audit log installed.
 AUDIT_LOG_MODULE = "AuditLog"
 AUDIT_LOG_VIEW_URL = "/admin/audit-log/"
+
+# Durable handler names key undelivered outbox rows, so they keep the import
+# path the handler had before the module-layout move (renaming strands rows).
+TENANT_CLEANUP_HANDLER = "feature_flags.tenant_cleanup.purge_tenant_data"
