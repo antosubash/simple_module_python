@@ -41,6 +41,14 @@ All notable changes to this project are documented in this file. The format is b
 - `keycloak` follows the module layout: `keycloak.core.{constants,settings,state}`, `keycloak.identity.{provider,oidc,renewal,directory,persistence,tokens,jwks}` and `keycloak.web.endpoints`. `keycloak.{constants,settings,provider,jwks,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 
 ### Fixed
+- Users password creation, forgot-password fingerprints, reset verification and
+  password updates offload hashing to worker threads, keeping unrelated async
+  requests responsive during registration and bulk invites. Password policy,
+  single-use reset tokens and atomic credential revocation are preserved.
+- Admin user state totals and role options use a 30-second cache, invalidated
+  after committed user, role and membership writes through the InvalidationBus.
+  List DTOs skip redundant validation of trusted database values; role options
+  select only the required columns, and managers share one password helper.
 
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
 - Background tasks: the executions list (when empty) and the Workers page no

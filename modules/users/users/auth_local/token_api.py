@@ -26,6 +26,7 @@ from users.auth_local.lockout import (
     record_success,
     release,
 )
+from users.core.password_hashing import PASSWORD_HELPER
 from users.demo.guard import DEMO_READ_ONLY_DETAIL, is_read_only_demo
 from users.models import User
 from users.models.refresh_token import RefreshToken
@@ -68,9 +69,7 @@ async def token_login(
     db: AsyncSession = Depends(get_db),
 ):
     """Exchange email + password for an access/refresh token pair."""
-    from fastapi_users.password import PasswordHelper
-
-    helper = PasswordHelper()
+    helper = PASSWORD_HELPER
     # Same lockout as the session login (GH #530): a slot is taken before the
     # password is checked, and a success gives it back.
     attempt = login_attempt(request, body.email)

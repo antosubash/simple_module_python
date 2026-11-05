@@ -14,6 +14,21 @@ The default auth provider + user-management module: email/password login, OAuth/
 
 ## Auth flow
 
+Password hashing and verification for local login, account creation (including
+registration and bulk invitations), password changes and reset fingerprints run
+in worker threads. Database operations, password policy and lifecycle hooks stay
+on the event loop; password resets still revoke credentials atomically.
+
+Admin user state totals and role options (including membership counts) are
+cached per application for 30 seconds. Committed user, role and membership
+writes invalidate them locally and publish through the InvalidationBus. With
+Redis invalidation transport, other workers evict their entries too; without it,
+or if a message is lost, another worker may show old totals until the TTL expires.
+These summaries do not control permissions. Filtered user rows and pagination
+counts remain live queries. The accepted contains-search scan is unchanged.
+See [Users performance measurements](../performance/users.md) for the local
+before/after results and reproduction command.
+
 The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for password hashing, registration, password reset, and verification. On top of that it layers:
 
 - A signed session cookie (`sm_auth` by default) — the auth module's `AuthMiddleware` calls `UsersAuthProvider.resolve_user`, which reads it on every request and populates `request.state.user`. Bearer tokens (`Authorization: Bearer <token>`) resolve against `users_access_token`.

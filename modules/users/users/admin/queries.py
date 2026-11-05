@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
+from users.admin.summary_cache import get_summary
 from users.admin.user_state import STATUS_CONDITIONS, user_state
 from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
@@ -100,7 +101,7 @@ class _UserServiceBase:
 
     def to_list_item(self, user: User) -> UserListItem:
         """Build the DTO from a User with roles already eager-loaded."""
-        return UserListItem(
+        return UserListItem.model_construct(
             id=user.id,
             email=user.email,
             full_name=user.full_name,
@@ -118,22 +119,7 @@ class _UserServiceBase:
         )
 
     async def list_roles(self) -> list[RoleListItem]:
-        stmt = (
-            select(Role, func.count(UserRole.user_id))  # ty: ignore[invalid-argument-type]
-            .outerjoin(UserRole, col(UserRole.role_id) == Role.id)
-            .group_by(Role.id)  # ty: ignore[invalid-argument-type]
-            .order_by(Role.name)
-        )
-        result = await self._db.execute(stmt)
-        return [
-            RoleListItem(
-                id=role.id,
-                name=role.name,
-                description=role.description,
-                user_count=user_count,
-            )
-            for role, user_count in result.all()
-        ]
+        return await get_summary(self._app, self._db, roles=True)
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         # populate_existing: ``roles`` is ``noload``, so an instance already in
@@ -259,7 +245,7 @@ class _UserServiceBase:
         # Selected columns == UserListItem fields (minus the derived ones and
         # roles): unpack directly.
         items = [
-            UserListItem(
+            UserListItem.model_construct(
                 **cast(
                     "dict[str, Any]", {**r._mapping, "locked_until": _live_lock(r.locked_until)}
                 ),
@@ -284,12 +270,7 @@ class _UserServiceBase:
         One scan with ``COUNT(*) FILTER (WHERE …)`` per state rather than a
         round-trip each (Postgres and SQLite >= 3.30 both support it).
         """
-        keys = ("active", "unverified", "invited")
-        stmt = select(*(func.count().filter(STATUS_CONDITIONS[k]()) for k in keys)).select_from(
-            User
-        )
-        row = (await self._db.execute(stmt)).one()
-        return {key: int(value) for key, value in zip(keys, row, strict=True)}
+        return await get_summary(self._app, self._db, roles=False)
 
     async def get_with_roles(self, user_id: uuid.UUID) -> User | None:
         return await self._get_user_with_roles(user_id)
