@@ -44,7 +44,7 @@ async def logged_out_page(inertia: InertiaDep):
 
     ``pages/LoggedOut.tsx`` shipped with no route pointing at it, so signing
     out bounced straight back to the redirect interstitial and immediately
-    signed you in again. Public by registration in ``provider.py``: by
+    signed you in again. Public by registration in ``KeycloakModule.register_public_routes``: by
     definition nobody holds a session here.
     """
     return await inertia.render(_PAGE_LOGGED_OUT)

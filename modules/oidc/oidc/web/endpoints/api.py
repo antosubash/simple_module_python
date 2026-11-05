@@ -18,6 +18,7 @@ from oidc.core.constants import (
     SESSION_VERIFIER_KEY,
 )
 from oidc.core.runtime import require_client
+from oidc.identity.provider import IdentityUnavailableError
 from oidc.identity.tokens import store_refresh_token
 
 logger = logging.getLogger(__name__)
@@ -97,13 +98,11 @@ async def oidc_callback(request: Request):
         raise HTTPException(status_code=401, detail="Invalid ID token expiry")
     provider = request.app.state.auth.auth_provider
     try:
-        identity = provider._identity(claims)
+        user_ctx, identity = await provider.sign_in_from_claims(request, claims)
     except ValueError:
         raise HTTPException(status_code=401, detail="Missing OIDC identity") from None
-    cache_id = await provider._upsert_user_cache(request, claims)
-    if cache_id is None:
-        raise HTTPException(status_code=503, detail="OIDC identity unavailable")
-    user_ctx = provider._claims_to_user_context(claims, cache_id=cache_id)
+    except IdentityUnavailableError:
+        raise HTTPException(status_code=503, detail="OIDC identity unavailable") from None
     next_url = sign_in(
         request,
         user=user_ctx,
