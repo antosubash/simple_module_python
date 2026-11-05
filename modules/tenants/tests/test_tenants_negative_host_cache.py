@@ -46,7 +46,8 @@ async def test_create_invalidates_negative_host_cache_after_commit(app, user_cli
     async with user_client("new-owner@x.io") as (client, _):
         response = await client.post("/api/tenants/", json={"name": "New", "slug": "new-org"})
         assert response.status_code == 201
-    assert (await host_resolver.tenant_for_slug(app, "new-org"))[0] == response.json()["id"]
+    hit = await host_resolver.tenant_for_slug(app, "new-org")
+    assert hit is not None and hit[0] == response.json()["id"]
 
 
 async def test_rename_invalidates_old_hit_and_new_miss_only_after_commit(app, tenant_client):
@@ -60,13 +61,15 @@ async def test_rename_invalidates_old_hit_and_new_miss_only_after_commit(app, te
             service = TenantService(db, invalidate=make_invalidator(app))
             tenant = await service.get(tenant_id)
             old_slug = tenant.slug
-            assert (await host_resolver.tenant_for_slug(app, old_slug))[0] == tenant_id
+            hit = await host_resolver.tenant_for_slug(app, old_slug)
+            assert hit is not None and hit[0] == tenant_id
             assert await host_resolver.tenant_for_slug(app, "renamed") is None
             await service.rename_tenant(tenant_id, TenantCreate(name="Renamed", slug="renamed"))
             assert await host_resolver.tenant_for_slug(app, "renamed") is None
             await finalize_session(db)
         assert await host_resolver.tenant_for_slug(app, old_slug) is None
-        assert (await host_resolver.tenant_for_slug(app, "renamed"))[0] == tenant_id
+        hit = await host_resolver.tenant_for_slug(app, "renamed")
+        assert hit is not None and hit[0] == tenant_id
 
 
 async def test_host_invalidation_during_read_retries_before_caching():
