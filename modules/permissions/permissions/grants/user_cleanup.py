@@ -6,7 +6,7 @@ from simple_module_core.user_events import UserDeleted
 from simple_module_db.callbacks import register_on_commit
 from sqlmodel import col, delete
 
-from permissions.grants import CHANNEL, apply_invalidation
+from permissions.grants.source import CHANNEL, apply_invalidation
 from permissions.models import UserPermission
 
 

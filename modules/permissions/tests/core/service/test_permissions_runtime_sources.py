@@ -63,7 +63,7 @@ async def test_source_permission_enforced_by_requires_permission(app: FastAPI):
 async def test_saving_role_keeps_grants_of_currently_unregistered_source_keys(
     authenticated_client: httpx.AsyncClient, app: FastAPI
 ):
-    from permissions.service import PermissionService
+    from permissions.core.service import PermissionService
     from users.constants import USER_ROLE_ID, USER_ROLE_NAME
     from users.models import Role
 

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, HTTPException
-from permissions.grants import CHANNEL, direct_grant_source, subscribe
+from permissions.grants.source import CHANNEL, direct_grant_source, subscribe
 from permissions.models import Base, UserPermission
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.permissions import PermissionRegistry

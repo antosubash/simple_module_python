@@ -223,7 +223,7 @@ when a later module PR moves files.
 | keycloak | 3 (+5 shims) | 0 | follows this layout |
 | mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 3 (+3 shims) | 0 | follows this layout |
-| permissions | 12 | 14 | flat |
+| permissions | 3 (+2 shims) | 0 | follows this layout |
 | settings | 31 | 43 | flat |
 | sharing | 3 (+3 shims) | 0 | follows this layout |
 | site_lock | 2 (+1 shim) | 0 | follows this layout |

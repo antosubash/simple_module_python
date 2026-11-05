@@ -9,10 +9,10 @@ import httpx
 import pytest
 from auth.contracts.schemas import UserContext
 from fastapi import FastAPI, Request
-from permissions.deps import get_permission_service
-from permissions.endpoints.api import router as api_router
-from permissions.endpoints.views import router as view_router
 from permissions.models import RolePermission, UserPermission
+from permissions.web.deps import get_permission_service
+from permissions.web.endpoints.api import router as api_router
+from permissions.web.endpoints.views import router as view_router
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory

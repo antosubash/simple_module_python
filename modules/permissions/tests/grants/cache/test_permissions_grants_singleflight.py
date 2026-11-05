@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from cachetools import TTLCache
 from fastapi import FastAPI
-from permissions import grants
+from permissions.grants import source as grants
 from simple_module_core.invalidation import Invalidation
 from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
 from starlette.requests import Request

@@ -4,9 +4,9 @@ import asyncio
 from types import SimpleNamespace
 
 from fastapi import FastAPI
+from permissions.core.service import PermissionService
 from permissions.models import Base, RolePermission
 from permissions.module import PermissionsModule
-from permissions.service import PermissionService
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.session import init_db

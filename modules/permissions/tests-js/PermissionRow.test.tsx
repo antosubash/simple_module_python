@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
-import { PermissionRow } from '../permissions/pages/components/PermissionRow';
+import { PermissionRow } from '../permissions/ui/components/PermissionRow';
 
 class ResizeObserverStub {
   observe() {}

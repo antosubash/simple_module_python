@@ -12,7 +12,6 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from permissions._registry_sync import RegistrySyncMixin, _role_names
 from permissions.contracts.schemas import (
     PermissionGroupOut,
     RoleOut,
@@ -20,9 +19,10 @@ from permissions.contracts.schemas import (
     UserOut,
     UserPermissionsOut,
 )
-from permissions.group_labels import localized_groups
+from permissions.core._registry_sync import RegistrySyncMixin, _role_names
+from permissions.core.group_labels import localized_groups
+from permissions.core.write_safety import check_permission_write
 from permissions.models import RolePermission, UserPermission
-from permissions.write_safety import check_permission_write
 
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
@@ -145,7 +145,7 @@ class PermissionService(RegistrySyncMixin):
             if self.app is None:
                 self.registry.set_role_overlay(role.name, wanted | (existing - registered))
             else:
-                from permissions.role_invalidation import CHANNEL
+                from permissions.grants.role_invalidation import CHANNEL
 
                 await self.app.state.sm.invalidation.publish(CHANNEL, key=role.name)
 
@@ -227,7 +227,7 @@ class PermissionService(RegistrySyncMixin):
         )
         await self.db.flush()
 
-        from permissions.grants import clear_grants_cache, publish_grants_changed
+        from permissions.grants.source import clear_grants_cache, publish_grants_changed
 
         app = self.app
         if app is None:
