@@ -14,26 +14,6 @@ The default auth provider + user-management module: email/password login, OAuth/
 
 ## Auth flow
 
-Password hashing and verification for local login, account creation (including
-registration and bulk invitations), password changes and reset fingerprints run
-in worker threads. Database operations, password policy and lifecycle hooks stay
-on the event loop; password resets still revoke credentials atomically.
-
-Admin user state totals and role options (including membership counts) are
-cached per worker for 30 seconds. A committed transaction that wrote a user,
-role or membership through the ORM evicts this worker's entry. Other workers
-hear about a change only through an explicit `users.admin_summary` publish from
-the admin service's write paths (create, invite, delete, disable, enable, mark
-verified, set roles), sent once after the commit and never on rollback. Other
-writes (logins, failed-login counters, password changes, session revocations,
-role edits made outside the users admin service) publish nothing, so another
-worker may show old totals until the 30-second TTL expires; the same holds
-without the Redis invalidation transport or when a message is lost.
-These summaries do not control permissions. Filtered user rows and pagination
-counts remain live queries. The accepted contains-search scan is unchanged.
-See [Users performance measurements](../perf/2026-11-05-users.md) for the local
-before/after results and reproduction command.
-
 The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for password hashing, registration, password reset, and verification. On top of that it layers:
 
 - A signed session cookie (`sm_auth` by default) — the auth module's `AuthMiddleware` calls `UsersAuthProvider.resolve_user`, which reads it on every request and populates `request.state.user`. Bearer tokens (`Authorization: Bearer <token>`) resolve against `users_access_token`.
@@ -262,6 +242,28 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `Users` | `/admin/users/` | `users` | `ADMIN_SIDEBAR` | `Access` | `100` | `["admin"]` |
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
+
+## Performance
+
+Password hashing and verification for local login, account creation (including
+registration and bulk invitations), password changes and reset fingerprints run
+in worker threads. Database operations, password policy and lifecycle hooks stay
+on the event loop; password resets still revoke credentials atomically.
+
+Admin user state totals and role options (including membership counts) are
+cached per worker for 30 seconds. A committed transaction that wrote a user,
+role or membership through the ORM evicts this worker's entry. Other workers
+hear about a change only through an explicit `users.admin_summary` publish from
+the admin service's write paths (create, invite, delete, disable, enable, mark
+verified, set roles), sent once after the commit and never on rollback. Other
+writes (logins, failed-login counters, password changes, session revocations,
+role edits made outside the users admin service) publish nothing, so another
+worker may show old totals until the 30-second TTL expires; the same holds
+without the Redis invalidation transport or when a message is lost.
+These summaries do not control permissions. Filtered user rows and pagination
+counts remain live queries. The accepted contains-search scan is unchanged.
+See [Users performance measurements](../perf/2026-11-05-users.md) for the local
+before/after results and reproduction command.
 
 ## Password reset and credential revocation
 

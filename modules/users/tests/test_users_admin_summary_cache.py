@@ -233,3 +233,32 @@ async def test_role_options_do_not_hydrate_orm_rows(users_app):
         assert loaded == []
     finally:
         event.remove(Role, "load", record)
+
+
+async def test_create_user_without_roles_still_publishes(users_app):
+    messages = _record(users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        await service(db, users_app).create_user(
+            "noroles@example.com", "SecurePass1!", None, [], created_by=None
+        )
+        # The adapter committed; the request would roll back and drop callbacks.
+        await rollback_session(db)
+    assert len(messages) == 1
+
+
+async def test_login_bookkeeping_keeps_cache_warm_but_counted_columns_clear_it(users_app):
+    async with users_app.state.sm.db.session_factory() as db:
+        svc = service(db, users_app)
+        user = User(email="login@example.com", hashed_password="unused")
+        db.add(user)
+        await finalize_session(db)
+        before = await svc.count_user_states()
+        user.last_login_at = datetime.now(UTC)
+        user.failed_login_count = 3
+        user.session_version = (user.session_version or 0) + 1
+        await finalize_session(db)
+        with patch.object(summary_cache, "load_counts", side_effect=AssertionError("cache miss")):
+            assert await svc.count_user_states() == before
+        user.is_active = False
+        await finalize_session(db)
+        assert await svc.count_user_states() != before

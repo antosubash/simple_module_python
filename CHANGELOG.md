@@ -42,6 +42,7 @@ All notable changes to this project are documented in this file. The format is b
 - `oidc` follows the module layout: `oidc.core.{constants,settings,presets,state,runtime}`, `oidc.identity.{provider,client,discovery,renewal,directory,persistence,tokens,jwks}` and `oidc.web.endpoints`. `oidc.{settings,provider,jwks}` still import, with a `DeprecationWarning`, until 0.0.46; other old `oidc.*` paths are gone.
 
 ### Fixed
+
 - Users password creation, forgot-password fingerprints, reset verification and
   password updates offload hashing to worker threads, keeping unrelated async
   requests responsive during registration and bulk invites. Password policy,

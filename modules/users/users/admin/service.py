@@ -11,7 +11,7 @@ from sqlalchemy.orm import noload
 from sqlmodel import col
 
 from users.admin.safety import _UserAdminSafety
-from users.admin.summary_cache import publish_after_commit
+from users.admin.summary_cache import publish_after_commit, publish_now
 from users.constants import ADMIN_ROLE_NAME
 from users.contracts.schemas import UserCreate
 from users.exceptions import (
@@ -59,10 +59,15 @@ class UserService(_UserAdminSafety):
             is_superuser=False,
         )
         user = await self._manager.create(user_create, safe=False)
-        # Queued after the adapter's own commit, so it waits for the roles too.
-        publish_after_commit(self._app, self._db)
 
         roles = await self._resolve_roles(role_names)
+        if roles:
+            # Queued after the adapter's own commit, so it waits for the roles.
+            publish_after_commit(self._app, self._db)
+        else:
+            # The adapter already committed and nothing else will be written, so
+            # the request would roll back and drop an on-commit callback.
+            await publish_now(self._app)
         for role in roles:
             self._db.add(UserRole(user_id=user.id, role_id=role.id, assigned_by=created_by))
         if roles:

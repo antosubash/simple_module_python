@@ -11,6 +11,7 @@ these figures are informational and never gate access.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -19,6 +20,7 @@ from fastapi import FastAPI
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_db.callbacks import register_on_commit
 from sqlalchemy import event, func, select
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, SessionTransaction
 from sqlmodel import col
@@ -26,6 +28,8 @@ from sqlmodel import col
 from users.admin.user_state import STATUS_CONDITIONS
 from users.contracts.schemas import RoleListItem
 from users.models import Role, User, UserRole
+
+logger = logging.getLogger(__name__)
 
 CHANNEL = "users.admin_summary"
 TTL_SECONDS = 30.0
@@ -113,6 +117,16 @@ async def get_state_counts(app: FastAPI | None, db: AsyncSession) -> dict[str, i
     return dict(await _cached(app, db, _COUNTS, load_counts))
 
 
+async def publish_now(app: FastAPI | None) -> None:
+    """Tell every worker to forget its summaries; the write is already durable."""
+    if app is None:
+        return
+    try:
+        await app.state.sm.invalidation.publish(CHANNEL)
+    except Exception:
+        logger.exception("users.admin_summary.publish_failed")
+
+
 def publish_after_commit(app: FastAPI | None, db: AsyncSession) -> None:
     """Tell every worker to forget its summaries once ``db`` commits."""
     if app is None:
@@ -131,6 +145,16 @@ def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
     bus.subscribe(ROLES_CHANNEL, lambda _: _cache(app).forget())
 
 
+# The columns ``load_counts`` aggregates (see ``users.admin.user_state``); login
+# bookkeeping (last_login_at, lockout counters, rehash, session_version) is not one.
+_COUNTED_USER_COLUMNS = ("is_active", "is_verified", "invited_at")
+
+
+def _counted_change(user: User) -> bool:
+    attrs = sa_inspect(user).attrs
+    return any(attrs[name].history.has_changes() for name in _COUNTED_USER_COLUMNS)
+
+
 def register_writes(app: FastAPI) -> None:
     """Forget this worker's summaries when a user/role write commits."""
     cache = _cache(app)
@@ -139,9 +163,10 @@ def register_writes(app: FastAPI) -> None:
     cache.wired = True
 
     def before_flush(session: Session, *_: object) -> None:
-        if any(
-            isinstance(obj, User | Role | UserRole)
-            for obj in (*session.new, *session.dirty, *session.deleted)
+        if (
+            any(isinstance(obj, User | Role | UserRole) for obj in (*session.new, *session.deleted))
+            or any(isinstance(obj, Role | UserRole) for obj in session.dirty)
+            or any(_counted_change(obj) for obj in session.dirty if isinstance(obj, User))
         ):
             session.info[CHANNEL] = True
 
