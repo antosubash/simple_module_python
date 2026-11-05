@@ -5,10 +5,10 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from api_tokens.constants import PERM_USE, TokenKind
+from api_tokens.core.constants import PERM_USE, TokenKind
+from api_tokens.credentials.resolver import _personal
+from api_tokens.credentials.service import ApiTokenService
 from api_tokens.models import ApiToken
-from api_tokens.resolver import _personal
-from api_tokens.service import ApiTokenService
 from auth.contracts.tokens import AUTH_KIND_PAT
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
 

@@ -15,14 +15,16 @@ from simple_module_hosting.csrf import RequiresCsrf
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
-from api_tokens.constants import PERM_USE, TokenKind
 from api_tokens.contracts.schemas import (
     CreatedToken,
     PersonalTokenCreate,
     RevokedCount,
     TokenView,
 )
-from api_tokens.deps import (
+from api_tokens.core.constants import PERM_USE, TokenKind
+from api_tokens.credentials.scopes import assignable_scopes, check_subset
+from api_tokens.credentials.service import TokenError
+from api_tokens.web.deps import (
     ApiTokenServiceDep,
     SessionPrincipal,
     SettingsDep,
@@ -30,8 +32,6 @@ from api_tokens.deps import (
     require_session_principal,
     user_uuid,
 )
-from api_tokens.scopes import assignable_scopes, check_subset
-from api_tokens.service import TokenError
 
 router = APIRouter(
     prefix="/tokens",

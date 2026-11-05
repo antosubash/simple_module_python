@@ -4,8 +4,8 @@ import uuid
 
 import pytest
 from _api_tokens_support import INERTIA_HEADERS, PAT_URL, create_pat
-from api_tokens.constants import TokenKind
-from api_tokens.service import ApiTokenService
+from api_tokens.core.constants import TokenKind
+from api_tokens.credentials.service import ApiTokenService
 from simple_module_db.tenancy import tenant_context
 
 

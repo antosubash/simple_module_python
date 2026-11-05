@@ -212,7 +212,7 @@ when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
 | --- | ---: | ---: | --- |
-| api_tokens | 15 | 13 | flat |
+| api_tokens | 3 (+4 shims) | 0 | follows this layout |
 | audit_log | 13 | 18 | flat |
 | auth | 8 | 20 | flat |
 | background_tasks | 49 | 83 | flat |

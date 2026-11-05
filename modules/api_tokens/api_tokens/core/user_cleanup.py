@@ -5,7 +5,7 @@ from simple_module_core.user_events import UserDeleted
 from simple_module_db.tenancy import all_tenants
 from sqlmodel import col, delete
 
-from api_tokens.constants import TokenKind
+from api_tokens.core.constants import TokenKind
 from api_tokens.models import ApiToken
 
 

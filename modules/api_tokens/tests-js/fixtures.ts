@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { ApiToken } from '../api_tokens/pages/types';
+import type { ApiToken } from '../api_tokens/ui/types';
 
 export function token(over: Partial<ApiToken> = {}): ApiToken {
   return {

@@ -33,6 +33,7 @@ ALLOWED_ROOT = frozenset(
 )
 # Add named domain areas here only when they contain several related features.
 DOMAIN_AREAS: dict[str, frozenset[str]] = {
+    "api_tokens": frozenset({"credentials"}),
     "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
     "oidc": frozenset({"identity"}),
@@ -40,12 +41,6 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
 LEGACY_FLAT: dict[str, frozenset[str]] = {
-    "api_tokens": frozenset(
-        """
-        audit.py constants.py deps.py endpoints owner.py resolver.py scopes.py service.py
-        services.py settings.py tenant_cleanup.py tokens.py user_cleanup.py
-        """.split()
-    ),
     "audit_log": frozenset(
         """
         activity.py capture.py constants.py deps.py endpoints export.py filters.py

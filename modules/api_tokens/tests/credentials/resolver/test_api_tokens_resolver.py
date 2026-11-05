@@ -7,8 +7,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from _api_tokens_support import FLAGS_URL, create_pat, load_token, update_token
-from api_tokens.constants import TokenKind
-from api_tokens.tokens import generate
+from api_tokens.core.constants import TokenKind
+from api_tokens.credentials.format import generate
 from starlette.requests import Request
 
 
@@ -90,7 +90,7 @@ async def test_disabled_owner_is_refused(app, actor, bearer):
 
 async def test_token_survives_a_fresh_resolver_state(app, actor):
     """Nothing is cached in-process: a restart only needs the database row."""
-    from api_tokens.resolver import resolve_api_token
+    from api_tokens.credentials.resolver import resolve_api_token
 
     async with actor(admin=True) as a:
         token = (await create_pat(a.client, ["feature_flags.view"]))["token"]
@@ -156,7 +156,7 @@ async def test_users_provider_does_not_look_up_api_tokens(monkeypatch):
 
 async def test_personal_token_tenant_answer_varies_on_authorization(app, actor):
     """The tenant chosen for a PAT depended on its Authorization header, not a cookie."""
-    from api_tokens.resolver import resolve_api_token
+    from api_tokens.credentials.resolver import resolve_api_token
     from tenants.resolver import resolve_tenant
 
     async with actor(admin=True) as a:

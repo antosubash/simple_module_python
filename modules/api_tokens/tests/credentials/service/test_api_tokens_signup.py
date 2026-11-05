@@ -59,7 +59,7 @@ async def test_registration_attaches_the_user_role(app, client):
 
 
 async def test_registered_user_can_open_the_tokens_page(app, client):
-    from api_tokens.constants import USER_URL
+    from api_tokens.core.constants import USER_URL
 
     user_id = await _register(app, client)
     async with session_client(app, {"user_id": user_id}) as c:
