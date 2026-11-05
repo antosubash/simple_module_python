@@ -94,3 +94,15 @@ async def test_anonymous_auth_pages_supply_token(anon_client_signup, path):
     response = await anon_client_signup.get(path, headers=_INERTIA)
     assert response.status_code == 200
     assert response.json()["props"]["csrfToken"]
+
+
+async def test_bearer_token_login_needs_no_session_token(anon_client):
+    """A cross-origin API client gets tokens in the body; no cookie, no CSRF."""
+    response = await anon_client.post(
+        "/api/users/auth/token",
+        headers={"Origin": "https://spa.example", "Sec-Fetch-Site": "cross-site"},
+        json={"email": CREDENTIALS["username"], "password": CREDENTIALS["password"]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["access_token"]
+    assert "set-cookie" not in response.headers

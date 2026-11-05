@@ -226,7 +226,9 @@ class UsersModule(ModuleBase):
 
         api_router.include_router(auth_local_api.router)
         api_router.include_router(demo_router, dependencies=[Depends(require_browser_csrf)])
-        api_router.include_router(token_router, dependencies=[Depends(require_browser_csrf)])
+        # Bearer-token routes set no cookie and touch no session, so a
+        # cross-origin client (CORS SPA, mobile) needs no session CSRF token.
+        api_router.include_router(token_router)
         api_router.include_router(admin_router)
         csrf = Depends(require_browser_csrf)
         throughput = Depends(auth_local_api.enforce_auth_throughput_limit)

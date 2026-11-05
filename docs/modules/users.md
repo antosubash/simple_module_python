@@ -551,8 +551,10 @@ Anything else without a session redirects to `/users/login` (or returns 401 JSON
 
 **Behaviour change:** anonymous auth pages issue a session-bound `csrfToken` prop.
 Browser mutations under `/api/users/auth/` (password sign-in, demo sign-in,
-registration, forgot/reset password, verification, invite acceptance, bearer token
-operations and API logout) must echo it as `X-CSRF-Token`. The shared typed API
+registration, forgot/reset password, verification, invite acceptance and API
+logout) must echo it as `X-CSRF-Token`. The bearer-token routes
+(`/api/users/auth/token*`) set no cookie and need no token, so cross-origin
+API clients keep working. The shared typed API
 client already does this, including sign-in after a password reset. Read the prop
 from `GET /users/login` through Inertia when building another browser client;
 retain its session cookie. Signing in rotates the token: read the next page's
