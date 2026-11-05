@@ -14,6 +14,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+- The release workflow passes dispatch inputs to its scripts through the
+  environment instead of templating them into shell source, and runs
+  read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub
+  Release).
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

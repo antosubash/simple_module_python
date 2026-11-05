@@ -127,3 +127,25 @@ def test_finalize_preserves_main_and_only_tags_on_success(release_repos, advance
         assert git(remote, "merge-base", "--is-ancestor", main_before, "main") == ""
         if advance == "unrelated":
             assert git(remote, "show", "main:merged") == "PR change"
+
+
+def test_dispatch_inputs_never_interpolated_into_scripts():
+    """Inputs reach `run:` scripts through `env:` so their values stay data."""
+    for name, job in workflow()["jobs"].items():
+        for step in job.get("steps", []):
+            assert "inputs." not in step.get("run", ""), f"{name}: {step.get('name')}"
+
+
+def test_only_publishing_jobs_widen_permissions():
+    wf = workflow()
+    assert wf["permissions"] == {"contents": "read"}
+    writers = {
+        name: job["permissions"]
+        for name, job in wf["jobs"].items()
+        if any(v == "write" for v in job.get("permissions", {}).values())
+    }
+    assert writers == {
+        "publish-pypi": {"id-token": "write"},
+        "publish-npm": {"contents": "read", "id-token": "write"},
+        "finalize": {"contents": "write"},
+    }
