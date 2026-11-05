@@ -20,14 +20,44 @@ All notable changes to this project are documented in this file. The format is b
   read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub
   Release).
 
+### Added
+- Development responses carry a `Server-Timing` header with the request's app
+  time, database time and SQL statement count (`app;dur=…, db;dur=…;desc="N
+  queries"`), so an N+1 shows in the browser's network panel. Never sent
+  outside development. `simple_module_db.query_stats` (`install_query_stats`,
+  `track_queries`) exposes the same count to tests.
+- `simple-module-page-perf` skill: `scripts/page_audit` signs in, finds every
+  page from the menus and two levels of links, and reports server time, SQL
+  statements, payload and prop sizes, deferred props, client-side navigation
+  time, LCP, CLS, JS bytes, DOM size, console errors, phone-width overflow and
+  basic UX checks against budgets. Install with
+  `smpy skills add simple-module-page-perf`.
+- `docs/frontend/performance.md`: how to build pages that are fast and feel
+  fast (server, client, loading/empty/error states, layout shift, polling,
+  prefetch) and how to pin a page's query count in a test.
+
 ### Changed
 
-- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`. Moved modules log under their new paths (for example `mail.delivery.sender`), so logging config that names an old logger needs the new name.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
+- `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.
+- `sharing` follows the module layout: `sharing.core.{constants,settings,services,service,policy,audience,tenant_cleanup,user_cleanup}`, `sharing.web.{deps,present,endpoints}`, and the page components and types move to `ui/`. `sharing.policy`, `sharing.constants` and `sharing.endpoints.api` still import, with a `DeprecationWarning`, until 0.0.46; new code imports `sharing.core.policy`.
+- `dashboard` follows the module layout: `dashboard.core.constants`, `dashboard.web.{endpoints,stats,doctor}`, and the page components move from `pages/components/` to `ui/components/`. Nothing outside the module imported the old paths, so no aliases remain.
+- `feature_flags` follows the module layout: `feature_flags.core.{constants,service,invalidation,tenant_cleanup}`, `feature_flags.web.{deps,endpoints}`, and the page components and types move to `ui/`. `feature_flags.constants` still imports, with a `DeprecationWarning`, until 0.0.46.
+- `keycloak` follows the module layout: `keycloak.core.{constants,settings,state}`, `keycloak.identity.{provider,oidc,renewal,directory,persistence,tokens,jwks}` and `keycloak.web.endpoints`. `keycloak.{constants,settings,provider,jwks,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 
 ### Fixed
 
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
+- Background tasks: the executions list (when empty) and the Workers page no
+  longer wait out the broker's ~1 s inspect timeout before rendering. The
+  worker poll is now a deferred prop: the list shows *Checking for workers…*
+  in the empty state and Workers shows skeleton cards until the broker
+  answers (server time about 1,050 ms → 15–20 ms). **Behaviour change:**
+  `worker_presence` and `snapshot` are no longer in the first Inertia
+  response; they arrive in the deferred `workers` group.
+- Background tasks pages linked to `/admin/background-tasks` without its
+  trailing slash, so every "back to executions" click cost a redirect.
 
 ## [0.0.43] — 2026-11-04
 

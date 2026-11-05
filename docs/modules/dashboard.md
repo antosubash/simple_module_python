@@ -59,7 +59,7 @@ the role editor to change that.
 
 The three user figures come from the app's [user directory](/framework/user-directory) (`stats()`), so they count whichever auth provider holds the accounts. A figure the provider cannot give is `null` and its tile is hidden: under `keycloak` `users_created_this_month` is `null` (the cache only learns of a user at first sign-in), and with no auth provider all three are.
 
-The result is cached process-wide for 30 seconds. If you mutate something that should change the numbers (e.g. seed users from a script), call `dashboard.stats.invalidate_stats_cache()` to clear it on the next call.
+The result is cached process-wide for 30 seconds. If you mutate something that should change the numbers (e.g. seed users from a script), call `dashboard.web.stats.invalidate_stats_cache()` to clear it on the next call.
 
 ## Menu
 

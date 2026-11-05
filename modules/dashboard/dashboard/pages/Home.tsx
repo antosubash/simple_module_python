@@ -6,8 +6,8 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { usePageProps } from '@simple-module-py/ui/hooks/usePageProps';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Activity, Box, Stethoscope, Users } from 'lucide-react';
-import { type ModuleHealth, ModuleTile } from './components/ModuleTile';
-import { moduleTargetResolver } from './components/module-target';
+import { type ModuleHealth, ModuleTile } from '../ui/components/ModuleTile';
+import { moduleTargetResolver } from '../ui/components/module-target';
 
 interface SystemModule {
   name: string;

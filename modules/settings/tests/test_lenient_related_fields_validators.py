@@ -9,12 +9,12 @@ from __future__ import annotations
 import pytest
 from background_tasks.settings import ENV_PREFIX, BackgroundTasksSettings
 from file_storage.settings import FileStorageSettings
-from keycloak.settings import KeycloakSettings
+from keycloak.core.settings import KeycloakSettings
 from pydantic import ValidationError
 from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX, build_settings
 from simple_module_core.stored_settings import construct_leniently
 from simple_module_hosting.host_settings import HostSettings
-from site_lock.settings import SiteLockSettings
+from site_lock.core.settings import SiteLockSettings
 from users.settings import UsersSettings
 
 

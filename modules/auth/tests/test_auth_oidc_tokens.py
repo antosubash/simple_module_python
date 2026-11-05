@@ -7,7 +7,7 @@ import pytest
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from keycloak import tokens as keycloak_tokens
+from keycloak.identity import tokens as keycloak_tokens
 from oidc import tokens as oidc_tokens
 
 

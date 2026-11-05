@@ -44,6 +44,7 @@ The CLI is [vercel-labs/skills](https://github.com/vercel-labs/skills); see its 
 | [simple-module-database](./simple-module-database/SKILL.md) | Adding SQLModel tables, picking a mixin, or debugging session/transaction behavior |
 | [simple-module-migrations](./simple-module-migrations/SKILL.md) | Generating, applying, or reviewing Alembic migrations after installing or changing a module |
 | [simple-module-inertia-pages](./simple-module-inertia-pages/SKILL.md) | Adding or debugging an Inertia page in a module — render keys, shared props, common pitfalls |
+| [simple-module-page-perf](./simple-module-page-perf/SKILL.md) | Auditing pages for speed and perceived speed — server time and SQL counts (`Server-Timing`), payloads, deferred props, navigation timing, layout shift, UX checks; ships `scripts/page_audit` |
 | [simple-module-locales](./simple-module-locales/SKILL.md) | Adding or debugging i18n in a module — `locale_dirs()`, namespaces, CLDR plurals, the Zod-in-hook rule |
 | [simple-module-registries](./simple-module-registries/SKILL.md) | Contributing menu items, permissions, feature flags, or events from a module |
 | [simple-module-testing](./simple-module-testing/SKILL.md) | Writing pytest tests — picking the right fixture (`db_session` / `app` / `authenticated_client`), single-test runs, e2e |

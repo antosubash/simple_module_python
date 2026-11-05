@@ -10,7 +10,7 @@ from simple_module_db.mixins import AuditMixin, MultiTenantMixin
 from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import Field
 
-from sharing.constants import (
+from sharing.core.constants import (
     IX_SHARE_RESOURCE,
     RESOURCE_ID_MAX,
     RESOURCE_TYPE_MAX,

@@ -4,7 +4,8 @@ An empty executions table has two very different causes — nothing was ever
 enqueued, or no worker is running and the queue is unattended — and the page
 cannot tell them apart without asking the broker. Polling costs an inspect
 timeout, so the view only pays it when the answer would change what the screen
-says: an unfiltered list that came back empty.
+says: an unfiltered list that came back empty. Even then it is a deferred prop,
+so the page paints first and the poll's ~1s lands in a follow-up request.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import httpx
 import pytest
 from background_tasks import worker_inspector as wi
 from background_tasks.contracts.schemas import WorkerInfo, WorkerSnapshot
+from simple_module_test import InertiaPage
 
 # Trailing slash: the index is registered at "/" under the prefix, and the
 # bare path 307s to it.
@@ -52,6 +54,13 @@ async def _index(client: httpx.AsyncClient, **params: str) -> dict:
     return body["props"]
 
 
+async def _presence(client: httpx.AsyncClient) -> dict:
+    """The deferred ``worker_presence`` as the client loads it after paint."""
+    page = InertiaPage.from_response(await client.get(VIEW_BASE, headers=INERTIA_HEADERS))
+    page.deferred("workers", "worker_presence").missing("worker_presence")
+    return (await page.load_deferred(client, "workers")).props["worker_presence"]
+
+
 class TestWorkerPresenceIsPolled:
     async def test_empty_unfiltered_list_reports_a_live_fleet(
         self,
@@ -62,10 +71,12 @@ class TestWorkerPresenceIsPolled:
             wi.WorkerInspector, "snapshot", lambda self: _snapshot(reachable=True, online_workers=2)
         )
 
-        props = await _index(authenticated_client)
-
-        assert props["pagination"]["total"] == 0
-        assert props["worker_presence"] == {"broker_reachable": True, "worker_count": 2}
+        assert (await _index(authenticated_client))["pagination"]["total"] == 0
+        presence = await _presence(authenticated_client)
+        assert presence == {
+            "broker_reachable": True,
+            "worker_count": 2,
+        }
 
     async def test_distinguishes_no_worker_from_nothing_enqueued(
         self,
@@ -77,9 +88,11 @@ class TestWorkerPresenceIsPolled:
             wi.WorkerInspector, "snapshot", lambda self: _snapshot(reachable=True, online_workers=0)
         )
 
-        props = await _index(authenticated_client)
-
-        assert props["worker_presence"] == {"broker_reachable": True, "worker_count": 0}
+        presence = await _presence(authenticated_client)
+        assert presence == {
+            "broker_reachable": True,
+            "worker_count": 0,
+        }
 
     async def test_unreachable_broker_is_reported_rather_than_raising(
         self,
@@ -92,9 +105,11 @@ class TestWorkerPresenceIsPolled:
             lambda self: _snapshot(reachable=False, online_workers=0),
         )
 
-        props = await _index(authenticated_client)
-
-        assert props["worker_presence"] == {"broker_reachable": False, "worker_count": 0}
+        presence = await _presence(authenticated_client)
+        assert presence == {
+            "broker_reachable": False,
+            "worker_count": 0,
+        }
 
     async def test_offline_workers_are_not_counted(
         self,
@@ -106,9 +121,27 @@ class TestWorkerPresenceIsPolled:
         snapshot.workers[0].online = False
         monkeypatch.setattr(wi.WorkerInspector, "snapshot", lambda self: snapshot)
 
+        presence = await _presence(authenticated_client)
+        assert presence == {
+            "broker_reachable": True,
+            "worker_count": 0,
+        }
+
+
+class TestFirstPaintNeverWaitsForTheBroker:
+    async def test_initial_response_does_not_poll(
+        self,
+        monkeypatch,
+        authenticated_client: httpx.AsyncClient,
+    ):
+        def _fail(self):  # pragma: no cover - asserts it is never reached
+            raise AssertionError("the first response must not wait on inspect()")
+
+        monkeypatch.setattr(wi.WorkerInspector, "snapshot", _fail)
+
         props = await _index(authenticated_client)
 
-        assert props["worker_presence"] == {"broker_reachable": True, "worker_count": 0}
+        assert "worker_presence" not in props
 
 
 class TestWorkerPresenceIsSkipped:

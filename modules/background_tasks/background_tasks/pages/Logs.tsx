@@ -8,7 +8,7 @@ import { ArrowLeft } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { LogLevelSelect } from './components/LogLevelSelect';
 import { LogTable } from './components/LogTable';
-import { VIEW_BASE } from './constants';
+import { VIEW_BASE, VIEW_INDEX } from './constants';
 import type { LogItem } from './logs';
 
 interface Props {
@@ -43,10 +43,10 @@ function Logs({ logs, pagination, filters }: Props) {
       <PageShell
         title={t(keys.background_tasks.logs.title)}
         description={t(keys.background_tasks.logs.description)}
-        back={VIEW_BASE}
+        back={VIEW_INDEX}
         actions={
           <Button variant="outline" asChild className="max-lg:min-h-11">
-            <Link href={VIEW_BASE}>
+            <Link href={VIEW_INDEX}>
               <ArrowLeft aria-hidden="true" />
               {t(keys.background_tasks.logs.back_button)}
             </Link>
