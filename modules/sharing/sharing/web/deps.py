@@ -9,8 +9,8 @@ from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sharing.audience import Audience
-from sharing.service import SharingError, SharingService
+from sharing.core.audience import Audience
+from sharing.core.service import SharingError, SharingService
 
 
 async def get_sharing_service(

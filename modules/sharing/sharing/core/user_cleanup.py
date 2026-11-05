@@ -8,7 +8,7 @@ from simple_module_core.durable_events import DurableContext
 from simple_module_db import all_tenants
 from sqlmodel import col, delete
 
-from sharing.constants import SUBJECT_USER
+from sharing.core.constants import SUBJECT_USER
 from sharing.models import ResourceShare
 
 if TYPE_CHECKING:

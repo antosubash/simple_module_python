@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sharing.settings import SharingSettings
+from sharing.core.settings import SharingSettings
 
 
 @dataclass
