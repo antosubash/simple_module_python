@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import jwt
+from fastapi import Request
 from fastapi_users import exceptions
 from fastapi_users.jwt import decode_jwt
 from fastapi_users.password import PasswordHelper
+
+from users.contracts.schemas import UserCreate
+from users.models import User
 
 PASSWORD_HELPER = PasswordHelper()
 
@@ -15,7 +20,12 @@ PASSWORD_HELPER = PasswordHelper()
 class PasswordHashingMixin:
     """Keep validation, database operations and lifecycle hooks on the event loop."""
 
-    async def create(self, user_create, safe=False, request=None):
+    async def create(
+        self,
+        user_create: UserCreate,
+        safe: bool = False,
+        request: Request | None = None,
+    ) -> User:
         await self.validate_password(user_create.password, user_create)
         if await self.user_db.get_by_email(user_create.email) is not None:
             raise exceptions.UserAlreadyExists()
@@ -28,7 +38,7 @@ class PasswordHashingMixin:
         await self.on_after_register(user, request)
         return user
 
-    async def _update(self, user, update_dict):
+    async def _update(self, user: User, update_dict: dict[str, Any]) -> User:
         # Let upstream handle email uniqueness and every non-password field.
         data = dict(update_dict)
         if data.get("password") is not None:
@@ -37,7 +47,9 @@ class PasswordHashingMixin:
             data["hashed_password"] = await asyncio.to_thread(self.password_helper.hash, password)
         return await super()._update(user, data)
 
-    async def reset_password(self, token, password, request=None):
+    async def reset_password(
+        self, token: str, password: str, request: Request | None = None
+    ) -> User:
         # Mirrors upstream token/fingerprint checks; only crypto leaves the loop.
         try:
             data = decode_jwt(

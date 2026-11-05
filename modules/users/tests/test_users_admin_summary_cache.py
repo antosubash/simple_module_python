@@ -1,18 +1,22 @@
-"""Admin summaries avoid repeated scans and forget only committed writes."""
+"""Admin summaries avoid repeated scans, forget committed writes and publish explicitly."""
 
+import uuid
 from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
 from fastapi_users.password import PasswordHelper
 from simple_module_core.invalidation import Invalidation
+from simple_module_db.callbacks import register_on_commit
 from simple_module_db.transaction import finalize_session, rollback_session
-from sqlalchemy import delete, event, select, update
+from sqlalchemy import event, select
 from users.admin import summary_cache
 from users.admin.service import UserService
+from users.contracts.schemas import UserCreate, UserListItem
 from users.db_adapter import UserDatabaseWithRoles
 from users.manager import UserManager
 from users.models import Role, User, UserRole
+from users.roles_cache import refresh_roles_cache
 
 
 def service(db, app):
@@ -22,10 +26,22 @@ def service(db, app):
     return UserService(db, manager, app)
 
 
+def _record(app):
+    messages = []
+    app.state.sm.invalidation.subscribe(summary_cache.CHANNEL, messages.append)
+    return messages
+
+
+async def _make_user(app, email="target@example.com", **fields) -> uuid.UUID:
+    async with app.state.sm.db.session_factory() as db:
+        user = User(email=email, hashed_password=PasswordHelper().hash("SecurePass1!"), **fields)
+        db.add(user)
+        await finalize_session(db)
+        return user.id
+
+
 @pytest.mark.parametrize("method", ["count_user_states", "list_roles"])
 async def test_summary_cache_hit_and_expiry(users_app, monkeypatch, method):
-    from users.admin import summary_cache
-
     queries = []
     event.listen(
         users_app.state.sm.db.engine.sync_engine,
@@ -49,7 +65,7 @@ async def test_summary_cache_hit_and_expiry(users_app, monkeypatch, method):
 @pytest.mark.parametrize(
     "write", ["create", "verify", "invite", "disable", "delete", "role", "membership"]
 )
-async def test_committed_writes_invalidate_summaries(users_app, write):
+async def test_local_orm_writes_clear_this_workers_cache_on_commit(users_app, write):
     async with users_app.state.sm.db.session_factory() as db:
         svc = service(db, users_app)
         user = User(
@@ -64,13 +80,11 @@ async def test_committed_writes_invalidate_summaries(users_app, write):
         elif write == "verify":
             user.is_verified = True
         elif write == "invite":
-            from datetime import UTC, datetime
-
             user.invited_at = datetime.now(UTC)
         elif write == "disable":
-            await db.execute(update(User).where(User.id == user.id).values(is_active=False))
+            user.is_active = False
         elif write == "delete":
-            await db.execute(delete(User).where(User.id == user.id))
+            await db.delete(user)
         elif write == "role":
             db.add(Role(name="reviewer"))
         else:
@@ -84,8 +98,6 @@ async def test_committed_writes_invalidate_summaries(users_app, write):
 
 
 async def test_rollback_and_remote_invalidation(users_app):
-    from users.admin.summary_cache import CHANNEL
-
     async with users_app.state.sm.db.session_factory() as db:
         svc = service(db, users_app)
         before = await svc.count_user_states()
@@ -93,16 +105,12 @@ async def test_rollback_and_remote_invalidation(users_app):
         await db.flush()
         await rollback_session(db)
         # A rollback must preserve a warm cache.
-        from users.admin import summary_cache
-
         with patch.object(summary_cache, "load_counts", side_effect=AssertionError("cache miss")):
             assert await svc.count_user_states() == before
         await users_app.state.sm.invalidation.deliver(
-            Invalidation(CHANNEL, origin="other-worker").to_wire()
+            Invalidation(summary_cache.CHANNEL, origin="other-worker").to_wire()
         )
         # Invalidate remotely even when no local write occurred.
-        from users.admin import summary_cache
-
         with (
             patch.object(summary_cache, "load_counts", side_effect=RuntimeError("reloaded")),
             pytest.raises(RuntimeError, match="reloaded"),
@@ -110,9 +118,77 @@ async def test_rollback_and_remote_invalidation(users_app):
             await svc.count_user_states()
 
 
-async def test_list_items_use_trusted_construction(users_app, monkeypatch):
-    from users.contracts.schemas import UserListItem
+async def _call(svc, method, user_id):
+    if method == "create_user":
+        await svc.create_user("new@example.com", "SecurePass1!", None, ["user"], created_by=None)
+    elif method == "invite":
+        await svc.invite("invited@example.com", None, ["user"])
+    elif method == "set_roles":
+        await svc.set_roles(user_id, [])
+    else:
+        await getattr(svc, method)(user_id)
 
+
+_WRITES = ["create_user", "invite", "delete_user", "disable", "enable", "mark_verified"]
+
+
+@pytest.mark.parametrize("method", [*_WRITES, "set_roles"])
+async def test_admin_writes_publish_once_after_commit(users_app, method):
+    user_id = await _make_user(users_app, is_active=method != "enable")
+    messages = _record(users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        await _call(service(db, users_app), method, user_id)
+        assert messages == []
+        await finalize_session(db)
+    assert len(messages) == 1
+
+
+@pytest.mark.parametrize("method", [*_WRITES, "set_roles"])
+async def test_admin_writes_publish_nothing_on_rollback(users_app, method):
+    user_id = await _make_user(users_app, is_active=method != "enable")
+    messages = _record(users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        await _call(service(db, users_app), method, user_id)
+        await rollback_session(db)
+    assert messages == []
+
+
+async def test_login_and_lockout_writes_publish_nothing(users_app, anon_client):
+    messages = _record(users_app)
+    for _ in range(3):
+        resp = await anon_client.post(
+            "/api/users/auth/login",
+            data={"username": "admin@example.com", "password": "wrong-password"},
+        )
+        assert resp.status_code == 400, resp.text
+    resp = await anon_client.post(
+        "/api/users/auth/login",
+        data={"username": "admin@example.com", "password": "AdminPass1!"},
+    )
+    assert resp.status_code == 204, resp.text
+    assert messages == []
+
+
+@pytest.mark.parametrize("operation", ["create", "update", "delete"])
+async def test_adapter_commits_run_queued_on_commit_callbacks(users_app, operation):
+    ran = []
+    async with users_app.state.sm.db.session_factory() as db:
+        manager = service(db, users_app)._manager
+        register_on_commit(db, lambda: ran.append(operation))
+        if operation == "create":
+            await manager.create(
+                UserCreate(email="adapter@example.com", password="SecurePass1!", is_verified=True)
+            )
+        else:
+            user = await manager.get_by_email("admin@example.com")
+            if operation == "update":
+                await manager._update(user, {"is_active": False})
+            else:
+                await manager.delete(user)
+        assert ran == [operation]
+
+
+async def test_list_items_use_trusted_construction(users_app, monkeypatch):
     def reject_validation(*args, **kwargs):
         raise AssertionError("DB rows should not be validated again")
 
@@ -125,33 +201,7 @@ async def test_list_items_use_trusted_construction(users_app, monkeypatch):
         assert svc.to_list_item(user) == items[0]
 
 
-@pytest.mark.parametrize("operation", ["create", "update", "delete"])
-async def test_adapter_commits_publish_before_request_finalization(users_app, operation):
-    from users.admin.summary_cache import CHANNEL
-    from users.contracts.schemas import UserCreate
-
-    messages = []
-    users_app.state.sm.invalidation.subscribe(CHANNEL, messages.append)
-    async with users_app.state.sm.db.session_factory() as db:
-        svc = service(db, users_app)
-        manager = svc._manager
-        await svc.count_user_states()
-        if operation == "create":
-            await manager.create(
-                UserCreate(email="adapter@example.com", password="SecurePass1!", is_verified=True)
-            )
-        else:
-            user = await manager.get_by_email("admin@example.com")
-            if operation == "update":
-                await manager._update(user, {"is_active": False})
-            else:
-                await manager.delete(user)
-        assert messages
-
-
 async def test_inflight_invalidation_does_not_repopulate_stale_cache(users_app, monkeypatch):
-    from users.admin import summary_cache
-
     calls = 0
 
     async def racing_load(db):
@@ -170,8 +220,6 @@ async def test_inflight_invalidation_does_not_repopulate_stale_cache(users_app, 
 
 
 async def test_role_options_do_not_hydrate_orm_rows(users_app):
-    from users.roles_cache import refresh_roles_cache
-
     loaded = []
 
     def record(*args):
@@ -185,61 +233,3 @@ async def test_role_options_do_not_hydrate_orm_rows(users_app):
         assert loaded == []
     finally:
         event.remove(Role, "load", record)
-
-
-def _record(app):
-    from users.admin.summary_cache import CHANNEL
-
-    messages = []
-    app.state.sm.invalidation.subscribe(CHANNEL, messages.append)
-    return messages
-
-
-async def test_uncounted_user_writes_publish_nothing(users_app):
-    """Logins, lockout counters and revocations must not chatter on the bus."""
-    messages = _record(users_app)
-    async with users_app.state.sm.db.session_factory() as db:
-        svc = service(db, users_app)
-        before = await svc.count_user_states()
-        user = (
-            await db.execute(select(User).where(User.email == "admin@example.com"))
-        ).scalar_one()
-        user.session_version = int(user.session_version or 0) + 1
-        user.hashed_password = "rotated"
-        user.last_login_at = datetime.now(UTC)
-        await db.flush()
-        await db.execute(
-            update(User).where(User.id == user.id).values(failed_login_count=3, session_version=99)
-        )
-        await finalize_session(db)
-        with patch.object(
-            summary_cache, "load_counts", side_effect=AssertionError("cache dropped")
-        ):
-            assert await svc.count_user_states() == before
-    assert messages == []
-
-
-async def test_one_publish_per_transaction(users_app):
-    messages = _record(users_app)
-    async with users_app.state.sm.db.session_factory() as db:
-        db.add(User(email="one@example.com", hashed_password="unused"))
-        await db.flush()
-        db.add(User(email="two@example.com", hashed_password="unused"))
-        await db.flush()
-        await db.execute(
-            update(User).where(User.email == "one@example.com").values(is_active=False)
-        )
-        await finalize_session(db)
-    assert len(messages) == 1
-
-
-async def test_savepoint_rollback_keeps_a_later_write_publishing(users_app):
-    messages = _record(users_app)
-    async with users_app.state.sm.db.session_factory() as db:
-        nested = await db.begin_nested()
-        db.add(User(email="undone@example.com", hashed_password="unused"))
-        await db.flush()
-        await nested.rollback()
-        db.add(User(email="kept@example.com", hashed_password="unused"))
-        await finalize_session(db)
-    assert len(messages) == 1

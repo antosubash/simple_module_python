@@ -20,17 +20,18 @@ in worker threads. Database operations, password policy and lifecycle hooks stay
 on the event loop; password resets still revoke credentials atomically.
 
 Admin user state totals and role options (including membership counts) are
-cached per application for 30 seconds. Only committed writes that can move a
-figure invalidate them: a user created, deleted, enabled/disabled, verified or
-invited; a role created, deleted or renamed; a membership added or removed.
-Such a transaction evicts the local entry and publishes one `users.admin_summary`
-message through the InvalidationBus. Logins, failed-login counters, password
-changes and session revocations publish nothing. With the Redis invalidation
-transport, other workers evict their entries too; without it, or if a message is
-lost, another worker may show old totals until the TTL expires.
+cached per worker for 30 seconds. A committed transaction that wrote a user,
+role or membership through the ORM evicts this worker's entry. Other workers
+hear about a change only through an explicit `users.admin_summary` publish from
+the admin service's write paths (create, invite, delete, disable, enable, mark
+verified, set roles), sent once after the commit and never on rollback. Other
+writes (logins, failed-login counters, password changes, session revocations,
+role edits made outside the users admin service) publish nothing, so another
+worker may show old totals until the 30-second TTL expires; the same holds
+without the Redis invalidation transport or when a message is lost.
 These summaries do not control permissions. Filtered user rows and pagination
 counts remain live queries. The accepted contains-search scan is unchanged.
-See [Users performance measurements](../performance/users.md) for the local
+See [Users performance measurements](../perf/2026-11-05-users.md) for the local
 before/after results and reproduction command.
 
 The module is built on [`fastapi-users`](https://fastapi-users.github.io/) for password hashing, registration, password reset, and verification. On top of that it layers:

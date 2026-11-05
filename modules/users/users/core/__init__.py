@@ -1,1 +1,1 @@
-"""Users domain core: framework-free helpers."""
+"""Users domain core: password hashing boundaries."""

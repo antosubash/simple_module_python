@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
-from users.admin.summary_cache import get_summary
+from users.admin.summary_cache import get_role_summary, get_state_counts
 from users.admin.user_state import STATUS_CONDITIONS, user_state
 from users.contracts.schemas import RoleListItem, UserListItem
 from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
@@ -119,7 +119,7 @@ class _UserServiceBase:
         )
 
     async def list_roles(self) -> list[RoleListItem]:
-        return await get_summary(self._app, self._db, roles=True)
+        return await get_role_summary(self._app, self._db)
 
     async def _get_user_with_roles(self, user_id: uuid.UUID) -> User | None:
         # populate_existing: ``roles`` is ``noload``, so an instance already in
@@ -267,10 +267,10 @@ class _UserServiceBase:
         self-registered account that never clicked its verification mail is
         nobody's to chase.
 
-        One scan with ``COUNT(*) FILTER (WHERE …)`` per state rather than a
-        round-trip each (Postgres and SQLite >= 3.30 both support it).
+        Cached for 30 seconds per worker (``summary_cache.TTL_SECONDS``);
+        admin writes evict it on commit.
         """
-        return await get_summary(self._app, self._db, roles=False)
+        return await get_state_counts(self._app, self._db)
 
     async def get_with_roles(self, user_id: uuid.UUID) -> User | None:
         return await self._get_user_with_roles(user_id)
