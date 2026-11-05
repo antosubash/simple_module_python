@@ -24,7 +24,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from simple_module_hosting import migrations
 from simple_module_hosting._deferred_startup import run_deferred_startup
 from simple_module_hosting.data_compatibility import DataCompatibilityError
-from simple_module_hosting.path_matching import matches_path
+from simple_module_hosting.path_matching import matches_path, validated_prefixes
 
 logger = logging.getLogger(__name__)
 _migration_failure_warned = False
@@ -47,7 +47,7 @@ _VERDICT_TTL_SECONDS = 5.0
 # list is mirrored by the anonymous-access rule in ``attach_public_routes`` —
 # both lists use exact paths and slash-terminated prefixes.
 _EXEMPT_EXACT = (SETUP_PATH, "/health")
-_EXEMPT_PREFIXES = (f"{SETUP_PATH}/", "/static/", "/health/")
+_EXEMPT_PREFIXES = validated_prefixes(f"{SETUP_PATH}/", "/static/", "/health/")
 
 
 STEP_MIGRATIONS = "host.migrations"

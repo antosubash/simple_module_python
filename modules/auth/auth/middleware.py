@@ -15,7 +15,7 @@ from simple_module_core.app_state import get_openapi_url
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.listeners import current_user_id
 from simple_module_hosting.inertia_deps import is_inertia_request
-from simple_module_hosting.path_matching import matches_path
+from simple_module_hosting.path_matching import matches_path, validated_prefixes
 from simple_module_hosting.public_access import is_public as route_is_public
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
@@ -25,7 +25,7 @@ from auth._route_match import route_exists
 
 logger = logging.getLogger(__name__)
 
-_FRAMEWORK_PUBLIC_PREFIXES = (
+_FRAMEWORK_PUBLIC_PREFIXES = validated_prefixes(
     "/health/",
     "/static/",
     "/api/docs/",

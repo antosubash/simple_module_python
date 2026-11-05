@@ -10,7 +10,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from simple_module_hosting.logging import correlation_id
-from simple_module_hosting.path_matching import matches_path
+from simple_module_hosting.path_matching import matches_path, validated_prefixes
 
 _LOGGER_NAME = "simple_module.request"
 _request_logger = logging.getLogger(_LOGGER_NAME)
@@ -22,7 +22,7 @@ _EVENT_REQUEST_COMPLETED = "request.completed"
 
 # Paths that produce noisy, low-value log entries
 _QUIET_EXACT = ("/health",)
-_QUIET_PREFIXES = ("/health/", "/static/")
+_QUIET_PREFIXES = validated_prefixes("/health/", "/static/")
 
 
 class CorrelationIdMiddleware:

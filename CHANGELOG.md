@@ -14,6 +14,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Load-test Inertia visits now send the initial page's asset version and cached i18n catalog marker, measuring real page responses instead of version conflicts and repeated catalog downloads. Invalid bootstrap pages stop the simulated user; 409 responses remain failures.
+
+### Changed
+
+- Hosting gates validate their path prefixes once at import via `simple_module_hosting.path_matching.validated_prefixes`; `matches_path` no longer re-checks the trailing slash on every request. Build prefix tuples with `validated_prefixes(...)`. Security headers moved to a private module (import path unchanged) and static headers are applied in one batch.
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
+
 ### Security
 - **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
   and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
@@ -65,7 +74,6 @@ All notable changes to this project are documented in this file. The format is b
   fast (server, client, loading/empty/error states, layout shift, polling,
   prefetch) and how to pin a page's query count in a test.
 
-### Changed
 
 - **Breaking:** tenant member lists now use server pagination (`page` / `per_page`, default 25, maximum 200). The current-members API returns `{items, total, page, per_page, pages}` instead of an array; the Members page provides navigation and retains its page after mutations. `TenantService.list_members(tenant_id, params)` now takes `PageParams` and returns `Page[Membership]` instead of a list.
 - Cache env-supplied settings fields per class and default API version discovery per process; changes to environment, dotenv, or secret sources require a restart.
@@ -84,7 +92,6 @@ All notable changes to this project are documented in this file. The format is b
 - `api_tokens` follows the module layout: `api_tokens.core.{constants,settings,services,tenant_cleanup,user_cleanup}`, `api_tokens.credentials.{format,scopes,owner,service,resolver,audit}` (`tokens.py` is now `credentials/format.py`), `api_tokens.web.{deps,endpoints}`, and the page components and types move to `ui/`. `api_tokens.{constants,service,resolver,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 - `branding` follows the module layout: `branding.core.{constants,settings,services,service,presets,tenant_definitions,tenant_branding}`, `branding.assets.{images,reaper}`, `branding.web.{deps,shared_props,endpoints}`, and the form components move from `components/` to `ui/components/`. `branding.{constants,settings,services,tenant_branding,images}` and `branding.endpoints.assets` still import, with a `DeprecationWarning`, until 0.0.46.
 
-### Fixed
 
 - Coalesce concurrent tenant membership and permission grant cache misses. In-flight invalidation retries against fresh authorization data; failures and cancellation release waiting readers. Cache unknown tenant subdomains for five seconds and drop the new slug's host lookups (on a new `tenants.hosts` invalidation channel, so no user id is read as a slug) and the owner's memberships after committed tenant creation; other users' caches are not cleared. Services built outside request dependencies pass `invalidate_hosts=make_host_invalidator(app)` beside `invalidate=make_invalidator(app)`. Retries after concurrent invalidation are bounded to three reads (2026-11-05 local performance review).
 - Offload S3 server-upload spool I/O, wait for in-flight I/O during cancellation, and reuse one client per multipart upload. Index the default tenant file browse order (migration `f6c2d4e8b109`; local performance review, 2026-11-05).

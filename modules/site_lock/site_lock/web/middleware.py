@@ -18,7 +18,7 @@ import secrets
 from urllib.parse import quote
 
 from simple_module_core.app_state import get_auth_provider
-from simple_module_hosting.path_matching import matches_path
+from simple_module_hosting.path_matching import matches_path, validated_prefixes
 from starlette.requests import Request
 from starlette.responses import (
     HTMLResponse,
@@ -33,6 +33,7 @@ from site_lock.web.page import render_unlock_page, safe_next
 
 logger = logging.getLogger(__name__)
 
+_HEALTH_PREFIXES = validated_prefixes(c.HEALTH_PREFIX)
 _NO_STORE = {"Cache-Control": "no-store"}
 _ERR_WRONG = "Incorrect password."
 _ERR_THROTTLED = "Too many attempts. Try again later."
@@ -69,7 +70,7 @@ class SiteLockMiddleware:
         path: str = scope["path"]
 
         # Kubernetes probes must never be gated, or the pod gets killed.
-        if matches_path(path, exact=(c.HEALTH_PATH,), prefixes=(c.HEALTH_PREFIX,)):
+        if matches_path(path, exact=(c.HEALTH_PATH,), prefixes=_HEALTH_PREFIXES):
             await self.app(scope, receive, send)
             return
 

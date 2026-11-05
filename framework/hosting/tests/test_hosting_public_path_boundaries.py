@@ -73,5 +73,10 @@ async def test_anonymous_rate_limit_operational_path_boundaries(path, limited):
 
 
 def test_path_matcher_requires_slash_terminated_prefixes():
+    from simple_module_hosting.path_matching import validated_prefixes
+
     with pytest.raises(ValueError):
-        matches_path("/healthcare", prefixes=("/health",))
+        validated_prefixes("/health")
+    prefixes = validated_prefixes("/health/", "/static/")
+    assert matches_path("/health/ready", prefixes=prefixes)
+    assert not matches_path("/healthcare", prefixes=prefixes)
