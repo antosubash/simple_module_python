@@ -28,7 +28,9 @@ class SingleFlight:
 
     @asynccontextmanager
     async def hold(self, key: Hashable) -> AsyncGenerator[None]:
-        flight = self._locks.setdefault(key, _Flight())
+        flight = self._locks.get(key)
+        if flight is None:
+            flight = self._locks[key] = _Flight()
         flight.users += 1
         try:
             async with flight.lock:

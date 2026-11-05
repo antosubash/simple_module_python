@@ -100,7 +100,8 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
     cached = grants.get(user_id, _MISS)
     if cached is not _MISS:
         return cached
-    flight = _FLIGHTS.setdefault(request.app, SingleFlight())
+    if (flight := _FLIGHTS.get(request.app)) is None:
+        flight = _FLIGHTS[request.app] = SingleFlight()
     async with flight.hold(user_id):
         keys: frozenset[str] = frozenset()
         for _ in range(MAX_FILL_ATTEMPTS):

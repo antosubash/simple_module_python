@@ -107,7 +107,8 @@ async def memberships_for(app: FastAPI, user_id: str) -> list[MyTenantView]:
     cached = _MEMBERSHIPS.get(user_id)
     if cached is not None:
         return cached
-    flight = _FLIGHTS.setdefault(app, SingleFlight())
+    if (flight := _FLIGHTS.get(app)) is None:
+        flight = _FLIGHTS[app] = SingleFlight()
     async with flight.hold(user_id):
         views: list[MyTenantView] = []
         for _ in range(MAX_FILL_ATTEMPTS):
