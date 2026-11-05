@@ -44,6 +44,7 @@ _DASHBOARD_MODULE = "Dashboard"
 
 async def run_startup(module: UsersModule, app: FastAPI) -> None:
     """Populate ``app.state.users`` and apply settings-derived configuration."""
+    from users.admin.summary_cache import register_writes
     from users.backend import reconfigure_cookie_transport
     from users.bootstrap import bootstrap_admin_from_env, ensure_user_role
     from users.demo import ensure_demo_users
@@ -52,6 +53,7 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     from users.session_version_cache import configure_session_version_cache
     from users.settings import DEFAULT_LOGIN_REDIRECT_URL
 
+    register_writes(app)
     state = app.state.users
     s = state.settings
 
