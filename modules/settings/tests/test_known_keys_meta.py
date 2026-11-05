@@ -168,7 +168,7 @@ class TestEnvValueMasking:
 
     def test_a_db_backed_class_reports_no_env_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``MailSettings`` declares no ``env_prefix``: the var is not a fallback."""
-        from mail.settings import MailSettings
+        from mail.core.settings import MailSettings
         from settings._module_settings import _field_view
 
         monkeypatch.setenv("SM_MAIL_SMTP_HOST", "not-a-fallback.example.com")
