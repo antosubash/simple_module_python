@@ -83,6 +83,21 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Users password creation, forgot-password fingerprints, reset verification and
+  password updates offload hashing to worker threads, keeping unrelated async
+  requests responsive during registration and bulk invites. Password policy,
+  single-use reset tokens and atomic credential revocation are preserved.
+- Admin user state totals and role options use a 30-second per-worker cache.
+  A committed user, role or membership write evicts this worker's entry; the
+  admin service's write paths (create, invite, delete, disable, enable, mark
+  verified, set roles) also publish `users.admin_summary` once after commit so
+  other workers evict theirs. Other writes (logins, lockout counters, password
+  changes) publish nothing and rely on the TTL.
+  List DTOs skip redundant validation of trusted database values; role options
+  select only the required columns, and managers share one password helper.
+- Users: `on_commit` callbacks queued before a fastapi-users adapter commit
+  (user create, update, delete through the manager) now run after that commit;
+  they used to be discarded when the request session was finalized.
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
 - Background tasks: the executions list (when empty) and the Workers page no
   longer wait out the broker's ~1 s inspect timeout before rendering. The
