@@ -74,3 +74,8 @@ QP_TOKEN: Final = "token"
 # Expiry presets offered by the pages, in days; the server accepts any whole
 # number of days up to ``max_lifetime_days``.
 EXPIRY_PRESETS_DAYS: Final = (7, 30, 90, 365)
+
+# Durable handler names key undelivered outbox rows, so they keep the import
+# path the handlers had before the module-layout move (renaming strands rows).
+TENANT_CLEANUP_HANDLER: Final = "api_tokens.tenant_cleanup.purge_tenant_data"
+USER_CLEANUP_HANDLER: Final = "api_tokens.user_cleanup.purge_user_tokens"

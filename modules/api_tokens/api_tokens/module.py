@@ -43,8 +43,8 @@ class ApiTokensModule(ModuleBase):
         from api_tokens.core.tenant_cleanup import purge_tenant_data
         from api_tokens.core.user_cleanup import purge_user_tokens
 
-        bus.subscribe_durable(TenantDeleted, purge_tenant_data)
-        bus.subscribe_durable(UserDeleted, purge_user_tokens)
+        bus.subscribe_durable(TenantDeleted, purge_tenant_data, name=c.TENANT_CLEANUP_HANDLER)
+        bus.subscribe_durable(UserDeleted, purge_user_tokens, name=c.USER_CLEANUP_HANDLER)
 
     def register_settings(self, app: FastAPI) -> None:
         from api_tokens.core.services import ApiTokensServices
