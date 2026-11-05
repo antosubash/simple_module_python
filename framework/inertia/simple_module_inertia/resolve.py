@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from simple_module_inertia.json import JsonSnapshot
+from simple_module_inertia._json_snapshot import JsonSnapshot
 from simple_module_inertia.props import Prop, as_prop, resolve_value
 from simple_module_inertia.request import InertiaRequest
 

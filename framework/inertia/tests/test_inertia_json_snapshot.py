@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 import pytest
 from jinja2.utils import htmlsafe_json_dumps
-from simple_module_inertia.json import (
+from simple_module_inertia._json_snapshot import (
     _HTML_ENCODER,
     _RESPONSE_ENCODER,
     JsonSnapshot,

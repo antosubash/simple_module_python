@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 
 from fastapi.encoders import jsonable_encoder
 
-from simple_module_inertia.json import JsonSnapshot
+from simple_module_inertia._json_snapshot import JsonSnapshot
 from simple_module_inertia.resolve import JSON_SCALARS, ResolvedProps
 
 

@@ -9,10 +9,10 @@ from jinja2.utils import htmlsafe_json_dumps
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse, Response
 
+from simple_module_inertia._json_snapshot import dumps
 from simple_module_inertia.config import InertiaConfig, resolved_version
 from simple_module_inertia.errors import InertiaVersionConflictException
 from simple_module_inertia.head import HEAD_PROP, Head, SiteInfo, head_tags
-from simple_module_inertia.json import dumps
 from simple_module_inertia.manifest import entry_assets
 from simple_module_inertia.page import build_page, encode_page
 from simple_module_inertia.request import InertiaRequest

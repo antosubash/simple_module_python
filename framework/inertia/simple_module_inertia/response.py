@@ -13,7 +13,7 @@ from fastapi import Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.responses import RedirectResponse, Response
 
-from simple_module_inertia.json import dumps
+from simple_module_inertia._json_snapshot import dumps
 from simple_module_inertia.page import encode_page
 
 InertiaResponse = HTMLResponse | JSONResponse

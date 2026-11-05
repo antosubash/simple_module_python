@@ -3,7 +3,7 @@
 from weakref import WeakKeyDictionary
 
 from simple_module_core.i18n import I18nRegistry
-from simple_module_inertia.json import JsonSnapshot
+from simple_module_inertia._json_snapshot import JsonSnapshot
 
 _catalogs: WeakKeyDictionary[
     I18nRegistry, dict[tuple[str, bool], tuple[dict[str, str], JsonSnapshot]]
