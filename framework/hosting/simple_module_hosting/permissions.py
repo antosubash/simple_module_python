@@ -113,7 +113,8 @@ async def resolve_principal_permissions(
         request, user, registry, include_tenant_roles=include_tenant_roles
     )
     credential_held = held
-    if not include_tenant_roles:
+    # Credential validity stays tenant-aware; only resolve the rest when needed.
+    if not include_tenant_roles and getattr(user, "required_permission", None):
         role_map = registry.role_map if registry is not None else None
         credential_held = held | resolve_permissions(getattr(user, "roles", None) or [], role_map)
     if lacks_required_permission(user, credential_held):

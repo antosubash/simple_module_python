@@ -194,8 +194,12 @@ def _tenant_actor(writes):
 
 
 def _assert_write_response(response, prefix, allowed):
-    assert response.status_code == ((200 if allowed else 403) if prefix.startswith("/api") else 303)
-    if not allowed and not prefix.startswith("/api"):
+    api = prefix.startswith("/api")
+    if api:
+        assert response.status_code == (200 if allowed else 403)
+    else:
+        assert response.status_code == 303
+    if not allowed and not api:
         session = json.loads(b64decode(response.cookies["session"].split(".")[0]))
         assert session["_errors"]["permissions"]
 
@@ -226,11 +230,7 @@ async def test_global_grants_require_platform_authority(writes, prefix, kind, au
         writes.actor.permissions.append("file_storage.manage")
     elif authority == "admin":
         writes.actor.roles.append("admin")
-    target_id = (
-        writes.role.id
-        if kind == "roles"
-        else (writes.actor.id if kind == "self" else writes.target.id)
-    )
+    target_id = {"roles": writes.role.id, "self": writes.actor.id, "users": writes.target.id}[kind]
     route_kind = "roles" if kind == "roles" else "users"
     response = await writes.client.put(
         f"{prefix}/{route_kind}/{target_id}", json={"permissions": ["file_storage.manage"]}
