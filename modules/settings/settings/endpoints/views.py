@@ -268,7 +268,7 @@ async def test_connection(package: str, request: Request) -> dict:
     # Run independently of one another — a module can register several checks
     # (e.g. SMTP + primary storage + backup storage), and sequentially awaiting
     # each one would block the request for the sum of their latencies instead
-    # of the slowest one, the same reasoning dashboard.stats._run_health_checks
+    # of the slowest one, the same reasoning dashboard.web.stats._run_health_checks
     # already applies to probe checks.
     async def _run_one(check) -> dict:
         try:

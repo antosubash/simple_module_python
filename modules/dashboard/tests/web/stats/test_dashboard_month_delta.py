@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from dashboard.stats import fetch_dashboard_stats, invalidate_stats_cache
+from dashboard.web.stats import fetch_dashboard_stats, invalidate_stats_cache
 from users.models import User
 
 

@@ -10,7 +10,7 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
-from dashboard.constants import PERM_GROUP, PERM_VIEW
+from dashboard.core.constants import PERM_GROUP, PERM_VIEW
 
 _URL_DASHBOARD = "/dashboard/"
 _URL_DOCTOR = "/admin/doctor/"
@@ -29,14 +29,14 @@ class DashboardModule(ModuleBase):
     )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from dashboard.endpoints.api import router as api
-        from dashboard.endpoints.views import router as views
+        from dashboard.web.endpoints.api import router as api
+        from dashboard.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from dashboard.endpoints.views import admin_router as doctor_views
+        from dashboard.web.endpoints.views import admin_router as doctor_views
 
         admin_router.include_router(doctor_views)
 

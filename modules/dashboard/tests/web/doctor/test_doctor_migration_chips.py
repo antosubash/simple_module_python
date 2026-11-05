@@ -10,7 +10,7 @@ in a list costs nothing.
 
 from __future__ import annotations
 
-from dashboard.doctor import HOST_MIGRATION_CHIP, _module_chip
+from dashboard.web.doctor import HOST_MIGRATION_CHIP, _module_chip
 
 
 class TestMigrationChips:

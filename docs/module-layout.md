@@ -201,7 +201,7 @@ when a later module PR moves files.
 | auth | 8 | 20 | flat |
 | background_tasks | 49 | 83 | flat |
 | branding | 13 | 20 | flat |
-| dashboard | 5 | 8 | flat |
+| dashboard | 2 | 0 | follows this layout |
 | feature_flags | 8 | 9 | flat |
 | file_storage | 39 | 65 | flat |
 | keycloak | 13 | 19 | flat |

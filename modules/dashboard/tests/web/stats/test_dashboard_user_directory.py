@@ -15,7 +15,7 @@ from simple_module_core.user_directory import (
 
 @pytest.fixture(autouse=True)
 def _fresh_cache():
-    from dashboard.stats import invalidate_stats_cache
+    from dashboard.web.stats import invalidate_stats_cache
 
     invalidate_stats_cache()
     yield
@@ -34,7 +34,7 @@ class _KeycloakLike(NullUserDirectory):
 
 
 async def _stats(app) -> dict:
-    from dashboard.stats import fetch_dashboard_stats
+    from dashboard.web.stats import fetch_dashboard_stats
 
     async with app.state.sm.db.session_factory() as db:
         return await fetch_dashboard_stats(db, app)
