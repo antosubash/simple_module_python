@@ -99,12 +99,14 @@ def evaluate(server: ServerResult, browser: BrowserResult | None) -> list[Findin
         out += _budget(p, "js_kb", round((load.get("js_bytes") or 0) / KB), "JS KB")
     out += _budget(p, "cls", round(max(load.get("cls", 0), nav.get("cls", 0)), 3), "CLS")
     out += _budget(p, "nav_ms", nav.get("nav_ms") and round(nav["nav_ms"]), "navigation ms")
-    out += _budget(
-        p,
-        "deferred_ms",
-        nav.get("deferred_done_ms") and round(nav["deferred_done_ms"]),
-        "deferred ms",
-    )
+    # Click -> deferred painted when the page was reached by a link; otherwise
+    # document start -> deferred painted from the full load, so a page with no
+    # visible link is still held to the budget.
+    if nav.get("deferred_done_ms") is not None:
+        deferred, label = nav["deferred_done_ms"], "deferred ms"
+    else:
+        deferred, label = load.get("deferred_done_ms"), "deferred ms (first load)"
+    out += _budget(p, "deferred_ms", deferred and round(deferred), label)
     out += _budget(p, "dom_nodes", ux.get("dom_nodes"), "DOM nodes")
     out += _budget(p, "table_rows", ux.get("max_table_rows"), "table rows")
     if browser.console_errors:

@@ -157,3 +157,14 @@ class TestBudgets:
             "unnamed_controls": "warn",
             "h1": "warn",
         }
+
+    def test_deferred_budget_falls_back_to_the_first_load(self) -> None:
+        """A page with no visible link to click is still held to the budget."""
+        slow = BrowserResult(path="/p/", load={"deferred_done_ms": 6000, "dev_build": True})
+        assert _checks(audit_report.evaluate(_server(), slow)) == {"deferred_ms": "fail"}
+        clicked = BrowserResult(
+            path="/p/",
+            load={"deferred_done_ms": 6000, "dev_build": True},
+            nav={"nav_ms": 100, "deferred_done_ms": 400, "cls": 0},
+        )
+        assert _checks(audit_report.evaluate(_server(), clicked)) == {}
