@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from tempfile import SpooledTemporaryFile
 from typing import TYPE_CHECKING
 
@@ -26,19 +28,19 @@ async def put_stream(
     threshold = min(backend.multipart_threshold_bytes, constants.MAX_S3_PART_SIZE_BYTES)
     iterator = aiter(stream)
     tail: memoryview | None = None
-    with SpooledTemporaryFile(max_size=constants.SPOOL_MAX_SIZE_BYTES) as prefix:
+    async with _spool() as prefix:
         if size <= threshold:
             async for chunk in iterator:
-                take = min(len(chunk), threshold + 1 - prefix.tell())
-                prefix.write(memoryview(chunk)[:take])
-                if prefix.tell() > threshold:
+                take = min(len(chunk), threshold + 1 - (await _io(prefix.tell)))
+                await _io(prefix.write, memoryview(chunk)[:take])
+                if await _io(prefix.tell) > threshold:
                     tail = memoryview(chunk)[take:]
                     break
             else:
-                length = prefix.tell()
+                length = await _io(prefix.tell)
                 if size and length != size:
                     raise SizeMismatchError(size, length)
-                prefix.seek(0)
+                await _io(prefix.seek, 0)
                 try:
                     async with backend._client() as client:
                         await client.put_object(
@@ -51,10 +53,10 @@ async def put_stream(
                 except Exception as exc:
                     raise StorageBackendError(f"S3 put_object failed: {exc}") from exc
                 return
-        prefix.seek(0)
+        await _io(prefix.seek, 0)
 
         async def body() -> AsyncIterator[bytes]:
-            while chunk := prefix.read(constants.DEFAULT_CHUNK_SIZE):
+            while chunk := await _io(prefix.read, constants.DEFAULT_CHUNK_SIZE):
                 yield chunk
             if tail is not None:
                 for offset in range(0, len(tail), constants.DEFAULT_CHUNK_SIZE):
@@ -69,53 +71,99 @@ async def _multipart(backend: S3Backend, key, stream, content_type, size) -> Non
     part_size = upload_support.choose_part_size(size, backend.multipart_part_size_bytes)
     if part_size > constants.MAX_S3_PART_SIZE_BYTES:
         raise ValueError("S3 part size exceeds 5 GiB")
-    upload_id = await backend.create_multipart(key, content_type)
+    async with backend._client() as client:
+        await _upload(client, backend, key, stream, content_type, size, part_size)
+
+
+async def _upload(client, backend, key, stream, content_type, size, part_size):
+    try:
+        response = await client.create_multipart_upload(
+            Bucket=backend.bucket, Key=key, ContentType=content_type
+        )
+    except Exception as exc:
+        raise StorageBackendError(f"S3 create_multipart_upload failed: {exc}") from exc
+    upload_id = response["UploadId"]
     parts: list[Part] = []
     seen = 0
     try:
-        with SpooledTemporaryFile(max_size=constants.SPOOL_MAX_SIZE_BYTES) as buf:
+        async with _spool() as buf:
             async for chunk in stream:
                 seen += len(chunk)
                 if size and seen > size:
                     raise SizeMismatchError(size, seen)
                 remaining = memoryview(chunk)
                 while remaining:
-                    take = min(len(remaining), part_size - buf.tell())
-                    buf.write(remaining[:take])
+                    take = min(len(remaining), part_size - (await _io(buf.tell)))
+                    await _io(buf.write, remaining[:take])
                     remaining = remaining[take:]
-                    if buf.tell() == part_size:
-                        parts.append(await _send(backend, key, upload_id, parts, buf))
-                        buf.seek(0)
-                        buf.truncate()
+                    if await _io(buf.tell) == part_size:
+                        parts.append(await _send(client, backend, key, upload_id, parts, buf))
+                        await _io(buf.seek, 0)
+                        await _io(buf.truncate)
             if size and seen != size:
                 raise SizeMismatchError(size, seen)
-            if buf.tell() or not parts:
-                parts.append(await _send(backend, key, upload_id, parts, buf))
-        await backend.complete_multipart(key, upload_id, parts)
+            if await _io(buf.tell) or not parts:
+                parts.append(await _send(client, backend, key, upload_id, parts, buf))
+        try:
+            await client.complete_multipart_upload(
+                Bucket=backend.bucket,
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": [{"PartNumber": p.no, "ETag": p.etag} for p in parts]},
+            )
+        except Exception as exc:
+            raise StorageBackendError(f"S3 complete_multipart_upload failed: {exc}") from exc
     except BaseException:
         try:
-            await backend.abort_multipart(key, upload_id)
+            await client.abort_multipart_upload(Bucket=backend.bucket, Key=key, UploadId=upload_id)
         except BaseException:
             logger.exception("file_storage.server_upload_abort_failed key=%s", key)
         raise
 
 
-async def _send(backend: S3Backend, key, upload_id, parts, buf) -> Part:
+async def _send(client, backend: S3Backend, key, upload_id, parts, buf) -> Part:
     number = len(parts) + 1
     if number > constants.MAX_UPLOAD_PARTS:
         raise ValueError("S3 upload exceeds maximum part count")
-    length = buf.tell()
-    buf.seek(0)
+    length = await _io(buf.tell)
+    await _io(buf.seek, 0)
     try:
-        async with backend._client() as client:
-            result = await client.upload_part(
-                Bucket=backend.bucket,
-                Key=key,
-                UploadId=upload_id,
-                PartNumber=number,
-                Body=buf,
-                ContentLength=length,
-            )
+        result = await client.upload_part(
+            Bucket=backend.bucket,
+            Key=key,
+            UploadId=upload_id,
+            PartNumber=number,
+            Body=buf,
+            ContentLength=length,
+        )
     except Exception as exc:
         raise StorageBackendError(f"S3 upload_part failed: {exc}") from exc
     return Part(no=number, etag=result["ETag"], size=length)
+
+
+async def _io(fn, *args):
+    # Finish in-flight I/O before cancellation can close or reuse its spool.
+    task = asyncio.create_task(asyncio.to_thread(fn, *args))
+    cancelled = None
+    while True:
+        try:
+            result = await asyncio.shield(task)
+            break
+        except asyncio.CancelledError as exc:
+            cancelled = exc
+        except BaseException:
+            if cancelled is not None:
+                raise cancelled from None
+            raise
+    if cancelled is not None:
+        raise cancelled
+    return result
+
+
+@asynccontextmanager
+async def _spool():
+    spool = SpooledTemporaryFile(max_size=constants.SPOOL_MAX_SIZE_BYTES)  # noqa: SIM115 — async close below
+    try:
+        yield spool
+    finally:
+        await _io(spool.close)

@@ -30,9 +30,9 @@ _MISSING_S3_EXTRA = (
 class S3Backend(S3MultipartMixin):
     """S3-compatible object storage.
 
-    Each operation opens a fresh ``aioboto3`` client context (cheap; the
-    underlying ``aiobotocore`` session is reused via ``self._session``). We
-    deliberately do not hold one long-lived client across requests because
+    Each operation opens an ``aioboto3`` client context; a server-side
+    multipart upload shares that client through completion or abort. We
+    do not hold one long-lived client across requests because
     aioboto3 client contexts are per-event-loop and tests run multiple loops.
     """
 
