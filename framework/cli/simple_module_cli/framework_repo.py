@@ -70,6 +70,7 @@ def update_root_pyproject(root: Path, name: str) -> None:
     root_toml = root / "pyproject.toml"
     content = root_toml.read_text()
     src_path = f"modules/{name}"
+    # Pytest recursively collects area/feature tests from this one root.
     test_path = f"modules/{name}/tests"
 
     if f'"{src_path}",' in content and f'"{test_path}"' in content:

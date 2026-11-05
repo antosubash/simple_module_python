@@ -1,0 +1,177 @@
+"""Ratchet package roots while existing modules migrate one PR at a time."""
+
+# Keep the frozen filename inventory readable as whitespace-separated data.
+# ruff: noqa: SIM905
+
+from __future__ import annotations
+
+import tomllib
+from pathlib import Path
+
+import pytest
+
+MODULES = Path(__file__).resolve().parents[2] / "modules"
+ALLOWED_ROOT = frozenset(
+    {
+        "__init__.py",
+        "py.typed",
+        "module.py",
+        "models.py",
+        "models",
+        "tasks.py",
+        "contracts",
+        "pages",
+        "locales",
+        "theme.css",
+        "styles.css",
+        "cli.py",
+        "core",
+        "web",
+        "ui",
+    }
+)
+# Add named domain areas here only when they contain several related features.
+DOMAIN_AREAS: dict[str, frozenset[str]] = {
+    "mail": frozenset({"delivery"}),
+}
+
+# Frozen inventory, not a computed baseline: moves must remove their old entries.
+LEGACY_FLAT: dict[str, frozenset[str]] = {
+    "api_tokens": frozenset(
+        """
+        audit.py constants.py deps.py endpoints owner.py resolver.py scopes.py service.py
+        services.py settings.py tenant_cleanup.py tokens.py user_cleanup.py
+        """.split()
+    ),
+    "audit_log": frozenset(
+        """
+        activity.py capture.py constants.py deps.py endpoints export.py filters.py
+        resolve.py service.py services.py settings.py
+        """.split()
+    ),
+    "auth": frozenset(
+        """
+        _route_match.py constants.py deps.py middleware.py oidc_common state.py
+        """.split()
+    ),
+    "background_tasks": frozenset(
+        """
+        _lifecycle.py _signal_bus.py _signal_support.py after_commit.py celery_app.py
+        config_guards.py constants.py db_settings.py deps.py endpoints filters.py health.py
+        invalidation.py log_context.py log_purge.py log_service.py log_sink.py
+        outbox_claim.py outbox_clock.py outbox_dispatch.py outbox_guard.py outbox_loop.py
+        outbox_service.py outbox_support.py outbox_sweep.py outbox_transport.py
+        outbox_worker.py retry_service.py runner.py service.py services.py settings.py
+        settings_celery.py settings_env_checks.py settings_logs.py signals.py sync_db.py
+        task_heartbeat.py task_resource.py task_routing.py tenant_celery.py
+        tenant_context.py tracking.py worker_inspector.py worker_settings.py
+        workers_state.py
+        """.split()
+    ),
+    "branding": frozenset(
+        """
+        components constants.py deps.py endpoints images.py presets.py reaper.py service.py
+        services.py settings.py shared_props.py tenant_branding.py tenant_definitions.py
+        """.split()
+    ),
+    "file_storage": frozenset(
+        """
+        aggregates.py audit_labels.py backend_guard.py backends body_limits.py checksum.py
+        constants.py cookieless.py cors.py csp.py deletes.py deps.py downloads.py endpoints
+        errors.py format.py health.py media_types.py object_reaper.py queries.py ranges.py
+        reads.py resolve.py scope.py service.py services.py serving.py settings.py
+        tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
+        uploads.py visibility.py worker.py worker_support.py
+        """.split()
+    ),
+    "keycloak": frozenset(
+        """
+        constants.py directory.py endpoints jwks.py oidc.py persistence.py provider.py
+        renewal.py settings.py state.py tokens.py
+        """.split()
+    ),
+    "oidc": frozenset(
+        """
+        client.py constants.py directory.py discovery.py endpoints jwks.py persistence.py
+        presets.py provider.py renewal.py runtime.py settings.py state.py tokens.py
+        """.split()
+    ),
+    "permissions": frozenset(
+        """
+        _registry_sync.py constants.py deps.py endpoints grants.py group_labels.py
+        role_invalidation.py service.py user_cleanup.py write_safety.py
+        """.split()
+    ),
+    "settings": frozenset(
+        """
+        _announce.py _field_meta.py _listing.py _managed_keys.py _module_settings.py
+        _module_settings_props.py _row_masking.py _secrets.py _unique_write.py
+        browse_query.py constants.py deps.py endpoints env_vars.py errors.py exceptions.py
+        hydrate.py invalidation.py known_keys.py module_registry.py registration.py
+        reload.py service.py services.py settings.py store.py tenant_scope.py tenant_view.py
+        """.split()
+    ),
+    "sharing": frozenset(
+        """
+        audience.py constants.py deps.py endpoints policy.py present.py service.py
+        services.py settings.py tenant_cleanup.py user_cleanup.py
+        """.split()
+    ),
+    "tenants": frozenset(
+        """
+        _deletion.py _membership_ops.py _owner_guard.py components constants.py deps.py
+        endpoints errors.py hooks host_resolver.py invitation_mail.py invitations.py
+        resolver.py service.py services.py settings.py shared_props.py templates
+        token_tenant.py user_cleanup.py
+        """.split()
+    ),
+    "users": frozenset(
+        """
+        admin administrators.py audit.py auth_local backend.py bootstrap.py constants.py
+        credentials.py data_compatibility.py db_adapter.py demo deps.py directory.py
+        errors.py exceptions.py invites mailer manager.py middleware.py oauth provider.py
+        registration.py reset_revocation.py roles_cache.py session_revocation.py
+        session_version_cache.py settings.py setup.py setup_action.py shared_props.py
+        startup.py state.py token_storage.py token_strategy.py
+        """.split()
+    ),
+}
+
+
+def _is_layout_shim(path: Path) -> bool:
+    """A moved module's old path: a deprecated alias, allowed until its remove_in."""
+    text = path.read_text(encoding="utf-8")
+    return "deprecated_module(" in text and "sys.modules[__name__]" in text
+
+
+@pytest.mark.parametrize("module", sorted(p.name for p in MODULES.iterdir() if p.is_dir()))
+def test_module_root_layout(module: str) -> None:
+    package = MODULES / module / module
+    assert package.is_dir(), f"Missing package for {module}"
+    entries = {
+        p.name
+        for p in package.iterdir()
+        if (p.suffix == ".py" and not _is_layout_shim(p))
+        or (p.is_dir() and p.name != "__pycache__")
+    }
+    allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
+    legacy = LEGACY_FLAT.get(module, frozenset())
+    if module in LEGACY_FLAT:
+        assert legacy, f"{module}: remove the empty LEGACY_FLAT entry"
+    assert not entries - allowed - legacy, (
+        f"{module}: unexpected roots {entries - allowed - legacy}"
+    )
+    assert legacy <= entries, f"{module}: remove stale LEGACY_FLAT entries {legacy - entries}"
+    assert not legacy & allowed, f"{module}: remove allowed entries from LEGACY_FLAT"
+    if (package / "cli.py").is_file():
+        project = tomllib.loads((MODULES / module / "pyproject.toml").read_text())["project"]
+        targets = [
+            value for group in project.get("entry-points", {}).values() for value in group.values()
+        ]
+        assert any(value.split(":")[0] == f"{module}.cli" for value in targets)
+    if module not in LEGACY_FLAT:
+        assert not list((MODULES / module / "tests").glob("test_*.py")), module
+
+
+def test_legacy_modules_still_exist() -> None:
+    assert all((MODULES / name / name).is_dir() for name in LEGACY_FLAT)

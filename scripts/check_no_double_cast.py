@@ -8,7 +8,7 @@ better seam) stays, marked on the same line or the line above:
 
     // cast-ok: <reason>
 
-Covers ``.ts``/``.tsx`` under ``modules/<m>/<pkg>/pages``, ``components``, ``hooks``, ``lib``,
+Covers ``.ts``/``.tsx`` under ``modules/<m>/<pkg>/pages``, ``ui/`` and legacy frontend directories,
 ``packages/ui/src`` and ``host/client_app``. Test files are exempt.
 
 Usage:

@@ -8,7 +8,7 @@ from simple_module_core.health import HealthCheck, HealthRegistry
 from simple_module_core.mail import install_mail_resolver, install_mail_sender
 from simple_module_core.module import ModuleBase, ModuleMeta
 
-from mail import constants as c
+from mail.core import constants as c
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -26,15 +26,15 @@ class MailModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_core.module_settings import register_module_settings
 
-        from mail.settings import MailSettings
-        from mail.state import MailState
+        from mail.core.settings import MailSettings
+        from mail.core.state import MailState
 
         register_module_settings(
             app, c.MODULE_PACKAGE, MailSettings, lambda s: MailState(settings=s)
         )
 
     def register_health_checks(self, registry: HealthRegistry) -> None:
-        from mail.runtime import check_smtp
+        from mail.delivery.runtime import check_smtp
 
         registry.add(
             HealthCheck(
@@ -49,7 +49,7 @@ class MailModule(ModuleBase):
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         # Before the ``app is None`` return: the outbox worker builds modules
         # without an app and still has to send durable mail.
-        from mail.runtime import resolve_sender_from_db
+        from mail.delivery.runtime import resolve_sender_from_db
 
         install_mail_resolver(resolve_sender_from_db)
         if app is None:
@@ -57,7 +57,7 @@ class MailModule(ModuleBase):
 
         from settings.contracts.events import SettingsReloaded
 
-        from mail.runtime import install_app_sender
+        from mail.delivery.runtime import install_app_sender
 
         async def _reinstall(event: SettingsReloaded) -> None:
             if event.package != c.MODULE_PACKAGE:
@@ -67,12 +67,12 @@ class MailModule(ModuleBase):
         bus.subscribe(SettingsReloaded, _reinstall)
 
     async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
-        from mail.data_compatibility import check_data_compatibility
+        from mail.core.data_compatibility import check_data_compatibility
 
         return await check_data_compatibility(db)
 
     async def on_startup(self, app: FastAPI) -> None:
-        from mail.runtime import install_app_sender
+        from mail.delivery.runtime import install_app_sender
 
         install_app_sender(app)
 

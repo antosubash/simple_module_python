@@ -39,7 +39,7 @@ class TestSm003PageRenderResolution:
         endpoints = src_dir / "endpoints"
         endpoints.mkdir()
         (endpoints / "views.py").write_text(
-            "from feature_flags.constants import PAGE_BROWSE\n"
+            "from feature_flags.core.constants import PAGE_BROWSE\n"
             "async def view(inertia):\n"
             "    return await inertia.render(PAGE_BROWSE, {})\n"
         )

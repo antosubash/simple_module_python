@@ -56,7 +56,7 @@ class AuthModule(ModuleBase):
 Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it injects an `Inertia` instance with shared props already attached:
 
 ```python
-# orders/endpoints/views.py
+# orders/web/endpoints/views.py
 from fastapi import APIRouter
 from simple_module_hosting.inertia_deps import InertiaDep
 

@@ -30,6 +30,9 @@ def test_sm_new_default_scaffolds_sample_hello_module(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert (target / "modules" / "hello" / "pyproject.toml").is_file()
     assert (target / "modules" / "hello" / "hello" / "module.py").is_file()
+    assert (target / "modules/hello/hello/core/settings.py").is_file()
+    assert (target / "modules/hello/hello/web/endpoints/api.py").is_file()
+    assert (target / "modules/hello/tests/web/crud/test_hello_crud.py").is_file()
 
 
 def test_sm_new_default_lays_down_workspace_layout(tmp_path: Path) -> None:
