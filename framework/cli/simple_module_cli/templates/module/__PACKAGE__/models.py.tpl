@@ -6,7 +6,7 @@ from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from sqlmodel import Field
 
-from {{PACKAGE_NAME}}.constants import (
+from {{PACKAGE_NAME}}.core.constants import (
     DESCRIPTION_MAX_LENGTH,
     NAME_MAX_LENGTH,
     TABLE_{{SINGULAR_UPPER}},

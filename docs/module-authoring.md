@@ -9,20 +9,31 @@ workflow the host developer uses, and the API-version / semver rules.
 ## Anatomy of a module package
 
 ```text
-my-module/
-├── pyproject.toml                  # declares entry point + framework dep
-├── my_module/
-│   ├── __init__.py
-│   ├── module.py                   # ModuleBase subclass
-│   ├── models.py                   # SQLModel tables (optional)
-│   ├── endpoints/                  # FastAPI routes
-│   ├── pages/                      # Inertia TSX pages (optional)
-│   ├── templates/                  # Jinja2 templates (optional)
-│   ├── static/dist/                # pre-built frontend assets (optional)
-│   ├── contracts/schemas.py        # SQLModel DTOs — the public surface
-│   └── contracts/events.py         # domain events (optional)
+modules/<name>/
+├── pyproject.toml, package.json, tsconfig.json
+├── <name>/
+│   ├── __init__.py, py.typed, module.py
+│   ├── models.py                 # or models/; discovered by name
+│   ├── contracts/                # public SQLModel DTOs and extension contracts
+│   ├── core/                     # constants.py, settings.py, services.py, errors.py
+│   ├── web/                      # deps.py, service.py (or services/), private schemas
+│   │   └── endpoints/            # api.py, views.py
+│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── locales/                  # <lang>.json
+│   ├── ui/                       # components/, hooks/, utils/ (when needed)
+│   └── tasks.py, theme.css, styles.css  # optional root lookup files
 └── tests/
+    ├── conftest.py                # module-wide fixtures
+    ├── core/module/test_<name>_module.py
+    ├── core/contracts/test_<name>_schemas.py
+    └── web/crud/test_<name>_crud.py
 ```
+
+New modules use this layout. Existing bundled modules migrate one at a time;
+see [Module layout](module-layout.md) for the exact root contract and shim policy.
+Area initializers contain only a docstring; private helpers live in their area.
+Tests have no `__init__.py`, use globally unique `test_<name>_*.py` basenames,
+and keep module-wide fixtures in `modules/<name>/tests/conftest.py`. JS tests stay in `tests-js/`.
 
 ### Standalone vs in-repo: `.github/` workflows
 
@@ -74,7 +85,7 @@ and `uv sync` work too.
 
 ### Service types: concrete class, not Protocol
 
-Export the concrete service class from `<module>.service` and have consumers
+Export public service types through `<module>.contracts` and have consumers
 type-hint against it. Do **not** ship a `contracts/service.py` with an
 `IFooService` Protocol by default — it's dead boilerplate when there's only
 one implementation.
@@ -88,7 +99,7 @@ mock against the Protocol. If none of those apply to your module, skip it.
 ### Service errors: domain exceptions
 
 Services raise domain exceptions derived from a per-module base error in
-`<module>/exceptions.py` or `errors.py`; they must not raise `HTTPException`.
+`<module>/core/errors.py`; they must not raise `HTTPException`.
 Keep the failure and its context independent of HTTP so CLI commands, tasks
 and durable handlers can reuse the same business logic.
 
@@ -230,7 +241,7 @@ tenant override > system override > definition default. They accept
 either a `FeatureFlagDefinition` (preferred) or the raw name.
 
 ```python
-# my_module/constants.py
+# my_module/core/constants.py
 from simple_module_core import FeatureFlagDefinition
 
 FLAG_BULK_IMPORT = FeatureFlagDefinition(
@@ -253,7 +264,7 @@ class MyModule(ModuleBase):
 ```
 
 ```python
-# endpoints/api.py — four ways to consume, all accept the constant directly
+# web/endpoints/api.py — four ways to consume, all accept the constant directly
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from simple_module_core import feature_flag, flag_enabled, is_flag_enabled, require_flag
@@ -469,12 +480,12 @@ The host mounts each entry as `StaticFiles` during boot.
 Use the sibling's **npm package name** — the `name` in its `package.json`:
 
 ```tsx
-import { BlockRegistry } from '@simple-module-py/pagebuilder/components/blockRegistry';
+import { BlockRegistry } from '@simple-module-py/pagebuilder/ui/components/blockRegistry';
 ```
 
 The host builds that alias from `modules.assets.json` and points it at the
 sibling's **Python package directory** (`my_module/`). So everything after the
-package name is a path *inside* that package — `components/…`, `pages/…`,
+package name is a path *inside* that package — `ui/components/…`, `pages/…`,
 mirroring the layout in [Anatomy of a module package](#anatomy-of-a-module-package).
 
 That anchor is forced rather than chosen, and it is worth understanding because
@@ -495,11 +506,11 @@ This means the shape npm gives you for a workspace member is the wrong one:
 
 ```tsx
 // ✅ same file in both layouts
-import x from '@simple-module-py/foo/components/Widget';
+import x from '@simple-module-py/foo/ui/components/Widget';
 
 // ❌ workspace-only. npm symlinks @simple-module-py/foo -> modules/foo/, so
 //    this happens to resolve in a checkout and breaks once foo is wheel-installed.
-import x from '@simple-module-py/foo/foo/components/Widget';
+import x from '@simple-module-py/foo/foo/ui/components/Widget';
 ```
 
 Declare the sibling in your `package.json` `peerDependencies` so the dependency
@@ -615,7 +626,7 @@ origin/scheme token, validated at boot.
 
 Production script directives use a per-request nonce and `strict-dynamic`.
 In CSP3 browsers, script host allowlists are ignored: executable scripts in
-custom templates must carry `nonce="{{ request.state.csp_nonce }}"`, including
+custom templates must carry <code v-pre>nonce="{{ request.state.csp_nonce }}"</code>, including
 external script entries. The Inertia adapter adds it to its module scripts;
 imports loaded by those trusted entries inherit trust. Registered script
 origins remain in the policy for older browsers; other asset directives
@@ -836,6 +847,11 @@ building inside a freshly scaffolded host of that version. It needs `uv`,
 `npm`, and network access to PyPI + npm on first run.
 
 ### `smpy module build` — static_mounts() assets
+
+This legacy command retains its `assets_src/` and `static/dist/` root paths.
+They are outside the new [module layout](module-layout.md#frontend) allowed set;
+PR 0 preserves the command without adding these roots to new in-repo modules.
+Use the host's build pipeline for new Inertia pages and `ui/` sources.
 
 If (and only if) your module ships assets outside the Inertia page pipeline,
 put an entry file at `<pkg>/assets_src/index.ts` and run:

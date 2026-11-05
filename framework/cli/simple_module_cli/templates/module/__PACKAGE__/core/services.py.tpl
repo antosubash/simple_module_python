@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from {{PACKAGE_NAME}}.settings import {{MODULE_NAME}}Settings
+from {{PACKAGE_NAME}}.core.settings import {{MODULE_NAME}}Settings
 
 
 @dataclass

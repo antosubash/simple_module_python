@@ -31,6 +31,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["{{PACKAGE_NAME}}"]
+exclude = ["**/*.test.*", "**/*.spec.*", "**/test-dom.tsx", "**/page-tests/**"]
 # Ship the built frontend bundle inside the wheel when present. static/dist/
 # is gitignored, so it needs an explicit artifacts entry — run
 # `smpy module build` before `uv build` to populate it. (artifacts, unlike

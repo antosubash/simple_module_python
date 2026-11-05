@@ -80,10 +80,10 @@ No fixture is needed. Metadata is available as `deferred_props`, `merge_props`,
 
 ```bash
 # One file
-uv run pytest modules/orders/tests/test_service.py
+uv run pytest modules/orders/tests/web/crud/test_orders_crud.py
 
 # One test
-uv run pytest modules/orders/tests/test_service.py::test_creates_order
+uv run pytest modules/orders/tests/web/crud/test_orders_crud.py::test_creates_order
 
 # One JS test (vitest's `include` covers packages/** and host/client_app/** only)
 npx vitest run packages/ui/src/components/StatCard.test.tsx
@@ -114,8 +114,12 @@ modules/orders/
 ├── orders/                  # package
 └── tests/
     ├── __init__.py
-    └── test_orders.py       # imports orders.service — name from the scaffold
+    └── web/crud/test_orders_crud.py  # imports orders.web.service
 ```
+
+Tests mirror `tests/<area>/<feature>/`, have no `__init__.py`, and use globally
+unique `test_<module>_*.py` basenames. Keep shared fixtures at `modules/<name>/tests/conftest.py`.
+Pytest recurses from the tests root; JS tests stay in `tests-js/`.
 
 The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `simple_module_cli.framework_repo.update_root_pyproject`); if you scaffolded a module by hand, add it.
 

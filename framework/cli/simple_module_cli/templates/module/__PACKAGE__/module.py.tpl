@@ -11,7 +11,7 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 
-from {{PACKAGE_NAME}}.constants import (
+from {{PACKAGE_NAME}}.core.constants import (
     API_PREFIX,
     LOCALE_NAMESPACE,
     MENU_ICON,
@@ -39,8 +39,8 @@ class {{MODULE_NAME}}Module(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from {{PACKAGE_NAME}}.services import {{MODULE_NAME}}Services
-        from {{PACKAGE_NAME}}.settings import {{MODULE_NAME}}Settings
+        from {{PACKAGE_NAME}}.core.services import {{MODULE_NAME}}Services
+        from {{PACKAGE_NAME}}.core.settings import {{MODULE_NAME}}Settings
 
         # Records the class so the host hydrates it from the settings table
         # (DB → default) and mounts the services on app.state.{{PACKAGE_NAME}}.
@@ -52,8 +52,8 @@ class {{MODULE_NAME}}Module(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from {{PACKAGE_NAME}}.endpoints.api import router as api
-        from {{PACKAGE_NAME}}.endpoints.views import router as views
+        from {{PACKAGE_NAME}}.web.endpoints.api import router as api
+        from {{PACKAGE_NAME}}.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)

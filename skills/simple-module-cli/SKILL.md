@@ -97,7 +97,7 @@ smpy create-module orders                    # writes ./simple_module_orders/
 smpy create-module orders --dest ./packages/orders
 ```
 
-The result is a complete package: `pyproject.toml` with the entry point declared, `module.py` with `ModuleBase`/`ModuleMeta` skeleton, `models.py`, `contracts/`, `endpoints/{api,views}.py`, `pages/`, `locales/en.json`, plus a tests directory wired up with `simple_module_test` fixtures.
+The result is a complete package: `pyproject.toml` with the entry point declared, `module.py` with `ModuleBase`/`ModuleMeta` skeleton, `models.py`, `contracts/`, `web/endpoints/{api,views}.py`, `pages/`, `locales/en.json`, `core/{constants,settings,services}.py`, `web/{deps,service}.py`, plus nested `tests/<area>/<feature>/test_<module>_*.py` wired up with `simple_module_test` fixtures.
 
 `<name>` accepts any case — `orders`, `Orders`, `ORDERS`, `blog_posts` all work. The CLI lowercases it for the directory and PascalCases it for `ModuleMeta.name`.
 
