@@ -25,6 +25,7 @@ from feature_flags.core.constants import (
     PERM_FEATURE_FLAGS_VIEW,
     PERM_GROUP,
     QP_OVERRIDE,
+    TENANT_CLEANUP_HANDLER,
     VIEW_PREFIX,
 )
 
@@ -74,7 +75,7 @@ class FeatureFlagsModule(ModuleBase):
 
         from feature_flags.core.tenant_cleanup import purge_tenant_data
 
-        bus.subscribe_durable(TenantDeleted, purge_tenant_data)
+        bus.subscribe_durable(TenantDeleted, purge_tenant_data, name=TENANT_CLEANUP_HANDLER)
         if app is not None:
 
             async def forget_tenant(event: TenantDeleted) -> None:

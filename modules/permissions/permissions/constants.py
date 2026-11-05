@@ -12,6 +12,9 @@ PERMISSION_GROUP = "Permissions"
 PERM_VIEW = "permissions.view"
 PERM_MANAGE = "permissions.manage"
 
+# Durable handler name (outbox key); pinned to the original import-path default.
+USER_CLEANUP_HANDLER = "permissions.user_cleanup.purge_user_grants"
+
 # ── Module dependencies (used by ModuleMeta.depends_on) ────────────────
 _MODULE_AUTH = "Auth"
 _MODULE_USERS = "Users"
