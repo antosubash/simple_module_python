@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Breaking:** tenant member lists now use server pagination (`page` / `per_page`, default 25, maximum 200). The current-members API returns `{items, total, page, per_page, pages}` instead of an array; the Members page provides navigation and retains its page after mutations.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
 - `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.
@@ -24,6 +25,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Coalesce concurrent tenant membership and permission grant cache misses. In-flight invalidation retries against fresh authorization data; failures and cancellation release waiting readers. Cache unknown tenant subdomains for five seconds and invalidate host lookups after committed tenant creation or renaming (2026-11-05 local performance review).
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
 
 ## [0.0.43] — 2026-11-04

@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, Response
 from simple_module_core.permissions import grants
 from simple_module_core.user_directory import get_user_directory
+from simple_module_hosting.pagination import PageParamsDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
 from simple_module_hosting.token_guard import Authenticated
 
@@ -28,6 +29,7 @@ from tenants.contracts.schemas import (
     InvitationCreate,
     InvitationIssued,
     InvitationView,
+    MemberPage,
     MemberView,
     MyTenantView,
     RoleChange,
@@ -107,12 +109,18 @@ async def switch_tenant(
 # ── active tenant: members ─────────────────────────────────────
 
 
-@router.get("/current/members", response_model=list[MemberView], dependencies=_VIEW)
-async def list_members(ctx: ActiveTenantDep, service: TenantServiceDep) -> list[MemberView]:
-    return [
-        MemberView(user_id=m.user_id, email=m.email, role=m.role, joined_at=m.created_at)
-        for m in await service.list_members(ctx.tenant_id)
-    ]
+@router.get("/current/members", response_model=MemberPage, dependencies=_VIEW)
+async def list_members(
+    ctx: ActiveTenantDep, service: TenantServiceDep, params: PageParamsDep
+) -> MemberPage:
+    page = await service.list_members(ctx.tenant_id, params)
+    return MemberPage(
+        **page.model_dump(exclude={"items"}),
+        items=[
+            MemberView(user_id=m.user_id, email=m.email, role=m.role, joined_at=m.created_at)
+            for m in page.items
+        ],
+    )
 
 
 @router.patch("/current/members/{user_id}", response_model=MemberView, dependencies=_MANAGE)

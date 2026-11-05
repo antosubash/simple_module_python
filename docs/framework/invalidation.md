@@ -110,3 +110,19 @@ A standalone worker never builds the FastAPI app, so it installs no transport: i
 ## Still per-process
 
 `file_storage`'s aggregate cache remains per-process. Role overlays (`permissions.role_grants`), module settings (`settings.modules`, keyed by package) and feature flags (`feature_flags.overrides`, both scopes) subscribe through their modules' `register_invalidations` hooks. Their refresh tasks start and stop with module lifespan.
+
+## Concurrent cache fills
+
+`simple_module_core.singleflight.SingleFlight` serializes in-process fills for
+one cache key. Keep one helper per app/cache and use `async with flight.hold(key)`
+on a miss. Recheck the cache after acquiring the lock: an earlier reader may
+already have filled it. Different keys proceed independently; idle keys are
+removed after the final caller leaves. Failure or cancellation releases the
+lock, so a waiter can retry without a cached failed task.
+
+The helper does not version or invalidate cached data. Authorization caches must
+also compare their invalidation epoch before storing **or returning** a DB read,
+and retry against a fresh session if the epoch changed. Tenant memberships and
+direct permission grants do this; their existing TTLs still bound staleness from
+missed cross-worker invalidations. The users session-version cache has not yet
+adopted the helper.

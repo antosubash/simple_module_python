@@ -141,6 +141,33 @@ Providers own persistence, period boundaries, idempotency and hold expiry.
 choose to raise it and map it to HTTP 402; the protocol's `consume` returns a
 decision rather than requiring an exception.
 
+## Member pagination and resolver caches
+
+`GET /api/tenants/current/members` accepts `page` (1-based) and `per_page`
+(default 25, maximum 200). It returns `{items, total, page, per_page, pages}`;
+clients previously reading a bare array must read `items` and traverse the pages.
+Invalid API parameters return 422. The Members page accepts the same parameters,
+normalizes malformed values, and provides Previous/Next controls. Both order by
+`(created_at, id)` and explicitly scope rows and totals to the active tenant.
+Requests past the end clamp to the last page, including after a member removal;
+mutations reload the current page and page size. Offset pagination reflects the
+current roster, so concurrent additions/removals can shift page boundaries.
+
+Membership cache fills serialize concurrent misses per app/user, recheck the cache
+when waiting ends, and retry if invalidated during a DB read. No stale read is
+returned to avoid waiting. The 60-second membership TTL and invalidation bus
+remain the fallback for changes in other workers. Permission grants use the same
+shared single-flight helper with their existing 30-second TTL.
+
+Unknown subdomain slugs are negatively cached for five seconds (bounded to 10,000
+entries); known slugs keep their 60-second TTL. Committed tenant creation,
+`TenantService.rename_tenant(tenant_id, TenantCreate(...))`, status changes and
+deletion invalidate host lookups via the tenant invalidator. Renaming also clears
+cached membership names/slugs. Construct services with the normal invalidator
+(`make_invalidator(app)` outside request dependencies); direct SQL writes must
+publish the tenant invalidation channel with `key=None` after commit or wait for
+TTL expiry. No new rename endpoint is exposed.
+
 ## Models
 
 `tenants_tenant` (id = the value stored in every `tenant_id`, slug, name,

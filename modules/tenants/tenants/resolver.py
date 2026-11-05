@@ -17,12 +17,14 @@ from __future__ import annotations
 import dataclasses
 import logging
 from typing import Any
+from weakref import WeakKeyDictionary
 
 from auth.contracts.tokens import AUTH_KIND_PAT, AUTH_KIND_SERVICE, AUTH_KIND_SESSION
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.singleflight import SingleFlight
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from simple_module_hosting.middleware import TenantResolution
@@ -52,6 +54,9 @@ MEMBERSHIP_TTL_SECONDS = 60
 _MEMBERSHIPS: TTLCache[str, list[MyTenantView]] = TTLCache(
     maxsize=10_000, ttl=MEMBERSHIP_TTL_SECONDS
 )
+
+
+_FLIGHTS: WeakKeyDictionary[FastAPI, SingleFlight] = WeakKeyDictionary()
 
 
 # Bumped by every invalidation. A read that started before an invalidation
@@ -97,18 +102,29 @@ async def memberships_for(app: FastAPI, user_id: str) -> list[MyTenantView]:
     cached = _MEMBERSHIPS.get(user_id)
     if cached is not None:
         return cached
-    started = _epoch
-    async with app.state.sm.db.session_factory() as db:
-        rows = await TenantService(db).list_for_user(user_id)
-    views = [
-        MyTenantView(
-            id=t.id, slug=t.slug, name=t.name, status=t.status, created_at=t.created_at, role=role
-        )
-        for t, role in rows
-    ]
-    if _epoch == started:
-        _MEMBERSHIPS[user_id] = views
-    return views
+    flight = _FLIGHTS.setdefault(app, SingleFlight())
+    async with flight.hold(user_id):
+        while True:
+            cached = _MEMBERSHIPS.get(user_id)
+            if cached is not None:
+                return cached
+            started = _epoch
+            async with app.state.sm.db.session_factory() as db:
+                rows = await TenantService(db).list_for_user(user_id)
+            views = [
+                MyTenantView(
+                    id=t.id,
+                    slug=t.slug,
+                    name=t.name,
+                    status=t.status,
+                    created_at=t.created_at,
+                    role=role,
+                )
+                for t, role in rows
+            ]
+            if _epoch == started:
+                _MEMBERSHIPS[user_id] = views
+                return views
 
 
 def pick_active(memberships: list[MyTenantView], preferred: str | None) -> MyTenantView | None:

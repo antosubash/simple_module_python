@@ -30,11 +30,17 @@ from tenants.constants import TenantStatus
 from tenants.models import Tenant
 
 HOST_TTL_SECONDS = 60
+NEGATIVE_HOST_TTL_SECONDS = 5
+_MISSING_SLUGS: TTLCache[str, bool] = TTLCache(maxsize=10_000, ttl=NEGATIVE_HOST_TTL_SECONDS)
+_epoch = 0
 _BY_SLUG: TTLCache[str, tuple[str, str]] = TTLCache(maxsize=10_000, ttl=HOST_TTL_SECONDS)
 
 
 def forget_hosts() -> None:
+    global _epoch
+    _epoch += 1
     _BY_SLUG.clear()
+    _MISSING_SLUGS.clear()
 
 
 def subdomains_enabled(request: Request) -> bool:
@@ -53,18 +59,25 @@ def subdomain_slug(request: Request) -> str | None:
 
 async def tenant_for_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
     """``(tenant_id, status)`` for a slug, cached briefly."""
-    hit = _BY_SLUG.get(slug)
-    if hit is not None:
-        return hit
-    async with app.state.sm.db.session_factory() as db:
-        row = (
-            await db.execute(select(Tenant.id, Tenant.status).where(Tenant.slug == slug))
-        ).first()
-    if row is None:
-        return None
-    found = (row[0], row[1])
-    _BY_SLUG[slug] = found
-    return found
+    while True:
+        hit = _BY_SLUG.get(slug)
+        if hit is not None:
+            return hit
+        if _MISSING_SLUGS.get(slug):
+            return None
+        started = _epoch
+        async with app.state.sm.db.session_factory() as db:
+            row = (
+                await db.execute(select(Tenant.id, Tenant.status).where(Tenant.slug == slug))
+            ).first()
+        if started != _epoch:
+            continue
+        if row is None:
+            _MISSING_SLUGS[slug] = True
+            return None
+        found = (row[0], row[1])
+        _BY_SLUG[slug] = found
+        return found
 
 
 def is_public_route(request: Request) -> bool:

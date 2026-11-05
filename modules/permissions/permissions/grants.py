@@ -23,13 +23,15 @@ from weakref import WeakKeyDictionary
 
 from cachetools import TTLCache
 from simple_module_core.app_state import get_services
+from simple_module_core.invalidation import Invalidation
+from simple_module_core.singleflight import SingleFlight
 from sqlalchemy import select
 
 from permissions.models import UserPermission
 
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
-    from simple_module_core.invalidation import Invalidation, InvalidationBus
+    from simple_module_core.invalidation import InvalidationBus
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,8 @@ invalidation transport installed; see the module docstring.
 """
 
 _CACHES: WeakKeyDictionary = WeakKeyDictionary()
+_FLIGHTS: WeakKeyDictionary = WeakKeyDictionary()
+_epoch = 0
 
 
 def _cache(app: FastAPI) -> TTLCache:
@@ -69,6 +73,8 @@ _MISS = object()
 
 def clear_grants_cache() -> None:
     """Empty the cache — for tests that need a cold read."""
+    global _epoch
+    _epoch += 1
     for cache in list(_CACHES.values()):
         cache.clear()
 
@@ -91,23 +97,31 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
     user_id = _user_uuid(getattr(user, "id", None))
     if user_id is None:
         return frozenset()
-    # One ``get``, not ``in`` then ``[]``: a TTLCache entry can expire between.
     grants = _cache(request.app)
     cached = grants.get(user_id, _MISS)
     if cached is not _MISS:
         return cached
-    session_factory = request.app.state.sm.db.session_factory
-    async with session_factory() as db:
-        result = await db.execute(
-            select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
-        )
-        keys = frozenset(result.scalars().all())
-    grants[user_id] = keys
-    return keys
+    flight = _FLIGHTS.setdefault(request.app, SingleFlight())
+    async with flight.hold(user_id):
+        while True:
+            cached = grants.get(user_id, _MISS)
+            if cached is not _MISS:
+                return cached
+            started = _epoch
+            async with request.app.state.sm.db.session_factory() as db:
+                result = await db.execute(
+                    select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
+                )
+                keys = frozenset(result.scalars().all())
+            if started == _epoch:
+                grants[user_id] = keys
+                return keys
 
 
 def apply_invalidation(invalidation: Invalidation, app: FastAPI | None = None) -> None:
     """Drop grants for this app; app-less maintenance callers forget all caches."""
+    global _epoch
+    _epoch += 1
     if app is None:
         caches = list(_CACHES.values())
     else:
@@ -137,7 +151,6 @@ async def publish_grants_changed(app: FastAPI, user_id: uuid.UUID) -> None:
     bus = getattr(get_services(app), "invalidation", None)
     if bus is None:
         logger.debug("No invalidation bus on this app; dropping %s locally", user_id)
-        if (cache := _CACHES.get(app)) is not None:
-            cache.pop(user_id, None)
+        apply_invalidation(Invalidation(CHANNEL, key=str(user_id)), app)
         return
     await bus.publish(CHANNEL, key=str(user_id))

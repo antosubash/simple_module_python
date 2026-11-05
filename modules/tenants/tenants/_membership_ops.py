@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING
 
 from simple_module_core.events import Event
+from simple_module_db.pagination import Page, PageParams, paginate
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,13 +60,13 @@ class MembershipOpsMixin:
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
-    async def list_members(self, tenant_id: str) -> list[Membership]:
+    async def list_members(self, tenant_id: str, params: PageParams) -> Page[Membership]:
         stmt = (
             select(Membership)
             .where(col(Membership.tenant_id) == tenant_id)
-            .order_by(Membership.created_at)
+            .order_by(Membership.created_at, col(Membership.id))
         )
-        return list((await self.db.execute(stmt)).scalars().all())
+        return await paginate(self.db, stmt, params)
 
     async def seats_used(self, tenant_id: str) -> int:
         """Members plus pending invitations — an invite reserves a seat."""
