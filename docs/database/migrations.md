@@ -71,7 +71,7 @@ The history is **not** a single linear chain. It has several roots and several h
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
-| `c5d8e2f1a903` | background_tasks (newest-first listing index) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
+| `f6c2d4e8b109` | file_storage (tenant browse index) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
 | `b8d4f2a6c901` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
 | `d263ea727663` | framework (`sm_lease`) | `leases` |

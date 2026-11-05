@@ -83,6 +83,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Offload S3 server-upload spool I/O, wait for in-flight I/O during cancellation, and reuse one client per multipart upload. Index the default tenant file browse order (migration `f6c2d4e8b109`; local performance review, 2026-11-05).
 - Users password creation, forgot-password fingerprints, reset verification and
   password updates offload hashing to worker threads, keeping unrelated async
   requests responsive during registration and bulk invites. Password policy,
