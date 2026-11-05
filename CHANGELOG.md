@@ -14,6 +14,33 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- Development responses carry a `Server-Timing` header with the request's app
+  time, database time and SQL statement count (`app;dur=…, db;dur=…;desc="N
+  queries"`), so an N+1 shows in the browser's network panel. Never sent
+  outside development. `simple_module_db.query_stats` (`install_query_stats`,
+  `track_queries`) exposes the same count to tests.
+- `simple-module-page-perf` skill: `scripts/page_audit` signs in, finds every
+  page from the menus and two levels of links, and reports server time, SQL
+  statements, payload and prop sizes, deferred props, client-side navigation
+  time, LCP, CLS, JS bytes, DOM size, console errors, phone-width overflow and
+  basic UX checks against budgets. Install with
+  `smpy skills add simple-module-page-perf`.
+- `docs/frontend/performance.md`: how to build pages that are fast and feel
+  fast (server, client, loading/empty/error states, layout shift, polling,
+  prefetch) and how to pin a page's query count in a test.
+
+### Fixed
+- Background tasks: the executions list (when empty) and the Workers page no
+  longer wait out the broker's ~1 s inspect timeout before rendering. The
+  worker poll is now a deferred prop: the list shows *Checking for workers…*
+  in the empty state and Workers shows skeleton cards until the broker
+  answers (server time about 1,050 ms → 15–20 ms). **Behaviour change:**
+  `worker_presence` and `snapshot` are no longer in the first Inertia
+  response; they arrive in the deferred `workers` group.
+- Background tasks pages linked to `/admin/background-tasks` without its
+  trailing slash, so every "back to executions" click cost a redirect.
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

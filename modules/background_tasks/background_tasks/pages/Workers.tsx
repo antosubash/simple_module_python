@@ -10,12 +10,13 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from './api';
 import { RoutesTable } from './components/RoutesTable';
-import { WorkerCard } from './components/WorkerCard';
+import { WorkerCard, WorkersSkeleton } from './components/WorkerCard';
 import { BrokerUnreachable, NoWorkers } from './components/WorkerEmptyStates';
-import { formatClock, type TaskRoute, VIEW_BASE, type WorkerSnapshot } from './constants';
+import { formatClock, type TaskRoute, VIEW_INDEX, type WorkerSnapshot } from './constants';
 
 interface Props {
-  snapshot: WorkerSnapshot;
+  /** Deferred: undefined until the broker poll (up to ~1s) answers. */
+  snapshot?: WorkerSnapshot;
   /** Broker url with the password stripped, for the unreachable state. */
   broker_url_redacted: string;
   /** Queues this install routes through, for the start-a-worker command. */
@@ -26,8 +27,12 @@ interface Props {
 
 function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, routes }: Props) {
   const { t } = useT();
-  const [snapshot, setSnapshot] = useState<WorkerSnapshot>(initial);
+  const [snapshot, setSnapshot] = useState<WorkerSnapshot | undefined>(initial);
   const [loading, setLoading] = useState(false);
+  // The deferred prop lands after the first render; adopt it when it does.
+  useEffect(() => {
+    if (initial) setSnapshot(initial);
+  }, [initial]);
 
   // This page is a point-in-time poll that only updates when asked. Left open
   // on a second monitor it keeps rendering a healthy fleet long after that
@@ -40,7 +45,8 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
     const id = setInterval(() => setNow(Date.now()), 5_000);
     return () => clearInterval(id);
   }, []);
-  const stale = isStale(ageOf(snapshot.polled_at, now));
+  const stale = snapshot !== undefined && isStale(ageOf(snapshot.polled_at, now));
+  const polling = loading || snapshot === undefined;
 
   async function refresh() {
     setLoading(true);
@@ -66,25 +72,27 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
       <PageShell
         title={t(keys.background_tasks.workers.title)}
         description={t(keys.background_tasks.workers.description)}
-        back={VIEW_BASE}
+        back={VIEW_INDEX}
         actions={
           <>
             <span className={`text-[13px] ${stale ? 'text-amber-700' : 'text-muted-foreground'}`}>
-              {t(keys.background_tasks.workers.last_updated, {
-                time: formatClock(snapshot.polled_at),
-              })}
+              {snapshot
+                ? t(keys.background_tasks.workers.last_updated, {
+                    time: formatClock(snapshot.polled_at),
+                  })
+                : t(keys.background_tasks.workers.checking)}
             </span>
             <Button
               variant="outline"
               onClick={refresh}
-              disabled={loading}
+              disabled={polling}
               className="max-lg:min-h-11"
             >
-              <RefreshCw className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
+              <RefreshCw className={polling ? 'animate-spin' : undefined} aria-hidden="true" />
               {t(keys.background_tasks.workers.refresh)}
             </Button>
             <Button variant="outline" asChild className="max-lg:min-h-11">
-              <Link href={VIEW_BASE}>
+              <Link href={VIEW_INDEX}>
                 <ArrowLeft aria-hidden="true" />
                 {t(keys.background_tasks.workers.back_button)}
               </Link>
@@ -92,7 +100,9 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
           </>
         }
       >
-        {!snapshot.broker_reachable ? (
+        {snapshot === undefined ? (
+          <WorkersSkeleton label={t(keys.background_tasks.workers.checking_label)} />
+        ) : !snapshot.broker_reachable ? (
           <BrokerUnreachable error={snapshot.error} brokerUrl={brokerUrl} />
         ) : snapshot.workers.length === 0 ? (
           <NoWorkers queues={queues ?? []} />

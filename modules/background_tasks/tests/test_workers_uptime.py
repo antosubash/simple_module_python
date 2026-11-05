@@ -18,6 +18,7 @@ import pytest
 from background_tasks import worker_inspector as wi
 from background_tasks.contracts.schemas import WorkerInfo, WorkerSnapshot
 from background_tasks.worker_inspector import redact_broker_url
+from simple_module_test import InertiaPage
 
 VIEW_WORKERS = "/admin/background-tasks/workers"
 JSON_BASE = "/api/background_tasks/admin"
@@ -39,11 +40,12 @@ def _stats(**overrides) -> dict:
 
 
 async def _workers_props(client: httpx.AsyncClient) -> dict:
+    """The page's props once the deferred fleet snapshot has loaded too."""
     resp = await client.get(VIEW_WORKERS, headers=INERTIA_HEADERS)
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["component"] == "BackgroundTasks/Workers"
-    return body["props"]
+    page = InertiaPage.from_response(resp).assert_component("BackgroundTasks/Workers")
+    deferred = await page.load_deferred(client, "workers")
+    return {**page.props, **deferred.props}
 
 
 class TestUptimeSeconds:

@@ -264,7 +264,10 @@ by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 `app.state.principal_serializer` is set, and `i18n.messages` is null on every
 `X-Inertia` request when the tab reports a matching locale and audience
 via `X-SM-I18n`; clients without that header use the legacy session markers.
-Layout props are resolved lazily by page and error rendering; permissions stay eager. Inertia
+Layout props are resolved lazily by page and error rendering; permissions stay eager.
+Development responses carry `Server-Timing` (app time, SQL statement count);
+`docs/frontend/performance.md` covers fast pages and the
+`simple-module-page-perf` skill audits them. Inertia
 `router.post/patch/put/delete` must target view routes, never `/api/*`
 (`SM018`). `docs/frontend/`.
 

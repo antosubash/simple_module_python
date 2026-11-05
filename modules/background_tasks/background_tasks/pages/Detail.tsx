@@ -14,7 +14,7 @@ import { ProgressCard } from './components/ProgressCard';
 import { RetryConfirmDialog } from './components/RetryConfirmDialog';
 import { StatusPill } from './components/StatusPill';
 import { TracebackCard } from './components/TracebackCard';
-import { RETRYABLE_STATUSES, type TaskDetail, VIEW_BASE } from './constants';
+import { RETRYABLE_STATUSES, type TaskDetail, VIEW_BASE, VIEW_INDEX } from './constants';
 import { retryExecution } from './retry';
 
 interface Props {
@@ -50,7 +50,7 @@ function Detail({ execution, max_retries: maxRetries }: Props) {
         title={execution.task_name}
         titleClassName="font-mono text-[22px]"
         mono
-        back={VIEW_BASE}
+        back={VIEW_INDEX}
         // Both are hidden on phones: the strip below restates them at a size
         // the 390px frame can read, and the shell's header showed the same
         // pill and the same attempt count immediately above it.
@@ -70,7 +70,7 @@ function Detail({ execution, max_retries: maxRetries }: Props) {
                 chevron, and the retry lives at the foot of the page where a
                 thumb is. */}
             <Button variant="outline" size="sm" asChild className="max-lg:hidden">
-              <Link href={VIEW_BASE}>
+              <Link href={VIEW_INDEX}>
                 <ArrowLeft aria-hidden="true" />
                 {t(keys.background_tasks.detail.back_button)}
               </Link>
