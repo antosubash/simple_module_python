@@ -14,6 +14,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+- The release workflow passes dispatch inputs to its scripts through the
+  environment instead of templating them into shell source, and runs
+  read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub
+  Release).
+
 ### Added
 - `SM034` diagnostic (WARNING, `make doctor` and dev boot) for a
   `subscribe_durable(...)` call without `name=`: the default name is the import
