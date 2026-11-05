@@ -123,9 +123,6 @@ in `LEGACY_FLAT`; migration renames them with the module prefix.
 The root `pyproject.toml:137` lists `modules/<name>/tests` in `testpaths`, and
 `framework/cli/simple_module_cli/framework_repo.py` wires that root. Pytest
 recursively collects nested areas without listing each child directory.
-A scratch copy of the auth suite with a nested collection probe verified this:
-`uv run pytest --collect-only -q modules/layout_probe/tests` collected 233 tests,
-including the nested probe; the scratch copy was removed afterwards.
 JS tests stay in `tests-js/`, not in package `ui/`.
 
 ## Compatibility for move PRs

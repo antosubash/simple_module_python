@@ -57,9 +57,9 @@ This generates a publishable starter module at `modules/orders/` with:
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
 - `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages.
 - `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`, wiring `register_routes` and `register_settings`.
-- `orders/services.py` — module-scoped state container (stored on `app.state.orders` by `register_settings`).
-- `orders/settings.py` — the module's `pydantic_settings` settings class.
-- `orders/endpoints/api.py` — starter REST endpoints at `/api/orders`.
+- `orders/core/services.py` — module-scoped state container (stored on `app.state.orders` by `register_settings`).
+- `orders/core/settings.py` — the module's `pydantic_settings` settings class.
+- `orders/web/endpoints/api.py` — starter REST endpoints at `/api/orders`.
 - `orders/pages/` — empty page dir; add `.tsx` pages (and a `register_routes` view router) as you build views.
 - `tests/test_orders.py` — pytest smoke test. <!-- path-check: ignore --> Named after the package so a repo
   with several modules doesn't collide at collection: without `tests/__init__.py`,

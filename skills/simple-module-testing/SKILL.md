@@ -113,7 +113,7 @@ Each module ships its own `tests/` next to its package:
 modules/orders/
 ├── orders/                  # package
 └── tests/
-    ├── __init__.py
+    ├── conftest.py
     └── web/crud/test_orders_crud.py  # imports orders.web.service
 ```
 
