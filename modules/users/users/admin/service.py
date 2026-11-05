@@ -57,7 +57,7 @@ class UserService(_UserAdminSafety):
             is_verified=True,
             is_superuser=False,
         )
-        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
+        user = await self._manager.create(user_create, safe=False)
 
         roles = await self._resolve_roles(role_names)
         for role in roles:
@@ -159,7 +159,7 @@ class UserService(_UserAdminSafety):
             is_active=True,
             is_verified=False,
         )
-        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
+        user = await self._manager.create(user_create, safe=False)
         user.invited_at = datetime.now(UTC)
 
         # Assign roles

@@ -1,5 +1,6 @@
 """Admin summaries avoid repeated scans and forget only committed writes."""
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi_users.password import PasswordHelper
 from simple_module_core.invalidation import Invalidation
 from simple_module_db.transaction import finalize_session, rollback_session
 from sqlalchemy import delete, event, select, update
+from users.admin import summary_cache
 from users.admin.service import UserService
 from users.db_adapter import UserDatabaseWithRoles
 from users.manager import UserManager
@@ -183,3 +185,61 @@ async def test_role_options_do_not_hydrate_orm_rows(users_app):
         assert loaded == []
     finally:
         event.remove(Role, "load", record)
+
+
+def _record(app):
+    from users.admin.summary_cache import CHANNEL
+
+    messages = []
+    app.state.sm.invalidation.subscribe(CHANNEL, messages.append)
+    return messages
+
+
+async def test_uncounted_user_writes_publish_nothing(users_app):
+    """Logins, lockout counters and revocations must not chatter on the bus."""
+    messages = _record(users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        svc = service(db, users_app)
+        before = await svc.count_user_states()
+        user = (
+            await db.execute(select(User).where(User.email == "admin@example.com"))
+        ).scalar_one()
+        user.session_version = int(user.session_version or 0) + 1
+        user.hashed_password = "rotated"
+        user.last_login_at = datetime.now(UTC)
+        await db.flush()
+        await db.execute(
+            update(User).where(User.id == user.id).values(failed_login_count=3, session_version=99)
+        )
+        await finalize_session(db)
+        with patch.object(
+            summary_cache, "load_counts", side_effect=AssertionError("cache dropped")
+        ):
+            assert await svc.count_user_states() == before
+    assert messages == []
+
+
+async def test_one_publish_per_transaction(users_app):
+    messages = _record(users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        db.add(User(email="one@example.com", hashed_password="unused"))
+        await db.flush()
+        db.add(User(email="two@example.com", hashed_password="unused"))
+        await db.flush()
+        await db.execute(
+            update(User).where(User.email == "one@example.com").values(is_active=False)
+        )
+        await finalize_session(db)
+    assert len(messages) == 1
+
+
+async def test_savepoint_rollback_keeps_a_later_write_publishing(users_app):
+    messages = _record(users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        nested = await db.begin_nested()
+        db.add(User(email="undone@example.com", hashed_password="unused"))
+        await db.flush()
+        await nested.rollback()
+        db.add(User(email="kept@example.com", hashed_password="unused"))
+        await finalize_session(db)
+    assert len(messages) == 1

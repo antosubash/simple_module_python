@@ -45,8 +45,11 @@ All notable changes to this project are documented in this file. The format is b
   password updates offload hashing to worker threads, keeping unrelated async
   requests responsive during registration and bulk invites. Password policy,
   single-use reset tokens and atomic credential revocation are preserved.
-- Admin user state totals and role options use a 30-second cache, invalidated
-  after committed user, role and membership writes through the InvalidationBus.
+- Admin user state totals and role options use a 30-second cache. Committed
+  writes that change a counted state (user created, deleted, enabled, verified
+  or invited; role or membership changes) invalidate it and publish one
+  `users.admin_summary` message per transaction; logins, lockout counters and
+  password changes publish nothing.
   List DTOs skip redundant validation of trusted database values; role options
   select only the required columns, and managers share one password helper.
 
