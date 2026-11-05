@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid as uuid_mod
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID
 from sqlmodel import Field
@@ -13,6 +14,8 @@ from users.models._base import Base
 
 class RefreshToken(Base, table=True):  # ty: ignore[unsupported-base]
     """Opaque refresh token exchanged for a new access + refresh pair."""
+
+    __audit_redact_fields__: ClassVar[set[str]] = {"token"}
 
     __tablename__ = "users_refresh_token"
 

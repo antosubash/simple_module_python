@@ -1,6 +1,8 @@
 """Delegated permission writes cannot escalate access (#687)."""
 
+import json
 import uuid
+from base64 import b64decode
 from types import SimpleNamespace
 
 import httpx
@@ -12,6 +14,7 @@ from permissions.endpoints.api import router as api_router
 from permissions.endpoints.views import router as view_router
 from permissions.models import RolePermission, UserPermission
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.tenancy import TenantRole, tenant_role
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
 from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
@@ -182,3 +185,98 @@ async def test_cannot_edit_admin_role(writes):
         f"/api/permissions/roles/{admin.id}", json={"permissions": ["test.held"]}
     )
     assert response.status_code == 403
+
+
+def _tenant_actor(writes):
+    writes.registry.add_group("Files", ["file_storage.manage"])
+    writes.registry.map_role(tenant_role(TenantRole.OWNER), ["file_storage.manage"])
+    writes.actor.roles = [tenant_role(TenantRole.OWNER)]
+
+
+def _assert_write_response(response, prefix, allowed):
+    api = prefix.startswith("/api")
+    if api:
+        assert response.status_code == (200 if allowed else 403)
+    else:
+        assert response.status_code == 303
+    if not allowed and not api:
+        session = json.loads(b64decode(response.cookies["session"].split(".")[0]))
+        assert session["_errors"]["permissions"]
+
+
+@pytest.mark.parametrize("prefix", ["/api/permissions", "/admin/permissions"])
+@pytest.mark.parametrize("kind", ["roles", "users", "self"])
+@pytest.mark.parametrize(
+    "authority", ["tenant", "role", "direct", "claim", "admin", "scoped", "scoped_allowed"]
+)
+async def test_global_grants_require_platform_authority(writes, prefix, kind, authority):
+    _tenant_actor(writes)
+    allowed = authority not in {"tenant", "scoped"}
+    if authority in {"role", "scoped", "scoped_allowed"}:
+        writes.registry.map_role("platform_editor", ["file_storage.manage"])
+        writes.actor.roles.append("platform_editor")
+    if authority == "scoped":
+        writes.actor.scopes = ["permissions.manage"]
+    elif authority == "scoped_allowed":
+        writes.actor.scopes = ["permissions.manage", "file_storage.manage"]
+        writes.actor.required_permission = "api_tokens.use"
+        writes.registry.map_role(tenant_role(TenantRole.OWNER), ["api_tokens.use"])
+    elif authority == "direct":
+        writes.db.add(
+            UserPermission(user_id=uuid.UUID(writes.actor.id), permission_key="file_storage.manage")
+        )
+        await writes.db.flush()
+    elif authority == "claim":
+        writes.actor.permissions.append("file_storage.manage")
+    elif authority == "admin":
+        writes.actor.roles.append("admin")
+    target_id = {"roles": writes.role.id, "self": writes.actor.id, "users": writes.target.id}[kind]
+    route_kind = "roles" if kind == "roles" else "users"
+    response = await writes.client.put(
+        f"{prefix}/{route_kind}/{target_id}", json={"permissions": ["file_storage.manage"]}
+    )
+    _assert_write_response(response, prefix, allowed)
+    model = RolePermission if kind == "roles" else UserPermission
+    condition = (
+        model.role_name == "user" if kind == "roles" else model.user_id == uuid.UUID(str(target_id))
+    )
+    keys = (await writes.db.execute(select(model.permission_key).where(condition))).scalars().all()
+    # A self edit of an existing direct grant is allowed too.
+    assert keys == (["file_storage.manage"] if allowed else [])
+
+
+@pytest.mark.parametrize("prefix", ["/api/permissions", "/admin/permissions"])
+@pytest.mark.parametrize("kind", ["roles", "users"])
+@pytest.mark.parametrize("kept", [[], ["file_storage.manage"]])
+async def test_global_target_reach_uses_platform_authority(writes, prefix, kind, kept):
+    _tenant_actor(writes)
+    if kind == "roles":
+        writes.db.add(RolePermission(role_name="user", permission_key="file_storage.manage"))
+        target_id = writes.role.id
+    else:
+        writes.db.add(
+            UserPermission(
+                user_id=uuid.UUID(writes.target.id), permission_key="file_storage.manage"
+            )
+        )
+        target_id = writes.target.id
+    await writes.db.flush()
+    response = await writes.client.put(f"{prefix}/{kind}/{target_id}", json={"permissions": kept})
+    _assert_write_response(response, prefix, False)
+    model = RolePermission if kind == "roles" else UserPermission
+    keys = (await writes.db.execute(select(model.permission_key))).scalars().all()
+    assert keys == ["file_storage.manage"]
+
+
+@pytest.mark.parametrize("prefix", ["/api/permissions", "/admin/permissions"])
+@pytest.mark.parametrize("kind", ["roles", "users"])
+@pytest.mark.parametrize("keys", [[], ["test.held"]])
+async def test_tenant_manage_does_not_authorize_global_writes(writes, prefix, kind, keys):
+    writes.actor.permissions = ["test.held"]
+    writes.actor.roles = [tenant_role(TenantRole.ADMIN)]
+    writes.registry.map_role(tenant_role(TenantRole.ADMIN), ["permissions.manage"])
+    target_id = writes.role.id if kind == "roles" else writes.target.id
+    response = await writes.client.put(f"{prefix}/{kind}/{target_id}", json={"permissions": keys})
+    _assert_write_response(response, prefix, False)
+    model = RolePermission if kind == "roles" else UserPermission
+    assert (await writes.db.execute(select(model.permission_key))).scalars().all() == []

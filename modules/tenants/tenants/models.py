@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import ClassVar
 
 from simple_module_db import is_valid_tenant_id
 from simple_module_db.base import create_module_base
@@ -80,6 +81,8 @@ class Membership(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
 
 class Invitation(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """A pending invitation. Only the token's SHA-256 is stored."""
+
+    __audit_redact_fields__: ClassVar[set[str]] = {"token_hash"}
 
     __tablename__ = "tenants_invitation"
     __table_args__ = (

@@ -27,7 +27,7 @@ async def renewal(request, tmp_path):
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(LeaseRow.metadata.create_all)
 
-    tokens = import_module(f"{request.param}.tokens")
+    tokens = import_module(f"{request.param}.identity.tokens")
     keys = SessionKeys("user_ctx", f"{request.param}_refresh_token", "retry", "attempted")
     app = SimpleNamespace(
         state=SimpleNamespace(
