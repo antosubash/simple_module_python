@@ -20,7 +20,7 @@ from background_tasks.contracts.schemas import (
     TaskExecutionListResponse,
 )
 from background_tasks.filters import execution_filters
-from background_tasks.models import TaskExecution, dto_columns
+from background_tasks.models import TaskExecution, dto_columns, newest_first
 from background_tasks.retry_service import RetryCoordinator
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ class BackgroundTaskService:
             .options(dto_columns(TaskExecutionListItem))
             .where(*conditions)
             # The expression index preserves DESC NULLS LAST on both DBs.
-            .order_by(TaskExecution.queued_at.is_(None), TaskExecution.queued_at.desc())
+            .order_by(*newest_first(TaskExecution.queued_at))
             .offset((page - 1) * per_page)
             .limit(per_page)
         )
@@ -97,6 +97,11 @@ class BackgroundTaskService:
             queue=queue,
             tenant_id=tenant_id,
         )
+
+    async def has_any(self) -> bool:
+        """Whether any execution exists at all: an index-friendly probe, no COUNT."""
+        probe = select(TaskExecution.id).limit(1)
+        return (await self.db.execute(probe)).first() is not None
 
     async def status_counts(
         self,

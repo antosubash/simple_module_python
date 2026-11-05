@@ -42,8 +42,12 @@ def test_default_order_uses_index_without_sort():
 
 
 def test_order_index_migration_roundtrip():
-    revision = _script().get_revision("background_tasks@head")
-    assert revision.module.revision == REVISION
+    script = _script()
+    revision = script.get_revision(REVISION)
+    # Pin membership, not tip: later background_tasks revisions must not break this.
+    assert REVISION in {
+        r.revision for r in script.walk_revisions(base="base", head="background_tasks@head")
+    }
     engine = sa.create_engine("sqlite://")
     try:
         with engine.begin() as conn:

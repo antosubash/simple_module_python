@@ -36,6 +36,16 @@ from background_tasks.constants import (
 Base = create_module_base(MODULE_NAME)
 
 
+def newest_first(queued_at: Any) -> tuple[Any, Any]:
+    """Portable ``queued_at DESC NULLS LAST``, as the two expressions to ``ORDER BY``.
+
+    Postgres sorts NULL first under plain ``DESC`` and SQLite last, so the null
+    flag leads. The model's expression index is built from the same function,
+    so the planner can serve every newest-first read from it.
+    """
+    return queued_at.is_(None).self_group(), queued_at.desc()
+
+
 class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """Persistent record of a single Celery task execution.
 
@@ -128,8 +138,7 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
         # Portable DESC NULLS LAST: NULL timestamps sort after dated tasks.
         Index(
             "ix_background_tasks_task_execution_queued_order",
-            column("queued_at").is_(None).self_group(),
-            column("queued_at").desc(),
+            *newest_first(column("queued_at")),
         ),
         CheckConstraint(
             "(resource_type IS NULL) = (resource_id IS NULL)",

@@ -79,7 +79,7 @@ async def index(
     # from "nothing exists at all".
     has_executions = response.total > 0
     if not has_executions and not unfiltered_and_empty:
-        has_executions = (await service.list(page=1, per_page=1)).total > 0
+        has_executions = await service.has_any()
 
     async def strip_data() -> tuple[dict[str, int], list[str]]:
         """Everything above the table. Serial: one session, one connection."""
