@@ -1,4 +1,7 @@
-"""JSON snapshots for trusted static props, with byte-preserving page encoding."""
+"""Pre-serialized JSON for the shared i18n catalog (path props.i18n.messages).
+
+Exists only so the catalog can be spliced into page JSON without re-walking it.
+"""
 
 from __future__ import annotations
 
@@ -12,11 +15,11 @@ _RESPONSE_ENCODER = json.JSONEncoder(ensure_ascii=False, allow_nan=False, separa
 
 
 class JsonSnapshot(dict):
-    """Read-only-by-contract JSON data, encoded once for each response format.
+    """The shared i18n catalog (props.i18n.messages), encoded once per response format.
 
     Like registry snapshots, callers must never mutate this dict. Keeping the
     dict interface preserves shared-prop consumers outside Inertia rendering.
-    Only wrap trusted static data: dynamic props must go through resolution.
+    Only wrap the trusted static catalog: dynamic props must go through resolution.
     """
 
     def __init__(self, value: dict) -> None:

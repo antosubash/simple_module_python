@@ -13,18 +13,3 @@ Add genuinely repo-local fixtures here if the need arises; shared ones belong in
 """
 
 from __future__ import annotations
-
-import pytest
-
-
-@pytest.fixture(autouse=True)
-def _process_settings_caches():
-    """Tests mutate process wiring; each test represents a fresh process."""
-    from simple_module_core.settings_hydrate import env_supplied_fields
-    from simple_module_hosting._api_version import default_api_version
-
-    env_supplied_fields.cache_clear()
-    default_api_version.cache_clear()
-    yield
-    env_supplied_fields.cache_clear()
-    default_api_version.cache_clear()

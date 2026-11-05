@@ -116,8 +116,6 @@ def _is_plain_json(value: Any) -> bool:
     stack = [(value, 0)]
     while stack:
         item, depth = stack.pop()
-        if isinstance(item, JsonSnapshot):
-            continue
         kind = type(item)
         if kind is dict:
             if depth >= _MAX_PLAIN_DEPTH:
@@ -130,6 +128,8 @@ def _is_plain_json(value: Any) -> bool:
             if depth >= _MAX_PLAIN_DEPTH:
                 return False
             stack.extend((child, depth + 1) for child in item)
+        elif kind is JsonSnapshot:
+            continue
         elif kind not in JSON_SCALARS:
             return False
     return True

@@ -5,7 +5,13 @@ from datetime import UTC, datetime
 
 import pytest
 from jinja2.utils import htmlsafe_json_dumps
-from simple_module_inertia.page import build_page, encode_page
+from simple_module_inertia.json import (
+    _HTML_ENCODER,
+    _RESPONSE_ENCODER,
+    JsonSnapshot,
+    dumps,
+)
+from simple_module_inertia.page import _is_plain_json, build_page, encode_page
 from simple_module_inertia.request import InertiaRequest
 from simple_module_inertia.resolve import resolve_props
 from simple_module_inertia.response import json_response
@@ -24,14 +30,6 @@ async def _page(messages, headers=None, rich=False):
 
 @pytest.mark.parametrize("rich", [False, True])
 async def test_snapshot_skips_walks_and_preserves_json_bytes(rich, monkeypatch):
-    from simple_module_inertia.json import (
-        _HTML_ENCODER,
-        _RESPONSE_ENCODER,
-        JsonSnapshot,
-        dumps,
-    )
-    from simple_module_inertia.page import _is_plain_json
-
     messages = {"a": "é </script><!-- & ' \u2028", "b": '"\\ literal { }', "c": "plain"}
     snapshot = JsonSnapshot(messages)
 
@@ -69,8 +67,6 @@ async def test_snapshot_skips_walks_and_preserves_json_bytes(rich, monkeypatch):
     ],
 )
 async def test_snapshot_preserves_nested_partial_filters(selection, expected):
-    from simple_module_inertia.json import JsonSnapshot
-
     page = await _page(
         JsonSnapshot({"a": "A", "b": "B"}),
         {
@@ -83,8 +79,6 @@ async def test_snapshot_preserves_nested_partial_filters(selection, expected):
 
 
 async def test_snapshot_keeps_encoder_sanitization():
-    from simple_module_inertia.json import JsonSnapshot
-
     page = await _page(JsonSnapshot({"_sa_hidden": "secret", "visible": "ok"}))
     assert json_response(page).body == (
         b'{"component":"C","props":{"i18n":{"messages":{"visible":"ok"}},'
@@ -94,8 +88,6 @@ async def test_snapshot_keeps_encoder_sanitization():
 
 @pytest.mark.parametrize("compact", [False, True])
 def test_snapshot_serializer_matches_standard_json_for_surrounding_props(compact):
-    from simple_module_inertia.json import JsonSnapshot, dumps
-
     data = {
         "catalog": {"key": "é"},
         "other": [None, True, False, 1, -1.25, [], {}],
@@ -118,7 +110,6 @@ async def test_html_render_embeds_snapshot_with_standard_escaping(tmp_path):
     from fastapi.templating import Jinja2Templates
     from httpx import ASGITransport, AsyncClient
     from simple_module_inertia import Inertia, InertiaConfig
-    from simple_module_inertia.json import JsonSnapshot
     from starlette.requests import Request
 
     (tmp_path / "index.html").write_text("{{ inertia.data | safe }}")

@@ -20,6 +20,7 @@ from settings.settings import SettingsSettings
 from settings.store import SettingsStore
 from simple_module_core.events import EventBus
 from simple_module_core.module_settings import register_module_settings
+from simple_module_core.settings_hydrate import env_supplied_fields
 
 
 class _Cfg(BaseSettings):
@@ -85,6 +86,7 @@ def test_a_secrets_file_value_is_labelled_env(tmp_path):
 
 async def test_editor_put_answers_422_on_the_field(authenticated_client, monkeypatch):
     monkeypatch.setenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", "from-env")
+    env_supplied_fields.cache_clear()  # Env is read once per process: simulate a restart.
     resp = await authenticated_client.put(
         "/api/settings/modules/background_tasks", json={"task_default_queue": "from-db"}
     )
@@ -101,6 +103,7 @@ async def test_saving_a_broker_url_seeded_by_redis_url_is_refused(
     """``SM_REDIS_URL`` reaches the field through a default factory, not an env
     source, but it still wins, so the editor must not store a dead value."""
     monkeypatch.setenv("SM_REDIS_URL", "redis://cache:6379/2")
+    env_supplied_fields.cache_clear()  # Env is read once per process: simulate a restart.
     resp = await authenticated_client.put(
         "/api/settings/modules/background_tasks", json={"broker_url": "redis://db:6379/0"}
     )
@@ -114,6 +117,7 @@ async def test_an_env_set_field_echoed_unchanged_is_not_refused(
     """A client that PUTs the whole GET payload back resends env-set fields."""
     live = app.state.background_tasks.settings.task_default_queue
     monkeypatch.setenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", live)
+    env_supplied_fields.cache_clear()  # Env is read once per process: simulate a restart.
     resp = await authenticated_client.put(
         "/api/settings/modules/background_tasks",
         json={"task_default_queue": live, "retention_days": 9},

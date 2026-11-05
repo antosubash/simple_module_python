@@ -17,7 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 
 - Cache env-supplied settings fields per class and default API version discovery per process; changes to environment, dotenv, or secret sources require a restart.
-- Pre-serialize shared Inertia i18n catalogs per locale, audience, and catalog load, preserving page JSON bytes and HTML escaping. These hot paths were identified by the 2026-11-05 Locust and py-spy run.
+- Pre-serialize shared Inertia i18n catalogs per locale, audience, and catalog load, preserving page JSON bytes and HTML escaping.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
 - `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.
