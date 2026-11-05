@@ -7,13 +7,16 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.deps import get_db
+from simple_module_hosting.csrf import get_csrf_token
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
+from users.auth_local.browser_guard import require_browser_origin
 from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
+from users.browser_sessions import revoke_browser_session
 from users.contracts.schemas import UserRead
 from users.demo import resolve_demo_accounts
 from users.invites.preview import preview_invite
@@ -74,6 +77,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     return await inertia.render(
         _PAGE_LOGIN,
         {
+            "csrfToken": get_csrf_token(request),
             "allow_signup": users_settings.allow_signup,
             # One entry per configured demo account, in button order. Carries
             # no passwords: each button posts to /api/users/auth/demo/{role}
@@ -119,10 +123,11 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     )
 
 
-@router.post("/logout", response_model=None)
+@router.post("/logout", response_model=None, dependencies=[Depends(require_browser_origin)])
 async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     """POST-only to resist cross-site `<img>` logout attacks — the menu's
     logout link submits this as an Inertia form."""
+    await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
     await revoke_access_token(db, request.cookies.get(cookie_name))
@@ -141,7 +146,11 @@ async def register_page(request: Request, inertia: InertiaDep) -> InertiaRespons
     # Drives the "verify your email" bullet and the success screen, so the
     # page never promises an email that ``on_after_register`` won't send.
     return await inertia.render(
-        _PAGE_REGISTER, {"require_verification": users_settings.require_verification}
+        _PAGE_REGISTER,
+        {
+            "csrfToken": get_csrf_token(request),
+            "require_verification": users_settings.require_verification,
+        },
     )
 
 
@@ -151,6 +160,7 @@ async def forgot_password_page(request: Request, inertia: InertiaDep) -> Inertia
     return await inertia.render(
         _PAGE_FORGOT_PASSWORD,
         {
+            "csrfToken": get_csrf_token(request),
             "reset_link_lifetime_minutes": (
                 users_settings.reset_password_token_lifetime_seconds // _SECONDS_PER_MINUTE
             ),
@@ -177,6 +187,7 @@ async def reset_password_page(
     return await inertia.render(
         _PAGE_RESET_PASSWORD,
         {
+            "csrfToken": get_csrf_token(request),
             "token": token,
             # The address the reset is for — "Save and sign in" needs it to
             # complete the sign-in without asking for it again.
@@ -202,6 +213,7 @@ async def verify_page(request: Request, inertia: InertiaDep, token: str = "") ->
     return await inertia.render(
         _PAGE_VERIFY_EMAIL,
         {
+            "csrfToken": get_csrf_token(request),
             "token": token,
             "email": claims.get("email") if claims else None,
             "verification_lifetime_days": (
@@ -213,6 +225,7 @@ async def verify_page(request: Request, inertia: InertiaDep, token: str = "") ->
 
 @router.get("/invite/accept", response_model=None)
 async def accept_invite_page(
+    request: Request,
     inertia: InertiaDep,
     user_manager: UserManager = Depends(get_user_manager),
     token: str = "",
@@ -222,6 +235,7 @@ async def accept_invite_page(
     return await inertia.render(
         _PAGE_ACCEPT_INVITE,
         {
+            "csrfToken": get_csrf_token(request),
             "token": token,
             "invite": invite,
         },

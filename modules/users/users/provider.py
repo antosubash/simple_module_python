@@ -12,6 +12,7 @@ import uuid as uuid_mod
 from collections.abc import Mapping
 from typing import Any
 
+from auth.constants import SESSION_ID_KEY
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import is_api_token, parse_bearer
 from simple_module_hosting.session import (
@@ -59,6 +60,7 @@ def _stamped_version(session) -> int:
 
 def _forget(session) -> None:
     """Drop everything this session claimed about who is signed in."""
+    session.pop(SESSION_ID_KEY, None)
     session.pop(SESSION_USER_ID_KEY, None)
     session.pop(_SESSION_USER_CTX_KEY, None)
     session.pop(SESSION_VERSION_KEY, None)
@@ -129,20 +131,15 @@ class UsersAuthProvider:
             _forget(session)
             return None
 
-        cached = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
-        if cached is not None and cached.id == user_id_str:
-            # The cached context lives in the client's own signed cookie, so
-            # the server cannot reach in and delete it. One indexed
-            # primary-key read is what makes "Sign out everywhere" actually
-            # sign out a browser this process has never seen — the alternative
-            # is a button that only logs out the person pressing it.
-            if await self._version_still_current(request.scope, user_uuid, session):
-                # Cookies minted before #381 still cache the retired user-row
-                # tenant; the active tenant now comes from memberships alone.
-                cached.tenant_id = None
-                return cached
+        if not await self._version_still_current(request.scope, user_uuid, session):
             _forget(session)
             return None
+
+        cached = UserContext.from_session_dict(session.get(_SESSION_USER_CTX_KEY))
+        if cached is not None and cached.id == user_id_str:
+            # The active tenant comes from memberships, never the cached row.
+            cached.tenant_id = None
+            return cached
 
         user_ctx = await self._load_user(request.scope, user_uuid, session)
         if user_ctx is None:
@@ -194,19 +191,25 @@ class UsersAuthProvider:
         knowing about before shortening the TTL to 0, which removes the shield
         entirely.
         """
-        hit, cached = read_session_version(user_id)
+        hit, cached = read_session_version(user_id, session.get(SESSION_ID_KEY))
         if hit:
             return cached is not None and int(cached) == _stamped_version(session)
         try:
             from sqlalchemy import select
 
-            from users.models import User
+            from users.models import RevokedSession, User
 
             session_factory = scope["app"].state.sm.db.session_factory
             async with session_factory() as db_session:
-                stored = (
-                    await db_session.execute(select(User.session_version).where(User.id == user_id))
-                ).scalar_one_or_none()
+                rows = (
+                    await db_session.execute(
+                        select(User.session_version, RevokedSession.session_id)
+                        .outerjoin(RevokedSession, col(RevokedSession.user_id) == User.id)
+                        .where(User.id == user_id)
+                    )
+                ).all()
+                stored = rows[0][0] if rows else None
+                revoked = frozenset(row[1] for row in rows if row[1] is not None)
         except Exception:
             # A database that cannot be reached is not evidence of a
             # revocation. Refusing here would log every signed-in user out of
@@ -214,10 +217,12 @@ class UsersAuthProvider:
             # request should retry rather than inherit the outage.
             logger.exception("Session version check failed for %s; keeping the session", user_id)
             return True
-        store_session_version(user_id, stored)
+        store_session_version(user_id, stored, revoked)
         if stored is None:
             return False
-        return int(stored) == _stamped_version(session)
+        return (
+            int(stored) == _stamped_version(session) and session.get(SESSION_ID_KEY) not in revoked
+        )
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/users/login"

@@ -14,6 +14,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+- **Behaviour change:** local browser auth mutations now validate their source
+  and session-bound CSRF token, extending the shared token support (#504).
+  Native API clients without browser headers retain their existing workflow.
+- **Behaviour change:** local logout retires only the current browser session,
+  using the existing account-cache invalidation channel (#318). Migration
+  `e805a1b2c3d4` adds expiring session retirement records. Sessions issued before
+  the upgrade remain compatible until expiry or next sign-in.
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

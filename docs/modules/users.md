@@ -33,7 +33,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 | Method + path | Body | Notes |
 |---|---|---|
 | `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; `400 LOGIN_BAD_CREDENTIALS`; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
-| `POST /api/users/auth/logout` | — | clears the `sm_auth` cookie and the session |
+| `POST /api/users/auth/logout` | — | retires this browser session, clears the `sm_auth` cookie and the session |
 | `POST /api/users/auth/register` | `UserCreate` | gated by `users.allow_signup`; rate-limited |
 | `POST /api/users/auth/forgot-password` | `PasswordReset` | rate-limited |
 | `POST /api/users/auth/reset-password` | `{token, password}` | |
@@ -77,7 +77,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 Public:
 
 - `GET /users/login` → `Users/Login` (shows dev-account buttons in dev)
-- `POST /users/logout` → 303 redirect, clears cookie
+- `POST /users/logout` → 303 redirect, retires this browser session and clears cookies
 - `GET /users/register` → `Users/Register` (404 if signup disabled)
 - `GET /users/forgot-password` → `Users/ForgotPassword`
 - `GET /users/reset-password` → `Users/ResetPassword`
@@ -546,6 +546,58 @@ In the admin UI, the user list and edit page show an **"External · SSO"** badge
 `/users/login`, `/users/register`, `/users/forgot-password`, `/users/reset-password`, `/users/verify`, `/users/invite/accept`, `/api/users/auth/`, `/api/users/register`.
 
 Anything else without a session redirects to `/users/login` (or returns 401 JSON for `/api/*` / bearer requests).
+
+## Browser auth requests and logout
+
+**Behaviour change:** anonymous auth pages issue a session-bound `csrfToken` prop.
+Browser mutations under `/api/users/auth/` (password sign-in, demo sign-in,
+registration, forgot/reset password, verification, invite acceptance, bearer token
+operations and API logout) must echo it as `X-CSRF-Token`. The shared typed API
+client already does this, including sign-in after a password reset. Read the prop
+from `GET /users/login` through Inertia when building another browser client;
+retain its session cookie. Signing in rotates the token: read the next page's
+prop before another mutation. Missing or mismatched tokens return 403.
+
+Requests with `Origin`, `Referer` or `Sec-Fetch-Site` are treated as browser
+requests. Foreign origins and `Sec-Fetch-Site: cross-site` are refused even with
+a token; same-site sibling origins still need a token. Origin comparison uses
+the request's effective scheme, host and port, so deployments behind a proxy
+must configure the framework's trusted proxy handling correctly. The Inertia
+`POST /users/logout` uses the origin check without requiring a token header,
+so the existing menu submission continues to work.
+
+Native JSON/form API clients without browser headers continue to work without
+first fetching an HTML page. If they explicitly send `X-CSRF-Token`, it is
+validated against their session too. This compatibility exception is why the
+browser guard combines source validation with the framework's `RequiresCsrf`
+primitive rather than requiring a token unconditionally. Browser clients must
+keep these auth pages private and uncached.
+
+The users OAuth, OIDC and Keycloak GET login starters only establish a login
+transaction and redirect to the identity provider. Their callbacks validate the
+session-bound state before signing in; OIDC and Keycloak additionally validate
+nonce and use PKCE. These redirects continue to accept external navigation.
+
+**Behaviour change:** both logout routes retire this browser's session ID
+server-side and revoke its `sm_auth` access-token row, then clear the cookies.
+Other devices stay signed in. Password, invite, demo and users OAuth sign-ins
+mint a fresh ID through the shared users sign-in hook. Migration
+`e805a1b2c3d4` adds `users_revoked_session`, indexed by account and expiry;
+logout lazily removes expired records. Records remain until the session's
+original absolute deadline, including the remembered window.
+
+Retired IDs share the account's session-version cache entry and
+`session_version_cache_ttl_seconds` (default 30 seconds). Logout publishes on the
+existing `users.session_version` invalidation channel **after commit**. A Redis
+invalidation transport propagates eviction to other workers; without one, or
+if a message is lost, their TTL bounds the delay. Warm requests add no database
+query. The existing availability policy still applies: a cache miss during a
+database outage preserves an already-cached principal until a successful read.
+
+Sessions issued before this upgrade have no ID. They continue to work until
+expiry or next sign-in; logout clears their browser cookies but cannot retire
+another copy individually. Password changes and “Sign out everywhere” still
+retire all sessions through the account version counter.
 
 ## Roles cache
 

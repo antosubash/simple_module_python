@@ -23,6 +23,7 @@ from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_ex
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.auth_local.browser_guard import require_browser_csrf
 from users.auth_local.lockout import (
     admit,
     login_attempt,
@@ -33,6 +34,7 @@ from users.auth_local.lockout import (
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
 from users.backend import cookie_login_response
+from users.browser_sessions import revoke_browser_session
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
@@ -92,7 +94,7 @@ async def _remembered_login_response(request: Request, user, access_token_db) ->
     )
 
 
-@router.post("/auth/login", status_code=204)
+@router.post("/auth/login", status_code=204, dependencies=[Depends(require_browser_csrf)])
 async def login(
     request: Request,
     response: Response,
@@ -166,9 +168,10 @@ async def login(
 # sits outside the lockout above (GH #530), and nothing called its logout.
 
 
-@router.post("/auth/logout", status_code=204)
+@router.post("/auth/logout", status_code=204, dependencies=[Depends(require_browser_csrf)])
 async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
     """API logout — revokes the access token, clears its cookie and the session."""
+    await revoke_browser_session(request, db)
     request.session.clear()
     cookie_name = request.app.state.users.settings.cookie_name
     await revoke_access_token(db, request.cookies.get(cookie_name))
@@ -183,7 +186,7 @@ async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post(
     "/auth/accept-invite",
     status_code=204,
-    dependencies=[Depends(enforce_auth_throughput_limit)],
+    dependencies=[Depends(require_browser_csrf), Depends(enforce_auth_throughput_limit)],
 )
 async def accept_invite(
     body: AcceptInviteRequest,
