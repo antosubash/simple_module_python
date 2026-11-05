@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Hosting gates validate their path prefixes once at import via `simple_module_hosting.path_matching.validated_prefixes`; `matches_path` no longer re-checks the trailing slash on every request. Build prefix tuples with `validated_prefixes(...)`. Security headers moved to a private module (import path unchanged) and static headers are applied in one batch.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
 - `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.

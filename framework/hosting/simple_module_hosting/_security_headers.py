@@ -124,10 +124,11 @@ class SecurityHeadersMiddleware:
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == _MSG_RESPONSE_START:
-                raw = message.setdefault("headers", [])
-                raw[:] = [header for header in raw if header[0] not in self._static_names]
+                # Build a fresh list: the app's own list (or tuple) is never mutated.
+                raw = [h for h in message.get("headers", ()) if h[0] not in self._static_names]
                 raw.extend(self._static_headers)
-                headers = MutableHeaders(scope=message)
+                message["headers"] = raw
+                headers = MutableHeaders(raw=raw)
                 # A 304 refreshes the cached response's headers: a new nonce there
                 # would no longer match the cached body, so keep the cached CSP.
                 if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:
