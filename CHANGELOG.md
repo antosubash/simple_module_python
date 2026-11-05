@@ -14,6 +14,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
+
+### Fixed
+
+- Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

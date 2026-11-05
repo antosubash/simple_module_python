@@ -98,3 +98,14 @@ short-lived OIDC token scoped to this repo + workflow + environment.
 The `Meta.requires_framework` field declares which `simple_module_core`
 versions this module supports. Update the spec on each framework major
 bump after verifying compatibility.
+
+## Source layout
+
+`core/` holds constants, DB-backed settings and the app-state container.
+`web/` holds dependencies, the CRUD service and `endpoints/{api,views}.py`.
+Keep models, contracts, pages and locales at the package root; reusable
+frontend code belongs in `ui/{components,hooks,utils}/` when needed.
+Area initializers contain only a docstring. Python tests mirror
+`tests/<area>/<feature>/`, have no `__init__.py`, and use unique
+`test_{{PACKAGE_NAME}}_*.py` basenames. Shared fixtures go in `tests/conftest.py`;
+JS tests belong in `tests-js/`.

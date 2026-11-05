@@ -25,7 +25,7 @@ make migrate
 
 `make new-module` (→ `scripts/new_module.py`) is the in-repo path. It calls the
 same `create_module` as `smpy create-module`, so both produce the same tree
-below (permissions, menu item with `label_key`, `constants.py`, CRUD sample,
+below (permissions, menu item with `label_key`, `core/constants.py`, CRUD sample,
 `locales/en.json`); the in-repo variant adds workspace-sourced `pyproject.toml`
 metadata, `LICENSE`, and i18n-keyed pages. For a **standalone publishable
 package** (its own repo, with CI + PyPI `publish.yml`), use
@@ -35,26 +35,25 @@ host.
 
 ## What scaffolding produces
 
-```
+```text
 modules/orders/
-├── pyproject.toml          # entry point declared here
-├── package.json            # per-module JS deps
-├── tsconfig.json
-├── tests/test_orders.py
-└── orders/
-    ├── module.py           # OrdersModule(ModuleBase) with ModuleMeta
-    ├── constants.py        # PERM_*, PAGE_*, MENU_* — no magic strings elsewhere
-    ├── models.py           # Base = create_module_base("orders")
-    ├── contracts/schemas.py # SQLModel DTOs — public surface
-    ├── service.py          # business logic
-    ├── services.py         # app.state.orders state container (settings)
-    ├── settings.py         # DbBackedSettings subclass (DB-backed, no env)
-    ├── deps.py             # FastAPI dependencies
-    ├── endpoints/{api,views}.py
-    ├── pages/{Browse,Create,Edit}.tsx  # *.tsx, auto-discovered by Vite
-    ├── pages/api.ts        # typed /api client: createApi<paths>()
-    ├── pages/api.generated.ts  # from `smpy openapi gen-types`; never edit
-    └── locales/en.json
+├── pyproject.toml, package.json, tsconfig.json
+├── orders/
+│   ├── __init__.py, py.typed, module.py
+│   ├── models.py                 # or models/; discovered by name
+│   ├── contracts/                # public SQLModel DTOs and extension contracts
+│   ├── core/                     # constants.py, settings.py, services.py, errors.py
+│   ├── web/                      # deps.py, service.py (or services/), private schemas
+│   │   └── endpoints/            # api.py, views.py
+│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── locales/                  # <lang>.json
+│   ├── ui/                       # components/, hooks/, utils/ (when needed)
+│   └── tasks.py, theme.css, styles.css  # optional root lookup files
+└── tests/
+    ├── conftest.py                # module-wide fixtures
+    ├── core/module/test_orders_module.py
+    ├── core/contracts/test_orders_schemas.py
+    └── web/crud/test_orders_crud.py
 ```
 
 `make new-module` also edits `host/pyproject.toml` (adds the workspace dep), the
@@ -62,6 +61,12 @@ root `pyproject.toml` (type-check + test paths) and the `publish-pypi` matrix in
 `release.yml`, so the module is picked up by the host and by `make lint`/`make
 test` without further wiring. Commit the `uv.lock`, `package-lock.json` and
 regenerated i18n key files it leaves behind.
+
+New modules use this area layout; existing modules migrate one at a time.
+Area initializers hold only a docstring. Private helpers stay in their area.
+Tests have no `__init__.py`, keep `conftest.py` at their root and use globally
+unique `test_orders_*.py` basenames; JS tests stay in `tests-js/`.
+See [Module layout](../../docs/module-layout.md) for the lookup consumers and shim policy.
 
 ## The contract: pyproject.toml + module.py
 
@@ -130,7 +135,7 @@ The new module should appear in the registered-modules log line. If it has a vie
 - **Registered the module by hand in host code.** Don't — discovery is entry-point-only; host code never imports module code.
 
 Services raise domain exceptions derived from a per-module base in
-`exceptions.py` or `errors.py`, never `HTTPException`. Map them in endpoints or
+`core/errors.py`, never `HTTPException`. Map them in endpoints or
 `register_exception_handlers(app)` (as in `file_storage`); translate at the
 request boundary. Preserve existing status codes, JSON bodies and headers.
 Endpoint-level `HTTPException` for pure request validation remains fine.

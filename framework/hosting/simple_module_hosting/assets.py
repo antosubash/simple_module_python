@@ -50,6 +50,7 @@ STYLES_CSS = "styles.css"
 PACKAGE_JSON = "package.json"
 PAGES_DIR = "pages"
 COMPONENTS_DIR = "components"
+UI_DIR = "ui"
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,7 @@ class ModuleAssets:
     styles_css: Path | None
     npm_name: str | None = None
     components_dir: Path | None = None
+    ui_dir: Path | None = None
 
 
 def find_npm_name(pkg_root: Path) -> str | None:
@@ -120,6 +122,7 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             continue
         pages_dir = pkg_root / PAGES_DIR
         components_dir = pkg_root / COMPONENTS_DIR
+        ui_dir = pkg_root / UI_DIR
         theme = pkg_root / THEME_CSS
         styles = pkg_root / STYLES_CSS
         entry = ModuleAssets(
@@ -131,8 +134,11 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             styles_css=styles.resolve() if styles.is_file() else None,
             npm_name=find_npm_name(pkg_root),
             components_dir=components_dir.resolve() if components_dir.is_dir() else None,
+            ui_dir=ui_dir.resolve() if ui_dir.is_dir() else None,
         )
-        if entry.pages_dir or entry.theme_css or entry.styles_css or entry.components_dir:
+        if any(
+            (entry.pages_dir, entry.theme_css, entry.styles_css, entry.components_dir, entry.ui_dir)
+        ):
             result.append(entry)
     return result
 
@@ -206,7 +212,7 @@ def render_modules_css(
     ``@import`` is emitted for *every* module, in-repo and wheel alike, because
     there is no static-glob equivalent for CSS.
 
-    Both ``pages/`` and ``components/`` are scanned. A wheel module's widgets
+    ``pages/``, ``ui/`` and legacy ``components/`` are scanned. A wheel module's widgets
     live under ``components/``, and leaving them out meant every host had to
     hand-write a ``@source`` pointing into ``.venv`` — which cannot be written
     portably: POSIX venvs nest under ``lib/python3.x/site-packages`` while
@@ -225,7 +231,7 @@ def render_modules_css(
     source_lines = [
         f'@source "{s.as_posix()}/**/*.{{ts,tsx}}";'
         for e in assets
-        for d in (e.pages_dir, e.components_dir)
+        for d in (e.pages_dir, e.components_dir, e.ui_dir)
         if d and not in_repo(d)
         for s in _source_dirs(d)
     ]
@@ -270,6 +276,7 @@ def render_assets_json(assets: Sequence[ModuleAssets]) -> str:
             "package": e.package_dir.as_posix(),
             "pages": e.pages_dir.as_posix() if e.pages_dir else None,
             "components": e.components_dir.as_posix() if e.components_dir else None,
+            "ui": e.ui_dir.as_posix() if e.ui_dir else None,
             "theme": e.theme_css.as_posix() if e.theme_css else None,
             "styles": e.styles_css.as_posix() if e.styles_css else None,
             "npm_name": e.npm_name,

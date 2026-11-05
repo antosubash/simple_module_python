@@ -135,28 +135,25 @@ The Python package name (`feature_flags`) keys the i18n namespace,
 `app.state.<package>` and table prefixes. Don't swap them: `keys.<ns>` breaks if
 the namespace is the meta name.
 
-**Module layout** (`make new-module` scaffolds the files below except
-`tasks.py` and the CSS, plus `pyproject.toml`, `README.md`, `LICENSE`,
-`package.json`, `tsconfig.json`, `tests/`):
+**Module layout.** New modules use the area layout below; existing modules
+migrate one by one. See [Module layout](docs/module-layout.md) for root lookup consumers,
+tests, compatibility shims and the migration checklist.
 
-```
+```text
 modules/<name>/<name>/
-├── module.py          # ModuleBase subclass, meta = ModuleMeta(...)
-├── constants.py       # PERM_*, PAGE_*, MENU_*, ROLE_*, _MODULE_* — see § Conventions (scaffolded)
-├── models.py          # SQLModel tables (table=True)
-├── contracts/         # SQLModel DTOs — the public surface; add a Protocol only for real extension points
-├── settings.py        # DbBackedSettings subclass
-├── services.py        # app.state.<name> container built in register_settings
-├── service.py         # business logic
-├── deps.py            # FastAPI dependencies
-├── endpoints/api.py   # REST (JSON) under /api/<name>
-├── endpoints/views.py # Inertia view endpoints under view_prefix
-├── pages/*.tsx        # Inertia pages; lowercase-leading subdirs (components/) are helpers, not pages
-├── tasks.py           # optional Celery tasks (see § Conventions)
-├── theme.css          # optional @theme tokens, imported UNLAYERED
-├── styles.css         # optional component rules, imported into layer(components)
-└── locales/<lang>.json
+├── module.py, models.py, contracts/  # entry point, tables, public imports
+├── core/                            # constants.py, settings.py, services.py, errors.py
+├── web/                             # deps.py, service.py, endpoints/{api,views}.py
+├── pages/, locales/                 # lookup paths stay at the root
+├── ui/                              # components/, hooks/, utils/ (when needed)
+└── tasks.py, theme.css, styles.css   # optional lookup files
 ```
+
+Area `__init__.py` files hold only a docstring. Private helpers stay in their
+area with a leading underscore. Tests mirror `tests/<area>/<feature>/`, with
+no `__init__.py`, unique `test_<name>_*.py` basenames, and `conftest.py` at
+`tests/` root. JS tests stay in `tests-js/`. The scaffold includes packaging,
+`py.typed`, CRUD pages and nested tests; tasks and CSS are optional.
 
 `gen-pages` writes `modules.generated.css` with an `@import` per CSS file that
 exists. A `@theme` inside a cascade layer is inert and an unlayered rule beats
@@ -351,7 +348,8 @@ development and testing (`session_cookie_secure`).
 - **No magic strings in non-test Python** (`scripts/check_hardcoded_strings.py`):
   `RequiresPermission(...)`, `registry.map_role(...)`, `registry.add_group(...)`
   items, `inertia.render(...)` keys and `depends_on=[...]` entries must be
-  constants from `constants.py` (`PERM_*`, role names, `_PAGE_*`, `_MODULE_*`).
+  constants from `core/constants.py` (legacy modules: `constants.py`):
+  `PERM_*`, role names, `_PAGE_*`, `_MODULE_*`.
 - **300-line cap** on `.py`/`.ts`/`.tsx`, tests included, untracked files
   included (`scripts/check_file_size.py`). Exempt: shadcn components under
   `packages/ui/src/components/ui/**`, generated i18n files,
@@ -422,8 +420,8 @@ development and testing (`session_cookie_secure`).
   `docs/framework/i18n.md`.
 - **JS tests** go in `modules/<m>/tests-js/*.test.ts(x)`, `packages/**` or
   `host/client_app/**`; Vitest collects nothing else. Biome (single quotes,
-  2 spaces, width 100) lints `host/client_app`, `packages`, module `pages/` and
-  `components/` dirs; `tsc` runs per workspace, and a module with `.tsx` but no
+  2 spaces, width 100) lints `host/client_app`, `packages`, module `pages/`, `ui/` and
+  legacy `components/` dirs; `tsc` runs per workspace, and a module with `.tsx` but no
   `tsconfig.json` fails `make ci-js-typecheck`.
 - **`ty` rules.** SQLModel false positives (`unresolved-attribute`,
   `unsupported-operator`, `unknown-argument`, `no-matching-overload`) are
@@ -448,7 +446,7 @@ once. The `framework_repo` variant is a template overlay
 
 It generates a CRUD sample (model, DTOs, service, REST + Inertia endpoints,
 Browse/Create/Edit pages, `locales/en.json`, tests) whose permissions, page keys
-and menu item come from `constants.py` (`label_key` set, routes guarded), so a
+and menu item come from `core/constants.py` (`label_key` set, routes guarded), so a
 fresh module passes `make lint`. Then
 `simple_module_cli.framework_repo.wire_module` adds it to `host/pyproject.toml`,
 the root `testpaths`/`extra-paths` and the `publish-pypi` matrix in

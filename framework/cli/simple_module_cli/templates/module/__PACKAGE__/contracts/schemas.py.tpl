@@ -7,7 +7,7 @@ from datetime import datetime
 from pydantic import ConfigDict, field_validator
 from sqlmodel import Field, SQLModel
 
-from {{PACKAGE_NAME}}.constants import DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH
+from {{PACKAGE_NAME}}.core.constants import DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH
 
 
 class {{SINGULAR_CLASS}}Out(SQLModel):
