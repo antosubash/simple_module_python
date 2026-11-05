@@ -67,6 +67,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Breaking:** tenant member lists now use server pagination (`page` / `per_page`, default 25, maximum 200). The current-members API returns `{items, total, page, per_page, pages}` instead of an array; the Members page provides navigation and retains its page after mutations. `TenantService.list_members(tenant_id, params)` now takes `PageParams` and returns `Page[Membership]` instead of a list.
 - Cache env-supplied settings fields per class and default API version discovery per process; changes to environment, dotenv, or secret sources require a restart.
 - Pre-serialize shared Inertia i18n catalogs per locale, audience, and catalog load, preserving page JSON bytes and HTML escaping.
 - Reduce background task polling and list reads to their required columns; count task history separately from paginated reads and index newest-first, nulls-last ordering (migration `c5d8e2f1a903`, 2026-11-05 performance review).
@@ -85,6 +86,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Coalesce concurrent tenant membership and permission grant cache misses. In-flight invalidation retries against fresh authorization data; failures and cancellation release waiting readers. Cache unknown tenant subdomains for five seconds and drop the new slug's host lookups (on a new `tenants.hosts` invalidation channel, so no user id is read as a slug) and the owner's memberships after committed tenant creation; other users' caches are not cleared. Services built outside request dependencies pass `invalidate_hosts=make_host_invalidator(app)` beside `invalidate=make_invalidator(app)`. Retries after concurrent invalidation are bounded to three reads (2026-11-05 local performance review).
 - Offload S3 server-upload spool I/O, wait for in-flight I/O during cancellation, and reuse one client per multipart upload. Index the default tenant file browse order (migration `f6c2d4e8b109`; local performance review, 2026-11-05).
 - Users password creation, forgot-password fingerprints, reset verification and
   password updates offload hashing to worker threads, keeping unrelated async

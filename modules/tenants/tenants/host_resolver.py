@@ -20,21 +20,68 @@ session's tenant: the host named a tenant, and it is not that one.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from cachetools import TTLCache
 from fastapi import FastAPI
-from simple_module_core.app_state import get_public_routes
+from simple_module_core.app_state import get_public_routes, get_services
+from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.singleflight import MISS, Miss, fill
 from sqlalchemy import select
 from starlette.requests import Request
 
-from tenants.constants import TenantStatus
+from tenants.constants import HOSTS_INVALIDATION_CHANNEL, TenantStatus
 from tenants.models import Tenant
 
 HOST_TTL_SECONDS = 60
+NEGATIVE_HOST_TTL_SECONDS = 5
+_MISSING_SLUGS: TTLCache[str, bool] = TTLCache(maxsize=10_000, ttl=NEGATIVE_HOST_TTL_SECONDS)
 _BY_SLUG: TTLCache[str, tuple[str, str]] = TTLCache(maxsize=10_000, ttl=HOST_TTL_SECONDS)
+# Bumped on every forget: a lookup that started earlier must not cache its stale row.
+_epoch = 0
 
 
 def forget_hosts() -> None:
+    global _epoch
+    _epoch += 1
     _BY_SLUG.clear()
+    _MISSING_SLUGS.clear()
+
+
+def forget_slug(slug: str) -> None:
+    global _epoch
+    _epoch += 1
+    _BY_SLUG.pop(slug, None)
+    _MISSING_SLUGS.pop(slug, None)
+
+
+def forget_host(slug: str | None) -> None:
+    """Drop one slug's lookups, or every slug's on ``None``."""
+    if slug is None:
+        forget_hosts()
+    else:
+        forget_slug(slug)
+
+
+def _apply_invalidation(inv: Invalidation) -> None:
+    forget_host(inv.key)
+
+
+def subscribe_hosts(bus: InvalidationBus) -> None:
+    """Drop host lookups on ``HOSTS_INVALIDATION_CHANNEL`` (key: a slug, or ``None``)."""
+    bus.subscribe(HOSTS_INVALIDATION_CHANNEL, _apply_invalidation)
+
+
+def make_host_invalidator(app: FastAPI):
+    """``TenantService(invalidate_hosts=...)``: forget here now, then tell the other workers."""
+
+    async def invalidate(slug: str | None) -> None:
+        forget_host(slug)
+        bus = getattr(get_services(app), "invalidation", None)
+        if bus is not None:
+            await bus.publish(HOSTS_INVALIDATION_CHANNEL, key=slug)
+
+    return invalidate
 
 
 def subdomains_enabled(request: Request) -> bool:
@@ -52,19 +99,31 @@ def subdomain_slug(request: Request) -> str | None:
 
 
 async def tenant_for_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
-    """``(tenant_id, status)`` for a slug, cached briefly."""
-    hit = _BY_SLUG.get(slug)
-    if hit is not None:
-        return hit
+    """``(tenant_id, status)`` for a slug, cached briefly (unknown slugs too)."""
+
+    def cached() -> tuple[str, str] | Literal[Miss.MISS] | None:
+        hit = _BY_SLUG.get(slug)
+        if hit is not None:
+            return hit
+        return None if _MISSING_SLUGS.get(slug) else MISS
+
+    def store(row: tuple[str, str] | None) -> None:
+        if row is None:
+            _MISSING_SLUGS[slug] = True
+        else:
+            _BY_SLUG[slug] = row
+
+    return await fill(
+        lambda: _read_slug(app, slug), epoch=lambda: _epoch, store=store, cached=cached
+    )
+
+
+async def _read_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
     async with app.state.sm.db.session_factory() as db:
         row = (
             await db.execute(select(Tenant.id, Tenant.status).where(Tenant.slug == slug))
         ).first()
-    if row is None:
-        return None
-    found = (row[0], row[1])
-    _BY_SLUG[slug] = found
-    return found
+    return None if row is None else (row[0], row[1])
 
 
 def is_public_route(request: Request) -> bool:
@@ -83,9 +142,13 @@ async def resolve_from_host(request: Request, slug: str) -> tuple[str | None, bo
 
 
 __all__ = [
+    "forget_host",
     "forget_hosts",
+    "forget_slug",
     "is_public_route",
+    "make_host_invalidator",
     "resolve_from_host",
     "subdomain_slug",
+    "subscribe_hosts",
     "tenant_for_slug",
 ]

@@ -60,5 +60,5 @@ async def test_joining_and_switching_tenants_needs_no_relogin(tenant_client):
         assert mine == {first, second}
 
         assert (await user.client.post(f"/api/tenants/{first}/switch")).status_code == 204
-        members = (await user.client.get("/api/tenants/current/members")).json()
+        members = (await user.client.get("/api/tenants/current/members")).json()["items"]
         assert [m["user_id"] for m in members] == [user.user_id]

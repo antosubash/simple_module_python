@@ -92,4 +92,4 @@ async def test_member_on_their_subdomain_gets_their_role(site, user_client):
         owner.base_url = httpx.URL("http://acme.example.com")
         assert (await owner.get("/api/private/pages")).json() == ["acme-home"]
         members = await owner.get("/api/tenants/current/members")
-        assert members.status_code == 200 and members.json()[0]["role"] == "owner"
+        assert members.status_code == 200 and members.json()["items"][0]["role"] == "owner"

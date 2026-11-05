@@ -112,7 +112,7 @@ async def test_inflight_read_does_not_recache_a_removed_member(app, monkeypatch)
     resolver.forget("u-1")  # the membership changed while the read was in flight
     release.set()
     await read
-    assert resolver.cached_memberships("u-1") is None
+    assert resolver.cached_memberships("u-1") == []
 
 
 async def test_slug_shape_is_enforced(user_client):

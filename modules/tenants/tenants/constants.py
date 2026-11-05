@@ -20,7 +20,11 @@ _MODULE_SETTINGS = "Settings"
 # preference: the resolver re-validates it against a membership every request.
 SESSION_ACTIVE_TENANT = "sm_active_tenant"
 
+# Key: a user id, or ``None`` for every user (which also drops every host lookup).
 INVALIDATION_CHANNEL = "tenants.membership"
+# Key: a tenant slug, or ``None`` for every slug. Kept apart from the membership
+# channel so no user id (an OIDC subject is any string) can be read as a slug.
+HOSTS_INVALIDATION_CHANNEL = "tenants.hosts"
 
 # Entitlement keys this module enforces (see contracts.entitlements).
 ENTITLEMENT_SEATS = "tenants.seats"

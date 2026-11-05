@@ -29,7 +29,7 @@ async def test_unverified_account_cannot_accept_invitation(app, user_client):
         rejected = await bob.post("/api/tenants/invitations/accept", json={"token": token})
         assert rejected.status_code == 403
         assert rejected.json()["detail"] == "invitation_email_unverified"
-        members = (await owner.get("/api/tenants/current/members")).json()
+        members = (await owner.get("/api/tenants/current/members")).json()["items"]
         assert bob_id not in {member["user_id"] for member in members}
         pending = (await owner.get("/api/tenants/current/invitations")).json()
         assert issued.json()["id"] in {invitation["id"] for invitation in pending}
