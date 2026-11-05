@@ -17,7 +17,7 @@ from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
-_SKIP_DIRS = frozenset({"tests", "node_modules", "__pycache__", "migrations"})
+_SKIP_DIRS = frozenset({"tests", "node_modules", "__pycache__"})
 
 
 def _is_unnamed_subscribe(node: ast.AST) -> bool:

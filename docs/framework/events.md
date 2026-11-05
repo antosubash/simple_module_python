@@ -159,7 +159,7 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 - Always pass `name=` (a constant from `constants.py`). Outbox rows are keyed by
   the name, which otherwise defaults to the handler's import path, so moving or
   renaming the handler strands every undelivered row. `make doctor` reports a
-  `subscribe_durable` call without it as `SM034`. To adopt it on an existing
+  `subscribe_durable` call without it as `SM034` (module packages only; framework code is not scanned). To adopt it on an existing
   handler, set the constant to the current default name (`module.path.function`).
 - `publish_durable(event, db)` hands the event to `bus.durable_transport`, which
   writes it in `db`'s transaction: a rollback means it was never published. With
