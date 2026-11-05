@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from feature_flags.service import FeatureFlagService
+from feature_flags.core.service import FeatureFlagService
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.i18n import Translator
 

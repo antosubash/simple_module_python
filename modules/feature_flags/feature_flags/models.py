@@ -17,7 +17,7 @@ from simple_module_db.mixins import AuditMixin
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field
 
-from feature_flags.constants import (
+from feature_flags.core.constants import (
     SCOPE_ID_MAX_LENGTH,
     SCOPE_MAX_LENGTH,
     SCOPE_SYSTEM,

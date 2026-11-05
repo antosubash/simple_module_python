@@ -5,7 +5,7 @@ from simple_module_core.invalidation import Invalidation, InvalidationBus
 from simple_module_core.invalidation_refresh import InvalidationRefresh
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 
-from feature_flags.service import FeatureFlagService
+from feature_flags.core.service import FeatureFlagService
 
 CHANNEL = "feature_flags.overrides"
 

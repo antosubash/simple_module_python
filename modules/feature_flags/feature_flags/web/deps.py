@@ -10,7 +10,7 @@ from simple_module_core.tenancy import tenant_exists
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from feature_flags.service import FeatureFlagService
+from feature_flags.core.service import FeatureFlagService
 
 
 async def get_feature_flag_service(

@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_hosting.permissions import RequiresPermission
 
-from feature_flags.constants import (
+from feature_flags.contracts.schemas import FeatureFlagView, ToggleRequest
+from feature_flags.core.constants import (
     PERM_FEATURE_FLAGS_MANAGE,
     PERM_FEATURE_FLAGS_VIEW,
     SCOPE_TENANT,
 )
-from feature_flags.contracts.schemas import FeatureFlagView, ToggleRequest
-from feature_flags.deps import (
+from feature_flags.web.deps import (
     FeatureFlagRegistryDep,
     FeatureFlagServiceDep,
     require_known_tenant,

@@ -15,8 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from feature_flags.constants import SCOPE_SYSTEM, SCOPE_TENANT, SYSTEM_SCOPE_ID
 from feature_flags.contracts.schemas import FeatureFlagOverrideOut, FeatureFlagView
+from feature_flags.core.constants import SCOPE_SYSTEM, SCOPE_TENANT, SYSTEM_SCOPE_ID
 from feature_flags.models import FeatureFlagOverride
 
 
@@ -219,7 +219,7 @@ class FeatureFlagService:
     ) -> None:
         async def committed() -> None:
             if self.app is not None:
-                from feature_flags.invalidation import CHANNEL
+                from feature_flags.core.invalidation import CHANNEL
 
                 await self.app.state.sm.invalidation.publish(CHANNEL, key=name)
             elif enabled is None:
