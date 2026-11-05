@@ -63,21 +63,7 @@ async def test_spool_io_runs_off_loop(wire_backend, monkeypatch, size):
 
 @pytest.mark.parametrize("fail_completion", [False, True])
 async def test_multipart_reuses_one_client(wire_backend, monkeypatch, fail_completion):
-    from contextlib import asynccontextmanager
-
     wire, backend = wire_backend
-    opened = closed = 0
-
-    @asynccontextmanager
-    async def client():
-        nonlocal opened, closed
-        opened += 1
-        try:
-            yield wire
-        finally:
-            closed += 1
-
-    monkeypatch.setattr(backend, "_client", client)
     if fail_completion:
         wire.failure = RuntimeError("complete failed")
         with pytest.raises(Exception, match="complete failed"):
@@ -86,7 +72,7 @@ async def test_multipart_reuses_one_client(wire_backend, monkeypatch, fail_compl
     else:
         await backend.put("key", chunks(b"12345678901"), content_type="text/plain", size=0)
     assert b"".join(wire.parts) == b"12345678901"
-    assert opened == closed == 1
+    assert wire.opened == wire.closed == 1
 
 
 @pytest.mark.parametrize("cancel_count", [1, 2])

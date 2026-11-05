@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
 from tempfile import SpooledTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from file_storage import constants, upload_support
 from file_storage.contracts.service import Part, StorageBackendError
@@ -22,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Replay blocks are read from disk once per executor hop; keep them well above the
 # request-chunk size so a rolled-over spool costs few hops, yet bounded.
 _REPLAY_BLOCK = 1024 * 1024
+# Larger in-memory writes grow the BytesIO enough to stall the loop; offload them.
 _INLINE_WRITE_LIMIT = 2 * 1024 * 1024
 
 
@@ -37,45 +37,46 @@ class _Buf:
         self.file = SpooledTemporaryFile(max_size=self.max_size)  # noqa: SIM115 — closed in aclose
         self.pos = 0
 
-    def _in_memory(self, extra: int = 0) -> bool:
-        # `_rolled` is the only signal SpooledTemporaryFile exposes.
-        return not getattr(self.file, "_rolled", True) and self.pos + extra <= self.max_size
+    async def __aenter__(self) -> _Buf:
+        return self
 
-    def _inline_write(self, size: int) -> bool:
+    async def __aexit__(self, *exc: object) -> None:
+        await self.aclose()
+
+    def _in_memory(self) -> bool:
+        # `_rolled` has no public API; missing -> treat as on disk.
+        return not getattr(self.file, "_rolled", True)
+
+    async def _call(self, fn: Callable[..., Any], *args: Any) -> Any:
+        if self._in_memory():
+            return fn(*args)
+        return await _io(fn, *args)
+
+    async def write(self, data: bytes | memoryview) -> None:
         # Growing a large BytesIO reallocates and faults pages: keep that off the loop too.
-        return self._in_memory(size) and self.pos + size <= _INLINE_WRITE_LIMIT
-
-    async def write(self, data) -> None:
-        if self._inline_write(len(data)):
+        if self._in_memory() and self.pos + len(data) <= min(self.max_size, _INLINE_WRITE_LIMIT):
             self.file.write(data)
         else:
             await _io(self.file.write, data)
         self.pos += len(data)
 
     async def read(self, size: int) -> bytes:
-        if self._in_memory():
-            return self.file.read(size)
-        return await _io(self.file.read, size)
+        return await self._call(self.file.read, size)
 
     async def rewind(self) -> None:
         self.pos = 0
-        if self._in_memory():
-            self.file.seek(0)
-        else:
-            await _io(self.file.seek, 0)
+        await self._call(self.file.seek, 0)
 
     async def reset(self) -> None:
-        await self.rewind()
-        if self._in_memory():
-            self.file.truncate()
-        else:
-            await _io(self.file.truncate)
+        self.pos = 0
+        await self._call(self._truncate_from_start)
+
+    def _truncate_from_start(self) -> None:
+        self.file.seek(0)
+        self.file.truncate()
 
     async def aclose(self) -> None:
-        if self._in_memory():
-            self.file.close()
-        else:
-            await _io(self.file.close)
+        await self._call(self.file.close)
 
 
 async def put_stream(
@@ -87,7 +88,7 @@ async def put_stream(
     threshold = min(backend.multipart_threshold_bytes, constants.MAX_S3_PART_SIZE_BYTES)
     iterator = aiter(stream)
     tail: memoryview | None = None
-    async with _spool() as prefix:
+    async with _Buf() as prefix:
         if size <= threshold:
             async for chunk in iterator:
                 take = min(len(chunk), threshold + 1 - prefix.pos)
@@ -133,7 +134,7 @@ async def _multipart(backend: S3Backend, key, stream, content_type, size) -> Non
         await _upload(client, backend, key, stream, content_type, size, part_size)
 
 
-async def _upload(client, backend, key, stream, content_type, size, part_size):
+async def _upload(client, backend, key, stream, content_type, size, part_size) -> None:
     try:
         response = await client.create_multipart_upload(
             Bucket=backend.bucket, Key=key, ContentType=content_type
@@ -144,7 +145,7 @@ async def _upload(client, backend, key, stream, content_type, size, part_size):
     parts: list[Part] = []
     seen = 0
     try:
-        async with _spool() as buf:
+        async with _Buf() as buf:
             async for chunk in stream:
                 seen += len(chunk)
                 if size and seen > size:
@@ -198,7 +199,7 @@ async def _send(client, backend: S3Backend, key, upload_id, parts, buf: _Buf) ->
     return Part(no=number, etag=result["ETag"], size=length)
 
 
-async def _io(fn, *args):
+async def _io(fn: Callable[..., Any], *args: Any) -> Any:
     # Finish in-flight I/O before cancellation can close or reuse its spool.
     task = asyncio.create_task(asyncio.to_thread(fn, *args))
     cancelled = None
@@ -215,12 +216,3 @@ async def _io(fn, *args):
     if cancelled is not None:
         raise cancelled
     return result
-
-
-@asynccontextmanager
-async def _spool():
-    buf = _Buf()
-    try:
-        yield buf
-    finally:
-        await buf.aclose()

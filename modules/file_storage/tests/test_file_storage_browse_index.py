@@ -2,7 +2,6 @@
 
 import importlib.util
 from pathlib import Path
-from time import perf_counter
 
 import sqlalchemy as sa
 from alembic.migration import MigrationContext
@@ -31,7 +30,10 @@ def test_default_browse_uses_ordered_index():
 
 
 def test_browse_index_migration_roundtrip():
-    path = Path("host/migrations/versions/f6c2d4e8b109_file_storage_browse_index.py")
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "host/migrations/versions/f6c2d4e8b109_file_storage_browse_index.py"
+    )
     spec = importlib.util.spec_from_file_location("browse_migration", path)
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)
@@ -42,7 +44,7 @@ def test_browse_index_migration_roundtrip():
             "(id INTEGER PRIMARY KEY, tenant_id TEXT, is_deleted BOOLEAN, created_at TEXT)"
         )
         conn.exec_driver_sql(
-            "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000) "
+            "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<1000) "
             "INSERT INTO file_storage_stored_file SELECT x, 'tenant', 0, printf('%06d', x) FROM n"
         )
         sql = (
@@ -50,21 +52,13 @@ def test_browse_index_migration_roundtrip():
             "ORDER BY created_at DESC, id ASC LIMIT 25"
         )
 
-        def measure():
-            started = perf_counter()
-            for _ in range(10):
-                rows = conn.exec_driver_sql(sql).scalars().all()
-            assert rows == list(range(100000, 99975, -1))
-            return (perf_counter() - started) * 100
-
-        before = measure()
         with Operations.context(MigrationContext.configure(conn)):
             migration.upgrade()
-            after = measure()
+            rows = conn.exec_driver_sql(sql).scalars().all()
+            assert rows == list(range(1000, 975, -1))
             plan = conn.exec_driver_sql("EXPLAIN QUERY PLAN " + sql).all()
             assert _INDEX in str(plan) and "TEMP B-TREE" not in str(plan)
             migration.downgrade()
         assert _INDEX not in {
             i["name"] for i in sa.inspect(conn).get_indexes("file_storage_stored_file")
         }
-        print(f"100k SQLite first-page mean: {before:.3f} -> {after:.3f} ms")

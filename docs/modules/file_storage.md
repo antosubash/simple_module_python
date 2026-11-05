@@ -335,7 +335,8 @@ spools only the threshold prefix and one part at a time (each spills to disk
 above 10 MiB). Spool I/O runs in worker threads; cancellation waits for
 in-flight I/O before closing its file. Each server-side multipart upload reuses
 one S3 client through completion or abort, allowing connection-pool reuse
-without sharing a client across requests or event loops. Part size comes from `multipart_part_size_bytes`, grown for known
+without sharing a client across requests or event loops. Part size comes from
+`multipart_part_size_bytes`, grown for known
 sizes to fit 10,000 parts; unknown-size streams abort if they exceed that bound.
 Declared nonzero sizes must match the bytes read. Multipart is also used above
 S3's single-PUT limit, even if the threshold was configured higher. Stream,

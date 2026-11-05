@@ -18,6 +18,8 @@ class S3Wire:
         self.aborted = False
         self.failure = None
         self.abort_failure = False
+        self.opened = 0
+        self.closed = 0
 
     async def put_object(self, **kw):
         self.single = kw["Body"].read()
@@ -56,7 +58,11 @@ def wire_backend(monkeypatch):
 
     @asynccontextmanager
     async def client():
-        yield wire
+        wire.opened += 1
+        try:
+            yield wire
+        finally:
+            wire.closed += 1
 
     monkeypatch.setattr(backend, "_client", client)
     # Tiny, hand-verifiable parts after testing settings propagation separately.
@@ -173,18 +179,12 @@ async def test_large_source_chunk_keeps_spools_bounded(wire_backend, monkeypatch
 
     class TrackedBuffer:
         def __init__(self, **kwargs):
-            self.file = SpooledTemporaryFile(**kwargs)  # noqa: SIM115 — closed by wrapper context
+            self.file = SpooledTemporaryFile(**kwargs)  # noqa: SIM115
             self.index = len(maximums)
             maximums.append(0)
 
         def __getattr__(self, name):
             return getattr(self.file, name)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            self.file.close()
 
         def write(self, data):
             self.file.write(data)
