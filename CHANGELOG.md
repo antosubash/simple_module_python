@@ -22,6 +22,7 @@ All notable changes to this project are documented in this file. The format is b
   using the existing account-cache invalidation channel (#318). Migration
   `e805a1b2c3d4` adds expiring session retirement records. Sessions issued before
   the upgrade remain compatible until expiry or next sign-in.
+
 ### Changed
 
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
