@@ -13,7 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
-from feature_flags.constants import (
+from feature_flags.core.constants import (
     AUDIT_LOG_MODULE,
     AUDIT_LOG_VIEW_URL,
     MENU_URL,
@@ -21,9 +21,9 @@ from feature_flags.constants import (
     TABLE_OVERRIDE,
     VIEW_PREFIX,
 )
-from feature_flags.endpoints.views import _audit_log_url
 from feature_flags.models import FeatureFlagOverride
 from feature_flags.module import FeatureFlagsModule
+from feature_flags.web.endpoints.views import _audit_log_url
 from simple_module_core.audit_links import AuditLinkRegistry
 
 
@@ -82,7 +82,7 @@ def test_label_key_resolves_in_the_shipped_catalog() -> None:
     assert link is not None
 
     catalog = json.loads(
-        (Path(__file__).resolve().parents[1] / "feature_flags/locales/en.json").read_text()
+        (Path(__file__).resolve().parents[3] / "feature_flags/locales/en.json").read_text()
     )
     namespace, *path = link.label_key.split(".")
     assert namespace == "feature_flags"

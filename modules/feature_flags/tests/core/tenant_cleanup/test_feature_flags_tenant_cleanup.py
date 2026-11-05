@@ -1,6 +1,6 @@
 """Tenant deletion purges tenant overrides without touching other scopes."""
 
-from feature_flags.constants import SCOPE_SYSTEM, SCOPE_TENANT
+from feature_flags.core.constants import SCOPE_SYSTEM, SCOPE_TENANT
 from feature_flags.models import FeatureFlagOverride
 from feature_flags.module import FeatureFlagsModule
 from simple_module_core.durable_events import DurableContext, event_key

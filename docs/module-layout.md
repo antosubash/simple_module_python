@@ -202,7 +202,7 @@ when a later module PR moves files.
 | background_tasks | 49 | 83 | flat |
 | branding | 13 | 20 | flat |
 | dashboard | 2 | 0 | follows this layout |
-| feature_flags | 8 | 9 | flat |
+| feature_flags | 3 (+1 shim) | 0 | follows this layout |
 | file_storage | 39 | 65 | flat |
 | keycloak | 13 | 19 | flat |
 | mail | 2 (+2 shims) | 0 | follows this layout |

@@ -13,7 +13,7 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
-from feature_flags.constants import (
+from feature_flags.core.constants import (
     AUDIT_LINK_LABEL,
     AUDIT_LINK_LABEL_KEY,
     LOCALE_NAMESPACE,
@@ -72,7 +72,7 @@ class FeatureFlagsModule(ModuleBase):
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
-        from feature_flags.tenant_cleanup import purge_tenant_data
+        from feature_flags.core.tenant_cleanup import purge_tenant_data
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
         if app is not None:
@@ -83,13 +83,13 @@ class FeatureFlagsModule(ModuleBase):
             bus.subscribe(TenantDeleted, forget_tenant)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
-        from feature_flags.invalidation import subscribe
+        from feature_flags.core.invalidation import subscribe
 
         self._refresh = subscribe(bus, app)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from feature_flags.endpoints.api import router as api
-        from feature_flags.endpoints.views import router as views
+        from feature_flags.web.endpoints.api import router as api
+        from feature_flags.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
@@ -160,7 +160,7 @@ class FeatureFlagsModule(ModuleBase):
         conservative choice — admins can re-toggle overrides once the
         store is healthy again.
         """
-        from feature_flags.service import FeatureFlagService
+        from feature_flags.core.service import FeatureFlagService
 
         sm = app.state.sm
         try:

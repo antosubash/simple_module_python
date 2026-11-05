@@ -1,8 +1,8 @@
 """Flag changes must survive commit before reaching any worker's registry."""
 
 import pytest
+from feature_flags.core.service import FeatureFlagService
 from feature_flags.models import FeatureFlagOverride
-from feature_flags.service import FeatureFlagService
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_core.invalidation import Invalidation
 from simple_module_db.transaction import finalize_session, rollback_session
@@ -58,7 +58,7 @@ async def test_remote_flag_changes_and_deletions_reload(app, scope, scope_id):
 @pytest.mark.parametrize("commit", [False, True])
 @pytest.mark.parametrize("scope,scope_id", [("system", ""), ("tenant", "acme")])
 async def test_flag_request_publishes_only_after_commit(app, commit, scope, scope_id):
-    from feature_flags.deps import get_feature_flag_service
+    from feature_flags.web.deps import get_feature_flag_service
     from starlette.requests import Request
 
     registry = app.state.sm.feature_flags
