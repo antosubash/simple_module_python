@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from dashboard.doctor import CHECKS, MIGRATION_CHECK_ID
-from dashboard.stats import invalidate_stats_cache
+from dashboard.web.doctor import CHECKS, MIGRATION_CHECK_ID
+from dashboard.web.stats import invalidate_stats_cache
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_test.fixtures import forge_session_cookie
 

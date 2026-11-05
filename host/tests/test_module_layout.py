@@ -74,11 +74,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         services.py settings.py shared_props.py tenant_branding.py tenant_definitions.py
         """.split()
     ),
-    "dashboard": frozenset(
-        """
-        constants.py doctor.py endpoints stats.py
-        """.split()
-    ),
     "feature_flags": frozenset(
         """
         constants.py deps.py endpoints invalidation.py service.py tenant_cleanup.py
