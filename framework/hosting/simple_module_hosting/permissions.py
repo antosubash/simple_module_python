@@ -49,14 +49,22 @@ def resolve_permissions(
     return permissions
 
 
-def _role_and_claimed(user: Any, role_map: dict[str, list[str]] | None) -> set[str]:
+def _role_and_claimed(
+    user: Any,
+    role_map: dict[str, list[str]] | None,
+    *,
+    include_tenant_roles: bool = True,
+) -> set[str]:
     """The role-derived set plus the principal's own ``permissions`` (GH #436).
 
     Read duck-typed (``UserContext.permissions`` lives in the auth module, which
     framework code must not import). The claimed keys never include the
     wildcard: like a grant source, a token or IdP claim cannot make an admin.
     """
-    permissions = resolve_permissions(getattr(user, "roles", None) or [], role_map=role_map)
+    roles = getattr(user, "roles", None) or []
+    if not include_tenant_roles:
+        roles = [r for r in roles if not is_tenant_role(r)]
+    permissions = resolve_permissions(roles, role_map=role_map)
     permissions.update(p for p in getattr(user, "permissions", None) or () if p != WILDCARD)
     return permissions
 
@@ -131,15 +139,7 @@ async def _held_permissions(
 ) -> set[str]:
     """What *user*'s account holds right now, before any scope cap."""
     role_map = registry.role_map if registry is not None else None
-    if not include_tenant_roles:
-        role_map = {
-            role: keys
-            for role, keys in (
-                role_map if role_map is not None else DEFAULT_ROLE_PERMISSIONS
-            ).items()
-            if not is_tenant_role(role)
-        }
-    permissions = _role_and_claimed(user, role_map)
+    permissions = _role_and_claimed(user, role_map, include_tenant_roles=include_tenant_roles)
     if registry is None or WILDCARD in permissions:
         return permissions
     for source in registry.grant_sources:

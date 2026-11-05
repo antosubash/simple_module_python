@@ -15,6 +15,10 @@ class PermissionWriteRefused(HTTPException):
         super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
 
 
+_PLATFORM_ONLY = "Global permission edits require platform-level access."
+_MORE_PRIVILEGED_ACCOUNT = "You cannot manage a more privileged account."
+
+
 def _refuse(reason: str) -> PermissionWriteRefused:
     return PermissionWriteRefused(reason)
 
@@ -39,18 +43,21 @@ async def check_permission_write(
     actor = getattr(request.state, "user", None)
     if actor is not None and ADMIN_ROLE in actor.roles and not actor.is_scoped:
         return
+    if actor is None:
+        # No principal: skip the grant sources, which expect a real user.
+        raise _refuse(_PLATFORM_ONLY)
     held = await resolve_principal_permissions(request, actor, registry, include_tenant_roles=False)
     if not grants(held, PERM_MANAGE):
-        raise _refuse("Global permission edits require platform-level access.")
+        raise _refuse(_PLATFORM_ONLY)
     if target is not None:
         # Unknown provider roles cannot prove that the target is within reach.
         if target.roles is None or ADMIN_ROLE in target.roles:
-            raise _refuse("You cannot manage a more privileged account.")
+            raise _refuse(_MORE_PRIVILEGED_ACCOUNT)
         target_permissions = await resolve_principal_permissions(
             request, target, registry, include_tenant_roles=False
         )
         if any(not grants(held, key) for key in target_permissions):
-            raise _refuse("You cannot manage a more privileged account.")
+            raise _refuse(_MORE_PRIVILEGED_ACCOUNT)
     if role is not None:
         name, role_keys = role
         if name == ADMIN_ROLE or any(not grants(held, key) for key in role_keys):
