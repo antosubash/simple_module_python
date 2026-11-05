@@ -9,7 +9,7 @@ import { cn } from '@simple-module-py/ui/lib/utils';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { OutboxTable } from './components/OutboxTable';
-import { VIEW_BASE } from './constants';
+import { VIEW_BASE, VIEW_INDEX } from './constants';
 import {
   discardOutboxMessage,
   OPEN_OUTBOX_STATUSES,
@@ -68,10 +68,10 @@ function Outbox({ messages, counts, pagination, filters }: Props) {
       <PageShell
         title={t(keys.background_tasks.outbox.title)}
         description={t(keys.background_tasks.outbox.description)}
-        back={VIEW_BASE}
+        back={VIEW_INDEX}
         actions={
           <Button variant="outline" asChild className="max-lg:min-h-11">
-            <Link href={VIEW_BASE}>
+            <Link href={VIEW_INDEX}>
               <ArrowLeft aria-hidden="true" />
               {t(keys.background_tasks.outbox.back_button)}
             </Link>

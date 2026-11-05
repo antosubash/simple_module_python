@@ -354,6 +354,8 @@ export const keys = {
     tasks_empty: {
       broker_unreachable_description: 'background_tasks.tasks_empty.broker_unreachable_description',
       broker_unreachable_title: 'background_tasks.tasks_empty.broker_unreachable_title',
+      checking_description: 'background_tasks.tasks_empty.checking_description',
+      checking_title: 'background_tasks.tasks_empty.checking_title',
       clear_filters: 'background_tasks.tasks_empty.clear_filters',
       filtered_description: 'background_tasks.tasks_empty.filtered_description',
       filtered_title: 'background_tasks.tasks_empty.filtered_title',
@@ -387,6 +389,8 @@ export const keys = {
       back_button: 'background_tasks.workers.back_button',
       broker_unreachable_description: 'background_tasks.workers.broker_unreachable_description',
       broker_unreachable_title: 'background_tasks.workers.broker_unreachable_title',
+      checking: 'background_tasks.workers.checking',
+      checking_label: 'background_tasks.workers.checking_label',
       description: 'background_tasks.workers.description',
       last_updated: 'background_tasks.workers.last_updated',
       no_error_reported: 'background_tasks.workers.no_error_reported',

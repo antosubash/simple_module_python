@@ -15,9 +15,9 @@ configureI18n({
   },
 });
 
-import { buildDoctorReport } from '../dashboard/pages/components/doctor/report';
-import { StatsRow } from '../dashboard/pages/components/doctor/StatsRow';
-import type { DoctorProps } from '../dashboard/pages/components/doctor/types';
+import { buildDoctorReport } from '../dashboard/ui/components/doctor/report';
+import { StatsRow } from '../dashboard/ui/components/doctor/StatsRow';
+import type { DoctorProps } from '../dashboard/ui/components/doctor/types';
 
 const STATS = {
   checks_passing: 0,

@@ -33,7 +33,7 @@ Gate a route using the registry dependency:
 ```python
 from fastapi import APIRouter, HTTPException
 
-from feature_flags.deps import FeatureFlagRegistryDep
+from feature_flags.web.deps import FeatureFlagRegistryDep
 
 router = APIRouter()
 
