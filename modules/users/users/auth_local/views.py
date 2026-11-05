@@ -14,9 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
 from users.auth_local.browser_guard import require_browser_origin
+from users.auth_local.browser_sessions import end_browser_session
 from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
-from users.browser_sessions import end_browser_session
 from users.contracts.schemas import UserRead
 from users.demo import resolve_demo_accounts
 from users.invites.preview import preview_invite

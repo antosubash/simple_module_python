@@ -24,6 +24,7 @@ from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.auth_local.browser_guard import require_browser_csrf
+from users.auth_local.browser_sessions import end_browser_session
 from users.auth_local.lockout import (
     admit,
     login_attempt,
@@ -34,7 +35,6 @@ from users.auth_local.lockout import (
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
 from users.backend import cookie_login_response
-from users.browser_sessions import end_browser_session
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
