@@ -75,3 +75,15 @@ it('recovers a missing deferred snapshot through Refresh and disables it only du
   expect(screen.queryByRole('status', { name: w.checking_label })).toBeNull();
   expect(refresh).toBeEnabled();
 });
+
+it('keeps the newer reading when a manual Refresh beats the deferred snapshot', async () => {
+  const later = { ...snapshot, polled_at: '2026-01-01T00:10:00Z', workers: [] };
+  const earlier = { ...snapshot, polled_at: '2026-01-01T00:00:00Z' };
+  vi.mocked(api.GET).mockResolvedValueOnce({ data: later, response: new Response() });
+  const { rerender } = render(<Workers {...base} />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: w.refresh }));
+  });
+  rerender(<Workers {...base} snapshot={earlier} />);
+  expect(screen.queryByText('celery@host-a')).toBeNull();
+});

@@ -15,7 +15,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from playwright.sync_api import APIRequestContext
 
@@ -101,8 +101,8 @@ def probe(
         elapsed = (time.perf_counter() - started) * 1000
         result.status = response.status
         result.final_url = response.url
-        final_path = urlsplit(response.url).path
-        requested_path = urlsplit(path).path
+        final_path = unquote(urlsplit(response.url).path)
+        requested_path = unquote(urlsplit(path).path)
         result.redirected = final_path != requested_path
         if result.redirected and not (
             final_path == requested_path + "/" or requested_path == final_path + "/"

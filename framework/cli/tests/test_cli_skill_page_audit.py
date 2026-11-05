@@ -195,6 +195,18 @@ class TestRegressions:
         if level == "fail":
             assert result.error
 
+    def test_percent_encoding_is_not_a_redirect(self) -> None:
+        response = SimpleNamespace(
+            status=200,
+            url="http://t/caf%C3%A9",
+            headers={"x-inertia": "true"},
+            body=lambda: b'{"props":{}}',
+        )
+        request = SimpleNamespace(get=lambda *a, **kw: response)
+        result = audit_server.probe(request, "http://t", "/café", {}, 1)
+        assert not result.error
+        assert not result.redirected
+
     def test_cls_uses_session_windows_and_resets(self) -> None:
         script = r"""
 const vm = require('node:vm');
