@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file. The format is b
   platform-level `permissions.manage`; tenant-role mappings do not contribute
   to delegation or target-access checks. API-token scope caps still apply;
   unscoped platform admins remain unrestricted.
+
 ### Changed
 
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
