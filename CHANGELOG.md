@@ -67,6 +67,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Reduce background task polling and list reads to their required columns; count task history separately from paginated reads and index newest-first, nulls-last ordering (migration `c5d8e2f1a903`, 2026-11-05 performance review).
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `OidcAuthProvider` and `KeycloakAuthProvider` gain a public `sign_in_from_claims(request, claims)`; the OIDC and Keycloak login callbacks call it instead of the private `_identity`/`_upsert_user_cache`/`_claims_to_user_context` helpers (#848). The OIDC variant returns `(UserContext, identity)` and raises the new `IdentityUnavailableError` when the user cache refuses the identity. No behaviour change.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`. Moved modules log under their new paths (for example `mail.delivery.sender`), so logging config that names an old logger needs the new name.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.

@@ -25,7 +25,7 @@ from sqlmodel import col
 
 from background_tasks.constants import MODULE_NAME, PERM_VIEW, STATUS_ROUTER_PREFIX
 from background_tasks.contracts.schemas import TaskStatusDTO
-from background_tasks.models import TaskExecution
+from background_tasks.models import TaskExecution, dto_columns, newest_first
 
 router = APIRouter(prefix=STATUS_ROUTER_PREFIX, tags=[f"{MODULE_NAME}-status"])
 
@@ -73,8 +73,13 @@ async def get_task_status(
     row = (
         await db.execute(
             select(TaskExecution)
+            .options(
+                dto_columns(
+                    TaskStatusDTO, "owner_user_id", "tenant_id", "resource_type", "resource_id"
+                )
+            )
             .where(col(TaskExecution.celery_task_id) == celery_task_id)
-            .order_by(TaskExecution.queued_at.desc())
+            .order_by(*newest_first(TaskExecution.queued_at))
             .limit(1)
         )
     ).scalar_one_or_none()
