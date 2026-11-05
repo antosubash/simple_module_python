@@ -83,7 +83,7 @@ async def test_real_hashing_loop_lag(users_app, operation):
     async def heartbeat():
         while running:
             started = time.perf_counter()
-            await asyncio.sleep(0.005)
+            await asyncio.sleep(0.005)  # intentional-sleep: heartbeat measuring loop lag
             delays.append(max(0, time.perf_counter() - started - 0.005))
 
     ticker = asyncio.create_task(heartbeat())
