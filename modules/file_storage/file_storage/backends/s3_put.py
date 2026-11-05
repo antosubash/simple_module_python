@@ -118,7 +118,7 @@ async def put_stream(
         async def body() -> AsyncIterator[bytes]:
             while chunk := await prefix.read(_REPLAY_BLOCK):
                 yield chunk
-            if tail is not None:
+            if tail:
                 yield bytes(tail)
             async for chunk in iterator:
                 yield chunk
@@ -135,13 +135,7 @@ async def _multipart(backend: S3Backend, key, stream, content_type, size) -> Non
 
 
 async def _upload(client, backend, key, stream, content_type, size, part_size) -> None:
-    try:
-        response = await client.create_multipart_upload(
-            Bucket=backend.bucket, Key=key, ContentType=content_type
-        )
-    except Exception as exc:
-        raise StorageBackendError(f"S3 create_multipart_upload failed: {exc}") from exc
-    upload_id = response["UploadId"]
+    upload_id = await backend._create_multipart_on(client, key, content_type)
     parts: list[Part] = []
     seen = 0
     try:
@@ -162,18 +156,10 @@ async def _upload(client, backend, key, stream, content_type, size, part_size) -
                 raise SizeMismatchError(size, seen)
             if buf.pos or not parts:
                 parts.append(await _send(client, backend, key, upload_id, parts, buf))
-        try:
-            await client.complete_multipart_upload(
-                Bucket=backend.bucket,
-                Key=key,
-                UploadId=upload_id,
-                MultipartUpload={"Parts": [{"PartNumber": p.no, "ETag": p.etag} for p in parts]},
-            )
-        except Exception as exc:
-            raise StorageBackendError(f"S3 complete_multipart_upload failed: {exc}") from exc
+        await backend._complete_multipart_on(client, key, upload_id, parts)
     except BaseException:
         try:
-            await client.abort_multipart_upload(Bucket=backend.bucket, Key=key, UploadId=upload_id)
+            await backend._abort_multipart_on(client, key, upload_id)
         except BaseException:
             logger.exception("file_storage.server_upload_abort_failed key=%s", key)
         raise
@@ -208,6 +194,10 @@ async def _io(fn: Callable[..., Any], *args: Any) -> Any:
             result = await asyncio.shield(task)
             break
         except asyncio.CancelledError as exc:
+            if task.cancelled():
+                # The I/O task itself was cancelled (loop shutdown cancels every task):
+                # nothing is in flight, and shielding it again would spin forever.
+                raise
             cancelled = exc
         except BaseException:
             if cancelled is not None:
