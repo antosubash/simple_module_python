@@ -6,12 +6,10 @@ from tempfile import SpooledTemporaryFile
 
 import pytest
 from file_storage.backends import s3_put
-from test_file_storage_server_put import chunks
-from test_file_storage_server_put import wire_backend as wire_backend
 
 
 @pytest.mark.parametrize("size", [0, 6, 10])
-async def test_spool_io_runs_off_loop(wire_backend, monkeypatch, size):
+async def test_spool_io_runs_off_loop(wire_backend, monkeypatch, size, chunks):
     loop_thread = threading.get_ident()
     calls = []
 
@@ -62,7 +60,7 @@ async def test_spool_io_runs_off_loop(wire_backend, monkeypatch, size):
 
 
 @pytest.mark.parametrize("fail_completion", [False, True])
-async def test_multipart_reuses_one_client(wire_backend, monkeypatch, fail_completion):
+async def test_multipart_reuses_one_client(wire_backend, monkeypatch, fail_completion, chunks):
     wire, backend = wire_backend
     if fail_completion:
         wire.failure = RuntimeError("complete failed")
@@ -78,7 +76,7 @@ async def test_multipart_reuses_one_client(wire_backend, monkeypatch, fail_compl
 @pytest.mark.parametrize("cancel_count", [1, 2])
 @pytest.mark.parametrize("write_fails", [False, True])
 async def test_cancellation_waits_for_write_before_closing(
-    wire_backend, monkeypatch, cancel_count, write_fails
+    wire_backend, monkeypatch, cancel_count, write_fails, chunks
 ):
     entered = threading.Event()
     release = threading.Event()

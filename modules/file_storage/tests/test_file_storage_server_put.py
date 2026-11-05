@@ -1,7 +1,6 @@
 """Server-side multipart boundaries without a network service (#708)."""
 
 import asyncio
-from contextlib import asynccontextmanager
 
 import pytest
 from file_storage import constants
@@ -10,80 +9,12 @@ from file_storage.settings import FileStorageSettings
 from file_storage.upload_support import SizeMismatchError
 
 
-class S3Wire:
-    def __init__(self):
-        self.parts = []
-        self.single = None
-        self.completed = None
-        self.aborted = False
-        self.failure = None
-        self.abort_failure = False
-        self.opened = 0
-        self.closed = 0
-
-    async def put_object(self, **kw):
-        self.single = kw["Body"].read()
-        assert kw["ContentLength"] == len(self.single)
-
-    async def create_multipart_upload(self, **kw):
-        return {"UploadId": "upload"}
-
-    async def upload_part(self, **kw):
-        assert kw["PartNumber"] == len(self.parts) + 1
-        body = kw["Body"]
-        self.parts.append(body if isinstance(body, bytes) else body.read())
-        return {"ETag": str(kw["PartNumber"])}
-
-    async def complete_multipart_upload(self, **kw):
-        if self.failure:
-            raise self.failure
-        self.completed = kw["MultipartUpload"]["Parts"]
-
-    async def abort_multipart_upload(self, **kw):
-        self.aborted = True
-        if self.abort_failure:
-            raise RuntimeError("abort failed")
-
-
-@pytest.fixture
-def wire_backend(monkeypatch):
-    wire = S3Wire()
-    cfg = FileStorageSettings(
-        backend="s3",
-        s3_bucket="bucket",
-        s3_region="us-east-1",
-        direct_upload_threshold_bytes=6,
-    )
-    backend = build_backend(cfg)
-
-    @asynccontextmanager
-    async def client():
-        wire.opened += 1
-        try:
-            yield wire
-        finally:
-            wire.closed += 1
-
-    monkeypatch.setattr(backend, "_client", client)
-    # Tiny, hand-verifiable parts after testing settings propagation separately.
-    backend.multipart_part_size_bytes = 5
-    monkeypatch.setattr(
-        "file_storage.upload_support.choose_part_size", lambda size, preferred: preferred
-    )
-    return wire, backend
-
-
-async def chunks(*values):
-    for value in values:
-        yield value
-
-
 @pytest.mark.parametrize(
     "payload,multipart",
     [(b"", False), (b"123456", False), (b"1234567", True), (b"1234567890", True)],
 )
 @pytest.mark.parametrize("known", [False, True])
-async def test_threshold_and_exact_final_part(wire_backend, payload, multipart, known):
+async def test_threshold_and_exact_final_part(wire_backend, payload, multipart, known, chunks):
     wire, backend = wire_backend
     await backend.put(
         "key",
@@ -117,7 +48,7 @@ async def test_stream_failure_aborts_and_preserves_error(wire_backend, failure):
     assert wire.completed is None
 
 
-async def test_completion_failure_aborts(wire_backend):
+async def test_completion_failure_aborts(wire_backend, chunks):
     wire, backend = wire_backend
     wire.failure = RuntimeError("complete failed")
     wire.abort_failure = True
@@ -127,7 +58,7 @@ async def test_completion_failure_aborts(wire_backend):
 
 
 @pytest.mark.parametrize("declared", [2, 8, 12])
-async def test_declared_size_mismatch_is_not_published(wire_backend, declared):
+async def test_declared_size_mismatch_is_not_published(wire_backend, declared, chunks):
     wire, backend = wire_backend
     with pytest.raises(SizeMismatchError):
         await backend.put("key", chunks(b"1234567890"), content_type="text/plain", size=declared)
@@ -135,7 +66,7 @@ async def test_declared_size_mismatch_is_not_published(wire_backend, declared):
     assert wire.aborted
 
 
-async def test_part_count_bound_aborts(wire_backend, monkeypatch):
+async def test_part_count_bound_aborts(wire_backend, monkeypatch, chunks):
     wire, backend = wire_backend
     monkeypatch.setattr(constants, "MAX_UPLOAD_PARTS", 1)
     with pytest.raises(Exception, match="part"):
@@ -170,7 +101,7 @@ async def test_unknown_stream_uploads_before_source_is_exhausted(wire_backend):
     assert b"".join(wire.parts) == b"1234567890"
 
 
-async def test_large_source_chunk_keeps_spools_bounded(wire_backend, monkeypatch):
+async def test_large_source_chunk_keeps_spools_bounded(wire_backend, monkeypatch, chunks):
     from tempfile import SpooledTemporaryFile
 
     from file_storage.backends import s3_put
@@ -197,7 +128,7 @@ async def test_large_source_chunk_keeps_spools_bounded(wire_backend, monkeypatch
     assert maximums == [7, 5]
 
 
-async def test_failed_part_upload_aborts(wire_backend, monkeypatch):
+async def test_failed_part_upload_aborts(wire_backend, monkeypatch, chunks):
     wire, backend = wire_backend
 
     async def fail(**kwargs):
