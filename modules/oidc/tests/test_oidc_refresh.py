@@ -203,7 +203,7 @@ async def test_session_deadline_never_slides(refresh_session, monkeypatch):
 
 
 async def test_refresh_sealing_is_provider_scoped(refresh_session):
-    from keycloak.tokens import open_refresh_token as open_keycloak_token
+    from keycloak.identity.tokens import open_refresh_token as open_keycloak_token
 
     _, request = refresh_session
     sealed = request.session["oidc_refresh_token"]

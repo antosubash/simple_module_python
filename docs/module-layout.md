@@ -213,7 +213,7 @@ when a later module PR moves files.
 | dashboard | 2 | 0 | follows this layout |
 | feature_flags | 3 (+1 shim) | 0 | follows this layout |
 | file_storage | 39 | 65 | flat |
-| keycloak | 13 | 19 | flat |
+| keycloak | 3 (+5 shims) | 0 | follows this layout |
 | mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 16 | 24 | flat |
 | permissions | 12 | 14 | flat |

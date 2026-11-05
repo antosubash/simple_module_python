@@ -12,7 +12,7 @@ import { type StatusCounts, StatusStrip } from './components/StatusStrip';
 import { TaskFilters } from './components/TaskFilters';
 import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
 import { WorkerHealthBanner } from './components/WorkerHealthBanner';
-import { QUEUE_ALL, STATUS_ALL, TASK_STATUS, TENANT_ALL, VIEW_BASE } from './constants';
+import { QUEUE_ALL, STATUS_ALL, TASK_STATUS, TENANT_ALL, VIEW_BASE, VIEW_INDEX } from './constants';
 import { type Execution, retryAllFailed, retryExecution } from './retry';
 
 interface Pagination {
@@ -39,8 +39,11 @@ interface Props {
   tenant_ids: string[];
   /** Filter value selecting executions with no tenant. */
   platform_tenant_value: string;
-  /** Null unless the unfiltered list came back empty — see the index view. */
-  worker_presence: WorkerPresence | null;
+  /**
+   * Null unless the unfiltered list came back empty — see the index view.
+   * Deferred: undefined while the broker poll is still in flight.
+   */
+  worker_presence?: WorkerPresence | null;
   /** Whether any execution exists at all, ignoring the active filters. */
   has_executions: boolean;
 }
@@ -56,7 +59,7 @@ function pushFilters(filters: Filters, page: number): void {
   if (filters.queue && filters.queue !== QUEUE_ALL) params.queue = filters.queue;
   if (filters.tenant && filters.tenant !== TENANT_ALL) params.tenant = filters.tenant;
   if (page > 1) params.page = String(page);
-  router.get(VIEW_BASE, params, { preserveState: true, preserveScroll: true });
+  router.get(VIEW_INDEX, params, { preserveState: true, preserveScroll: true });
 }
 
 function Index({
@@ -230,7 +233,7 @@ function Index({
             <TasksEmptyRow
               filtered={isFiltered && hasExecutions !== false}
               columnCount={COLUMN_COUNT}
-              presence={workerPresence ?? null}
+              presence={workerPresence}
               onClear={clearFilters}
             />
           }
