@@ -1,5 +1,6 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { Card } from '@simple-module-py/ui/components/ui/card';
+import { Skeleton } from '@simple-module-py/ui/components/ui/skeleton';
 import { cn } from '@simple-module-py/ui/lib/utils';
 import type { ReactNode } from 'react';
 import { EM_DASH, formatSoftware, formatUptime, type WorkerInfo } from '../constants';
@@ -98,5 +99,32 @@ export function WorkerCard({ worker }: { worker: WorkerInfo }) {
         </div>
       </dl>
     </Card>
+  );
+}
+
+/**
+ * Stand-in for the fleet while the deferred broker poll is in flight.
+ *
+ * Two cards' worth of space in the same grid, so the routes table below does
+ * not jump when the answer lands — whether that is cards, or an empty state.
+ */
+export function WorkersSkeleton({ label }: { label: string }) {
+  return (
+    <div role="status" aria-busy="true" aria-label={label} className="grid gap-4 md:grid-cols-2">
+      {[0, 1].map((i) => (
+        <Card key={i} className="gap-4 p-5">
+          <div className="flex items-center gap-3">
+            <Skeleton className="size-2.5 rounded-full" />
+            <Skeleton className="h-5 flex-1" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((j) => (
+              <Skeleton key={j} className="h-11" />
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 }

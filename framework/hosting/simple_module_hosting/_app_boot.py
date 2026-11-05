@@ -13,6 +13,7 @@ from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_db.listeners import register_listeners
+from simple_module_db.query_stats import install_query_stats
 from simple_module_db.session import init_db
 
 from simple_module_hosting._db_health import register_database_check
@@ -93,6 +94,9 @@ def init_database(settings: Settings, health_registry: HealthRegistry):
     if not settings.multi_tenant and settings.default_tenant:
         db_state.default_tenant_id = settings.default_tenant
     register_listeners(db_state)
+    if settings.is_development:
+        # Feeds the development Server-Timing header (query count per request).
+        install_query_stats(db_state.engine)
     configure_process_services(settings.redis_url, engine=db_state.engine)
     # The host's own readiness signal, and the only probe-safe check in a
     # default install — module checks reach third parties and are on-demand.

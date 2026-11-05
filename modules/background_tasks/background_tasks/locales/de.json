@@ -125,7 +125,9 @@
     "no_workers_title": "Kein Worker läuft",
     "no_workers_description": "Der Broker ist verfügbar, aber kein Worker verarbeitet die Warteschlange. Jetzt eingereihte Aufgaben warten auf ihre Ausführung.",
     "healthy_title": "Noch keine Aufgabe ausgeführt",
-    "healthy_description": "Registrierte Aufgaben erscheinen hier bei ihrer ersten Ausführung."
+    "healthy_description": "Registrierte Aufgaben erscheinen hier bei ihrer ersten Ausführung.",
+    "checking_title": "Suche nach Workern…",
+    "checking_description": "Der Broker wird gefragt, ob etwas läuft, das Aufgaben ausführt."
   },
   "workers": {
     "title": "Worker",
@@ -155,7 +157,9 @@
     "routes_module": "Festgelegt durch",
     "routes_override": "Betreiberüberschreibung",
     "routes_default_queue": "Standardwarteschlange",
-    "routes_empty": "Keine Aufgabenrouten konfiguriert. Jede Aufgabe wird an die Standardwarteschlange gesendet. Fügen Sie Routen in task_config.py (TASK_ROUTES) eines Moduls hinzu."
+    "routes_empty": "Keine Aufgabenrouten konfiguriert. Jede Aufgabe wird an die Standardwarteschlange gesendet. Fügen Sie Routen in task_config.py (TASK_ROUTES) eines Moduls hinzu.",
+    "checking": "Broker wird abgefragt…",
+    "checking_label": "Worker werden geladen"
   },
   "nav": {
     "background_tasks": "Hintergrundaufgaben",
