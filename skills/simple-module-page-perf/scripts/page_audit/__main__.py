@@ -7,7 +7,7 @@ Signs in, discovers pages from the ``menus`` shared prop (plus any ``--path``),
 then for each page measures the Inertia JSON response (server time and SQL
 statements from the development ``Server-Timing`` header, payload size, the
 largest props, deferred props), a full document load (FCP, LCP, CLS, bytes), a
-client-side navigation from a sidebar link (click -> painted -> deferred
+client-side navigation by clicking a link (click -> painted -> deferred
 props painted) and UX checks (DOM size, table rows, stuck loaders, unnamed
 icon buttons, headings, horizontal overflow on a phone). Prints a Markdown
 report, optionally writes JSON, and exits 1 when any check fails.

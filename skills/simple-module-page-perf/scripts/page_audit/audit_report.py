@@ -115,12 +115,9 @@ def evaluate(server: ServerResult, browser: BrowserResult | None) -> list[Findin
         out.append(Finding(p, "fail", "failed_requests", ", ".join(browser.failed_requests[:3])))
     if browser.mobile_overflow_x:
         out.append(Finding(p, "warn", "overflow", f"{browser.mobile_overflow_x}px at 390px wide"))
-    for check, key in (
-        ("stuck_loaders", "stuck_loaders"),
-        ("unnamed_controls", "unnamed_controls"),
-    ):
-        if ux.get(key):
-            out.append(Finding(p, "warn", check, f"{ux[key]} element(s)"))
+    for check in ("stuck_loaders", "unnamed_controls"):
+        if ux.get(check):
+            out.append(Finding(p, "warn", check, f"{ux[check]} element(s)"))
     if ux.get("h1_count", 1) != 1:
         out.append(Finding(p, "warn", "h1", f"{ux.get('h1_count')} <h1> elements"))
     return out

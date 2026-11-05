@@ -84,7 +84,7 @@ uv run --with playwright python .claude/skills/simple-module-page-perf/scripts/p
 
 Run it twice. Against a **development** server you get server time and SQL
 counts, but dev-server bundle numbers are meaningless. Against a **production
-build** (`make build`, then a non-development `SM_ENVIRONMENT`) you get LCP and
+build** (`make build`, then an `SM_ENVIRONMENT` other than `development` or `testing`) you get LCP and
 JS bytes, but no `Server-Timing`. The skill's `SKILL.md` has both recipes and
 explains each finding.
 
@@ -185,7 +185,7 @@ return await inertia.render(
     {
         # The routes and the start command render at once; the fleet fills
         # in behind a skeleton when the broker answers.
-        "snapshot": defer(_snapshot_json(request), group="workers"),
+        "snapshot": defer(lambda: _snapshot_json(request), group="workers"),
         "queues": queues,
         "routes": routes,
     },
@@ -349,7 +349,7 @@ reports horizontal overflow.
 ### Small things that read as quality
 
 One `<h1>` per page, an accessible name on every icon-only button, a document
-title per page (`<Head title>`). The audit checks all three. They cost
+title per page (`<Head title>`). The audit checks the first two. They cost
 nothing and make the page faster to *understand*, which is what the user
 perceives.
 
