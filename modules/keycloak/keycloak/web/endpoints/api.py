@@ -124,8 +124,7 @@ async def oidc_callback(request: Request):
         raise HTTPException(status_code=401, detail="Invalid access token expiry")
 
     provider = request.app.state.auth.auth_provider
-    cache_id = await provider._upsert_user_cache(request, claims)
-    user_ctx = provider._claims_to_user_context(claims, cache_id=cache_id)
+    user_ctx = await provider.sign_in_from_claims(request, claims)
 
     s = _get_settings(request)
     next_url = sign_in(
