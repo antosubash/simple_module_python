@@ -71,6 +71,8 @@ ignore = [
 [tool.ty.environment]
 extra-paths = [
     "framework/cli",
+    # The page-perf skill's audit script: its modules import each other flat.
+    "skills/simple-module-page-perf/scripts/page_audit",
     "framework/core",
     "framework/db",
     "framework/hosting",

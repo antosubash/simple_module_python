@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -10,7 +9,7 @@ from simple_module_db.pagination import PageParams
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
-from simple_module_inertia import InertiaResponse
+from simple_module_inertia import InertiaResponse, defer
 
 from background_tasks.celery_app import describe_routes
 from background_tasks.constants import (
@@ -30,6 +29,9 @@ PER_PAGE = 20
 # Window the "Succeeded 24h" tile counts over.
 SUCCESS_WINDOW_HOURS = 24
 
+# Deferred group for props that wait on the broker.
+_WORKERS_GROUP = "workers"
+
 
 async def _worker_presence(request: Request) -> dict[str, object]:
     """Whether anything is actually able to run a task right now.
@@ -41,13 +43,23 @@ async def _worker_presence(request: Request) -> dict[str, object]:
 
     Polling costs one inspect timeout (~1s), so this is called only when the
     unfiltered list is genuinely empty — the one moment the answer changes what
-    the screen should say. The normal path never pays for it.
+    the screen should say — and as a deferred prop: the page paints at once
+    and the empty state says it is checking until the answer lands.
     """
     snapshot = await poll_workers(request)
     return {
         "broker_reachable": snapshot.broker_reachable,
         "worker_count": sum(1 for w in snapshot.workers if w.online),
     }
+
+
+def _snapshot_json(request: Request):
+    """A deferred loader for the Workers page's fleet snapshot."""
+
+    async def load() -> dict[str, object]:
+        return (await poll_workers(request)).model_dump(mode="json")
+
+    return load
 
 
 @router.get("/", response_model=None)
@@ -98,13 +110,7 @@ async def index(
         # queue they are in, so it keeps offering the ones they are not in.
         return counts, await service.queues()
 
-    # `_worker_presence` polls the broker over a thread, not the DB session the
-    # counts use — the two don't share state, so run them concurrently instead
-    # of paying the ~1s inspect timeout serially on top of the queries.
-    if unfiltered_and_empty:
-        (counts, queues), presence = await asyncio.gather(strip_data(), _worker_presence(request))
-    else:
-        (counts, queues), presence = await strip_data(), None
+    counts, queues = await strip_data()
     return await inertia.render(
         "BackgroundTasks/Index",
         {
@@ -116,7 +122,13 @@ async def index(
             "queues": queues,
             "tenant_ids": await service.tenant_ids(),
             "platform_tenant_value": PLATFORM_TENANT_FILTER,
-            "worker_presence": presence,
+            # Deferred: the broker poll waits out a ~1s inspect timeout, which
+            # would otherwise hold back the whole page on a fresh install.
+            "worker_presence": (
+                defer(lambda: _worker_presence(request), group=_WORKERS_GROUP)
+                if unfiltered_and_empty
+                else None
+            ),
             "has_executions": has_executions,
             "pagination": {
                 "page": response.page,
@@ -140,7 +152,6 @@ async def workers(
     service: BackgroundTaskService = Depends(get_background_task_service),
 ) -> InertiaResponse:
     settings = request.app.state.background_tasks.settings
-    snapshot = await poll_workers(request)
     # The start command the empty state offers has to name the queues this
     # install actually uses, or it starts a worker that consumes nothing. The
     # default queue leads because it is the one that always exists, even before
@@ -154,7 +165,9 @@ async def workers(
     return await inertia.render(
         "BackgroundTasks/Workers",
         {
-            "snapshot": snapshot.model_dump(mode="json"),
+            # Deferred for the same ~1s inspect timeout: the routes and the
+            # start command render at once, the fleet fills in behind a skeleton.
+            "snapshot": defer(_snapshot_json(request), group=_WORKERS_GROUP),
             "broker_url_redacted": redact_broker_url(settings.broker_url),
             "queues": queues,
             "routes": routes,
