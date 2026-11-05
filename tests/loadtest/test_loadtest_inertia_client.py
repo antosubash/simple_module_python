@@ -29,7 +29,7 @@ def user_for(scenario, text, status=200):
     state = SimpleNamespace(text=text, status=status, calls=[], results=[])
 
     class OfflineAdapter(BaseAdapter):
-        def send(self, request, **kwargs):
+        def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
             state.calls.append(request)
             response = Response()
             response.status_code = state.status
