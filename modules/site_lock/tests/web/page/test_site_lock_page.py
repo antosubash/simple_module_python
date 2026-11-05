@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from site_lock.page import render_unlock_page, safe_next
+from site_lock.web.page import render_unlock_page, safe_next
 
 
 @pytest.mark.parametrize(
