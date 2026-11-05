@@ -22,14 +22,27 @@ _QUIET_MS = 300
 INIT_SCRIPT = """
 (() => {
   const s = (window.__pa = {
-    cls: 0, shifts: 0, lcp: 0, fcp: 0, visits: [], pending: 0, last: 0,
+    cls: 0, shifts: 0, windowStart: 0, windowLast: 0, windowSum: 0,
+    lcp: 0, fcp: 0, visits: [], pending: 0, last: 0,
   });
   const watch = (type, fn) => {
     try {
       new PerformanceObserver((l) => l.getEntries().forEach(fn)).observe({ type, buffered: true });
     } catch (e) { /* unsupported entry type */ }
   };
-  watch('layout-shift', (e) => { if (!e.hadRecentInput) { s.cls += e.value; s.shifts += 1; } });
+  watch('layout-shift', (e) => {
+    if (e.hadRecentInput) return;
+    if (s.shifts > 0 && e.startTime - s.windowLast < 1000
+        && e.startTime - s.windowStart < 5000) {
+      s.windowSum += e.value;
+    } else {
+      s.windowStart = e.startTime;
+      s.windowSum = e.value;
+    }
+    s.windowLast = e.startTime;
+    s.shifts += 1;
+    s.cls = Math.max(s.cls, s.windowSum);
+  });
   watch('largest-contentful-paint', (e) => { s.lcp = e.startTime; });
   watch('paint', (e) => { if (e.name === 'first-contentful-paint') s.fcp = e.startTime; });
   document.addEventListener('inertia:start', (ev) => {
@@ -55,7 +68,13 @@ _SETTLED = f"""
   && performance.now() - window.__pa.last > {_QUIET_MS}
 """
 
-_RESET = "() => { const s = window.__pa; s.cls = 0; s.shifts = 0; s.visits = []; }"
+_RESET = """
+() => {
+  const s = window.__pa;
+  s.cls = 0; s.shifts = 0; s.windowStart = 0; s.windowLast = 0; s.windowSum = 0;
+  s.visits = [];
+}
+"""
 
 _LOAD_METRICS = """
 () => {

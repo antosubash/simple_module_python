@@ -46,7 +46,6 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
     return () => clearInterval(id);
   }, []);
   const stale = snapshot !== undefined && isStale(ageOf(snapshot.polled_at, now));
-  const polling = loading || snapshot === undefined;
 
   async function refresh() {
     setLoading(true);
@@ -85,10 +84,10 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
             <Button
               variant="outline"
               onClick={refresh}
-              disabled={polling}
+              disabled={loading}
               className="max-lg:min-h-11"
             >
-              <RefreshCw className={polling ? 'animate-spin' : undefined} aria-hidden="true" />
+              <RefreshCw className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
               {t(keys.background_tasks.workers.refresh)}
             </Button>
             <Button variant="outline" asChild className="max-lg:min-h-11">

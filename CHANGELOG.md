@@ -84,6 +84,10 @@ All notable changes to this project are documented in this file. The format is b
   response; they arrive in the deferred `workers` group.
 - Background tasks pages linked to `/admin/background-tasks` without its
   trailing slash, so every "back to executions" click cost a redirect.
+- Query tracking stops at block exit even for inherited child tasks; Workers
+  Refresh can recover a missing deferred snapshot. Page audits count UTF-8 prop
+  bytes, fail unexpected redirects, measure CLS with session windows and enforce
+  a positive page cap on initial paths as well as crawled pages (#825).
 
 ## [0.0.43] — 2026-11-04
 

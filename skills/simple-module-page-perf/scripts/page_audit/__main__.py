@@ -72,7 +72,10 @@ def _args(argv: list[str]) -> argparse.Namespace:
     ap.add_argument("--json", type=Path, help="also write the full results here")
     ap.add_argument("--headed", action="store_true")
     ap.add_argument("--no-fail", action="store_true", help="exit 0 even when checks fail")
-    return ap.parse_args(argv)
+    args = ap.parse_args(argv)
+    if args.max_pages < 1:
+        ap.error("--max-pages must be at least 1")
+    return args
 
 
 def _apply_budgets(overrides: list[str]) -> None:
@@ -101,7 +104,7 @@ def _paths(found: list[str], args: argparse.Namespace) -> list[str]:
     for path in candidates:
         if path not in seen and not any(rx.search(path) for rx in excluded):
             seen.append(path)
-    return seen
+    return seen[: args.max_pages]
 
 
 def _watch(page: Page, holder: dict[str, BrowserResult]) -> None:

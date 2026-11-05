@@ -34,19 +34,21 @@ class QueryStats:
 
     count: int = 0
     seconds: float = 0.0
+    active: bool = True
 
 
 _current: ContextVar[QueryStats | None] = ContextVar("sm_query_stats", default=None)
 
 
 def _before(conn, cursor, statement, parameters, context, executemany) -> None:
-    if _current.get() is not None and context is not None:
+    stats = _current.get()
+    if stats is not None and stats.active and context is not None:
         setattr(context, _START_KEY, time.perf_counter())
 
 
 def _after(conn, cursor, statement, parameters, context, executemany) -> None:
     stats = _current.get()
-    if stats is None:
+    if stats is None or not stats.active:
         return
     stats.count += 1
     started = getattr(context, _START_KEY, None) if context is not None else None
@@ -79,4 +81,5 @@ def track_queries() -> Generator[QueryStats]:
     try:
         yield stats
     finally:
+        stats.active = False
         _current.reset(token)
