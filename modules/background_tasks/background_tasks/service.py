@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession
+from simple_module_db.pagination import total_pages
 from sqlalchemy import func, select
-from sqlalchemy.orm import load_only
 
 from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
 from background_tasks.contracts.schemas import (
@@ -20,7 +20,7 @@ from background_tasks.contracts.schemas import (
     TaskExecutionListResponse,
 )
 from background_tasks.filters import execution_filters
-from background_tasks.models import TaskExecution
+from background_tasks.models import TaskExecution, dto_columns
 from background_tasks.retry_service import RetryCoordinator
 
 if TYPE_CHECKING:
@@ -73,19 +73,11 @@ class BackgroundTaskService:
         count_query = select(func.count()).select_from(TaskExecution).where(*conditions)
         total = int((await self.db.execute(count_query)).scalar_one())
         if total:
-            page = min(page, -(-total // per_page))
+            page = min(page, total_pages(total, per_page))
 
         query = (
             select(TaskExecution)
-            .options(
-                load_only(
-                    *(
-                        getattr(TaskExecution, field)
-                        for field in TaskExecutionListItem.model_fields
-                    ),
-                    raiseload=True,
-                )
-            )
+            .options(dto_columns(TaskExecutionListItem))
             .where(*conditions)
             # The expression index preserves DESC NULLS LAST on both DBs.
             .order_by(TaskExecution.queued_at.is_(None), TaskExecution.queued_at.desc())

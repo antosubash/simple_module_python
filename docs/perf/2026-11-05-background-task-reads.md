@@ -70,8 +70,8 @@ SCAN background_tasks_task_execution USING INDEX ix_background_tasks_task_execut
 
 ## Limits and PostgreSQL follow-up
 
-PostgreSQL `EXPLAIN (ANALYZE, BUFFERS)` was not run: this task forbids starting
-servers and no PostgreSQL measurement connection was provided. The migration's
+PostgreSQL `EXPLAIN (ANALYZE, BUFFERS)` was not run for this review: no
+PostgreSQL instance was available. The migration's
 PostgreSQL DDL is checked offline; execution and planner behavior there remain
 unverified. No million-row run was made. SQLite's large improvement includes
 avoiding its wide-row window spool and sort; do not extrapolate its ratio to

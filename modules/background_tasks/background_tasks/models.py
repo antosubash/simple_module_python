@@ -10,7 +10,8 @@ from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from simple_module_db.types import AwareDateTime
 from sqlalchemy import JSON, CheckConstraint, Column, Index, String, column
-from sqlmodel import Field
+from sqlalchemy.orm import load_only
+from sqlmodel import Field, SQLModel
 
 from background_tasks.constants import (
     DEFAULT_QUEUE,
@@ -145,6 +146,14 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
             "status",
             "queued_at",
         ),
+    )
+
+
+def dto_columns(dto: type[SQLModel], *extra: str) -> Any:
+    """``load_only`` option loading just ``dto``'s fields (plus ``extra``); other columns raise."""
+    return load_only(
+        *(getattr(TaskExecution, field) for field in (*dto.model_fields, *extra)),
+        raiseload=True,
     )
 
 

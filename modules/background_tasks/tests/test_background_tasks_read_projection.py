@@ -1,5 +1,6 @@
 """Task reads must not decode discarded payloads or window-count wide history."""
 
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -11,8 +12,8 @@ from simple_module_core.events import EventBus
 from sqlalchemy import event
 
 
-@pytest.fixture
-def task_selects(engine):
+@contextmanager
+def _capture_task_selects(sync_engine):
     statements = []
 
     def capture(conn, cursor, statement, parameters, context, executemany):
@@ -22,30 +23,25 @@ def task_selects(engine):
         ):
             statements.append(statement)
 
-    event.listen(engine.sync_engine, "before_cursor_execute", capture)
-    yield statements
-    event.remove(engine.sync_engine, "before_cursor_execute", capture)
+    event.listen(sync_engine, "before_cursor_execute", capture)
+    try:
+        yield statements
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", capture)
+
+
+@pytest.fixture
+def task_selects(engine):
+    with _capture_task_selects(engine.sync_engine) as statements:
+        yield statements
 
 
 async def test_status_does_not_select_payload(seed_execution, authenticated_client, app):
     row = await seed_execution(result={"data": "x" * 1_000_000}, traceback="secret")
-    statements = []
-    engine = app.state.sm.db.engine
-
-    def capture(conn, cursor, statement, parameters, context, executemany):
-        if (
-            statement.lstrip().upper().startswith("SELECT")
-            and "background_tasks_task_execution" in statement
-        ):
-            statements.append(statement)
-
-    event.listen(engine.sync_engine, "before_cursor_execute", capture)
-    try:
+    with _capture_task_selects(app.state.sm.db.engine.sync_engine) as statements:
         response = await authenticated_client.get(
             f"/api/background_tasks/tasks/{row.celery_task_id}/status"
         )
-    finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", capture)
     assert response.status_code == 200
     assert len(statements) == 1
     projection = statements[0].split("FROM")[0]

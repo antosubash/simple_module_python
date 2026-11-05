@@ -13,6 +13,16 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateIndex
 
 INDEX = "ix_background_tasks_task_execution_queued_order"
+REVISION = "c5d8e2f1a903"
+
+
+def _script() -> ScriptDirectory:
+    root = Path(__file__).resolve().parents[3]
+    return ScriptDirectory.from_config(Config(str(root / "host/alembic.ini")))
+
+
+def _model_index():
+    return next(i for i in TaskExecution.__table__.indexes if i.name == INDEX)
 
 
 def test_default_order_uses_index_without_sort():
@@ -32,10 +42,8 @@ def test_default_order_uses_index_without_sort():
 
 
 def test_order_index_migration_roundtrip():
-    root = Path(__file__).resolve().parents[3]
-    script = ScriptDirectory.from_config(Config(str(root / "host/alembic.ini")))
-    revision = script.get_revision("background_tasks@head")
-    assert revision.module.revision == "c5d8e2f1a903"
+    revision = _script().get_revision("background_tasks@head")
+    assert revision.module.revision == REVISION
     engine = sa.create_engine("sqlite://")
     try:
         with engine.begin() as conn:
@@ -47,7 +55,7 @@ def test_order_index_migration_roundtrip():
                 definition = conn.exec_driver_sql(
                     "SELECT sql FROM sqlite_master WHERE name = ?", (INDEX,)
                 ).scalar_one()
-                model_index = next(i for i in TaskExecution.__table__.indexes if i.name == INDEX)
+                model_index = _model_index()
                 assert definition == str(CreateIndex(model_index).compile(conn)).strip()
                 revision.module.downgrade()
                 assert (
@@ -62,9 +70,7 @@ def test_order_index_migration_roundtrip():
 
 
 def test_order_index_postgres_ddl():
-    root = Path(__file__).resolve().parents[3]
-    script = ScriptDirectory.from_config(Config(str(root / "host/alembic.ini")))
-    revision = script.get_revision("c5d8e2f1a903")
+    revision = _script().get_revision(REVISION)
     output = StringIO()
     context = MigrationContext.configure(
         dialect_name="postgresql", opts={"as_sql": True, "output_buffer": output}
@@ -76,5 +82,5 @@ def test_order_index_postgres_ddl():
         "((queued_at IS NULL), queued_at DESC)"
     )
     assert output.getvalue().strip() == expected + ";"
-    model_index = next(i for i in TaskExecution.__table__.indexes if i.name == INDEX)
+    model_index = _model_index()
     assert str(CreateIndex(model_index).compile(dialect=postgresql.dialect())) == expected
