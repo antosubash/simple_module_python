@@ -12,7 +12,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.tenancy import TenantRole, tenant_role
 
-from api_tokens import constants as c
+from api_tokens.core import constants as c
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -40,15 +40,15 @@ class ApiTokensModule(ModuleBase):
         from simple_module_core.tenant_events import TenantDeleted
         from simple_module_core.user_events import UserDeleted
 
-        from api_tokens.tenant_cleanup import purge_tenant_data
-        from api_tokens.user_cleanup import purge_user_tokens
+        from api_tokens.core.tenant_cleanup import purge_tenant_data
+        from api_tokens.core.user_cleanup import purge_user_tokens
 
         bus.subscribe_durable(TenantDeleted, purge_tenant_data)
         bus.subscribe_durable(UserDeleted, purge_user_tokens)
 
     def register_settings(self, app: FastAPI) -> None:
-        from api_tokens.services import ApiTokensServices
-        from api_tokens.settings import ApiTokensSettings
+        from api_tokens.core.services import ApiTokensServices
+        from api_tokens.core.settings import ApiTokensSettings
 
         register_module_settings(
             app,
@@ -58,16 +58,16 @@ class ApiTokensModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from api_tokens.endpoints.admin_api import router as admin_api
-        from api_tokens.endpoints.api import router as api
-        from api_tokens.endpoints.views import router as views
+        from api_tokens.web.endpoints.admin_api import router as admin_api
+        from api_tokens.web.endpoints.api import router as api
+        from api_tokens.web.endpoints.views import router as views
 
         api_router.include_router(api)
         api_router.include_router(admin_api)
         view_router.include_router(views)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from api_tokens.endpoints.views import admin_router as admin_views
+        from api_tokens.web.endpoints.views import admin_router as admin_views
 
         admin_router.include_router(admin_views)
 
@@ -108,7 +108,7 @@ class ApiTokensModule(ModuleBase):
             registry.map_role(tenant_role(role), [c.PERM_USE])
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        from api_tokens.audit import build_token_audit_link
+        from api_tokens.credentials.audit import build_token_audit_link
 
         registry.register(build_token_audit_link())
 
@@ -117,7 +117,7 @@ class ApiTokensModule(ModuleBase):
         return {c.LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
-        from api_tokens.resolver import resolve_api_token
+        from api_tokens.credentials.resolver import resolve_api_token
 
         resolvers = app.state.auth.principal_resolvers
         if resolve_api_token not in resolvers:

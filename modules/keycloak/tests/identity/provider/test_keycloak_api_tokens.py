@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from api_tokens.constants import TokenKind
+from api_tokens.core.constants import TokenKind
+from api_tokens.credentials.format import generate
+from api_tokens.credentials.resolver import SERVICE_PRINCIPAL_PREFIX, resolve_api_token
 from api_tokens.models import ApiToken
-from api_tokens.resolver import SERVICE_PRINCIPAL_PREFIX, resolve_api_token
-from api_tokens.tokens import generate
 from auth.contracts.tokens import AUTH_KIND_SERVICE
 from keycloak.models import KeycloakUserCache
 from keycloak_test_modules import keycloak_modules_enabled

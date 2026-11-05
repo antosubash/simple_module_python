@@ -149,9 +149,9 @@ async def test_session_with_an_authorization_header_cannot_mint(actor):
 def test_service_key_drops_stored_tenant_and_admin_roles():
     from datetime import UTC, datetime, timedelta
 
-    from api_tokens.constants import TokenKind
+    from api_tokens.core.constants import TokenKind
+    from api_tokens.credentials.resolver import _service
     from api_tokens.models import ApiToken
-    from api_tokens.resolver import _service
 
     row = ApiToken(
         id=uuid.uuid4(),
@@ -168,7 +168,7 @@ def test_service_key_drops_stored_tenant_and_admin_roles():
 
 
 async def test_no_pat_for_an_account_the_resolver_cannot_load(app, actor, monkeypatch):
-    from api_tokens.service import ApiTokenService
+    from api_tokens.credentials.service import ApiTokenService
 
     async def missing(self, user_id) -> bool:
         return False
@@ -185,7 +185,7 @@ async def test_no_pat_for_an_account_the_resolver_cannot_load(app, actor, monkey
 
 
 async def test_has_usable_account(app):
-    from api_tokens.service import ApiTokenService
+    from api_tokens.credentials.service import ApiTokenService
     from simple_module_core.user_directory import get_user_directory
 
     user_id = await create_user(app, f"u-{uuid.uuid4().hex[:6]}@example.com")

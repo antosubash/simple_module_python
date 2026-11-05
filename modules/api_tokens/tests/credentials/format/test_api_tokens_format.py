@@ -5,8 +5,14 @@ from __future__ import annotations
 import hashlib
 from types import SimpleNamespace
 
-from api_tokens.constants import SECRET_LENGTH, TokenKind
-from api_tokens.tokens import base62, display_prefix, generate, hash_token, is_well_formed
+from api_tokens.core.constants import SECRET_LENGTH, TokenKind
+from api_tokens.credentials.format import (
+    base62,
+    display_prefix,
+    generate,
+    hash_token,
+    is_well_formed,
+)
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import is_api_token
 from simple_module_core.permissions import is_admin_principal

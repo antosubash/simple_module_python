@@ -15,22 +15,22 @@ from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
-from api_tokens.constants import (
+from api_tokens.core.constants import (
     EXPIRY_PRESETS_DAYS,
     PAGE_ADMIN,
     PAGE_INDEX,
     PERM_MANAGE,
     PERM_USE,
 )
-from api_tokens.deps import (
+from api_tokens.credentials.scopes import assignable_roles, assignable_scopes
+from api_tokens.web.deps import (
     ApiTokenServiceDep,
     SessionPrincipal,
     SettingsDep,
     require_session_principal,
     user_uuid,
 )
-from api_tokens.endpoints.admin_api import tenant_token_views
-from api_tokens.scopes import assignable_roles, assignable_scopes
+from api_tokens.web.endpoints.admin_api import tenant_token_views
 
 router = APIRouter(
     dependencies=[Depends(require_session_principal), Depends(RequiresPermission(PERM_USE))]

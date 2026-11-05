@@ -2,8 +2,8 @@
 
 import httpx
 import pytest
-from api_tokens.constants import TokenKind
-from api_tokens.service import ApiTokenService
+from api_tokens.core.constants import TokenKind
+from api_tokens.credentials.service import ApiTokenService
 from simple_module_test import forge_session_cookie
 from users.auth_local.token_api import _create_token_pair
 from users.demo import ensure_demo_users

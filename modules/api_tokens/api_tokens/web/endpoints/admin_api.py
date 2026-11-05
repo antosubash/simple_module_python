@@ -15,11 +15,16 @@ from simple_module_hosting.csrf import RequiresCsrf
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
-from api_tokens.constants import FORBIDDEN_SERVICE_ROLES, PERM_MANAGE, TokenKind
 from api_tokens.contracts.schemas import CreatedToken, ServiceKeyCreate, TokenView
-from api_tokens.deps import ApiTokenServiceDep, SettingsDep, http_error, require_session_principal
-from api_tokens.scopes import assignable_roles, assignable_scopes, check_subset
-from api_tokens.service import ApiTokenService, TokenError
+from api_tokens.core.constants import FORBIDDEN_SERVICE_ROLES, PERM_MANAGE, TokenKind
+from api_tokens.credentials.scopes import assignable_roles, assignable_scopes, check_subset
+from api_tokens.credentials.service import ApiTokenService, TokenError
+from api_tokens.web.deps import (
+    ApiTokenServiceDep,
+    SettingsDep,
+    http_error,
+    require_session_principal,
+)
 
 router = APIRouter(
     prefix="/admin",

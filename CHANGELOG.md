@@ -40,6 +40,7 @@ All notable changes to this project are documented in this file. The format is b
 - `feature_flags` follows the module layout: `feature_flags.core.{constants,service,invalidation,tenant_cleanup}`, `feature_flags.web.{deps,endpoints}`, and the page components and types move to `ui/`. `feature_flags.constants` still imports, with a `DeprecationWarning`, until 0.0.46.
 - `keycloak` follows the module layout: `keycloak.core.{constants,settings,state}`, `keycloak.identity.{provider,oidc,renewal,directory,persistence,tokens,jwks}` and `keycloak.web.endpoints`. `keycloak.{constants,settings,provider,jwks,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 - `oidc` follows the module layout: `oidc.core.{constants,settings,presets,state,runtime}`, `oidc.identity.{provider,client,discovery,renewal,directory,persistence,tokens,jwks}` and `oidc.web.endpoints`. `oidc.{settings,provider,jwks}` still import, with a `DeprecationWarning`, until 0.0.46; other old `oidc.*` paths are gone.
+- `api_tokens` follows the module layout: `api_tokens.core.{constants,settings,services,tenant_cleanup,user_cleanup}`, `api_tokens.credentials.{format,scopes,owner,service,resolver,audit}` (`tokens.py` is now `credentials/format.py`), `api_tokens.web.{deps,endpoints}`, and the page components and types move to `ui/`. `api_tokens.{constants,service,resolver,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 
 ### Fixed
 

@@ -16,8 +16,8 @@ from simple_module_core.permissions import WILDCARD
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_hosting.permissions import ensure_resolved_permissions
 
-from api_tokens.constants import FORBIDDEN_SERVICE_ROLES
-from api_tokens.service import TokenError
+from api_tokens.core.constants import FORBIDDEN_SERVICE_ROLES
+from api_tokens.credentials.service import TokenError
 
 
 def _registry(request: Request):

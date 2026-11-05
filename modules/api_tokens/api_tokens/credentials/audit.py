@@ -14,7 +14,7 @@ from simple_module_db import ALL_TENANTS_OPTION
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api_tokens.constants import ADMIN_URL, AUDIT_LINK_LABEL, AUDIT_LINK_LABEL_KEY, QP_TOKEN
+from api_tokens.core.constants import ADMIN_URL, AUDIT_LINK_LABEL, AUDIT_LINK_LABEL_KEY, QP_TOKEN
 from api_tokens.models import ApiToken
 
 

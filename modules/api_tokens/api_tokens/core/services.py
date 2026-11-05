@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from api_tokens.settings import ApiTokensSettings
+from api_tokens.core.settings import ApiTokensSettings
 
 
 @dataclass

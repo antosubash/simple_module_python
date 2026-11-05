@@ -13,8 +13,8 @@ from simple_module_db.deps import get_db
 from simple_module_hosting.i18n_deps import TranslatorDep
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api_tokens.service import ApiTokenService, TokenError
-from api_tokens.settings import ApiTokensSettings
+from api_tokens.core.settings import ApiTokensSettings
+from api_tokens.credentials.service import ApiTokenService, TokenError
 
 
 async def get_api_token_service(

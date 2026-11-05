@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from api_tokens.constants import TokenKind
+from api_tokens.core.constants import TokenKind
 from api_tokens.models import ApiToken
 from api_tokens.module import ApiTokensModule
 from simple_module_core.events import EventBus
