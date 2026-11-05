@@ -45,7 +45,15 @@ def test_setting_create_redaction(key, value, value_type, expected):
             ),
             {"access_token", "refresh_token"},
         ),
-        (Invitation(token_hash="private"), {"token_hash"}),
+        (
+            Invitation(
+                tenant_id="default",
+                email="invitee@example.test",
+                token_hash="private",
+                expires_at=datetime.now(UTC),
+            ),
+            {"token_hash"},
+        ),
         (
             RefreshOutcome(
                 outcome_key="private",
