@@ -14,6 +14,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Security
+- **Behaviour change (#687):** delegated permission edits are bounded by
+  platform-level access. Global user and role permission writes require
+  platform-level `permissions.manage`; tenant-role mappings do not contribute
+  to delegation or target-access checks. API-token scope caps still apply;
+  unscoped platform admins remain unrestricted.
+
 ## [0.0.43] — 2026-11-04
 
 ### Added

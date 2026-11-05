@@ -9,6 +9,7 @@ from fastapi import HTTPException, Request
 from simple_module_core.app_state import get_services
 from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
+from simple_module_core.tenancy import is_tenant_role
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
@@ -87,6 +88,8 @@ async def resolve_principal_permissions(
     request: Request,
     user: Any,
     registry: PermissionRegistry | None,
+    *,
+    include_tenant_roles: bool = True,
 ) -> set[str]:
     """Everything *user* holds: its roles' permissions plus every grant source.
 
@@ -101,9 +104,19 @@ async def resolve_principal_permissions(
     A token principal's set is then capped at its scopes (:func:`apply_scope_cap`),
     and is empty when its account no longer holds the permission the
     credential requires (:func:`lacks_required_permission`).
+
+    Global delegation checks exclude synthetic tenant roles with
+    ``include_tenant_roles=False``. Credential validity remains tenant-aware;
+    scope caps still apply, and the request's cached set is left untouched.
     """
-    held = await _held_permissions(request, user, registry)
-    if lacks_required_permission(user, held):
+    held = await _held_permissions(
+        request, user, registry, include_tenant_roles=include_tenant_roles
+    )
+    credential_held = held
+    if not include_tenant_roles:
+        role_map = registry.role_map if registry is not None else None
+        credential_held = held | resolve_permissions(getattr(user, "roles", None) or [], role_map)
+    if lacks_required_permission(user, credential_held):
         return set()
     return apply_scope_cap(held, user)
 
@@ -112,9 +125,19 @@ async def _held_permissions(
     request: Request,
     user: Any,
     registry: PermissionRegistry | None,
+    *,
+    include_tenant_roles: bool = True,
 ) -> set[str]:
     """What *user*'s account holds right now, before any scope cap."""
     role_map = registry.role_map if registry is not None else None
+    if not include_tenant_roles:
+        role_map = {
+            role: keys
+            for role, keys in (
+                role_map if role_map is not None else DEFAULT_ROLE_PERMISSIONS
+            ).items()
+            if not is_tenant_role(role)
+        }
     permissions = _role_and_claimed(user, role_map)
     if registry is None or WILDCARD in permissions:
         return permissions
