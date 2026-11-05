@@ -12,9 +12,9 @@ from simple_module_core.health import HealthCheckResult, HealthStatus
 from simple_module_core.mail import MailSender, current_mail_sender, install_mail_sender
 from simple_module_core.settings_hydrate import hydrate_settings
 
-from mail import constants as c
-from mail.sender import build_sender
-from mail.settings import MailSettings
+from mail.core import constants as c
+from mail.delivery.sender import build_sender
+from mail.core.settings import MailSettings
 
 
 async def resolve_sender_from_db(db: Any) -> MailSender:

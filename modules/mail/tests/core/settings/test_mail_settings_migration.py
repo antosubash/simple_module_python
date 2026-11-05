@@ -11,7 +11,7 @@ from alembic.config import Config
 
 BEFORE = "c8e4f1a2b6d9"
 REVISION = "d7b3a9e5c1f2"
-SCRIPTS = Path(__file__).resolve().parents[3] / "host" / "migrations"
+SCRIPTS = Path(__file__).resolve().parents[5] / "host" / "migrations"
 
 pytestmark = pytest.mark.filterwarnings("ignore:Skipped unsupported reflection")
 

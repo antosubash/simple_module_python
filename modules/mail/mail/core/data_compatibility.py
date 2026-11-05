@@ -10,7 +10,7 @@ from simple_module_db.stored_settings import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mail.constants import LEGACY_MAIL_KEYS, UPGRADE_SETTINGS_NAMESPACE
+from mail.core.constants import LEGACY_MAIL_KEYS, UPGRADE_SETTINGS_NAMESPACE
 
 
 async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIssue]:

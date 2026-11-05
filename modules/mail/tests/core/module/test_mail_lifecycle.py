@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mail.sender import SmtpMailSender
+from mail.delivery.sender import SmtpMailSender
 from settings.contracts.events import SettingsReloaded
 from settings.reload import apply_changes_and_reload
 from settings.service import SettingService

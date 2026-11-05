@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from mail.sender import SmtpMailSender, build_sender
-from mail.settings import MailSettings
+from mail.delivery.sender import SmtpMailSender, build_sender
+from mail.core.settings import MailSettings
 from simple_module_core.mail import ConsoleMailSender, MailMessage
 
 
@@ -42,7 +42,7 @@ def _smtp() -> SmtpMailSender:
 
 async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
 
     await _smtp().send(MailMessage(to="to@test", subject="Hi", text="Body"))
 
@@ -62,7 +62,7 @@ async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
 
 async def test_send_adds_an_html_alternative(monkeypatch) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
 
     await _smtp().send(MailMessage(to="to@test", subject="Hi", text="Body", html="<b>Body</b>"))
 
@@ -74,7 +74,7 @@ async def test_send_adds_an_html_alternative(monkeypatch) -> None:
 
 async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
     send = AsyncMock()
-    monkeypatch.setattr("mail.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
 
     sender = SmtpMailSender("h", 25, "", "", "f@test", False)
     await sender.send(MailMessage(to="t@test", subject="s", text="b"))
@@ -85,8 +85,8 @@ async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
 
 def test_console_backend_outside_development_does_not_log_bodies() -> None:
     """Reset and invite bodies carry one-time tokens (production console backend)."""
-    from mail.sender import build_sender
-    from mail.settings import MailSettings
+    from mail.delivery.sender import build_sender
+    from mail.core.settings import MailSettings
 
     assert build_sender(MailSettings(), log_bodies=False).include_body is False
     assert build_sender(MailSettings()).include_body is True
@@ -94,7 +94,7 @@ def test_console_backend_outside_development_does_not_log_bodies() -> None:
 
 @pytest.mark.parametrize("port", [-1, 0, 65536, 99999])
 def test_smtp_port_outside_the_tcp_range_is_rejected(port) -> None:
-    from mail.settings import MailSettings
+    from mail.core.settings import MailSettings
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError):

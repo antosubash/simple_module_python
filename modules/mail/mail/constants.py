@@ -1,35 +1,11 @@
-"""Every literal the mail module depends on."""
+"""Moved to :mod:`mail.core.constants`; this alias goes in 0.0.46 (module layout)."""
 
 from __future__ import annotations
 
-MODULE_NAME = "Mail"
-MODULE_PACKAGE = "mail"
+import importlib
+import sys
 
-# Dependency names must match the other modules' ``ModuleMeta.name``.
-MODULE_SETTINGS = "Settings"
+from simple_module_core.deprecation import deprecated_module
 
-BACKEND_CONSOLE = "console"
-BACKEND_SMTP = "smtp"
-
-# On-demand health check; also drives the settings page's "Test connection".
-CHECK_MAILER = "mail.mailer"
-
-DEFAULT_FROM = "no-reply@localhost"
-DEFAULT_SMTP_PORT = 587
-MIN_PORT = 1
-MAX_PORT = 65535
-
-#: Seconds per SMTP operation (aiosmtplib defaults to 60). A send can run in a
-#: request's after-commit hook, so a hung server must not hold it for a minute.
-SMTP_TIMEOUT_SECONDS = 15.0
-
-UPGRADE_SETTINGS_NAMESPACE = "mail.settings_namespace_v1"
-LEGACY_MAIL_KEYS = (
-    "users.mailer",
-    "users.smtp_host",
-    "users.smtp_port",
-    "users.smtp_username",
-    "users.smtp_password",
-    "users.smtp_from",
-    "users.smtp_tls",
-)
+deprecated_module("mail.constants", remove_in="0.0.46", use="mail.core.constants")
+sys.modules[__name__] = importlib.import_module("mail.core.constants")

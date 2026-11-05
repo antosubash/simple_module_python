@@ -183,7 +183,7 @@ One module per PR; no logic changes in a move PR.
 ## Migration status (2026-11-05)
 
 Counts refer to the source package root and direct `tests/test_*.py` files;
-cache directories are ignored. All modules are flat in PR 0. Update this table
+cache directories are ignored. Shim files left at old paths are counted separately. Update this table
 when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
@@ -197,7 +197,7 @@ when a later module PR moves files.
 | feature_flags | 8 | 9 | flat |
 | file_storage | 39 | 65 | flat |
 | keycloak | 13 | 19 | flat |
-| mail | 8 | 5 | flat |
+| mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 16 | 24 | flat |
 | permissions | 12 | 14 | flat |
 | settings | 31 | 43 | flat |
