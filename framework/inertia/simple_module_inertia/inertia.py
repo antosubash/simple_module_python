@@ -9,6 +9,7 @@ from jinja2.utils import htmlsafe_json_dumps
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse, Response
 
+from simple_module_inertia._json_snapshot import dumps
 from simple_module_inertia.config import InertiaConfig, resolved_version
 from simple_module_inertia.errors import InertiaVersionConflictException
 from simple_module_inertia.head import HEAD_PROP, Head, SiteInfo, head_tags
@@ -140,7 +141,7 @@ class Inertia:
         # encode_page yields a JSON-safe dict; htmlsafe_json_dumps serialises it
         # exactly once with HTML-safe escaping. Passing a pre-dumped string here
         # would double-encode the page object into a quoted JSON literal.
-        page_json = htmlsafe_json_dumps(encode_page(page))
+        page_json = htmlsafe_json_dumps(encode_page(page), dumps=dumps)
         context = {
             "inertia": InertiaContext(
                 environment=self._config.environment,

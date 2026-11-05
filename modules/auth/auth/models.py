@@ -1,6 +1,6 @@
 """Short-lived cross-worker outcomes for browser token renewal."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 from simple_module_db.base import create_module_base
 from sqlalchemy import JSON, BigInteger
@@ -10,6 +10,8 @@ Base = create_module_base("auth")
 
 
 class RefreshOutcome(Base, table=True):  # ty: ignore[unsupported-base]
+    __audit_redact_fields__: ClassVar[set[str]] = {"outcome_key", "lock_key", "session"}
+
     __tablename__ = "auth_refresh_outcome"
 
     # sha256(refresh key : identity : spent sealed token); not a session id.

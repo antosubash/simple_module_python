@@ -19,7 +19,7 @@ import asyncio
 import contextlib
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 from sqlalchemy import and_, func, select, text, update
 from sqlalchemy.dialects import postgresql, sqlite
@@ -47,6 +47,8 @@ Base = create_module_base(LEASE_METADATA_NAME)
 
 class LeaseRow(Base, table=True):  # ty: ignore[unsupported-base]
     """One lease slot. ``holder`` is the owner's token, ``""`` when never held."""
+
+    __audit_redact_fields__: ClassVar[set[str]] = {"holder"}
 
     __tablename__ = TABLE_LEASE
 

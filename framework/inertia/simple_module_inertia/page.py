@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 from fastapi.encoders import jsonable_encoder
 
+from simple_module_inertia._json_snapshot import JsonSnapshot
 from simple_module_inertia.resolve import JSON_SCALARS, ResolvedProps
 
 
@@ -127,6 +128,8 @@ def _is_plain_json(value: Any) -> bool:
             if depth >= _MAX_PLAIN_DEPTH:
                 return False
             stack.extend((child, depth + 1) for child in item)
+        elif kind is JsonSnapshot:
+            continue
         elif kind not in JSON_SCALARS:
             return False
     return True
@@ -137,6 +140,6 @@ def encode_page(page: dict[str, Any]) -> Any:
     if _is_plain_json(page):
         return page
     try:
-        return jsonable_encoder(page)
+        return jsonable_encoder(page, custom_encoder={JsonSnapshot: lambda value: value})
     except Exception as exc:
         raise PropEncodingError(_locate_failure(page["props"], "props"), exc) from exc

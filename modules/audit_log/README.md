@@ -17,6 +17,7 @@ Add `simple_module_audit_log` to your host's dependencies and the entry point wi
 - `GET /api/audit_log/` REST endpoint with `entity_type`, `entity_id`, `action`, `user_id`, `from_date`, `to_date`, paging filters.
 - `/audit_log` Inertia browse page with the same filter set rendered as a table, gated by the `audit_log.view` permission.
 - Opt-outs: set `__audit_exclude__ = True` on a model to skip it entirely, or `__audit_exclude_fields__ = {"password_hash"}` to skip specific columns. `AuditMixin` / `SoftDeleteMixin` bookkeeping fields are excluded automatically.
+- Credential redaction: set `__audit_redact_fields__` (or a `__audit_redact_row__` predicate) to keep a field in the diff with its values replaced by `[redacted]`; see the [audit_log docs](https://github.com/antosubash/simple_module_python/blob/main/docs/modules/audit_log.md) for details.
 
 ## Usage
 

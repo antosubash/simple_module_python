@@ -11,7 +11,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.user_directory import set_user_directory
 
-from oidc.constants import (
+from oidc.core.constants import (
     _MODULE_AUTH,
     _MODULE_SETTINGS,
     AUTH_CALLBACK_PATH,
@@ -36,10 +36,10 @@ class OidcModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-        from oidc.directory import OidcDirectory
-        from oidc.provider import OidcAuthProvider
-        from oidc.settings import OidcSettings
-        from oidc.state import OidcState
+        from oidc.core.settings import OidcSettings
+        from oidc.core.state import OidcState
+        from oidc.identity.directory import OidcDirectory
+        from oidc.identity.provider import OidcAuthProvider
 
         register_module_settings(
             app,
@@ -67,8 +67,8 @@ class OidcModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from oidc.endpoints.api import router as api
-        from oidc.endpoints.views import router as views
+        from oidc.web.endpoints.api import router as api
+        from oidc.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
@@ -79,7 +79,7 @@ class OidcModule(ModuleBase):
         registry.add_exact(LOGOUT_PATH, methods={"POST"})
 
     async def on_startup(self, app: FastAPI) -> None:
-        from oidc.runtime import initialize
+        from oidc.core.runtime import initialize
 
         await initialize(app)
 

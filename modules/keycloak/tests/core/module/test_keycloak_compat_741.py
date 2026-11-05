@@ -16,7 +16,7 @@ from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak.identity.tokens import seal_refresh_token
 from keycloak.module import KeycloakModule
 from keycloak.web.endpoints import api
-from oidc.jwks import JWKSCache as OidcJWKS
+from oidc.identity.jwks import JWKSCache as OidcJWKS
 from starlette.requests import Request
 
 _KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)

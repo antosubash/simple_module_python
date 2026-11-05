@@ -63,3 +63,8 @@ ERR_UNKNOWN_GRANTEE: Final = "Unknown user"
 ERR_BAD_ROLE: Final = "This role cannot be granted on this resource type"
 ERR_EXPIRED: Final = "expires_at must be in the future"
 ERR_SELF: Final = "You cannot share a resource with yourself"
+
+# Durable handler names key undelivered outbox rows, so they keep the import
+# path the handlers had before the module-layout move (renaming strands rows).
+TENANT_CLEANUP_HANDLER: Final = "sharing.tenant_cleanup.purge_tenant_data"
+USER_CLEANUP_HANDLER: Final = "sharing.user_cleanup.purge_user_shares"

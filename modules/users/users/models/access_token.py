@@ -7,6 +7,7 @@ inheriting from the upstream base class.
 
 import uuid
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID, TIMESTAMPAware, now_utc
 from sqlmodel import Field
@@ -29,6 +30,8 @@ def _default_expires_at() -> datetime:
 
 class UserAccessToken(Base, table=True):  # ty: ignore[unsupported-base]
     """fastapi-users DatabaseStrategy-backed access tokens."""
+
+    __audit_redact_fields__: ClassVar[set[str]] = {"token"}
 
     __tablename__ = "users_access_token"
 
