@@ -176,8 +176,9 @@ One module per PR; no logic changes in a move PR.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
    package initializers and prefix each basename with the module name.
    JS tests remain in `tests-js/`.
-4. Add external-import shims with removal release `0.0.46`, register them in
-   the expiry test, shrink the exact frozen root exceptions, and update the
+4. Add external-import shims with removal release `0.0.46`, alias shims are
+   auto-discovered by the expiry test (re-export shims are registered by hand),
+   shrink the exact frozen root exceptions, and update the
    status table below. Domain areas must be named in `DOMAIN_AREAS`.
 5. Run `python -c "import <pkg>.<mod>"` in a **fresh interpreter for every
    module**, not one interpreter importing all modules in sequence.

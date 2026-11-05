@@ -55,7 +55,10 @@ _MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"
 def _layout_shims() -> list[str]:
     """Old import paths left behind by module-layout moves (docs/module-layout.md)."""
     found = []
+    # Package sources only: ``modules/<m>/<m>/``, not tests or node_modules.
     for path in sorted(_MODULES_DIR.glob("*/*/**/*.py")):
+        if path.relative_to(_MODULES_DIR).parts[0] != path.relative_to(_MODULES_DIR).parts[1]:
+            continue
         text = path.read_text(encoding="utf-8")
         if "deprecated_module(" in text and "sys.modules[__name__]" in text:
             rel = path.relative_to(_MODULES_DIR).with_suffix("").parts[1:]
