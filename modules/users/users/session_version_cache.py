@@ -66,7 +66,7 @@ and so was read by nothing at all. See :func:`configure_session_version_cache`.
 _CACHE_MAXSIZE = 10_000
 
 _SESSION_VERSIONS: TTLCache = TTLCache(maxsize=_CACHE_MAXSIZE, ttl=SESSION_VERSION_TTL_SECONDS)
-"""``user_id -> session_version`` (or ``None`` for "no such row").
+"""``user_id -> (session_version, retired session ids)``.
 
 Bounded and per-process. An LRU eviction is not a correctness problem: a miss
 just costs the read the cache was avoiding.
@@ -93,7 +93,8 @@ def peek_session_version(user_id):
     caller that needs to tell "absent" from "cached as missing" apart wants
     :func:`read_session_version`, which reports both in one read.
     """
-    return _SESSION_VERSIONS.get(user_id)
+    entry = _SESSION_VERSIONS.get(user_id)
+    return entry[0] if entry is not None else None
 
 
 def clear_session_version_cache() -> None:
@@ -101,8 +102,10 @@ def clear_session_version_cache() -> None:
     _SESSION_VERSIONS.clear()
 
 
-def read_session_version(user_id) -> tuple[bool, int | None]:
+def read_session_version(user_id, session_id: str | None = None) -> tuple[bool, int | None]:
     """``(hit, stored)`` — ``hit`` is False when nothing is cached.
+
+    A retired session answers ``(True, None)`` like an absent account.
 
     Two return values rather than a sentinel in the *signature* because ``None``
     is a legitimate cached answer ("no such row"), and collapsing it with "not
@@ -116,12 +119,17 @@ def read_session_version(user_id) -> tuple[bool, int | None]:
     cached = _SESSION_VERSIONS.get(user_id, _MISS)
     if cached is _MISS:
         return False, None
-    return True, cached
+    version, retired = cached
+    if session_id in retired:
+        return True, None
+    return True, version
 
 
-def store_session_version(user_id, stored: int | None) -> None:
-    """Record what the DB answered for this account."""
-    _SESSION_VERSIONS[user_id] = None if stored is None else int(stored)
+def store_session_version(
+    user_id, stored: int | None, revoked: frozenset[str] = frozenset()
+) -> None:
+    """Record the account counter and retired IDs together with one TTL."""
+    _SESSION_VERSIONS[user_id] = (None if stored is None else int(stored), revoked)
 
 
 def session_version_ttl() -> float:

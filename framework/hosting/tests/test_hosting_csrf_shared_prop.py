@@ -47,13 +47,12 @@ async def test_shared_token_passes_requires_csrf(app, authenticated_client) -> N
 
 
 async def test_anonymous_page_has_no_token(client) -> None:
-    resp = await client.get("/users/login", headers=_INERTIA)
-    assert resp.status_code == 200, resp.text
+    # The shared prop never mints a token for anonymous pages; the error page
+    # renders through the same shared-prop pipeline. (Auth pages such as
+    # /users/login pass their own token deliberately, for the sign-in post.)
+    resp = await client.get("/no-such-page", headers=_INERTIA)
+    assert resp.json()["component"] == "Error", resp.text
     assert "csrfToken" not in resp.json()["props"]
-    # The full document of a page a module may mark cacheable stays token-free too.
-    doc = await client.get("/users/login", headers={"Accept": "text/html"})
-    assert doc.status_code == 200
-    assert "csrfToken" not in doc.text
 
 
 def test_helper_needs_a_signed_in_session() -> None:

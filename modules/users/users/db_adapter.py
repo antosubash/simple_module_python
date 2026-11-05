@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
+from simple_module_db.callbacks import run_on_commit_callbacks
 from simple_module_db.deps import get_db
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -48,8 +49,18 @@ class UserDatabaseWithRoles(SQLAlchemyUserDatabase):
                 raise UserAlreadyExists() from None
             raise
         await self.session.commit()
+        await run_on_commit_callbacks(self.session)
         await self.session.refresh(user)
         return user
+
+    async def update(self, user, update_dict):
+        user = await super().update(user, update_dict)
+        await run_on_commit_callbacks(self.session)
+        return user
+
+    async def delete(self, user):
+        await super().delete(user)
+        await run_on_commit_callbacks(self.session)
 
     async def get(self, id):
         stmt = (

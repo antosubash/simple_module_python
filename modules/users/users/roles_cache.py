@@ -52,8 +52,8 @@ class RoleSummary:
 async def refresh_roles_cache(app: FastAPI) -> list[RoleSummary]:
     """Reload the roles list from the DB into ``app.state.users.roles_cache``."""
     async with app.state.sm.db.session_factory() as db:
-        result = await db.execute(select(Role).order_by(Role.name))
-        cached = [RoleSummary(id=str(r.id), name=r.name) for r in result.scalars().all()]
+        result = await db.execute(select(Role.id, Role.name).order_by(Role.name))
+        cached = [RoleSummary(id=str(r.id), name=r.name) for r in result.all()]
     app.state.users.roles_cache = cached
     app.state.users.roles_cache_loaded_at = time.monotonic()
     return cached

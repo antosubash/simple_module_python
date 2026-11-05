@@ -13,6 +13,7 @@ from fastapi import Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.responses import RedirectResponse, Response
 
+from simple_module_inertia._json_snapshot import dumps
 from simple_module_inertia.page import encode_page
 
 InertiaResponse = HTMLResponse | JSONResponse
@@ -20,8 +21,13 @@ InertiaResponse = HTMLResponse | JSONResponse
 _JSON_HEADERS = {"X-Inertia": "true", "Vary": "Accept"}
 
 
+class _PageJSONResponse(JSONResponse):
+    def render(self, content: Any) -> bytes:
+        return dumps(content, compact=True).encode("utf-8")
+
+
 def json_response(page: dict[str, Any]) -> JSONResponse:
-    return JSONResponse(content=encode_page(page), headers=_JSON_HEADERS)
+    return _PageJSONResponse(content=encode_page(page), headers=_JSON_HEADERS)
 
 
 def version_conflict(url: str, version: str) -> Response:

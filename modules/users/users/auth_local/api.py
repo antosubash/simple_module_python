@@ -23,6 +23,8 @@ from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_ex
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.auth_local.browser_guard import require_browser_csrf
+from users.auth_local.browser_sessions import end_browser_session
 from users.auth_local.lockout import (
     admit,
     login_attempt,
@@ -49,7 +51,6 @@ from users.deps import (
 )
 from users.invites.accept import complete_invite
 from users.manager import UserManager
-from users.token_storage import revoke_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -92,7 +93,7 @@ async def _remembered_login_response(request: Request, user, access_token_db) ->
     )
 
 
-@router.post("/auth/login", status_code=204)
+@router.post("/auth/login", status_code=204, dependencies=[Depends(require_browser_csrf)])
 async def login(
     request: Request,
     response: Response,
@@ -166,12 +167,10 @@ async def login(
 # sits outside the lockout above (GH #530), and nothing called its logout.
 
 
-@router.post("/auth/logout", status_code=204)
+@router.post("/auth/logout", status_code=204, dependencies=[Depends(require_browser_csrf)])
 async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
     """API logout — revokes the access token, clears its cookie and the session."""
-    request.session.clear()
-    cookie_name = request.app.state.users.settings.cookie_name
-    await revoke_access_token(db, request.cookies.get(cookie_name))
+    cookie_name = await end_browser_session(request, db)
     response = Response(status_code=204)
     response.delete_cookie(cookie_name, path="/")
     return response
@@ -183,7 +182,7 @@ async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post(
     "/auth/accept-invite",
     status_code=204,
-    dependencies=[Depends(enforce_auth_throughput_limit)],
+    dependencies=[Depends(require_browser_csrf), Depends(enforce_auth_throughput_limit)],
 )
 async def accept_invite(
     body: AcceptInviteRequest,
