@@ -78,6 +78,8 @@ async def members(
     )
     pending = await invitations.list_pending(tenant.id) if can_manage else []
     page = await service.list_members(tenant.id, params)
+    # ``page.total`` counts the same rows as the seat count: every membership.
+    seats_used = await service.seats_used(tenant.id, members=page.total)
     limit = await service.entitlements.limit(tenant.id, ENTITLEMENT_SEATS)
     return await inertia.render(
         PAGE_MEMBERS,
@@ -97,7 +99,7 @@ async def members(
             ],
             "pagination": {"page": page.page, "per_page": page.per_page, "total": page.total},
             "invitations": [i.model_dump(mode="json", exclude={"token_hash"}) for i in pending],
-            "seats": {"used": await service.seats_used(tenant.id), "limit": limit},
+            "seats": {"used": seats_used, "limit": limit},
         },
     )
 

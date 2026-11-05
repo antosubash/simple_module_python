@@ -33,6 +33,7 @@ class MembershipOpsMixin:
             self,
             *events: Event,
             invalidate: Sequence[str | None] = (),
+            invalidate_hosts: Sequence[str | None] = (),
             callback: Callable[[], Awaitable[None]] | None = None,
         ) -> None: ...
         async def lock(self, tenant_id: str) -> Tenant: ...
@@ -68,15 +69,20 @@ class MembershipOpsMixin:
         )
         return await paginate(self.db, stmt, params)
 
-    async def seats_used(self, tenant_id: str) -> int:
-        """Members plus pending invitations — an invite reserves a seat."""
+    async def seats_used(self, tenant_id: str, *, members: int | None = None) -> int:
+        """Members plus pending invitations — an invite reserves a seat.
+
+        Pass *members* when the caller already counted every membership of the
+        tenant (``list_members(...).total``) to skip a second count.
+        """
         from tenants.invitations import pending_invitation_count
 
-        members = await self.db.scalar(
-            select(func.count())
-            .select_from(Membership)
-            .where(col(Membership.tenant_id) == tenant_id)
-        )
+        if members is None:
+            members = await self.db.scalar(
+                select(func.count())
+                .select_from(Membership)
+                .where(col(Membership.tenant_id) == tenant_id)
+            )
         return int(members or 0) + await pending_invitation_count(self.db, tenant_id)
 
     async def ensure_seat_available(self, tenant_id: str) -> None:

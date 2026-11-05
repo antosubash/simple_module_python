@@ -120,11 +120,31 @@ already have filled it. Different keys proceed independently; idle keys are
 removed after the final caller leaves. Failure or cancellation releases the
 lock, so a waiter can retry without a cached failed task.
 
-The helper does not version or invalidate cached data. Authorization caches must
-also compare their invalidation epoch before storing **or returning** a DB read,
-and retry against a fresh session if the epoch changed. Bound the retries
-(`MAX_FILL_ATTEMPTS`, 3): after that, return the last read uncached rather than
-loop while invalidations keep arriving. Tenant memberships and
-direct permission grants do this; their existing TTLs still bound staleness from
-missed cross-worker invalidations. The users session-version cache has not yet
-adopted the helper.
+The lock does not version or invalidate cached data. Authorization caches must
+also compare their invalidation epoch before storing a DB read, and retry
+against a fresh session if the epoch changed. `simple_module_core.singleflight.fill`
+is that loop:
+
+```python
+return await fill(
+    lambda: read_from_db(key),
+    epoch=lambda: _epoch,  # bumped by every forget
+    store=lambda value: cache.__setitem__(key, value),
+    cached=lambda: cache.get(key, MISS),  # MISS: nothing cached; None is a value
+)
+```
+
+It reads at most `MAX_FILL_ATTEMPTS` (3) times. When every read raced an
+invalidation it returns the last read **uncached** rather than loop while
+invalidations keep arriving. That answer is not guaranteed to be newer than an
+invalidation that landed during it: it is what an uncached read racing a
+concurrent change would return, and it is never stored. Tenant memberships,
+tenant subdomain lookups and direct permission grants use it inside their
+per-key `SingleFlight` (subdomain lookups without one); their existing TTLs
+still bound staleness from missed cross-worker invalidations. The users
+session-version cache has not yet adopted the helper.
+
+Give each kind of key its own channel. A handler that dispatches on a key
+prefix misreads any key of the other kind that happens to start with it (the
+tenants module keeps user ids on `tenants.membership` and slugs on
+`tenants.hosts` for this reason).

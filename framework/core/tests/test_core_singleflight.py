@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from simple_module_core.singleflight import SingleFlight
+from simple_module_core.singleflight import MAX_FILL_ATTEMPTS, MISS, SingleFlight, fill
 
 
 @pytest.mark.parametrize("cancel_leader", [False, True])
@@ -53,3 +53,48 @@ async def test_cancelled_waiter_does_not_unlock_leader_or_leak_key():
         async with flight.hold("different"):
             pass
     assert not flight._locks
+
+
+async def test_fill_stores_a_read_no_invalidation_raced():
+    stored = []
+
+    async def read():
+        return "value"
+
+    assert await fill(read, epoch=lambda: 0, store=stored.append) == "value"
+    assert stored == ["value"]
+
+
+async def test_fill_returns_a_cached_none_without_reading():
+    async def read():
+        raise AssertionError("must not read")
+
+    assert await fill(read, epoch=lambda: 0, store=lambda _value: None, cached=lambda: None) is None
+
+
+async def test_fill_retries_then_answers_uncached_under_continuous_invalidation():
+    epoch, stored, reads = [0], [], []
+
+    async def read():
+        reads.append(len(reads))
+        epoch[0] += 1  # every read races an invalidation
+        return len(reads)
+
+    result = await fill(read, epoch=lambda: epoch[0], store=stored.append, cached=lambda: MISS)
+    assert result == MAX_FILL_ATTEMPTS
+    assert len(reads) == MAX_FILL_ATTEMPTS
+    assert stored == []
+
+
+async def test_fill_rechecks_the_cache_before_retrying():
+    epoch, cache = [0], {}
+
+    async def read():
+        epoch[0] += 1
+        cache["k"] = "filled-by-another-reader"
+        return "raced"
+
+    result = await fill(
+        read, epoch=lambda: epoch[0], store=lambda _value: None, cached=lambda: cache.get("k", MISS)
+    )
+    assert result == "filled-by-another-reader"

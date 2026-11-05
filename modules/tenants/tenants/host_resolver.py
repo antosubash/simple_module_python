@@ -20,29 +20,25 @@ session's tenant: the host named a tenant, and it is not that one.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from cachetools import TTLCache
 from fastapi import FastAPI
-from simple_module_core.app_state import get_public_routes
-from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
+from simple_module_core.app_state import get_public_routes, get_services
+from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.singleflight import MISS, Miss, fill
 from sqlalchemy import select
 from starlette.requests import Request
 
-from tenants.constants import TenantStatus
+from tenants.constants import HOSTS_INVALIDATION_CHANNEL, TenantStatus
 from tenants.models import Tenant
 
 HOST_TTL_SECONDS = 60
 NEGATIVE_HOST_TTL_SECONDS = 5
-# Membership keys are user ids; this prefix marks a key that names one slug.
-HOST_KEY_PREFIX = "host:"
 _MISSING_SLUGS: TTLCache[str, bool] = TTLCache(maxsize=10_000, ttl=NEGATIVE_HOST_TTL_SECONDS)
 _BY_SLUG: TTLCache[str, tuple[str, str]] = TTLCache(maxsize=10_000, ttl=HOST_TTL_SECONDS)
 # Bumped on every forget: a lookup that started earlier must not cache its stale row.
 _epoch = 0
-
-
-def host_invalidation_key(slug: str) -> str:
-    """Invalidation key that drops one slug's host lookups (see ``resolver.forget``)."""
-    return f"{HOST_KEY_PREFIX}{slug}"
 
 
 def forget_hosts() -> None:
@@ -57,6 +53,35 @@ def forget_slug(slug: str) -> None:
     _epoch += 1
     _BY_SLUG.pop(slug, None)
     _MISSING_SLUGS.pop(slug, None)
+
+
+def forget_host(slug: str | None) -> None:
+    """Drop one slug's lookups, or every slug's on ``None``."""
+    if slug is None:
+        forget_hosts()
+    else:
+        forget_slug(slug)
+
+
+def _apply_invalidation(inv: Invalidation) -> None:
+    forget_host(inv.key)
+
+
+def subscribe_hosts(bus: InvalidationBus) -> None:
+    """Drop host lookups on ``HOSTS_INVALIDATION_CHANNEL`` (key: a slug, or ``None``)."""
+    bus.subscribe(HOSTS_INVALIDATION_CHANNEL, _apply_invalidation)
+
+
+def make_host_invalidator(app: FastAPI):
+    """``TenantService(invalidate_hosts=...)``: forget here now, then tell the other workers."""
+
+    async def invalidate(slug: str | None) -> None:
+        forget_host(slug)
+        bus = getattr(get_services(app), "invalidation", None)
+        if bus is not None:
+            await bus.publish(HOSTS_INVALIDATION_CHANNEL, key=slug)
+
+    return invalidate
 
 
 def subdomains_enabled(request: Request) -> bool:
@@ -74,25 +99,23 @@ def subdomain_slug(request: Request) -> str | None:
 
 
 async def tenant_for_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
-    """``(tenant_id, status)`` for a slug, cached briefly."""
-    row = None
-    for _ in range(MAX_FILL_ATTEMPTS):
+    """``(tenant_id, status)`` for a slug, cached briefly (unknown slugs too)."""
+
+    def cached() -> tuple[str, str] | Literal[Miss.MISS] | None:
         hit = _BY_SLUG.get(slug)
         if hit is not None:
             return hit
-        if _MISSING_SLUGS.get(slug):
-            return None
-        started = _epoch
-        row = await _read_slug(app, slug)
-        if started == _epoch:
-            if row is None:
-                _MISSING_SLUGS[slug] = True
-            else:
-                _BY_SLUG[slug] = row
-            return row
-    # Invalidated during every read: the last read started after the last
-    # invalidation this request saw, so answer with it but cache nothing.
-    return row
+        return None if _MISSING_SLUGS.get(slug) else MISS
+
+    def store(row: tuple[str, str] | None) -> None:
+        if row is None:
+            _MISSING_SLUGS[slug] = True
+        else:
+            _BY_SLUG[slug] = row
+
+    return await fill(
+        lambda: _read_slug(app, slug), epoch=lambda: _epoch, store=store, cached=cached
+    )
 
 
 async def _read_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
@@ -119,12 +142,13 @@ async def resolve_from_host(request: Request, slug: str) -> tuple[str | None, bo
 
 
 __all__ = [
-    "HOST_KEY_PREFIX",
+    "forget_host",
     "forget_hosts",
     "forget_slug",
-    "host_invalidation_key",
     "is_public_route",
+    "make_host_invalidator",
     "resolve_from_host",
     "subdomain_slug",
+    "subscribe_hosts",
     "tenant_for_slug",
 ]

@@ -10,7 +10,7 @@ from simple_module_core.invalidation import Invalidation
 from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
 from simple_module_db.transaction import finalize_session
 from tenants import host_resolver, resolver
-from tenants.constants import INVALIDATION_CHANNEL
+from tenants.constants import HOSTS_INVALIDATION_CHANNEL, INVALIDATION_CHANNEL
 from tenants.contracts.schemas import TenantCreate
 from tenants.service import TenantService
 
@@ -62,7 +62,11 @@ async def test_previously_missing_slug_resolves_right_after_create(app, user_cli
 async def test_create_drops_the_missing_slug_only_after_commit(app, user_client):
     async with user_client("owner@x.io") as (_, owner_id):
         async with app.state.sm.db.session_factory() as db:
-            service = TenantService(db, invalidate=resolver.make_invalidator(app))
+            service = TenantService(
+                db,
+                invalidate=resolver.make_invalidator(app),
+                invalidate_hosts=host_resolver.make_host_invalidator(app),
+            )
             assert await host_resolver.tenant_for_slug(app, "fresh") is None
             tenant = await service.create_tenant(
                 TenantCreate(name="Fresh", slug="fresh"), owner_user_id=owner_id
@@ -86,15 +90,27 @@ async def test_create_keeps_other_users_memberships_and_slugs(app, tenant_client
         assert host_resolver._BY_SLUG.get(existing) == cached_host
 
 
-def test_host_key_from_the_bus_drops_one_slug_and_no_memberships():
+async def test_host_key_from_the_bus_drops_one_slug_and_no_memberships(app):
     resolver._MEMBERSHIPS["someone"] = []
     host_resolver._BY_SLUG["kept"] = ("kept-id", "active")
     host_resolver._MISSING_SLUGS["created"] = True
-    key = host_resolver.host_invalidation_key("created")
-    resolver._apply_invalidation(Invalidation(INVALIDATION_CHANNEL, key=key))
+    await app.state.sm.invalidation.publish(HOSTS_INVALIDATION_CHANNEL, key="created")
     assert "created" not in host_resolver._MISSING_SLUGS
     assert host_resolver._BY_SLUG.get("kept") == ("kept-id", "active")
     assert resolver.cached_memberships("someone") == []
+    await app.state.sm.invalidation.publish(HOSTS_INVALIDATION_CHANNEL, key=None)
+    assert "kept" not in host_resolver._BY_SLUG
+    assert resolver.cached_memberships("someone") == []
+
+
+def test_membership_key_that_looks_like_a_host_key_is_a_user_id():
+    """An OIDC subject is any string; ``host:x`` on the membership channel is a user."""
+    subject = "host:kept"
+    resolver._MEMBERSHIPS[subject] = []
+    host_resolver._BY_SLUG["kept"] = ("kept-id", "active")
+    resolver._apply_invalidation(Invalidation(INVALIDATION_CHANNEL, key=subject))
+    assert resolver.cached_memberships(subject) is None
+    assert host_resolver._BY_SLUG.get("kept") == ("kept-id", "active")
 
 
 async def test_host_invalidation_during_read_retries_before_caching():

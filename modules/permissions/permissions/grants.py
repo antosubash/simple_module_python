@@ -24,7 +24,7 @@ from weakref import WeakKeyDictionary
 from cachetools import TTLCache
 from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation
-from simple_module_core.singleflight import MAX_FILL_ATTEMPTS, SingleFlight
+from simple_module_core.singleflight import MISS, SingleFlight, fill
 from sqlalchemy import select
 
 from permissions.models import UserPermission
@@ -69,9 +69,6 @@ def _cache(app: FastAPI) -> TTLCache:
     return cache
 
 
-_MISS = object()
-
-
 def clear_grants_cache() -> None:
     """Empty the cache — for tests that need a cold read."""
     apply_invalidation(Invalidation(CHANNEL))
@@ -97,29 +94,26 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
         return frozenset()
     grants = _cache(request.app)
     # One ``get``, not ``in`` then ``[]``: a TTLCache entry can expire between.
-    cached = grants.get(user_id, _MISS)
-    if cached is not _MISS:
+    cached = grants.get(user_id, MISS)
+    if cached is not MISS:
         return cached
     if (flight := _FLIGHTS.get(request.app)) is None:
         flight = _FLIGHTS[request.app] = SingleFlight()
     async with flight.hold(user_id):
-        keys: frozenset[str] = frozenset()
-        for _ in range(MAX_FILL_ATTEMPTS):
-            cached = grants.get(user_id, _MISS)
-            if cached is not _MISS:
-                return cached
-            started = _epoch
+
+        async def read() -> frozenset[str]:
             async with request.app.state.sm.db.session_factory() as db:
                 result = await db.execute(
                     select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
                 )
-                keys = frozenset(result.scalars().all())
-            if started == _epoch:
-                grants[user_id] = keys
-                return keys
-        # Invalidated during every read: the last read started after the last
-        # invalidation this request saw, so answer with it but cache nothing.
-        return keys
+                return frozenset(result.scalars().all())
+
+        def store(keys: frozenset[str]) -> None:
+            grants[user_id] = keys
+
+        return await fill(
+            read, epoch=lambda: _epoch, store=store, cached=lambda: grants.get(user_id, MISS)
+        )
 
 
 def apply_invalidation(invalidation: Invalidation, app: FastAPI | None = None) -> None:

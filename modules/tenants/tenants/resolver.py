@@ -24,7 +24,7 @@ from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation, InvalidationBus
-from simple_module_core.singleflight import MAX_FILL_ATTEMPTS, SingleFlight
+from simple_module_core.singleflight import MISS, SingleFlight, fill
 from simple_module_core.tenancy import is_tenant_role
 from simple_module_db import is_valid_tenant_id
 from simple_module_hosting.middleware import TenantResolution
@@ -38,9 +38,7 @@ from tenants.constants import (
 )
 from tenants.contracts.schemas import MyTenantView
 from tenants.host_resolver import (
-    HOST_KEY_PREFIX,
     forget_hosts,
-    forget_slug,
     is_public_route,
     resolve_from_host,
     subdomain_slug,
@@ -69,10 +67,12 @@ _epoch = 0
 
 
 def forget(key: str | None) -> None:
+    """Drop one user's memberships, or every user's (and every host lookup) on ``None``.
+
+    Keys on this channel are always user ids; slug evictions travel on
+    ``HOSTS_INVALIDATION_CHANNEL`` (see ``host_resolver``).
+    """
     global _epoch
-    if key is not None and key.startswith(HOST_KEY_PREFIX):
-        forget_slug(key.removeprefix(HOST_KEY_PREFIX))  # a new slug: memberships unaffected
-        return
     _epoch += 1
     if key is None:
         _MEMBERSHIPS.clear()
@@ -110,19 +110,16 @@ async def memberships_for(app: FastAPI, user_id: str) -> list[MyTenantView]:
     if (flight := _FLIGHTS.get(app)) is None:
         flight = _FLIGHTS[app] = SingleFlight()
     async with flight.hold(user_id):
-        views: list[MyTenantView] = []
-        for _ in range(MAX_FILL_ATTEMPTS):
-            cached = _MEMBERSHIPS.get(user_id)
-            if cached is not None:
-                return cached
-            started = _epoch
-            views = await _read_memberships(app, user_id)
-            if _epoch == started:
-                _MEMBERSHIPS[user_id] = views
-                return views
-        # Invalidated during every read: the last read started after the last
-        # invalidation this request saw, so answer with it but cache nothing.
-        return views
+
+        def store(views: list[MyTenantView]) -> None:
+            _MEMBERSHIPS[user_id] = views
+
+        return await fill(
+            lambda: _read_memberships(app, user_id),
+            epoch=lambda: _epoch,
+            store=store,
+            cached=lambda: _MEMBERSHIPS.get(user_id, MISS),
+        )
 
 
 async def _read_memberships(app: FastAPI, user_id: str) -> list[MyTenantView]:

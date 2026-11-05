@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tenants.constants import MANAGER_ROLES
 from tenants.errors import TenantError
+from tenants.host_resolver import make_host_invalidator
 from tenants.invitations import InvitationService
 from tenants.resolver import make_invalidator
 from tenants.service import TenantService
@@ -22,6 +23,7 @@ async def get_tenant_service(request: Request, db: AsyncSession = Depends(get_db
         db,
         bus=app.state.sm.event_bus,
         invalidate=make_invalidator(app),
+        invalidate_hosts=make_host_invalidator(app),
         invalidation_bus=app.state.sm.invalidation,
         entitlements=app.state.tenants.entitlements,
     )

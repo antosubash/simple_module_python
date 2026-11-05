@@ -41,7 +41,6 @@ from tenants.contracts.events import (
 )
 from tenants.contracts.schemas import TenantCreate
 from tenants.errors import TenantError
-from tenants.host_resolver import host_invalidation_key
 from tenants.models import Membership, Tenant
 
 logger = logging.getLogger(__name__)
@@ -65,12 +64,14 @@ class TenantService(MembershipOpsMixin):
         *,
         bus: EventBus | None = None,
         invalidate: Invalidate = _no_invalidate,
+        invalidate_hosts: Invalidate = _no_invalidate,
         entitlements: EntitlementProvider | None = None,
         invalidation_bus: InvalidationBus | None = None,
     ) -> None:
         self.db = db
         self.bus = bus
-        self.invalidate = invalidate
+        self.invalidate = invalidate  # membership channel: a user id, or None
+        self.invalidate_hosts = invalidate_hosts  # hosts channel: a slug, or None
         self.invalidation_bus = invalidation_bus
         self.entitlements = entitlements or UnlimitedEntitlements()
         self.pending: list[Callable[[], Awaitable[Any]]] = []
@@ -79,11 +80,14 @@ class TenantService(MembershipOpsMixin):
         self,
         *events: Event,
         invalidate: Sequence[str | None] = (),
+        invalidate_hosts: Sequence[str | None] = (),
         callback: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         async def run() -> None:
             for key in invalidate:
                 await self.invalidate(key)
+            for slug in invalidate_hosts:
+                await self.invalidate_hosts(slug)
             if self.bus is not None:
                 for event in events:
                     await self.bus.publish(event)
@@ -137,7 +141,8 @@ class TenantService(MembershipOpsMixin):
         self._after_commit(
             TenantCreated(tenant.id, tenant.slug, tenant.name, owner_user_id),
             MembershipAdded(tenant.id, owner_user_id, MembershipRole.OWNER),
-            invalidate=[owner_user_id, host_invalidation_key(tenant.slug)],
+            invalidate=[owner_user_id],
+            invalidate_hosts=[tenant.slug],
         )
         return tenant
 
