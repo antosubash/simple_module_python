@@ -167,7 +167,7 @@ Note the exact property: the bytes must look like **some** allowed image format,
 
 ### Asset lifecycle
 
-Replacing or clearing an image deletes the file it stopped referencing, so repeated logo tweaks don't leave orphans in `file_storage` — system and tenant images alike (`branding.reaper`):
+Replacing or clearing an image deletes the file it stopped referencing, so repeated logo tweaks don't leave orphans in `file_storage` — system and tenant images alike (`branding.assets.reaper`):
 
 - **After commit.** The delete is queued with `register_on_commit` and runs, in a session of its own, once the settings write is durable. Deleting in the request removed the bytes before that: a late rollback left the setting pointing at a file that was gone.
 - **Only when unreferenced.** A file another image field of the same owner still holds — the logo and the dark logo sharing one upload — is kept; the check runs again at reap time.
@@ -265,7 +265,7 @@ page translates, with the English text as fallback. Server-side error details
 (validator messages) are still shown as sent — they come from pydantic and are
 not keyed.
 
-Reads resolve per request (`branding.tenant_branding.resolve`): the request's
+Reads resolve per request (`branding.core.tenant_branding.resolve`): the request's
 tenant overrides on top of the system theme, falling back field by field. The
 provider leaves the merged object on `request.state.branding`, which the root
 template's pre-hydration `<head>` prefers. A hand-edited invalid override
