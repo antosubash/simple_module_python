@@ -67,6 +67,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Cache env-supplied settings fields per class and default API version discovery per process; changes to environment, dotenv, or secret sources require a restart.
+- Pre-serialize shared Inertia i18n catalogs per locale, audience, and catalog load, preserving page JSON bytes and HTML escaping.
 - Reduce background task polling and list reads to their required columns; count task history separately from paginated reads and index newest-first, nulls-last ordering (migration `c5d8e2f1a903`, 2026-11-05 performance review).
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `OidcAuthProvider` and `KeycloakAuthProvider` gain a public `sign_in_from_claims(request, claims)`; the OIDC and Keycloak login callbacks call it instead of the private `_identity`/`_upsert_user_cache`/`_claims_to_user_context` helpers (#848). The OIDC variant returns `(UserContext, identity)` and raises the new `IdentityUnavailableError` when the user cache refuses the identity. No behaviour change.
