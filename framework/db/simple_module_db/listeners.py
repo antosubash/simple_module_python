@@ -13,6 +13,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from simple_module_db._persisted_owner import mark_unverified, owner_mark, restore_owner_mark
+from simple_module_db.audit_redaction import AUDIT_REDACTED, pk_is_redacted
 from simple_module_db.bulk_audit import audit_statement
 from simple_module_db.bulk_guard import install_bulk_guard
 from simple_module_db.flush_guard import guard_flush
@@ -76,8 +77,14 @@ def _entity_label(obj: object) -> str:
 
 
 def _entity_pk(obj: object) -> object:
-    """Return the primary key value(s) if available, else None."""
+    """Return the primary key value(s) if available, else None.
+
+    A primary key that is itself a credential (a session or refresh token) is
+    masked: this value goes to the application log.
+    """
     try:
+        if pk_is_redacted(type(obj)):
+            return AUDIT_REDACTED
         inspector = sa_inspect(obj)
         if inspector is None:
             return None

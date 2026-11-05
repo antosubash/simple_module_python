@@ -1,14 +1,14 @@
 """Index the default newest-first task listing, with NULL timestamps last.
 
 Revision ID: c5d8e2f1a903
-Revises: e731a1b2c3d4
+Revises: e805a1b2c3d4
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "c5d8e2f1a903"
-down_revision = "e731a1b2c3d4"
+down_revision = "e805a1b2c3d4"
 branch_labels = None
 depends_on = None
 

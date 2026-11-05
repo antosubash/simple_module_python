@@ -29,14 +29,16 @@ module still depends on `Users`.
 All require authentication. Read endpoints need `permissions.view`; mutate endpoints need `permissions.manage`.
 
 **Behaviour change (#687):** `permissions.manage` alone does not allow escalation.
-Role and user updates refuse added keys the actor does not hold, using the same
-resolved permissions as authorization (roles, direct grants, other grant sources,
-and token scopes). User updates also refuse targets with permissions beyond the
-actor's, admin targets, or targets whose provider cannot report their roles.
-Unscoped admins are unrestricted. Refusals return HTTP 403 with a reason in
-`detail`, on both API and Inertia write routes. Existing role keys may be retained
-or removed without holding them; unregistered submitted keys are still ignored and
-stored grants for unavailable modules are preserved.
+Role and user updates require platform-level `permissions.manage` and refuse
+added keys outside the actor's platform-level access (global roles, claims,
+direct grants, other grant sources, and token scopes). Synthetic `tenant:*`
+roles do not contribute to this ceiling. Updates also refuse user or role
+targets with permissions beyond that ceiling, admin targets, or users whose
+provider cannot report their roles. Unscoped admins are unrestricted. API
+refusals return HTTP 403 with a reason in `detail`; Inertia writes redirect with
+a form error. Existing role keys may be retained or removed only when the role
+is within reach; unregistered submitted keys are still ignored and stored grants
+for unavailable modules are preserved. See [delegated permission editing](/framework/permissions#delegated-permission-editing).
 
 | Method + path | Body / response | Permission |
 |---|---|---|

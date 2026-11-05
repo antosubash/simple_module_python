@@ -15,6 +15,31 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Security
+- **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
+  and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
+  Native API clients without browser headers retain their existing workflow.
+- **Behaviour change:** local logout retires only the current browser session,
+  using the existing account-cache invalidation channel (#318). Migration
+  `e805a1b2c3d4` adds expiring session retirement records. Sessions issued before
+  the upgrade remain compatible until expiry or next sign-in.
+- **Audit hardening:** audit entries no longer record credential values.
+  Redacted fields retain change indicators using `[redacted]`; credential
+  primary-key identities are masked too. Migration `b8d4f2a6c901` redacts
+  historical credential entries and, conservatively, all historical settings
+  values. Downgrading does not restore these values. Operators should rotate
+  credentials saved through the settings UI on earlier versions, and handle
+  existing backups and audit exports according to their retention policies.
+- Entity update/delete log events mask primary keys that are themselves
+  credentials (session and refresh tokens), as the audit trail does.
+
+### Removed
+- `settings.constants.SENSITIVE_KEYS`; the set now lives in
+  `simple_module_core.secret_fields.SENSITIVE_KEYS`.
+- **Behaviour change (#687):** delegated permission edits are bounded by
+  platform-level access. Global user and role permission writes require
+  platform-level `permissions.manage`; tenant-role mappings do not contribute
+  to delegation or target-access checks. API-token scope caps still apply;
+  unscoped platform admins remain unrestricted.
 - The release workflow passes dispatch inputs to its scripts through the
   environment instead of templating them into shell source, and runs
   read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub

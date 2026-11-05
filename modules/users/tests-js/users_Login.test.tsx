@@ -12,6 +12,7 @@ vi.mock('@inertiajs/react', () => ({
   usePage: () => ({ props: { branding: { appName: 'Acme', logoUrl: null } } }),
 }));
 
+import { setCsrfToken } from '@simple-module-py/ui/lib/api';
 import Login from '../users/pages/Login';
 import { json, sent, stubFetch } from './users_fixtures';
 
@@ -37,6 +38,7 @@ function submit() {
 }
 
 afterEach(() => {
+  setCsrfToken(undefined);
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -59,6 +61,7 @@ describe('users Login', () => {
   });
 
   it('posts the form-encoded credentials and follows the server redirect on 204', async () => {
+    setCsrfToken('anonymous-session-token');
     const mock = stubFetch(() => new Response(null, { status: 204 }));
     render(<Login {...props} />);
     submit();
@@ -66,6 +69,7 @@ describe('users Login', () => {
     const call = await sent(mock);
     expect(call.path).toBe('/api/users/auth/login');
     expect(call.method).toBe('POST');
+    expect(call.csrf).toBe('anonymous-session-token');
     expect(call.contentType).toContain('application/x-www-form-urlencoded');
     expect(call.credentials).toBe('same-origin');
     const form = new URLSearchParams(call.text);
