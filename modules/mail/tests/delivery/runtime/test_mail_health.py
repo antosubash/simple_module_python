@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from mail.runtime import check_smtp
-from mail.sender import SmtpMailSender
+from mail.delivery.runtime import check_smtp
+from mail.delivery.sender import SmtpMailSender
 from simple_module_core import mail as core_mail
 from simple_module_core.health import HealthStatus
 from simple_module_core.mail import ConsoleMailSender
@@ -30,7 +30,7 @@ def smtp_client(monkeypatch) -> MagicMock:
     client.connect = AsyncMock()
     client.login = AsyncMock()
     client.quit = AsyncMock()
-    monkeypatch.setattr("mail.sender.aiosmtplib.SMTP", MagicMock(return_value=client))
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.SMTP", MagicMock(return_value=client))
     core_mail.install_mail_sender(SmtpMailSender("h", 587, "user", "pw", "f@test", True))
     return client
 

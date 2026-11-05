@@ -178,7 +178,7 @@ with sa.create_engine('sqlite://').begin() as conn:
 
 
 def test_cli_recipe_ids_match_the_module_constants():
-    from mail.constants import UPGRADE_SETTINGS_NAMESPACE
+    from mail.core.constants import UPGRADE_SETTINGS_NAMESPACE
     from simple_module_cli.migrations_cmd import _RECIPES
     from users.constants import UPGRADE_HASHED_BEARER_TOKENS
 

@@ -163,7 +163,7 @@ nonce matches its body; for the same reason a nonce-bearing document must not
 be stored by a shared cache (`Cache-Control: public`), which would replay one
 nonce to every visitor. Each HTTP request gets `request.state.csp_nonce`. The host's
 pre-paint script and Inertia's module entry carry that nonce; custom templates
-must put `nonce="{{ request.state.csp_nonce }}"` on every executable script,
+must put <code v-pre>nonce="{{ request.state.csp_nonce }}"</code> on every executable script,
 including external entries. JSON page data and JSON-LD are inert and need no
 nonce. Development retains the permissive Vite/HMR policy.
 

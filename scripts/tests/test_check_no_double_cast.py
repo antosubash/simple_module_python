@@ -33,6 +33,7 @@ def test_is_checked_directories():
     assert is_checked(Path("modules/users/users/pages/Users/Edit.tsx"))
     assert is_checked(Path("modules/branding/branding/components/dirty.ts"))
     assert is_checked(Path("modules/users/users/hooks/useThing.ts"))
+    assert is_checked(Path("modules/users/users/ui/utils/format.ts"))
     assert is_checked(Path("modules/users/users/auth_local/components/AuthIntro.tsx"))
     assert is_checked(Path("modules/users/users/lib/format.ts"))
     assert is_checked(Path("packages/ui/src/layouts/SidebarLayout.tsx"))

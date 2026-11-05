@@ -5,20 +5,20 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from simple_module_hosting.permissions import RequiresPermission
 
-from {{PACKAGE_NAME}}.constants import (
+from {{PACKAGE_NAME}}.contracts.schemas import (
+    {{SINGULAR_CLASS}}Create,
+    {{SINGULAR_CLASS}}Out,
+    {{SINGULAR_CLASS}}Update,
+)
+from {{PACKAGE_NAME}}.core.constants import (
     NOT_FOUND_DETAIL,
     PERM_{{PACKAGE_NAME_UPPER}}_CREATE,
     PERM_{{PACKAGE_NAME_UPPER}}_DELETE,
     PERM_{{PACKAGE_NAME_UPPER}}_EDIT,
     PERM_{{PACKAGE_NAME_UPPER}}_VIEW,
 )
-from {{PACKAGE_NAME}}.contracts.schemas import (
-    {{SINGULAR_CLASS}}Create,
-    {{SINGULAR_CLASS}}Out,
-    {{SINGULAR_CLASS}}Update,
-)
-from {{PACKAGE_NAME}}.deps import get_{{SINGULAR}}_service
-from {{PACKAGE_NAME}}.service import {{SINGULAR_CLASS}}Service
+from {{PACKAGE_NAME}}.web.deps import get_{{SINGULAR}}_service
+from {{PACKAGE_NAME}}.web.service import {{SINGULAR_CLASS}}Service
 
 router = APIRouter()
 

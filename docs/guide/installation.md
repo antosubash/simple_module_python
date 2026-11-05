@@ -124,7 +124,7 @@ Then `make migrate && make dev`.
 smpy create-module orders --dest modules/orders
 ```
 
-That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `services.py`, `settings.py`, a REST `endpoints/api.py`, an empty `pages/` dir, tests, and `pyproject.toml`/`package.json`/`tsconfig.json`. Flesh out models, contracts, views, and pages as your domain needs them. Add the package to your app's dependencies and re-sync:
+That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `core/services.py`, `core/settings.py`, a REST `web/endpoints/api.py`, an empty `pages/` dir, tests, and `pyproject.toml`/`package.json`/`tsconfig.json`. Flesh out models, contracts, views, and pages as your domain needs them. Add the package to your app's dependencies and re-sync:
 
 ```bash
 uv add ./modules/orders

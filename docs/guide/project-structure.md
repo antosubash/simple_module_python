@@ -57,34 +57,32 @@ See [Bundled modules](/modules/) for details on each.
 
 ## Anatomy of a module
 
-Every module under `modules/<name>/` (or installed from PyPI as `simple_module_<name>`) follows the same shape:
+New scaffolded modules use the area layout. Existing bundled modules migrate
+one by one; [Module layout](/module-layout) tracks their status and the full contract.
 
 ```text
 modules/orders/
-├── pyproject.toml             # entry point: simple_module = "orders.module:OrdersModule"
-├── package.json               # npm workspace member (for page TSX + Biome)
-├── tsconfig.json              # TypeScript project for the pages
+├── pyproject.toml, package.json, tsconfig.json
 ├── orders/
-│   ├── __init__.py
-│   ├── module.py              # ModuleBase subclass with meta = ModuleMeta(...)
-│   ├── models.py              # SQLModel tables (optional — some modules are UI-only)
-│   ├── contracts/             # SQLModel DTOs — the PUBLIC surface for other modules
-│   │   └── schemas.py
-│   ├── service.py             # business logic — takes AsyncSession, returns DTOs
-│   ├── services.py            # module-scoped state container — assigned to app.state.orders
-│   ├── deps.py                # FastAPI dependencies (auth requirements, etc.)
-│   ├── endpoints/
-│   │   ├── api.py             # REST (JSON) endpoints
-│   │   └── views.py           # Inertia view endpoints
-│   ├── pages/                 # *.tsx — auto-discovered by Vite via modules.generated.ts
-│   │   ├── Browse.tsx
-│   │   ├── Create.tsx
-│   │   └── Edit.tsx
-│   └── locales/
-│       └── en.json            # translations, namespaced by module name
+│   ├── __init__.py, py.typed, module.py
+│   ├── models.py                 # or models/; discovered by name
+│   ├── contracts/                # public SQLModel DTOs and extension contracts
+│   ├── core/                     # constants.py, settings.py, services.py, errors.py
+│   ├── web/                      # deps.py, service.py (or services/), private schemas
+│   │   └── endpoints/            # api.py, views.py
+│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── locales/                  # <lang>.json
+│   ├── ui/                       # components/, hooks/, utils/ (when needed)
+│   └── tasks.py, theme.css, styles.css  # optional root lookup files
 └── tests/
-    └── test_orders.py         # smoke test — extend with service/endpoint tests as needed
+    ├── conftest.py                # module-wide fixtures
+    ├── core/module/test_orders_module.py
+    ├── core/contracts/test_orders_schemas.py
+    └── web/crud/test_orders_crud.py
 ```
+
+Tests have no `__init__.py`; basenames are globally unique and start with
+`test_orders_`. JS tests stay in `modules/orders/tests-js/`.
 
 See the [module authoring guide](/module-authoring) for the full contract.
 

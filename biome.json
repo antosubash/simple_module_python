@@ -5,6 +5,7 @@
       "host/client_app/**",
       "packages/**",
       "modules/*/*/pages/**",
+      "modules/*/*/ui/**",
       "modules/*/*/**/components/**",
       "modules/*/tests-js/**",
       "framework/hosting/simple_module_hosting/setup_wizard/**",

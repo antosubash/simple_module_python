@@ -8,8 +8,8 @@ from email.message import EmailMessage
 import aiosmtplib
 from simple_module_core.mail import ConsoleMailSender, MailMessage, MailSender
 
-from mail import constants as c
-from mail.settings import MailSettings
+from mail.core import constants as c
+from mail.core.settings import MailSettings
 
 
 class SmtpMailSender:
