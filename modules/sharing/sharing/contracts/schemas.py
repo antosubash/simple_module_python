@@ -8,7 +8,7 @@ from datetime import datetime
 from simple_module_core.resources import ACTION_VIEW
 from sqlmodel import Field, SQLModel
 
-from sharing.constants import RESOURCE_ID_MAX, RESOURCE_TYPE_MAX, ROLE_MAX, SUBJECT_ID_MAX
+from sharing.core.constants import RESOURCE_ID_MAX, RESOURCE_TYPE_MAX, ROLE_MAX, SUBJECT_ID_MAX
 
 
 class ShareGrant(SQLModel):

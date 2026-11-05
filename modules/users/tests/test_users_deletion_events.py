@@ -7,7 +7,7 @@ from background_tasks.models import OutboxMessage
 from background_tasks.outbox_transport import _OutboxWriter
 from permissions.models import UserPermission
 from permissions.module import PermissionsModule
-from sharing.constants import SUBJECT_USER
+from sharing.core.constants import SUBJECT_USER
 from sharing.models import ResourceShare
 from sharing.module import SharingModule
 from simple_module_core.durable_events import event_key

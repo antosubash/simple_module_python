@@ -7,10 +7,10 @@ from datetime import timedelta
 
 import pytest
 from _sharing_support import FakeDirectory, SharingTestNote, create_note_table
-from sharing.constants import ROLE_MAX
 from sharing.contracts.schemas import ShareGrant
-from sharing.policy import roles_granting, share_exists_for
-from sharing.service import SharingError, SharingService
+from sharing.core.constants import ROLE_MAX
+from sharing.core.policy import roles_granting, share_exists_for
+from sharing.core.service import SharingError, SharingService
 from simple_module_core.datetimes import utcnow
 from simple_module_core.resources import (
     ACTION_EDIT,

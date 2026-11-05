@@ -14,10 +14,10 @@ from _sharing_support import (
     create_note_table,
     register_note_type,
 )
-from sharing.constants import PERM_MANAGE
 from sharing.contracts.schemas import ShareGrant
+from sharing.core.constants import PERM_MANAGE
+from sharing.core.service import SharingError, SharingService
 from sharing.models import ResourceShare
-from sharing.service import SharingError, SharingService
 from simple_module_core.resources import (
     ACTION_EDIT,
     ACTION_SHARE,
