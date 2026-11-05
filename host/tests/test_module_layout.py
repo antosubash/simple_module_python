@@ -32,6 +32,7 @@ ALLOWED_ROOT = frozenset(
 )
 # Add named domain areas here only when they contain several related features.
 DOMAIN_AREAS: dict[str, frozenset[str]] = {
+    "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
 }
 
@@ -82,12 +83,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         reads.py resolve.py scope.py service.py services.py serving.py settings.py
         tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
         uploads.py visibility.py worker.py worker_support.py
-        """.split()
-    ),
-    "keycloak": frozenset(
-        """
-        constants.py directory.py endpoints jwks.py oidc.py persistence.py provider.py
-        renewal.py settings.py state.py tokens.py
         """.split()
     ),
     "oidc": frozenset(

@@ -141,7 +141,7 @@ Keycloak registers no setup steps: its local `users` table is legitimately empty
 | `last_login_at` | `datetime \| None` | written on login; bearer activity writes throttled to once per five minutes |
 
 The cache backs this module's [user directory](/framework/user-directory)
-(`keycloak.directory.KeycloakDirectory`, installed in `register_settings`), so
+(`keycloak.identity.directory.KeycloakDirectory`, installed in `register_settings`), so
 the audit log, dashboard, file storage and the permissions grants screen name
 and count Keycloak users. It knows only users who have signed in at least once;
 roles are `None` (they live in the IdP) and `created_this_month` is `None`.

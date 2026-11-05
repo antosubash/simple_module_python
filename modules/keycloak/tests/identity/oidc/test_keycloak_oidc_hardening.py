@@ -7,8 +7,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi import HTTPException
-from keycloak.endpoints import api
-from keycloak.oidc import OIDCClient
+from keycloak.identity.oidc import OIDCClient
+from keycloak.web.endpoints import api
 from starlette.requests import Request
 
 

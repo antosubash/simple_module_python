@@ -10,8 +10,8 @@ from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse, Response
 
-from keycloak.renewal import _KEYS
-from keycloak.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
+from keycloak.identity.renewal import _KEYS
+from keycloak.identity.tokens import SESSION_REFRESH_TOKEN_KEY, open_refresh_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["keycloak-views"])
@@ -52,7 +52,7 @@ async def logged_out_page(inertia: InertiaDep):
 
 @router.post("/logout")
 async def logout(request: Request) -> Response:
-    from keycloak.oidc import OIDCClient
+    from keycloak.identity.oidc import OIDCClient
 
     s = request.app.state.keycloak.settings
     refresh_token = open_refresh_token(request.app, request.session.get(SESSION_REFRESH_TOKEN_KEY))

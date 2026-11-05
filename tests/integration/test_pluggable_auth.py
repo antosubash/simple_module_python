@@ -46,8 +46,8 @@ def test_auth_provider_protocol_satisfied_by_users():
 
 
 def test_auth_provider_protocol_satisfied_by_keycloak():
-    from keycloak.provider import KeycloakAuthProvider
-    from keycloak.settings import KeycloakSettings
+    from keycloak.identity.provider import KeycloakAuthProvider
+    from keycloak.core.settings import KeycloakSettings
 
     settings = KeycloakSettings(
         server_url="https://example.com",

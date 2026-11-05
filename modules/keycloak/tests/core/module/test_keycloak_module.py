@@ -16,7 +16,7 @@ def test_keycloak_module_meta():
 
 
 def test_keycloak_provider_satisfies_protocol():
-    from keycloak.provider import KeycloakAuthProvider
+    from keycloak.identity.provider import KeycloakAuthProvider
 
     provider = KeycloakAuthProvider()
     assert isinstance(provider, AuthProvider)
@@ -33,17 +33,17 @@ class TestKeycloakLoginRedirectUrl:
     """
 
     def test_blank_falls_back_to_the_default(self):
-        from keycloak.settings import KeycloakSettings
+        from keycloak.core.settings import KeycloakSettings
 
         assert KeycloakSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
 
     def test_whitespace_only_falls_back_to_the_default(self):
-        from keycloak.settings import KeycloakSettings
+        from keycloak.core.settings import KeycloakSettings
 
         assert KeycloakSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
 
     def test_a_real_value_is_left_alone(self):
-        from keycloak.settings import KeycloakSettings
+        from keycloak.core.settings import KeycloakSettings
 
         assert KeycloakSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
 

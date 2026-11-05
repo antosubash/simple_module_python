@@ -9,7 +9,7 @@ fails the boot instead of booting against empty ``users_*`` tables (GH #501).
 from __future__ import annotations
 
 import pytest
-from keycloak.directory import KeycloakDirectory
+from keycloak.identity.directory import KeycloakDirectory
 from keycloak_test_modules import keycloak_modules_enabled
 from simple_module_core.exceptions import MissingDependencyError
 from simple_module_core.user_directory import get_user_directory

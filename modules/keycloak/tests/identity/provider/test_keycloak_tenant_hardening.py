@@ -13,9 +13,9 @@ import time
 
 import pytest
 from auth.contracts.schemas import UserContext
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
-from keycloak.state import KeycloakState
+from keycloak.core.settings import KeycloakSettings
+from keycloak.core.state import KeycloakState
+from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak_test_modules import keycloak_modules_enabled
 from starlette.requests import Request
 
@@ -88,7 +88,7 @@ def test_role_mapping_cannot_grant_tenant_roles(caplog):
     provider = KeycloakAuthProvider(settings)
     claims = {"sub": "s", "realm_access": {"roles": ["kc-owner", "kc-admin", "kc-user"]}}
 
-    with caplog.at_level(logging.WARNING, logger="keycloak.provider"):
+    with caplog.at_level(logging.WARNING, logger="keycloak.identity.provider"):
         first = provider._claims_to_user_context(claims, cache_id="a")
         second = provider._claims_to_user_context(claims, cache_id="a")
 
