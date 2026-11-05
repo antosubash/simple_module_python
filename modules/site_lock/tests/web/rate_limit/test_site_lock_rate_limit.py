@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from site_lock.rate_limit import AttemptLimiter
+from site_lock.web.rate_limit import AttemptLimiter
 
 
 def _limiter() -> AttemptLimiter:

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import httpx
 from fastapi import FastAPI
-from site_lock import constants as c
-from site_lock.middleware import SiteLockMiddleware, password_fingerprint
-from site_lock.settings import SiteLockSettings
-from site_lock.state import SiteLockState
+from site_lock.core import constants as c
+from site_lock.core.settings import SiteLockSettings
+from site_lock.core.state import SiteLockState
+from site_lock.web.middleware import SiteLockMiddleware, password_fingerprint
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
 
