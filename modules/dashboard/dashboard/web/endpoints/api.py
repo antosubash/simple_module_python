@@ -7,8 +7,8 @@ from simple_module_db.deps import get_db
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dashboard.constants import PERM_VIEW
-from dashboard.stats import fetch_dashboard_stats
+from dashboard.core.constants import PERM_VIEW
+from dashboard.web.stats import fetch_dashboard_stats
 
 router = APIRouter()
 

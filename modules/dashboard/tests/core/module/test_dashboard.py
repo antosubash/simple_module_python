@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 from dashboard.module import DashboardModule
-from dashboard.stats import invalidate_stats_cache
+from dashboard.web.stats import invalidate_stats_cache
 
 
 @pytest.fixture(autouse=True)
@@ -35,7 +35,7 @@ class TestDashboardModuleRegistration:
 class TestFetchDashboardStats:
     @pytest.fixture
     async def stats(self, app):
-        from dashboard.stats import fetch_dashboard_stats
+        from dashboard.web.stats import fetch_dashboard_stats
 
         async with app.state.sm.db.session_factory() as db:
             return await fetch_dashboard_stats(db, app)

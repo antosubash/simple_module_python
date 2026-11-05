@@ -10,8 +10,8 @@ vi.mock('@inertiajs/react', () => ({
   usePage: () => ({ props: {} }),
 }));
 
-import type { DoctorProps } from '../dashboard/pages/components/doctor/types';
 import Doctor from '../dashboard/pages/Doctor';
+import type { DoctorProps } from '../dashboard/ui/components/doctor/types';
 
 const props: DoctorProps = {
   checks: [{ id: 'pages', status: 'pass', command: null, findings: [] }],

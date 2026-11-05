@@ -8,8 +8,8 @@ stats therefore need ``dashboard.view``, which only the platform ``admin``
 from __future__ import annotations
 
 import pytest
-from dashboard.constants import PERM_VIEW
-from dashboard.stats import invalidate_stats_cache
+from dashboard.core.constants import PERM_VIEW
+from dashboard.web.stats import invalidate_stats_cache
 from simple_module_core.tenancy import TenantRole, tenant_role
 
 _STATS = "/api/dashboard/stats"

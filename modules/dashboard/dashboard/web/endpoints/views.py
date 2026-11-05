@@ -18,8 +18,8 @@ from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
-from dashboard.constants import PERM_VIEW
-from dashboard.stats import fetch_dashboard_stats
+from dashboard.core.constants import PERM_VIEW
+from dashboard.web.stats import fetch_dashboard_stats
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def dashboard(
 @admin_router.get("/", response_model=None)
 async def doctor(request: Request, inertia: InertiaDep) -> InertiaResponse:
     """`make doctor` mirror — checks, migrations, dev server, all live."""
-    from dashboard.doctor import doctor_props
+    from dashboard.web.doctor import doctor_props
 
     # doctor_props walks the alembic script directory and every module's pages
     # dir, so it is blocking filesystem work: keep it off the event loop rather

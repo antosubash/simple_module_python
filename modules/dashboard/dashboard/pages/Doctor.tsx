@@ -5,15 +5,15 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { ChecksCard } from './components/doctor/ChecksCard';
-import { useCheckLabels } from './components/doctor/check-copy';
-import { copyToClipboard } from './components/doctor/copy';
-import { DevServerCard } from './components/doctor/DevServerCard';
-import { MigrationsCard } from './components/doctor/MigrationsCard';
-import { buildDoctorReport } from './components/doctor/report';
-import { StatsRow } from './components/doctor/StatsRow';
-import { TerminalPanel } from './components/doctor/TerminalPanel';
-import type { DoctorProps } from './components/doctor/types';
+import { ChecksCard } from '../ui/components/doctor/ChecksCard';
+import { useCheckLabels } from '../ui/components/doctor/check-copy';
+import { copyToClipboard } from '../ui/components/doctor/copy';
+import { DevServerCard } from '../ui/components/doctor/DevServerCard';
+import { MigrationsCard } from '../ui/components/doctor/MigrationsCard';
+import { buildDoctorReport } from '../ui/components/doctor/report';
+import { StatsRow } from '../ui/components/doctor/StatsRow';
+import { TerminalPanel } from '../ui/components/doctor/TerminalPanel';
+import type { DoctorProps } from '../ui/components/doctor/types';
 
 const RERUN_URL = '/admin/doctor/rerun';
 
