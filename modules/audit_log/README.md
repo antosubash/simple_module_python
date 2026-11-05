@@ -53,7 +53,6 @@ class Cache(Base, table=True):
 
 MIT
 
-
 ## Credential redaction
 
 Set `__audit_redact_fields__: ClassVar[set[str]] = {"credential"}` on a
@@ -70,7 +69,8 @@ that could hold a credential when row context is unavailable. Manual capture
 accepts the mapped class or its registered class name to apply its policy.
 
 Built-in policies cover stored secret settings, user password hashes, OAuth
-credentials, tenant invitation hashes, bearer tokens, lease ownership tokens and auth refresh outcomes.
+credentials, tenant invitation hashes, bearer tokens, lease ownership tokens
+and auth refresh outcomes.
 Settings use the same secret rule as the settings UI. Non-secret ORM settings
 retain their values; bulk settings values are always redacted because the
 statement may affect rows with different keys or prior values. API token

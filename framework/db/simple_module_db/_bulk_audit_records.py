@@ -32,6 +32,7 @@ class _Ctx:
 
     def __init__(self, entity_type: str, action: str, changes: list[dict[str, Any]]) -> None:
         self.entity_type = entity_type
+        self._model = model_for_audit(entity_type)
         self.action = action
         self.row_actions = [action]
         self.changes = changes
@@ -46,7 +47,7 @@ class _Ctx:
     ) -> AuditRecord:
         return AuditRecord(
             entity_type=self.entity_type,
-            entity_id=redact_entity_id(model_for_audit(self.entity_type), entity_id),
+            entity_id=redact_entity_id(self._model, entity_id),
             action=action or self.action,
             changes=self.changes if changes is None else changes,
             user_id=self.user_id,
@@ -114,9 +115,11 @@ def record_bulk_audit(
         return
     name = entity_type if isinstance(entity_type, str) else entity_type.__name__
     diff = [{"field": k, "new": _serialize(v)} for k, v in (changes or {}).items()]
-    model = model_for_audit(entity_type)
-    if model is not None:
-        diff = redact_changes(model, [c for c in diff if c["field"] not in _excluded_fields(model)])
     ctx = _Ctx(name, action, diff)
+    model = ctx._model
+    if model is not None:
+        ctx.changes = redact_changes(
+            model, [c for c in diff if c["field"] not in _excluded_fields(model)]
+        )
     keys = [SUMMARY_ENTITY_ID] if ids is None else [str(i) for i in ids]
     _deliver(sync, callback, [ctx.record(k) for k in keys])

@@ -10,6 +10,7 @@ AUDIT_REDACTED: Final = "[redacted]"
 
 
 def model_for_audit(model: type | str) -> type | None:
+    """Accept a mapped class or its registered class name; None for unknown names."""
     if isinstance(model, type):
         return model
     from simple_module_db.model_registry import classes_by_table
@@ -32,15 +33,21 @@ def redact_changes(
             fields.update(predicate(None))
         else:
             state = inspect(obj)
-            current = {attr.key: state.dict.get(attr.key) for attr in state.mapper.column_attrs}
-            previous = dict(current)
+            current: dict[str, Any] = {}
+            previous: dict[str, Any] = {}
             for attr in state.mapper.column_attrs:
-                history = state.attrs[attr.key].history
+                key = attr.key
+                value = current[key] = state.dict.get(key)
+                history = state.attrs[key].history
                 if history.has_changes():
-                    previous[attr.key] = history.deleted[0] if history.deleted else None
+                    previous[key] = history.deleted[0] if history.deleted else None
+                else:
+                    previous[key] = value
             fields.update(predicate(current))
             if state.persistent:
                 fields.update(predicate(previous))
+    if not fields:
+        return changes
     return [
         {
             k: AUDIT_REDACTED if c["field"] in fields and k in {"old", "new"} else v
@@ -51,8 +58,9 @@ def redact_changes(
 
 
 def redact_entity_id(model: type | None, entity_id: str) -> str:
-    if model is not None:
-        fields = getattr(model, "__audit_redact_fields__", ())
-        if any(col.key in fields for col in inspect(model).primary_key):
-            return AUDIT_REDACTED
+    fields = getattr(model, "__audit_redact_fields__", None)
+    if model is None or not fields:
+        return entity_id
+    if any(col.key in fields for col in inspect(model).primary_key):
+        return AUDIT_REDACTED
     return entity_id

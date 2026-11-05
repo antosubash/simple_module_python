@@ -47,12 +47,7 @@ LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
 
 # ── Secrets ──────────────────────────────────────────────────────────
-# Keys whose stored value must never leave the settings API or the raw
-# key/value browse screen. ``host.secret_key`` is the session-signing key: the
-# hosting layer generates and persists it here when SM_SECRET_KEY is unset, and
-# anyone who can read it can forge a session cookie for any account. Masked on
-# the way out only — the boot-time reader goes straight to SQL, so hiding it
-# here costs nothing.
+# ``SENSITIVE_KEYS`` is re-exported from ``simple_module_core.secret_fields``.
 SENSITIVE_PLACEHOLDER: Final = "********"
 
 # ── Routing ──────────────────────────────────────────────────────────

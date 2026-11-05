@@ -98,10 +98,10 @@ def _entity_pk_str(obj: object) -> str:
     if identity is None:
         # Pre-flush: fall back to the mapper-level key attrs
         mapper = inspector.mapper
-        return redact_entity_id(
-            type(obj), format_pk([getattr(obj, col.key) for col in mapper.primary_key])
-        )
-    return redact_entity_id(type(obj), format_pk(identity))
+        pk = format_pk([getattr(obj, col.key) for col in mapper.primary_key])
+    else:
+        pk = format_pk(identity)
+    return redact_entity_id(type(obj), pk)
 
 
 def _column_names(obj: object) -> list[str]:

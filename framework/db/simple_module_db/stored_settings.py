@@ -87,13 +87,13 @@ class Setting(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
 
     @staticmethod
     def __audit_redact_row__(row: dict | None) -> set[str]:
-        if row is None or any(row.get(k) is None for k in (COL_KEY, COL_VALUE, COL_VALUE_TYPE)):
+        if (
+            row is None
+            or any(row.get(k) is None for k in (COL_KEY, COL_VALUE, COL_VALUE_TYPE))
+            or conceals_secret(row[COL_KEY], row[COL_VALUE], row[COL_VALUE_TYPE])
+        ):
             return {COL_VALUE}
-        return (
-            {COL_VALUE}
-            if conceals_secret(row[COL_KEY], row[COL_VALUE], row[COL_VALUE_TYPE])
-            else set()
-        )
+        return set()
 
     __tablename__ = TABLE_SETTING
     __table_args__ = (UniqueConstraint(COL_SCOPE, COL_SCOPE_ID, COL_KEY, name=UQ_SCOPE_KEY),)
