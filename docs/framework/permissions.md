@@ -73,6 +73,24 @@ Host apps customize this by:
 
 The framework ships only `admin: ["*"]`. The wildcard grants every declared permission.
 
+## Delegated permission editing
+
+User and role permission assignments are global. Delegated edits require
+`permissions.manage` at the platform level and are bounded by platform-level
+access: global roles, principal claims, and direct grants (including registered
+grant sources), capped by API-token scopes. Synthetic `tenant:*` role mappings
+do not contribute to this ceiling, even when the active tenant grants the same
+permission. `resolve_principal_permissions(..., include_tenant_roles=False)`
+resolves this ceiling without changing ordinary tenant-aware authorization or
+the request's cached permissions. Credential validity still uses tenant-aware
+permissions, so a token's required `api_tokens.use` may come from its tenant.
+
+Delegated actors may add only keys within that ceiling and may edit only users
+or roles whose existing permissions are within it. This also bounds retaining
+or removing existing grants. Admin targets and users whose provider cannot
+report their roles remain out of reach; unscoped platform admins remain
+unrestricted. API refusals return 403; view writes redirect with a form error.
+
 ## Runtime permission sources
 
 `register_permissions` runs before the database is open, so it cannot declare permissions for resources admins create later (per-record-type keys such as `records.product.edit`). Register a **source** instead:
