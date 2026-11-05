@@ -27,6 +27,7 @@
     "vitest": "^5.0.5"
   },
   "overrides": {
-    "vite": "$vite"
+    "vite": "$vite",
+    "postcss-selector-parser": "^6.1.5"
   }
 }

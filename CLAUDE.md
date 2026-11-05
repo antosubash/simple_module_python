@@ -261,7 +261,10 @@ by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 `app.state.principal_serializer` is set, and `i18n.messages` is null on every
 `X-Inertia` request when the tab reports a matching locale and audience
 via `X-SM-I18n`; clients without that header use the legacy session markers.
-Layout props are resolved lazily by page and error rendering; permissions stay eager. Inertia
+Layout props are resolved lazily by page and error rendering; permissions stay eager.
+Development responses carry `Server-Timing` (app time, SQL statement count);
+`docs/frontend/performance.md` covers fast pages and the
+`simple-module-page-perf` skill audits them. Inertia
 `router.post/patch/put/delete` must target view routes, never `/api/*`
 (`SM018`). `docs/frontend/`.
 
@@ -489,7 +492,7 @@ pages without `package.json`/`tsconfig.json`, `SM018` Inertia call to `/api`,
 `SM019` views with no menu item or permission, `SM022`/`SM023` CSS in the wrong
 file, `SM024` unique key without `tenant_id`, `SM028` heavy import in
 `tasks.py`, `SM031` `/api` route with no permission/`Authenticated()` gate and not public (dev boot
-only: it needs the built app).
+only: it needs the built app), `SM034` `subscribe_durable` without `name=`.
 
 ## Tests & fixtures
 

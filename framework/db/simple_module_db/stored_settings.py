@@ -16,6 +16,7 @@ from collections.abc import Iterable
 from typing import Final
 
 from pydantic_settings import BaseSettings
+from simple_module_core.secret_fields import conceals_secret
 from simple_module_core.settings_hydrate import build_settings
 from sqlalchemy import Select, UniqueConstraint, inspect, select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
@@ -83,6 +84,17 @@ class Setting(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     "json") so UIs pick the right input control and pydantic can reject
     inputs that don't parse.
     """
+
+    @staticmethod
+    def __audit_redact_row__(row: dict | None) -> set[str]:
+        # Fail closed: no row (bulk/manual capture) or a partly loaded one hides the value.
+        if (
+            row is None
+            or any(row.get(k) is None for k in (COL_KEY, COL_VALUE, COL_VALUE_TYPE))
+            or conceals_secret(row[COL_KEY], row[COL_VALUE], row[COL_VALUE_TYPE])
+        ):
+            return {COL_VALUE}
+        return set()
 
     __tablename__ = TABLE_SETTING
     __table_args__ = (UniqueConstraint(COL_SCOPE, COL_SCOPE_ID, COL_KEY, name=UQ_SCOPE_KEY),)

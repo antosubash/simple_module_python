@@ -1,14 +1,14 @@
 """Index tenant file browsing in page order.
 
 Revision ID: f6c2d4e8b109
-Revises: e731a1b2c3d4 (current file_storage@head on the shared trunk)
+Revises: c5d8e2f1a903 (current file_storage@head on the shared trunk)
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "f6c2d4e8b109"
-down_revision = "e731a1b2c3d4"
+down_revision = "c5d8e2f1a903"
 branch_labels = None
 depends_on = None
 

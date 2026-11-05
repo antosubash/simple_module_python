@@ -9,7 +9,7 @@ longer depends on the ``settings`` plugin being installed or enabled.
 from __future__ import annotations
 
 import re
-from typing import Any, get_args, get_origin
+from typing import Any, Final, get_args, get_origin
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, SecretBytes, SecretStr
@@ -20,7 +20,15 @@ from pydantic import BaseModel, SecretBytes, SecretStr
 _SECRET_PATTERNS = re.compile(
     r"(password|secret|api[_-]?key|private[_-]?key|token[_-]?secret)", re.I
 )
+
 SECRET_MASK = "••••••••"
+# Keys whose stored value must never leave the settings API, the raw
+# key/value browse screen or the audit trail. ``host.secret_key`` is the session-signing key: the
+# hosting layer generates and persists it here when SM_SECRET_KEY is unset, and
+# anyone who can read it can forge a session cookie for any account. Masked on
+# the way out only — the boot-time reader goes straight to SQL, so hiding it
+# here costs nothing.
+SENSITIVE_KEYS: Final = frozenset({"host.secret_key"})
 
 # Value types that cannot carry credential material, so a secret-ish *name*
 # on one of them is a false positive rather than something to hide.
@@ -92,7 +100,10 @@ def conceals_secret(name: str, value: Any, value_type: str | None = None) -> boo
     ``broker_url``, while that field's password-free default is still shown.
     """
     return (
-        name in _TYPED_SECRET_KEYS or is_named_secret(name, value_type) or embeds_credential(value)
+        name in SENSITIVE_KEYS
+        or name in _TYPED_SECRET_KEYS
+        or is_named_secret(name, value_type)
+        or embeds_credential(value)
     )
 
 

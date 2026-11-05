@@ -13,7 +13,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db import independent_session
 
-from permissions.constants import _MODULE_AUTH, _MODULE_USERS
+from permissions.constants import _MODULE_AUTH, _MODULE_USERS, USER_CLEANUP_HANDLER
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -56,7 +56,7 @@ class PermissionsModule(ModuleBase):
 
         from permissions.user_cleanup import purge_user_grants
 
-        bus.subscribe_durable(UserDeleted, purge_user_grants)
+        bus.subscribe_durable(UserDeleted, purge_user_grants, name=USER_CLEANUP_HANDLER)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from permissions.endpoints.api import router as api

@@ -9,8 +9,8 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
-from keycloak.jwks import JWKSCache as KeycloakJWKS
-from oidc.jwks import JWKSCache as OidcJWKS
+from keycloak.identity.jwks import JWKSCache as KeycloakJWKS
+from oidc.identity.jwks import JWKSCache as OidcJWKS
 
 
 @pytest.fixture(params=[KeycloakJWKS, OidcJWKS])

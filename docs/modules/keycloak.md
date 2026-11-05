@@ -53,7 +53,7 @@ The browser session uses a signed, **unencrypted** cookie, so the refresh token 
 
 ## Bearer-token validation
 
-`JWKSCache` (`keycloak/jwks.py`) caches Keycloak's RS256 public signing keys (`/realms/<realm>/protocol/openid-connect/certs`) and validates tokens with PyJWT, requiring `iss`, non-empty `sub`, `aud`, integer `exp` and integer `iat`.
+`JWKSCache` (`keycloak/identity/jwks.py`) caches Keycloak's RS256 public signing keys (`/realms/<realm>/protocol/openid-connect/certs`) and validates tokens with PyJWT, requiring `iss`, non-empty `sub`, `aud`, integer `exp` and integer `iat`.
 The issuer must match and `client_id` must be among the token's `aud` values
 (extra audiences and the `azp` are not checked, see below). A 10-second clock leeway tolerates small clock
 skew, while browser authority still ends at the access token's exact expiry.
@@ -64,7 +64,7 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 
 ## Browser login flow (OIDC)
 
-`OIDCClient` (`keycloak/oidc.py`) wraps the realm's authorization-code endpoints.
+`OIDCClient` (`keycloak/identity/oidc.py`) wraps the realm's authorization-code endpoints.
 
 | Method + path | What |
 |---|---|
@@ -141,7 +141,7 @@ Keycloak registers no setup steps: its local `users` table is legitimately empty
 | `last_login_at` | `datetime \| None` | written on login; bearer activity writes throttled to once per five minutes |
 
 The cache backs this module's [user directory](/framework/user-directory)
-(`keycloak.directory.KeycloakDirectory`, installed in `register_settings`), so
+(`keycloak.identity.directory.KeycloakDirectory`, installed in `register_settings`), so
 the audit log, dashboard, file storage and the permissions grants screen name
 and count Keycloak users. It knows only users who have signed in at least once;
 roles are `None` (they live in the IdP) and `created_this_month` is `None`.

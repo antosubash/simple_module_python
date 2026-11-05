@@ -238,5 +238,5 @@ def test_the_module_level_cache_is_the_one_the_helpers_use():
 
     configure_session_version_cache(7)
     store_session_version("dana", 1)
-    assert cache_module._SESSION_VERSIONS.get("dana") == 1
+    assert cache_module.peek_session_version("dana") == 1
     assert cache_module._SESSION_VERSIONS.ttl == 7

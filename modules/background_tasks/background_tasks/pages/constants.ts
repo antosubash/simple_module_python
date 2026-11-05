@@ -6,6 +6,8 @@ import { formatDayMonthTime } from '@simple-module-py/ui/lib/date-format';
 
 export const API_BASE = '/api/background_tasks/admin';
 export const VIEW_BASE = '/admin/background-tasks';
+/** The list page. Its canonical url has the slash: without it, every link costs a redirect. */
+export const VIEW_INDEX = `${VIEW_BASE}/`;
 
 /** Rendered wherever a value is genuinely absent, so the columns still line up. */
 export const EM_DASH = '—';

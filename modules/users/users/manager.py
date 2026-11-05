@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from auth.constants import SESSION_ID_KEY
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
@@ -21,6 +23,7 @@ from users.constants import (
     SESSION_VERSION_KEY,
 )
 from users.contracts.events import UserRegistered
+from users.core.password_hashing import PASSWORD_HELPER, PasswordHashingMixin
 from users.db_adapter import UserDatabaseWithRoles, get_user_db
 from users.exceptions import ExternalUserNoPasswordError
 from users.mailer import Mailer
@@ -34,7 +37,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
+class UserManager(
+    ResetRevocationMixin, PasswordHashingMixin, UUIDIDMixin, BaseUserManager[User, uuid.UUID]
+):
     """Customizes password validation, token secrets, and lifecycle emails."""
 
     # Secrets and lifetimes pulled from settings at construction time so
@@ -45,7 +50,7 @@ class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.
         mailer: Mailer,
         settings: UsersSettings,
     ) -> None:
-        super().__init__(user_db)
+        super().__init__(user_db, PASSWORD_HELPER)
         self.mailer = mailer
         self.reset_password_token_secret = settings.reset_password_token_secret
         self.verification_token_secret = settings.verification_token_secret
@@ -111,7 +116,10 @@ class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.
         """
         if user.is_external or user.hashed_password is None:
             return
-        await super().forgot_password(user, request)
+        if not user.is_active:
+            raise exceptions.UserInactive()
+        token = await self.generate_reset_password_token(user)
+        await self.on_after_forgot_password(user, token, request)
 
     # ── Lifecycle hooks ──────────────────────────────────────
 
@@ -206,10 +214,10 @@ class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.
                 for key in (*LOGIN_SESSION_PRESERVED_KEYS, *sign_in_preserved_keys(request.app))
                 if key in request.session
             }
-            # Signed-cookie sessions have no server-side id: replace their state
-            # on sign-in, including CSRF, cached principal and remember/demo flags.
+            # Replace principal-bound state on sign-in, including CSRF and cached flags.
             request.session.clear()
             request.session.update(preserved)
+            request.session[SESSION_ID_KEY] = secrets.token_urlsafe(24)
             request.session[SESSION_USER_ID_KEY] = str(user.id)
             # Stamp the session with the revocation counter it was minted
             # under. ``UsersAuthProvider`` refuses any session whose stamp has
@@ -258,17 +266,9 @@ class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.
     async def generate_reset_password_token(self, user: User) -> str:
         """Mint a reset-audience JWT without firing on_after_forgot_password.
 
-        Shape matches ``BaseUserManager.forgot_password``: the payload includes
-        ``password_fgpt`` (a bcrypt of the current hashed_password) so the token
-        invalidates when the password changes. Used by the admin
-        reset-password-link endpoint, where the admin copies the link instead
-        of triggering an email.
-
-        The fingerprint must be bcrypt-style because the stock
-        ``reset_password`` path in fastapi-users verifies it with
-        ``password_helper.verify_and_update``. Bcrypt is CPU-bound (~100ms at
-        default rounds) so we offload it to a worker thread — otherwise a
-        single admin action would stall the event loop for other requests.
+        The payload fingerprints the current hashed password, so changing the
+        password invalidates the token. The CPU-bound fingerprint is hashed in
+        a worker thread for both forgot-password mail and admin reset links.
         """
         if user.is_external or user.hashed_password is None:
             # No local password to fingerprint — hashing None would crash.

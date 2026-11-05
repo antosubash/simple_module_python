@@ -10,7 +10,8 @@ from simple_module_core.correlation import correlation_id
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ORMExecuteState, Session
 
-from simple_module_db.audit import AuditRecord, _serialize, format_pk
+from simple_module_db.audit import AuditRecord, _excluded_fields, _serialize, format_pk
+from simple_module_db.audit_redaction import model_for_audit, redact_changes, redact_entity_id
 from simple_module_db.query_filter import engine_policy
 
 logger = logging.getLogger("simple_module_db.bulk_audit")
@@ -29,8 +30,16 @@ _ACTIVE_KEY: Final = "_sm_bulk_audit_active"
 class _Ctx:
     """What one audited statement records, built before it runs."""
 
-    def __init__(self, entity_type: str, action: str, changes: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        entity_type: str,
+        action: str,
+        changes: list[dict[str, Any]],
+        model: type | None = None,
+    ) -> None:
         self.entity_type = entity_type
+        # The statement's own class when known: a name lookup scans the registry.
+        self._model = model or model_for_audit(entity_type)
         self.action = action
         self.row_actions = [action]
         self.changes = changes
@@ -45,7 +54,11 @@ class _Ctx:
     ) -> AuditRecord:
         return AuditRecord(
             entity_type=self.entity_type,
-            entity_id=entity_id,
+            entity_id=(
+                entity_id
+                if entity_id == SUMMARY_ENTITY_ID
+                else redact_entity_id(self._model, entity_id)
+            ),
             action=action or self.action,
             changes=self.changes if changes is None else changes,
             user_id=self.user_id,
@@ -113,6 +126,11 @@ def record_bulk_audit(
         return
     name = entity_type if isinstance(entity_type, str) else entity_type.__name__
     diff = [{"field": k, "new": _serialize(v)} for k, v in (changes or {}).items()]
-    ctx = _Ctx(name, action, diff)
+    ctx = _Ctx(name, action, diff, entity_type if isinstance(entity_type, type) else None)
+    model = ctx._model
+    if model is not None:
+        ctx.changes = redact_changes(
+            model, [c for c in diff if c["field"] not in _excluded_fields(model)]
+        )
     keys = [SUMMARY_ENTITY_ID] if ids is None else [str(i) for i in ids]
     _deliver(sync, callback, [ctx.record(k) for k in keys])

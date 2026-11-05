@@ -127,3 +127,32 @@ def test_finalize_preserves_main_and_only_tags_on_success(release_repos, advance
         assert git(remote, "merge-base", "--is-ancestor", main_before, "main") == ""
         if advance == "unrelated":
             assert git(remote, "show", "main:merged") == "PR change"
+
+
+def test_dispatch_inputs_never_interpolated_into_scripts():
+    """Inputs reach `run:` scripts through `env:` so their values stay data."""
+    steps = [
+        (name, step) for name, job in workflow()["jobs"].items() for step in job.get("steps", [])
+    ]
+    for action in (ROOT / ".github/actions").glob("*/action.yml"):
+        steps += [
+            (action.parent.name, s) for s in yaml.safe_load(action.read_text())["runs"]["steps"]
+        ]
+    for name, step in steps:
+        assert "inputs." not in step.get("run", ""), f"{name}: {step.get('name')}"
+
+
+def test_only_publishing_jobs_widen_permissions():
+    wf = workflow()
+    assert wf["permissions"] == {"contents": "read"}
+    writers = {
+        name: job["permissions"]
+        for name, job in wf["jobs"].items()
+        if isinstance(job.get("permissions"), dict)
+        and any(v == "write" for v in job["permissions"].values())
+    }
+    assert writers == {
+        "publish-pypi": {"id-token": "write"},
+        "publish-npm": {"contents": "read", "id-token": "write"},
+        "finalize": {"contents": "write"},
+    }
