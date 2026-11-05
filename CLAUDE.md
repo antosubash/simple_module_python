@@ -492,7 +492,7 @@ pages without `package.json`/`tsconfig.json`, `SM018` Inertia call to `/api`,
 `SM019` views with no menu item or permission, `SM022`/`SM023` CSS in the wrong
 file, `SM024` unique key without `tenant_id`, `SM028` heavy import in
 `tasks.py`, `SM031` `/api` route with no permission/`Authenticated()` gate and not public (dev boot
-only: it needs the built app).
+only: it needs the built app), `SM034` `subscribe_durable` without `name=`.
 
 ## Tests & fixtures
 

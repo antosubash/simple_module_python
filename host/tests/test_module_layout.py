@@ -19,6 +19,7 @@ ALLOWED_ROOT = frozenset(
         "models.py",
         "models",
         "tasks.py",
+        "task_config.py",
         "contracts",
         "pages",
         "locales",
@@ -32,18 +33,15 @@ ALLOWED_ROOT = frozenset(
 )
 # Add named domain areas here only when they contain several related features.
 DOMAIN_AREAS: dict[str, frozenset[str]] = {
+    "api_tokens": frozenset({"credentials"}),
+    "branding": frozenset({"assets"}),
     "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
+    "oidc": frozenset({"identity"}),
 }
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
 LEGACY_FLAT: dict[str, frozenset[str]] = {
-    "api_tokens": frozenset(
-        """
-        audit.py constants.py deps.py endpoints owner.py resolver.py scopes.py service.py
-        services.py settings.py tenant_cleanup.py tokens.py user_cleanup.py
-        """.split()
-    ),
     "audit_log": frozenset(
         """
         activity.py capture.py constants.py deps.py endpoints export.py filters.py
@@ -69,12 +67,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         workers_state.py
         """.split()
     ),
-    "branding": frozenset(
-        """
-        components constants.py deps.py endpoints images.py presets.py reaper.py service.py
-        services.py settings.py shared_props.py tenant_branding.py tenant_definitions.py
-        """.split()
-    ),
     "file_storage": frozenset(
         """
         aggregates.py audit_labels.py backend_guard.py backends body_limits.py checksum.py
@@ -83,12 +75,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         reads.py resolve.py scope.py service.py services.py serving.py settings.py
         tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
         uploads.py visibility.py worker.py worker_support.py
-        """.split()
-    ),
-    "oidc": frozenset(
-        """
-        client.py constants.py directory.py discovery.py endpoints jwks.py persistence.py
-        presets.py provider.py renewal.py runtime.py settings.py state.py tokens.py
         """.split()
     ),
     "permissions": frozenset(
