@@ -133,6 +133,11 @@ def _is_layout_shim(path: Path) -> bool:
     return "deprecated_module(" in text and "sys.modules[__name__]" in text
 
 
+def _only_bytecode(path: Path) -> bool:
+    """A directory an older checkout left behind holding only ``__pycache__``."""
+    return all(child.name == "__pycache__" for child in path.iterdir())
+
+
 def _is_shim_package(path: Path) -> bool:
     """An old package path kept only for its aliases: shims plus a docstring __init__."""
     files = [f for f in path.glob("*.py") if f.name != "__init__.py"]
@@ -147,7 +152,12 @@ def test_module_root_layout(module: str) -> None:
         p.name
         for p in package.iterdir()
         if (p.suffix == ".py" and not _is_layout_shim(p))
-        or (p.is_dir() and p.name != "__pycache__" and not _is_shim_package(p))
+        or (
+            p.is_dir()
+            and p.name != "__pycache__"
+            and not _only_bytecode(p)
+            and not _is_shim_package(p)
+        )
     }
     allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
     legacy = LEGACY_FLAT.get(module, frozenset())
