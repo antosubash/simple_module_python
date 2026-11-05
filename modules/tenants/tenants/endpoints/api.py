@@ -44,6 +44,7 @@ from tenants.deps import (
 )
 from tenants.errors import TenantError
 from tenants.invitation_mail import invitation_emailed
+from tenants.models import Membership
 from tenants.resolver import switch_active
 
 router = APIRouter()
@@ -109,17 +110,17 @@ async def switch_tenant(
 # ── active tenant: members ─────────────────────────────────────
 
 
+def _member_view(m: Membership) -> MemberView:
+    return MemberView(user_id=m.user_id, email=m.email, role=m.role, joined_at=m.created_at)
+
+
 @router.get("/current/members", response_model=MemberPage, dependencies=_VIEW)
 async def list_members(
     ctx: ActiveTenantDep, service: TenantServiceDep, params: PageParamsDep
 ) -> MemberPage:
     page = await service.list_members(ctx.tenant_id, params)
     return MemberPage(
-        **page.model_dump(exclude={"items"}),
-        items=[
-            MemberView(user_id=m.user_id, email=m.email, role=m.role, joined_at=m.created_at)
-            for m in page.items
-        ],
+        **page.model_dump(exclude={"items"}), items=[_member_view(m) for m in page.items]
     )
 
 
@@ -128,7 +129,7 @@ async def change_role(
     user_id: str, data: RoleChange, ctx: ManagerDep, service: TenantServiceDep
 ) -> MemberView:
     m = await service.change_role(ctx.tenant_id, user_id, data.role, actor_role=ctx.role)
-    return MemberView(user_id=m.user_id, email=m.email, role=m.role, joined_at=m.created_at)
+    return _member_view(m)
 
 
 @router.delete("/current/members/{user_id}", status_code=204, dependencies=_MANAGE)

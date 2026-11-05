@@ -11,6 +11,10 @@ from collections.abc import AsyncGenerator, Hashable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
+# Epoch-checked fills retry at most this many reads; continuous invalidation
+# must not keep a request looping.
+MAX_FILL_ATTEMPTS = 3
+
 
 @dataclass
 class _Flight:

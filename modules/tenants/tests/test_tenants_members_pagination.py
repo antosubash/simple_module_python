@@ -3,7 +3,9 @@
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select
+from fastapi import FastAPI
+from sqlalchemy import delete, select
+from tenants.endpoints.api import router
 from tenants.models import Membership, Tenant
 
 
@@ -43,7 +45,7 @@ async def test_members_api_and_page_paginate_and_clamp(app, tenant_client):
         props = (
             await client.get("/tenants/members?page=99&per_page=10", headers={"X-Inertia": "true"})
         ).json()["props"]
-        assert (props["page"], props["per_page"], props["total"]) == (6, 10, 60)
+        assert props["pagination"] == {"page": 6, "per_page": 10, "total": 60}
         assert len(props["members"]) == 10
         # Removing the final page's last member must return the previous valid page.
         last = (await client.get("/api/tenants/current/members?page=60&per_page=1")).json()[
@@ -63,15 +65,13 @@ async def test_members_api_rejects_invalid_pagination(tenant_client, query):
 
 
 async def test_empty_roster_and_lenient_page_parameters(app, tenant_client):
-    from sqlalchemy import delete
-
     async with tenant_client("owner") as (client, tenant_id, _):
         props = (
             await client.get(
                 "/tenants/members?page=oops&per_page=-1", headers={"X-Inertia": "true"}
             )
         ).json()["props"]
-        assert (props["page"], props["per_page"], props["total"]) == (1, 1, 1)
+        assert props["pagination"] == {"page": 1, "per_page": 1, "total": 1}
         # Keep the already-authorized request's membership cache warm to exercise
         # an empty roster independently of the tenant access gate.
         async with app.state.sm.db.session_factory() as db:
@@ -82,9 +82,6 @@ async def test_empty_roster_and_lenient_page_parameters(app, tenant_client):
 
 
 def test_members_openapi_preserves_typed_items():
-    from fastapi import FastAPI
-    from tenants.endpoints.api import router
-
     application = FastAPI()
     application.include_router(router)
     schema = application.openapi()

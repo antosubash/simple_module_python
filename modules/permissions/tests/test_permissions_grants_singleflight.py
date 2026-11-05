@@ -10,6 +10,7 @@ from cachetools import TTLCache
 from fastapi import FastAPI
 from permissions import grants
 from simple_module_core.invalidation import Invalidation
+from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
 from starlette.requests import Request
 
 
@@ -57,3 +58,29 @@ async def test_grants_coalesce_and_discard_invalidated_reads(invalidate, expired
     assert results == [frozenset() if invalidate else frozenset({"secret.view"})] * 50
     assert reads == (2 if invalidate else 1)
     assert not grants._FLIGHTS[app]._locks
+
+
+async def test_grants_stop_retrying_under_continuous_invalidation():
+    reads = 0
+    user = SimpleNamespace(id=uuid.uuid4())
+
+    class DB:
+        async def execute(self, stmt):
+            nonlocal reads
+            reads += 1
+            # Every read races an invalidation for some other user.
+            grants.apply_invalidation(Invalidation(grants.CHANNEL, key=str(uuid.uuid4())))
+            keys = [f"read-{reads}"]
+            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: keys))
+
+    @asynccontextmanager
+    async def session():
+        yield DB()
+
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(db=SimpleNamespace(session_factory=session))
+    request = Request({"type": "http", "app": app})
+    result = await grants.direct_grant_source(request, user)
+    assert reads == MAX_FILL_ATTEMPTS
+    assert result == frozenset({f"read-{MAX_FILL_ATTEMPTS}"})
+    assert user.id not in grants._CACHES[app]

@@ -9,7 +9,7 @@ import Members from '../tenants/pages/Members';
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   usePage: () => ({ url: '/tenants/members' }),
-  router: { get: vi.fn(), reload: vi.fn() },
+  router: { get: vi.fn() },
 }));
 configureI18n({
   locale: 'en',
@@ -36,9 +36,7 @@ const props = {
   members: [{ user_id: 'member', email: 'member@x.io', role: 'member' as const, joined_at: null }],
   invitations: [],
   seats: { used: 60, limit: null },
-  page: 2,
-  per_page: 25,
-  total: 60,
+  pagination: { page: 2, per_page: 25, total: 60 },
 };
 
 test('page navigation keeps server page size and uses server clamped page', async () => {
@@ -75,5 +73,4 @@ test('role mutation reloads the current page and page size', async () => {
     { page: 2, per_page: 25 },
     { preserveState: true, preserveScroll: true },
   );
-  vi.unstubAllGlobals();
 });

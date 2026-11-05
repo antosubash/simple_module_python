@@ -122,7 +122,9 @@ lock, so a waiter can retry without a cached failed task.
 
 The helper does not version or invalidate cached data. Authorization caches must
 also compare their invalidation epoch before storing **or returning** a DB read,
-and retry against a fresh session if the epoch changed. Tenant memberships and
+and retry against a fresh session if the epoch changed. Bound the retries
+(`MAX_FILL_ATTEMPTS`, 3): after that, return the last read uncached rather than
+loop while invalidations keep arriving. Tenant memberships and
 direct permission grants do this; their existing TTLs still bound staleness from
 missed cross-worker invalidations. The users session-version cache has not yet
 adopted the helper.

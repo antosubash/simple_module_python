@@ -41,6 +41,7 @@ from tenants.contracts.events import (
 )
 from tenants.contracts.schemas import TenantCreate
 from tenants.errors import TenantError
+from tenants.host_resolver import host_invalidation_key
 from tenants.models import Membership, Tenant
 
 logger = logging.getLogger(__name__)
@@ -136,21 +137,8 @@ class TenantService(MembershipOpsMixin):
         self._after_commit(
             TenantCreated(tenant.id, tenant.slug, tenant.name, owner_user_id),
             MembershipAdded(tenant.id, owner_user_id, MembershipRole.OWNER),
-            invalidate=[None],
+            invalidate=[owner_user_id, host_invalidation_key(tenant.slug)],
         )
-        return tenant
-
-    async def rename_tenant(self, tenant_id: str, data: TenantCreate) -> Tenant:
-        """Rename an organisation; slug changes drop host and membership caches on commit."""
-        tenant = await self.lock(tenant_id)
-        tenant.name = data.name
-        if data.slug is not None:
-            tenant.slug = data.slug
-        try:
-            await self.db.flush()
-        except IntegrityError as exc:
-            raise TenantError("slug_taken", status_code=409) from exc
-        self._after_commit(invalidate=[None])
         return tenant
 
     async def set_status(self, tenant_id: str, status: TenantStatus) -> Tenant:

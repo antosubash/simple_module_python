@@ -95,9 +95,7 @@ async def members(
                 }
                 for m in page.items
             ],
-            "page": page.page,
-            "per_page": page.per_page,
-            "total": page.total,
+            "pagination": {"page": page.page, "per_page": page.per_page, "total": page.total},
             "invitations": [i.model_dump(mode="json", exclude={"token_hash"}) for i in pending],
             "seats": {"used": await service.seats_used(tenant.id), "limit": limit},
         },

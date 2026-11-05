@@ -154,19 +154,21 @@ mutations reload the current page and page size. Offset pagination reflects the
 current roster, so concurrent additions/removals can shift page boundaries.
 
 Membership cache fills serialize concurrent misses per app/user, recheck the cache
-when waiting ends, and retry if invalidated during a DB read. No stale read is
-returned to avoid waiting. The 60-second membership TTL and invalidation bus
+when waiting ends, and retry if invalidated during a DB read. After three reads
+that each raced an invalidation, the request uses the latest read without caching
+it; that read started after every invalidation the request observed. The 60-second membership TTL and invalidation bus
 remain the fallback for changes in other workers. Permission grants use the same
 shared single-flight helper with their existing 30-second TTL.
 
 Unknown subdomain slugs are negatively cached for five seconds (bounded to 10,000
-entries); known slugs keep their 60-second TTL. Committed tenant creation,
-`TenantService.rename_tenant(tenant_id, TenantCreate(...))`, status changes and
-deletion invalidate host lookups via the tenant invalidator. Renaming also clears
-cached membership names/slugs. Construct services with the normal invalidator
+entries); known slugs keep their 60-second TTL. Committed tenant creation
+drops only the new slug's host lookups (key `host_invalidation_key(slug)` on the
+tenant invalidation channel, so other workers drop it too) and the owner's
+memberships; other users' caches stay warm. Status changes and deletion clear all
+host lookups and memberships. Construct services with the normal invalidator
 (`make_invalidator(app)` outside request dependencies); direct SQL writes must
 publish the tenant invalidation channel with `key=None` after commit or wait for
-TTL expiry. No new rename endpoint is exposed.
+TTL expiry.
 
 ## Models
 

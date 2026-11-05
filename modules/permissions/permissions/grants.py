@@ -24,7 +24,7 @@ from weakref import WeakKeyDictionary
 from cachetools import TTLCache
 from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation
-from simple_module_core.singleflight import SingleFlight
+from simple_module_core.singleflight import MAX_FILL_ATTEMPTS, SingleFlight
 from sqlalchemy import select
 
 from permissions.models import UserPermission
@@ -56,7 +56,8 @@ invalidation transport installed; see the module docstring.
 """
 
 _CACHES: WeakKeyDictionary = WeakKeyDictionary()
-_FLIGHTS: WeakKeyDictionary = WeakKeyDictionary()
+_FLIGHTS: WeakKeyDictionary[FastAPI, SingleFlight] = WeakKeyDictionary()
+# Bumped by every invalidation so a read started earlier never caches stale grants.
 _epoch = 0
 
 
@@ -73,10 +74,7 @@ _MISS = object()
 
 def clear_grants_cache() -> None:
     """Empty the cache — for tests that need a cold read."""
-    global _epoch
-    _epoch += 1
-    for cache in list(_CACHES.values()):
-        cache.clear()
+    apply_invalidation(Invalidation(CHANNEL))
 
 
 def _user_uuid(raw: Any) -> uuid.UUID | None:
@@ -98,12 +96,14 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
     if user_id is None:
         return frozenset()
     grants = _cache(request.app)
+    # One ``get``, not ``in`` then ``[]``: a TTLCache entry can expire between.
     cached = grants.get(user_id, _MISS)
     if cached is not _MISS:
         return cached
     flight = _FLIGHTS.setdefault(request.app, SingleFlight())
     async with flight.hold(user_id):
-        while True:
+        keys: frozenset[str] = frozenset()
+        for _ in range(MAX_FILL_ATTEMPTS):
             cached = grants.get(user_id, _MISS)
             if cached is not _MISS:
                 return cached
@@ -116,6 +116,9 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
             if started == _epoch:
                 grants[user_id] = keys
                 return keys
+        # Invalidated during every read: the last read started after the last
+        # invalidation this request saw, so answer with it but cache nothing.
+        return keys
 
 
 def apply_invalidation(invalidation: Invalidation, app: FastAPI | None = None) -> None:

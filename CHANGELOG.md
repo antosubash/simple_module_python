@@ -25,7 +25,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- Coalesce concurrent tenant membership and permission grant cache misses. In-flight invalidation retries against fresh authorization data; failures and cancellation release waiting readers. Cache unknown tenant subdomains for five seconds and invalidate host lookups after committed tenant creation or renaming (2026-11-05 local performance review).
+- Coalesce concurrent tenant membership and permission grant cache misses. In-flight invalidation retries against fresh authorization data; failures and cancellation release waiting readers. Cache unknown tenant subdomains for five seconds and drop the new slug's host lookups and the owner's memberships after committed tenant creation; other users' caches are not cleared. Retries after concurrent invalidation are bounded to three reads (2026-11-05 local performance review).
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
 
 ## [0.0.43] — 2026-11-04

@@ -19,6 +19,12 @@ interface Seats {
   limit: number | null;
 }
 
+interface Pagination {
+  page: number;
+  per_page: number;
+  total: number;
+}
+
 interface Props {
   tenant: Tenant;
   my_role: MembershipRole;
@@ -27,9 +33,7 @@ interface Props {
   members: Member[];
   invitations: Invitation[];
   seats: Seats;
-  page: number;
-  per_page: number;
-  total: number;
+  pagination: Pagination;
 }
 
 function Members({
@@ -40,11 +44,10 @@ function Members({
   members,
   invitations,
   seats,
-  page,
-  per_page,
-  total,
+  pagination,
 }: Props) {
   const { t } = useT();
+  const { page, per_page, total } = pagination;
 
   function reload() {
     visitPage(page);

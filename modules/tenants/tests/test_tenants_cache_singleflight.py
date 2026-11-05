@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from cachetools import TTLCache
 from fastapi import FastAPI
+from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
 from tenants import resolver
 from tenants.service import TenantService
 
@@ -63,3 +64,27 @@ async def test_memberships_coalesce_and_retry_invalidation(monkeypatch, invalida
     ) * 50
     assert not resolver._FLIGHTS[app]._locks
     assert reads == (2 if invalidate else 1)
+
+
+async def test_memberships_stop_retrying_under_continuous_invalidation(monkeypatch):
+    app = FastAPI()
+
+    @asynccontextmanager
+    async def session():
+        yield None
+
+    app.state.sm = SimpleNamespace(db=SimpleNamespace(session_factory=session))
+    reads = 0
+
+    async def read(self, user_id):
+        nonlocal reads
+        reads += 1
+        resolver.forget("someone-else")  # every read races an invalidation
+        org = SimpleNamespace(id="org", slug="org", name="Org", status="active", created_at=None)
+        return [(org, f"read-{reads}")]
+
+    monkeypatch.setattr(TenantService, "list_for_user", read)
+    result = await resolver.memberships_for(app, "same")
+    assert reads == MAX_FILL_ATTEMPTS
+    assert [m.role for m in result] == [f"read-{MAX_FILL_ATTEMPTS}"]
+    assert resolver.cached_memberships("same") is None

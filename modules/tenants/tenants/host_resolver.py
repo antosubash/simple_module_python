@@ -23,6 +23,7 @@ from __future__ import annotations
 from cachetools import TTLCache
 from fastapi import FastAPI
 from simple_module_core.app_state import get_public_routes
+from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
 from sqlalchemy import select
 from starlette.requests import Request
 
@@ -31,9 +32,17 @@ from tenants.models import Tenant
 
 HOST_TTL_SECONDS = 60
 NEGATIVE_HOST_TTL_SECONDS = 5
+# Membership keys are user ids; this prefix marks a key that names one slug.
+HOST_KEY_PREFIX = "host:"
 _MISSING_SLUGS: TTLCache[str, bool] = TTLCache(maxsize=10_000, ttl=NEGATIVE_HOST_TTL_SECONDS)
-_epoch = 0
 _BY_SLUG: TTLCache[str, tuple[str, str]] = TTLCache(maxsize=10_000, ttl=HOST_TTL_SECONDS)
+# Bumped on every forget: a lookup that started earlier must not cache its stale row.
+_epoch = 0
+
+
+def host_invalidation_key(slug: str) -> str:
+    """Invalidation key that drops one slug's host lookups (see ``resolver.forget``)."""
+    return f"{HOST_KEY_PREFIX}{slug}"
 
 
 def forget_hosts() -> None:
@@ -41,6 +50,13 @@ def forget_hosts() -> None:
     _epoch += 1
     _BY_SLUG.clear()
     _MISSING_SLUGS.clear()
+
+
+def forget_slug(slug: str) -> None:
+    global _epoch
+    _epoch += 1
+    _BY_SLUG.pop(slug, None)
+    _MISSING_SLUGS.pop(slug, None)
 
 
 def subdomains_enabled(request: Request) -> bool:
@@ -59,25 +75,32 @@ def subdomain_slug(request: Request) -> str | None:
 
 async def tenant_for_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
     """``(tenant_id, status)`` for a slug, cached briefly."""
-    while True:
+    row = None
+    for _ in range(MAX_FILL_ATTEMPTS):
         hit = _BY_SLUG.get(slug)
         if hit is not None:
             return hit
         if _MISSING_SLUGS.get(slug):
             return None
         started = _epoch
-        async with app.state.sm.db.session_factory() as db:
-            row = (
-                await db.execute(select(Tenant.id, Tenant.status).where(Tenant.slug == slug))
-            ).first()
-        if started != _epoch:
-            continue
-        if row is None:
-            _MISSING_SLUGS[slug] = True
-            return None
-        found = (row[0], row[1])
-        _BY_SLUG[slug] = found
-        return found
+        row = await _read_slug(app, slug)
+        if started == _epoch:
+            if row is None:
+                _MISSING_SLUGS[slug] = True
+            else:
+                _BY_SLUG[slug] = row
+            return row
+    # Invalidated during every read: the last read started after the last
+    # invalidation this request saw, so answer with it but cache nothing.
+    return row
+
+
+async def _read_slug(app: FastAPI, slug: str) -> tuple[str, str] | None:
+    async with app.state.sm.db.session_factory() as db:
+        row = (
+            await db.execute(select(Tenant.id, Tenant.status).where(Tenant.slug == slug))
+        ).first()
+    return None if row is None else (row[0], row[1])
 
 
 def is_public_route(request: Request) -> bool:
@@ -96,7 +119,10 @@ async def resolve_from_host(request: Request, slug: str) -> tuple[str | None, bo
 
 
 __all__ = [
+    "HOST_KEY_PREFIX",
     "forget_hosts",
+    "forget_slug",
+    "host_invalidation_key",
     "is_public_route",
     "resolve_from_host",
     "subdomain_slug",
