@@ -128,6 +128,7 @@ def test_default_api_version_reads_scaffolded_host_pyproject(
     monkeypatch.setattr("importlib.metadata.version", missing)
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     assert host_settings._default_api_version() == "4.5.6"
+    host_settings._default_api_version.cache_clear()
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path / "nope"))
     assert host_settings._default_api_version() == "0.0.0"
 
@@ -150,8 +151,10 @@ def test_default_api_version_survives_bad_pyproject(
 
     (tmp_path / "host" / "pyproject.toml").write_bytes(b"\xff\xfe not utf8")
     assert host_settings._default_api_version() == "9.9.9"  # unreadable: skipped
+    host_settings._default_api_version.cache_clear()
     (tmp_path / "host" / "pyproject.toml").write_text("[project\n")
     assert host_settings._default_api_version() == "9.9.9"  # invalid TOML: skipped
+    host_settings._default_api_version.cache_clear()
     (tmp_path / "host" / "pyproject.toml").write_text(
         '[project]\nname = "h"\ndynamic = ["version"]\n'
     )

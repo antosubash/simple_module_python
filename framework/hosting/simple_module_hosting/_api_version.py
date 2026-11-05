@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from functools import cache
 
+
+@cache
 def default_api_version() -> str:
     """The host project's version, else ``0.0.0``.
 

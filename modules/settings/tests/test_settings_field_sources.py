@@ -60,6 +60,7 @@ class TestModulesView:
         """A class that really reads env must not read as 'Default'."""
         from pydantic_settings import BaseSettings, SettingsConfigDict
         from settings._module_settings import _field_view
+        from simple_module_core.settings_hydrate import env_supplied_fields
 
         class _EnvBacked(BaseSettings):
             model_config = SettingsConfigDict(env_prefix="SM_DEMO_", extra="ignore")
@@ -68,6 +69,7 @@ class TestModulesView:
 
         assert _field_view("host", _EnvBacked(), "SM_DEMO_").env_set is False
         monkeypatch.setenv("SM_DEMO_HOST", "mail.example.com")
+        env_supplied_fields.cache_clear()  # Simulate a restart after changing env.
         view = _field_view("host", _EnvBacked(), "SM_DEMO_")
         assert view.env_set is True
         assert view.source == "env"

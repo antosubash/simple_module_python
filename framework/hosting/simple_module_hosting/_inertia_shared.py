@@ -15,6 +15,7 @@ from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import Scope
 
+from simple_module_hosting._i18n_json import catalog_json
 from simple_module_hosting.csrf import get_csrf_token
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ def build_i18n_block(scope: Scope, request: Request, *, is_authenticated: bool =
         "audience": audience,
         "supportedLocales": registry.available_locales(),
         "messages": (
-            registry.messages_snapshot(locale, include_admin=is_authenticated)
+            catalog_json(registry, locale, include_admin=is_authenticated)
             if send_messages
             else None
         ),

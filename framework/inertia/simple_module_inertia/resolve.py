@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from simple_module_inertia.json import JsonSnapshot
 from simple_module_inertia.props import Prop, as_prop, resolve_value
 from simple_module_inertia.request import InertiaRequest
 
@@ -175,6 +176,8 @@ async def _resolve_children(
     out: ResolvedProps,
     bypass: bool,
 ) -> Any:
+    if isinstance(value, JsonSnapshot) and (not partial or bypass):
+        return value
     if isinstance(value, dict):
         return await _resolve_tree(value, req, partial, out, path, bypass)
     if isinstance(value, list):

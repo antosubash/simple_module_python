@@ -38,6 +38,13 @@ process environment variables take precedence over that file. Both the boot
 `load_dotenv_into_environ()` first. Direct settings construction supports an
 explicit `_env_file` path or `_env_file=None` to disable dotenv loading.
 
+The set of env-supplied fields is cached once per settings class per process,
+including custom sources and `env_seeded_fields`. Configure process variables,
+`.env`, and secret files before the first settings hydration; changing these
+sources at runtime requires a process restart. DB-backed settings remain
+live-editable. The default API version (installed host version or project
+`pyproject.toml` fallback) is also discovered once per process.
+
 When passing a `BootstrapSettings` to `merge_host_settings(bootstrap)`, every
 field explicitly supplied on that object is preserved, including `environment`,
 `modules_enabled`, `redis_url`, `debug` and `vite_dev_url`. The resolved secret
