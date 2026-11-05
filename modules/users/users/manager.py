@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from auth.constants import SESSION_ID_KEY
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt
@@ -206,10 +208,10 @@ class UserManager(ResetRevocationMixin, UUIDIDMixin, BaseUserManager[User, uuid.
                 for key in (*LOGIN_SESSION_PRESERVED_KEYS, *sign_in_preserved_keys(request.app))
                 if key in request.session
             }
-            # Signed-cookie sessions have no server-side id: replace their state
-            # on sign-in, including CSRF, cached principal and remember/demo flags.
+            # Replace principal-bound state on sign-in, including CSRF and cached flags.
             request.session.clear()
             request.session.update(preserved)
+            request.session[SESSION_ID_KEY] = secrets.token_urlsafe(24)
             request.session[SESSION_USER_ID_KEY] = str(user.id)
             # Stamp the session with the revocation counter it was minted
             # under. ``UsersAuthProvider`` refuses any session whose stamp has
