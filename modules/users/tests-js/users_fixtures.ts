@@ -18,6 +18,7 @@ export async function sent(mock: ReturnType<typeof stubFetch>, index = 0) {
     method: request.method,
     contentType: request.headers.get('Content-Type'),
     credentials: request.credentials,
+    csrf: request.headers.get('X-CSRF-Token'),
     text: await request.clone().text(),
   };
 }

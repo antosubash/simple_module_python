@@ -15,6 +15,31 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Security
+- **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
+  and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
+  Native API clients without browser headers retain their existing workflow.
+- **Behaviour change:** local logout retires only the current browser session,
+  using the existing account-cache invalidation channel (#318). Migration
+  `e805a1b2c3d4` adds expiring session retirement records. Sessions issued before
+  the upgrade remain compatible until expiry or next sign-in.
+- **Audit hardening:** audit entries no longer record credential values.
+  Redacted fields retain change indicators using `[redacted]`; credential
+  primary-key identities are masked too. Migration `b8d4f2a6c901` redacts
+  historical credential entries and, conservatively, all historical settings
+  values. Downgrading does not restore these values. Operators should rotate
+  credentials saved through the settings UI on earlier versions, and handle
+  existing backups and audit exports according to their retention policies.
+- Entity update/delete log events mask primary keys that are themselves
+  credentials (session and refresh tokens), as the audit trail does.
+
+### Removed
+- `settings.constants.SENSITIVE_KEYS`; the set now lives in
+  `simple_module_core.secret_fields.SENSITIVE_KEYS`.
+- **Behaviour change (#687):** delegated permission edits are bounded by
+  platform-level access. Global user and role permission writes require
+  platform-level `permissions.manage`; tenant-role mappings do not contribute
+  to delegation or target-access checks. API-token scope caps still apply;
+  unscoped platform admins remain unrestricted.
 - The release workflow passes dispatch inputs to its scripts through the
   environment instead of templating them into shell source, and runs
   read-only except for the publish jobs (OIDC) and `finalize` (push + GitHub
@@ -44,6 +69,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - Cache env-supplied settings fields per class and default API version discovery per process; changes to environment, dotenv, or secret sources require a restart.
 - Pre-serialize shared Inertia i18n catalogs per locale, audience, and catalog load, preserving page JSON bytes and HTML escaping.
+- Reduce background task polling and list reads to their required columns; count task history separately from paginated reads and index newest-first, nulls-last ordering (migration `c5d8e2f1a903`, 2026-11-05 performance review).
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `OidcAuthProvider` and `KeycloakAuthProvider` gain a public `sign_in_from_claims(request, claims)`; the OIDC and Keycloak login callbacks call it instead of the private `_identity`/`_upsert_user_cache`/`_claims_to_user_context` helpers (#848). The OIDC variant returns `(UserContext, identity)` and raises the new `IdentityUnavailableError` when the user cache refuses the identity. No behaviour change.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`. Moved modules log under their new paths (for example `mail.delivery.sender`), so logging config that names an old logger needs the new name.
@@ -59,6 +85,22 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Offload S3 server-upload spool I/O, wait for in-flight I/O during cancellation, and reuse one client per multipart upload. Index the default tenant file browse order (migration `f6c2d4e8b109`; local performance review, 2026-11-05).
+- Users password creation, forgot-password fingerprints, reset verification and
+  password updates offload hashing to worker threads, keeping unrelated async
+  requests responsive during registration and bulk invites. Password policy,
+  single-use reset tokens and atomic credential revocation are preserved.
+- Admin user state totals and role options use a 30-second per-worker cache.
+  A committed user, role or membership write evicts this worker's entry; the
+  admin service's write paths (create, invite, delete, disable, enable, mark
+  verified, set roles) also publish `users.admin_summary` once after commit so
+  other workers evict theirs. Other writes (logins, lockout counters, password
+  changes) publish nothing and rely on the TTL.
+  List DTOs skip redundant validation of trusted database values; role options
+  select only the required columns, and managers share one password helper.
+- Users: `on_commit` callbacks queued before a fastapi-users adapter commit
+  (user create, update, delete through the manager) now run after that commit;
+  they used to be discarded when the request session was finalized.
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
 - Background tasks: the executions list (when empty) and the Workers page no
   longer wait out the broker's ~1 s inspect timeout before rendering. The

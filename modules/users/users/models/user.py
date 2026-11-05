@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 class User(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
     """Local user. Column surface mirrors fastapi-users' SQLAlchemyBaseUserTableUUID."""
 
+    __audit_redact_fields__: ClassVar[set[str]] = {"hashed_password"}
+
     __tablename__ = "users_user"
 
     id: uuid.UUID = Field(

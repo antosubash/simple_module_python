@@ -44,9 +44,17 @@ class S3MultipartMixin:
     async def create_multipart(self, key: str, content_type: str) -> str:
         try:
             async with self._client() as client:
-                resp = await client.create_multipart_upload(
-                    Bucket=self.bucket, Key=key, ContentType=content_type
-                )
+                return await self._create_multipart_on(client, key, content_type)
+        except StorageBackendError:
+            raise
+        except Exception as exc:
+            raise StorageBackendError(f"S3 create_multipart_upload failed: {exc}") from exc
+
+    async def _create_multipart_on(self, client, key: str, content_type: str) -> str:
+        try:
+            resp = await client.create_multipart_upload(
+                Bucket=self.bucket, Key=key, ContentType=content_type
+            )
             return resp["UploadId"]
         except Exception as exc:
             raise StorageBackendError(f"S3 create_multipart_upload failed: {exc}") from exc
@@ -108,24 +116,42 @@ class S3MultipartMixin:
     async def complete_multipart(self, key: str, upload_id: str, parts: list[Part]) -> None:
         try:
             async with self._client() as client:
-                await client.complete_multipart_upload(
-                    Bucket=self.bucket,
-                    Key=key,
-                    UploadId=upload_id,
-                    MultipartUpload={
-                        "Parts": [
-                            {"PartNumber": p.no, "ETag": p.etag}
-                            for p in sorted(parts, key=lambda p: p.no)
-                        ]
-                    },
-                )
+                await self._complete_multipart_on(client, key, upload_id, parts)
+        except StorageBackendError:
+            raise
+        except Exception as exc:
+            raise StorageBackendError(f"S3 complete_multipart_upload failed: {exc}") from exc
+
+    async def _complete_multipart_on(
+        self, client, key: str, upload_id: str, parts: list[Part]
+    ) -> None:
+        try:
+            await client.complete_multipart_upload(
+                Bucket=self.bucket,
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={
+                    "Parts": [
+                        {"PartNumber": p.no, "ETag": p.etag}
+                        for p in sorted(parts, key=lambda p: p.no)
+                    ]
+                },
+            )
         except Exception as exc:
             raise StorageBackendError(f"S3 complete_multipart_upload failed: {exc}") from exc
 
     async def abort_multipart(self, key: str, upload_id: str) -> None:
         try:
             async with self._client() as client:
-                await client.abort_multipart_upload(Bucket=self.bucket, Key=key, UploadId=upload_id)
+                await self._abort_multipart_on(client, key, upload_id)
+        except StorageBackendError:
+            raise
+        except Exception as exc:
+            raise StorageBackendError(f"S3 abort_multipart_upload failed: {exc}") from exc
+
+    async def _abort_multipart_on(self, client, key: str, upload_id: str) -> None:
+        try:
+            await client.abort_multipart_upload(Bucket=self.bucket, Key=key, UploadId=upload_id)
         except Exception as exc:
             if _is_no_such_upload(exc):
                 return

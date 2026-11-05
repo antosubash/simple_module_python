@@ -11,6 +11,7 @@ from sqlalchemy.orm import noload
 from sqlmodel import col
 
 from users.admin.safety import _UserAdminSafety
+from users.admin.summary_cache import publish_after_commit, publish_now
 from users.constants import ADMIN_ROLE_NAME
 from users.contracts.schemas import UserCreate
 from users.exceptions import (
@@ -57,17 +58,18 @@ class UserService(_UserAdminSafety):
             is_verified=True,
             is_superuser=False,
         )
-        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
+        user = await self._manager.create(user_create, safe=False)
 
         roles = await self._resolve_roles(role_names)
+        if roles:
+            # Queued after the adapter's own commit, so it waits for the roles.
+            publish_after_commit(self._app, self._db)
+        else:
+            # The adapter already committed and nothing else will be written, so
+            # the request would roll back and drop an on-commit callback.
+            await publish_now(self._app)
         for role in roles:
-            self._db.add(
-                UserRole(
-                    user_id=user.id,
-                    role_id=role.id,
-                    assigned_by=created_by,
-                )
-            )
+            self._db.add(UserRole(user_id=user.id, role_id=role.id, assigned_by=created_by))
         if roles:
             await self._db.flush()
             # User.roles is lazy="noload": selectinload only populates a fresh
@@ -134,6 +136,7 @@ class UserService(_UserAdminSafety):
             await self._db.execute(delete(model).where(col(model.user_id) == user_id))
         await self._db.delete(user)
         await self._db.flush()
+        publish_after_commit(self._app, self._db)
 
     async def invite(
         self,
@@ -159,20 +162,14 @@ class UserService(_UserAdminSafety):
             is_active=True,
             is_verified=False,
         )
-        user = await self._manager.create(user_create, safe=False)  # ty: ignore[invalid-argument-type]
+        user = await self._manager.create(user_create, safe=False)
         user.invited_at = datetime.now(UTC)
+        publish_after_commit(self._app, self._db)
 
-        # Assign roles
         roles = await self._resolve_roles(role_names)
         invited_by_str = str(invited_by.id) if invited_by else None
         for role in roles:
-            self._db.add(
-                UserRole(
-                    user_id=user.id,
-                    role_id=role.id,
-                    assigned_by=invited_by_str,
-                )
-            )
+            self._db.add(UserRole(user_id=user.id, role_id=role.id, assigned_by=invited_by_str))
         await self._db.flush()
         if roles:
             await self._db.refresh(user, attribute_names=["roles"])
@@ -224,6 +221,7 @@ class UserService(_UserAdminSafety):
             .values(revoked_at=datetime.now(UTC))
         )
         await self._db.flush()
+        publish_after_commit(self._app, self._db)
         return user
 
     async def enable(self, user_id: uuid.UUID) -> User:
@@ -232,6 +230,7 @@ class UserService(_UserAdminSafety):
         user.is_active = True
         await self._revoke_sessions(user)
         await self._db.flush()
+        publish_after_commit(self._app, self._db)
         return user
 
     async def unlock(self, user_id: uuid.UUID) -> User:
@@ -248,6 +247,7 @@ class UserService(_UserAdminSafety):
         if not user.is_verified:
             user.is_verified = True
             await self._db.flush()
+            publish_after_commit(self._app, self._db)
         return user
 
     async def set_roles(
@@ -262,22 +262,16 @@ class UserService(_UserAdminSafety):
         if ADMIN_ROLE_NAME in {r.name for r in user.roles} and ADMIN_ROLE_NAME not in role_names:
             await self._guard_admin_removal(user)
 
-        # Delete all existing role assignments for this user
         await self._db.execute(delete(UserRole).where(col(UserRole.user_id) == user_id))
 
-        # Insert new role assignments
         roles = await self._resolve_roles(role_names)
         for role in roles:
-            self._db.add(
-                UserRole(
-                    user_id=user_id,
-                    role_id=role.id,
-                    assigned_by=assigned_by,
-                )
-            )
+            self._db.add(UserRole(user_id=user_id, role_id=role.id, assigned_by=assigned_by))
 
         await self._revoke_sessions(user)
         await self._db.flush()
+        # The bulk DELETE above is Core DML, which the local flush marker misses.
+        publish_after_commit(self._app, self._db)
         return await self._require_user(user_id)
 
     async def generate_reset_link(self, user_id: uuid.UUID, base_url: str) -> str:
