@@ -34,7 +34,7 @@ from users.auth_local.lockout import (
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
 from users.backend import cookie_login_response
-from users.browser_sessions import revoke_browser_session
+from users.browser_sessions import end_browser_session
 from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
@@ -51,7 +51,6 @@ from users.deps import (
 )
 from users.invites.accept import complete_invite
 from users.manager import UserManager
-from users.token_storage import revoke_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -171,10 +170,7 @@ async def login(
 @router.post("/auth/logout", status_code=204, dependencies=[Depends(require_browser_csrf)])
 async def api_logout(request: Request, db: AsyncSession = Depends(get_db)):
     """API logout — revokes the access token, clears its cookie and the session."""
-    await revoke_browser_session(request, db)
-    request.session.clear()
-    cookie_name = request.app.state.users.settings.cookie_name
-    await revoke_access_token(db, request.cookies.get(cookie_name))
+    cookie_name = await end_browser_session(request, db)
     response = Response(status_code=204)
     response.delete_cookie(cookie_name, path="/")
     return response

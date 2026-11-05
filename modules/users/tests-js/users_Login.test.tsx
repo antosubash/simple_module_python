@@ -69,7 +69,7 @@ describe('users Login', () => {
     const call = await sent(mock);
     expect(call.path).toBe('/api/users/auth/login');
     expect(call.method).toBe('POST');
-    expect(mock.mock.calls[0][0].headers.get('X-CSRF-Token')).toBe('anonymous-session-token');
+    expect(call.csrf).toBe('anonymous-session-token');
     expect(call.contentType).toContain('application/x-www-form-urlencoded');
     expect(call.credentials).toBe('same-origin');
     const form = new URLSearchParams(call.text);

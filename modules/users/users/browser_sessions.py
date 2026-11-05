@@ -14,6 +14,7 @@ from sqlmodel import col
 from users.constants import SESSION_USER_ID_KEY
 from users.models import RevokedSession
 from users.session_revocation import publish_revocation
+from users.token_storage import revoke_access_token
 
 
 async def revoke_browser_session(request: Request, db: AsyncSession) -> None:
@@ -34,3 +35,12 @@ async def revoke_browser_session(request: Request, db: AsyncSession) -> None:
     )
     await db.flush()
     register_on_commit(db, lambda: publish_revocation(request.app, uuid.UUID(user_id)))
+
+
+async def end_browser_session(request: Request, db: AsyncSession) -> str:
+    """Revoke the browser session and its access token; return the cookie name."""
+    await revoke_browser_session(request, db)
+    request.session.clear()
+    cookie_name = request.app.state.users.settings.cookie_name
+    await revoke_access_token(db, request.cookies.get(cookie_name))
+    return cookie_name

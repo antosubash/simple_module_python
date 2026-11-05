@@ -119,7 +119,10 @@ def read_session_version(user_id, session_id: str | None = None) -> tuple[bool, 
     cached = _SESSION_VERSIONS.get(user_id, _MISS)
     if cached is _MISS:
         return False, None
-    return True, None if session_id in cached[1] else cached[0]
+    version, retired = cached
+    if session_id in retired:
+        return True, None
+    return True, version
 
 
 def store_session_version(

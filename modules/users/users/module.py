@@ -228,34 +228,30 @@ class UsersModule(ModuleBase):
         api_router.include_router(demo_router, dependencies=[Depends(require_browser_csrf)])
         api_router.include_router(token_router, dependencies=[Depends(require_browser_csrf)])
         api_router.include_router(admin_router)
+        csrf = Depends(require_browser_csrf)
+        throughput = Depends(auth_local_api.enforce_auth_throughput_limit)
         # Throughput-wrap the stock fastapi-users routers; ``require_signup_enabled``
         # gates /register at request time so ``allow_signup`` is hot-reloadable.
         api_router.include_router(
             fastapi_users.get_reset_password_router(),
             prefix="/auth",
             tags=["users-auth"],
-            dependencies=[
-                Depends(require_browser_csrf),
-                Depends(auth_local_api.enforce_auth_throughput_limit),
-            ],
+            dependencies=[csrf, throughput],
         )
         api_router.include_router(
             fastapi_users.get_verify_router(UserRead),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
-            dependencies=[
-                Depends(require_browser_csrf),
-                Depends(auth_local_api.enforce_auth_throughput_limit),
-            ],
+            dependencies=[csrf, throughput],
         )
         api_router.include_router(
             fastapi_users.get_register_router(UserRead, UserCreate),  # ty: ignore[invalid-argument-type]
             prefix="/auth",
             tags=["users-auth"],
             dependencies=[
-                Depends(require_browser_csrf),
+                csrf,
                 Depends(auth_local_api.require_signup_enabled),
-                Depends(auth_local_api.enforce_auth_throughput_limit),
+                throughput,
             ],
         )
         register_oauth_routes(api_router)

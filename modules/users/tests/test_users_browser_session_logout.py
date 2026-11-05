@@ -1,8 +1,21 @@
 """Logout ends one browser session, including an earlier copy of its cookie."""
 
+import json
+import uuid
+from datetime import UTC, datetime, timedelta
+
 import httpx
 import pytest
-from users.session_version_cache import clear_session_version_cache
+from _users_app_builders import user_row
+from simple_module_core.invalidation import InvalidationBus
+from sqlalchemy import select
+from users.models import RevokedSession
+from users.session_revocation import CHANNEL, subscribe
+from users.session_version_cache import (
+    clear_session_version_cache,
+    read_session_version,
+    store_session_version,
+)
 
 CREDENTIALS = {"username": "admin@example.com", "password": "AdminPass1!"}
 
@@ -26,13 +39,13 @@ async def test_logout_revokes_only_this_session(users_app, anon_client, path, re
             transport=transport, base_url="http://testserver", cookies={"session": copied}
         ) as replay:
             assert (await replay.get("/api/users/me")).status_code == 401
-            clear_session_version_cache()
-            replay.cookies.clear()
-            replay.cookies.set("session", copied)
-            assert (await replay.get("/api/users/me")).status_code == 401
-            replay.cookies.clear()
-            replay.cookies.set("session", initial)
-            assert (await replay.get("/api/users/me")).status_code == 401
+            # The same copy again with a cold counter cache, then the first cookie.
+            for cookie, cold in [(copied, True), (initial, False)]:
+                if cold:
+                    clear_session_version_cache()
+                replay.cookies.clear()
+                replay.cookies.set("session", cookie)
+                assert (await replay.get("/api/users/me")).status_code == 401
         assert (await other.get("/api/users/me")).status_code == 200
 
 
@@ -47,12 +60,6 @@ async def test_legacy_cookie_without_id_remains_accepted(users_app, admin_client
 
 
 async def test_logout_cleans_expired_records_and_retains_deadline(users_app, anon_client):
-    from datetime import UTC, datetime, timedelta
-
-    from _users_app_builders import user_row
-    from sqlalchemy import select
-    from users.models import RevokedSession
-
     user = await user_row(users_app, "admin@example.com")
     async with users_app.state.sm.db.session_factory() as db:
         db.add(
@@ -75,12 +82,6 @@ async def test_logout_cleans_expired_records_and_retains_deadline(users_app, ano
 
 
 async def test_remote_invalidation_drops_cached_retirements():
-    import uuid
-
-    from simple_module_core.invalidation import InvalidationBus
-    from users.session_revocation import CHANNEL, subscribe
-    from users.session_version_cache import read_session_version, store_session_version
-
     user_id = uuid.uuid4()
     bus = InvalidationBus()
     subscribe(bus)
@@ -94,12 +95,6 @@ async def test_remote_invalidation_drops_cached_retirements():
 
 
 async def test_logout_broadcasts_after_record_is_durable(users_app, anon_client):
-    import json
-
-    from sqlalchemy import select
-    from users.models import RevokedSession
-    from users.session_revocation import CHANNEL
-
     messages = []
 
     class Transport:

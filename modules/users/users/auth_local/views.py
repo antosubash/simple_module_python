@@ -16,7 +16,7 @@ from starlette.responses import RedirectResponse
 from users.auth_local.browser_guard import require_browser_origin
 from users.auth_local.token_preview import decode_verify_token, preview_reset
 from users.bootstrap import resolve_bootstrap_credentials
-from users.browser_sessions import revoke_browser_session
+from users.browser_sessions import end_browser_session
 from users.contracts.schemas import UserRead
 from users.demo import resolve_demo_accounts
 from users.invites.preview import preview_invite
@@ -24,7 +24,6 @@ from users.mailer import mailer_delivers
 from users.manager import UserManager, get_user_manager
 from users.models import User
 from users.oauth.errors import OAUTH_ERROR_CODES
-from users.token_storage import revoke_access_token
 
 router = APIRouter()
 
@@ -127,10 +126,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
 async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     """POST-only to resist cross-site `<img>` logout attacks — the menu's
     logout link submits this as an Inertia form."""
-    await revoke_browser_session(request, db)
-    request.session.clear()
-    cookie_name = request.app.state.users.settings.cookie_name
-    await revoke_access_token(db, request.cookies.get(cookie_name))
+    cookie_name = await end_browser_session(request, db)
     # 303 forces the follow-up to GET — Inertia treats the redirect as a full
     # navigation rather than replaying the POST.
     response = RedirectResponse("/", status_code=303)

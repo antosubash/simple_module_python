@@ -6,7 +6,7 @@ from fastapi import HTTPException, Request
 from simple_module_hosting.csrf import CSRF_HEADER, RequiresCsrf
 
 
-def _origin(value: str) -> tuple[str, str, int | None]:
+def _origin(value: str) -> tuple[str, str, int]:
     parsed = urlsplit(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username:
         raise ValueError("Invalid origin")
@@ -34,8 +34,7 @@ async def require_browser_origin(request: Request) -> None:
 async def require_browser_csrf(request: Request) -> None:
     """Native clients omit browser headers; browsers echo their page's token."""
     await require_browser_origin(request)
-    if (
-        any(name in request.headers for name in ("origin", "referer", "sec-fetch-site"))
-        or CSRF_HEADER in request.headers
+    if any(
+        name in request.headers for name in ("origin", "referer", "sec-fetch-site", CSRF_HEADER)
     ):
         await RequiresCsrf()(request)

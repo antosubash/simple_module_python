@@ -4,6 +4,11 @@ import pytest
 
 LOGIN = "/api/users/auth/login"
 CREDENTIALS = {"username": "admin@example.com", "password": "AdminPass1!"}
+_INERTIA = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
+
+
+async def _login_token(client) -> str:
+    return (await client.get("/users/login", headers=_INERTIA)).json()["props"]["csrfToken"]
 
 
 @pytest.mark.parametrize(
@@ -35,12 +40,7 @@ async def test_browser_mutations_require_session_token(anon_client, path):
 
 
 async def test_anonymous_page_token_allows_login_and_rotates(anon_client):
-    props = (
-        await anon_client.get(
-            "/users/login", headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"}
-        )
-    ).json()["props"]
-    token = props["csrfToken"]
+    token = await _login_token(anon_client)
     headers = {"Origin": "http://testserver", "X-CSRF-Token": token}
     assert (await anon_client.post(LOGIN, data=CREDENTIALS, headers=headers)).status_code == 204
     assert (await anon_client.post(LOGIN, data=CREDENTIALS, headers=headers)).status_code == 403
@@ -48,11 +48,7 @@ async def test_anonymous_page_token_allows_login_and_rotates(anon_client):
 
 @pytest.mark.parametrize("header", ["Origin", "Referer"])
 async def test_foreign_source_refused_even_with_token(anon_client, header):
-    token = (
-        await anon_client.get(
-            "/users/login", headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"}
-        )
-    ).json()["props"]["csrfToken"]
+    token = await _login_token(anon_client)
     response = await anon_client.post(
         LOGIN,
         data=CREDENTIALS,
@@ -86,8 +82,6 @@ async def test_view_logout_accepts_same_origin_inertia_post(anon_client):
     ],
 )
 async def test_anonymous_auth_pages_supply_token(anon_client_signup, path):
-    response = await anon_client_signup.get(
-        path, headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"}
-    )
+    response = await anon_client_signup.get(path, headers=_INERTIA)
     assert response.status_code == 200
     assert response.json()["props"]["csrfToken"]

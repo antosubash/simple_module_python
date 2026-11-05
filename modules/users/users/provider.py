@@ -191,7 +191,8 @@ class UsersAuthProvider:
         knowing about before shortening the TTL to 0, which removes the shield
         entirely.
         """
-        hit, cached = read_session_version(user_id, session.get(SESSION_ID_KEY))
+        session_id = session.get(SESSION_ID_KEY)
+        hit, cached = read_session_version(user_id, session_id)
         if hit:
             return cached is not None and int(cached) == _stamped_version(session)
         try:
@@ -220,9 +221,7 @@ class UsersAuthProvider:
         store_session_version(user_id, stored, revoked)
         if stored is None:
             return False
-        return (
-            int(stored) == _stamped_version(session) and session.get(SESSION_ID_KEY) not in revoked
-        )
+        return int(stored) == _stamped_version(session) and session_id not in revoked
 
     def get_login_url(self, request: Request | None, next_url: str | None = None) -> str:
         return "/users/login"
@@ -266,8 +265,8 @@ class UsersAuthProvider:
                 user = (await db_session.execute(stmt)).scalar_one_or_none()
                 if user is None or not user.is_active or user.disabled_at is not None:
                     return None
-                # Same revocation check as the cached path, free here because
-                # the row is already loaded.
+                # Backs up the earlier version check, which fails open on a
+                # DB error; free here because the row is already loaded.
                 if session is not None and int(user.session_version or 0) != _stamped_version(
                     session
                 ):
