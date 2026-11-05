@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Reduce background task polling and list reads to their required columns; count task history separately from paginated reads and index newest-first, nulls-last ordering (migration `c5d8e2f1a903`, 2026-11-05 performance review).
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 
 ### Fixed

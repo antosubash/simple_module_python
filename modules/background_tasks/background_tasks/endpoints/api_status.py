@@ -21,6 +21,7 @@ from simple_module_hosting.permissions import ensure_resolved_permissions
 from simple_module_hosting.resource_deps import resource_principal
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy import select
+from sqlalchemy.orm import load_only
 from sqlmodel import col
 
 from background_tasks.constants import MODULE_NAME, PERM_VIEW, STATUS_ROUTER_PREFIX
@@ -73,6 +74,21 @@ async def get_task_status(
     row = (
         await db.execute(
             select(TaskExecution)
+            .options(
+                load_only(
+                    *(
+                        getattr(TaskExecution, field)
+                        for field in (
+                            *TaskStatusDTO.model_fields,
+                            "owner_user_id",
+                            "tenant_id",
+                            "resource_type",
+                            "resource_id",
+                        )
+                    ),
+                    raiseload=True,
+                )
+            )
             .where(col(TaskExecution.celery_task_id) == celery_task_id)
             .order_by(TaskExecution.queued_at.desc())
             .limit(1)

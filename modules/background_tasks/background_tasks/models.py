@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from simple_module_db.types import AwareDateTime
-from sqlalchemy import JSON, CheckConstraint, Column, Index, String
+from sqlalchemy import JSON, CheckConstraint, Column, Index, String, column
 from sqlmodel import Field
 
 from background_tasks.constants import (
@@ -124,6 +124,12 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     heartbeat_at: datetime | None = None
 
     __table_args__ = (
+        # Portable DESC NULLS LAST: NULL timestamps sort after dated tasks.
+        Index(
+            "ix_background_tasks_task_execution_queued_order",
+            column("queued_at").is_(None).self_group(),
+            column("queued_at").desc(),
+        ),
         CheckConstraint(
             "(resource_type IS NULL) = (resource_id IS NULL)",
             name="task_resource_pair",

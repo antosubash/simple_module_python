@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from simple_module_core.events import EventBus
 from simple_module_db import RequestSession
-from sqlalchemy import Row, func, select
+from sqlalchemy import func, select
+from sqlalchemy.orm import load_only
 
 from background_tasks.constants import RETRYABLE_STATUSES, TaskStatus
 from background_tasks.contracts.schemas import (
@@ -70,36 +70,30 @@ class BackgroundTaskService:
             status=status, task_name=task_name, queue=queue, tenant_id=tenant_id
         )
 
-        # A window-function total lets us fetch the page and the count in a
-        # single round trip. SQLAlchemy's ``AsyncSession`` serialises calls on
-        # one connection, so ``asyncio.gather`` wouldn't help here.
-        async def fetch(p: int) -> tuple[Sequence[Row[tuple[TaskExecution, int]]], int]:
-            total_col = func.count().over().label("_total")
-            query = (
-                select(TaskExecution, total_col)
-                .where(*conditions)
-                .order_by(TaskExecution.queued_at.desc().nulls_last())
-                .offset((p - 1) * per_page)
-                .limit(per_page)
+        count_query = select(func.count()).select_from(TaskExecution).where(*conditions)
+        total = int((await self.db.execute(count_query)).scalar_one())
+        if total:
+            page = min(page, -(-total // per_page))
+
+        query = (
+            select(TaskExecution)
+            .options(
+                load_only(
+                    *(
+                        getattr(TaskExecution, field)
+                        for field in TaskExecutionListItem.model_fields
+                    ),
+                    raiseload=True,
+                )
             )
-            rows = (await self.db.execute(query)).all()
-            return rows, (int(rows[0][1]) if rows else 0)
-
-        rows, total = await fetch(page)
-        if not rows and page > 1:
-            # The window-function total only rides along on a row that's
-            # actually returned, so a page past the end (stale bookmark, a
-            # manually-edited ?page=) can't self-report the real total — it
-            # looks identical to "there are no rows at all". Count for real,
-            # clamp to the last valid page, and refetch so callers never see
-            # a false "nothing exists" for a query that has rows elsewhere.
-            count_query = select(func.count()).select_from(TaskExecution).where(*conditions)
-            real_total = int((await self.db.execute(count_query)).scalar_one())
-            if real_total:
-                page = max(1, -(-real_total // per_page))  # ceil division
-                rows, total = await fetch(page)
-
-        items = [TaskExecutionListItem.model_validate(row[0]) for row in rows]
+            .where(*conditions)
+            # The expression index preserves DESC NULLS LAST on both DBs.
+            .order_by(TaskExecution.queued_at.is_(None), TaskExecution.queued_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        rows = (await self.db.execute(query)).scalars().all()
+        items = [TaskExecutionListItem.model_validate(row) for row in rows]
 
         return TaskExecutionListResponse(
             items=items,
