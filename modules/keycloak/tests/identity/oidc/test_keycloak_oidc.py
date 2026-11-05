@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from keycloak.oidc import OIDCClient
+from keycloak.identity.oidc import OIDCClient
 
 
 @pytest.fixture

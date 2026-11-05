@@ -4,7 +4,7 @@ import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from keycloak.endpoints import api
+from keycloak.web.endpoints import api
 from simple_module_hosting.csrf import get_csrf_token
 from starlette.requests import Request
 

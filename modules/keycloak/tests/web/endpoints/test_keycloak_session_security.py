@@ -11,11 +11,11 @@ from auth.contracts.schemas import UserContext
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from jwt.algorithms import RSAAlgorithm
-from keycloak.endpoints import api
-from keycloak.jwks import JWKSCache
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
-from keycloak.tokens import open_refresh_token
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.jwks import JWKSCache
+from keycloak.identity.provider import KeycloakAuthProvider
+from keycloak.identity.tokens import open_refresh_token
+from keycloak.web.endpoints import api
 from simple_module_hosting.csrf import get_csrf_token
 from simple_module_hosting.session import preserve_across_sign_in
 from starlette.requests import Request
@@ -244,7 +244,7 @@ async def test_keycloak_realistic_session_cookie_fits(callback, monkeypatch):
 async def test_keycloak_callback_sends_saved_pkce_verifier(callback, monkeypatch, httpx_mock):
     from urllib.parse import parse_qs, urlencode, urlsplit
 
-    from keycloak.oidc import OIDCClient
+    from keycloak.identity.oidc import OIDCClient
 
     request, _, id_claims = callback
     client = OIDCClient("https://idp.test", "test", "app", "secret")

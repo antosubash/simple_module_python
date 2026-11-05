@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from auth.contracts.provider import AuthProvider
 from auth.contracts.schemas import UserContext
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.provider import KeycloakAuthProvider
 
 
 @pytest.fixture
@@ -116,7 +116,10 @@ class TestTenantClaim:
         import subprocess
         import sys
 
-        code = "from keycloak.settings import KeycloakSettings as K; print(K().trust_tenant_claim)"
+        code = (
+            "from keycloak.core.settings import KeycloakSettings as K; "
+            "print(K().trust_tenant_claim)"
+        )
         env = {**os.environ, "SM_KEYCLOAK_TRUST_TENANT_CLAIM": "true"}
         out = subprocess.run(
             [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True

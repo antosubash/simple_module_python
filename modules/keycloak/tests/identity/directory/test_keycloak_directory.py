@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from audit_log.models import AuditEntry
 from audit_log.resolve import actor_filter, actor_link, resolve_actors
-from keycloak.directory import KeycloakDirectory
+from keycloak.identity.directory import KeycloakDirectory
 from keycloak.models import KeycloakUserCache
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from sqlalchemy import select

@@ -2,7 +2,7 @@
 
 import pytest
 from auth.contracts.schemas import UserContext
-from keycloak.provider import KeycloakAuthProvider
+from keycloak.identity.provider import KeycloakAuthProvider
 
 
 @pytest.mark.parametrize("claim", [True, False, None, "true", "false", 1])

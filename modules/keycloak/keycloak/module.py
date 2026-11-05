@@ -11,7 +11,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.public_routes import PublicRouteRegistry
 
-from keycloak.constants import PUBLIC_PATH_PREFIXES
+from keycloak.core.constants import PUBLIC_PATH_PREFIXES
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -32,9 +32,9 @@ class KeycloakModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-        from keycloak.provider import KeycloakAuthProvider
-        from keycloak.settings import KeycloakSettings
-        from keycloak.state import KeycloakState
+        from keycloak.core.settings import KeycloakSettings
+        from keycloak.core.state import KeycloakState
+        from keycloak.identity.provider import KeycloakAuthProvider
 
         register_module_settings(
             app,
@@ -50,7 +50,7 @@ class KeycloakModule(ModuleBase):
         # Other modules read accounts through the directory (GH #501).
         from simple_module_core.user_directory import set_user_directory
 
-        from keycloak.directory import KeycloakDirectory
+        from keycloak.identity.directory import KeycloakDirectory
 
         set_user_directory(app, KeycloakDirectory())
 
@@ -72,14 +72,14 @@ class KeycloakModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from keycloak.endpoints.api import router as api
-        from keycloak.endpoints.views import router as views
+        from keycloak.web.endpoints.api import router as api
+        from keycloak.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
 
     async def on_startup(self, app: FastAPI) -> None:
-        from keycloak.jwks import JWKSCache
+        from keycloak.identity.jwks import JWKSCache
 
         state = app.state.keycloak
         s = state.settings

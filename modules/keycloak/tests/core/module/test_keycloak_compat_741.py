@@ -10,12 +10,12 @@ import pytest
 from auth.contracts.schemas import UserContext
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
-from keycloak.endpoints import api
-from keycloak.jwks import JWKSCache as KeycloakJWKS
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.jwks import JWKSCache as KeycloakJWKS
+from keycloak.identity.provider import KeycloakAuthProvider
+from keycloak.identity.tokens import seal_refresh_token
 from keycloak.module import KeycloakModule
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
-from keycloak.tokens import seal_refresh_token
+from keycloak.web.endpoints import api
 from oidc.jwks import JWKSCache as OidcJWKS
 from starlette.requests import Request
 
@@ -86,7 +86,7 @@ async def test_refresh_matches_session_whose_id_is_the_raw_sub(monkeypatch, db_s
     }
     request = Request({"type": "http", "headers": [], "session": session, "app": app})
     monkeypatch.setattr(
-        "keycloak.endpoints.api._get_oidc_client",
+        "keycloak.web.endpoints.api._get_oidc_client",
         lambda _r: SimpleNamespace(refresh_tokens=AsyncMock(return_value={"access_token": "a"})),
     )
     principal = await provider.resolve_user(request)
@@ -141,7 +141,7 @@ async def test_refresh_survives_an_unavailable_identity_check(monkeypatch, db_st
     def broken_session(_app):
         raise RuntimeError("database unavailable")
 
-    monkeypatch.setattr("keycloak.renewal.independent_session", broken_session)
+    monkeypatch.setattr("keycloak.identity.renewal.independent_session", broken_session)
     cached_id = "6f1c6a9e-5b7e-4c3b-9d8f-2a1e3c4b5d6e"
     session = {
         "user_ctx": UserContext(id=cached_id, email="", name="", roles=[]).to_session_dict(),
@@ -151,7 +151,7 @@ async def test_refresh_survives_an_unavailable_identity_check(monkeypatch, db_st
     }
     request = Request({"type": "http", "headers": [], "session": session, "app": app})
     monkeypatch.setattr(
-        "keycloak.endpoints.api._get_oidc_client",
+        "keycloak.web.endpoints.api._get_oidc_client",
         lambda _r: SimpleNamespace(refresh_tokens=AsyncMock(return_value={"access_token": "a"})),
     )
     principal = await provider.resolve_user(request)

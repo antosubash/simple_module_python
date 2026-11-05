@@ -9,7 +9,7 @@ was consulted).
 
 from __future__ import annotations
 
-from keycloak.constants import PUBLIC_PATH_PREFIXES as KEYCLOAK_PREFIXES
+from keycloak.core.constants import PUBLIC_PATH_PREFIXES as KEYCLOAK_PREFIXES
 from keycloak.module import KeycloakModule
 from simple_module_core.discovery import select_auth_provider
 from simple_module_core.public_routes import PublicRouteRegistry

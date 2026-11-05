@@ -11,23 +11,23 @@ from auth.oidc_common.session import sign_in, stale_callback
 from fastapi import APIRouter, HTTPException, Request
 from starlette.responses import RedirectResponse
 
-from keycloak.constants import (
+from keycloak.core.constants import (
     SESSION_IDENTITY_KEY,
     SESSION_VERIFIER_KEY,
 )
-from keycloak.constants import (
+from keycloak.core.constants import (
     SESSION_NONCE_KEY as _SESSION_OIDC_NONCE,
 )
-from keycloak.constants import (
+from keycloak.core.constants import (
     SESSION_STATE_KEY as _SESSION_OIDC_STATE,
 )
-from keycloak.constants import (
+from keycloak.core.constants import (
     SESSION_USER_KEY as _SESSION_USER_CTX,
 )
-from keycloak.tokens import store_refresh_token
+from keycloak.identity.tokens import store_refresh_token
 
 if TYPE_CHECKING:
-    from keycloak.settings import KeycloakSettings
+    from keycloak.core.settings import KeycloakSettings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["keycloak-auth"])
@@ -38,7 +38,7 @@ def _get_settings(request: Request) -> KeycloakSettings:
 
 
 def _get_oidc_client(request: Request):
-    from keycloak.oidc import OIDCClient
+    from keycloak.identity.oidc import OIDCClient
 
     s = _get_settings(request)
     return OIDCClient(

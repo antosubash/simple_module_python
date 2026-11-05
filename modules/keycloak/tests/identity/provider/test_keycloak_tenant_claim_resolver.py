@@ -6,8 +6,8 @@ Lives apart from ``test_keycloak_provider.py`` because that file overrides the
 
 from __future__ import annotations
 
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.provider import KeycloakAuthProvider
 from starlette.requests import Request
 
 _USER_ID = "11111111-1111-1111-1111-111111111111"

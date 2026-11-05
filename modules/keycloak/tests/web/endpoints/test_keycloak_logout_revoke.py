@@ -4,9 +4,9 @@ from types import SimpleNamespace
 from urllib.parse import parse_qs
 
 import httpx
-from keycloak.endpoints import views
-from keycloak.settings import KeycloakSettings
-from keycloak.tokens import seal_refresh_token
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.tokens import seal_refresh_token
+from keycloak.web.endpoints import views
 from starlette.requests import Request
 
 _LOGOUT = "https://idp.test/realms/test/protocol/openid-connect/logout"

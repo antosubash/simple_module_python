@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 from auth.contracts.tokens import AUTH_KIND_BEARER
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
-from keycloak.state import KeycloakState
+from keycloak.core.settings import KeycloakSettings
+from keycloak.core.state import KeycloakState
+from keycloak.identity.provider import KeycloakAuthProvider
 from starlette.requests import Request
 
 

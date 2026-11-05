@@ -7,9 +7,9 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 from auth.contracts.schemas import UserContext
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
-from keycloak.tokens import open_refresh_token, seal_refresh_token
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.provider import KeycloakAuthProvider
+from keycloak.identity.tokens import open_refresh_token, seal_refresh_token
 from starlette.requests import Request
 
 

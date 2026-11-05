@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 from auth.contracts.schemas import UserContext
-from keycloak.provider import KeycloakAuthProvider
-from keycloak.settings import KeycloakSettings
+from keycloak.core.settings import KeycloakSettings
+from keycloak.identity.provider import KeycloakAuthProvider
 from oidc.provider import OidcAuthProvider
 from oidc.settings import OidcSettings
 from simple_module_hosting.session import SessionMiddleware

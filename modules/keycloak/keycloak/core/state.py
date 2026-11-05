@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from keycloak.jwks import JWKSCache
-    from keycloak.settings import KeycloakSettings
+    from keycloak.core.settings import KeycloakSettings
+    from keycloak.identity.jwks import JWKSCache
 
 
 @dataclass

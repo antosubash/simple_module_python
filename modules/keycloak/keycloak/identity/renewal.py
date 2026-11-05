@@ -8,15 +8,15 @@ from auth.oidc_common.session import SessionKeys, accept_authority, authority_ma
 from simple_module_db import independent_session
 from sqlmodel import select
 
-from keycloak.constants import (
+from keycloak.core.constants import (
     SESSION_ID_TOKEN_KEY,
     SESSION_IDENTITY_KEY,
     SESSION_REFRESH_RETRY_AT_KEY,
     SESSION_REFRESH_TOKEN_KEY,
     SESSION_USER_KEY,
 )
+from keycloak.identity.tokens import open_refresh_token, store_refresh_token
 from keycloak.models import KeycloakUserCache
-from keycloak.tokens import open_refresh_token, store_refresh_token
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class SessionRenewal:
         )
 
     async def _refresh_session(self, request):
-        from keycloak.endpoints.api import _get_oidc_client
+        from keycloak.web.endpoints.api import _get_oidc_client
 
         async def refresh(token):
             return await _get_oidc_client(request).refresh_tokens(token)

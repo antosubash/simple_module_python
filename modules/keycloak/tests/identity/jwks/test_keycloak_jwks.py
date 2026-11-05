@@ -11,7 +11,7 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from keycloak.jwks import JWKSCache
+from keycloak.identity.jwks import JWKSCache
 
 
 def _generate_rsa_keypair():

@@ -4,9 +4,9 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from keycloak.directory import KeycloakDirectory
+from keycloak.identity.directory import KeycloakDirectory
+from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak.models import KeycloakUserCache
-from keycloak.provider import KeycloakAuthProvider
 from simple_module_db import independent_session
 from sqlalchemy import event, select
 from starlette.requests import Request
