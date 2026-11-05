@@ -44,7 +44,7 @@ _OWNER: dict[str, str] = {
     "a625f0b7c912": "users",  # refresh-token families (#625)
     "a626b1c8d023": "users",  # hashed bearer tokens (#626)
     "e731a1b2c3d4": "users",  # unique lower(email) (#731)
-    "e805a1b2c3d4": "users",
+    "e805a1b2c3d4": "users",  # browser session retirement
     "51b2058d8afd": "api_tokens",
     "168a2882f443": "keycloak",
     "f6a3b9d2e8c4": "keycloak",

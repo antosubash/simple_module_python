@@ -3,12 +3,16 @@
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import httpx
 import pytest
 from _users_app_builders import user_row
+from auth.constants import SESSION_ID_KEY
 from simple_module_core.invalidation import InvalidationBus
 from sqlalchemy import select
+from users.browser_sessions import revoke_browser_session
+from users.constants import SESSION_USER_ID_KEY
 from users.models import RevokedSession
 from users.session_revocation import CHANNEL, subscribe
 from users.session_version_cache import (
@@ -79,6 +83,38 @@ async def test_logout_cleans_expired_records_and_retains_deadline(users_app, ano
         assert rows[0].session_id != "expired"
         remaining = rows[0].expires_at - before
         assert timedelta(days=13) < remaining <= timedelta(days=14)
+
+
+async def test_second_logout_of_same_session_is_a_noop(users_app, anon_client):
+    assert (await anon_client.post("/api/users/auth/login", data=CREDENTIALS)).status_code == 204
+    copied = anon_client.cookies.get("session")
+    assert (await anon_client.post("/api/users/auth/logout")).status_code == 204
+    async with users_app.state.sm.db.session_factory() as db:
+        first = list((await db.execute(select(RevokedSession))).scalars())
+    assert len(first) == 1
+    transport = httpx.ASGITransport(app=users_app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", cookies={"session": copied}
+    ) as again:
+        assert (await again.post("/api/users/auth/logout")).status_code in {204, 401, 403}
+    async with users_app.state.sm.db.session_factory() as db:
+        rows = list((await db.execute(select(RevokedSession))).scalars())
+    assert [(r.session_id, r.expires_at) for r in rows] == [
+        (r.session_id, r.expires_at) for r in first
+    ]
+
+
+async def test_revoke_browser_session_twice_in_one_transaction(users_app):
+    user = await user_row(users_app, "admin@example.com")
+    session = {SESSION_ID_KEY: "dup", SESSION_USER_ID_KEY: str(user.id)}
+    request = SimpleNamespace(session=session, app=users_app)
+    async with users_app.state.sm.db.session_factory() as db:
+        await revoke_browser_session(request, db)
+        await revoke_browser_session(request, db)
+        await db.commit()
+    async with users_app.state.sm.db.session_factory() as db:
+        rows = list((await db.execute(select(RevokedSession))).scalars())
+    assert [r.session_id for r in rows] == ["dup"]
 
 
 async def test_remote_invalidation_drops_cached_retirements():
