@@ -5,10 +5,10 @@ import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { FlagTable } from './components/FlagTable';
-import { ScopeCard } from './components/ScopeCard';
-import { type PendingToggle, ToggleConfirmDialog } from './components/ToggleConfirmDialog';
-import type { FeatureFlag } from './types';
+import { FlagTable } from '../ui/components/FlagTable';
+import { ScopeCard } from '../ui/components/ScopeCard';
+import { type PendingToggle, ToggleConfirmDialog } from '../ui/components/ToggleConfirmDialog';
+import type { FeatureFlag } from '../ui/types';
 
 interface Props {
   flags: FeatureFlag[];

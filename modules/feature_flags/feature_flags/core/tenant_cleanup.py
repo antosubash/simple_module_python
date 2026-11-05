@@ -4,7 +4,7 @@ from simple_module_core.durable_events import DurableContext
 from simple_module_core.tenant_events import TenantDeleted
 from sqlmodel import col, delete
 
-from feature_flags.constants import SCOPE_TENANT
+from feature_flags.core.constants import SCOPE_TENANT
 from feature_flags.models import FeatureFlagOverride
 
 

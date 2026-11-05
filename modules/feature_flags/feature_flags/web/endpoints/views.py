@@ -15,7 +15,7 @@ from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
-from feature_flags.constants import (
+from feature_flags.core.constants import (
     AUDIT_LOG_MODULE,
     AUDIT_LOG_VIEW_URL,
     MENU_URL,
@@ -27,7 +27,7 @@ from feature_flags.constants import (
     SCOPE_TENANT,
     SYSTEM_SCOPE_ID,
 )
-from feature_flags.deps import (
+from feature_flags.web.deps import (
     FeatureFlagRegistryDep,
     FeatureFlagServiceDep,
     require_known_tenant,
