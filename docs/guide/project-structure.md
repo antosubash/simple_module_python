@@ -57,8 +57,8 @@ See [Bundled modules](/modules/) for details on each.
 
 ## Anatomy of a module
 
-New scaffolded modules use the area layout. Existing bundled modules migrate
-one by one; [Module layout](/module-layout) tracks their status and the full contract.
+Every bundled module and every scaffolded module uses the area layout;
+[Module layout](/module-layout) has the full contract.
 
 ```text
 modules/orders/

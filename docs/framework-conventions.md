@@ -25,9 +25,8 @@ modules/<name>/
     └── web/crud/test_<name>_crud.py
 ```
 
-New scaffolded modules use `core/` and `web/`; existing modules migrate one at a
-time. See [Module layout](module-layout.md) for the root lookup table, area
-selection, test naming, and compatibility policy. Area initializers contain
+Modules use `core/` and `web/`. See [Module layout](module-layout.md) for the
+root lookup table, area selection, test naming, and compatibility policy. Area initializers contain
 only a docstring. Keep private helpers in the area they serve.
 
 Scaffold with `smpy create-module <name> --dest modules/<name>` (or

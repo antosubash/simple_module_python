@@ -135,9 +135,10 @@ The Python package name (`feature_flags`) keys the i18n namespace,
 `app.state.<package>` and table prefixes. Don't swap them: `keys.<ns>` breaks if
 the namespace is the meta name.
 
-**Module layout.** New modules use the area layout below; existing modules
-migrate one by one. See [Module layout](docs/module-layout.md) for root lookup consumers,
-tests, compatibility shims and the migration checklist.
+**Module layout.** Every module uses the area layout below
+(`host/tests/test_module_layout.py` enforces it). See [Module layout](docs/module-layout.md)
+for root lookup consumers, tests, compatibility shims and the checklist for moving a
+downstream flat module.
 
 ```text
 modules/<name>/<name>/
@@ -351,7 +352,7 @@ development and testing (`session_cookie_secure`).
 - **No magic strings in non-test Python** (`scripts/check_hardcoded_strings.py`):
   `RequiresPermission(...)`, `registry.map_role(...)`, `registry.add_group(...)`
   items, `inertia.render(...)` keys and `depends_on=[...]` entries must be
-  constants from `core/constants.py` (legacy modules: `constants.py`):
+  constants from `core/constants.py`:
   `PERM_*`, role names, `_PAGE_*`, `_MODULE_*`.
 - **300-line cap** on `.py`/`.ts`/`.tsx`, tests included, untracked files
   included (`scripts/check_file_size.py`). Exempt: shadcn components under

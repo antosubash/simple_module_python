@@ -126,7 +126,13 @@ async def test_concurrent_invites_to_one_address_give_one(tmp_path, backend: str
                     return exc.code
 
         outcomes = await asyncio.gather(*(invite() for _ in range(5)))
-        assert sorted(outcomes) == ["already_invited"] * 4 + ["ok"]
+        assert outcomes.count("ok") == 1
+        # A loser on SQLite can also get SQLITE_BUSY on the writer lock under load
+        # (the retryable ``admission_conflict``): still a refusal (#855).
+        refusals = {"already_invited"} | (
+            {"admission_conflict"} if backend != "postgres" else set()
+        )
+        assert {o for o in outcomes if o != "ok"} <= refusals, outcomes
         async with state.session_factory() as db:
             pending = await InvitationService(TenantService(db), ttl_hours=1).list_pending(
                 tenant.id
