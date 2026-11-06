@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -35,8 +34,6 @@ def downgrade() -> None:
 def project(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(migrations, "_SCRIPTS", {})
     (tmp_path / "migrations" / "versions").mkdir(parents=True)
-    repo_migrations = Path(__file__).resolve().parents[3] / "host" / "migrations"
-    shutil.copy(repo_migrations / "script.py.mako", tmp_path / "migrations")
     (tmp_path / "alembic.ini").write_text(_INI)
     _write(tmp_path, "a1", None)
     return tmp_path

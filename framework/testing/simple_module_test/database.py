@@ -23,6 +23,8 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.pool import NullPool
 
+from simple_module_test._sqlite_template import build_from_template, is_memory_sqlite
+
 TEST_DATABASE_ENV = "SM_TEST_DATABASE_URL"
 SQLITE_MEMORY = "sqlite+aiosqlite:///:memory:"
 XDIST_WORKER_ENV = "PYTEST_XDIST_WORKER"
@@ -156,8 +158,6 @@ async def prepare_schema_once(engine: Any, tables: list[Any], build: Any) -> Non
     """
     global _reset_for, _built_schema
     if engine.dialect.name == "sqlite":
-        from simple_module_test._sqlite_template import build_from_template, is_memory_sqlite
-
         if is_memory_sqlite(engine):
             await build_from_template(engine, tables, build)
         else:
