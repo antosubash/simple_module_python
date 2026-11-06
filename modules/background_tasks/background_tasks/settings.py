@@ -2,7 +2,7 @@
 
 Values come from defaults at boot, then get hydrated from the DB by the
 hosting lifespan before module ``on_startup`` runs. Runtime changes go
-through ``settings.reload.apply_changes_and_reload``.
+through ``settings.module_settings.reload.apply_changes_and_reload``.
 
 The broker and result-backend URLs are deployment plumbing rather than module
 config, so they stay env-readable through ``SM_REDIS_URL`` — one variable that

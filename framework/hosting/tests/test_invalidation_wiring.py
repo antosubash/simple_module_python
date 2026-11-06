@@ -236,7 +236,7 @@ class TestSettingsValidation:
         and ``import-from-env`` actually read — rather than through
         ``model_fields``, which would only restate the dataclass back to itself.
         """
-        from settings._module_settings import collect_module_settings
+        from settings.module_settings.discovery import collect_module_settings
 
         views = collect_module_settings(app)
         background = next((v for v in views if v.package == "background_tasks"), None)

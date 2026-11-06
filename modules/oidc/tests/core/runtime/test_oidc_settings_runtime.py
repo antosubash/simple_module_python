@@ -1,9 +1,9 @@
 """OIDC policy uses hydrated settings even without the Settings UI (#192)."""
 
 from oidc.core.settings import OidcSettings
-from settings.invalidation import reload_package
-from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.core.invalidation import reload_package
+from settings.core.service import SettingService
+from settings.module_settings.store import SettingsStore
 from simple_module_core.module_settings import module_settings_registry
 
 

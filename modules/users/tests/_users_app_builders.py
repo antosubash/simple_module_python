@@ -99,8 +99,8 @@ async def _seed_users_settings(
     Hydrate fires inside the lifespan ``__aenter__``, so this needs to land
     between table creation and lifespan entry.
     """
-    from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.core.service import SettingService
+    from settings.module_settings.store import SettingsStore
 
     async with application.state.sm.db.session_factory() as session:
         store = SettingsStore(SettingService(session))

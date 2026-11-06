@@ -1,0 +1,160 @@
+"""Centralized constants for the Settings module.
+
+Keeps module-level strings (route prefixes, permission ids, table names,
+menu metadata, error messages, field limits, env prefix, i18n namespace,
+scope identifiers) in one place so nothing is duplicated in Python or
+inline-literal'd at call sites.
+"""
+
+from __future__ import annotations
+
+from typing import Final
+
+# Re-exported (#500): these now live with the table in the framework.
+from simple_module_db.stored_settings import (  # noqa: F401
+    ALL_VALUE_TYPES,
+    DESCRIPTION_MAX_LENGTH,
+    KEY_MAX_LENGTH,
+    SCOPE_ID_MAX_LENGTH,
+    SCOPE_MAX_LENGTH,
+    SCOPE_SYSTEM,
+    SCOPE_TENANT,
+    SCOPE_USER,
+    SYSTEM_SCOPE_ID,
+    TABLE_SETTING,
+    UQ_SCOPE_KEY,
+    VALUE_MAX_LENGTH,
+    VALUE_TYPE_BOOL,
+    VALUE_TYPE_FLOAT,
+    VALUE_TYPE_INT,
+    VALUE_TYPE_JSON,
+    VALUE_TYPE_MAX_LENGTH,
+    VALUE_TYPE_STRING,
+)
+
+# ── Module identity ──────────────────────────────────────────────────
+MODULE_NAME: Final = "Settings"
+MODULE_PACKAGE: Final = "settings"
+ENV_PREFIX: Final = "SM_SETTINGS_"
+LOCALE_NAMESPACE: Final = MODULE_PACKAGE
+
+# ── Scopes ───────────────────────────────────────────────────────────
+# Scope, value-type, table and field-limit constants moved to
+# ``simple_module_db.stored_settings`` with the table itself (#500); they are
+# re-exported from the import block at the top of this file.
+ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
+
+# ── Secrets ──────────────────────────────────────────────────────────
+# The sensitive-key allowlist lives in ``simple_module_core.secret_fields``.
+SENSITIVE_PLACEHOLDER: Final = "********"
+
+# ── Routing ──────────────────────────────────────────────────────────
+API_PREFIX: Final = "/api/settings"
+VIEW_PREFIX: Final = "/admin/settings"
+VIEW_CREATE_PATH: Final = "/create"
+VIEW_EDIT_PATH: Final = "/{setting_id}/edit"
+VIEW_MODULES_PATH: Final = "/modules"
+"""Legacy path for the per-module forms. Those now live at the section root;
+this redirects, so existing links and bookmarks keep working."""
+
+VIEW_STORE_PATH: Final = "/store"
+"""Raw key/value store. Demoted from the section root: it is a database view,
+and an admin looking for "settings" almost always wants the module forms."""
+API_BY_ID_PATH: Final = "/{setting_id}"
+API_BY_KEY_PATH: Final = "/by-key/{key}"
+API_RESOLVE_PATH: Final = "/resolve/{key}"
+API_SYSTEM_PATH: Final = "/system/{key}"
+API_TENANT_PATH: Final = "/tenant/{scope_id}/{key}"
+API_USER_PATH: Final = "/user/{scope_id}/{key}"
+# The active tenant's own overrides (#382). The tenant comes from
+# ``request.state.tenant_id`` — never from the URL — so "current" is a literal
+# segment, registered ahead of ``API_TENANT_PATH`` so it is not read as an id.
+API_TENANT_CURRENT_PATH: Final = "/tenant/current"
+API_TENANT_CURRENT_KEY_PATH: Final = "/tenant/current/{key}"
+
+# ── Menu ─────────────────────────────────────────────────────────────
+MENU_LABEL: Final = MODULE_NAME
+# Trailing slash: the browse route is registered at "/" under VIEW_PREFIX, so
+# linking to the bare prefix costs a 307 round trip on every navigation.
+MENU_URL: Final = f"{VIEW_PREFIX}/"
+MENU_ICON: Final = "settings"
+MENU_ORDER: Final = 200
+
+# ── Permissions ──────────────────────────────────────────────────────
+PERM_GROUP: Final = MODULE_NAME
+PERM_VIEW: Final = "settings.view"
+PERM_CREATE: Final = "settings.create"
+PERM_EDIT: Final = "settings.edit"
+PERM_DELETE: Final = "settings.delete"
+# Edit the *active* tenant's overrides of ``tenant_overridable`` keys — and
+# nothing else. Mapped onto ``tenant:owner`` / ``tenant:admin``; the four
+# above stay platform-operator permissions (system scope, any tenant's scope).
+PERM_TENANT_EDIT: Final = "settings.tenant.edit"
+ALL_PERMISSIONS: Final = (PERM_VIEW, PERM_CREATE, PERM_EDIT, PERM_DELETE, PERM_TENANT_EDIT)
+
+# ── Cache invalidation ───────────────────────────────────────────────
+# Published (after commit) for every SYSTEM / TENANT write, keyed per
+# (tenant, key) — see ``settings.contracts.invalidation``. Settings caches
+# nothing itself; consumers holding per-tenant resolved values subscribe.
+INVALIDATION_CHANNEL: Final = "settings.values"
+
+# ── Database ─────────────────────────────────────────────────────────
+DB_SCHEMA: Final = MODULE_PACKAGE
+
+# ── Inertia page component names ─────────────────────────────────────
+PAGE_BROWSE: Final = f"{MODULE_NAME}/Browse"
+PAGE_CREATE: Final = f"{MODULE_NAME}/Create"
+PAGE_EDIT: Final = f"{MODULE_NAME}/Edit"
+PAGE_MODULES_EDIT: Final = f"{MODULE_NAME}/ModulesEdit"
+
+# ── Inertia prop keys ────────────────────────────────────────────────
+PROP_SETTINGS: Final = "settings"
+PROP_SETTING: Final = "setting"
+PROP_MODULES: Final = "modules"
+PROP_ERROR: Final = "error"
+PROP_PAGINATION: Final = "pagination"
+PROP_COUNTS: Final = "counts"
+PROP_FILTERS: Final = "filters"
+PROP_KNOWN_KEYS: Final = "known_keys"
+PROP_TESTABLE: Final = "testable"
+
+# ── Store listing (scope tabs + search + paging) ─────────────────────
+# The table is server-filtered: the scope tabs report counts the client can no
+# longer compute once it holds a single page, and an install with a few
+# thousand overrides must not ship all of them to render twenty.
+SCOPE_ALL: Final = "all"
+"""Sentinel for "no scope filter" — a tab value, never a stored scope."""
+
+DEFAULT_PER_PAGE: Final = 20
+MAX_PER_PAGE: Final = 200
+
+# ── User-facing error messages ───────────────────────────────────────
+ERR_SETTING_NOT_FOUND: Final = "Setting not found"
+ERR_KEY_ALREADY_EXISTS: Final = "Setting key already exists"
+ERR_SETTING_EXISTS: Final = "A setting with this scope and key already exists"
+ERR_SYSTEM_SCOPE_NO_ID: Final = "system scope must not have a scope_id"
+ERR_SCOPED_REQUIRES_ID: Final = "tenant/user scope requires a scope_id"
+ERR_UNKNOWN_SCOPE: Final = "unknown scope"
+ERR_VALUE_MISMATCH: Final = "value does not parse as declared value_type"
+ERR_UNKNOWN_TENANT: Final = "Unknown tenant"
+ERR_NO_ACTIVE_TENANT: Final = "No active organisation for this request"
+ERR_MANAGED_KEY_DELETE: Final = "This setting is managed elsewhere; clear it at {clear_via}"
+ERR_MODULE_KEY_EDIT: Final = "Module settings must be edited at {edit_via} (package: {package})"
+ERR_NOT_TENANT_OVERRIDABLE: Final = "This setting cannot be changed per organisation"
+
+# ── HTTP ─────────────────────────────────────────────────────────────
+STATUS_CREATED: Final = 201
+STATUS_NO_CONTENT: Final = 204
+STATUS_FORBIDDEN: Final = 403
+STATUS_NOT_FOUND: Final = 404
+STATUS_CONFLICT: Final = 409
+STATUS_UNPROCESSABLE: Final = 422
+
+# ── Query parameter names ────────────────────────────────────────────
+QP_USER_ID: Final = "user_id"
+QP_TENANT_ID: Final = "tenant_id"
+QP_SCOPE: Final = "scope"
+QP_SCOPE_ID: Final = "scope_id"
+QP_Q: Final = "q"
+QP_PAGE: Final = "page"
+QP_PER_PAGE: Final = "per_page"

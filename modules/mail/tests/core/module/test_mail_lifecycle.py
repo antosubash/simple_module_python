@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from mail.delivery.sender import SmtpMailSender
 from settings.contracts.events import SettingsReloaded
-from settings.reload import apply_changes_and_reload
-from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.core.service import SettingService
+from settings.module_settings.reload import apply_changes_and_reload
+from settings.module_settings.store import SettingsStore
 from simple_module_core import mail as core_mail
 from simple_module_core.mail import ConsoleMailSender, resolve_mail_sender
 from simple_module_db.transaction import finalize_session

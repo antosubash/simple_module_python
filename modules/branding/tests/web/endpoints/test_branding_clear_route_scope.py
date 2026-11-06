@@ -7,7 +7,7 @@ route cannot touch it, so pointing a SYSTEM-scope refusal there was a dead end.
 from __future__ import annotations
 
 from settings.contracts.schemas import SettingScope, SettingUpsert
-from settings.service import SettingService
+from settings.core.service import SettingService
 from simple_module_db.stored_settings import SYSTEM_SCOPE_ID
 
 KEY = "branding.logo_file_id"

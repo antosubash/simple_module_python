@@ -4,7 +4,7 @@ Regression tests for the GH #459 delivery verification (pass 3):
 
 - N1: ``before_commit`` also fires when a SAVEPOINT is released, so the guard
   refused ``begin_nested()`` — the race-safe insert idiom, used by
-  ``settings._unique_write`` — and such a handler could never deliver.
+  ``settings.core._unique_write`` — and such a handler could never deliver.
 - N2: committing through the session's ``Connection`` skipped
   ``Session.before_commit``, made the effect durable, and then failed the
   attempt anyway — so every retry committed the effect again.

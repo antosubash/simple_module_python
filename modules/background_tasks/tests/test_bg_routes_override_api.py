@@ -31,8 +31,8 @@ async def test_invalid_override_is_rejected_with_422(authenticated_client, app, 
 
 
 async def test_stored_invalid_override_does_not_break_web_hydration(app, db_session, caplog):
-    from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.core.service import SettingService
+    from settings.module_settings.store import SettingsStore
     from simple_module_hosting._hydrate_step import hydrate_all
 
     store = SettingsStore(SettingService(db_session))

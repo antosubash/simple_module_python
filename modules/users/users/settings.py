@@ -1,7 +1,7 @@
 """Users module settings — DB-backed via ``register_module_settings``.
 
 Most fields hydrate from the DB after boot, with pydantic defaults filling in
-until then. Runtime changes go through ``settings.reload.apply_changes_and_reload``.
+until then. Runtime changes go through ``settings.module_settings.reload.apply_changes_and_reload``.
 
 The two token-secret fields read ``SM_USERS_*`` at import time as a bootstrap
 path: a fresh production deploy needs to clear the validator below before any

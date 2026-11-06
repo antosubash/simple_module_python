@@ -110,8 +110,8 @@ reload and the generic key/value API on top.
 
 The old plugin paths (`settings.registration`, `settings.module_registry`,
 `settings.hydrate`) still re-export these and emit a `DeprecationWarning`;
-`settings.models`, `settings._secrets` and the moved names in
-`settings.store` / `settings.constants` re-export them silently. They go no
+`settings.models`, `settings.core._secrets` and the moved names in
+`settings.module_settings.store` / `settings.core.constants` re-export them silently. They go no
 earlier than 0.1.0.
 
 A Celery worker or CLI script never runs the lifespan, so it hydrates
@@ -163,10 +163,10 @@ async def users_config(state: UsersStateDep):
 
 ## DB-backed settings
 
-After bootstrap, most configuration lives in the `settings_setting` table and is edited via the admin UI at `/admin/settings/`. The CRUD layer is `SettingService` (in `settings.service`); typed reads (with USER > TENANT > SYSTEM resolution and registered defaults) go through a `SettingsAccessor` that wraps it:
+After bootstrap, most configuration lives in the `settings_setting` table and is edited via the admin UI at `/admin/settings/`. The CRUD layer is `SettingService` (in `settings.core.service`); typed reads (with USER > TENANT > SYSTEM resolution and registered defaults) go through a `SettingsAccessor` that wraps it:
 
 ```python
-from settings.service import SettingService
+from settings.core.service import SettingService
 from settings.contracts.accessor import SettingsAccessor
 
 accessor = SettingsAccessor(SettingService(session), registry)

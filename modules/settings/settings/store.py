@@ -1,92 +1,11 @@
-"""DB-backed key/value store for module settings (SYSTEM scope).
-
-The read-only queries (``package_overrides``, ``get_overrides_sync``) moved to
-``simple_module_db.stored_settings`` with the table (#500) and are re-exported
-here. ``SettingsStore`` satisfies
-``simple_module_core.settings_hydrate.OverrideSource``.
-
-Wraps the existing SettingService. Keys are namespaced ``<package>.<field>``
-to avoid collision with free-form user-defined setting keys.
-
-Reads are deliberately *unmasked*. This store is what applies overrides to the
-live settings objects at boot, not what renders them: the masking on the
-service's ordinary read path is for the admin screens, and going through it here
-would write a row of dots over every real credential the deployment had stored.
-The display side masks independently, from the settings object it is given —
-see ``_module_settings._field_view``.
-"""
+"""Moved to :mod:`settings.module_settings.store`; this alias goes in 0.0.46 (module layout)."""
 
 from __future__ import annotations
 
-from simple_module_db.callbacks import OnCommitCallback
-from simple_module_db.stored_settings import (  # noqa: F401  (re-exported, #500)
-    SYSTEM_SCOPE_ID,
-    get_overrides_sync,
-    package_overrides,
-)
+import importlib
+import sys
 
-from settings.contracts.schemas import SettingScope, SettingUpsert, SettingValueType
-from settings.service import SettingService
+from simple_module_core.deprecation import deprecated_module
 
-
-def _key(package: str, field: str) -> str:
-    return f"{package}.{field}"
-
-
-class SettingsStore:
-    """SYSTEM-scoped key/value store keyed by ``(package, field)``.
-
-    Satisfies ``OverrideSource`` for :func:`hydrate_settings`.
-    """
-
-    def __init__(self, service: SettingService) -> None:
-        self._service = service
-
-    def on_commit(self, callback: OnCommitCallback) -> None:
-        self._service.db.on_commit(callback)
-
-    async def get_overrides(self, package: str) -> dict[str, tuple[str, str]]:
-        """Return ``{field_name: (raw_value, value_type)}`` for a package."""
-        items = await self._service.list_by_scope_unmasked(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
-        return package_overrides(((i.key, i.value, i.value_type) for i in items), package)
-
-    async def all_override_fields(self) -> dict[str, frozenset[str]]:
-        """Return ``{package: {field_name, ...}}`` for every stored override.
-
-        One query for the whole screen. ``get_overrides`` re-reads the entire
-        SYSTEM scope per package, so calling it in a loop over the installed
-        modules is one full read per module for the same rows.
-        """
-        items = await self._service.list_by_scope_unmasked(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
-        out: dict[str, set[str]] = {}
-        for item in items:
-            package, sep, field_name = item.key.partition(".")
-            if not sep or not field_name or "." in field_name:
-                continue
-            out.setdefault(package, set()).add(field_name)
-        return {package: frozenset(fields) for package, fields in out.items()}
-
-    async def set_override(self, package: str, field: str, value: str, value_type: str) -> None:
-        await self._service.upsert_scoped(
-            SettingScope.SYSTEM,
-            SYSTEM_SCOPE_ID,
-            _key(package, field),
-            SettingUpsert(value=value, value_type=SettingValueType(value_type)),
-        )
-
-    async def clear_override(self, package: str, field: str) -> None:
-        await self._service.delete_scoped(
-            SettingScope.SYSTEM, SYSTEM_SCOPE_ID, _key(package, field)
-        )
-
-    async def list_packages_with_overrides(self) -> list[str]:
-        items = await self._service.list_by_scope_unmasked(SettingScope.SYSTEM, SYSTEM_SCOPE_ID)
-        pkgs: set[str] = set()
-        for item in items:
-            if "." not in item.key:
-                continue
-            pkg, rest = item.key.split(".", 1)
-            if "." in rest:
-                continue
-            pkgs.add(pkg)
-        return sorted(pkgs)
+deprecated_module("settings.store", remove_in="0.0.46", use="settings.module_settings.store")
+sys.modules[__name__] = importlib.import_module("settings.module_settings.store")

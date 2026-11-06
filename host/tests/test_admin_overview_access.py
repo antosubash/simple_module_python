@@ -106,7 +106,7 @@ async def test_permission_holder_without_the_admin_role_is_admitted(host_app) ->
     This account can open ``/admin/settings/`` on its ``settings.view`` grant,
     so refusing it the overview that links there is self-contradictory.
     """
-    from settings.constants import PERM_VIEW
+    from settings.core.constants import PERM_VIEW
 
     client = await _client_for(
         host_app,

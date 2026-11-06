@@ -41,7 +41,15 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "mail": frozenset({"delivery"}),
     "oidc": frozenset({"identity"}),
     "permissions": frozenset({"grants"}),
+    "settings": frozenset({"module_settings"}),
     "tenants": frozenset({"invitations", "resolution"}),
+}
+
+# Plain re-export shims (#500) that predate the layout: public compat paths kept
+# at the root until their own 0.1.0 deprecation expires (host/tests/test_deprecation_expiry.py),
+# then deleted together with the entry here.
+DEPRECATED_ROOT: dict[str, frozenset[str]] = {
+    "settings": frozenset({"hydrate.py", "module_registry.py", "registration.py"}),
 }
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
@@ -68,15 +76,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         reads.py resolve.py scope.py service.py services.py serving.py settings.py
         tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
         uploads.py visibility.py worker.py worker_support.py
-        """.split()
-    ),
-    "settings": frozenset(
-        """
-        _announce.py _field_meta.py _listing.py _managed_keys.py _module_settings.py
-        _module_settings_props.py _row_masking.py _secrets.py _unique_write.py
-        browse_query.py constants.py deps.py endpoints env_vars.py errors.py exceptions.py
-        hydrate.py invalidation.py known_keys.py module_registry.py registration.py
-        reload.py service.py services.py settings.py store.py tenant_scope.py tenant_view.py
         """.split()
     ),
     "users": frozenset(
@@ -124,7 +123,11 @@ def test_module_root_layout(module: str) -> None:
             and not _is_shim_package(p)
         )
     }
-    allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
+    deprecated = DEPRECATED_ROOT.get(module, frozenset())
+    assert deprecated <= {p.name for p in package.iterdir()}, (
+        f"{module}: remove expired DEPRECATED_ROOT entries"
+    )
+    allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset()) | deprecated
     legacy = LEGACY_FLAT.get(module, frozenset())
     if module in LEGACY_FLAT:
         assert legacy, f"{module}: remove the empty LEGACY_FLAT entry"

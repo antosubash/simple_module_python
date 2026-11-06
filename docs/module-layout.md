@@ -224,7 +224,7 @@ when a later module PR moves files.
 | mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 3 (+3 shims) | 0 | follows this layout |
 | permissions | 3 (+2 shims) | 0 | follows this layout |
-| settings | 31 | 43 | flat |
+| settings | 4 (+7 shims, +3 deprecated re-exports) | 0 | follows this layout |
 | sharing | 3 (+3 shims) | 0 | follows this layout |
 | site_lock | 2 (+1 shim) | 0 | follows this layout |
 | tenants | 3 (+6 shims) | 0 | follows this layout |

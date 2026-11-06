@@ -9,9 +9,9 @@ import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Plus, Search, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { type ScopeCounts, type ScopeFilter, ScopeTabs } from './components/ScopeTabs';
-import { StoreCards } from './components/StoreCards';
-import { StoreTable } from './components/StoreTable';
+import { type ScopeCounts, type ScopeFilter, ScopeTabs } from '../ui/components/ScopeTabs';
+import { StoreCards } from '../ui/components/StoreCards';
+import { StoreTable } from '../ui/components/StoreTable';
 import { ROUTES } from './routes';
 import type { Pagination, Setting } from './types';
 

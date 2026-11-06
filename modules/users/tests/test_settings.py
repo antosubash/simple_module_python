@@ -62,8 +62,8 @@ class TestUsersSettingsDbOverrides:
 
     @pytest.mark.asyncio
     async def test_allow_signup_override_from_db(self, db_session):
-        from settings.service import SettingService
-        from settings.store import SettingsStore
+        from settings.core.service import SettingService
+        from settings.module_settings.store import SettingsStore
         from simple_module_core.settings_hydrate import hydrate_settings
         from users.settings import UsersSettings
 
@@ -75,8 +75,8 @@ class TestUsersSettingsDbOverrides:
 
     @pytest.mark.asyncio
     async def test_base_url_override_from_db(self, db_session):
-        from settings.service import SettingService
-        from settings.store import SettingsStore
+        from settings.core.service import SettingService
+        from settings.module_settings.store import SettingsStore
         from simple_module_core.settings_hydrate import hydrate_settings
         from users.settings import UsersSettings
 

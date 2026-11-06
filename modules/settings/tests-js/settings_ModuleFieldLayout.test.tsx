@@ -1,9 +1,9 @@
 import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import type { FieldMeta } from '../settings/pages/components/FieldInput';
-import { ModuleFieldRow } from '../settings/pages/components/ModuleFieldRow';
-import { ModuleForm } from '../settings/pages/components/ModuleForm';
+import type { FieldMeta } from '../settings/ui/components/FieldInput';
+import { ModuleFieldRow } from '../settings/ui/components/ModuleFieldRow';
+import { ModuleForm } from '../settings/ui/components/ModuleForm';
 
 configureI18n({ locale: 'en', messages: {} });
 
