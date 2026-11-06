@@ -1,7 +1,8 @@
 # Module layout
 
-New modules use this layout. Existing modules under `modules/` migrate in
-separate PRs, one module at a time. No existing module moves in PR 0.
+Every module under `modules/` uses this layout; the last one moved in #862.
+A downstream module still on the flat layout moves as described in
+[Moving an existing module](#moving-an-existing-module).
 The downstream `smpy_modules` layout is the reference for areas; this repo
 keeps its own pytest naming and collection conventions.
 
@@ -72,7 +73,6 @@ The 300-line cap still applies, including tests; split by responsibility.
 
 The root ratchet permits `core/`, `web/`, `ui/` and the lookup paths above.
 Declare a new multi-feature domain area in its `DOMAIN_AREAS` map when needed.
-Do not expand `LEGACY_FLAT` to accommodate new code.
 
 ## Frontend
 
@@ -118,8 +118,7 @@ Mirror package ownership, using `tests/<area>/<feature>/test_<module>_*.py`.
 Keep module-wide `conftest.py` at `tests/` root. Do not add `__init__.py` in test
 directories. Basenames must be globally unique: default pytest import mode
 loads non-package tests by basename, even when they live in different folders.
-Existing flat test names are grandfathered only while their module remains
-in `LEGACY_FLAT`; migration renames them with the module prefix.
+The root-layout test refuses a `test_*.py` directly under `tests/`.
 
 A helper shared by several test folders stays at `tests/` root as
 `_<module>_support.py`. The root `conftest.py` puts that directory on
@@ -163,14 +162,12 @@ sys.modules[__name__] = importlib.import_module("orders.web.service")
 The alias makes both paths the same module object, so mocks and
 `monkeypatch` strings keep working. Files containing both `deprecated_module(`
 and `sys.modules[__name__]` are auto-discovered by the expiry test and ignored
-by the root-layout test, so the module can leave `LEGACY_FLAT` while they
-remain. When the old path was inside a package that moved (for example
+by the root-layout test while they remain. When the old path was inside a package that moved (for example
 `orders.endpoints.api`), keep that package with a docstring-only `__init__.py`
 and alias each module in it; a package holding only aliases is ignored by the
 root-layout test too. A shim that is a plain re-export instead (not an alias) must be added
-by hand to the expiry test's `_SHIM_MODULES` tuple and `_EXPECTED` set and kept
-in the module's frozen legacy entries until removed. A completely migrated
-module leaves `LEGACY_FLAT` once its Python tests are nested.
+by hand to the expiry test's `_SHIM_MODULES` tuple and `_EXPECTED` set and to
+the root-layout test's `DEPRECATED_ROOT` map until removed.
 
 ## Moving an existing module
 

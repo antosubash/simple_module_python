@@ -174,7 +174,10 @@ def restore_tenant(*, task_id: str | None, task: Any) -> None:
     # context, so without headers it keeps the caller's tenant and owner.
     eager = bool(getattr(getattr(task, "request", None), "is_eager", False))
     tenant = _tenant_of(task) or (current_tenant_id.get() if eager else _default_tenant)
-    owner = message_owner(task=task) or (_task_owner.get() if eager else "")  # "": no owner
+    # ``""`` (not ``None``) means "no owner" and stops :func:`stamp_owner`
+    # falling through to an ambient ``current_user_id``. Every prerun sets it
+    # afresh, so a stranded binding never reaches the next task's messages.
+    owner = message_owner(task=task) or (_task_owner.get() if eager else "")
     owner_token = _task_owner.set(owner)
     tenant_token = current_tenant_id.set(tenant)
     _tokens.set((*_tokens.get(), (task_id, tenant_token, owner_token)))

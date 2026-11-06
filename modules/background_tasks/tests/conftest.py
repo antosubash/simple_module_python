@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 from background_tasks.core import sync_db
 from background_tasks.core.constants import PERM_VIEW, TaskStatus
+from background_tasks.executions import tenant_context
 from background_tasks.models import TaskExecution
 from sqlalchemy import select
 
@@ -25,6 +26,19 @@ def _no_worker_audit_sink(monkeypatch: pytest.MonkeyPatch) -> None:
     suite puts the real discovery back.
     """
     monkeypatch.setattr(sync_db, "discover_audit_callback", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _unwind_stranded_task_bindings() -> Iterator[None]:
+    """Leave no task tenant/owner binding behind for the next test (#861).
+
+    A test that runs a prerun without its postrun would otherwise leave the
+    owner pinned to "no owner" for every later test in this context.
+    """
+    yield
+    stack = tenant_context._tokens.get()
+    if stack:
+        tenant_context.release_tenant(task_id=stack[0][0])
 
 
 @pytest.fixture

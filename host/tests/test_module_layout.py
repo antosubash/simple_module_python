@@ -52,9 +52,6 @@ DEPRECATED_ROOT: dict[str, frozenset[str]] = {
     "settings": frozenset({"hydrate.py", "module_registry.py", "registration.py"}),
 }
 
-# Frozen inventory, not a computed baseline: moves must remove their old entries.
-LEGACY_FLAT: dict[str, frozenset[str]] = {}
-
 
 def _is_layout_shim(path: Path) -> bool:
     """A moved module's old path: a deprecated alias, allowed until its remove_in."""
@@ -93,23 +90,12 @@ def test_module_root_layout(module: str) -> None:
         f"{module}: remove expired DEPRECATED_ROOT entries"
     )
     allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset()) | deprecated
-    legacy = LEGACY_FLAT.get(module, frozenset())
-    if module in LEGACY_FLAT:
-        assert legacy, f"{module}: remove the empty LEGACY_FLAT entry"
-    assert not entries - allowed - legacy, (
-        f"{module}: unexpected roots {entries - allowed - legacy}"
-    )
-    assert legacy <= entries, f"{module}: remove stale LEGACY_FLAT entries {legacy - entries}"
-    assert not legacy & allowed, f"{module}: remove allowed entries from LEGACY_FLAT"
+    assert not entries - allowed, f"{module}: unexpected roots {entries - allowed}"
     if (package / "cli.py").is_file():
         project = tomllib.loads((MODULES / module / "pyproject.toml").read_text())["project"]
         targets = [
             value for group in project.get("entry-points", {}).values() for value in group.values()
         ]
         assert any(value.split(":")[0] == f"{module}.cli" for value in targets)
-    if module not in LEGACY_FLAT:
-        assert not list((MODULES / module / "tests").glob("test_*.py")), module
-
-
-def test_legacy_modules_still_exist() -> None:
-    assert all((MODULES / name / name).is_dir() for name in LEGACY_FLAT)
+    # Tests mirror the package areas: tests/<area>/<feature>/test_<module>_*.py.
+    assert not list((MODULES / module / "tests").glob("test_*.py")), module

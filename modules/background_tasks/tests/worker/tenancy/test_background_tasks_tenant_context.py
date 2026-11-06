@@ -6,9 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 from background_tasks.executions.tenant_context import (
+    OWNER_HEADER,
     TENANT_HEADER,
     release_tenant,
     restore_tenant,
+    stamp_owner,
     stamp_tenant,
 )
 from simple_module_db import TenantIsolationError, current_tenant_id, tenant_context
@@ -68,3 +70,32 @@ def test_task_without_tenant_runs_unscoped():
     restore_tenant(task_id="t3", task=SimpleNamespace(request=SimpleNamespace()))
     assert current_tenant_id.get() is None
     release_tenant(task_id="t3")  # no token recorded — must be a no-op
+
+
+def test_headerless_worker_task_enqueues_without_an_owner():
+    restore_tenant(task_id="t4", task=SimpleNamespace(request=SimpleNamespace()))
+    try:
+        headers: dict = {}
+        stamp_owner(headers)
+        assert OWNER_HEADER not in headers
+    finally:
+        release_tenant(task_id="t4")
+
+
+@pytest.mark.parametrize("next_owner", [None, "next-user"])
+def test_stranded_prerun_never_reaches_the_next_task(next_owner):
+    """#861: a prerun without its postrun must not decide the next task's owner."""
+    stale = SimpleNamespace(request=SimpleNamespace(**{OWNER_HEADER: "stale-user"}))
+    restore_tenant(task_id="t5", task=stale)  # its postrun never runs
+    request = SimpleNamespace(**({OWNER_HEADER: next_owner} if next_owner else {}))
+    restore_tenant(task_id="t6", task=SimpleNamespace(request=request))
+    try:
+        headers: dict = {}
+        stamp_owner(headers)
+        assert headers.get(OWNER_HEADER) == next_owner
+    finally:
+        release_tenant(task_id="t6")
+        release_tenant(task_id="t5")  # unwinds the stranded binding too
+    headers = {}
+    stamp_owner(headers)
+    assert OWNER_HEADER not in headers

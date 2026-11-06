@@ -29,14 +29,18 @@ async def test_crypto_runs_in_worker_thread(users_app, monkeypatch, operation):
         token = await manager.generate_reset_password_token(user)
         loop_thread = threading.get_ident()
         crypto_threads = []
+        # Patch the class, not the shared ``PASSWORD_HELPER`` instance: undoing an
+        # instance patch leaves a bound method in its ``__dict__`` that shadows
+        # every later class-level patch (#860).
+        helper_cls = type(manager.password_helper)
         for name in ("hash", "verify_and_update"):
-            original = getattr(manager.password_helper, name)
+            original = getattr(helper_cls, name)
 
-            def record(*args, _original=original):
+            def record(self, *args, _original=original):
                 crypto_threads.append(threading.get_ident())
-                return _original(*args)
+                return _original(self, *args)
 
-            monkeypatch.setattr(manager.password_helper, name, record)
+            monkeypatch.setattr(helper_cls, name, record)
         original_execute = db.execute
 
         async def execute(*args, **kwargs):
@@ -61,6 +65,13 @@ async def test_crypto_runs_in_worker_thread(users_app, monkeypatch, operation):
             await manager._update(user, {"password": "SecurePass1!"})
         assert crypto_threads
         assert loop_thread not in crypto_threads
+
+
+def test_shared_helper_carries_no_instance_patches():
+    """#860: tests must not leave instance attributes on the shared helper."""
+    from users.core.password_hashing import PASSWORD_HELPER
+
+    assert not {"hash", "verify_and_update"} & vars(PASSWORD_HELPER).keys()
 
 
 async def test_managers_share_password_helper(users_app):
