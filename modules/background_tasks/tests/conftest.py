@@ -36,8 +36,9 @@ def _unwind_stranded_task_bindings() -> Iterator[None]:
     owner pinned to "no owner" for every later test in this context.
     """
     yield
-    stack = tenant_context._tokens.get()
-    if stack:
+    # Loop: release_tenant unwinds to the *latest* entry for an id, so a
+    # repeated id (nested eager run) can leave entries below it.
+    while stack := tenant_context._tokens.get():
         tenant_context.release_tenant(task_id=stack[0][0])
 
 
