@@ -82,13 +82,15 @@ async def _create_all_tables(engine) -> None:
 
             await conn.run_sync(_sync_create_all)
             # Part of the build, so a reused Postgres schema's fingerprint covers it.
-            if heads:
-                await conn.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS alembic_version "
-                        "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
-                    )
+            # Created even with no heads to stamp: the build is copied into later
+            # SQLite databases (``_sqlite_template``), and one that resolved no heads
+            # must not hand a schema without the table to a test that stamps it.
+            await conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS alembic_version "
+                    "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
                 )
+            )
 
     tables = [table for base in bases for table in base.metadata.tables.values()]
     # Postgres reuses the schema built for an earlier test, emptied of rows.

@@ -5,6 +5,10 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from alembic.script import ScriptDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +33,48 @@ def default_alembic_ini() -> str:
     return str(Path(root) / _ALEMBIC_INI_RELATIVE) if root else _ALEMBIC_INI_RELATIVE
 
 
-def script_directory(alembic_ini_path: str | None = None):
+# ini path -> (revision files and their mtimes, ScriptDirectory with its revision map loaded).
+_SCRIPTS: dict[str, tuple[tuple, ScriptDirectory]] = {}
+
+
+def _revision_files(script: ScriptDirectory) -> tuple:
+    # ``_version_locations`` is alembic's resolved list of version directories (there
+    # is no public accessor for more than one location).
+    files = []
+    for location in script._version_locations:
+        for path in Path(location).rglob("*.py"):
+            try:
+                stat = path.stat()
+            except FileNotFoundError:  # removed while scanning: the next call sees the new set
+                continue
+            files.append((str(path), stat.st_mtime_ns, stat.st_size))
+    return tuple(sorted(files))
+
+
+def script_directory(alembic_ini_path: str | None = None) -> ScriptDirectory:
     """Build the ``ScriptDirectory`` for ``alembic_ini_path``.
 
     Shared by every caller that needs to walk or query alembic revisions
     (boot-time head check, the in-app Doctor screen) so the config/ini-path
     construction has exactly one source of truth.
+
+    Reused while the revision files are unchanged: loading the revision map
+    imports every migration file, which every app build paid for twice. A file
+    added, removed or edited (``smpy migrations prepare``, a new revision in
+    development) builds a fresh one.
     """
     from alembic.config import Config as AlembicConfig
     from alembic.script import ScriptDirectory
 
-    return ScriptDirectory.from_config(AlembicConfig(alembic_ini_path or default_alembic_ini()))
+    ini_path = alembic_ini_path or default_alembic_ini()
+    script = ScriptDirectory.from_config(AlembicConfig(ini_path))
+    files = _revision_files(script)
+    key = str(Path(ini_path).resolve())
+    cached = _SCRIPTS.get(key)
+    if cached is not None and cached[0] == files:
+        return cached[1]
+    _SCRIPTS[key] = (files, script)
+    return script
 
 
 def resolve_head_revisions(alembic_ini_path: str | None = None) -> tuple[str, ...]:
