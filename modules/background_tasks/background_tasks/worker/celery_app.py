@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+from functools import cache
 from importlib.metadata import entry_points
 
 from celery import Celery
@@ -47,12 +48,19 @@ def _discover_task_packages() -> list[str]:
     returned here, so any module that ships a ``tasks.py`` registers its
     tasks without a per-module hook.
     """
+    return list(_installed_packages())
+
+
+@cache
+def _installed_packages() -> tuple[str, ...]:
+    # Scanning entry points reads every installed distribution's metadata, and
+    # the installed set cannot change while the process runs.
     packages: set[str] = set()
     for ep in entry_points(group=ENTRY_POINT_GROUP):
         module_path = ep.value.split(":", 1)[0]
         top_level = module_path.split(".", 1)[0]
         packages.add(top_level)
-    return sorted(packages)
+    return tuple(sorted(packages))
 
 
 def _collect_module_beat_schedules(packages: list[str]) -> dict:

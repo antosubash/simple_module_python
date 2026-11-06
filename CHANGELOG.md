@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- Faster test fixtures: `simple_module_test` builds the in-memory SQLite schema once per process and copies it into each test's database with SQLite's backup API, instead of running `create_all` for every `app` and `db_session` fixture. A database that already has tables is left alone. `make test-py` drops from 324 s to 256 s on 8 workers, and fixture setup time falls by about a third.
+- `simple_module_hosting.migrations.script_directory` reuses the loaded Alembic revision map while the revision files are unchanged (any added, removed or edited file reloads it). Each app boot previously loaded every migration file twice. The background-tasks Celery app also caches its entry-point scan for installed task packages.
+
 ## [0.0.44] — 2026-11-06
 
 ### Fixed

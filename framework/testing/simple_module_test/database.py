@@ -146,7 +146,9 @@ _RESTART_SEQUENCES = text(
 async def prepare_schema_once(engine: Any, tables: list[Any], build: Any) -> None:
     """Give this test empty ``tables``, at most once per test (see ``begin_test``).
 
-    SQLite: ``build(engine)``, since every engine is a fresh in-memory database.
+    SQLite: every engine is a fresh database; an in-memory one is filled from a
+    per-process copy of the first build (``_sqlite_template``), a file one runs
+    ``build(engine)``.
     Postgres: when this process already built the schema and the catalog still
     matches it, delete every row and restart the sequences (~0.03 s) instead of
     dropping and rebuilding it (~0.25 s). Anything else (the first test, a
@@ -154,7 +156,12 @@ async def prepare_schema_once(engine: Any, tables: list[Any], build: Any) -> Non
     """
     global _reset_for, _built_schema
     if engine.dialect.name == "sqlite":
-        await build(engine)
+        from simple_module_test._sqlite_template import build_from_template, is_memory_sqlite
+
+        if is_memory_sqlite(engine):
+            await build_from_template(engine, tables, build)
+        else:
+            await build(engine)
         return
     if _current_test is not None and _reset_for is _current_test:
         return
