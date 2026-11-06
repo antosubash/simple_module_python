@@ -62,7 +62,7 @@ root `pyproject.toml` (type-check + test paths) and the `publish-pypi` matrix in
 test` without further wiring. Commit the `uv.lock`, `package-lock.json` and
 regenerated i18n key files it leaves behind.
 
-New modules use this area layout; existing modules migrate one at a time.
+Modules use this area layout.
 Area initializers hold only a docstring. Private helpers stay in their area.
 Tests have no `__init__.py`, keep `conftest.py` at their root and use globally
 unique `test_orders_*.py` basenames; JS tests stay in `tests-js/`.

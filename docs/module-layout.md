@@ -162,8 +162,8 @@ sys.modules[__name__] = importlib.import_module("orders.web.service")
 The alias makes both paths the same module object, so mocks and
 `monkeypatch` strings keep working. Files containing both `deprecated_module(`
 and `sys.modules[__name__]` are auto-discovered by the expiry test and ignored
-by the root-layout test while they remain. When the old path was inside a package that moved (for example
-`orders.endpoints.api`), keep that package with a docstring-only `__init__.py`
+by the root-layout test while they remain. When the old path was inside a
+package that moved (for example `orders.endpoints.api`), keep that package with a docstring-only `__init__.py`
 and alias each module in it; a package holding only aliases is ignored by the
 root-layout test too. A shim that is a plain re-export instead (not an alias) must be added
 by hand to the expiry test's `_SHIM_MODULES` tuple and `_EXPECTED` set and to
@@ -191,7 +191,7 @@ One module per PR; no logic changes in a move PR.
    JS tests remain in `tests-js/`.
 4. Add external-import shims with removal release `0.0.46`, alias shims are
    auto-discovered by the expiry test (re-export shims are registered by hand),
-   shrink the exact frozen root exceptions, and update the
+   drop the shim's `DEPRECATED_ROOT` entry once it expires, and update the
    status table below. Domain areas must be named in `DOMAIN_AREAS`.
 5. Run `python -c "import <pkg>.<mod>"` in a **fresh interpreter for every
    module**, not one interpreter importing all modules in sequence.

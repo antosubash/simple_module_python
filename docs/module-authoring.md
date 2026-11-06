@@ -29,7 +29,7 @@ modules/<name>/
     └── web/crud/test_<name>_crud.py
 ```
 
-New modules use this layout. Existing bundled modules migrate one at a time;
+Every module uses this layout;
 see [Module layout](module-layout.md) for the exact root contract and shim policy.
 Area initializers contain only a docstring; private helpers live in their area.
 Tests have no `__init__.py`, use globally unique `test_<name>_*.py` basenames,
