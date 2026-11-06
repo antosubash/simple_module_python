@@ -445,7 +445,7 @@ protocol from `auth.contracts.provider`.
 - `from auth.web.deps import CurrentUser, require_permission`
 - `from auth.contracts.schemas import UserContext`
 
-The `AuthMiddleware` (in `auth/middleware.py`) delegates to the active provider's
+The `AuthMiddleware` (in `auth/web/middleware.py`) delegates to the active provider's
 `resolve_user()` method, then falls through to the principal-resolver chain.
 API paths (`/api/*`) receive 401 JSON when unauthenticated; view paths receive
 a 302 redirect to the provider's login URL.

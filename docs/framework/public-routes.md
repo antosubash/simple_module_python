@@ -1,6 +1,6 @@
 # Public routes (anonymous access)
 
-`AuthMiddleware` (in `auth/middleware.py`) gates **every** request behind the
+`AuthMiddleware` (in `auth/web/middleware.py`) gates **every** request behind the
 active auth provider — unauthenticated browser requests get a 302 to the login
 URL, unauthenticated API requests get a 401. Modules that need to expose a
 route without a session (a read-only STAC / OGC API, a TileJSON endpoint, an
