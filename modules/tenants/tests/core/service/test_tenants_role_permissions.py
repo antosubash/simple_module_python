@@ -75,7 +75,7 @@ class TestSyncAdminAllPermissions:
         from permissions.core.service import PermissionService
         from permissions.models import RolePermission
         from sqlalchemy import select
-        from users.constants import ADMIN_ROLE_NAME
+        from users.core.constants import ADMIN_ROLE_NAME
 
         registry = app.state.sm.permissions
         before = {r: sorted(p) for r, p in registry.role_map.items() if is_tenant_role(r)}

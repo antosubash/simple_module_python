@@ -13,7 +13,7 @@ from permissions.module import PermissionsModule
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.transaction import finalize_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.directory import UsersDirectory
+from users.core.directory import UsersDirectory
 
 # ── register_permissions hook ──────────────────────────────────
 
@@ -38,7 +38,7 @@ def registry() -> PermissionRegistry:
 
 
 async def _seed_role(db: AsyncSession, *, name: str = "user") -> uuid.UUID:
-    from users.constants import USER_ROLE_ID
+    from users.core.constants import USER_ROLE_ID
     from users.models import Role
 
     role = Role(id=USER_ROLE_ID, name=name, description=f"{name} role")
@@ -229,7 +229,7 @@ class TestPermissionsAPI:
     async def test_put_and_get_role_permissions(
         self, authenticated_client: httpx.AsyncClient, app: FastAPI
     ):
-        from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+        from users.core.constants import USER_ROLE_ID, USER_ROLE_NAME
         from users.models import Role
 
         async with app.state.sm.db.session_factory() as db:

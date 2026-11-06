@@ -24,7 +24,7 @@ async def _rows_by_email(client, query: str = "") -> dict[str, dict]:
 class TestUserState:
     @pytest.mark.anyio
     async def test_invited_and_unverified_are_distinct(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         await _make_user(users_db, email="selfsignup@example.com", verified=False)
         invited = await admin_client.post(
@@ -40,7 +40,7 @@ class TestUserState:
 
     @pytest.mark.anyio
     async def test_disabled_beats_every_other_state(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         user = await _make_user(users_db, email="gone@example.com", verified=False)
         resp = await admin_client.patch(f"/api/users/admin/{user.id}/disable")
@@ -63,7 +63,7 @@ class TestUserState:
 
     @pytest.mark.anyio
     async def test_self_signup_has_no_invite_timestamps(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         await _make_user(users_db, email="walkin@example.com", verified=False)
         row = (await _rows_by_email(admin_client))["walkin@example.com"]
@@ -76,7 +76,7 @@ class TestStatusFilter:
 
     @pytest.mark.anyio
     async def test_invited_filter_excludes_self_signups(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         await _make_user(users_db, email="walkin2@example.com", verified=False)
         await admin_client.post(
@@ -88,7 +88,7 @@ class TestStatusFilter:
 
     @pytest.mark.anyio
     async def test_unverified_filter_excludes_invitees(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         await _make_user(users_db, email="walkin3@example.com", verified=False)
         await admin_client.post(
@@ -100,7 +100,7 @@ class TestStatusFilter:
 
     @pytest.mark.anyio
     async def test_active_means_active_and_verified(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         await _make_user(users_db, email="walkin4@example.com", verified=False)
         rows = await _rows_by_email(admin_client, "?status=active")
@@ -111,7 +111,7 @@ class TestStatusFilter:
 class TestPendingInvitesAggregate:
     @pytest.mark.anyio
     async def test_pending_counts_invites_not_self_signups(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         await _make_user(users_db, email="walkin5@example.com", verified=False)
         await admin_client.post(

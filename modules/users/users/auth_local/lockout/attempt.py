@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.rate_limit import RateSpec, WindowStore
 
 if TYPE_CHECKING:
-    from users.settings import UsersSettings
+    from users.core.settings import UsersSettings
 
 
 @dataclass(frozen=True, slots=True)

@@ -9,7 +9,7 @@ import { LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../pages/api';
-import { failureMessage } from '../../pages/failureMessage';
+import { failureMessage } from '../../ui/utils/failureMessage';
 
 interface Props {
   lastLoginAt: string | null;

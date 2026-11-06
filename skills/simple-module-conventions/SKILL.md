@@ -49,8 +49,8 @@ from simple_module_core.module_settings import register_module_settings
 
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.settings import UsersSettings  # a DbBackedSettings subclass
-        from users.state import UsersState
+        from users.core.settings import UsersSettings  # a DbBackedSettings subclass
+        from users.core.state import UsersState
 
         register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 ```

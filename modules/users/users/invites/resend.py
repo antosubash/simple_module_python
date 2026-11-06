@@ -21,8 +21,7 @@ from fastapi import status as http_status
 
 from users.admin.service import UserService
 from users.contracts.schemas import BulkInviteResult
-from users.deps import get_mailer, get_user_service
-from users.exceptions import NotPendingInviteError, UserNotFoundError
+from users.core.exceptions import NotPendingInviteError, UserNotFoundError
 from users.invites.bulk import (
     MAILER_FAILURE_DETAIL,
     STATUS_LINK,
@@ -30,6 +29,7 @@ from users.invites.bulk import (
     invite_link,
 )
 from users.mailer import mailer_delivers
+from users.web.deps import get_mailer, get_user_service
 
 logger = logging.getLogger(__name__)
 

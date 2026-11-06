@@ -23,6 +23,9 @@ from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_ex
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.accounts.backend import cookie_login_response
+from users.accounts.db_adapter import get_access_token_db
+from users.accounts.manager import UserManager
 from users.auth_local.browser_guard import require_browser_csrf
 from users.auth_local.browser_sessions import end_browser_session
 from users.auth_local.lockout import (
@@ -34,8 +37,6 @@ from users.auth_local.lockout import (
 )
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
 from users.auth_local.self_account import router as self_account_router
-from users.backend import cookie_login_response
-from users.constants import SESSION_USER_ID_KEY
 from users.contracts.schemas import (
     AcceptInviteRequest,
     LoginRequest,
@@ -43,14 +44,13 @@ from users.contracts.schemas import (
     UserRead,
     UserUpdate,
 )
-from users.db_adapter import get_access_token_db
-from users.deps import (
+from users.core.constants import SESSION_USER_ID_KEY
+from users.invites.accept import complete_invite
+from users.web.deps import (
     auth_backend,
     get_current_local_user,
     get_user_manager,
 )
-from users.invites.accept import complete_invite
-from users.manager import UserManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

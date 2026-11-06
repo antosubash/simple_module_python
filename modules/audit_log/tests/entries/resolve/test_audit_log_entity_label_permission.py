@@ -32,7 +32,7 @@ from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_db.stored_settings import Setting
 from simple_module_test import forge_session_cookie, inertia_headers
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.constants import PERM_USERS_MANAGE
+from users.core.constants import PERM_USERS_MANAGE
 from users.models import User
 
 EXPORT_URL = "/api/audit_log/export.csv"

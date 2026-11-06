@@ -12,7 +12,7 @@ passes.
 Module-scope imports here reference only framework packages
 (``simple_module_core`` / ``simple_module_db`` / ``simple_module_hosting``),
 which are this package's declared dependencies. The one plugin-module coupling
-— ``authenticated_client`` seeding an admin via ``users.bootstrap`` — is a lazy
+— ``authenticated_client`` seeding an admin via ``users.core.bootstrap`` — is a lazy
 import inside the fixture body, so importing this module never requires the
 ``users`` module to be installed (mirroring ``plugin._bootstrap_eager_celery``,
 which soft-imports ``background_tasks``).
@@ -146,7 +146,7 @@ async def _seed_setup_admin(application) -> None:
     there is nothing to satisfy. Use ``setup_pending_app`` to exercise the gate.
     """
     try:
-        from users.bootstrap import create_admin
+        from users.core.bootstrap import create_admin
     except ImportError:
         return
 
@@ -207,7 +207,7 @@ def _disable_env_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
         if key.startswith("SM_USERS_BOOTSTRAP_"):
             monkeypatch.delenv(key, raising=False)
     try:
-        from users import bootstrap as bootstrap_module
+        from users.core import bootstrap as bootstrap_module
     except ImportError:
         return  # No local-accounts provider installed; nothing bootstraps.
     monkeypatch.setattr(bootstrap_module, "_read_dotenv_bootstrap_vars", dict)
@@ -241,11 +241,11 @@ async def authenticated_client(app) -> AsyncGenerator[httpx.AsyncClient, None]:
     """HTTPX client with a signed session cookie carrying a seeded admin user's id.
 
     Requires the ``users`` module to be installed — it seeds the admin via
-    ``users.bootstrap.create_admin``. The import is deferred to here (not module
+    ``users.core.bootstrap.create_admin``. The import is deferred to here (not module
     scope) so this plugin imports cleanly without ``users``; a consumer app that
     uses this fixture without ``users`` gets a clear ImportError naming it.
     """
-    from users.bootstrap import create_admin
+    from users.core.bootstrap import create_admin
 
     async with app.state.sm.db.session_factory() as session:
         # Idempotent: the `app` fixture already seeded this same admin so the

@@ -21,11 +21,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 
+from users.accounts.manager import UserManager
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
-from users.constants import ADMIN_ROLE_NAME, SESSION_USER_ID_KEY, USER_ROLE_NAME
+from users.core.constants import ADMIN_ROLE_NAME, SESSION_USER_ID_KEY, USER_ROLE_NAME
 from users.demo import SESSION_DEMO_KEY, resolve_demo_account
-from users.deps import auth_backend, get_user_manager
-from users.manager import UserManager
+from users.web.deps import auth_backend, get_user_manager
 
 logger = logging.getLogger("users.demo")
 

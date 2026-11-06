@@ -15,7 +15,7 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.setup_steps import SetupRegistry
 
-from users.constants import (
+from users.core.constants import (
     ADMIN_ROLE_NAME,
     PERM_USERS_MANAGE,
     PERM_USERS_SELF_PROFILE,
@@ -60,12 +60,12 @@ class UsersModule(ModuleBase):
     _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
-        from users.settings import UsersSettings
-        from users.state import UsersState
+        from users.core.settings import UsersSettings
+        from users.core.state import UsersState
 
         register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 
-        from users.provider import UsersAuthProvider
+        from users.accounts.provider import UsersAuthProvider
 
         app.state.auth.auth_provider = UsersAuthProvider()
 
@@ -73,7 +73,7 @@ class UsersModule(ModuleBase):
         # ``users.models`` (GH #501).
         from simple_module_core.user_directory import set_user_directory
 
-        from users.directory import UsersDirectory
+        from users.core.directory import UsersDirectory
 
         set_user_directory(app, UsersDirectory())
 
@@ -82,7 +82,7 @@ class UsersModule(ModuleBase):
         # layer) so it is set before the first request is served.
         from simple_module_hosting.shared_props import register_inertia_shared_provider
 
-        from users.shared_props import users_shared_props
+        from users.web.shared_props import users_shared_props
 
         register_inertia_shared_provider(app, users_shared_props)
 
@@ -125,9 +125,9 @@ class UsersModule(ModuleBase):
         believed compromised leaves the *other* workers admitting the old
         sessions for the rest of their TTL (GH #318).
         """
-        from users import roles_cache
+        from users.accounts.session_revocation import subscribe
         from users.admin import summary_cache
-        from users.session_revocation import subscribe
+        from users.core import roles_cache
 
         subscribe(bus)
         # The admin user screens' cached role list: the setup wizard can add
@@ -136,7 +136,7 @@ class UsersModule(ModuleBase):
         summary_cache.subscribe(bus, app)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
-        from users.errors import install_exception_handlers
+        from users.core.errors import install_exception_handlers
 
         install_exception_handlers(app)
 
@@ -160,16 +160,16 @@ class UsersModule(ModuleBase):
         registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
 
     def register_setup_steps(self, registry: SetupRegistry) -> None:
-        """Gate the app until a local account exists — see ``users.setup``."""
-        from users.setup import build_admin_step
+        """Gate the app until a local account exists — see ``users.core.setup``."""
+        from users.core.setup import build_admin_step
 
         registry.add(build_admin_step())
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
-        # Built in users.audit: the link now carries a batch resolver that
+        # Built in users.core.audit: the link now carries a batch resolver that
         # names each row (full_name, or the email while an invite is
         # outstanding), which is a query and does not belong in a hook file.
-        from users.audit import build_user_audit_link
+        from users.core.audit import build_user_audit_link
 
         registry.register(build_user_audit_link(_URL_USERS_ADMIN))
 
@@ -223,8 +223,8 @@ class UsersModule(ModuleBase):
         from users.auth_local.views import router as auth_views
         from users.contracts.schemas import UserCreate, UserRead
         from users.demo.api import router as demo_router
-        from users.deps import fastapi_users
         from users.oauth.api import register_oauth_routes
+        from users.web.deps import fastapi_users
 
         api_router.include_router(auth_local_api.router)
         api_router.include_router(demo_router, dependencies=[Depends(require_browser_csrf)])
@@ -268,17 +268,17 @@ class UsersModule(ModuleBase):
         admin_router.include_router(admin_views)
 
     async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
-        from users.data_compatibility import check_data_compatibility
+        from users.core.data_compatibility import check_data_compatibility
 
         return await check_data_compatibility(db)
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the mailer, limiters, OAuth clients and the seeded admin.
 
-        The body lives in ``users.startup``: every step reads a DB-hydrated
+        The body lives in ``users.core.startup``: every step reads a DB-hydrated
         setting, so it must run after the lifespan's hydration, and keeping it
         out of this file keeps that boundary visible.
         """
-        from users.startup import run_startup
+        from users.core.startup import run_startup
 
         await run_startup(self, app)

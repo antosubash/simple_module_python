@@ -11,7 +11,8 @@ from __future__ import annotations
 from _demo_support import DEMO_ADMIN_EMAIL, DEMO_USER_EMAIL
 from _users_app_builders import user_row
 from sqlalchemy import select
-from users.constants import ADMIN_ROLE_NAME, USER_ROLE_NAME
+from users.core.constants import ADMIN_ROLE_NAME, USER_ROLE_NAME
+from users.core.settings import UsersSettings
 from users.demo import (
     DemoAccount,
     ensure_demo_users,
@@ -20,7 +21,6 @@ from users.demo import (
     resolve_demo_accounts,
 )
 from users.models import Role, User, UserRole
-from users.settings import UsersSettings
 
 
 def _settings(**overrides) -> UsersSettings:

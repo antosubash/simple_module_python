@@ -21,7 +21,7 @@ from __future__ import annotations
 from simple_module_core.app_state import get_host_services
 from starlette.requests import Request
 
-from users.settings import UsersSettings
+from users.core.settings import UsersSettings
 
 _DEFAULT_BASE_URL = UsersSettings.model_fields["base_url"].default
 

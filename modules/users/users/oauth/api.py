@@ -28,12 +28,12 @@ from httpx_oauth.exceptions import HTTPXOAuthError
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from starlette.responses import RedirectResponse
 
-from users.constants import OAUTH_REGISTRATION_REQUEST_FLAG
-from users.deps import auth_backend, get_user_manager
+from users.core.constants import OAUTH_REGISTRATION_REQUEST_FLAG
 from users.oauth.errors import refuse_login
+from users.web.deps import auth_backend, get_user_manager
 
 if TYPE_CHECKING:
-    from users.manager import UserManager
+    from users.accounts.manager import UserManager
     from users.models import User
     from users.oauth.providers import OAuthProvider
 

@@ -9,7 +9,7 @@ sign-in card is drawn from.
 from __future__ import annotations
 
 from _demo_support import DEMO_ADMIN_EMAIL, DEMO_USER_EMAIL
-from users.constants import ADMIN_ROLE_NAME, USER_ROLE_NAME
+from users.core.constants import ADMIN_ROLE_NAME, USER_ROLE_NAME
 from users.demo import ensure_demo_users
 from users.models import User
 

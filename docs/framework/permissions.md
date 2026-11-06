@@ -199,7 +199,7 @@ The `authenticated_client` fixture from the `simple_module_test` plugin seeds an
 async def test_create_requires_permission(client, db_session):
     # Create a user without `orders.create` (e.g. via the users
     # registration flow or by inserting a users.models.User row directly —
-    # users.bootstrap only ships create_admin).
+    # users.core.bootstrap only ships create_admin).
     ...
     # Sign in via the local-auth API to get the session cookie.
     r = await client.post("/api/users/auth/login", data={"username": "u@e.com", "password": "x"})

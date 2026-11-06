@@ -1,7 +1,4 @@
-"""Ratchet package roots while existing modules migrate one PR at a time."""
-
-# Keep the frozen filename inventory readable as whitespace-separated data.
-# ruff: noqa: SIM905
+"""Keep every module package root to the layout in docs/module-layout.md."""
 
 from __future__ import annotations
 
@@ -45,6 +42,7 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "permissions": frozenset({"grants"}),
     "settings": frozenset({"module_settings"}),
     "tenants": frozenset({"invitations", "resolution"}),
+    "users": frozenset({"accounts", "admin", "auth_local", "demo", "invites", "mailer", "oauth"}),
 }
 
 # Plain re-export shims (#500) that predate the layout: public compat paths kept
@@ -55,18 +53,7 @@ DEPRECATED_ROOT: dict[str, frozenset[str]] = {
 }
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
-LEGACY_FLAT: dict[str, frozenset[str]] = {
-    "users": frozenset(
-        """
-        admin administrators.py audit.py auth_local backend.py bootstrap.py constants.py
-        credentials.py data_compatibility.py db_adapter.py demo deps.py directory.py
-        errors.py exceptions.py invites mailer manager.py middleware.py oauth provider.py
-        registration.py reset_revocation.py roles_cache.py session_revocation.py
-        session_version_cache.py settings.py setup.py setup_action.py shared_props.py
-        startup.py state.py token_storage.py token_strategy.py
-        """.split()
-    ),
-}
+LEGACY_FLAT: dict[str, frozenset[str]] = {}
 
 
 def _is_layout_shim(path: Path) -> bool:

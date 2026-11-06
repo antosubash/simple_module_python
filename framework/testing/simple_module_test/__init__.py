@@ -22,7 +22,7 @@ The pytest plugin auto-registers these fixtures (no imports needed):
 real broker (cross-worker cache invalidation) and skips when the binary is absent.
 See ``simple_module_test.plugin`` (and ``simple_module_test.fixtures``) for
 their definitions. ``authenticated_client`` additionally requires the ``users``
-module to be installed — it seeds an admin via ``users.bootstrap``.
+module to be installed — it seeds an admin via ``users.core.bootstrap``.
 ``tenant_client`` (``users`` + ``tenants``) is a factory yielding a client signed
 in as an ``owner``/``admin``/``member`` of a real tenant — see
 ``simple_module_test.tenant_client``.

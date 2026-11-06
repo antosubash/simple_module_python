@@ -11,7 +11,7 @@ class TestRolePermissionsAPI:
     async def test_put_requires_permissions_field(
         self, authenticated_client: httpx.AsyncClient, app: FastAPI
     ):
-        from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+        from users.core.constants import USER_ROLE_ID, USER_ROLE_NAME
         from users.models import Role
 
         async with app.state.sm.db.session_factory() as db:

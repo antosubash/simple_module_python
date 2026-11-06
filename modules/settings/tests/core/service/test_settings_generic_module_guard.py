@@ -52,7 +52,7 @@ def test_browse_does_not_suggest_module_keys():
     from fastapi import FastAPI
     from settings.web.known_keys import build
     from simple_module_core.module_settings import register_module_settings
-    from users.settings import UsersSettings
+    from users.core.settings import UsersSettings
 
     app = FastAPI()
     app.state.sm = SimpleNamespace(modules=[])

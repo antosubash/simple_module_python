@@ -33,7 +33,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from users.constants import (
+from users.core.constants import (
     ADMIN_ROLE_DESCRIPTION,
     ADMIN_ROLE_ID,
     ADMIN_ROLE_NAME,
@@ -42,15 +42,15 @@ from users.constants import (
     USER_ROLE_ID,
     USER_ROLE_NAME,
 )
+from users.core.settings import UsersSettings
 from users.models import Role, User, UserRole
-from users.settings import UsersSettings
 
 logger = logging.getLogger("users.demo")
 
 # ``SESSION_DEMO_KEY`` is stamped on the session by the demo sign-in endpoint;
 # the guard also matches on the user ids, so it is not the only line of defence
 # — it is what keeps the hot path off the database. It is defined in
-# ``users.constants`` because ``manager`` and ``provider`` have to clear it on
+# ``users.core.constants`` because ``manager`` and ``provider`` have to clear it on
 # every other sign-in and on session teardown, and neither may import this
 # module. Re-exported here, which is where the feature's own code reads it.
 __all__ = [
@@ -124,7 +124,7 @@ def resolve_demo_account(settings: UsersSettings | None, role: str) -> DemoAccou
 async def _role_row(db: AsyncSession, name: str) -> Role:
     """The Role row for ``name``, created from its seed constants if absent.
 
-    Same shape as ``users.bootstrap``: the seed migration normally inserts
+    Same shape as ``users.core.bootstrap``: the seed migration normally inserts
     both, so this only fires for tests built with ``create_all`` and for
     databases downgraded past the seed revision.
     """

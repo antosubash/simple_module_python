@@ -9,7 +9,7 @@ import { initials } from '@simple-module-py/ui/lib/initials';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../pages/api';
-import { failureMessage } from '../../pages/failureMessage';
+import { failureMessage } from '../../ui/utils/failureMessage';
 import type { ProfileUser } from './profile-user';
 
 /**

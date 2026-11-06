@@ -139,7 +139,7 @@ def publish_after_commit(app: FastAPI | None, db: AsyncSession) -> None:
 
 
 def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
-    from users.roles_cache import CHANNEL as ROLES_CHANNEL
+    from users.core.roles_cache import CHANNEL as ROLES_CHANNEL
 
     bus.subscribe(CHANNEL, lambda _: _cache(app).forget())
     bus.subscribe(ROLES_CHANNEL, lambda _: _cache(app).forget())

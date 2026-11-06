@@ -86,7 +86,7 @@ class Invalidation:
     channel: str
     #: Which entry, or ``None`` for "the whole channel". A string because it has
     #: to survive JSON; a consumer keyed by something else converts on the way
-    #: back in (see ``users.session_revocation``).
+    #: back in (see ``users.accounts.session_revocation``).
     key: str | None = None
     #: The publishing process's :attr:`InvalidationBus.origin`. Lets a bus
     #: ignore its own broadcast coming back off the transport, which it has

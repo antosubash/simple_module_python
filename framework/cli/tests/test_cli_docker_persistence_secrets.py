@@ -29,7 +29,11 @@ def test_cli_dockerignore_excludes_secret_variants(tmp_path, source):
         "host/secrets/token",
     ):
         assert _ignored(patterns, path), path
-    for path in (".env.example", "host/.env.example", "modules/users/users/credentials.py"):
+    for path in (
+        ".env.example",
+        "host/.env.example",
+        "modules/users/users/accounts/credentials.py",
+    ):
         assert not _ignored(patterns, path), path
 
 

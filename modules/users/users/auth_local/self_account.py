@@ -19,14 +19,14 @@ from simple_module_db.deps import get_db
 from simple_module_hosting.session import SESSION_REMEMBER_KEY
 from simple_module_hosting.token_guard import Authenticated
 
+from users.accounts.backend import cookie_login_response
+from users.accounts.credentials import revoke_all_credentials
+from users.accounts.db_adapter import get_access_token_db
+from users.accounts.manager import UserManager
 from users.auth_local.rate_limit import enforce_auth_throughput_limit
-from users.backend import cookie_login_response
-from users.constants import SESSION_VERSION_KEY
 from users.contracts.schemas import SelfPasswordChange
-from users.credentials import revoke_all_credentials
-from users.db_adapter import get_access_token_db
-from users.deps import fastapi_users, get_user_manager
-from users.manager import UserManager
+from users.core.constants import SESSION_VERSION_KEY
+from users.web.deps import fastapi_users, get_user_manager
 
 router = APIRouter()
 

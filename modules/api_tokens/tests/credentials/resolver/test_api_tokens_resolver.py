@@ -127,8 +127,8 @@ async def test_last_used_is_written_at_most_once_per_window(app, actor, bearer):
 
 async def test_users_provider_does_not_look_up_api_tokens(monkeypatch):
     """The provider steps aside for ``smpat_``/``smsk_`` without touching its store."""
-    import users.token_strategy
-    from users.provider import UsersAuthProvider
+    import users.accounts.token_strategy
+    from users.accounts.provider import UsersAuthProvider
 
     calls: list[str] = []
 
@@ -136,7 +136,7 @@ async def test_users_provider_does_not_look_up_api_tokens(monkeypatch):
         calls.append(token)
         return
 
-    monkeypatch.setattr(users.token_strategy, "resolve_bearer", spy)
+    monkeypatch.setattr(users.accounts.token_strategy, "resolve_bearer", spy)
     provider = UsersAuthProvider()
     for credential in (
         generate(TokenKind.PERSONAL).plaintext,

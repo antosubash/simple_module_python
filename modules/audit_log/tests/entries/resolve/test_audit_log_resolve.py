@@ -12,7 +12,7 @@ from audit_log.entries.resolve import actor_link, entity_link, resolve_actors
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.user_directory import NullUserDirectory
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.directory import UsersDirectory
+from users.core.directory import UsersDirectory
 from users.models import User
 
 _DIRECTORY = UsersDirectory()

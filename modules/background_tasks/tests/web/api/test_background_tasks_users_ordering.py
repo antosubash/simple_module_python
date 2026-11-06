@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from background_tasks.module import BackgroundTasksModule
 from simple_module_core.discovery import topological_sort
+from users.accounts.session_revocation import CHANNEL
 from users.module import UsersModule
-from users.session_revocation import CHANNEL
 
 
 def test_users_is_not_a_dependency():

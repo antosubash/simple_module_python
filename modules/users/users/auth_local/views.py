@@ -13,15 +13,15 @@ from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
+from users.accounts.manager import UserManager, get_user_manager
 from users.auth_local.browser_guard import require_browser_origin
 from users.auth_local.browser_sessions import end_browser_session
 from users.auth_local.token_preview import decode_verify_token, preview_reset
-from users.bootstrap import resolve_bootstrap_credentials
 from users.contracts.schemas import UserRead
+from users.core.bootstrap import resolve_bootstrap_credentials
 from users.demo import resolve_demo_accounts
 from users.invites.preview import preview_invite
 from users.mailer import mailer_delivers
-from users.manager import UserManager, get_user_manager
 from users.models import User
 from users.oauth.errors import OAUTH_ERROR_CODES
 
@@ -86,7 +86,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             # refused save.
             #
             # Not ``demo`` — that name belongs to the shared prop describing
-            # the *current* session (``users.shared_props``). Page props win
+            # the *current* session (``users.web.shared_props``). Page props win
             # the merge, so reusing it would have this key quietly shadow the
             # banner's on this one page.
             "demo_signin": {
