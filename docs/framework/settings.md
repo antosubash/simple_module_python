@@ -111,10 +111,10 @@ reload and the generic key/value API on top.
 The old plugin paths (`settings.registration`, `settings.module_registry`,
 `settings.hydrate`) still re-export these and emit a `DeprecationWarning`;
 `settings.models` and the moved names in `settings.module_settings.store` /
-`settings.core.constants` (and `settings.core._secrets`) re-export them
-silently; those re-exports go no earlier than 0.1.0. The old module paths
-`settings.store` and `settings.constants` now warn until 0.0.46, and
-`settings._secrets` moved to `settings.core._secrets` with no alias.
+`settings.core.constants` / `settings.core._secrets` re-export them silently.
+The old module paths `settings.store`, `settings.constants` and
+`settings._secrets` are aliases of those modules that warn on import. All of
+these go no earlier than 0.1.0.
 
 A Celery worker or CLI script never runs the lifespan, so it hydrates
 synchronously:
