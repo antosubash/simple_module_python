@@ -7,7 +7,7 @@ the installed distributions instead: a module that stores audit records
 declares::
 
     [project.entry-points."simple_module.audit_sinks"]
-    audit_log = "audit_log.capture:audit_callback"
+    audit_log = "audit_log.core.capture:audit_callback"
 
 and the worker binds the result to its engine with
 ``EngineTenancy(audit_callback=...)``. Neither side imports the other (#498).

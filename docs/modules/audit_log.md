@@ -28,7 +28,7 @@ A worker never runs `create_app`, so it has no `app.state.sm.db` for `on_startup
 
 ```toml
 [project.entry-points."simple_module.audit_sinks"]
-audit_log = "audit_log.capture:audit_callback"
+audit_log = "audit_log.core.capture:audit_callback"
 ```
 
 `background_tasks` binds whatever `simple_module_db.audit_sinks.discover_audit_callback()` finds to both of its worker engines — the sync engine task bodies and signal handlers use (`sync_db`) and the async engine durable outbox handlers run on (`outbox_worker`). A task's ORM writes, including `TaskExecution` lifecycle rows, are therefore audited exactly like a request's whenever `audit_log` is installed; neither package imports the other. The worker's audit rows carry no `user_id` (no request principal).

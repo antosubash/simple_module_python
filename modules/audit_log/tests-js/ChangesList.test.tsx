@@ -14,7 +14,7 @@ configureI18n({
   },
 });
 
-import { type Change, ChangesList } from '../audit_log/pages/components/ChangesList';
+import { type Change, ChangesList } from '../audit_log/ui/components/ChangesList';
 
 const FOUR: Change[] = [
   { field: 'value', old: '', new: 'mail.example.com' },
