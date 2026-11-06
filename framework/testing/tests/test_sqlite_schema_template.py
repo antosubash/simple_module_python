@@ -4,7 +4,18 @@ from __future__ import annotations
 
 import pytest
 from simple_module_test import _sqlite_template, database
-from sqlalchemy import Column, Index, Integer, MetaData, String, Table, func, inspect, select
+from sqlalchemy import (
+    Column,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    func,
+    inspect,
+    select,
+    text,
+)
 from sqlalchemy.ext.asyncio import create_async_engine
 
 pytestmark = pytest.mark.skipif(
@@ -25,6 +36,9 @@ _item = Table(
 def _own_template(monkeypatch):
     # Start cold and leave the real template for the tests after this one.
     monkeypatch.setattr(_sqlite_template, "_template", None)
+    yield
+    if _sqlite_template._template is not None:
+        _sqlite_template._template[1].close()
 
 
 @pytest.fixture
@@ -118,3 +132,26 @@ class TestWhenNotToCopy:
 
         assert builds == [1, 1]
         assert await _count(engine, extra) == 0
+
+
+class TestTheStampTable:
+    async def test_a_first_build_without_heads_still_lets_later_tests_stamp(
+        self, engines, monkeypatch
+    ) -> None:
+        """A worker whose first build resolved no Alembic heads (a test pointing
+        ``SM_PROJECT_ROOT`` elsewhere) must not copy a schema without
+        ``alembic_version`` into the tests that do stamp it."""
+        from simple_module_test import _schema
+
+        heads = _schema._alembic_heads()
+        assert heads, "the repository has migrations, so heads must resolve here"
+        monkeypatch.setattr(_schema, "_alembic_heads", lambda: ())
+        await _schema._create_all_tables(engines())
+
+        monkeypatch.setattr(_schema, "_alembic_heads", lambda: heads)
+        stamped = engines()
+        await _schema._create_all_tables(stamped)
+
+        async with stamped.connect() as conn:
+            rows = await conn.execute(text("SELECT version_num FROM alembic_version"))
+            assert {row[0] for row in rows} == set(heads)

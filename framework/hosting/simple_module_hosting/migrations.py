@@ -5,6 +5,10 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from alembic.script import ScriptDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +34,12 @@ def default_alembic_ini() -> str:
 
 
 # ini path -> (revision files and their mtimes, ScriptDirectory with its revision map loaded).
-_SCRIPTS: dict[str, tuple[tuple, object]] = {}
+_SCRIPTS: dict[str, tuple[tuple, ScriptDirectory]] = {}
 
 
-def _revision_files(script) -> tuple:
+def _revision_files(script: ScriptDirectory) -> tuple:
+    # ``_version_locations`` is alembic's resolved list of version directories (there
+    # is no public accessor for more than one location).
     return tuple(
         sorted(
             (str(path), path.stat().st_mtime_ns)
@@ -43,7 +49,7 @@ def _revision_files(script) -> tuple:
     )
 
 
-def script_directory(alembic_ini_path: str | None = None):
+def script_directory(alembic_ini_path: str | None = None) -> ScriptDirectory:
     """Build the ``ScriptDirectory`` for ``alembic_ini_path``.
 
     Shared by every caller that needs to walk or query alembic revisions

@@ -24,11 +24,15 @@ _template: tuple[frozenset, sqlite3.Connection] | None = None
 
 
 def is_memory_sqlite(engine: Any) -> bool:
-    return engine.dialect.name == "sqlite" and engine.url.database in (None, "", ":memory:")
+    """Whether a SQLite *engine* is an in-memory database (the caller checked the dialect)."""
+    return engine.url.database in (None, "", ":memory:")
 
 
 def _key(tables: list[Any]) -> frozenset:
-    return frozenset((t.fullname, len(t.columns), len(t.indexes)) for t in tables)
+    return frozenset(
+        (t.fullname, tuple(t.columns.keys()), tuple(sorted(i.name or "" for i in t.indexes)))
+        for t in tables
+    )
 
 
 async def _driver_connection(conn: Any) -> Any:
@@ -51,8 +55,12 @@ async def build_from_template(engine: Any, tables: list[Any], build: Any) -> Non
         source = _template[1]
         async with engine.connect() as conn:
             target = await _driver_connection(conn)
-            # aiosqlite's own ``backup`` only copies *out*; run the inbound copy on
-            # its worker thread too, which owns the stdlib connection (``_conn``).
+            # No public path: aiosqlite's ``backup`` only copies *out* of its own
+            # connection, and a template held as an aiosqlite connection would add a
+            # non-daemon worker thread that must be closed at exit. So run the stdlib
+            # ``backup`` on the target's worker thread, which owns ``_conn``, via
+            # the private ``_execute``/``_conn`` (present across the ``aiosqlite>=0.20,<0.23``
+            # range ``simple_module_db`` allows; the tests here fail loudly if they go).
             await target._execute(source.backup, target._conn)
         return
 
