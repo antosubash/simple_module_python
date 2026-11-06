@@ -128,7 +128,7 @@ scopes. Because the cap can only constrain a route that asks for a permission,
 dependency) applies a fail-closed rule to every route:
 
 - a route whose dependency tree contains `RequiresPermission(...)` or
-  `auth.deps.require_permission(...)` admits tokens — the gate decides;
+  `auth.web.deps.require_permission(...)` admits tokens — the gate decides;
 - a page (a module view router, or any route depending on `InertiaDep`)
   refuses tokens with 403, gated or not;
 - `Depends(TokenAllowed())` from `simple_module_hosting.token_guard` admits

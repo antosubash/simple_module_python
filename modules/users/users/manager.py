@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from auth.constants import SESSION_ID_KEY
+from auth.core.constants import SESSION_ID_KEY
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
 from fastapi_users.jwt import generate_jwt

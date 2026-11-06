@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from auth.middleware import AuthMiddleware
+from auth.web.middleware import AuthMiddleware
 from fastapi import FastAPI, Request
 from simple_module_test import forge_session_cookie
 from starlette.middleware.sessions import SessionMiddleware
@@ -36,7 +36,7 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
     Defaults to an empty registry — matches a production app where no
     downstream module has registered anything.
     """
-    from auth.state import AuthState
+    from auth.core.state import AuthState
 
     async def _default_handler(request: Request):
         user = getattr(request.state, "user", None)

@@ -442,7 +442,7 @@ or `simple-module-keycloak` (Keycloak OIDC). Both implement the `AuthProvider`
 protocol from `auth.contracts.provider`.
 
 **Module authors never import from `users` or `keycloak` directly.** Use only:
-- `from auth.deps import CurrentUser, require_permission`
+- `from auth.web.deps import CurrentUser, require_permission`
 - `from auth.contracts.schemas import UserContext`
 
 The `AuthMiddleware` (in `auth/middleware.py`) delegates to the active provider's

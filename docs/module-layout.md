@@ -214,7 +214,7 @@ when a later module PR moves files.
 | --- | ---: | ---: | --- |
 | api_tokens | 3 (+4 shims) | 0 | follows this layout |
 | audit_log | 3 | 0 | follows this layout |
-| auth | 8 | 20 | flat |
+| auth | 3 (+4 shims) | 0 | follows this layout |
 | background_tasks | 49 | 83 | flat |
 | branding | 2 (+6 shims) | 0 | follows this layout |
 | dashboard | 2 | 0 | follows this layout |

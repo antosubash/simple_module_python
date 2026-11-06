@@ -57,7 +57,7 @@ list, and:
 - `resolve_principal_permissions` (used by `RequiresPermission`, the menu
   filter and the frontend's `auth.permissions`) intersects the resolved set
   with the scopes. An admin's wildcard expands to the scope list only.
-- `auth.deps.require_permission` skips its admin-role shortcut.
+- `auth.web.deps.require_permission` skips its admin-role shortcut.
 - Role-only admin gates (`/admin`, the Doctor page, the maintenance bypass) use
   `simple_module_core.permissions.is_admin_principal`, which is `False` for any
   token.
@@ -78,7 +78,7 @@ app-wide dependency on every `APIRoute` (module, host and framework routes):
 
 | Route | A token (`scopes` set) gets |
 |---|---|
-| Has a permission gate in its dependency tree — `RequiresPermission(...)` or `auth.deps.require_permission(...)` | admitted; the gate decides, capped at the scopes |
+| Has a permission gate in its dependency tree — `RequiresPermission(...)` or `auth.web.deps.require_permission(...)` | admitted; the gate decides, capped at the scopes |
 | A page — on a module view router, or depends on `InertiaDep` | **403**, even when gated: page props are a second, unscoped read API |
 | Marked `Depends(TokenAllowed())` | admitted, with no permission check — use only for routes harmless for any token |
 | Anything else | **403** (JSON on `/api/*`) |

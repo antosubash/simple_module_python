@@ -32,7 +32,7 @@ def test_principal_resolver_type_accepts_async_callable():
 
 
 def test_auth_state_initializes_with_empty_resolvers():
-    from auth.state import AuthState
+    from auth.core.state import AuthState
 
     state = AuthState()
     assert state.principal_resolvers == []
@@ -40,7 +40,7 @@ def test_auth_state_initializes_with_empty_resolvers():
 
 def test_auth_state_resolvers_is_mutable_list():
     """Modules register resolvers by appending; the list must be a list, not a tuple."""
-    from auth.state import AuthState
+    from auth.core.state import AuthState
 
     state = AuthState()
 
@@ -53,8 +53,8 @@ def test_auth_state_resolvers_is_mutable_list():
 
 def test_auth_module_register_settings_populates_app_state():
     """``AuthModule.register_settings(app)`` must put an AuthState on ``app.state.auth``."""
+    from auth.core.state import AuthState
     from auth.module import AuthModule
-    from auth.state import AuthState
     from fastapi import FastAPI
 
     app = FastAPI()
@@ -110,7 +110,7 @@ def test_auth_module_registers_principal_serializer():
 
 
 def test_auth_state_has_auth_provider_field():
-    from auth.state import AuthState
+    from auth.core.state import AuthState
 
     state = AuthState()
     assert state.auth_provider is None
@@ -118,7 +118,7 @@ def test_auth_state_has_auth_provider_field():
 
 def test_auth_state_accepts_auth_provider():
     from auth.contracts.provider import AuthProvider
-    from auth.state import AuthState
+    from auth.core.state import AuthState
 
     class FakeProvider:
         name = "fake"

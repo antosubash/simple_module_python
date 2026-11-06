@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from auth.contracts.schemas import UserContext
-from auth.deps import get_current_user, require_permission
+from auth.web.deps import get_current_user, require_permission
 from fastapi import HTTPException
 from simple_module_core.i18n import I18nRegistry, Translator
 
