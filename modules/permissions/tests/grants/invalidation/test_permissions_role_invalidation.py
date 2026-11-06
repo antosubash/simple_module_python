@@ -3,8 +3,8 @@
 import uuid
 
 import pytest
+from permissions.core.service import PermissionService
 from permissions.models import RolePermission
-from permissions.service import PermissionService
 from simple_module_core.invalidation import Invalidation
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.transaction import finalize_session, rollback_session
@@ -55,7 +55,7 @@ async def test_remote_role_change_and_removal_reload_overlay(app):
 
 @pytest.mark.parametrize("commit", [False, True])
 async def test_role_request_publishes_only_after_commit(app, commit):
-    from permissions.deps import get_permission_service
+    from permissions.web.deps import get_permission_service
     from starlette.requests import Request
 
     registry = app.state.sm.permissions

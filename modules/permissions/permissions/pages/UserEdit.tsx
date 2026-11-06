@@ -13,8 +13,8 @@ import { Search } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { GrantsGroupCard } from './components/GrantsGroupCard';
-import { filterGroups, type PermissionGroup } from './components/permission-groups';
+import { GrantsGroupCard } from '../ui/components/GrantsGroupCard';
+import { filterGroups, type PermissionGroup } from '../ui/components/permission-groups';
 
 type UserProp = { id: string; email: string; full_name: string | null };
 

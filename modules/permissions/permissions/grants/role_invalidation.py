@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.invalidation_refresh import InvalidationRefresh
 
-from permissions.service import PermissionService
+from permissions.core.service import PermissionService
 
 CHANNEL = "permissions.role_grants"
 

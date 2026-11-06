@@ -13,7 +13,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db import independent_session
 
-from permissions.constants import _MODULE_AUTH, _MODULE_USERS, USER_CLEANUP_HANDLER
+from permissions.core.constants import _MODULE_AUTH, _MODULE_USERS, USER_CLEANUP_HANDLER
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -54,13 +54,13 @@ class PermissionsModule(ModuleBase):
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
         from simple_module_core.user_events import UserDeleted
 
-        from permissions.user_cleanup import purge_user_grants
+        from permissions.grants.user_cleanup import purge_user_grants
 
         bus.subscribe_durable(UserDeleted, purge_user_grants, name=USER_CLEANUP_HANDLER)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from permissions.endpoints.api import router as api
-        from permissions.endpoints.views import router as views
+        from permissions.web.endpoints.api import router as api
+        from permissions.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
@@ -85,8 +85,8 @@ class PermissionsModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        from permissions.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
-        from permissions.grants import direct_grant_source
+        from permissions.core.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
+        from permissions.grants.source import direct_grant_source
 
         registry.add_group(
             PERMISSION_GROUP,
@@ -99,10 +99,10 @@ class PermissionsModule(ModuleBase):
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         """Let another worker's grant change drop this worker's cached grants."""
-        from permissions.grants import subscribe
+        from permissions.grants.source import subscribe
 
         subscribe(bus, app)
-        from permissions.role_invalidation import subscribe as subscribe_roles
+        from permissions.grants.role_invalidation import subscribe as subscribe_roles
 
         self._refresh = subscribe_roles(bus, app)
 
@@ -112,7 +112,7 @@ class PermissionsModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Replay persisted role→permission rows into the live registry."""
-        from permissions.service import PermissionService
+        from permissions.core.service import PermissionService
 
         registry = app.state.sm.permissions
         async with independent_session(app) as db:

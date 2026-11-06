@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
-from permissions.grants import CHANNEL, clear_grants_cache, direct_grant_source, subscribe
+from permissions.core.service import PermissionService
+from permissions.grants.source import CHANNEL, clear_grants_cache, direct_grant_source, subscribe
 from permissions.models import UserPermission
-from permissions.service import PermissionService
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory

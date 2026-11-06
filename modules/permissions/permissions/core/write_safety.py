@@ -5,7 +5,7 @@ from simple_module_core.permissions import ADMIN_ROLE, PermissionRegistry, grant
 from simple_module_core.user_directory import DirectoryUser
 from simple_module_hosting.permissions import resolve_principal_permissions
 
-from permissions.constants import PERM_MANAGE
+from permissions.core.constants import PERM_MANAGE
 
 
 class PermissionWriteRefused(HTTPException):

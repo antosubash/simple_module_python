@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 from fastapi import FastAPI
-from permissions.constants import PERM_VIEW
+from permissions.core.constants import PERM_VIEW
 from simple_module_core.permissions import PermissionRegistry
 
 

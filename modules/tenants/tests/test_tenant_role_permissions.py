@@ -72,8 +72,8 @@ class TestTenantAdminIsNotPlatformAdmin:
 
 class TestSyncAdminAllPermissions:
     async def test_never_touches_tenant_roles(self, app, db_session):
+        from permissions.core.service import PermissionService
         from permissions.models import RolePermission
-        from permissions.service import PermissionService
         from sqlalchemy import select
         from users.constants import ADMIN_ROLE_NAME
 

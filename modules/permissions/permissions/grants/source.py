@@ -3,7 +3,7 @@
 Registered on the :class:`~simple_module_core.permissions.PermissionRegistry`
 so the framework's one permission resolution — the door (``RequiresPermission``),
 the menu filter and the frontend's ``auth.permissions`` — honours a grant made
-on the permissions screen. Before this, only ``permissions.deps`` read the
+on the permissions screen. Before this, only ``permissions.web.deps`` read the
 table, so the same grant was a 200 on this module's routes and a 403 on every
 other module's (GH #337).
 

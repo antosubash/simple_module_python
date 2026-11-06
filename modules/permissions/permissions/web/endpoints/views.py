@@ -15,15 +15,15 @@ from simple_module_hosting.inertia_utils import (
 from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
-from permissions.constants import PERM_MANAGE
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
-from permissions.deps import (
+from permissions.core.constants import PERM_MANAGE
+from permissions.core.service import PermissionService
+from permissions.core.write_safety import PermissionWriteRefused
+from permissions.web.deps import (
     RequiresPermission,
     assigned_by,
     get_permission_service,
 )
-from permissions.service import PermissionService
-from permissions.write_safety import PermissionWriteRefused
 
 router = APIRouter()
 

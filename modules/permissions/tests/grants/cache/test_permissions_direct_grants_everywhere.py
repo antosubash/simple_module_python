@@ -14,8 +14,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW, VIEW_PREFIX
-from permissions.deps import RequiresPermission as ModuleRequiresPermission
-from permissions.grants import clear_grants_cache
+from permissions.grants.source import clear_grants_cache
+from permissions.web.deps import RequiresPermission as ModuleRequiresPermission
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_test import forge_session_cookie, inertia_headers
 

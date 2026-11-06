@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from permissions.service import PermissionService
+from permissions.core.service import PermissionService
 from simple_module_core.i18n import Translator
 from simple_module_core.permissions import PermissionRegistry
 

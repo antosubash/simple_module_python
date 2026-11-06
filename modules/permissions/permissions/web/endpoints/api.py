@@ -6,7 +6,6 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from permissions.constants import PERM_MANAGE, PERM_VIEW
 from permissions.contracts.schemas import (
     PermissionGroupOut,
     RolePermissionsOut,
@@ -14,12 +13,13 @@ from permissions.contracts.schemas import (
     UserPermissionsOut,
     UserPermissionsUpdate,
 )
-from permissions.deps import (
+from permissions.core.constants import PERM_MANAGE, PERM_VIEW
+from permissions.core.service import PermissionService
+from permissions.web.deps import (
     RequiresPermission,
     assigned_by,
     get_permission_service,
 )
-from permissions.service import PermissionService
 
 router = APIRouter()
 
