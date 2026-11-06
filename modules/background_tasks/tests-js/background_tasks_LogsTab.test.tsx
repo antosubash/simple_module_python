@@ -7,7 +7,7 @@ configureI18n({ locale: 'en', messages: {} });
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import { LogsPanel } from '../background_tasks/pages/components/LogsPanel';
+import { LogsPanel } from '../background_tasks/ui/components/LogsPanel';
 import { requestsOf, stubFetch } from './stub-fetch';
 
 const line = (message: string, level_name = 'INFO', level = 20) => ({

@@ -13,7 +13,7 @@ from sqlalchemy import JSON, CheckConstraint, Column, Index, String, column
 from sqlalchemy.orm import load_only
 from sqlmodel import Field, SQLModel
 
-from background_tasks.constants import (
+from background_tasks.core.constants import (
     DEFAULT_QUEUE,
     LOG_ID_MAX_LENGTH,
     LOG_MESSAGE_MAX_LENGTH,

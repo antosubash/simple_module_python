@@ -6,7 +6,7 @@ from io import BytesIO
 
 import pytest
 from _file_storage_worker_support import set_setting
-from background_tasks import outbox_worker
+from background_tasks.outbox import worker as outbox_worker
 from file_storage import contracts
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.models import StoredFile

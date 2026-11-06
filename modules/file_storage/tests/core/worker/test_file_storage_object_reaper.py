@@ -5,7 +5,7 @@ import os
 import uuid
 from datetime import timedelta
 
-from background_tasks import sync_db
+from background_tasks.core import sync_db
 from file_storage import tasks
 from file_storage.core.object_reaper import reap_objects
 from file_storage.models import StoredFile

@@ -5,11 +5,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from background_tasks.constants import OutboxStatus
+from background_tasks.core.constants import OutboxStatus
 from background_tasks.models import OutboxMessage
-from background_tasks.outbox_claim import OutboxPolicy
-from background_tasks.outbox_dispatch import dispatch
-from background_tasks.outbox_transport import WorkerOutboxTransport
+from background_tasks.outbox.claim import OutboxPolicy
+from background_tasks.outbox.dispatch import dispatch
+from background_tasks.outbox.transport import WorkerOutboxTransport
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.core import constants
 from file_storage.core.tenant_deletion import register_tenant_deletion

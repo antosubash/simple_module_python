@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from background_tasks.settings import DEFAULT_RETENTION_DAYS
+from background_tasks.core.settings import DEFAULT_RETENTION_DAYS
 from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
 

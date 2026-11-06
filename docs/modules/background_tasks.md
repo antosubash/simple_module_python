@@ -226,7 +226,7 @@ Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/
 
 Beat persists its schedule (`celery.beat:PersistentScheduler`) so it survives restarts.
 
-The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Except for the DB-only `execution_tracking` and `track_publish` fields, precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
+The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.worker.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Except for the DB-only `execution_tracking` and `track_publish` fields, precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
 
 ## Routing and queues
 
@@ -260,7 +260,7 @@ A publisher that never imported a task can still enqueue it by name: `enqueue_af
 ## Worker tuning
 
 Task bodies can inspect the host's configured tenancy with the public
-`background_tasks.sync_db.worker_tenancy() -> WorkerTenancy | None` (#685).
+`background_tasks.core.sync_db.worker_tenancy() -> WorkerTenancy | None` (#685).
 `WorkerTenancy` is an immutable SQLModel snapshot with `multi_tenant: bool` and
 `default_tenant: str | None`. It returns `None` until `set_database_url` pins a
 URL, including when a URL is only available from the environment. A configured

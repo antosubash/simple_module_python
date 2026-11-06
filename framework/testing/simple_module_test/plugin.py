@@ -92,8 +92,8 @@ def _bootstrap_eager_celery() -> None:
     """
     os.environ.setdefault("SM_BG_TASKS_BROADCAST_INVALIDATIONS", "false")
     with contextlib.suppress(ImportError):
-        from background_tasks.celery_app import build_celery
-        from background_tasks.settings import BackgroundTasksSettings
+        from background_tasks.core.settings import BackgroundTasksSettings
+        from background_tasks.worker.celery_app import build_celery
 
         build_celery(BackgroundTasksSettings(task_always_eager=True, task_eager_propagates=True))
 

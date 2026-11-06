@@ -36,6 +36,7 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "api_tokens": frozenset({"credentials"}),
     "audit_log": frozenset({"entries"}),
     "auth": frozenset({"oidc_common"}),
+    "background_tasks": frozenset({"executions", "logs", "outbox", "worker"}),
     "branding": frozenset({"assets"}),
     "file_storage": frozenset({"backends", "files", "multipart"}),
     "keycloak": frozenset({"identity"}),
@@ -55,20 +56,6 @@ DEPRECATED_ROOT: dict[str, frozenset[str]] = {
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
 LEGACY_FLAT: dict[str, frozenset[str]] = {
-    "background_tasks": frozenset(
-        """
-        _lifecycle.py _signal_bus.py _signal_support.py after_commit.py celery_app.py
-        config_guards.py constants.py db_settings.py deps.py endpoints filters.py health.py
-        invalidation.py log_context.py log_purge.py log_service.py log_sink.py
-        outbox_claim.py outbox_clock.py outbox_dispatch.py outbox_guard.py outbox_loop.py
-        outbox_service.py outbox_support.py outbox_sweep.py outbox_transport.py
-        outbox_worker.py retry_service.py runner.py service.py services.py settings.py
-        settings_celery.py settings_env_checks.py settings_logs.py signals.py sync_db.py
-        task_heartbeat.py task_resource.py task_routing.py tenant_celery.py
-        tenant_context.py tracking.py worker_inspector.py worker_settings.py
-        workers_state.py
-        """.split()
-    ),
     "users": frozenset(
         """
         admin administrators.py audit.py auth_local backend.py bootstrap.py constants.py

@@ -24,7 +24,7 @@ from sqlalchemy import ColumnElement, and_, delete, or_, select, update
 from sqlalchemy.orm import aliased
 from sqlmodel import col
 
-from background_tasks.constants import (
+from background_tasks.core.constants import (
     DEMO_ECHO_TASK,
     INTERNAL_TASK_DISPATCH_OUTBOX,
     INTERNAL_TASK_PURGE_OLD,
@@ -35,12 +35,12 @@ from background_tasks.constants import (
     OutboxStatus,
     TaskStatus,
 )
-from background_tasks.log_purge import purge_log_records
+from background_tasks.core.settings import BackgroundTasksSettings
+from background_tasks.core.sync_db import sync_session
+from background_tasks.core.tracking import TrackingMode
+from background_tasks.logs.purge import purge_log_records
 from background_tasks.models import OutboxMessage, TaskExecution
-from background_tasks.settings import BackgroundTasksSettings
-from background_tasks.sync_db import sync_session
-from background_tasks.tracking import TrackingMode
-from background_tasks.worker_settings import load_runner_settings
+from background_tasks.worker.settings import load_runner_settings
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +186,7 @@ def dispatch_outbox(ids: list[str]) -> dict[str, int]:
     """Deliver the outbox rows a just-committed transaction wrote."""
     # Imported here: the dispatcher pulls in the async engine stack, which a
     # worker only needs once it actually delivers an event.
-    from background_tasks.outbox_worker import run_dispatch
+    from background_tasks.outbox.worker import run_dispatch
 
     return run_dispatch(list(ids))
 
@@ -194,6 +194,6 @@ def dispatch_outbox(ids: list[str]) -> dict[str, int]:
 @shared_task(name=INTERNAL_TASK_SWEEP_OUTBOX, sm_tracking=TrackingMode.FAILURES)
 def sweep_outbox() -> dict[str, int]:
     """Deliver every due outbox row and reclaim expired leases (beat, every 30 s)."""
-    from background_tasks.outbox_worker import run_dispatch
+    from background_tasks.outbox.worker import run_dispatch
 
     return run_dispatch(None)

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
-from background_tasks import sync_db
+from background_tasks.core import sync_db
 from file_storage import tasks
 from file_storage.core import constants
 from file_storage.models import Base, StoredFile

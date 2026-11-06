@@ -45,7 +45,7 @@ A lease does not refresh itself. Pick a TTL longer than the work, or call `refre
 
 ## Backends
 
-The backend is process-global because a Celery worker has no `app.state`. `create_app` installs it when the app is built, and the worker bootstrap (`background_tasks.runner.build_runner_celery`) installs the same kind from the same settings:
+The backend is process-global because a Celery worker has no `app.state`. `create_app` installs it when the app is built, and the worker bootstrap (`background_tasks.worker.runner.build_runner_celery`) installs the same kind from the same settings:
 
 | Configured | Backend | Notes |
 |---|---|---|

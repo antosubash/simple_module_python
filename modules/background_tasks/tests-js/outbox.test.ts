@@ -7,7 +7,7 @@ import {
   discardOutboxMessage,
   retryOutboxMessage,
   shortName,
-} from '../background_tasks/pages/outbox';
+} from '../background_tasks/ui/utils/outbox';
 import { requestsOf, stubFetch } from './stub-fetch';
 
 describe('outbox actions', () => {
