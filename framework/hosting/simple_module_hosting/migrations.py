@@ -40,13 +40,15 @@ _SCRIPTS: dict[str, tuple[tuple, ScriptDirectory]] = {}
 def _revision_files(script: ScriptDirectory) -> tuple:
     # ``_version_locations`` is alembic's resolved list of version directories (there
     # is no public accessor for more than one location).
-    return tuple(
-        sorted(
-            (str(path), path.stat().st_mtime_ns)
-            for location in script._version_locations
-            for path in Path(location).rglob("*.py")
-        )
-    )
+    files = []
+    for location in script._version_locations:
+        for path in Path(location).rglob("*.py"):
+            try:
+                stat = path.stat()
+            except FileNotFoundError:  # removed while scanning: the next call sees the new set
+                continue
+            files.append((str(path), stat.st_mtime_ns, stat.st_size))
+    return tuple(sorted(files))
 
 
 def script_directory(alembic_ini_path: str | None = None) -> ScriptDirectory:
