@@ -40,7 +40,7 @@ _IMAGE_KEYS = frozenset(f"{PACKAGE}.{name}" for name in TENANT_IMAGE_FIELDS)
 async def referenced_ids(db: AsyncSession, tenant_id: str | None) -> set[str]:
     """File ids the owner's image fields hold (``None`` = the system's)."""
     from settings.contracts.schemas import SettingScope
-    from settings.service import SettingService
+    from settings.core.service import SettingService
 
     scope, scope_id = (SettingScope.TENANT, tenant_id) if tenant_id else (SettingScope.SYSTEM, "")
     rows = await SettingService(db).list_by_scope_unmasked(scope, scope_id)

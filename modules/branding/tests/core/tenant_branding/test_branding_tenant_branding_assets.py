@@ -15,7 +15,7 @@ from branding.core.constants import LOGO_URL
 from file_storage.models import StoredFile
 from file_storage.scope import PLATFORM_TENANT_ID
 from settings.contracts.schemas import SettingScope, SettingUpsert
-from settings.service import SettingService
+from settings.core.service import SettingService
 from simple_module_db import all_tenants
 from sqlalchemy import select
 from tenants.models import Tenant

@@ -14,8 +14,8 @@ configureI18n({
 
 vi.mock('@inertiajs/react', () => ({ router: { reload: vi.fn() } }));
 
-import type { FieldMeta } from '../settings/pages/components/FieldInput';
-import { ModuleForm } from '../settings/pages/components/ModuleForm';
+import type { FieldMeta } from '../settings/ui/components/FieldInput';
+import { ModuleForm } from '../settings/ui/components/ModuleForm';
 
 // Build-time host settings (#499): an edit only applies after a restart, and
 // the editor has to say so once the operator changes the value.

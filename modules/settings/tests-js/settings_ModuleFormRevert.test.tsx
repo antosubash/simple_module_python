@@ -2,9 +2,9 @@ import '@testing-library/jest-dom/vitest';
 import { configureI18n } from '@simple-module-py/i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-import type { FieldMeta } from '../settings/pages/components/FieldInput';
-import { ModuleForm, type ModuleView } from '../settings/pages/components/ModuleForm';
 import ModulesEdit from '../settings/pages/ModulesEdit';
+import type { FieldMeta } from '../settings/ui/components/FieldInput';
+import { ModuleForm, type ModuleView } from '../settings/ui/components/ModuleForm';
 
 const mocks = vi.hoisted(() => ({ reload: vi.fn() }));
 vi.mock('@inertiajs/react', () => ({ router: { reload: mocks.reload }, Head: () => null }));

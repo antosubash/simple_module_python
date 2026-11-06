@@ -35,7 +35,7 @@ from branding.core.settings import BrandingSettings
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from settings.service import SettingService
+    from settings.core.service import SettingService
     from simple_module_core.invalidation import Invalidation, InvalidationBus
     from starlette.requests import Request
 
@@ -94,8 +94,8 @@ def forget(app: FastAPI, tenant_id: str | None = None) -> None:
 
 
 def subscribe(bus: InvalidationBus, app: FastAPI) -> None:
-    from settings.constants import INVALIDATION_CHANNEL
     from settings.contracts.invalidation import parse_invalidation_key
+    from settings.core.constants import INVALIDATION_CHANNEL
 
     def on_settings_changed(inv: Invalidation) -> None:
         tenant_id, key = parse_invalidation_key(inv.key)
@@ -138,7 +138,7 @@ async def read_overrides(app: FastAPI, tenant_id: str) -> dict[str, str]:
     Only for reads ahead of a request's own work (shared props, the asset
     routes): a request that has already written must use its own session.
     """
-    from settings.service import SettingService
+    from settings.core.service import SettingService
 
     async with app.state.sm.db.session_factory() as db:
         return await overrides_from(SettingService(db), tenant_id)

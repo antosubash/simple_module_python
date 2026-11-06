@@ -3,7 +3,7 @@
 Construction no longer reads ``SM_FILE_STORAGE_*`` environment variables.
 Values come from pydantic defaults at boot, then get hydrated from the DB
 by the hosting lifespan before module ``on_startup`` runs. Runtime changes
-go through ``settings.reload.apply_changes_and_reload``.
+go through ``settings.module_settings.reload.apply_changes_and_reload``.
 
 Fields are grouped via ``json_schema_extra={"group": ...}`` so the admin UI
 can render them under their respective backend sections.

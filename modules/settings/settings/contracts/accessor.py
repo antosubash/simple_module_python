@@ -36,7 +36,7 @@ from settings.contracts.schemas import (
 )
 
 if TYPE_CHECKING:
-    from settings.service import SettingService
+    from settings.core.service import SettingService
 
 
 class _Unset:

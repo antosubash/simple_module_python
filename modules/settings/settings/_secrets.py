@@ -1,17 +1,11 @@
-"""Re-export of :mod:`simple_module_core.secret_fields` (moved there in #500)."""
+"""Moved to :mod:`settings.core._secrets`; this alias goes in 0.1.0 (module layout)."""
 
 from __future__ import annotations
 
-from simple_module_core.secret_fields import (  # noqa: F401
-    _NEVER_SECRET_TYPES,
-    _SECRET_PATTERNS,
-    _TYPED_SECRET_KEYS,
-    SECRET_MASK,
-    annotation_holds_secret,
-    conceals_secret,
-    embeds_credential,
-    is_named_secret,
-    is_secret_field,
-    mask,
-    register_typed_secrets,
-)
+import importlib
+import sys
+
+from simple_module_core.deprecation import deprecated_module
+
+deprecated_module("settings._secrets", remove_in="0.1.0", use="settings.core._secrets")
+sys.modules[__name__] = importlib.import_module("settings.core._secrets")

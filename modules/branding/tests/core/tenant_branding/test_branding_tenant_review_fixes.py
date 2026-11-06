@@ -8,10 +8,10 @@ from branding.core import tenant_branding
 from branding.core.services import BrandingServices
 from branding.core.settings import BrandingSettings
 from branding.core.tenant_branding import TenantCache, merge
-from settings.constants import INVALIDATION_CHANNEL
 from settings.contracts.invalidation import parse_invalidation_key
 from settings.contracts.schemas import SettingScope, SettingUpsert
-from settings.service import SettingService
+from settings.core.constants import INVALIDATION_CHANNEL
+from settings.core.service import SettingService
 from simple_module_db import all_tenants
 from sqlalchemy import select
 

@@ -14,7 +14,7 @@ from branding.core import tenant_branding
 from branding.core.tenant_branding import TenantCache
 from file_storage.models import StoredFile
 from settings.contracts.schemas import SettingScope
-from settings.service import SettingService
+from settings.core.service import SettingService
 from simple_module_db import all_tenants
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

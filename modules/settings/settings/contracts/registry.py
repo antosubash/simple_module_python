@@ -29,8 +29,8 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from settings.constants import ERR_KEY_ALREADY_EXISTS
 from settings.contracts.schemas import SettingScope, SettingValueType
+from settings.core.constants import ERR_KEY_ALREADY_EXISTS
 
 if TYPE_CHECKING:
     from starlette.requests import Request

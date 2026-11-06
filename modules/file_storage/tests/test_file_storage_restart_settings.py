@@ -19,7 +19,7 @@ import pytest
 )
 def test_backend_construction_fields_advertise_restart(name):
     from file_storage.settings import FileStorageSettings
-    from settings._module_settings import _field_view
+    from settings.module_settings.discovery import _field_view
 
     field = _field_view(name, FileStorageSettings(), "SM_FILE_STORAGE_")
     assert field.requires_restart is True

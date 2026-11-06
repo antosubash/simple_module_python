@@ -14,7 +14,7 @@ the first one always separates the two halves. Handlers may only forget.
 
 from __future__ import annotations
 
-from settings.constants import INVALIDATION_CHANNEL
+from settings.core.constants import INVALIDATION_CHANNEL
 
 _SEP = "|"
 

@@ -118,9 +118,9 @@ async def tenant_settings(
     rows and the writes belong to ``settings`` (``/api/settings/tenant/current``),
     which acts on the active tenant only.
     """
-    from settings.deps import get_setting_service
-    from settings.tenant_scope import registry_of
-    from settings.tenant_view import list_for_tenant
+    from settings.core.tenant_scope import registry_of
+    from settings.core.tenant_view import list_for_tenant
+    from settings.web.deps import get_setting_service
 
     tenant_id = getattr(request.state, "tenant_id", None)
     tenant = await service.get(tenant_id) if tenant_id else None
