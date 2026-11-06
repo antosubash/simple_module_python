@@ -58,7 +58,7 @@ def schedule_reap(app: FastAPI, db: AsyncSession, file_id: str, *, tenant_id: st
 
 
 async def reap(app: FastAPI, file_id: str, *, tenant_id: str | None) -> None:
-    from file_storage.service import FileStorageService
+    from file_storage.files.service import FileStorageService
 
     try:
         parsed = uuid.UUID(file_id)

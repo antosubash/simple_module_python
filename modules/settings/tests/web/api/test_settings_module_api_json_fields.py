@@ -78,7 +78,7 @@ async def test_editor_props_describe_the_input(authenticated_client):
 
 
 def test_input_type_unwraps_optional_scalars_only():
-    from file_storage.settings import FileStorageSettings
+    from file_storage.core.settings import FileStorageSettings
 
     assert input_type_for_field(BackgroundTasksSettings, "worker_concurrency") == ("int", True)
     assert input_type_for_field(BackgroundTasksSettings, "task_reject_on_worker_lost") == (

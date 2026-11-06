@@ -23,7 +23,7 @@ from branding.web.shared_props import asset_url
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from file_storage.service import FileStorageService
+    from file_storage.files.service import FileStorageService
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from branding.core.settings import BrandingSettings

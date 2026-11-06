@@ -18,7 +18,6 @@ from pathlib import Path
 
 import aiofiles
 
-from file_storage import constants
 from file_storage.contracts.service import (
     NotSupportedError,
     ObjectInfo,
@@ -26,6 +25,7 @@ from file_storage.contracts.service import (
     StorageBackendError,
     StorageNotFoundError,
 )
+from file_storage.core import constants
 
 _UPLOAD_ID = re.compile(r"^[0-9a-f]{32}$")
 _ETAG_SUFFIX = ".etag"

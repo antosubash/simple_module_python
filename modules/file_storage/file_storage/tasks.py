@@ -21,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 from celery import shared_task
 from sqlmodel import col
 
-from file_storage import constants
+from file_storage.core import constants
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ _REAP_BATCH = 500
 
 
 def _backend_and_settings():
-    from file_storage.worker_support import backend_and_settings
+    from file_storage.core.worker_support import backend_and_settings
 
     return backend_and_settings()
 
@@ -150,10 +150,10 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
     from background_tasks.sync_db import sync_session
     from simple_module_db import tenant_context
 
-    from file_storage.backend_guard import require_backend
-    from file_storage.checksum import hash_object
+    from file_storage.backends.guard import require_backend
     from file_storage.contracts.service import StorageNotFoundError
     from file_storage.models import StoredFile
+    from file_storage.multipart.checksum import hash_object
 
     backend, _ = _backend_and_settings()
     target = uuid.UUID(file_id)
@@ -184,7 +184,7 @@ def reap_objects() -> int:
     """Reconcile completed objects, with twice the upload TTL as a safety window."""
     from background_tasks.sync_db import sync_session
 
-    from file_storage.object_reaper import reap_objects as reconcile
+    from file_storage.core.object_reaper import reap_objects as reconcile
 
     backend, settings = _backend_and_settings()
     return asyncio.run(

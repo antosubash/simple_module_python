@@ -15,8 +15,8 @@ import uuid
 import httpx
 import pytest
 from branding.core.constants import LOGO_URL
+from file_storage.core.scope import PLATFORM_TENANT_ID
 from file_storage.models import StoredFile
-from file_storage.scope import PLATFORM_TENANT_ID
 from simple_module_db import all_tenants
 from sqlalchemy import select
 

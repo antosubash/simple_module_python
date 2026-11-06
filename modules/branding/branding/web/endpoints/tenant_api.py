@@ -16,8 +16,8 @@ only. Scalar fields go through settings' generic
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
-from file_storage.deps import get_file_storage_service
-from file_storage.service import FileStorageService
+from file_storage.files.service import FileStorageService
+from file_storage.web.deps import get_file_storage_service
 from settings.contracts.schemas import SettingScope, SettingUpsert
 from settings.core.constants import PERM_TENANT_EDIT
 from settings.core.service import SettingService

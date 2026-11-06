@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { describeTypes, formatBytes } from '../file_storage/pages/format';
+import { describeTypes, formatBytes } from '../file_storage/ui/utils/format';
 
 describe('formatBytes', () => {
   test.each([

@@ -37,6 +37,7 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "audit_log": frozenset({"entries"}),
     "auth": frozenset({"oidc_common"}),
     "branding": frozenset({"assets"}),
+    "file_storage": frozenset({"backends", "files", "multipart"}),
     "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
     "oidc": frozenset({"identity"}),
@@ -66,16 +67,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         task_heartbeat.py task_resource.py task_routing.py tenant_celery.py
         tenant_context.py tracking.py worker_inspector.py worker_settings.py
         workers_state.py
-        """.split()
-    ),
-    "file_storage": frozenset(
-        """
-        aggregates.py audit_labels.py backend_guard.py backends body_limits.py checksum.py
-        constants.py cookieless.py cors.py csp.py deletes.py deps.py downloads.py endpoints
-        errors.py format.py health.py media_types.py object_reaper.py queries.py ranges.py
-        reads.py resolve.py scope.py service.py services.py serving.py settings.py
-        tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
-        uploads.py visibility.py worker.py worker_support.py
         """.split()
     ),
     "users": frozenset(

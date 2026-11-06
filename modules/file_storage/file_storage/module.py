@@ -22,9 +22,9 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
 
-from file_storage import constants
-from file_storage.audit_labels import _resolve_file_labels
-from file_storage.body_limits import register_upload_body_limits
+from file_storage.core import constants
+from file_storage.core.audit_labels import _resolve_file_labels
+from file_storage.web.body_limits import register_upload_body_limits
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -45,8 +45,8 @@ class FileStorageModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from file_storage.services import FileStorageServices
-        from file_storage.settings import FileStorageSettings
+        from file_storage.core.services import FileStorageServices
+        from file_storage.core.settings import FileStorageSettings
 
         # The CORS toggle is evaluated per request and the hook gets no ``app``.
         self._app = app
@@ -58,25 +58,25 @@ class FileStorageModule(ModuleBase):
         )
 
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
-        from file_storage.tenant_deletion import register_tenant_deletion
+        from file_storage.core.tenant_deletion import register_tenant_deletion
 
         register_tenant_deletion(bus, app)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
-        from file_storage.tenant_cache import register_tenant_cache
+        from file_storage.core.tenant_cache import register_tenant_cache
 
         register_tenant_cache(bus, app)
 
     def register_exception_handlers(self, app: FastAPI) -> None:
-        from file_storage.errors import install_exception_handlers
+        from file_storage.core.errors import install_exception_handlers
 
         install_exception_handlers(app)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from file_storage.endpoints.api import router as api
-        from file_storage.endpoints.public import router as public
-        from file_storage.endpoints.uploads import router as uploads
-        from file_storage.endpoints.views import router as views
+        from file_storage.web.endpoints.api import router as api
+        from file_storage.web.endpoints.public import router as public
+        from file_storage.web.endpoints.uploads import router as uploads
+        from file_storage.web.endpoints.views import router as views
 
         api_router.include_router(api)
         api_router.include_router(uploads)
@@ -90,8 +90,8 @@ class FileStorageModule(ModuleBase):
         uploads, deletes and the authenticated download keep requiring a
         session. The handler itself still refuses anything not ``public``.
         """
-        from file_storage.constants import PUBLIC_FILES_RATE
-        from file_storage.cookieless import PUBLIC_PATH_PATTERN
+        from file_storage.core.constants import PUBLIC_FILES_RATE
+        from file_storage.web.cookieless import PUBLIC_PATH_PATTERN
 
         # Its own, wider bucket: one public page can embed dozens of images and
         # thumbnails, which would exhaust the shared anonymous default.
@@ -99,13 +99,13 @@ class FileStorageModule(ModuleBase):
 
     def register_cors_policies(self, registry: CorsPolicyRegistry) -> None:
         """Let any origin read public files, without credentials (#527)."""
-        from file_storage.cors import register_public_files_cors
+        from file_storage.web.cors import register_public_files_cors
 
         register_public_files_cors(registry, lambda: getattr(self, "_app", None))
 
     def register_middleware(self, app: FastAPI) -> None:
         """Serve public files without a session cookie or ``Vary: Cookie``."""
-        from file_storage.cookieless import CookielessPublicFilesMiddleware
+        from file_storage.web.cookieless import CookielessPublicFilesMiddleware
 
         app.add_middleware(CookielessPublicFilesMiddleware)
 
@@ -176,7 +176,7 @@ class FileStorageModule(ModuleBase):
 
     def register_csp_sources(self, registry: CspSourceRegistry) -> None:
         """Let the browser PUT multipart parts straight to the S3 endpoint."""
-        from file_storage.csp import connect_src_provider
+        from file_storage.web.csp import connect_src_provider
 
         registry.add_provider(connect_src_provider)
 
@@ -202,8 +202,8 @@ class FileStorageModule(ModuleBase):
         picked up — constructing in ``register_settings`` would bake in
         the pydantic defaults instead of the DB overrides.
         """
-        from file_storage.aggregates import register_invalidation
         from file_storage.backends import build_backend
+        from file_storage.files.aggregates import register_invalidation
 
         # With multi_tenant off the install is the only tenant, so ordinary
         # users keep deleting their files. With it on every tenant member also
@@ -238,7 +238,7 @@ class FileStorageModule(ModuleBase):
         # settings changes rather than pinning the boot-time instance.
         from simple_module_core.health import HealthCheck
 
-        from file_storage.health import CHECK_BACKEND, build_backend_check
+        from file_storage.core.health import CHECK_BACKEND, build_backend_check
 
         app.state.sm.health_registry.add(
             HealthCheck(

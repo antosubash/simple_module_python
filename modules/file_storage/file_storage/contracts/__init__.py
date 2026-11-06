@@ -50,20 +50,20 @@ def store_path(
     public: bool = False,
 ) -> StoredFileOut:
     """Store a path or stream in the caller's tenant, in an independent transaction."""
-    from file_storage.worker import store_path as store
+    from file_storage.core.worker import store_path as store
 
     return store(source, filename=filename, content_type=content_type, public=public)
 
 
 def open_local(file_id: UUID) -> AbstractContextManager[Path]:
     """Download to a private local path for the lifetime of this context."""
-    from file_storage.worker import open_local as local
+    from file_storage.core.worker import open_local as local
 
     return local(file_id)
 
 
 def presigned_url(file_id: UUID, *, ttl_seconds: int | None = None) -> str:
     """Return a scoped download URL; unsupported backends raise NotSupportedError."""
-    from file_storage.worker import presigned_url as sign
+    from file_storage.core.worker import presigned_url as sign
 
     return sign(file_id, ttl_seconds=ttl_seconds)

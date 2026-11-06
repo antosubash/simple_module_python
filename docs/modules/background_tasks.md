@@ -678,7 +678,7 @@ Workers never run the hosting lifespan, so `FileStorageSettings()` (or any `DbBa
 
 ```python
 from background_tasks import settings_for
-from file_storage.settings import FileStorageSettings
+from file_storage.core.settings import FileStorageSettings
 
 
 @celery.task
