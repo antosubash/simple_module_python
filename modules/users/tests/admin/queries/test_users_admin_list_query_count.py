@@ -14,6 +14,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi_users.password import PasswordHelper
 from simple_module_db.query_stats import install_query_stats, track_queries
+from simple_module_test import InertiaPage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.models import Role, User, UserRole
@@ -49,7 +50,7 @@ async def _statements(app: FastAPI, client: httpx.AsyncClient) -> int:
         with track_queries() as stats:
             resp = await client.get("/admin/users/", headers={"X-Inertia": "true"})
         assert resp.status_code == 200
-        assert resp.json()["component"] == "Users/Users/Index"
+        InertiaPage.from_response(resp).assert_component("Users/Users/Index")
         counts.append(stats.count)
     return min(counts)
 

@@ -53,13 +53,9 @@ async def _worker_presence(request: Request) -> dict[str, object]:
     }
 
 
-def _snapshot_json(request: Request):
-    """A deferred loader for the Workers page's fleet snapshot."""
-
-    async def load() -> dict[str, object]:
-        return (await poll_workers(request)).model_dump(mode="json")
-
-    return load
+async def _snapshot_json(request: Request) -> dict[str, object]:
+    """The Workers page's fleet snapshot, loaded as a deferred prop."""
+    return (await poll_workers(request)).model_dump(mode="json")
 
 
 @router.get("/", response_model=None)
@@ -167,7 +163,7 @@ async def workers(
         {
             # Deferred for the same ~1s inspect timeout: the routes and the
             # start command render at once, the fleet fills in behind a skeleton.
-            "snapshot": defer(_snapshot_json(request), group=_WORKERS_GROUP),
+            "snapshot": defer(lambda: _snapshot_json(request), group=_WORKERS_GROUP),
             "broker_url_redacted": redact_broker_url(settings.broker_url),
             "queues": queues,
             "routes": routes,

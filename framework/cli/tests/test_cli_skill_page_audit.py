@@ -8,9 +8,13 @@ running app and is exercised by running the audit itself.
 
 from __future__ import annotations
 
+import importlib.util
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,7 +26,7 @@ sys.path.insert(0, str(_SCRIPTS))
 import audit_crawl  # noqa: E402
 import audit_report  # noqa: E402
 import audit_server  # noqa: E402
-from audit_browser import BrowserResult  # noqa: E402
+from audit_browser import _RESET, INIT_SCRIPT, BrowserResult  # noqa: E402
 
 _UUID = "91a1b900-5c0c-45c8-9e0c-894d78f7c425"
 
@@ -168,3 +172,94 @@ class TestBudgets:
             nav={"nav_ms": 100, "deferred_done_ms": 400, "cls": 0},
         )
         assert _checks(audit_report.evaluate(_server(), clicked)) == {}
+
+
+class TestRegressions:
+    def test_prop_sizes_use_utf8(self) -> None:
+        assert audit_server._size({"title": "Grüße 🌍"}) == len('{"title":"Grüße 🌍"}'.encode())
+
+    @pytest.mark.parametrize(
+        "final_path, level",
+        [("/login", "fail"), ("/other", "fail"), ("/p/", "warn"), ("/p//", "fail")],
+    )
+    def test_redirect_verdict(self, final_path, level) -> None:
+        response = SimpleNamespace(
+            status=200,
+            url="http://t" + final_path,
+            headers={"x-inertia": "true"},
+            body=lambda: b'{"props":{}}',
+        )
+        request = SimpleNamespace(get=lambda *a, **kw: response)
+        result = audit_server.probe(request, "http://t", "/p", {}, 1)
+        assert level in _checks(audit_report.evaluate(result, None)).values()
+        if level == "fail":
+            assert result.error
+
+    def test_percent_encoding_is_not_a_redirect(self) -> None:
+        response = SimpleNamespace(
+            status=200,
+            url="http://t/caf%C3%A9",
+            headers={"x-inertia": "true"},
+            body=lambda: b'{"props":{}}',
+        )
+        request = SimpleNamespace(get=lambda *a, **kw: response)
+        result = audit_server.probe(request, "http://t", "/café", {}, 1)
+        assert not result.error
+        assert not result.redirected
+
+    def test_cls_uses_session_windows_and_resets(self) -> None:
+        script = r"""
+const vm = require('node:vm');
+const callbacks = {};
+const context = {window: {}, document: {addEventListener() {}},
+  PerformanceObserver: class {
+    constructor(fn) { this.fn = fn; }
+    observe({type}) { callbacks[type] = this.fn; }
+  }};
+vm.createContext(context);
+vm.runInContext(INIT, context);
+const shift = (time, value, hadRecentInput = false) => callbacks['layout-shift']({
+  getEntries: () => [{startTime: time, value, hadRecentInput}]
+});
+shift(0, .1); shift(500, .2); shift(900, 9, true);
+shift(1600, .2); // gap exceeds one second, despite the ignored user shift
+for (let time = 2400; time <= 6400; time += 800) shift(time, .1);
+shift(6600, .2); // five-second session limit
+const before = {...context.window.__pa};
+vm.runInContext('(' + RESET + ')()', context);
+shift(6700, .05);
+process.stdout.write(JSON.stringify({before, after: context.window.__pa}));
+"""
+        script = (
+            "const INIT = "
+            + json.dumps(INIT_SCRIPT)
+            + "; const RESET = "
+            + json.dumps(_RESET)
+            + ";"
+            + script
+        )
+        result = subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True)
+        metrics = json.loads(result.stdout)
+        assert metrics["before"]["cls"] == pytest.approx(0.8)
+        assert metrics["before"]["shifts"] == 10
+        assert metrics["after"]["cls"] == pytest.approx(0.05)
+        assert metrics["after"]["shifts"] == 1
+
+    @pytest.fixture
+    def cli(self):
+        spec = importlib.util.spec_from_file_location("page_audit_cli", _SCRIPTS / "__main__.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    @pytest.mark.parametrize("limit", ["0", "-1"])
+    def test_max_pages_must_be_positive(self, cli, limit) -> None:
+        with pytest.raises(SystemExit) as exc:
+            cli._args(["--max-pages", limit])
+        assert exc.value.code == 2
+
+    @pytest.mark.parametrize("no_discover", [False, True])
+    def test_initial_paths_respect_max_pages(self, cli, no_discover) -> None:
+        argv = ["--max-pages", "2", "--path", "/a", "--path", "/a", "--path", "/b", "--path", "/c"]
+        args = cli._args(argv + (["--no-discover"] if no_discover else []))
+        assert cli._paths(["/d", "/e"], args) == ["/a", "/b"]

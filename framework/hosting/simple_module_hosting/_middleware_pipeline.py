@@ -88,8 +88,9 @@ def install_middleware(
 
     Order matters: last added = first executed. Execution order:
     (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
-    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging → CORS
-    → BodyLimit → GZip → Security → Session → InertiaMiddleware → [module] →
+    (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging →
+    (ServerTiming, development only) → CORS → BodyLimit → GZip → Security →
+    Session → InertiaMiddleware → [module] →
     (Tenant, if multi_tenant) → Locale → InertiaLayoutData →
     RateLimit → Setup → Maintenance → CommitBeforeResponse.
     """

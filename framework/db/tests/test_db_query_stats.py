@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
+import simple_module_db.query_stats as query_stats
 from simple_module_db.query_stats import install_query_stats, track_queries
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -64,3 +66,30 @@ async def test_engine_without_install_counts_nothing() -> None:
         assert stats.count == 0
     finally:
         await engine.dispose()
+
+
+async def test_child_task_stops_counting_after_block_exits() -> None:
+    resume = asyncio.Event()
+    counted = asyncio.Event()
+
+    async def child() -> None:
+        context = SimpleNamespace()
+        query_stats._before(None, None, None, None, context, False)
+        query_stats._after(None, None, None, None, context, False)
+        counted.set()
+        await resume.wait()
+        context = SimpleNamespace()
+        query_stats._before(None, None, None, None, context, False)
+        query_stats._after(None, None, None, None, context, False)
+        assert not vars(context)
+
+    with track_queries() as stats:
+        task = asyncio.create_task(child())
+        await counted.wait()
+        assert stats.count == 1
+        seconds = stats.seconds
+        assert seconds > 0
+    resume.set()
+    await task
+    assert stats.count == 1
+    assert stats.seconds == seconds

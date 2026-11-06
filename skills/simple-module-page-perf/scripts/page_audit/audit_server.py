@@ -15,7 +15,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from playwright.sync_api import APIRequestContext
 
@@ -51,7 +51,7 @@ class ServerResult:
 
 
 def _size(value: Any) -> int:
-    return len(json.dumps(value, separators=(",", ":"), default=str).encode())
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str).encode())
 
 
 def _timing(header: str | None) -> tuple[float | None, float | None, int | None]:
@@ -101,6 +101,14 @@ def probe(
         elapsed = (time.perf_counter() - started) * 1000
         result.status = response.status
         result.final_url = response.url
+        final_path = unquote(urlsplit(response.url).path)
+        requested_path = unquote(urlsplit(path).path)
+        result.redirected = final_path != requested_path
+        if result.redirected and not (
+            final_path == requested_path + "/" or requested_path == final_path + "/"
+        ):
+            result.error = f"GET redirects to unexpected path: {response.url}"
+            return result
         if response.status != 200 or "x-inertia" not in response.headers:
             result.error = f"HTTP {response.status} (not an Inertia page response)"
             return result
@@ -118,8 +126,6 @@ def probe(
         if db_ms is not None and count is not None:
             dbs.append(db_ms)
             queries.append(count)
-    # Every redirect is one more round trip before anything paints.
-    result.redirected = urlsplit(result.final_url).path != urlsplit(path).path
     result.wall_ms = statistics.median(walls) if walls else 0.0
     result.app_ms = statistics.median(apps) if apps else None
     result.db_ms = statistics.median(dbs) if dbs else None

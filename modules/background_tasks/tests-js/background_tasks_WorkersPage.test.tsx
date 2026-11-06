@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configureI18n, keys } from '@simple-module-py/i18n';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
@@ -12,8 +12,10 @@ vi.mock('@inertiajs/react', () => ({
     <a href={href}>{children}</a>
   ),
 }));
+vi.mock('../background_tasks/pages/api', () => ({ api: { GET: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+import { api } from '../background_tasks/pages/api';
 import Workers from '../background_tasks/pages/Workers';
 import type { WorkerSnapshot } from '../background_tasks/ui/utils/constants';
 
@@ -45,11 +47,43 @@ describe('background_tasks Workers page', () => {
       'true',
     );
     expect(screen.getByText(w.checking)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: w.refresh })).toBeDisabled();
+    expect(screen.getByRole('button', { name: w.refresh })).toBeEnabled();
 
     rerender(<Workers {...base} snapshot={snapshot} />);
     expect(screen.queryByRole('status', { name: w.checking_label })).toBeNull();
     expect(screen.getByText('celery@host-a')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: w.refresh })).toBeEnabled();
   });
+});
+
+it('recovers a missing deferred snapshot through Refresh and disables it only during the request', async () => {
+  let resolve!: (value: { data: WorkerSnapshot; response: Response }) => void;
+  vi.mocked(api.GET).mockReturnValueOnce(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  render(<Workers {...base} />);
+  const refresh = screen.getByRole('button', { name: w.refresh });
+  expect(refresh).toBeEnabled();
+  fireEvent.click(refresh);
+  expect(refresh).toBeDisabled();
+  await act(async () => {
+    resolve({ data: snapshot, response: new Response() });
+  });
+  expect(screen.getByText('celery@host-a')).toBeInTheDocument();
+  expect(screen.queryByRole('status', { name: w.checking_label })).toBeNull();
+  expect(refresh).toBeEnabled();
+});
+
+it('keeps the newer reading when a manual Refresh beats the deferred snapshot', async () => {
+  const later = { ...snapshot, polled_at: '2026-01-01T00:10:00Z', workers: [] };
+  const earlier = { ...snapshot, polled_at: '2026-01-01T00:00:00Z' };
+  vi.mocked(api.GET).mockResolvedValueOnce({ data: later, response: new Response() });
+  const { rerender } = render(<Workers {...base} />);
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: w.refresh }));
+  });
+  rerender(<Workers {...base} snapshot={earlier} />);
+  expect(screen.queryByText('celery@host-a')).toBeNull();
 });

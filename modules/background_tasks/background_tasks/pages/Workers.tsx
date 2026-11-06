@@ -30,13 +30,20 @@ interface Props {
   routes: TaskRoute[];
 }
 
+// The deferred load and a manual Refresh can race; keep whichever reading is
+// newer so a slow first poll never overwrites a later one.
+function newer(current: WorkerSnapshot | undefined, next: WorkerSnapshot): WorkerSnapshot {
+  if (!current) return next;
+  return Date.parse(next.polled_at) >= Date.parse(current.polled_at) ? next : current;
+}
+
 function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, routes }: Props) {
   const { t } = useT();
   const [snapshot, setSnapshot] = useState<WorkerSnapshot | undefined>(initial);
   const [loading, setLoading] = useState(false);
   // The deferred prop lands after the first render; adopt it when it does.
   useEffect(() => {
-    if (initial) setSnapshot(initial);
+    if (initial) setSnapshot((current) => newer(current, initial));
   }, [initial]);
 
   // This page is a point-in-time poll that only updates when asked. Left open
@@ -51,13 +58,13 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
     return () => clearInterval(id);
   }, []);
   const stale = snapshot !== undefined && isStale(ageOf(snapshot.polled_at, now));
-  const polling = loading || snapshot === undefined;
 
   async function refresh() {
     setLoading(true);
     const result = await apiResult(api.GET('/api/background_tasks/admin/workers'));
     if (result.ok) {
-      setSnapshot(result.data as WorkerSnapshot);
+      const fresh = result.data as WorkerSnapshot;
+      setSnapshot((current) => newer(current, fresh));
       // Don't wait up to a tick for the staleness to catch up with the new
       // reading.
       setNow(Date.now());
@@ -90,10 +97,10 @@ function Workers({ snapshot: initial, broker_url_redacted: brokerUrl, queues, ro
             <Button
               variant="outline"
               onClick={refresh}
-              disabled={polling}
+              disabled={loading}
               className="max-lg:min-h-11"
             >
-              <RefreshCw className={polling ? 'animate-spin' : undefined} aria-hidden="true" />
+              <RefreshCw className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
               {t(keys.background_tasks.workers.refresh)}
             </Button>
             <Button variant="outline" asChild className="max-lg:min-h-11">

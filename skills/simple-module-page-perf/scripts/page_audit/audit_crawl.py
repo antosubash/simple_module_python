@@ -1,4 +1,4 @@
-"""One-level crawl: pages linked from the content of the menu pages.
+"""Link crawl: pages linked from the content of the pages already known.
 
 Menus only reach list pages. Detail and edit pages (``/admin/users/<id>``)
 are reached from links in those lists, so after the first pass every link in

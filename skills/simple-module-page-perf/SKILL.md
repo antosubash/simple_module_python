@@ -46,12 +46,12 @@ when the page is not served by Vite.
 ```bash
 make build                                # the client bundle
 SM_ENVIRONMENT=staging SM_SECRET_KEY=<32+ chars> <the other secrets production needs> \
-    uv run uvicorn main:app --port 8001   # any non-development environment serves the build
+    uv run uvicorn main:app --port 8001   # any environment but development/testing serves the build
 uv run --with playwright python .claude/skills/simple-module-page-perf/scripts/page_audit \
     --base-url http://localhost:8001 --email … --password … --json perf-prod.json
 ```
 
-Outside development the session cookie is `Secure`. Browsers accept it on
+Outside development and testing the session cookie is `Secure`. Browsers accept it on
 `http://localhost`; over plain HTTP on any other host, set
 `SM_SESSION_COOKIE_SECURE=false` for the audit run.
 
