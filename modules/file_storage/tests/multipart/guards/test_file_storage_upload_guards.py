@@ -1,4 +1,4 @@
-"""Direct unit tests for ``upload_guards.UploadGuards`` (#454), without the HTTP layer."""
+"""Direct unit tests for ``multipart.guards.UploadGuards`` (#454), without the HTTP layer."""
 
 from __future__ import annotations
 

@@ -453,7 +453,7 @@ files the caller uploaded (`created_by` is their user id), unless they hold
 `file_storage.manage`. Someone else's file answers `404`, exactly like an
 unknown id, and the browse screen's type and uploader filters list only the
 caller's own rows (the usage figure stays bucket-wide, as the quota is). The
-scope is passed explicitly by the endpoints (`deps.get_owner_scope`) to the
+scope is passed explicitly by the endpoints (`web.deps.get_owner_scope`) to the
 service's `owner=` argument; internal callers such as branding and reapers
 pass none and stay unscoped, and anonymous `public` serving is unaffected.
 
@@ -486,7 +486,7 @@ class MyModule(ModuleBase):
 ## Inertia pages
 
 - `FileStorage/Browse.tsx` — file list + upload dropzone; handles the upload progress + delete confirmation flow. Each row shows a "Public" badge and a make public / make private action.
-- `FileStorage/components/UploadDropzone.tsx` — drag-drop upload child component.
+- `ui/components/UploadDropzone.tsx` — drag-drop upload child component.
 
 ## Locales
 

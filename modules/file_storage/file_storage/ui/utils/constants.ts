@@ -1,4 +1,4 @@
-// TSX-side mirror of file_storage/constants.py — keep in sync.
+// TSX-side mirror of file_storage/core/constants.py — keep in sync.
 // All routes and permission strings used by Browse.tsx and its components are
 // declared here so the JSX has no magic strings.
 

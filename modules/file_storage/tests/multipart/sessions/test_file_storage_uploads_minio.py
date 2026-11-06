@@ -3,7 +3,7 @@
 Skipped unless ``SM_TEST_S3_ENDPOINT`` is set, e.g.::
 
     SM_TEST_S3_ENDPOINT=http://localhost:9000 uv run pytest \\
-        modules/file_storage/tests/test_file_storage_uploads_minio.py
+        modules/file_storage/tests/multipart/sessions/test_file_storage_uploads_minio.py
 
 Credentials default to the dev stack's ``minioadmin``/``minioadmin`` and the
 test creates (and leaves) a bucket named ``sm-multipart-test``.

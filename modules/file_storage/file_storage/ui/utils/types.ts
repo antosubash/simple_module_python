@@ -1,4 +1,4 @@
-/** Shapes of the `FileStorage/Browse` Inertia props — mirrors endpoints/views.py. */
+/** Shapes of the `FileStorage/Browse` Inertia props — mirrors web/endpoints/views.py. */
 
 export interface StoredFile {
   id: string;
