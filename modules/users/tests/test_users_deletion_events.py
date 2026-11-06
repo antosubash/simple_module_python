@@ -16,10 +16,10 @@ from simple_module_db import all_tenants, tenant_context
 from simple_module_db.transaction import finalize_session, rollback_session
 from sqlmodel import select
 from starlette.requests import Request
-from tenants.constants import MembershipRole, TenantStatus
+from tenants.core.constants import MembershipRole, TenantStatus
+from tenants.core.service import TenantService
 from tenants.models import Membership, Tenant
 from tenants.module import TenantsModule
-from tenants.service import TenantService
 from users.admin.api import admin_delete_user, admin_disable_user, admin_set_roles
 from users.admin.service import UserService
 from users.contracts.events import RoleAssigned, UserDeleted, UserDisabled

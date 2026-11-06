@@ -227,5 +227,5 @@ when a later module PR moves files.
 | settings | 31 | 43 | flat |
 | sharing | 3 (+3 shims) | 0 | follows this layout |
 | site_lock | 2 (+1 shim) | 0 | follows this layout |
-| tenants | 19 | 23 | flat |
+| tenants | 3 (+5 shims) | 0 | follows this layout |
 | users | 31 | 97 | flat |

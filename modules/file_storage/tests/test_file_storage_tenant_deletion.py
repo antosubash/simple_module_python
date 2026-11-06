@@ -129,8 +129,8 @@ async def test_inline_cleanup_defers_objects_until_commit(
     db_session, tmp_path, monkeypatch, rollback
 ):
     from simple_module_db.transaction import finalize_session, rollback_session
+    from tenants.core.service import TenantService
     from tenants.models import Tenant
-    from tenants.service import TenantService
 
     bus = EventBus()
     backend = FilesystemBackend(tmp_path)

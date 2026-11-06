@@ -41,6 +41,7 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "mail": frozenset({"delivery"}),
     "oidc": frozenset({"identity"}),
     "permissions": frozenset({"grants"}),
+    "tenants": frozenset({"invitations", "resolution"}),
 }
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
@@ -76,14 +77,6 @@ LEGACY_FLAT: dict[str, frozenset[str]] = {
         browse_query.py constants.py deps.py endpoints env_vars.py errors.py exceptions.py
         hydrate.py invalidation.py known_keys.py module_registry.py registration.py
         reload.py service.py services.py settings.py store.py tenant_scope.py tenant_view.py
-        """.split()
-    ),
-    "tenants": frozenset(
-        """
-        _deletion.py _membership_ops.py _owner_guard.py components constants.py deps.py
-        endpoints errors.py hooks host_resolver.py invitation_mail.py invitations.py
-        resolver.py service.py services.py settings.py shared_props.py templates
-        token_tenant.py user_cleanup.py
         """.split()
     ),
     "users": frozenset(

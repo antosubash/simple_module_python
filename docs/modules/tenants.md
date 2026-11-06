@@ -181,8 +181,8 @@ drops the owner's memberships and the new slug's host lookups; other users'
 caches stay warm. Status changes and deletion publish `None` on the membership
 channel. Construct services with both invalidators outside request
 dependencies: `TenantService(db, invalidate=make_invalidator(app),
-invalidate_hosts=make_host_invalidator(app))` (from `tenants.resolver` and
-`tenants.host_resolver`). Direct SQL writes must publish `tenants.membership`
+invalidate_hosts=make_host_invalidator(app))` (from `tenants.resolution.resolver` and
+`tenants.resolution.host_resolver`). Direct SQL writes must publish `tenants.membership`
 with `key=None` after commit or wait for TTL expiry.
 
 ## Models

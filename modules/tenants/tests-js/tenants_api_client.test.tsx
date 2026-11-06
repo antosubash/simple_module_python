@@ -10,8 +10,8 @@ import { failure } from '@simple-module-py/ui/lib/api-result';
 import { cleanup, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { MembershipList } from '../tenants/components/MembershipList';
-import { useTenantErrors } from '../tenants/hooks/useTenantErrors';
+import { MembershipList } from '../tenants/ui/components/MembershipList';
+import { useTenantErrors } from '../tenants/ui/hooks/useTenantErrors';
 
 configureI18n({
   locale: 'en',

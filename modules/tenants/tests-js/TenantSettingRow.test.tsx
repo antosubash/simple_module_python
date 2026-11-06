@@ -8,7 +8,7 @@ import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { type TenantSetting, TenantSettingRow } from '../tenants/components/TenantSettingRow';
+import { type TenantSetting, TenantSettingRow } from '../tenants/ui/components/TenantSettingRow';
 
 configureI18n({
   locale: 'en',

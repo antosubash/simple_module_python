@@ -67,7 +67,7 @@ async def admin_tenant_id(app) -> str:
     from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
     from sqlalchemy import select
     from tenants.models import Membership, Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
     from users.models import User
 
     async with app.state.sm.db.session_factory() as session:

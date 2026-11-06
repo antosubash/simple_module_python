@@ -38,7 +38,7 @@ async def _rows(app) -> list[StoredFile]:
 async def _give_admin_a_tenant(app) -> str:
     from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
     from tenants.models import Membership, Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
     from users.models import User
 
     async with app.state.sm.db.session_factory() as session:

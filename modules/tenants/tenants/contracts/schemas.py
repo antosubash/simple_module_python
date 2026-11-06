@@ -11,7 +11,7 @@ from simple_module_db import PLATFORM_TENANT_ID
 from simple_module_db.pagination import Page
 from sqlmodel import Field, SQLModel
 
-from tenants.constants import MAX_EMAIL_LEN, MAX_NAME_LEN, MembershipRole
+from tenants.core.constants import MAX_EMAIL_LEN, MAX_NAME_LEN, MembershipRole
 
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$")
 
