@@ -16,8 +16,8 @@ from tempfile import TemporaryDirectory
 from typing import BinaryIO
 from uuid import UUID
 
-from background_tasks.outbox_loop import run_on_worker_loop
-from background_tasks.outbox_worker import worker_bus, worker_session_factory
+from background_tasks.outbox.loop import run_on_worker_loop
+from background_tasks.outbox.worker import worker_bus, worker_session_factory
 from fastapi import UploadFile
 from simple_module_db import independent_session
 from simple_module_db.callbacks import register_on_commit

@@ -46,7 +46,7 @@ from simple_module_db.tenancy import (
 )
 
 # ``_engine_policy`` (imported above) is re-exported: the per-engine policy map lives in
-# ``_engine_policies``; modules/background_tasks/tests/test_worker_tenancy.py reads it here.
+# ``_engine_policies``; the background_tasks worker tenancy test reads it here.
 
 
 class EngineTenancy:

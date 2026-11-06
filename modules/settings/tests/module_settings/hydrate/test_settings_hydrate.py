@@ -219,7 +219,7 @@ async def test_env_wins_even_where_env_alone_fails_validation(db_session, monkey
 @pytest.mark.asyncio
 async def test_background_tasks_env_var_beats_stored_override(db_session, monkeypatch) -> None:
     """The bundled class the bug was real for: ``SM_BG_TASKS_*`` must win."""
-    from background_tasks.settings import BackgroundTasksSettings
+    from background_tasks.core.settings import BackgroundTasksSettings
 
     store = SettingsStore(SettingService(db_session))
     await store.set_override("background_tasks", "task_default_queue", "from-db", "string")

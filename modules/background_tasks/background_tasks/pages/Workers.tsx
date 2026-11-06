@@ -8,11 +8,16 @@ import { ageOf, isStale } from '@simple-module-py/ui/lib/relative-time';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { RoutesTable } from '../ui/components/RoutesTable';
+import { WorkerCard, WorkersSkeleton } from '../ui/components/WorkerCard';
+import { BrokerUnreachable, NoWorkers } from '../ui/components/WorkerEmptyStates';
+import {
+  formatClock,
+  type TaskRoute,
+  VIEW_INDEX,
+  type WorkerSnapshot,
+} from '../ui/utils/constants';
 import { api } from './api';
-import { RoutesTable } from './components/RoutesTable';
-import { WorkerCard, WorkersSkeleton } from './components/WorkerCard';
-import { BrokerUnreachable, NoWorkers } from './components/WorkerEmptyStates';
-import { formatClock, type TaskRoute, VIEW_INDEX, type WorkerSnapshot } from './constants';
 
 interface Props {
   /** Deferred: undefined until the broker poll (up to ~1s) answers. */

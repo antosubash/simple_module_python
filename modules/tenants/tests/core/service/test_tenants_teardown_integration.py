@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from api_tokens.models import ApiToken
 from audit_log.models import AuditEntry
-from background_tasks.outbox_claim import OutboxPolicy
-from background_tasks.outbox_dispatch import dispatch
+from background_tasks.outbox.claim import OutboxPolicy
+from background_tasks.outbox.dispatch import dispatch
 from feature_flags.models import FeatureFlagOverride
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.models import StoredFile

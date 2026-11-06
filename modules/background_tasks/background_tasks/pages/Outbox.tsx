@@ -8,15 +8,15 @@ import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { cn } from '@simple-module-py/ui/lib/utils';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { OutboxTable } from './components/OutboxTable';
-import { VIEW_BASE, VIEW_INDEX } from './constants';
+import { OutboxTable } from '../ui/components/OutboxTable';
+import { VIEW_BASE, VIEW_INDEX } from '../ui/utils/constants';
 import {
   discardOutboxMessage,
   OPEN_OUTBOX_STATUSES,
   OUTBOX_STATUS_LABEL_KEY,
   type OutboxMessage,
   retryOutboxMessage,
-} from './outbox';
+} from '../ui/utils/outbox';
 
 interface Props {
   messages: OutboxMessage[];

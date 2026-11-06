@@ -7,7 +7,7 @@ only the stored culprit, keeping the module's other overrides.
 from __future__ import annotations
 
 import pytest
-from background_tasks.settings import ENV_PREFIX, BackgroundTasksSettings
+from background_tasks.core.settings import ENV_PREFIX, BackgroundTasksSettings
 from file_storage.core.settings import FileStorageSettings
 from keycloak.core.settings import KeycloakSettings
 from pydantic import ValidationError

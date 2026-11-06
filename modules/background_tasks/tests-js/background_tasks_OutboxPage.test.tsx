@@ -22,7 +22,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
 import Outbox from '../background_tasks/pages/Outbox';
-import type { OutboxMessage } from '../background_tasks/pages/outbox';
+import type { OutboxMessage } from '../background_tasks/ui/utils/outbox';
 import { requestsOf, stubFetch } from './stub-fetch';
 
 const ob = keys.background_tasks.outbox;

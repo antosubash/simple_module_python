@@ -6,10 +6,10 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowLeft } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { LogLevelSelect } from './components/LogLevelSelect';
-import { LogTable } from './components/LogTable';
-import { VIEW_BASE, VIEW_INDEX } from './constants';
-import type { LogItem } from './logs';
+import { LogLevelSelect } from '../ui/components/LogLevelSelect';
+import { LogTable } from '../ui/components/LogTable';
+import { VIEW_BASE, VIEW_INDEX } from '../ui/utils/constants';
+import type { LogItem } from '../ui/utils/logs';
 
 interface Props {
   logs: LogItem[];

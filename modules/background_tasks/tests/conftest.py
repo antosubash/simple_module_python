@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from background_tasks import sync_db
-from background_tasks.constants import PERM_VIEW, TaskStatus
+from background_tasks.core import sync_db
+from background_tasks.core.constants import PERM_VIEW, TaskStatus
 from background_tasks.models import TaskExecution
 from sqlalchemy import select
 

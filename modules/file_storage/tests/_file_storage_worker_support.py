@@ -1,8 +1,9 @@
 """A real worker database and filesystem, without a Celery broker."""
 
 import pytest
-from background_tasks import outbox_worker, sync_db
-from background_tasks.worker_settings import clear_settings_cache
+from background_tasks.core import sync_db
+from background_tasks.outbox import worker as outbox_worker
+from background_tasks.worker.settings import clear_settings_cache
 from file_storage.models import StoredFile
 from simple_module_core.events import EventBus
 from simple_module_db.stored_settings import Setting

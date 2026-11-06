@@ -7,15 +7,15 @@ import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowLeft, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
-import { DetailFacts } from './components/DetailFacts';
-import { LogsPanel } from './components/LogsPanel';
-import { PayloadCards } from './components/PayloadCards';
-import { ProgressCard } from './components/ProgressCard';
-import { RetryConfirmDialog } from './components/RetryConfirmDialog';
-import { StatusPill } from './components/StatusPill';
-import { TracebackCard } from './components/TracebackCard';
-import { RETRYABLE_STATUSES, type TaskDetail, VIEW_BASE, VIEW_INDEX } from './constants';
-import { retryExecution } from './retry';
+import { DetailFacts } from '../ui/components/DetailFacts';
+import { LogsPanel } from '../ui/components/LogsPanel';
+import { PayloadCards } from '../ui/components/PayloadCards';
+import { ProgressCard } from '../ui/components/ProgressCard';
+import { RetryConfirmDialog } from '../ui/components/RetryConfirmDialog';
+import { StatusPill } from '../ui/components/StatusPill';
+import { TracebackCard } from '../ui/components/TracebackCard';
+import { RETRYABLE_STATUSES, type TaskDetail, VIEW_BASE, VIEW_INDEX } from '../ui/utils/constants';
+import { retryExecution } from '../ui/utils/retry';
 
 interface Props {
   execution: TaskDetail;

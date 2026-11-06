@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import ConfigDict
 from sqlmodel import SQLModel
 
-from background_tasks.constants import OutboxStatus
+from background_tasks.core.constants import OutboxStatus
 
 
 class OutboxItem(SQLModel):

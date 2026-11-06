@@ -7,7 +7,7 @@ re-hydrating from the store, since that is where the wrong type surfaced.
 
 from __future__ import annotations
 
-from background_tasks.settings import BackgroundTasksSettings
+from background_tasks.core.settings import BackgroundTasksSettings
 from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
 from simple_module_core.settings_hydrate import hydrate_settings, input_type_for_field

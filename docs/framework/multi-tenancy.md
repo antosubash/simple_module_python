@@ -300,7 +300,7 @@ An unscoped event's handler runs with no tenant bound — never as the platform
 — so a public webhook's payload cannot drive a cross-tenant read. See
 [background_tasks](../modules/background_tasks.md).
 
-The worker never builds the app, so `background_tasks.sync_db` attaches the
+The worker never builds the app, so `background_tasks.core.sync_db` attaches the
 same listeners to its own session class and reads `multi_tenant` from the host
 settings (`scripts/run_worker.py`): task bodies get the same fail-closed rules
 as request code. It also passes `default_tenant`, so an unbound insert in a

@@ -1,7 +1,7 @@
 """The janitor and checksum tasks (``file_storage.tasks``) (#454).
 
 Tasks run in a worker with its own sync engine, so these point
-``background_tasks.sync_db`` at a throwaway SQLite file and swap in a
+``background_tasks.core.sync_db`` at a throwaway SQLite file and swap in a
 filesystem backend, which is all a worker needs to exercise.
 """
 
@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from background_tasks import sync_db
+from background_tasks.core import sync_db
 from file_storage import tasks
 from file_storage.backends.filesystem import FilesystemBackend
 from file_storage.core import constants

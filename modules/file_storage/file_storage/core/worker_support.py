@@ -7,7 +7,7 @@ from file_storage.core.settings import FileStorageSettings
 
 
 def backend_and_settings() -> tuple[StorageBackend, FileStorageSettings]:
-    from background_tasks.worker_settings import settings_for
+    from background_tasks.worker.settings import settings_for
 
     settings = settings_for(FileStorageSettings, constants.MODULE_NAME)
     return build_backend(settings), settings

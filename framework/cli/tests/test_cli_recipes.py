@@ -34,7 +34,7 @@ def test_recipe_writes_run_worker_script(tmp_path: Path) -> None:
     text = script.read_text()
     # GH #490: the shared runner, which hydrates DB-backed settings — not a
     # local copy built from the environment alone.
-    assert "from background_tasks.runner import build_runner_celery" in text
+    assert "from background_tasks.worker.runner import build_runner_celery" in text
     assert "celery = build_runner_celery(" in text
     assert "BackgroundTasksSettings()" not in text
 

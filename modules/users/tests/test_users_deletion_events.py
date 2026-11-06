@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 from background_tasks.models import OutboxMessage
-from background_tasks.outbox_transport import _OutboxWriter
+from background_tasks.outbox.transport import _OutboxWriter
 from permissions.models import UserPermission
 from permissions.module import PermissionsModule
 from sharing.core.constants import SUBJECT_USER
