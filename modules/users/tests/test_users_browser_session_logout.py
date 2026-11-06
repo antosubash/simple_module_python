@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from _users_app_builders import user_row
-from auth.constants import SESSION_ID_KEY
+from auth.core.constants import SESSION_ID_KEY
 from simple_module_core.invalidation import InvalidationBus
 from sqlalchemy import select
 from users.auth_local.browser_sessions import revoke_browser_session

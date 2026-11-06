@@ -80,7 +80,7 @@ async def delete_order(order_id: int) -> None: ...
 2. The keys assigned directly to the user (`permissions_user_permission`), contributed by `permissions.grants.source.direct_grant_source` via `PermissionRegistry.add_grant_source`.
 3. The implicit `WILDCARD` grant. The `admin` role is synced to hold every permission key at startup, so admins pass any check.
 
-All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`. `auth.deps.require_permission(*keys)` reads the same set, with any-of semantics.
+All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`. `auth.web.deps.require_permission(*keys)` reads the same set, with any-of semantics.
 
 Workers that start together (a fresh install, or a release that adds keys) all see the same admin grants missing. Each inserts them through the ORM in a savepoint and, if another worker got there first, reads again and inserts only what is still missing, so every startup succeeds (#732).
 

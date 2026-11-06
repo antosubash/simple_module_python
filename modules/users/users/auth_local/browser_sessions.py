@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from auth.constants import SESSION_ID_KEY
+from auth.core.constants import SESSION_ID_KEY
 from fastapi import Request
 from simple_module_db.callbacks import register_on_commit
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, SESSION_SIGNATURE_MAX_AGE

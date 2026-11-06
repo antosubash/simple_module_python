@@ -10,8 +10,8 @@ from __future__ import annotations
 import httpx
 import pytest
 from auth.contracts.schemas import UserContext
-from auth.middleware import AuthMiddleware
-from auth.state import AuthState
+from auth.core.state import AuthState
+from auth.web.middleware import AuthMiddleware
 from fastapi import APIRouter, FastAPI
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from starlette.middleware.sessions import SessionMiddleware
@@ -152,7 +152,7 @@ async def test_signed_in_unknown_path_is_404():
 
 
 async def test_probe_failure_fails_closed(monkeypatch):
-    import auth._route_match as rm
+    import auth.web._route_match as rm
 
     def boom(router, probe):
         raise RuntimeError("router exploded")

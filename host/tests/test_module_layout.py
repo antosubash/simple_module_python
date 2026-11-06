@@ -35,6 +35,7 @@ ALLOWED_ROOT = frozenset(
 DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "api_tokens": frozenset({"credentials"}),
     "audit_log": frozenset({"entries"}),
+    "auth": frozenset({"oidc_common"}),
     "branding": frozenset({"assets"}),
     "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
@@ -44,11 +45,6 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
 LEGACY_FLAT: dict[str, frozenset[str]] = {
-    "auth": frozenset(
-        """
-        _route_match.py constants.py deps.py middleware.py oidc_common state.py
-        """.split()
-    ),
     "background_tasks": frozenset(
         """
         _lifecycle.py _signal_bus.py _signal_support.py after_commit.py celery_app.py

@@ -13,7 +13,7 @@ from simple_module_hosting.csrf import rotate_csrf_token
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
 
-from auth.constants import SESSION_AUTHORITY_KEY, SESSION_ID_KEY
+from auth.core.constants import SESSION_AUTHORITY_KEY, SESSION_ID_KEY
 
 
 @dataclass(frozen=True)

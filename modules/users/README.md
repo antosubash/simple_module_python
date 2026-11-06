@@ -39,7 +39,7 @@ SM_USERS_BOOTSTRAP_PASSWORD=change-me
 Program:
 
 ```python
-from auth.deps import CurrentUser
+from auth.web.deps import CurrentUser
 
 
 @router.get("/profile")

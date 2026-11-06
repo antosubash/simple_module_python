@@ -1,6 +1,6 @@
 # Public routes (anonymous access)
 
-`AuthMiddleware` (in `auth/middleware.py`) gates **every** request behind the
+`AuthMiddleware` (in `auth/web/middleware.py`) gates **every** request behind the
 active auth provider — unauthenticated browser requests get a 302 to the login
 URL, unauthenticated API requests get a 401. Modules that need to expose a
 route without a session (a read-only STAC / OGC API, a TileJSON endpoint, an
@@ -131,4 +131,4 @@ want the exemption to travel with the module that owns the route.
 - Wiring — `simple_module_hosting.app_builder.create_app` populates the
   registry and publishes it at `app.state.public_routes` (also
   `app.state.sm.public_routes`)
-- Enforcement — `auth.middleware.AuthMiddleware`
+- Enforcement — `auth.web.middleware.AuthMiddleware`

@@ -15,8 +15,8 @@ from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from sqlalchemy import delete, or_
 from sqlmodel import col
 
-from auth.constants import REFRESH_RETRY_AFTER_SECONDS, SESSION_AUTHORITY_KEY, SESSION_ID_KEY
 from auth.contracts.schemas import UserContext
+from auth.core.constants import REFRESH_RETRY_AFTER_SECONDS, SESSION_AUTHORITY_KEY, SESSION_ID_KEY
 from auth.models import RefreshOutcome
 from auth.oidc_common.session import SessionKeys
 

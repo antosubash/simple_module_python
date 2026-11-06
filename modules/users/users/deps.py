@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from auth.deps import CurrentUser
+from auth.web.deps import CurrentUser
 from fastapi import Depends, HTTPException, Request
 from fastapi_users import FastAPIUsers
 from fastapi_users import exceptions as fu_exceptions

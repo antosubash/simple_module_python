@@ -5,8 +5,8 @@ from __future__ import annotations
 import httpx
 import pytest
 from auth.contracts.schemas import UserContext
-from auth.middleware import AuthMiddleware
-from auth.state import AuthState
+from auth.core.state import AuthState
+from auth.web.middleware import AuthMiddleware
 from fastapi import FastAPI, Request
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse

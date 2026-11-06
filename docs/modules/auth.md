@@ -49,8 +49,10 @@ Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `h
 ## Dependencies for endpoints
 
 ```python
-from auth.deps import CurrentUser, get_current_user, require_permission
+from auth.web.deps import CurrentUser, get_current_user, require_permission
 ```
+
+The old `auth.deps` import path still works, with a `DeprecationWarning`, until 0.0.46 (as do `auth.constants`, `auth.state` and `auth.middleware`).
 
 | Dependency | What it does |
 |---|---|
@@ -62,7 +64,7 @@ from auth.deps import CurrentUser, get_current_user, require_permission
 
 ```python
 from fastapi import APIRouter, Depends
-from auth.deps import CurrentUser, require_permission
+from auth.web.deps import CurrentUser, require_permission
 
 router = APIRouter()
 

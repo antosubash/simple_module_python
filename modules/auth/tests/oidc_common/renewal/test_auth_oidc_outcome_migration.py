@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, inspect
 
 
 def test_refresh_outcome_sqlite_roundtrip():
-    root = Path(__file__).resolve().parents[3]
+    root = Path(__file__).resolve().parents[5]
     script = ScriptDirectory.from_config(Config(str(root / "host/alembic.ini")))
     migration = script.get_revision("auth@head").module
     engine = create_engine("sqlite://")
