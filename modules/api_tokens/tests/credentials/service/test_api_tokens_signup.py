@@ -24,7 +24,7 @@ EMAIL = "signup@example.com"
 
 
 async def _register(app, client) -> str:
-    from users.bootstrap import ensure_user_role
+    from users.core.bootstrap import ensure_user_role
     from users.models import User
 
     # Test schemas come from ``create_all``: seed the role the migration would.
@@ -45,7 +45,7 @@ async def _register(app, client) -> str:
 
 
 async def test_registration_attaches_the_user_role(app, client):
-    from users.constants import USER_ROLE_NAME
+    from users.core.constants import USER_ROLE_NAME
     from users.models import Role, UserRole
 
     user_id = await _register(app, client)

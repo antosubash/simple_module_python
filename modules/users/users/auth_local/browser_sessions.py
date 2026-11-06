@@ -13,10 +13,10 @@ from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from users.constants import SESSION_USER_ID_KEY
+from users.accounts.session_revocation import publish_revocation
+from users.accounts.token_storage import revoke_access_token
+from users.core.constants import SESSION_USER_ID_KEY
 from users.models import RevokedSession
-from users.session_revocation import publish_revocation
-from users.token_storage import revoke_access_token
 
 
 def _insert(dialect: str) -> Any:

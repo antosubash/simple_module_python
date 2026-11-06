@@ -60,7 +60,7 @@ async def test_without_a_directory_nobody_is_found(db_session: AsyncSession):
 
 
 def test_admin_role_name_comes_from_core():
-    """The admin sync keys on core's ``ADMIN_ROLE``, not ``users.constants``."""
-    from users.constants import ADMIN_ROLE_NAME
+    """The admin sync keys on core's ``ADMIN_ROLE``, not ``users.core.constants``."""
+    from users.core.constants import ADMIN_ROLE_NAME
 
     assert ADMIN_ROLE == ADMIN_ROLE_NAME

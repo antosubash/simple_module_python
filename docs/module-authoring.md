@@ -721,7 +721,7 @@ behind head re-enters setup mode with its administrators intact. Every
 
 **An action that creates something unique must re-check under a lock.** The
 step check runs before your handler and outside its transaction, so two
-concurrent requests can both pass it. `users.setup_action` shows the pattern:
+concurrent requests can both pass it. `users.core.setup_action` shows the pattern:
 take a database lock (`pg_advisory_xact_lock` on Postgres, a no-op `UPDATE`
 that claims SQLite's write lock), re-check the predicate, then insert, all in
 one transaction.
@@ -897,7 +897,7 @@ The package registers pytest fixtures via a `pytest11` entry_point — no
 | `db_state` / `engine` / `db_session` | Fresh in-memory `DatabaseState` per test; `db_session` creates every installed module's tables and stamps `alembic_version` at head. |
 | `app` | A full `create_app(settings)` with lifespan started/stopped. |
 | `client` | `httpx.AsyncClient` bound to the test app (anonymous). |
-| `authenticated_client` | Same, with a seeded admin + signed session cookie. Requires the `users` module installed (seeds via `users.bootstrap`). |
+| `authenticated_client` | Same, with a seeded admin + signed session cookie. Requires the `users` module installed (seeds via `users.core.bootstrap`). |
 
 Example test:
 

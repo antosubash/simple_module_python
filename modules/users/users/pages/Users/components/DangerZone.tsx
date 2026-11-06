@@ -7,8 +7,8 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { adminFailureMessage } from '../../../ui/utils/failureMessage';
 import { api } from '../../api';
-import { adminFailureMessage } from '../../failureMessage';
 
 interface Props {
   userId: string;

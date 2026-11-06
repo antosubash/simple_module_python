@@ -17,7 +17,7 @@ import typer
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from users.bootstrap import create_admin
+from users.core.bootstrap import create_admin
 
 app = typer.Typer(help="Users module administration.", no_args_is_help=True)
 

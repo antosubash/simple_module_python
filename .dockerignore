@@ -33,7 +33,7 @@ host/static/dist/
 
 # Secrets / local data
 # Anywhere in the context, not just the root. `credentials*` stays root-only:
-# recursive, it would also drop source modules such as users/credentials.py.
+# recursive, it would also drop source modules such as users/accounts/credentials.py.
 **/.env*
 !**/.env.example
 **/*.pem

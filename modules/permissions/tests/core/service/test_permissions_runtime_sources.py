@@ -9,7 +9,7 @@ from fastapi import FastAPI
 async def test_source_permission_listed_grantable_and_invalidated(
     authenticated_client: httpx.AsyncClient, app: FastAPI
 ):
-    from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+    from users.core.constants import USER_ROLE_ID, USER_ROLE_NAME
     from users.models import Role
 
     registry = app.state.sm.permissions
@@ -64,7 +64,7 @@ async def test_saving_role_keeps_grants_of_currently_unregistered_source_keys(
     authenticated_client: httpx.AsyncClient, app: FastAPI
 ):
     from permissions.core.service import PermissionService
-    from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+    from users.core.constants import USER_ROLE_ID, USER_ROLE_NAME
     from users.models import Role
 
     registry = app.state.sm.permissions

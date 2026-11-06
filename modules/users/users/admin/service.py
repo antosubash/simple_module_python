@@ -12,9 +12,9 @@ from sqlmodel import col
 
 from users.admin.safety import _UserAdminSafety
 from users.admin.summary_cache import publish_after_commit, publish_now
-from users.constants import ADMIN_ROLE_NAME
 from users.contracts.schemas import UserCreate
-from users.exceptions import (
+from users.core.constants import ADMIN_ROLE_NAME
+from users.core.exceptions import (
     EmailAlreadyExistsError,
     ExternalUserNoPasswordError,
     NotPendingInviteError,

@@ -3,7 +3,7 @@
 from fastapi import HTTPException, Request
 from starlette.responses import RedirectResponse
 
-from users.constants import LOGIN_PAGE_PATH
+from users.core.constants import LOGIN_PAGE_PATH
 
 OAUTH_ERROR_CODES = frozenset({"account_not_verified", "signup_disabled", "signin_failed"})
 

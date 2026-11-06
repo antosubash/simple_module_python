@@ -19,7 +19,7 @@ from fastapi import FastAPI, Request
 from simple_module_test import forge_session_cookie
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
-from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+from users.core.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
 SECRET_KEY = "test-secret-key-for-session-middleware"
 
@@ -61,8 +61,8 @@ async def _build_app(db_state, inner_handler=None, *, principal_resolvers=None):
     app = FastAPI()
     app.state.sm = SimpleNamespace(db=db_state)
     from simple_module_core.public_routes import PublicRouteRegistry
+    from users.accounts.provider import UsersAuthProvider
     from users.module import UsersModule
-    from users.provider import UsersAuthProvider
 
     # The host fills this from every module's register_public_routes at boot.
     app.state.public_routes = PublicRouteRegistry()

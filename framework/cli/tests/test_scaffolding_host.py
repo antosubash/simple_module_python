@@ -166,7 +166,7 @@ class TestCreateHost:
     async def test_main_py_loads_dotenv_before_settings(self, tmp_path):
         """Regression for #158: scaffolded main.py must populate ``os.environ``
         from ``.env`` *before* ``Settings`` is imported, otherwise framework
-        code reading ``os.environ`` directly (e.g. users.bootstrap's dotenv
+        code reading ``os.environ`` directly (e.g. users.core.bootstrap's dotenv
         fallback under uvicorn launched from ``host/``) silently misses values
         that pydantic-settings would have picked up.
         """

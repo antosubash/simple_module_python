@@ -11,7 +11,7 @@ from __future__ import annotations
 from permissions.core.service import PermissionService
 from simple_module_core.permissions import WILDCARD, PermissionRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
-from users.directory import UsersDirectory
+from users.core.directory import UsersDirectory
 
 
 def _registry() -> PermissionRegistry:
@@ -71,7 +71,7 @@ class TestUserPermissionsPayload:
         """`inherited` drops direct duplicates; `inherited_by` must not, or a
         key granted both ways looks purely direct and revoking it silently
         leaves the role grant in place."""
-        from users.constants import USER_ROLE_ID
+        from users.core.constants import USER_ROLE_ID
         from users.models import Role, User
 
         reg = _registry()

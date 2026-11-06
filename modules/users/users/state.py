@@ -1,43 +1,11 @@
-"""Module-scoped state container for the users module.
-
-Stored as ``app.state.users`` by :meth:`UsersModule.register_settings` (for
-fields available at that phase) and populated the rest of the way during
-:meth:`UsersModule.on_startup` (for fields that depend on the DB or other
-framework services).
-
-Not frozen — ``on_startup`` needs to set fields that aren't available at
-``register_settings`` time. Convention: set once during boot, treat as
-read-only after.
-"""
+"""Moved to :mod:`users.core.state`; this alias goes in 0.0.46 (module layout)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+import importlib
+import sys
 
-if TYPE_CHECKING:
-    import uuid
+from simple_module_core.deprecation import deprecated_module
 
-    from users.auth_local.rate_limit import ThroughputLimiter
-    from users.mailer import Mailer
-    from users.oauth.providers import OAuthProvider
-    from users.roles_cache import RoleSummary
-    from users.settings import UsersSettings
-
-
-@dataclass
-class UsersState:
-    """Users-module singletons. Single slot at ``app.state.users``."""
-
-    settings: UsersSettings
-    mailer: Mailer | None = None
-    auth_throughput_limiter: ThroughputLimiter | None = None
-    roles_cache: list[RoleSummary] = field(default_factory=list)
-    #: ``time.monotonic()`` of the last load; the TTL floor in ``users.roles_cache``.
-    roles_cache_loaded_at: float = 0.0
-    oauth_providers: list[dict[str, str]] = field(default_factory=list)
-    oauth_clients: dict[str, OAuthProvider] = field(default_factory=dict)
-    # Ids of the seeded demo accounts, empty when demo mode is off. Cached at
-    # boot (and on every settings reload) so ``DemoReadOnlyMiddleware`` can
-    # recognise a demo session without a database read per request.
-    demo_user_ids: tuple[uuid.UUID, ...] = ()
+deprecated_module("users.state", remove_in="0.0.46", use="users.core.state")
+sys.modules[__name__] = importlib.import_module("users.core.state")

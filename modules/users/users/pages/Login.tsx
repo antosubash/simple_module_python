@@ -8,8 +8,8 @@ import { useState } from 'react';
 import { type DemoAccount, DemoSignIn } from '../auth_local/components/DemoSignIn';
 import { LoginForm, type OAuthProvider } from '../auth_local/components/LoginForm';
 import { WaitingOnYou } from '../auth_local/components/WaitingOnYou';
+import { signIn } from '../ui/utils/signIn';
 import { api } from './api';
-import { signIn } from './signIn';
 
 interface DevAccount {
   label: string;

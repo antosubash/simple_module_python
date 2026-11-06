@@ -114,7 +114,7 @@ class TestResendInvite:
 
     @pytest.mark.anyio
     async def test_resend_refuses_for_an_already_verified_account(self, admin_client, users_db):
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         user = await _make_user(users_db, email="settled@example.com", verified=True)
         resp = await admin_client.post(f"/api/users/admin/{user.id}/resend-invite")
@@ -124,7 +124,7 @@ class TestResendInvite:
     @pytest.mark.anyio
     async def test_resend_refuses_for_a_self_signup(self, admin_client, users_db):
         """Nobody invited them, so there is no invitation to send again."""
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         user = await _make_user(users_db, email="walkedin@example.com", verified=False)
         resp = await admin_client.post(f"/api/users/admin/{user.id}/resend-invite")
@@ -134,7 +134,7 @@ class TestResendInvite:
     @pytest.mark.anyio
     async def test_a_refused_resend_leaves_the_state_alone(self, admin_client, users_db):
         """Refusing must not stamp ``invited_at`` and turn a self-signup into an invite."""
-        from test_api_admin import _make_user
+        from _users_admin_support import _make_user
 
         user = await _make_user(users_db, email="untouched@example.com", verified=False)
         await admin_client.post(f"/api/users/admin/{user.id}/resend-invite")

@@ -10,7 +10,7 @@ Several modules cache a row that is cheap to read and expensive to read *often*:
 
 | Cache | Read on | Expires after | Owner |
 |---|---|---|---|
-| `User.session_version` | nearly every authenticated request | 30s | `users.session_version_cache` |
+| `User.session_version` | nearly every authenticated request | 30s | `users.accounts.session_version_cache` |
 | aggregate storage size | the files index | 30s | `file_storage` |
 | hydrated settings objects | every request that reads a setting | 30s periodic reload | `settings` |
 | role permission overlays | every permission check | 30s periodic reload | `permissions` |
@@ -53,7 +53,7 @@ Channel naming is `<module>.<cache>`. `Invalidation.key` is `None` for "forget t
 
 There is no `unsubscribe`, and subscribing the same callable twice runs it twice — subscriptions are made once at boot and last the life of the process. A handler may call `subscribe` during dispatch; the new handler takes effect from the *next* publish, because `_dispatch` walks a snapshot (it used to walk the live list, which let a self-re-arming handler wedge the event loop).
 
-**The key is a string on the wire.** If your cache is keyed by anything else — `users` keys by `uuid.UUID` — convert on the way in, or the handler pops a key that is not there and the whole mechanism is a silent no-op that unit tests of the publisher still pass. See `users.session_revocation._cache_key`.
+**The key is a string on the wire.** If your cache is keyed by anything else — `users` keys by `uuid.UUID` — convert on the way in, or the handler pops a key that is not there and the whole mechanism is a silent no-op that unit tests of the publisher still pass. See `users.accounts.session_revocation._cache_key`.
 
 ## Publishing
 

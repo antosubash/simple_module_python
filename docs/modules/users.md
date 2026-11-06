@@ -136,7 +136,7 @@ from users.contracts.events import (
 | `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
 
 Other modules read accounts through the [user directory](/framework/user-directory),
-which this module installs as `users.directory.UsersDirectory` in
+which this module installs as `users.core.directory.UsersDirectory` in
 `register_settings`; they should not import `users.models`. The one table read
 directly is `Role`, re-exported as `users.contracts.roles.Role` for the
 permissions role pages. The edit page's *Recent activity* card reads the core
@@ -332,7 +332,7 @@ uv run smpy users create-admin --email admin@example.com --password changeme
 Programmatically:
 
 ```python
-from users.bootstrap import create_admin
+from users.core.bootstrap import create_admin
 
 result = await create_admin(db, email="admin@example.com", password="...")
 # result.user, result.created -> bool
@@ -628,7 +628,7 @@ retire all sessions through the account version counter.
 
 ## Roles cache
 
-`roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. When the role set changes (the setup wizard's first administrator creates the `admin` role), `publish_roles_changed(app)` announces it on the `users.roles` invalidation channel: each subscribed worker empties its cache and `get_roles_cache` refills it on the next read (other workers hear it where the Redis invalidation transport is installed). Because delivery is not guaranteed, the cache also expires on its own after `TTL_SECONDS` (300 s, stamped as `roles_cache_loaded_at` on the users state) and is refetched on the next read. Used by the admin UI to render role pickers without hitting the DB on every request.
+`core/roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. When the role set changes (the setup wizard's first administrator creates the `admin` role), `publish_roles_changed(app)` announces it on the `users.roles` invalidation channel: each subscribed worker empties its cache and `get_roles_cache` refills it on the next read (other workers hear it where the Redis invalidation transport is installed). Because delivery is not guaranteed, the cache also expires on its own after `TTL_SECONDS` (300 s, stamped as `roles_cache_loaded_at` on the users state) and is refetched on the next read. Used by the admin UI to render role pickers without hitting the DB on every request.
 
 ## Branding the auth screens
 

@@ -16,14 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import col
 
+from users.accounts.manager import UserManager
+from users.accounts.session_revocation import bump_session_version, publish_revocation
+from users.accounts.session_version_cache import forget_session_version
 from users.admin.summary_cache import get_role_summary, get_state_counts
 from users.admin.user_state import STATUS_CONDITIONS, user_state
 from users.contracts.schemas import RoleListItem, UserListItem
-from users.exceptions import EmailAlreadyExistsError, UserNotFoundError
-from users.manager import UserManager
+from users.core.exceptions import EmailAlreadyExistsError, UserNotFoundError
 from users.models import Role, User, UserRole
-from users.session_revocation import bump_session_version, publish_revocation
-from users.session_version_cache import forget_session_version
 
 
 def _live_lock(locked_until: datetime | None) -> datetime | None:

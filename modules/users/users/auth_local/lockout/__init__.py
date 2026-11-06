@@ -41,7 +41,7 @@ from sqlmodel import col
 
 from users.auth_local.lockout.attempt import Admission, LoginAttempt
 from users.auth_local.rate_limit import client_ip
-from users.exceptions import LOGIN_LOCKED_DETAIL, LoginLockedError
+from users.core.exceptions import LOGIN_LOCKED_DETAIL, LoginLockedError
 from users.models import User
 
 if TYPE_CHECKING:

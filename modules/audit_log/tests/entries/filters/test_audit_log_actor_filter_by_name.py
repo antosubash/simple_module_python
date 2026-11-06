@@ -154,7 +154,7 @@ class TestActorSearchIsNotTruncated:
         that materialises ids passes the count test right up until the install
         is big enough to break it."""
         from audit_log.entries.resolve import actor_filter
-        from users.directory import UsersDirectory
+        from users.core.directory import UsersDirectory
 
         rendered = str(actor_filter(UsersDirectory(), "okafor"))
 

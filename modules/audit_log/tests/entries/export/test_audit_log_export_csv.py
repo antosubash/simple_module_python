@@ -264,7 +264,7 @@ class TestExportPermission:
         """Signed in is not the same as allowed to read the audit trail. The
         export is a second door onto the same rows as the browse screen, and a
         guard on one of the two doors is not a guard."""
-        from users.bootstrap import create_standard_user
+        from users.core.bootstrap import create_standard_user
 
         async with app.state.sm.db.session_factory() as session:
             result = await create_standard_user(

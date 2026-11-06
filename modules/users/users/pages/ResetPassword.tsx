@@ -10,8 +10,8 @@ import { useState } from 'react';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
 import { resetPasswordReason } from '../auth_local/resetPasswordError';
+import { signIn } from '../ui/utils/signIn';
 import { api } from './api';
-import { signIn } from './signIn';
 
 const FORGOT_PATH = '/users/forgot-password';
 

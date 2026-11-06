@@ -15,7 +15,7 @@ from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX, build_settin
 from simple_module_core.stored_settings import construct_leniently
 from simple_module_hosting.host_settings import HostSettings
 from site_lock.core.settings import SiteLockSettings
-from users.settings import UsersSettings
+from users.core.settings import UsersSettings
 
 
 def _int(v: int) -> tuple[str, str]:

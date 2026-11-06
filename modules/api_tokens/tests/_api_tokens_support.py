@@ -44,7 +44,7 @@ async def join_tenant(app: Any, user_id: str, email: str, tenant_id: str | None 
 
 
 async def make_admin(app: Any, email: str) -> str:
-    from users.bootstrap import create_admin
+    from users.core.bootstrap import create_admin
 
     async with app.state.sm.db.session_factory() as session:
         result = await create_admin(session, email=email, password="pw-123456", full_name="Admin")

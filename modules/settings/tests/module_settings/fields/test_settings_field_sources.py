@@ -140,7 +140,7 @@ class TestSecretMaskingIsTypeAware:
         return _field_view(name, cls(), "SM_USERS_", frozenset())
 
     def test_an_int_named_like_a_secret_is_not_masked(self):
-        from users.settings import UsersSettings
+        from users.core.settings import UsersSettings
 
         field = self._field(UsersSettings, "reset_password_token_lifetime_seconds")
         assert field.is_secret is False
@@ -149,7 +149,7 @@ class TestSecretMaskingIsTypeAware:
 
     def test_a_real_string_secret_is_still_masked(self):
         from settings.module_settings.discovery import SECRET_MASK
-        from users.settings import UsersSettings
+        from users.core.settings import UsersSettings
 
         field = self._field(UsersSettings, "reset_password_token_secret")
         assert field.is_secret is True

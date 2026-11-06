@@ -8,7 +8,7 @@ table, so the same grant was a 200 on this module's routes and a 403 on every
 other module's (GH #337).
 
 The source runs on every authenticated request, so it caches the same way
-``users.session_version_cache`` does: a bounded TTL as the floor, and an
+``users.accounts.session_version_cache`` does: a bounded TTL as the floor, and an
 ``InvalidationBus`` message so a change made in one worker drops the entry in
 every worker that has a transport. The worker that made the change always
 drops its own entry, because it is a local subscriber like any other.

@@ -13,7 +13,7 @@ from keycloak.core.constants import PUBLIC_PATH_PREFIXES as KEYCLOAK_PREFIXES
 from keycloak.module import KeycloakModule
 from simple_module_core.discovery import select_auth_provider
 from simple_module_core.public_routes import PublicRouteRegistry
-from users.constants import PUBLIC_PATH_PREFIXES as USERS_PREFIXES
+from users.core.constants import PUBLIC_PATH_PREFIXES as USERS_PREFIXES
 from users.module import UsersModule
 
 

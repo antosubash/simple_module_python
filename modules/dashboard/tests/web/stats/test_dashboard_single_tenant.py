@@ -35,7 +35,7 @@ def test_user_role_is_not_mapped_to_dashboard_view(app):
 
 
 async def _plain_user(app) -> str:
-    from users.bootstrap import create_standard_user
+    from users.core.bootstrap import create_standard_user
 
     async with app.state.sm.db.session_factory() as session:
         result = await create_standard_user(session, email="plain@example.com", password="x" * 12)

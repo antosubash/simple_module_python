@@ -146,7 +146,7 @@ async def users_config(request: Request):
 Or as a typed dependency — cleaner when you use it in many handlers:
 
 ```python
-# modules/users/users/deps.py
+# modules/users/users/web/deps.py
 from typing import Annotated
 from fastapi import Depends, Request
 

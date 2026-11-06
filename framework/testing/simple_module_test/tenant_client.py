@@ -45,7 +45,7 @@ class TenantClient(NamedTuple):
 
 async def create_user(app: Any, email: str) -> str:
     """A real, active, non-superuser ``users`` row with the ``user`` role; its id."""
-    from users.bootstrap import ensure_user_role
+    from users.core.bootstrap import ensure_user_role
     from users.models import User, UserRole
 
     async with app.state.sm.db.session_factory() as session:

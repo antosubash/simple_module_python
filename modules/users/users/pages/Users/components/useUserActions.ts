@@ -2,8 +2,8 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { adminFailureMessage } from '../../../ui/utils/failureMessage';
 import { api } from '../../api';
-import { adminFailureMessage } from '../../failureMessage';
 
 /**
  * The immediate account actions on the edit page — disable/enable, mark

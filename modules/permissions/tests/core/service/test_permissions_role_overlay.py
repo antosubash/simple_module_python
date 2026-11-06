@@ -22,7 +22,7 @@ def test_overlay_replace_keeps_code_mapping_and_drops_removed_db_keys():
 async def test_saving_a_role_keeps_its_code_mapped_grants(
     authenticated_client: httpx.AsyncClient, app: FastAPI
 ):
-    from users.constants import USER_ROLE_ID, USER_ROLE_NAME
+    from users.core.constants import USER_ROLE_ID, USER_ROLE_NAME
     from users.models import Role
 
     registry = app.state.sm.permissions

@@ -4,7 +4,7 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../pages/api';
-import { adminFailureMessage } from '../../pages/failureMessage';
+import { adminFailureMessage } from '../../ui/utils/failureMessage';
 
 /**
  * The per-row actions on the users table — resend, copy a reset link, and

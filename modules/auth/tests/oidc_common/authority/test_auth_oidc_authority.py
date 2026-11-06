@@ -101,11 +101,11 @@ async def test_real_users_login_cookie_is_anonymous_after_provider_switch(
     db_session,
 ):
     from fastapi import FastAPI
-    from users.db_adapter import UserDatabaseWithRoles
-    from users.manager import UserManager
+    from users.accounts.db_adapter import UserDatabaseWithRoles
+    from users.accounts.manager import UserManager
+    from users.accounts.provider import UsersAuthProvider, clear_session_version_cache
+    from users.core.settings import UsersSettings
     from users.models import OAuthAccount, Role, User
-    from users.provider import UsersAuthProvider, clear_session_version_cache
-    from users.settings import UsersSettings
 
     role = Role(name="admin")
     user = User(email="authority@example.com", is_verified=True, roles=[role])

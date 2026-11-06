@@ -25,7 +25,7 @@ async def test_admin_token_is_capped_by_its_scopes(actor, bearer):
 
 async def _set_roles(app, user_id: str, names: list[str]) -> None:
     from sqlalchemy import delete, select
-    from users.bootstrap import ensure_user_role
+    from users.core.bootstrap import ensure_user_role
     from users.models import Role, UserRole
 
     async with app.state.sm.db.session_factory() as session:

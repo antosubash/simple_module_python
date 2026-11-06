@@ -73,7 +73,7 @@ async def test_admin_page_lists_tenant_shares(note_app, tenant_client):
     from tenants.core.constants import SESSION_ACTIVE_TENANT
     from tenants.models import Membership
     from tenants.resolution.resolver import forget
-    from users.bootstrap import create_admin
+    from users.core.bootstrap import create_admin
 
     async with tenant_client(TenantRole.OWNER) as owner:
         async with tenant_client(TenantRole.MEMBER, tenant_id=owner.tenant_id) as friend:

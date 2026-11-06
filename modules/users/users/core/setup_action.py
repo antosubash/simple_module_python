@@ -1,0 +1,131 @@
+"""Create the first administrator while the local users table is empty.
+
+The step and this action share one rule, ``session_has_local_account``: the
+step is complete once any account exists, and the action re-checks it under
+the database lock in the inserting transaction, so two concurrent requests
+cannot both create one. Existing installations recover through
+``smpy users create-admin``. Passwords follow ``UserManager``'s policy.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from types import SimpleNamespace
+
+import sqlalchemy as sa
+from fastapi import HTTPException, Request
+from fastapi_users import exceptions as fu_exceptions
+from pydantic import EmailStr
+from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
+
+from users.accounts.manager import UserManager
+from users.core.bootstrap import create_admin
+from users.core.roles_cache import publish_roles_changed
+from users.core.setup import session_has_local_account
+from users.models import User
+
+logger = logging.getLogger(__name__)
+
+# Arbitrary, fixed 64-bit key for pg_advisory_xact_lock. Only this action
+# takes it, so any constant that no other module uses will do.
+_PG_LOCK_KEY = 0x534D_5345_5455_5041  # "SMSETUPA"
+
+
+class AdministratorIn(SQLModel):
+    email: EmailStr
+    password: str
+    full_name: str | None = None
+
+
+async def _validate_password(password: str, email: str) -> None:
+    try:
+        await UserManager.validate_password(UserManager, password, SimpleNamespace(email=email))  # ty: ignore[invalid-argument-type]
+    except fu_exceptions.InvalidPasswordException as exc:
+        raise HTTPException(status_code=422, detail=exc.reason) from exc
+
+
+async def _lock_admin_creation(session: AsyncSession) -> None:
+    """Serialize admin creation across workers for the rest of this transaction.
+
+    * Postgres: a transaction-scoped advisory lock, released at commit or
+      rollback. Taken before the re-check, so under READ COMMITTED the re-check
+      reads every admin committed by whoever held the lock before us.
+    * SQLite: a write statement that matches no rows. It still opens a write
+      transaction and takes the database's RESERVED lock, which a second
+      writer blocks on (``busy_timeout``) until this one commits; its own
+      re-check then runs against the committed admin.
+    """
+    connection = await session.connection()
+    if connection.dialect.name == "postgresql":
+        await session.execute(sa.text("SELECT pg_advisory_xact_lock(:key)"), {"key": _PG_LOCK_KEY})
+        return
+    table = User.__table__
+    await session.execute(
+        sa.update(table).where(sa.false()).values(is_superuser=table.c.is_superuser)
+    )
+
+
+def _process_lock(app) -> asyncio.Lock:
+    """One in-process lock per app.
+
+    The database lock is the real guarantee; this one keeps concurrent
+    requests in one worker from contending on it at all — and is what
+    serializes them on an in-memory SQLite engine, whose sessions share a
+    single connection and so cannot lock each other out.
+    """
+    lock = getattr(app.state, "users_setup_lock", None)
+    if lock is None:
+        lock = asyncio.Lock()
+        app.state.users_setup_lock = lock
+    return lock
+
+
+async def create_first_administrator(request: Request, data: dict) -> dict:
+    """Create the install's first administrator — the ``users.administrator`` action."""
+    try:
+        payload = AdministratorIn.model_validate(data)
+    except PydanticValidationError as exc:
+        raise HTTPException(
+            status_code=422, detail="; ".join(e["msg"] for e in exc.errors())
+        ) from exc
+    await _validate_password(payload.password, payload.email)
+
+    async with _process_lock(request.app), request.app.state.sm.db.session_factory() as session:
+        await _lock_admin_creation(session)
+        if await session_has_local_account(session):
+            await session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "User accounts already exist. "
+                    "Use smpy users create-admin to restore an administrator."
+                ),
+            )
+        # create_admin commits, which is what releases the database lock —
+        # after the user row and its admin role are both written.
+        result = await create_admin(
+            session,
+            email=payload.email,
+            password=payload.password,
+            full_name=payload.full_name,
+        )
+        if not result.created:
+            # create_admin leaves an existing account untouched.
+            await session.rollback()
+            raise HTTPException(
+                status_code=409, detail="An account with this email already exists."
+            )
+
+    # create_admin may have created the admin role (migrations seed only
+    # ``user``), after every worker cached the role list the admin screens
+    # offer. Best effort: the administrator exists either way, and a 500 here
+    # would make the operator retry into a 409.
+    try:
+        await publish_roles_changed(request.app)
+    except Exception:
+        logger.warning("Setup: could not announce the new admin role", exc_info=True)
+    logger.info("Setup: administrator created (%s)", payload.email)
+    return {"created": True, "email": payload.email}

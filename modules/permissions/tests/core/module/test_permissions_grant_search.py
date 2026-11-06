@@ -6,7 +6,7 @@ from permissions.core.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
 from permissions.core.service import PermissionService
 from simple_module_core.permissions import PermissionRegistry
 from test_permissions_module import _seed_user
-from users.directory import UsersDirectory
+from users.core.directory import UsersDirectory
 
 
 class TestGrantSearchEscaping:

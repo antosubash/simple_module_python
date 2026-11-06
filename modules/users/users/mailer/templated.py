@@ -17,7 +17,7 @@ import jinja2
 import jinja2.sandbox
 from simple_module_core.mail import MailMessage, current_mail_sender
 
-from users.constants import MAIL_TEMPLATE_INVITE, MAIL_TEMPLATE_RESET, MAIL_TEMPLATE_VERIFY
+from users.core.constants import MAIL_TEMPLATE_INVITE, MAIL_TEMPLATE_RESET, MAIL_TEMPLATE_VERIFY
 
 if TYPE_CHECKING:
     from users.mailer import AppNameProvider

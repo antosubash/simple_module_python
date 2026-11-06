@@ -31,7 +31,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from users.constants import SESSION_USER_ID_KEY
+from users.core.constants import SESSION_USER_ID_KEY
 from users.demo import SESSION_DEMO_KEY
 
 if TYPE_CHECKING:
