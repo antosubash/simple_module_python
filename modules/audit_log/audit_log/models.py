@@ -10,7 +10,7 @@ from simple_module_db.types import AwareDateTime
 from sqlalchemy import JSON, Index, func
 from sqlmodel import Column, Field
 
-from audit_log.constants import (
+from audit_log.core.constants import (
     ACTION_MAX_LENGTH,
     CORRELATION_ID_MAX_LENGTH,
     ENTITY_ID_MAX_LENGTH,

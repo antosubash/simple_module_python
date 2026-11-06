@@ -6,7 +6,7 @@ import {
   formatEntryTime,
   parseIsoDate,
   toIsoDate,
-} from '../audit_log/pages/components/format';
+} from '../audit_log/ui/components/format';
 
 describe('formatEntryTime', () => {
   test('renders the deck format: d MMM HH:mm:ss', () => {

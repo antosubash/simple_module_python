@@ -7,16 +7,16 @@ import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
-import { BrowseEmpty } from './components/BrowseEmpty';
-import { CorrelationBanner } from './components/Correlation';
-import { type AuditEntryRead, EntriesTable } from './components/EntriesTable';
+import { BrowseEmpty } from '../ui/components/BrowseEmpty';
+import { CorrelationBanner } from '../ui/components/Correlation';
+import { type AuditEntryRead, EntriesTable } from '../ui/components/EntriesTable';
 import {
   ALL,
   type AppliedFilters,
   type EntityTypeOption,
   FilterBar,
   type FilterState,
-} from './components/FilterBar';
+} from '../ui/components/FilterBar';
 
 interface Props {
   items: AuditEntryRead[];

@@ -13,7 +13,7 @@ configureI18n({
   },
 });
 
-import { BrowseEmpty } from '../audit_log/pages/components/BrowseEmpty';
+import { BrowseEmpty } from '../audit_log/ui/components/BrowseEmpty';
 
 const NONE = {
   entity_type: null,

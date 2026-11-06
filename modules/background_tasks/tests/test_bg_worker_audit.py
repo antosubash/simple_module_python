@@ -58,7 +58,7 @@ def _audit_rows() -> list[tuple[str, str, str]]:
 
 
 def test_the_audit_log_publishes_its_sink() -> None:
-    from audit_log.capture import audit_callback
+    from audit_log.core.capture import audit_callback
 
     assert discover_audit_callback() is audit_callback
 
