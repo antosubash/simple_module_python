@@ -25,7 +25,7 @@ async def test_admin_token_is_capped_by_its_scopes(actor, bearer):
 
 async def _set_roles(app, user_id: str, names: list[str]) -> None:
     from sqlalchemy import delete, select
-    from users.bootstrap import ensure_user_role
+    from users.core.bootstrap import ensure_user_role
     from users.models import Role, UserRole
 
     async with app.state.sm.db.session_factory() as session:
@@ -104,9 +104,9 @@ async def test_lifetime_is_capped_by_the_setting(app, actor):
 
 
 async def test_require_permission_admin_shortcut_skips_tokens():
-    """``auth.deps.require_permission`` admits an admin session but not an admin token."""
+    """``auth.web.deps.require_permission`` admits an admin session but not an admin token."""
     from auth.contracts.schemas import UserContext
-    from auth.deps import require_permission
+    from auth.web.deps import require_permission
 
     check = require_permission("x.write").dependency
     translator = SimpleNamespace(t=lambda key, **_: key)

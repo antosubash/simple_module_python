@@ -11,7 +11,6 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import datetime
 from typing import Any
 
-from file_storage import constants
 from file_storage.backends import register_backend
 from file_storage.backends.s3_multipart import S3MultipartMixin
 from file_storage.contracts.service import (
@@ -20,7 +19,8 @@ from file_storage.contracts.service import (
     StorageError,
     StorageNotFoundError,
 )
-from file_storage.settings import FileStorageSettings
+from file_storage.core import constants
+from file_storage.core.settings import FileStorageSettings
 
 _MISSING_S3_EXTRA = (
     "S3 backend requires the 'aioboto3' package. Install with: uv add --optional s3 aioboto3"
@@ -30,9 +30,9 @@ _MISSING_S3_EXTRA = (
 class S3Backend(S3MultipartMixin):
     """S3-compatible object storage.
 
-    Each operation opens a fresh ``aioboto3`` client context (cheap; the
-    underlying ``aiobotocore`` session is reused via ``self._session``). We
-    deliberately do not hold one long-lived client across requests because
+    Each operation opens an ``aioboto3`` client context; a server-side
+    multipart upload shares that client through completion or abort. We
+    do not hold one long-lived client across requests because
     aioboto3 client contexts are per-event-loop and tests run multiple loops.
     """
 

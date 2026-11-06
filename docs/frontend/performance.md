@@ -118,7 +118,7 @@ async def test_list_query_count_does_not_grow_with_rows(app, admin_client, db):
     assert await _statements(app, admin_client) == few
 ```
 
-`modules/users/tests/test_users_admin_list_query_count.py` is a working copy.
+`modules/users/tests/admin/queries/test_users_admin_list_query_count.py` is a working copy.
 
 ## The server
 

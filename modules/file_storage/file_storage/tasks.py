@@ -21,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 from celery import shared_task
 from sqlmodel import col
 
-from file_storage import constants
+from file_storage.core import constants
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ _REAP_BATCH = 500
 
 
 def _backend_and_settings():
-    from file_storage.worker_support import backend_and_settings
+    from file_storage.core.worker_support import backend_and_settings
 
     return backend_and_settings()
 
@@ -52,7 +52,7 @@ def _backend_and_settings():
 @shared_task(name=constants.Task.REAP_STALE_UPLOADS)
 def reap_stale_uploads() -> dict[str, int]:
     """Abort expired sessions, purge old finished rows, then orphaned S3 uploads (> 2 x TTL)."""
-    from background_tasks.sync_db import sync_session
+    from background_tasks.core.sync_db import sync_session
     from simple_module_db import all_tenants
     from sqlalchemy import delete, select
 
@@ -147,13 +147,13 @@ async def _abort_orphans(backend, older_than: timedelta, tracked: set[str]) -> i
 def compute_checksum(file_id: str, tenant_id: str) -> str | None:
     """Fill in ``StoredFile.checksum_sha256`` for a multipart upload."""
     from background_tasks import heartbeat
-    from background_tasks.sync_db import sync_session
+    from background_tasks.core.sync_db import sync_session
     from simple_module_db import tenant_context
 
-    from file_storage.backend_guard import require_backend
-    from file_storage.checksum import hash_object
+    from file_storage.backends.guard import require_backend
     from file_storage.contracts.service import StorageNotFoundError
     from file_storage.models import StoredFile
+    from file_storage.multipart.checksum import hash_object
 
     backend, _ = _backend_and_settings()
     target = uuid.UUID(file_id)
@@ -182,9 +182,9 @@ def compute_checksum(file_id: str, tenant_id: str) -> str | None:
 @shared_task(name=constants.Task.REAP_OBJECTS)
 def reap_objects() -> int:
     """Reconcile completed objects, with twice the upload TTL as a safety window."""
-    from background_tasks.sync_db import sync_session
+    from background_tasks.core.sync_db import sync_session
 
-    from file_storage.object_reaper import reap_objects as reconcile
+    from file_storage.core.object_reaper import reap_objects as reconcile
 
     backend, settings = _backend_and_settings()
     return asyncio.run(
@@ -204,7 +204,7 @@ def reconcile_checksums() -> int:
     after publish failures or worker exits; duplicate checksum jobs are safe.
     """
     from background_tasks import enqueue_after_commit
-    from background_tasks.sync_db import sync_session
+    from background_tasks.core.sync_db import sync_session
     from simple_module_db import all_tenants, tenant_context
     from sqlalchemy import func
     from sqlmodel import col, select

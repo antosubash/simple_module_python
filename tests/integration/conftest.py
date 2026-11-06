@@ -26,7 +26,7 @@ async def _seed_user_with_roles(app, email: str, role_names: list[str]):
 
     If a named role doesn't exist yet, creates it with a deterministic UUID.
     """
-    from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+    from users.core.constants import ADMIN_ROLE_ID, USER_ROLE_ID
     from users.models import Role, User, UserRole
 
     _role_ids: dict[str, object] = {

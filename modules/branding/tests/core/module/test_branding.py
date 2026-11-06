@@ -204,7 +204,9 @@ async def test_logo_upload_sets_logo_url(
         assert platform, "branding must act on platform-owned files"
         return SimpleNamespace(id=fake_id)
 
-    monkeypatch.setattr("file_storage.service.FileStorageService.upload", fake_upload, raising=True)
+    monkeypatch.setattr(
+        "file_storage.files.service.FileStorageService.upload", fake_upload, raising=True
+    )
 
     resp = await authenticated_client.post(
         "/api/branding/logo",

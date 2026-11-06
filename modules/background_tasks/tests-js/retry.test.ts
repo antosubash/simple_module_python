@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import { retryExecution } from '../background_tasks/pages/retry';
+import { retryExecution } from '../background_tasks/ui/utils/retry';
 
 const row = { id: 'abc', task_name: 'demo.task' };
 

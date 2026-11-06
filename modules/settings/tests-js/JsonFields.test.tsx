@@ -18,8 +18,8 @@ configureI18n({
 
 vi.mock('@inertiajs/react', () => ({ router: { reload: vi.fn() } }));
 
-import type { FieldMeta } from '../settings/pages/components/FieldInput';
-import { ModuleForm } from '../settings/pages/components/ModuleForm';
+import type { FieldMeta } from '../settings/ui/components/FieldInput';
+import { ModuleForm } from '../settings/ui/components/ModuleForm';
 
 function field(overrides: Partial<FieldMeta> & { name: string }): FieldMeta {
   return {
@@ -115,7 +115,7 @@ describe('JSON-typed fields (GH #487)', () => {
 
 describe('JsonInput', () => {
   test('replaces its text when the value changes from outside', async () => {
-    const { JsonInput } = await import('../settings/pages/components/JsonInput');
+    const { JsonInput } = await import('../settings/ui/components/JsonInput');
     const props = { name: 'routes', nullable: false, className: '', onChange: vi.fn() };
     const { rerender } = render(<JsonInput {...props} value={{ a: 'b' }} />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '{"x": "y"}' } });

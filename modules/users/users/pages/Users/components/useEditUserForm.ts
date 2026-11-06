@@ -4,8 +4,8 @@ import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { adminFailureMessage } from '../../../ui/utils/failureMessage';
 import { api } from '../../api';
-import { adminFailureMessage } from '../../failureMessage';
 
 export interface EditableUser {
   id: string;

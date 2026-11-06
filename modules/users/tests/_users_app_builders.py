@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import httpx
 from simple_module_hosting.settings import Settings
-from users.constants import ADMIN_ROLE_ID, USER_ROLE_ID
+from users.core.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
 ALICE = "alice@example.com"
 
@@ -86,7 +86,7 @@ async def _seed_roles(application) -> None:
         await session.commit()
     # Direct inserts bypass the role service that would refresh the cache; startup
     # already warmed it (with the role it seeds), so refresh like a real write would.
-    from users.roles_cache import refresh_roles_cache
+    from users.core.roles_cache import refresh_roles_cache
 
     await refresh_roles_cache(application)
 
@@ -99,8 +99,8 @@ async def _seed_users_settings(
     Hydrate fires inside the lifespan ``__aenter__``, so this needs to land
     between table creation and lifespan entry.
     """
-    from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.core.service import SettingService
+    from settings.module_settings.store import SettingsStore
 
     async with application.state.sm.db.session_factory() as session:
         store = SettingsStore(SettingService(session))
@@ -112,7 +112,7 @@ async def _seed_users_settings(
 
 async def _make_admin_user(app):
     """Seed an admin User + Role into app's DB and return the User row."""
-    from users.bootstrap import create_admin
+    from users.core.bootstrap import create_admin
     from users.models import User
 
     async with app.state.sm.db.session_factory() as session:
@@ -132,7 +132,7 @@ async def _make_standard_user(app, email: str = "user@example.com"):
     Used by the negative-authz tests to confirm endpoints protected by
     ``RequiresPermission(...)`` reject authenticated-but-non-admin callers.
     """
-    from users.bootstrap import create_standard_user
+    from users.core.bootstrap import create_standard_user
     from users.models import User
 
     async with app.state.sm.db.session_factory() as session:

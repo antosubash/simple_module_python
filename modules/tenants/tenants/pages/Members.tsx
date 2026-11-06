@@ -1,11 +1,12 @@
 import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { type Invitation, InvitationsList } from '../components/InvitationsList';
-import { InviteForm } from '../components/InviteForm';
-import { type Member, type MembershipRole, MembersTable } from '../components/MembersTable';
+import { type Invitation, InvitationsList } from '../ui/components/InvitationsList';
+import { InviteForm } from '../ui/components/InviteForm';
+import { type Member, type MembershipRole, MembersTable } from '../ui/components/MembersTable';
 
 interface Tenant {
   id: string;
@@ -18,6 +19,12 @@ interface Seats {
   limit: number | null;
 }
 
+interface Pagination {
+  page: number;
+  per_page: number;
+  total: number;
+}
+
 interface Props {
   tenant: Tenant;
   my_role: MembershipRole;
@@ -26,13 +33,32 @@ interface Props {
   members: Member[];
   invitations: Invitation[];
   seats: Seats;
+  pagination: Pagination;
 }
 
-function Members({ tenant, my_role, my_user_id, can_manage, members, invitations, seats }: Props) {
+function Members({
+  tenant,
+  my_role,
+  my_user_id,
+  can_manage,
+  members,
+  invitations,
+  seats,
+  pagination,
+}: Props) {
   const { t } = useT();
+  const { page, per_page, total } = pagination;
 
   function reload() {
-    router.reload();
+    visitPage(page);
+  }
+
+  function visitPage(next: number) {
+    router.get(
+      '/tenants/members',
+      { page: next, per_page },
+      { preserveState: true, preserveScroll: true },
+    );
   }
 
   const seatsLine =
@@ -57,6 +83,7 @@ function Members({ tenant, my_role, my_user_id, can_manage, members, invitations
               tenantName={tenant.name}
               onChanged={reload}
             />
+            <PaginationBar page={page} perPage={per_page} total={total} onPageChange={visitPage} />
             <div className="border-t px-4 py-3 text-sm text-muted-foreground">{seatsLine}</div>
           </Card>
 

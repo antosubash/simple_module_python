@@ -66,7 +66,7 @@ def attach_public_routes(app: FastAPI, settings: Settings, registry) -> None:
     Modules contribute method-aware rules through their ``register_public_routes``
     hook (already applied to *registry* by the caller). This adds the host escape
     hatch — ``SM_AUTH_PUBLIC_PATHS`` prefixes — then exposes the registry at
-    ``app.state.public_routes``, where ``auth.middleware.AuthMiddleware`` reads it
+    ``app.state.public_routes``, where ``auth.web.middleware.AuthMiddleware`` reads it
     on every request.
     """
     # The setup wizard is anonymous by necessity: it is served precisely when

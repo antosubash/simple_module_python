@@ -12,7 +12,7 @@ export const REGISTER_PATH = '/users/register';
 /**
  * The Users admin screen's url, as registered by the users module's menu
  * item (`_URL_USERS_ADMIN` in `users/module.py`, mirrored by `_ADMIN_URL` in
- * `permissions/endpoints/views.py`).
+ * `permissions/web/endpoints/views.py`).
  *
  * Permissions pages (`RoleEdit`, `UserEdit`) live outside `/users` but are
  * reached from — and conceptually belong to — this screen, so they declare

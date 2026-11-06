@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from users.settings import UsersSettings
+from users.core.settings import UsersSettings
 
 #: Returns the live application name (e.g. from the branding module) so emails
 #: are branded with the deployment's name rather than the framework default.

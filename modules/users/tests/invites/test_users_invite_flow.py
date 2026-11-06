@@ -11,7 +11,7 @@ import re
 import pytest
 from fastapi_users.jwt import generate_jwt
 from sqlalchemy import select
-from users.manager import UserManager
+from users.accounts.manager import UserManager
 from users.models import User
 
 

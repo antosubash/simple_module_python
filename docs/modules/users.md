@@ -33,7 +33,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 | Method + path | Body | Notes |
 |---|---|---|
 | `POST /api/users/auth/login` | `OAuth2PasswordRequestForm` | sets `sm_auth` cookie + `session["user_id"]`; `400 LOGIN_BAD_CREDENTIALS`; `429` + `Retry-After` while locked — see [Login lockout](#login-lockout) |
-| `POST /api/users/auth/logout` | — | clears the `sm_auth` cookie and the session |
+| `POST /api/users/auth/logout` | — | retires this browser session, clears the `sm_auth` cookie and the session |
 | `POST /api/users/auth/register` | `UserCreate` | gated by `users.allow_signup`; rate-limited |
 | `POST /api/users/auth/forgot-password` | `PasswordReset` | rate-limited |
 | `POST /api/users/auth/reset-password` | `{token, password}` | |
@@ -77,7 +77,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 Public:
 
 - `GET /users/login` → `Users/Login` (shows dev-account buttons in dev)
-- `POST /users/logout` → 303 redirect, clears cookie
+- `POST /users/logout` → 303 redirect, retires this browser session and clears cookies
 - `GET /users/register` → `Users/Register` (404 if signup disabled)
 - `GET /users/forgot-password` → `Users/ForgotPassword`
 - `GET /users/reset-password` → `Users/ResetPassword`
@@ -136,7 +136,7 @@ from users.contracts.events import (
 | `UserRegistered`, `UserInvited`, `UserCreated`, `UserDeleted`, `UserDisabled`, `RoleAssigned` | Events — see [Events](#events). |
 
 Other modules read accounts through the [user directory](/framework/user-directory),
-which this module installs as `users.directory.UsersDirectory` in
+which this module installs as `users.core.directory.UsersDirectory` in
 `register_settings`; they should not import `users.models`. The one table read
 directly is `Role`, re-exported as `users.contracts.roles.Role` for the
 permissions role pages. The edit page's *Recent activity* card reads the core
@@ -243,6 +243,28 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `Profile` | `/users/me` | `user` | `USER_DROPDOWN` | — | `990` | _logged-in_ |
 | `Logout` | `/users/logout` (POST) | `log-out` | `USER_DROPDOWN` | — | `999` | _logged-in_ |
 
+## Performance
+
+Password hashing and verification for local login, account creation (including
+registration and bulk invitations), password changes and reset fingerprints run
+in worker threads. Database operations, password policy and lifecycle hooks stay
+on the event loop; password resets still revoke credentials atomically.
+
+Admin user state totals and role options (including membership counts) are
+cached per worker for 30 seconds. A committed transaction that wrote a user,
+role or membership through the ORM evicts this worker's entry. Other workers
+hear about a change only through an explicit `users.admin_summary` publish from
+the admin service's write paths (create, invite, delete, disable, enable, mark
+verified, set roles), sent once after the commit and never on rollback. Other
+writes (logins, failed-login counters, password changes, session revocations,
+role edits made outside the users admin service) publish nothing, so another
+worker may show old totals until the 30-second TTL expires; the same holds
+without the Redis invalidation transport or when a message is lost.
+These summaries do not control permissions. Filtered user rows and pagination
+counts remain live queries. The accepted contains-search scan is unchanged.
+See [Users performance measurements](../perf/2026-11-05-users.md) for the local
+before/after results and reproduction command.
+
 ## Password reset and credential revocation
 
 A successful password reset, including one reached through an admin-generated
@@ -310,7 +332,7 @@ uv run smpy users create-admin --email admin@example.com --password changeme
 Programmatically:
 
 ```python
-from users.bootstrap import create_admin
+from users.core.bootstrap import create_admin
 
 result = await create_admin(db, email="admin@example.com", password="...")
 # result.user, result.created -> bool
@@ -547,9 +569,66 @@ In the admin UI, the user list and edit page show an **"External · SSO"** badge
 
 Anything else without a session redirects to `/users/login` (or returns 401 JSON for `/api/*` / bearer requests).
 
+## Browser auth requests and logout
+
+**Behaviour change:** anonymous auth pages issue a session-bound `csrfToken` prop.
+Browser mutations under `/api/users/auth/` (password sign-in, demo sign-in,
+registration, forgot/reset password, verification, invite acceptance and API
+logout) must echo it as `X-CSRF-Token`. The bearer-token routes
+(`/api/users/auth/token*`) set no cookie and need no token, so native clients
+and cross-origin clients allowed by `cors_allow_origins` can use them. The shared typed API
+client already does this, including sign-in after a password reset. Read the prop
+from `GET /users/login` through Inertia when building another browser client;
+retain its session cookie. Signing in rotates the token: read the next page's
+prop before another mutation. Missing or mismatched tokens return 403.
+
+Requests with `Origin`, `Referer` or `Sec-Fetch-Site` are treated as browser
+requests and must carry the session token. `Sec-Fetch-Site: cross-site` is refused
+even with a token. `Origin`/`Referer` are not compared with the request's own
+origin, so deployments behind a TLS-terminating proxy work without extra
+configuration; the token is what defeats login CSRF. A cross-site form always
+carries `Origin` in current browsers, so it cannot skip the token; a very old
+browser sending none of the three headers would be treated as a native client,
+which is why the session cookie stays `SameSite=Lax`. The Inertia
+`POST /users/logout` applies only the cross-site refusal and needs no token
+header, so the existing menu submission continues to work.
+
+Native JSON/form API clients without browser headers continue to work without
+first fetching an HTML page. If they explicitly send `X-CSRF-Token`, it is
+validated against their session too. This compatibility exception is why the
+browser guard combines source validation with the framework's `RequiresCsrf`
+primitive rather than requiring a token unconditionally. Browser clients must
+keep these auth pages private and uncached.
+
+The users OAuth, OIDC and Keycloak GET login starters only establish a login
+transaction and redirect to the identity provider. Their callbacks validate the
+session-bound state before signing in; OIDC and Keycloak additionally validate
+nonce and use PKCE. These redirects continue to accept external navigation.
+
+**Behaviour change:** both logout routes retire this browser's session ID
+server-side and revoke its `sm_auth` access-token row, then clear the cookies.
+Other devices stay signed in. Password, invite, demo and users OAuth sign-ins
+mint a fresh ID through the shared users sign-in hook. Migration
+`e805a1b2c3d4` adds `users_revoked_session`, indexed by account and expiry;
+logout lazily removes expired records. Records remain until the session's
+original absolute deadline, including the remembered window.
+
+Retired IDs share the account's session-version cache entry and
+`session_version_cache_ttl_seconds` (default 30 seconds). Logout publishes on the
+existing `users.session_version` invalidation channel **after commit**. A Redis
+invalidation transport propagates eviction to other workers; without one, or
+if a message is lost, their TTL bounds the delay. Warm requests add no database
+query. The existing availability policy still applies: a cache miss during a
+database outage preserves an already-cached principal until a successful read.
+
+Sessions issued before this upgrade have no ID. They continue to work until
+expiry or next sign-in; logout clears their browser cookies but cannot retire
+another copy individually. Password changes and “Sign out everywhere” still
+retire all sessions through the account version counter.
+
 ## Roles cache
 
-`roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. When the role set changes (the setup wizard's first administrator creates the `admin` role), `publish_roles_changed(app)` announces it on the `users.roles` invalidation channel: each subscribed worker empties its cache and `get_roles_cache` refills it on the next read (other workers hear it where the Redis invalidation transport is installed). Because delivery is not guaranteed, the cache also expires on its own after `TTL_SECONDS` (300 s, stamped as `roles_cache_loaded_at` on the users state) and is refetched on the next read. Used by the admin UI to render role pickers without hitting the DB on every request.
+`core/roles_cache.py` keeps an in-memory list of `RoleSummary(id, name)` on `app.state.users.roles_cache`. Refreshed at startup and on demand via `refresh_roles_cache(app)`. When the role set changes (the setup wizard's first administrator creates the `admin` role), `publish_roles_changed(app)` announces it on the `users.roles` invalidation channel: each subscribed worker empties its cache and `get_roles_cache` refills it on the next read (other workers hear it where the Redis invalidation transport is installed). Because delivery is not guaranteed, the cache also expires on its own after `TTL_SECONDS` (300 s, stamped as `roles_cache_loaded_at` on the users state) and is refetched on the next read. Used by the admin UI to render role pickers without hitting the DB on every request.
 
 ## Branding the auth screens
 

@@ -8,7 +8,7 @@ import {
   formatTs,
   formatUptime,
   shortenId,
-} from '../background_tasks/pages/constants';
+} from '../background_tasks/ui/utils/constants';
 
 describe('formatDuration', () => {
   test('is a dash until the run has finished', () => {

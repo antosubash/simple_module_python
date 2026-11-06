@@ -39,7 +39,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting._rate_limit_keys import KEY_IP, KEY_USER_OR_IP, rule_bucket, rule_key
 from simple_module_hosting._request_guard_responses import send_guard_response
-from simple_module_hosting.path_matching import matches_path
+from simple_module_hosting.path_matching import matches_path, validated_prefixes
 from simple_module_hosting.public_access import is_public
 
 __all__ = ["RateLimitMiddleware"]
@@ -48,7 +48,7 @@ logger = logging.getLogger("simple_module.request_guard")
 
 _MESSAGE = "Too many requests. Please slow down and try again shortly."
 _OPERATIONAL_EXACT = ("/health",)
-_OPERATIONAL_PREFIXES = ("/health/", "/static/")
+_OPERATIONAL_PREFIXES = validated_prefixes("/health/", "/static/")
 
 
 class RateLimitMiddleware:

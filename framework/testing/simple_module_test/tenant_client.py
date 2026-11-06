@@ -45,7 +45,7 @@ class TenantClient(NamedTuple):
 
 async def create_user(app: Any, email: str) -> str:
     """A real, active, non-superuser ``users`` row with the ``user`` role; its id."""
-    from users.bootstrap import ensure_user_role
+    from users.core.bootstrap import ensure_user_role
     from users.models import User, UserRole
 
     async with app.state.sm.db.session_factory() as session:
@@ -69,7 +69,7 @@ async def create_user(app: Any, email: str) -> str:
 
 async def _join(app: Any, user_id: str, email: str, role: TenantRole, tenant_id: str | None) -> str:
     from tenants.models import Membership, Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
 
     async with app.state.sm.db.session_factory() as session:
         if tenant_id is None:
@@ -104,7 +104,7 @@ def tenant_client(app: Any) -> Callable[..., AbstractAsyncContextManager[TenantC
     ``tenant_id`` when given — and yields a :class:`TenantClient` whose session
     has that tenant active.
     """
-    from tenants.constants import SESSION_ACTIVE_TENANT
+    from tenants.core.constants import SESSION_ACTIVE_TENANT
 
     @asynccontextmanager
     async def factory(

@@ -10,14 +10,14 @@ vi.mock('@inertiajs/react', () => ({
 const runResumable = vi.fn();
 const findSession = vi.fn();
 const discardSession = vi.fn();
-vi.mock('../file_storage/pages/resumable-upload', () => ({
+vi.mock('../file_storage/ui/utils/resumable-upload', () => ({
   runResumable: (...args: unknown[]) => runResumable(...args),
   findSession: (...args: unknown[]) => findSession(...args),
   discardSession: (...args: unknown[]) => discardSession(...args),
 }));
 
-import { UploadAbortedError, UploadFailedError } from '../file_storage/pages/upload-errors';
-import { useUploadQueue } from '../file_storage/pages/upload-queue';
+import { UploadAbortedError, UploadFailedError } from '../file_storage/ui/utils/upload-errors';
+import { useUploadQueue } from '../file_storage/ui/utils/upload-queue';
 
 const THRESHOLD = 100;
 

@@ -20,7 +20,7 @@ Root `conftest.py` provides app-level fixtures that **every** test directory inh
 | `db_session` | `AsyncSession` against in-memory SQLite with **all** module tables created and `alembic_version` stamped at head. The stamp matters: without it the boot-time `check_migrations` raises SM010 and the `app` fixture can't start. |
 | `app` | A live FastAPI app — `create_app(settings)` plus lifespan started/stopped. Tables are pre-created the same way as `db_session`. |
 | `client` | Unauthenticated `httpx.AsyncClient` against `app` via `ASGITransport`. |
-| `authenticated_client` | Same client with a forged session cookie carrying a seeded admin (`admin@test` / `test-password`). The seed runs `users.bootstrap.create_admin`, so the users tables must be in scope. |
+| `authenticated_client` | Same client with a forged session cookie carrying a seeded admin (`admin@test` / `test-password`). The seed runs `users.core.bootstrap.create_admin`, so the users tables must be in scope. |
 
 ## Standard test patterns
 

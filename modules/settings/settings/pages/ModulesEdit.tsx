@@ -6,7 +6,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { ArrowRight, Box, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ModuleForm, type ModuleView } from './components/ModuleForm';
+import { ModuleForm, type ModuleView } from '../ui/components/ModuleForm';
 import { ROUTES } from './routes';
 
 type Props = {

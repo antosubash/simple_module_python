@@ -11,7 +11,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 
-from audit_log.constants import (
+from audit_log.core.constants import (
     ALL_PERMISSIONS,
     API_PREFIX,
     LOCALE_NAMESPACE,
@@ -36,16 +36,16 @@ class AuditLogModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from audit_log.services import AuditLogServices
-        from audit_log.settings import AuditLogSettings
+        from audit_log.core.services import AuditLogServices
+        from audit_log.core.settings import AuditLogSettings
 
         register_module_settings(
             app, MODULE_PACKAGE, AuditLogSettings, lambda s: AuditLogServices(settings=s)
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from audit_log.endpoints.api import router as api
-        from audit_log.endpoints.views import router as views
+        from audit_log.web.endpoints.api import router as api
+        from audit_log.web.endpoints.views import router as views
 
         api_router.include_router(api)
         view_router.include_router(views)
@@ -77,8 +77,8 @@ class AuditLogModule(ModuleBase):
     async def on_startup(self, app: FastAPI) -> None:
         from simple_module_core.activity_feed import set_activity_feed
 
-        from audit_log.activity import AuditActivityFeed
-        from audit_log.capture import audit_callback
+        from audit_log.core.capture import audit_callback
+        from audit_log.entries.activity import AuditActivityFeed
 
         db = app.state.sm.db
         db.audit_callback = audit_callback

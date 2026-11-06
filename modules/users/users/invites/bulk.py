@@ -16,16 +16,16 @@ from pydantic import EmailStr, TypeAdapter, ValidationError
 from simple_module_core.events import EventBus
 from simple_module_db import independent_session
 
+from users.accounts.db_adapter import UserDatabaseWithRoles
+from users.accounts.manager import UserManager
 from users.admin.links import admin_link_base
 from users.admin.safety import check_request_role_assignment
 from users.admin.service import UserService
 from users.contracts.events import UserInvited
 from users.contracts.schemas import BulkInviteResponse, BulkInviteResult, UserBulkInvite
-from users.db_adapter import UserDatabaseWithRoles
-from users.deps import get_event_bus, get_mailer
 from users.mailer import mailer_delivers
-from users.manager import UserManager
 from users.models import OAuthAccount, User
+from users.web.deps import get_event_bus, get_mailer
 
 logger = logging.getLogger(__name__)
 

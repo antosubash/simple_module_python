@@ -10,7 +10,7 @@ Several modules cache a row that is cheap to read and expensive to read *often*:
 
 | Cache | Read on | Expires after | Owner |
 |---|---|---|---|
-| `User.session_version` | nearly every authenticated request | 30s | `users.session_version_cache` |
+| `User.session_version` | nearly every authenticated request | 30s | `users.accounts.session_version_cache` |
 | aggregate storage size | the files index | 30s | `file_storage` |
 | hydrated settings objects | every request that reads a setting | 30s periodic reload | `settings` |
 | role permission overlays | every permission check | 30s periodic reload | `permissions` |
@@ -53,7 +53,7 @@ Channel naming is `<module>.<cache>`. `Invalidation.key` is `None` for "forget t
 
 There is no `unsubscribe`, and subscribing the same callable twice runs it twice — subscriptions are made once at boot and last the life of the process. A handler may call `subscribe` during dispatch; the new handler takes effect from the *next* publish, because `_dispatch` walks a snapshot (it used to walk the live list, which let a self-re-arming handler wedge the event loop).
 
-**The key is a string on the wire.** If your cache is keyed by anything else — `users` keys by `uuid.UUID` — convert on the way in, or the handler pops a key that is not there and the whole mechanism is a silent no-op that unit tests of the publisher still pass. See `users.session_revocation._cache_key`.
+**The key is a string on the wire.** If your cache is keyed by anything else — `users` keys by `uuid.UUID` — convert on the way in, or the handler pops a key that is not there and the whole mechanism is a silent no-op that unit tests of the publisher still pass. See `users.accounts.session_revocation._cache_key`.
 
 ## Publishing
 
@@ -110,3 +110,41 @@ A standalone worker never builds the FastAPI app, so it installs no transport: i
 ## Still per-process
 
 `file_storage`'s aggregate cache remains per-process. Role overlays (`permissions.role_grants`), module settings (`settings.modules`, keyed by package) and feature flags (`feature_flags.overrides`, both scopes) subscribe through their modules' `register_invalidations` hooks. Their refresh tasks start and stop with module lifespan.
+
+## Concurrent cache fills
+
+`simple_module_core.singleflight.SingleFlight` serializes in-process fills for
+one cache key. Keep one helper per app/cache and use `async with flight.hold(key)`
+on a miss. Recheck the cache after acquiring the lock: an earlier reader may
+already have filled it. Different keys proceed independently; idle keys are
+removed after the final caller leaves. Failure or cancellation releases the
+lock, so a waiter can retry without a cached failed task.
+
+The lock does not version or invalidate cached data. Authorization caches must
+also compare their invalidation epoch before storing a DB read, and retry
+against a fresh session if the epoch changed. `simple_module_core.singleflight.fill`
+is that loop:
+
+```python
+return await fill(
+    lambda: read_from_db(key),
+    epoch=lambda: _epoch,  # bumped by every forget
+    store=lambda value: cache.__setitem__(key, value),
+    cached=lambda: cache.get(key, MISS),  # MISS: nothing cached; None is a value
+)
+```
+
+It reads at most `MAX_FILL_ATTEMPTS` (3) times. When every read raced an
+invalidation it returns the last read **uncached** rather than loop while
+invalidations keep arriving. That answer is not guaranteed to be newer than an
+invalidation that landed during it: it is what an uncached read racing a
+concurrent change would return, and it is never stored. Tenant memberships,
+tenant subdomain lookups and direct permission grants use it inside their
+per-key `SingleFlight` (subdomain lookups without one); their existing TTLs
+still bound staleness from missed cross-worker invalidations. The users
+session-version cache has not yet adopted the helper.
+
+Give each kind of key its own channel. A handler that dispatches on a key
+prefix misreads any key of the other kind that happens to start with it (the
+tenants module keeps user ids on `tenants.membership` and slugs on
+`tenants.hosts` for this reason).

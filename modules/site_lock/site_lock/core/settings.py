@@ -1,7 +1,7 @@
 """Site Lock module settings — DB-backed via ``register_module_settings``.
 
 The field is named ``password`` so the settings admin UI masks it
-automatically (``settings._module_settings.is_secret_field``).
+automatically (``settings.module_settings.discovery.is_secret_field``).
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ boundary: every test here is a way the guard could fail open.
 from __future__ import annotations
 
 import httpx
-from users.constants import ADMIN_ROLE_NAME, SESSION_USER_ID_KEY, USER_ROLE_NAME
+from users.core.constants import ADMIN_ROLE_NAME, SESSION_USER_ID_KEY, USER_ROLE_NAME
 from users.demo import SESSION_DEMO_KEY
 from users.demo.guard import DEMO_READ_ONLY_DETAIL
 

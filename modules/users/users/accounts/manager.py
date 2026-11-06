@@ -1,0 +1,297 @@
+"""UserManager — handles lifecycle hooks + custom verification-token helper."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import secrets
+import uuid
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from auth.core.constants import SESSION_ID_KEY
+from fastapi import Depends, Request
+from fastapi_users import BaseUserManager, UUIDIDMixin, exceptions
+from fastapi_users.jwt import generate_jwt
+from simple_module_db.callbacks import register_on_commit
+from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
+
+from users.accounts.db_adapter import UserDatabaseWithRoles, get_user_db
+from users.accounts.registration import attach_default_role
+from users.accounts.reset_revocation import ResetRevocationMixin
+from users.contracts.events import UserRegistered
+from users.core.constants import (
+    LOGIN_SESSION_PRESERVED_KEYS,
+    OAUTH_REGISTRATION_REQUEST_FLAG,
+    SESSION_USER_ID_KEY,
+    SESSION_VERSION_KEY,
+)
+from users.core.exceptions import ExternalUserNoPasswordError
+from users.core.password_hashing import PASSWORD_HELPER, PasswordHashingMixin
+from users.mailer import Mailer
+from users.models import User
+
+if TYPE_CHECKING:
+    from users.core.settings import UsersSettings
+
+logger = logging.getLogger(__name__)
+
+
+class UserManager(
+    ResetRevocationMixin, PasswordHashingMixin, UUIDIDMixin, BaseUserManager[User, uuid.UUID]
+):
+    """Customizes password validation, token secrets, and lifecycle emails."""
+
+    # Secrets and lifetimes pulled from settings at construction time so
+    # subclasses of UserManager work in tests without full app startup.
+    def __init__(
+        self,
+        user_db: UserDatabaseWithRoles,
+        mailer: Mailer,
+        settings: UsersSettings,
+    ) -> None:
+        super().__init__(user_db, PASSWORD_HELPER)
+        self.mailer = mailer
+        self.reset_password_token_secret = settings.reset_password_token_secret
+        self.verification_token_secret = settings.verification_token_secret
+        self.reset_password_token_lifetime_seconds = settings.reset_password_token_lifetime_seconds
+        self.verification_token_lifetime_seconds = settings.verification_token_lifetime_seconds
+        self.cookie_max_age_seconds = settings.cookie_max_age_seconds
+        # Read per request: ``get_user_manager`` builds a manager per request
+        # from the live settings, so an admin toggling signup takes effect.
+        self.allow_signup = settings.allow_signup
+        self.require_verification = settings.require_verification
+
+    # ── Password policy ──────────────────────────────────────
+
+    async def validate_password(self, password: str, user) -> None:
+        # Measured after stripping: "        " is eight characters and passed
+        # the raw length check, so a whitespace-only password was accepted
+        # everywhere this policy runs — signup, reset, and the setup wizard's
+        # unauthenticated admin-creation route. Padding is not strength.
+        if len(password.strip()) < 8:
+            raise exceptions.InvalidPasswordException(
+                reason="Password must be at least 8 characters, not counting spaces"
+            )
+        if password.lower() in user.email.lower():
+            raise exceptions.InvalidPasswordException(reason="Password cannot contain your email")
+        if password.isdigit():
+            raise exceptions.InvalidPasswordException(reason="Password cannot be all numbers")
+
+    # ── Auth (password-credential guards) ────────────────────
+
+    async def authenticate(self, credentials):
+        """Authenticate by email + password.
+
+        Mirrors ``BaseUserManager.authenticate`` but rejects **external (SSO)
+        users**: they have ``hashed_password is None``, so there is no local
+        password to verify. We still run a dummy hash to keep timing uniform
+        with the user-not-found and wrong-password paths.
+        """
+        try:
+            user = await self.get_by_email(credentials.username)
+        except exceptions.UserNotExists:
+            await asyncio.to_thread(self.password_helper.hash, credentials.password)
+            return None
+
+        if user.hashed_password is None:
+            await asyncio.to_thread(self.password_helper.hash, credentials.password)
+            return None
+
+        verified, updated_password_hash = await asyncio.to_thread(
+            self.password_helper.verify_and_update, credentials.password, user.hashed_password
+        )
+        if not verified:
+            return None
+        if updated_password_hash is not None:
+            await self.user_db.update(user, {"hashed_password": updated_password_hash})
+        return user
+
+    async def forgot_password(self, user: User, request: Request | None = None) -> None:
+        """Skip password reset for external (SSO) users — they have no password.
+
+        Returning silently (rather than raising) preserves the public
+        forgot-password endpoint's anti-enumeration behaviour: it always
+        responds the same regardless of whether the account can reset.
+        """
+        if user.is_external or user.hashed_password is None:
+            return
+        if not user.is_active:
+            raise exceptions.UserInactive()
+        token = await self.generate_reset_password_token(user)
+        await self.on_after_forgot_password(user, token, request)
+
+    # ── Lifecycle hooks ──────────────────────────────────────
+
+    async def on_after_register(self, user: User, request: Request | None = None) -> None:
+        # A user provisioned via OAuth (flag set by the OAuth callback before
+        # find-or-create) is external: drop the random password fastapi-users
+        # assigned and mark the account SSO-only. Fires only for *new* users —
+        # OAuth logins that link to an existing account don't reach here.
+        oauth_provisioned = request is not None and getattr(
+            request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False
+        )
+        if oauth_provisioned:
+            user.hashed_password = None
+            user.is_external = True
+            await self.user_db.update(user, {"hashed_password": None, "is_external": True})
+        # The OAuth callback refuses to create accounts with signups closed
+        # (#543); this is the second line: should one be provisioned anyway,
+        # it must not get the ``user`` role (file read/write, API tokens) —
+        # a provider's whole user base would hold it. Signups closed means
+        # an OAuth-provisioned account waits for an admin to grant a role.
+        if request is not None and (self.allow_signup or not oauth_provisioned):
+            await attach_default_role(self.user_db.session, user)
+        await self._publish_user_registered(user, request)
+        if user.is_verified:
+            return
+        if request is not None and not oauth_provisioned and not self.require_verification:
+            # Self-registration with verification switched off (#547): no
+            # email is sent, and password login stops asking for it. The
+            # account stays *unverified* — nobody has proven the address, so
+            # an SSO sign-in for it must not link here (see oauth/api.py).
+            # Request-less creates (admin, invite) keep their verify-by-link flow.
+            return
+        # Kicks off on_after_request_verify, which sends the email
+        if request is None:
+            # Admin invites also send verification mail; neither may precede the commit.
+            register_on_commit(self.user_db.session, lambda: self.request_verify(user, request))
+        else:
+            await self.request_verify(user, request)
+
+    async def _publish_user_registered(self, user: User, request: Request | None) -> None:
+        """Emit ``UserRegistered`` on the app-wide event bus.
+
+        CLI bootstrap and unit tests instantiate the manager without a
+        request, so there's no app context from which to reach the bus —
+        publication is best-effort in those cases.
+        """
+        if request is None:
+            return
+        await request.app.state.sm.event_bus.publish(
+            UserRegistered(user_id=user.id, email=user.email)
+        )
+
+    async def on_after_forgot_password(
+        self, user: User, token: str, request: Request | None = None
+    ) -> None:
+        await self.mailer.send_password_reset(user.email, token)
+
+    async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
+        """Lift a login lockout (GH #530): proving control of the mailbox is the way out.
+
+        Credentials were already revoked in the reset's own commit (#686, see
+        ``ResetRevocationMixin``).
+
+        Through ``user_db.update`` — an ORM write — so the audit log records the
+        unlock, as it does an admin's. The per-IP throttle keys are left alone:
+        they are keyed by source address, which this request does not know.
+        """
+        if user.locked_until is None and not user.failed_login_count:
+            return
+        await self.user_db.update(
+            user, {"locked_until": None, "failed_login_count": 0, "last_failed_login_at": None}
+        )
+
+    async def on_after_request_verify(
+        self, user: User, token: str, request: Request | None = None
+    ) -> None:
+        await self.mailer.send_verification(user.email, token)
+
+    async def on_after_login(
+        self, user: User, request: Request | None = None, response=None
+    ) -> None:
+        user.last_login_at = datetime.now(UTC)
+        await self.user_db.update(user, {"last_login_at": user.last_login_at})
+        # Bridge to AuthMiddleware: it reads session["user_id"] (not the
+        # fastapi-users cookie) to identify the request principal. Setting it
+        # here covers OAuth callbacks too, where there's no wrapper to do it
+        # explicitly. Password / accept-invite flows already set this in their
+        # wrappers — re-assigning the same value here is a harmless no-op.
+        if request is not None:
+            preserved = {
+                key: request.session[key]
+                for key in (*LOGIN_SESSION_PRESERVED_KEYS, *sign_in_preserved_keys(request.app))
+                if key in request.session
+            }
+            # Replace principal-bound state on sign-in, including CSRF and cached flags.
+            request.session.clear()
+            request.session.update(preserved)
+            request.session[SESSION_ID_KEY] = secrets.token_urlsafe(24)
+            request.session[SESSION_USER_ID_KEY] = str(user.id)
+            # Stamp the session with the revocation counter it was minted
+            # under. ``UsersAuthProvider`` refuses any session whose stamp has
+            # fallen behind the account's, which is what makes "sign out
+            # everywhere" reach browsers this process has never seen. Set here
+            # rather than in each caller so the OAuth callback and the
+            # accept-invite flow are covered by the same line as password login.
+            request.session[SESSION_VERSION_KEY] = int(user.session_version or 0)
+            # And when it stops being accepted. The signature window is 30 days
+            # for everyone so the "keep me signed in" checkbox can be honoured;
+            # this is what keeps an ordinary sign-in to its own 14 days anyway.
+            # ``login`` re-stamps with the longer window when the box is ticked.
+            stamp_session_expiry(request.session, self.cookie_max_age_seconds)
+
+    # ── Token helpers (no email side-effect) ─────────────────
+
+    def mint_invite_token(self, user: User, invited_by: str | None = None) -> str:
+        """Mint a verify-audience JWT without firing on_after_request_verify.
+
+        The one place these are minted — the bulk form, the resend action and
+        plain verification all come through here — because the accept-invite
+        card reads ``invited_by`` and ``exp`` straight off the token. A second
+        mint site that forgot the claim would produce links that work but say
+        "you have been invited" by nobody, which is the failure the claim
+        exists to fix. ``request_verify()`` couples minting with sending; this
+        decouples them, which is what the admin flows need.
+
+        ``invited_by`` is the inviter's display name, not their id: it is only
+        ever shown, and a token that outlives the inviter's account should
+        still read sensibly. Omitted for a plain verification link, where
+        nobody invited anyone.
+        """
+        token_data: dict[str, object] = {
+            "sub": str(user.id),
+            "email": user.email,
+            "aud": self.verification_token_audience,
+        }
+        if invited_by:
+            token_data["invited_by"] = invited_by
+        return generate_jwt(
+            token_data,
+            self.verification_token_secret,
+            self.verification_token_lifetime_seconds,
+        )
+
+    async def generate_reset_password_token(self, user: User) -> str:
+        """Mint a reset-audience JWT without firing on_after_forgot_password.
+
+        The payload fingerprints the current hashed password, so changing the
+        password invalidates the token. The CPU-bound fingerprint is hashed in
+        a worker thread for both forgot-password mail and admin reset links.
+        """
+        if user.is_external or user.hashed_password is None:
+            # No local password to fingerprint — hashing None would crash.
+            raise ExternalUserNoPasswordError(user.id)
+        fingerprint = await asyncio.to_thread(self.password_helper.hash, user.hashed_password)
+        token_data = {
+            "sub": str(user.id),
+            "password_fgpt": fingerprint,
+            "aud": self.reset_password_token_audience,
+        }
+        return generate_jwt(
+            token_data,
+            self.reset_password_token_secret,
+            self.reset_password_token_lifetime_seconds,
+        )
+
+
+async def get_user_manager(
+    request: Request,
+    user_db: UserDatabaseWithRoles = Depends(get_user_db),
+):
+    """FastAPI dependency — pulls mailer and settings off app.state."""
+    users = request.app.state.users
+    mailer = users.mailer
+    settings = users.settings
+    yield UserManager(user_db, mailer, settings)

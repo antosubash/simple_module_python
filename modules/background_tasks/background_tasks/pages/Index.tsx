@@ -5,15 +5,22 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { usePermissions } from '@simple-module-py/ui/hooks/use-permissions';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { useEffect, useRef, useState } from 'react';
-import { COLUMN_COUNT, ExecutionsTable } from './components/ExecutionsTable';
-import { RetryAllDialog } from './components/RetryAllDialog';
-import { RetryConfirmDialog } from './components/RetryConfirmDialog';
-import { type StatusCounts, StatusStrip } from './components/StatusStrip';
-import { TaskFilters } from './components/TaskFilters';
-import { TasksEmptyRow, type WorkerPresence } from './components/TasksEmpty';
-import { WorkerHealthBanner } from './components/WorkerHealthBanner';
-import { QUEUE_ALL, STATUS_ALL, TASK_STATUS, TENANT_ALL, VIEW_BASE, VIEW_INDEX } from './constants';
-import { type Execution, retryAllFailed, retryExecution } from './retry';
+import { COLUMN_COUNT, ExecutionsTable } from '../ui/components/ExecutionsTable';
+import { RetryAllDialog } from '../ui/components/RetryAllDialog';
+import { RetryConfirmDialog } from '../ui/components/RetryConfirmDialog';
+import { type StatusCounts, StatusStrip } from '../ui/components/StatusStrip';
+import { TaskFilters } from '../ui/components/TaskFilters';
+import { TasksEmptyRow, type WorkerPresence } from '../ui/components/TasksEmpty';
+import { WorkerHealthBanner } from '../ui/components/WorkerHealthBanner';
+import {
+  QUEUE_ALL,
+  STATUS_ALL,
+  TASK_STATUS,
+  TENANT_ALL,
+  VIEW_BASE,
+  VIEW_INDEX,
+} from '../ui/utils/constants';
+import { type Execution, retryAllFailed, retryExecution } from '../ui/utils/retry';
 
 interface Pagination {
   page: number;

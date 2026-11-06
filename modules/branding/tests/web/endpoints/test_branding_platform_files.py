@@ -15,8 +15,8 @@ import uuid
 import httpx
 import pytest
 from branding.core.constants import LOGO_URL
+from file_storage.core.scope import PLATFORM_TENANT_ID
 from file_storage.models import StoredFile
-from file_storage.scope import PLATFORM_TENANT_ID
 from simple_module_db import all_tenants
 from sqlalchemy import select
 
@@ -38,7 +38,7 @@ async def _rows(app) -> list[StoredFile]:
 async def _give_admin_a_tenant(app) -> str:
     from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
     from tenants.models import Membership, Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
     from users.models import User
 
     async with app.state.sm.db.session_factory() as session:

@@ -1,59 +1,11 @@
-"""FastAPI dependencies for the Permissions module."""
+"""Moved to :mod:`permissions.web.deps`; this alias goes in 0.0.46 (module layout)."""
 
 from __future__ import annotations
 
-from fastapi import Depends, Request
-from simple_module_core.deprecation import deprecated
-from simple_module_core.permissions import PermissionRegistry
-from simple_module_core.user_directory import get_user_directory
-from simple_module_db.deps import get_db
-from simple_module_hosting.permissions import RequiresPermission as _HostingRequiresPermission
-from sqlalchemy.ext.asyncio import AsyncSession
+import importlib
+import sys
 
-from permissions.grants import publish_grants_changed
-from permissions.service import PermissionService
+from simple_module_core.deprecation import deprecated_module
 
-__all__ = [
-    "RequiresPermission",
-    "assigned_by",
-    "get_permission_registry",
-    "get_permission_service",
-    "invalidate_grants_on_commit",
-]
-
-
-async def get_permission_registry(request: Request) -> PermissionRegistry:
-    return request.app.state.sm.permissions
-
-
-async def get_permission_service(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    registry: PermissionRegistry = Depends(get_permission_registry),
-) -> PermissionService:
-    return PermissionService(
-        db, registry, get_user_directory(request.app), app=request.app, request=request
-    )
-
-
-def assigned_by(request: Request) -> str | None:
-    """Authenticated user id string, for audit columns."""
-    user = getattr(request.state, "user", None)
-    return str(user.id) if user is not None else None
-
-
-@deprecated(remove_in="0.1.0", use="PermissionService.set_user_permissions (invalidates on commit)")
-def invalidate_grants_on_commit(request: Request, service: PermissionService, user_id) -> None:
-    """Compatibility for callers predating service-owned invalidation."""
-    service.db.on_commit(lambda: publish_grants_changed(request.app, user_id))
-
-
-RequiresPermission = _HostingRequiresPermission
-"""Kept for existing imports: the framework's class now honours direct grants.
-
-This used to be a separate class that read the ``permissions_user_permission``
-table itself, while the framework's read roles only — so a direct grant worked
-on this module's routes and nowhere else (GH #337). The grants now reach every
-check through :func:`permissions.grants.direct_grant_source`, and one class is
-the only way the two cannot drift apart again.
-"""
+deprecated_module("permissions.deps", remove_in="0.0.46", use="permissions.web.deps")
+sys.modules[__name__] = importlib.import_module("permissions.web.deps")

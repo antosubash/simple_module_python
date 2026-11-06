@@ -9,9 +9,9 @@ import { toast } from 'sonner';
 import { useUserRowActions } from '../users/admin/components/useUserRowActions';
 import de from '../users/locales/de.json';
 import en from '../users/locales/en.json';
-import { adminFailureMessage } from '../users/pages/failureMessage';
 import { useEditUserForm } from '../users/pages/Users/components/useEditUserForm';
 import { useUserActions } from '../users/pages/Users/components/useUserActions';
+import { adminFailureMessage } from '../users/ui/utils/failureMessage';
 import { json, stubFetch } from './users_fixtures';
 
 afterEach(() => {

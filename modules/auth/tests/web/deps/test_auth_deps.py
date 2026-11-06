@@ -1,0 +1,126 @@
+"""Tests for auth FastAPI dependencies (get_current_user, require_permission)."""
+
+from __future__ import annotations
+
+import importlib.resources
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+from auth.contracts.schemas import UserContext
+from auth.web.deps import get_current_user, require_permission
+from fastapi import HTTPException
+from simple_module_core.i18n import I18nRegistry, Translator
+
+
+def _translator() -> Translator:
+    """Build a Translator loaded with the auth module's ``en.json`` locale.
+
+    This exercises the real message templates so assertions on rendered
+    detail strings remain meaningful.
+    """
+    locales = Path(str(importlib.resources.files("auth") / "locales"))
+    registry = I18nRegistry(default_locale="en", supported_locales=["en"])
+    registry.add_source("auth", locales)
+    registry.load()
+    return Translator(registry, locale="en", default_locale="en")
+
+
+def _request(app, user: UserContext) -> MagicMock:
+    """A request whose state is real, so the permission cache reads as absent."""
+    request = MagicMock()
+    request.app.state.sm = SimpleNamespace(permissions=app.state.sm.permissions)
+    request.state = SimpleNamespace(user=user)
+    return request
+
+
+class TestGetCurrentUser:
+    async def test_raises_401_when_no_user(self):
+        """get_current_user raises 401 when request.state has no user."""
+        request = MagicMock()
+        del request.state.user
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(request, _translator())
+        assert exc_info.value.status_code == 401
+
+    async def test_returns_user_when_present(self):
+        """get_current_user returns the user from request.state."""
+        user = UserContext(id="u1", email="u@test.com", name="User", roles=["user"])
+        request = MagicMock()
+        request.state.user = user
+
+        result = await get_current_user(request, _translator())
+        assert result.id == "u1"
+
+
+class TestRequirePermission:
+    async def test_raises_403_when_missing_permission(self, app):
+        """The require_permission check raises 403 when user lacks permissions."""
+        dep = require_permission("products.delete")
+        check_fn = dep.dependency
+
+        user = UserContext(id="u1", email="u@test.com", name="User", roles=["viewer"])
+        request = _request(app, user)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await check_fn(request, _translator(), user)
+        assert exc_info.value.status_code == 403
+
+    async def test_admin_bypasses_permission_check(self, app):
+        """The require_permission check allows admin users through."""
+        dep = require_permission("products.delete")
+        check_fn = dep.dependency
+
+        admin_user = UserContext(id="a1", email="admin@test.com", name="Admin", roles=["admin"])
+        request = _request(app, admin_user)
+        await check_fn(request, _translator(), admin_user)
+
+
+class TestRequirePermissionAdvanced:
+    async def test_multiple_permissions_any_match(self, app):
+        """User with any of the required permissions should pass."""
+        dep = require_permission("products.view", "products.edit")
+        check_fn = dep.dependency
+
+        admin = UserContext(id="a1", email="a@t.com", name="Admin", roles=["admin"])
+        request = _request(app, admin)
+        await check_fn(request, _translator(), admin)
+
+    async def test_non_admin_without_permission_fails(self, app):
+        dep = require_permission("products.delete")
+        check_fn = dep.dependency
+
+        user = UserContext(id="u1", email="u@t.com", name="User", roles=["user"])
+        request = _request(app, user)
+        with pytest.raises(HTTPException) as exc_info:
+            await check_fn(request, _translator(), user)
+        assert exc_info.value.status_code == 403
+        assert "products.delete" in str(exc_info.value.detail)
+
+    async def test_non_admin_role_mapped_in_registry_passes(self, app):
+        """A role granted the key via the registry's role map is admitted.
+
+        Regression for GH #337: the check resolved roles without the role map,
+        so every non-admin role held nothing and this was a 403.
+        """
+        app.state.sm.permissions.map_role("clerk", ["products.delete"])
+        dep = require_permission("products.delete")
+        user = UserContext(id="u1", email="u@t.com", name="User", roles=["clerk"])
+        await dep.dependency(_request(app, user), _translator(), user)
+
+
+def test_require_permission_is_a_token_gate():
+    """``token_guard`` admits API tokens on a route gated by ``require_permission``."""
+    from fastapi import FastAPI
+    from simple_module_hosting.token_guard import route_admits_tokens
+
+    app = FastAPI()
+
+    @app.get("/g", dependencies=[require_permission("x.view")])
+    async def gated() -> None:
+        return None
+
+    route = next(r for r in app.router.routes if getattr(r, "path", "") == "/g")
+    assert route_admits_tokens(route) is True

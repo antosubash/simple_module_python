@@ -5,9 +5,9 @@ import {
   findSession,
   PART_CONCURRENCY,
   runResumable,
-} from '../file_storage/pages/resumable-upload';
-import { resumeKey } from '../file_storage/pages/resume-store';
-import { UploadAbortedError, UploadFailedError } from '../file_storage/pages/upload-errors';
+} from '../file_storage/ui/utils/resumable-upload';
+import { resumeKey } from '../file_storage/ui/utils/resume-store';
+import { UploadAbortedError, UploadFailedError } from '../file_storage/ui/utils/upload-errors';
 
 const PART = 10;
 

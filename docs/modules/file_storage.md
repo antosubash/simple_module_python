@@ -332,7 +332,11 @@ worker loop itself.
 S3 server-side `put` switches to multipart above
 `direct_upload_threshold_bytes`, even for streams whose size is unknown. It
 spools only the threshold prefix and one part at a time (each spills to disk
-above 10 MiB). Part size comes from `multipart_part_size_bytes`, grown for known
+above 10 MiB). Spool I/O runs in worker threads; cancellation waits for
+in-flight I/O before closing its file. Each server-side multipart upload reuses
+one S3 client through completion or abort, allowing connection-pool reuse
+without sharing a client across requests or event loops. Part size comes from
+`multipart_part_size_bytes`, grown for known
 sizes to fit 10,000 parts; unknown-size streams abort if they exceed that bound.
 Declared nonzero sizes must match the bytes read. Multipart is also used above
 S3's single-PUT limit, even if the threshold was configured higher. Stream,
@@ -342,6 +346,11 @@ without masking the failure. Worker uploads still honor `max_file_size_bytes`
 `StoredFile.size_bytes` is a `BIGINT` since migration `f5b1c3e8a207` (it was a
 32-bit `INTEGER` on PostgreSQL, which refused files of 2 GiB or more), and the
 S3 backend's `put` goes multipart, so objects beyond 5 GiB work end to end.
+
+Migration `f6c2d4e8b109` adds an index on `(tenant_id, is_deleted,
+created_at DESC, id)` for the default live-file browse order. It extends the
+shared `file_storage@head` trunk; apply with `upgrade heads`. Other sort orders
+and filtered searches may still require sorting.
 
 A process killed mid-upload cannot run compensation. Its incomplete multipart
 upload is an orphan like an abandoned browser one, and the upload reaper aborts
@@ -444,7 +453,7 @@ files the caller uploaded (`created_by` is their user id), unless they hold
 `file_storage.manage`. Someone else's file answers `404`, exactly like an
 unknown id, and the browse screen's type and uploader filters list only the
 caller's own rows (the usage figure stays bucket-wide, as the quota is). The
-scope is passed explicitly by the endpoints (`deps.get_owner_scope`) to the
+scope is passed explicitly by the endpoints (`web.deps.get_owner_scope`) to the
 service's `owner=` argument; internal callers such as branding and reapers
 pass none and stay unscoped, and anonymous `public` serving is unaffected.
 
@@ -477,7 +486,7 @@ class MyModule(ModuleBase):
 ## Inertia pages
 
 - `FileStorage/Browse.tsx` — file list + upload dropzone; handles the upload progress + delete confirmation flow. Each row shows a "Public" badge and a make public / make private action.
-- `FileStorage/components/UploadDropzone.tsx` — drag-drop upload child component.
+- `ui/components/UploadDropzone.tsx` — drag-drop upload child component.
 
 ## Locales
 

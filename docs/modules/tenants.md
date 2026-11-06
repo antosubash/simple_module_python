@@ -141,6 +141,50 @@ Providers own persistence, period boundaries, idempotency and hold expiry.
 choose to raise it and map it to HTTP 402; the protocol's `consume` returns a
 decision rather than requiring an exception.
 
+## Member pagination and resolver caches
+
+`GET /api/tenants/current/members` accepts `page` (1-based) and `per_page`
+(default 25, maximum 200). It returns `{items, total, page, per_page, pages}`;
+clients previously reading a bare array must read `items` and traverse the pages.
+Invalid API parameters return 422. The Members page accepts the same parameters,
+normalizes malformed values, and provides Previous/Next controls. Both order by
+`(created_at, id)` and explicitly scope rows and totals to the active tenant.
+Requests past the end clamp to the last page, including after a member removal;
+mutations reload the current page and page size. Offset pagination reflects the
+current roster, so concurrent additions/removals can shift page boundaries.
+
+Membership cache fills serialize concurrent misses per app/user, recheck the cache
+when waiting ends, and retry if invalidated during a DB read. After three reads
+that each raced an invalidation, the request answers with the last read without
+caching it. That read is not guaranteed to be newer than an invalidation that
+landed during it: it is equivalent to an uncached read racing a concurrent
+change, and it is never cached. The 60-second membership TTL and invalidation
+bus remain the fallback for changes in other workers. Permission grants and
+subdomain lookups use the same `simple_module_core.singleflight.fill` loop;
+grants keep their 30-second TTL.
+
+Unknown subdomain slugs are negatively cached for five seconds (bounded to 10,000
+entries); known slugs keep their 60-second TTL. Two invalidation channels carry
+the evictions, both published after commit and delivered to every worker when a
+transport is installed:
+
+| Channel | Key | Drops |
+|---|---|---|
+| `tenants.membership` (`INVALIDATION_CHANNEL`) | a user id | that user's memberships |
+| | `None` | every membership **and** every host lookup |
+| `tenants.hosts` (`HOSTS_INVALIDATION_CHANNEL`) | a slug | that slug's host lookups |
+| | `None` | every host lookup |
+
+Membership keys are always user ids, whatever their shape (an OIDC subject can
+be any string), so slugs never share their channel. Committed tenant creation
+drops the owner's memberships and the new slug's host lookups; other users'
+caches stay warm. Status changes and deletion publish `None` on the membership
+channel. Construct services with both invalidators outside request
+dependencies: `TenantService(db, invalidate=make_invalidator(app),
+invalidate_hosts=make_host_invalidator(app))` (from `tenants.resolution.resolver` and
+`tenants.resolution.host_resolver`). Direct SQL writes must publish `tenants.membership`
+with `key=None` after commit or wait for TTL expiry.
+
 ## Models
 
 `tenants_tenant` (id = the value stored in every `tenant_id`, slug, name,

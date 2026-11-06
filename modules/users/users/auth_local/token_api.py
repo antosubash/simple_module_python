@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, col
 from starlette.responses import JSONResponse
 
+from users.accounts.token_storage import hash_token, prune_tokens
 from users.auth_local.lockout import (
     admit,
     login_attempt,
@@ -26,10 +27,10 @@ from users.auth_local.lockout import (
     record_success,
     release,
 )
+from users.core.password_hashing import PASSWORD_HELPER
 from users.demo.guard import DEMO_READ_ONLY_DETAIL, is_read_only_demo
 from users.models import User
 from users.models.refresh_token import RefreshToken
-from users.token_storage import hash_token, prune_tokens
 
 # Pre-computed bcrypt hash used when a login attempt targets a non-existent
 # user. Running verify against this takes the same time as a real check,
@@ -68,9 +69,6 @@ async def token_login(
     db: AsyncSession = Depends(get_db),
 ):
     """Exchange email + password for an access/refresh token pair."""
-    from fastapi_users.password import PasswordHelper
-
-    helper = PasswordHelper()
     # Same lockout as the session login (GH #530): a slot is taken before the
     # password is checked, and a success gives it back.
     attempt = login_attempt(request, body.email)
@@ -94,13 +92,13 @@ async def token_login(
         # Constant-time: run bcrypt on a dummy hash to prevent timing-based
         # email enumeration (existing user + wrong password takes ~50ms for
         # bcrypt; missing user would be instant without this).
-        await asyncio.to_thread(helper.verify_and_update, body.password, _DUMMY_HASH)
+        await asyncio.to_thread(PASSWORD_HELPER.verify_and_update, body.password, _DUMMY_HASH)
         await rollback_session(db)
         locked = await record_failure(db, attempt, admission)
         raise locked or HTTPException(status_code=401, detail="Invalid credentials")
 
     verified, updated_hash = await asyncio.to_thread(
-        helper.verify_and_update, body.password, user.hashed_password
+        PASSWORD_HELPER.verify_and_update, body.password, user.hashed_password
     )
     if not verified:
         await rollback_session(db)

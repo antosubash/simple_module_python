@@ -14,7 +14,7 @@ configureI18n({
   },
 });
 
-import { type ScopeCounts, ScopeTabs } from '../settings/pages/components/ScopeTabs';
+import { type ScopeCounts, ScopeTabs } from '../settings/ui/components/ScopeTabs';
 
 const counts: ScopeCounts = { all: 42, system: 28, tenant: 9, user: 5 };
 

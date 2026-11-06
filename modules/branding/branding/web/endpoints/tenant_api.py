@@ -16,13 +16,13 @@ only. Scalar fields go through settings' generic
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
-from file_storage.deps import get_file_storage_service
-from file_storage.service import FileStorageService
-from settings.constants import PERM_TENANT_EDIT
+from file_storage.files.service import FileStorageService
+from file_storage.web.deps import get_file_storage_service
 from settings.contracts.schemas import SettingScope, SettingUpsert
-from settings.deps import get_setting_service
-from settings.service import SettingService
-from settings.tenant_scope import active_tenant
+from settings.core.constants import PERM_TENANT_EDIT
+from settings.core.service import SettingService
+from settings.core.tenant_scope import active_tenant
+from settings.web.deps import get_setting_service
 from simple_module_hosting.permissions import RequiresPermission
 
 from branding.assets.images import store_image, validate_image

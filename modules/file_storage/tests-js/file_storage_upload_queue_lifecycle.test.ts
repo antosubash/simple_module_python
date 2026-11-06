@@ -23,14 +23,14 @@ vi.mock('react', async (importOriginal) => {
   };
 });
 vi.mock('@inertiajs/react', () => ({ router: { reload } }));
-vi.mock('../file_storage/pages/resumable-upload', () => ({
+vi.mock('../file_storage/ui/utils/resumable-upload', () => ({
   findSession,
   runResumable,
   discardSession,
 }));
 
-import type { RemoteSession } from '../file_storage/pages/resumable-upload';
-import { useUploadQueue } from '../file_storage/pages/upload-queue';
+import type { RemoteSession } from '../file_storage/ui/utils/resumable-upload';
+import { useUploadQueue } from '../file_storage/ui/utils/upload-queue';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

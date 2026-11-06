@@ -41,13 +41,13 @@ class AuthModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from auth.state import AuthState
+        from auth.core.state import AuthState
 
         app.state.auth = AuthState()
         app.state.principal_serializer = _serialize_principal
 
     def register_middleware(self, app: FastAPI) -> None:
-        from auth.middleware import AuthMiddleware
+        from auth.web.middleware import AuthMiddleware
 
         app.add_middleware(AuthMiddleware)
 

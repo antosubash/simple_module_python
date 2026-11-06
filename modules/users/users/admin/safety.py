@@ -15,11 +15,11 @@ from simple_module_hosting.permissions import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from users.accounts.manager import UserManager
 from users.admin.queries import _UserServiceBase
-from users.administrators import count_active_administrators
-from users.constants import ADMIN_ROLE_NAME
-from users.exceptions import AdminAccountSafetyError, AdminPermissionError
-from users.manager import UserManager
+from users.core.administrators import count_active_administrators
+from users.core.constants import ADMIN_ROLE_NAME
+from users.core.exceptions import AdminAccountSafetyError, AdminPermissionError
 from users.models import Role, User
 
 

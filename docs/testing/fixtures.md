@@ -102,11 +102,11 @@ assert r.json() == []
 
 Same as `client`, but the fixture also:
 
-1. Seeds an admin user via `users.bootstrap.create_admin(...)`.
+1. Seeds an admin user via `users.core.bootstrap.create_admin(...)`.
 2. Forges a signed session cookie for that user.
 3. Attaches the cookie to the client.
 
-> Because it seeds via `users.bootstrap`, this fixture requires the `users` module to be installed (the import is deferred to the fixture body, so the rest of the plugin loads without it). Apps scaffolded by `smpy` include `users`.
+> Because it seeds via `users.core.bootstrap`, this fixture requires the `users` module to be installed (the import is deferred to the fixture body, so the rest of the plugin loads without it). Apps scaffolded by `smpy` include `users`.
 
 ```python
 @pytest.mark.asyncio
@@ -162,7 +162,7 @@ FastAPI dependency overrides work as usual:
 ```python
 @pytest.mark.asyncio
 async def test_with_mock_mailer(app, authenticated_client):
-    from users.deps import _mailer
+    from users.web.deps import _mailer
 
     captured = []
 

@@ -12,7 +12,7 @@ from simple_module_db.types import AwareDateTime
 from sqlalchemy import Index
 from sqlmodel import Field
 
-from file_storage import constants
+from file_storage.core import constants
 
 Base = create_module_base(constants.MODULE_NAME)
 
@@ -62,6 +62,13 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True
         Index(f"ix_{constants.TABLE_STORED_FILE}_tenant_key", "tenant_id", "key", unique=True),
         Index(f"ix_{constants.TABLE_STORED_FILE}_created_by", "created_by"),
         Index(f"ix_{constants.TABLE_STORED_FILE}_is_deleted", "is_deleted"),
+        Index(
+            f"ix_{constants.TABLE_STORED_FILE}_tenant_browse",
+            "tenant_id",
+            "is_deleted",
+            sa.text("created_at DESC"),
+            "id",
+        ),
     )
 
 

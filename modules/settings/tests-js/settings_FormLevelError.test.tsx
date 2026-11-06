@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
-import { FormLevelError } from '../settings/pages/components/FormLevelError';
+import { FormLevelError } from '../settings/ui/components/FormLevelError';
 
 describe('FormLevelError', () => {
   test('renders a model-level error flashed under errors.general', () => {

@@ -17,8 +17,8 @@ from simple_module_core.dotenv import find_env_file, parse_dotenv
 from simple_module_core.module_settings import module_settings_registry
 from simple_module_core.settings_hydrate import value_type_for_field
 
-from settings.env_vars import env_prefix_for
-from settings.store import SettingsStore
+from settings.core.env_vars import env_prefix_for
+from settings.module_settings.store import SettingsStore
 
 app = typer.Typer(help="Settings module administration.", no_args_is_help=True)
 
@@ -55,7 +55,7 @@ def import_from_env() -> None:
     from simple_module_hosting.app_builder import create_app
     from simple_module_hosting.settings import Settings
 
-    from settings.service import SettingService
+    from settings.core.service import SettingService
 
     fastapi_app = create_app(Settings())
 

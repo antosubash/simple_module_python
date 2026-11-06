@@ -21,7 +21,7 @@ def _default_limiter() -> AttemptLimiter:
 class SiteLockState:
     """Per-app site-lock state.
 
-    ``settings`` is reassigned in place by ``settings.reload`` on a hot
+    ``settings`` is reassigned in place by ``settings.module_settings.reload`` on a hot
     reload, so this dataclass must stay mutable. ``limiter`` survives those
     reloads, which is what keeps an in-flight brute-force cooldown from being
     cleared by an unrelated settings save.

@@ -11,9 +11,9 @@ from __future__ import annotations
 import httpx
 import pytest
 from branding.core.presets import BUILTIN_PRESETS, PRESET_FIELDS, BrandingPreset, find_preset
-from settings.invalidation import reload_package
-from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.core.invalidation import reload_package
+from settings.core.service import SettingService
+from settings.module_settings.store import SettingsStore
 
 # ── Unit: definitions ──────────────────────────────────────────────────
 

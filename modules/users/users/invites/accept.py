@@ -9,8 +9,8 @@ from fastapi import Request
 from fastapi_users import exceptions
 from fastapi_users.jwt import decode_jwt
 
+from users.accounts.manager import UserManager
 from users.contracts.schemas import AcceptInviteRequest
-from users.manager import UserManager
 from users.models import User
 
 

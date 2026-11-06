@@ -107,7 +107,7 @@ class _StubState:
 
 class _StubApp:
     def __init__(self, bus: InvalidationBus, settings) -> None:
-        from background_tasks.services import BackgroundTasksServices
+        from background_tasks.core.services import BackgroundTasksServices
 
         self.state = _StubState()
         self.state.sm = _StubSm(bus)
@@ -116,8 +116,8 @@ class _StubApp:
 
 class TestShutdown:
     async def test_shutdown_detaches_and_stops_the_transport(self, monkeypatch):
+        from background_tasks.core.settings import BackgroundTasksSettings
         from background_tasks.module import BackgroundTasksModule
-        from background_tasks.settings import BackgroundTasksSettings
 
         stopped: list[bool] = []
 
@@ -134,7 +134,7 @@ class TestShutdown:
             async def stop(self) -> None:
                 stopped.append(True)
 
-        import background_tasks.invalidation as bg_invalidation
+        import background_tasks.core.invalidation as bg_invalidation
 
         monkeypatch.setattr(bg_invalidation, "RedisInvalidationTransport", _FakeTransport)
 
@@ -164,8 +164,8 @@ class TestStartupAgainstADeadBroker:
     async def test_an_unreachable_url_does_not_fail_the_boot(self):
         import socket
 
+        from background_tasks.core.settings import BackgroundTasksSettings
         from background_tasks.module import BackgroundTasksModule
-        from background_tasks.settings import BackgroundTasksSettings
 
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -193,8 +193,8 @@ class TestStartupAgainstADeadBroker:
         """And the app keeps working afterwards, degraded to per-process."""
         import socket
 
+        from background_tasks.core.settings import BackgroundTasksSettings
         from background_tasks.module import BackgroundTasksModule
-        from background_tasks.settings import BackgroundTasksSettings
 
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -223,7 +223,7 @@ class TestStartupAgainstADeadBroker:
 class TestSettingsValidation:
     def test_an_empty_channel_name_is_rejected(self):
         """Subscribing to "" would silently hear nothing."""
-        from background_tasks.settings import BackgroundTasksSettings
+        from background_tasks.core.settings import BackgroundTasksSettings
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
@@ -236,7 +236,7 @@ class TestSettingsValidation:
         and ``import-from-env`` actually read — rather than through
         ``model_fields``, which would only restate the dataclass back to itself.
         """
-        from settings._module_settings import collect_module_settings
+        from settings.module_settings.discovery import collect_module_settings
 
         views = collect_module_settings(app)
         background = next((v for v in views if v.package == "background_tasks"), None)

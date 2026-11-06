@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 configureI18n({ locale: 'en', messages: {} });
 
-import { TestConnectionButton } from '../settings/pages/components/TestConnectionButton';
+import { TestConnectionButton } from '../settings/ui/components/TestConnectionButton';
 
 function stub(status: number, body: unknown) {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));

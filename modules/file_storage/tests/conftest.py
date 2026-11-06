@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Generator
+from contextlib import asynccontextmanager
 
 import pytest
+from _file_storage_uploads_support import PART
+from _file_storage_worker_support import worker_db as worker_db
+from file_storage.backends import build_backend
 from file_storage.backends.filesystem import FilesystemBackend
-from file_storage_uploads_helpers import PART
-from file_storage_worker_helpers import worker_db as worker_db
+from file_storage.core.settings import FileStorageSettings
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -64,7 +67,7 @@ async def admin_tenant_id(app) -> str:
     from simple_module_test.fixtures import SETUP_ADMIN_EMAIL
     from sqlalchemy import select
     from tenants.models import Membership, Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
     from users.models import User
 
     async with app.state.sm.db.session_factory() as session:
@@ -114,3 +117,75 @@ def storage(app, tmp_path):
     services.backend = FilesystemBackend(root=tmp_path)
     services.settings.multipart_part_size_bytes = PART
     return services
+
+
+class S3Wire:
+    def __init__(self):
+        self.parts = []
+        self.single = None
+        self.completed = None
+        self.aborted = False
+        self.failure = None
+        self.abort_failure = False
+        self.opened = 0
+        self.closed = 0
+
+    async def put_object(self, **kw):
+        self.single = kw["Body"].read()
+        assert kw["ContentLength"] == len(self.single)
+
+    async def create_multipart_upload(self, **kw):
+        return {"UploadId": "upload"}
+
+    async def upload_part(self, **kw):
+        assert kw["PartNumber"] == len(self.parts) + 1
+        body = kw["Body"]
+        self.parts.append(body if isinstance(body, bytes) else body.read())
+        return {"ETag": str(kw["PartNumber"])}
+
+    async def complete_multipart_upload(self, **kw):
+        if self.failure:
+            raise self.failure
+        self.completed = kw["MultipartUpload"]["Parts"]
+
+    async def abort_multipart_upload(self, **kw):
+        self.aborted = True
+        if self.abort_failure:
+            raise RuntimeError("abort failed")
+
+
+@pytest.fixture
+def wire_backend(monkeypatch):
+    wire = S3Wire()
+    cfg = FileStorageSettings(
+        backend="s3",
+        s3_bucket="bucket",
+        s3_region="us-east-1",
+        direct_upload_threshold_bytes=6,
+    )
+    backend = build_backend(cfg)
+
+    @asynccontextmanager
+    async def client():
+        wire.opened += 1
+        try:
+            yield wire
+        finally:
+            wire.closed += 1
+
+    monkeypatch.setattr(backend, "_client", client)
+    # Tiny, hand-verifiable parts after testing settings propagation separately.
+    backend.multipart_part_size_bytes = 5
+    monkeypatch.setattr(
+        "file_storage.multipart.support.choose_part_size", lambda size, preferred: preferred
+    )
+    return wire, backend
+
+
+@pytest.fixture
+def chunks():
+    async def _chunks(*values):
+        for value in values:
+            yield value
+
+    return _chunks

@@ -56,6 +56,26 @@ make loadtest                                       # headless against $(LOCUST_
 # or override: make loadtest LOCUST_ARGS="-u 50 -r 10 -t 60s"
 ```
 
+Each simulated user first loads `/dashboard/` as HTML. The scenario reads the
+asset version and authenticated i18n catalog from the Inertia v3 JSON script,
+then sends `X-Inertia-Version` and `X-SM-I18n: <locale>:full` on subsequent
+Inertia visits, like a browser tab with a cached catalog. This initial HTML
+request has its own stats row. Missing/invalid bootstrap data or an anonymous
+catalog records a failure and stops that user. A 409 version conflict remains
+a failure; restart the run after an asset deployment.
+
+Older runs omitted both headers: the two Inertia tasks (20 weight points)
+returned 409 instead of exercising their endpoints, and successful
+page responses could include the full catalog (~71 KB). Their latency,
+throughput and failure rates are not comparable with corrected runs.
+
+**Size the pool before increasing concurrency.** At 300 users the default
+`10 + 20` connection pool can be exhausted; queuing or pool timeouts then
+dominate the result. Account for every worker's pool and Postgres's connection
+limit, as described in [Deployment: pool sizing](../../docs/reference/deployment.md).
+Record worker count, pool size/overflow, database size and asset version with
+each result. Concurrency is not a reason to allocate one connection per user.
+
 ## 4. Profile allocations under load (memray)
 
 `make loadtest-memray` seeds the auth cookie, starts uvicorn under memray,
@@ -74,3 +94,25 @@ blocks attaching to a running process without root) and drive it with locust:
 uvx py-spy record --format speedscope --subprocesses --duration 40 -o profile.json -- \
   uv run --project host uvicorn host.main:app --port 8000 --host 127.0.0.1
 ```
+
+## Offline micro-benchmarks
+
+`uv run python scripts/bench_loadtest_overheads.py` measures request helpers
+without starting services. It reports median microseconds over five samples;
+statement measurements build fresh query objects, as requests do. These
+measurements demonstrate local CPU costs, not end-to-end throughput gains.
+
+Local measurements on 2026-11-05 (same process setup before/after):
+
+| Candidate | Before → after (µs) | Decision |
+|---|---:|---|
+| Validate path prefixes at tuple construction | 0.757 → 0.223 | Kept; all four gate callers validate once |
+| Pre-encode and batch four static security headers (full wrapper) | 14.402 → 11.198 | Kept; CSP nonces, providers and HSTS still resolve as before |
+| Construct flag DTO without validation | 4.693 → 4.633 | Dropped; ~1% was not a consistent gain across runs |
+| Cache statement walk decision by SQLAlchemy key (fresh ORM query) | 45.925 → 48.822 | Dropped; key generation and lookup cost more than the walk |
+| Skip session Vary normalization for a single token | 2.832 → 3.628 | Dropped; regresses the comma-separated Vary case (although a single Cookie token benefits) |
+
+The installed Starlette session middleware already avoids re-signing unchanged
+sessions. No session or query-filter code changed; tenancy and soft-delete
+criteria remain untouched. The cache experiment timed a warmed lookup even
+without the additional registry/policy invalidation a production cache needs.

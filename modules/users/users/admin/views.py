@@ -17,11 +17,11 @@ from starlette.responses import RedirectResponse
 
 from users.admin.recent_activity import recent_activity_for
 from users.admin.service import UserService
-from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
-from users.deps import get_user_service
-from users.exceptions import UserNotFoundError
+from users.core.constants import PERM_USERS_MANAGE, sanitize_list_filters
+from users.core.exceptions import UserNotFoundError
+from users.core.roles_cache import get_roles_cache
 from users.mailer import mailer_delivers
-from users.roles_cache import get_roles_cache
+from users.web.deps import get_user_service
 
 router = APIRouter()
 

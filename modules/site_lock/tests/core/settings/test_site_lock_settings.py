@@ -44,6 +44,6 @@ def test_blank_password_error_is_pinned_to_the_enabled_field(password: str) -> N
 
 def test_password_field_is_masked_by_settings_ui() -> None:
     # The admin UI masks fields by name; `password` must match that regex.
-    from settings._module_settings import is_secret_field
+    from settings.module_settings.discovery import is_secret_field
 
     assert is_secret_field("password") is True

@@ -12,7 +12,7 @@ from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
-from settings.constants import (
+from settings.core.constants import (
     ALL_PERMISSIONS,
     API_PREFIX,
     LOCALE_NAMESPACE,
@@ -65,8 +65,8 @@ class SettingsModule(ModuleBase):
         from simple_module_core.module_settings import module_settings_registry
 
         from settings.contracts.registry import SettingsRegistry
-        from settings.services import SettingsServices
-        from settings.settings import SettingsSettings
+        from settings.core.services import SettingsServices
+        from settings.core.settings import SettingsSettings
 
         # The framework owns the module-settings registry (#500); the admin
         # screens read the same object through ``services.module_registry``.
@@ -81,7 +81,7 @@ class SettingsModule(ModuleBase):
         services.module_registry.register(MODULE_PACKAGE, SettingsSettings)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
-        from settings.invalidation import subscribe
+        from settings.core.invalidation import subscribe
 
         self._refresh = subscribe(bus, app)
 
@@ -94,15 +94,15 @@ class SettingsModule(ModuleBase):
             await self._refresh.stop()
 
     def register_exception_handlers(self, app: FastAPI) -> None:
-        from settings.errors import install_exception_handlers
+        from settings.core.errors import install_exception_handlers
 
         install_exception_handlers(app)
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from settings.endpoints.api import router as api
-        from settings.endpoints.module_api import router as module_api
-        from settings.endpoints.tenant_api import router as tenant_api
-        from settings.endpoints.views import router as views
+        from settings.web.endpoints.api import router as api
+        from settings.web.endpoints.module_api import router as module_api
+        from settings.web.endpoints.tenant_api import router as tenant_api
+        from settings.web.endpoints.views import router as views
 
         api_router.include_router(module_api)
         # Before ``api``: its ``/tenant/{scope_id}/{key}`` would capture

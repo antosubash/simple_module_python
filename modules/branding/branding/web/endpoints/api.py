@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
-from file_storage.deps import get_file_storage_service
-from file_storage.service import FileStorageService
+from file_storage.files.service import FileStorageService
+from file_storage.web.deps import get_file_storage_service
 from simple_module_core.app_state import get_design_packs
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -18,7 +18,7 @@ router = APIRouter()
 
 # Branding images are uploaded with ``platform=True``: they are the install's,
 # not the uploading admin's active organisation's, and the anonymous asset
-# routes must find them with no tenant bound (see ``file_storage.scope``).
+# routes must find them with no tenant bound (see ``file_storage.core.scope``).
 
 _MANAGE = Depends(RequiresPermission(constants.PERM_MANAGE))
 

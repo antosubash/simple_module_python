@@ -28,8 +28,8 @@ vi.mock('@inertiajs/react', () => ({
   router: { reload: mocks.reload },
 }));
 
-import type { FieldMeta } from '../settings/pages/components/FieldInput';
-import { ModuleForm, type ModuleView } from '../settings/pages/components/ModuleForm';
+import type { FieldMeta } from '../settings/ui/components/FieldInput';
+import { ModuleForm, type ModuleView } from '../settings/ui/components/ModuleForm';
 
 function field(overrides: Partial<FieldMeta> & { name: string }): FieldMeta {
   return {

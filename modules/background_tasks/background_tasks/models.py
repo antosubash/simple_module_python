@@ -9,10 +9,11 @@ from typing import Any, ClassVar
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin
 from simple_module_db.types import AwareDateTime
-from sqlalchemy import JSON, CheckConstraint, Column, Index, String
-from sqlmodel import Field
+from sqlalchemy import JSON, CheckConstraint, Column, Index, String, column
+from sqlalchemy.orm import load_only
+from sqlmodel import Field, SQLModel
 
-from background_tasks.constants import (
+from background_tasks.core.constants import (
     DEFAULT_QUEUE,
     LOG_ID_MAX_LENGTH,
     LOG_MESSAGE_MAX_LENGTH,
@@ -33,6 +34,16 @@ from background_tasks.constants import (
 )
 
 Base = create_module_base(MODULE_NAME)
+
+
+def newest_first(queued_at: Any) -> tuple[Any, Any]:
+    """Portable ``queued_at DESC NULLS LAST``, as the two expressions to ``ORDER BY``.
+
+    Postgres sorts NULL first under plain ``DESC`` and SQLite last, so the null
+    flag leads. The model's expression index is built from the same function,
+    so the planner can serve every newest-first read from it.
+    """
+    return queued_at.is_(None).self_group(), queued_at.desc()
 
 
 class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-base]
@@ -124,6 +135,11 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
     heartbeat_at: datetime | None = None
 
     __table_args__ = (
+        # Portable DESC NULLS LAST: NULL timestamps sort after dated tasks.
+        Index(
+            "ix_background_tasks_task_execution_queued_order",
+            *newest_first(column("queued_at")),
+        ),
         CheckConstraint(
             "(resource_type IS NULL) = (resource_id IS NULL)",
             name="task_resource_pair",
@@ -139,6 +155,14 @@ class TaskExecution(Base, AuditMixin, table=True):  # ty: ignore[unsupported-bas
             "status",
             "queued_at",
         ),
+    )
+
+
+def dto_columns(dto: type[SQLModel], *extra: str) -> Any:
+    """``load_only`` option loading just ``dto``'s fields (plus ``extra``); other columns raise."""
+    return load_only(
+        *(getattr(TaskExecution, field) for field in (*dto.model_fields, *extra)),
+        raiseload=True,
     )
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import types
+from functools import cache
 from typing import Any, Literal, Protocol, Union, get_args, get_origin
 
 from pydantic import BaseModel
@@ -105,6 +106,7 @@ def input_type_for_field(cls: type[BaseSettings], field_name: str) -> tuple[str,
     return "json", nullable
 
 
+@cache
 def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
     """Fields the class's own non-init sources (env, ``.env``, secrets) answer.
 
@@ -113,6 +115,9 @@ def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
     ``<PREFIX><FIELD>`` names that are set. Deliberately not ``cls()``: a
     model validator can reject the env-only view (a production broker check)
     that the DB-merged one would pass.
+
+    Cached per class for the process lifetime: environment, dotenv and secret
+    files must be configured before first use; changes require a restart.
 
     A class with no ``env_prefix`` reports nothing from its sources: a plain
     ``BaseSettings`` reads bare, case-insensitive names, so a field called
@@ -128,7 +133,7 @@ def env_supplied_fields(cls: type[BaseSettings]) -> frozenset[str]:
     seeded = getattr(cls, "env_seeded_fields", None)
     if callable(seeded):
         found.update(seeded())
-    return frozenset(found) & cls.model_fields.keys()
+    return frozenset(found & cls.model_fields.keys())
 
 
 def _source_supplied_fields(cls: type[BaseSettings]) -> set[str]:

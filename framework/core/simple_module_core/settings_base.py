@@ -1,7 +1,7 @@
 """Base class for DB-backed settings that must not read the environment.
 
 Module and host settings are hydrated from the settings store at boot and
-hot-swapped through ``settings.reload.apply_changes_and_reload``. The DB is
+hot-swapped through ``settings.module_settings.reload.apply_changes_and_reload``. The DB is
 meant to be the only source of truth for them.
 
 Subclassing ``BaseSettings`` and simply omitting ``env_prefix`` does **not**

@@ -1,7 +1,7 @@
 """Branding service — reads current branding and applies admin changes.
 
 There is no branding DB table: values live in the shared settings store. Writes
-go through ``settings.reload.apply_changes_and_reload`` which validates against
+go through ``settings.module_settings.reload.apply_changes_and_reload`` which validates against
 ``BrandingSettings``, persists (SYSTEM scope), hot-swaps ``app.state.branding``
 and publishes ``SettingsReloaded``.
 """
@@ -23,7 +23,7 @@ from branding.web.shared_props import asset_url
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from file_storage.service import FileStorageService
+    from file_storage.files.service import FileStorageService
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from branding.core.settings import BrandingSettings
@@ -70,9 +70,9 @@ class BrandingService:
         """Persist and hot-swap the given field changes, then return current."""
         # Plugin→plugin imports (settings is a declared dependency); kept local
         # so import order during discovery stays tolerant.
-        from settings.reload import apply_changes_and_reload
-        from settings.service import SettingService
-        from settings.store import SettingsStore
+        from settings.core.service import SettingService
+        from settings.module_settings.reload import apply_changes_and_reload
+        from settings.module_settings.store import SettingsStore
 
         # With the bus, so the write publishes ``settings.values`` and other
         # workers' merged tenant caches (which inherit system values) drop.
@@ -97,8 +97,8 @@ class BrandingService:
         """
         # The pre-save value comes from the DB-backed settings, not app.state:
         # the in-process object only changes after commit.
-        from settings.service import SettingService
-        from settings.store import SettingsStore
+        from settings.core.service import SettingService
+        from settings.module_settings.store import SettingsStore
         from simple_module_core.settings_hydrate import hydrate_settings
 
         from branding.core.settings import BrandingSettings

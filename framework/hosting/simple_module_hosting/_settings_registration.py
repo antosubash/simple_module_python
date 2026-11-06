@@ -34,7 +34,7 @@ def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]
             continue
         # Match the convention actually used by modules: `app.state.<package>`
         # (snake_case package name, e.g. `background_tasks`), which aligns
-        # with Settings-module autodiscovery in `settings._module_settings`.
+        # with Settings-module autodiscovery in `settings.module_settings.discovery`.
         package = cls.__module__.split(".", 1)[0]
         candidates = (package, mod.meta.name.lower())
         if any(hasattr(app.state, c) for c in candidates):

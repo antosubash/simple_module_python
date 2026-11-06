@@ -13,7 +13,7 @@ from branding.core.service import BrandingService
 from branding.web.endpoints import tenant_api
 from file_storage.models import StoredFile
 from settings.contracts.schemas import SettingScope, SettingUpsert
-from settings.service import SettingService
+from settings.core.service import SettingService
 from simple_module_db import all_tenants
 from sqlalchemy import select
 

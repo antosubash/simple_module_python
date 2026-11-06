@@ -21,7 +21,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
 import Index from '../background_tasks/pages/Index';
-import type { Execution } from '../background_tasks/pages/retry';
+import type { Execution } from '../background_tasks/ui/utils/retry';
 import { requestsOf, stubFetch } from './stub-fetch';
 
 const rd = keys.background_tasks.retry_dialog;

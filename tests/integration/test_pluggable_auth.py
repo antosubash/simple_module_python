@@ -40,7 +40,7 @@ def test_sm021_fires_with_neither():
 
 
 def test_auth_provider_protocol_satisfied_by_users():
-    from users.provider import UsersAuthProvider
+    from users.accounts.provider import UsersAuthProvider
 
     assert isinstance(UsersAuthProvider(), AuthProvider)
 

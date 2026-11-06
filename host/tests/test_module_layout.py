@@ -1,7 +1,4 @@
-"""Ratchet package roots while existing modules migrate one PR at a time."""
-
-# Keep the frozen filename inventory readable as whitespace-separated data.
-# ruff: noqa: SIM905
+"""Keep every module package root to the layout in docs/module-layout.md."""
 
 from __future__ import annotations
 
@@ -34,83 +31,29 @@ ALLOWED_ROOT = frozenset(
 # Add named domain areas here only when they contain several related features.
 DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "api_tokens": frozenset({"credentials"}),
+    "audit_log": frozenset({"entries"}),
+    "auth": frozenset({"oidc_common"}),
+    "background_tasks": frozenset({"executions", "logs", "outbox", "worker"}),
     "branding": frozenset({"assets"}),
+    "file_storage": frozenset({"backends", "files", "multipart"}),
     "keycloak": frozenset({"identity"}),
     "mail": frozenset({"delivery"}),
     "oidc": frozenset({"identity"}),
+    "permissions": frozenset({"grants"}),
+    "settings": frozenset({"module_settings"}),
+    "tenants": frozenset({"invitations", "resolution"}),
+    "users": frozenset({"accounts", "admin", "auth_local", "demo", "invites", "mailer", "oauth"}),
+}
+
+# Plain re-export shims (#500) that predate the layout: public compat paths kept
+# at the root until their own 0.1.0 deprecation expires (host/tests/test_deprecation_expiry.py),
+# then deleted together with the entry here.
+DEPRECATED_ROOT: dict[str, frozenset[str]] = {
+    "settings": frozenset({"hydrate.py", "module_registry.py", "registration.py"}),
 }
 
 # Frozen inventory, not a computed baseline: moves must remove their old entries.
-LEGACY_FLAT: dict[str, frozenset[str]] = {
-    "audit_log": frozenset(
-        """
-        activity.py capture.py constants.py deps.py endpoints export.py filters.py
-        resolve.py service.py services.py settings.py
-        """.split()
-    ),
-    "auth": frozenset(
-        """
-        _route_match.py constants.py deps.py middleware.py oidc_common state.py
-        """.split()
-    ),
-    "background_tasks": frozenset(
-        """
-        _lifecycle.py _signal_bus.py _signal_support.py after_commit.py celery_app.py
-        config_guards.py constants.py db_settings.py deps.py endpoints filters.py health.py
-        invalidation.py log_context.py log_purge.py log_service.py log_sink.py
-        outbox_claim.py outbox_clock.py outbox_dispatch.py outbox_guard.py outbox_loop.py
-        outbox_service.py outbox_support.py outbox_sweep.py outbox_transport.py
-        outbox_worker.py retry_service.py runner.py service.py services.py settings.py
-        settings_celery.py settings_env_checks.py settings_logs.py signals.py sync_db.py
-        task_heartbeat.py task_resource.py task_routing.py tenant_celery.py
-        tenant_context.py tracking.py worker_inspector.py worker_settings.py
-        workers_state.py
-        """.split()
-    ),
-    "file_storage": frozenset(
-        """
-        aggregates.py audit_labels.py backend_guard.py backends body_limits.py checksum.py
-        constants.py cookieless.py cors.py csp.py deletes.py deps.py downloads.py endpoints
-        errors.py format.py health.py media_types.py object_reaper.py queries.py ranges.py
-        reads.py resolve.py scope.py service.py services.py serving.py settings.py
-        tenant_cache.py tenant_deletion.py thumbnails.py upload_guards.py upload_support.py
-        uploads.py visibility.py worker.py worker_support.py
-        """.split()
-    ),
-    "permissions": frozenset(
-        """
-        _registry_sync.py constants.py deps.py endpoints grants.py group_labels.py
-        role_invalidation.py service.py user_cleanup.py write_safety.py
-        """.split()
-    ),
-    "settings": frozenset(
-        """
-        _announce.py _field_meta.py _listing.py _managed_keys.py _module_settings.py
-        _module_settings_props.py _row_masking.py _secrets.py _unique_write.py
-        browse_query.py constants.py deps.py endpoints env_vars.py errors.py exceptions.py
-        hydrate.py invalidation.py known_keys.py module_registry.py registration.py
-        reload.py service.py services.py settings.py store.py tenant_scope.py tenant_view.py
-        """.split()
-    ),
-    "tenants": frozenset(
-        """
-        _deletion.py _membership_ops.py _owner_guard.py components constants.py deps.py
-        endpoints errors.py hooks host_resolver.py invitation_mail.py invitations.py
-        resolver.py service.py services.py settings.py shared_props.py templates
-        token_tenant.py user_cleanup.py
-        """.split()
-    ),
-    "users": frozenset(
-        """
-        admin administrators.py audit.py auth_local backend.py bootstrap.py constants.py
-        credentials.py data_compatibility.py db_adapter.py demo deps.py directory.py
-        errors.py exceptions.py invites mailer manager.py middleware.py oauth provider.py
-        registration.py reset_revocation.py roles_cache.py session_revocation.py
-        session_version_cache.py settings.py setup.py setup_action.py shared_props.py
-        startup.py state.py token_storage.py token_strategy.py
-        """.split()
-    ),
-}
+LEGACY_FLAT: dict[str, frozenset[str]] = {}
 
 
 def _is_layout_shim(path: Path) -> bool:
@@ -145,7 +88,11 @@ def test_module_root_layout(module: str) -> None:
             and not _is_shim_package(p)
         )
     }
-    allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset())
+    deprecated = DEPRECATED_ROOT.get(module, frozenset())
+    assert deprecated <= {p.name for p in package.iterdir()}, (
+        f"{module}: remove expired DEPRECATED_ROOT entries"
+    )
+    allowed = ALLOWED_ROOT | DOMAIN_AREAS.get(module, frozenset()) | deprecated
     legacy = LEGACY_FLAT.get(module, frozenset())
     if module in LEGACY_FLAT:
         assert legacy, f"{module}: remove the empty LEGACY_FLAT entry"

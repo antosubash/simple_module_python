@@ -8,8 +8,8 @@ import { Label } from '@simple-module-py/ui/components/ui/label';
 import { Textarea } from '@simple-module-py/ui/components/ui/textarea';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import type React from 'react';
-import { FormLevelError } from './components/FormLevelError';
-import ValueInput from './components/ValueInput';
+import { FormLevelError } from '../ui/components/FormLevelError';
+import ValueInput from '../ui/components/ValueInput';
 import { ROUTES } from './routes';
 import type { Setting } from './types';
 

@@ -1,10 +1,11 @@
-"""Backwards-compatibility re-export.
+"""Moved to :mod:`auth.web.middleware`; this alias goes in 0.0.46 (module layout)."""
 
-The canonical AuthMiddleware now lives in ``auth.middleware``. This shim
-exists only to avoid breaking imports in downstream apps that referenced
-``users.middleware.AuthMiddleware`` directly.
-"""
+from __future__ import annotations
 
-from auth.middleware import AuthMiddleware
+import importlib
+import sys
 
-__all__ = ["AuthMiddleware"]
+from simple_module_core.deprecation import deprecated_module
+
+deprecated_module("users.middleware", remove_in="0.0.46", use="auth.web.middleware")
+sys.modules[__name__] = importlib.import_module("auth.web.middleware")

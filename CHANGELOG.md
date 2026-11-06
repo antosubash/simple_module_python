@@ -14,7 +14,23 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Load-test Inertia visits now send the initial page's asset version and cached i18n catalog marker, measuring real page responses instead of version conflicts and repeated catalog downloads. Invalid bootstrap pages stop the simulated user; 409 responses remain failures.
+
+### Changed
+
+- Hosting gates validate their path prefixes once at import via `simple_module_hosting.path_matching.validated_prefixes`; `matches_path` no longer re-checks the trailing slash on every request. Build prefix tuples with `validated_prefixes(...)`. Security headers moved to a private module (import path unchanged) and static headers are applied in one batch.
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
+
 ### Security
+- **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
+  and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
+  Native API clients without browser headers retain their existing workflow.
+- **Behaviour change:** local logout retires only the current browser session,
+  using the existing account-cache invalidation channel (#318). Migration
+  `e805a1b2c3d4` adds expiring session retirement records. Sessions issued before
+  the upgrade remain compatible until expiry or next sign-in.
 - **Audit hardening:** audit entries no longer record credential values.
   Redacted fields retain change indicators using `[redacted]`; credential
   primary-key identities are masked too. Migration `b8d4f2a6c901` redacts
@@ -58,22 +74,50 @@ All notable changes to this project are documented in this file. The format is b
   fast (server, client, loading/empty/error states, layout shift, polling,
   prefetch) and how to pin a page's query count in a test.
 
-### Changed
 
+- **Breaking:** tenant member lists now use server pagination (`page` / `per_page`, default 25, maximum 200). The current-members API returns `{items, total, page, per_page, pages}` instead of an array; the Members page provides navigation and retains its page after mutations. `TenantService.list_members(tenant_id, params)` now takes `PageParams` and returns `Page[Membership]` instead of a list.
+- Cache env-supplied settings fields per class and default API version discovery per process; changes to environment, dotenv, or secret sources require a restart.
+- Pre-serialize shared Inertia i18n catalogs per locale, audience, and catalog load, preserving page JSON bytes and HTML escaping.
+- Reduce background task polling and list reads to their required columns; count task history separately from paginated reads and index newest-first, nulls-last ordering (migration `c5d8e2f1a903`, 2026-11-05 performance review).
+- Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 - `OidcAuthProvider` and `KeycloakAuthProvider` gain a public `sign_in_from_claims(request, claims)`; the OIDC and Keycloak login callbacks call it instead of the private `_identity`/`_upsert_user_cache`/`_claims_to_user_context` helpers (#848). The OIDC variant returns `(UserContext, identity)` and raises the new `IdentityUnavailableError` when the user cache refuses the identity. No behaviour change.
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`. Moved modules log under their new paths (for example `mail.delivery.sender`), so logging config that names an old logger needs the new name.
 - `mail` follows the module layout: `mail.core.{constants,settings,state,data_compatibility}` and `mail.delivery.{sender,runtime}`. `mail.settings` and `mail.constants` still import, with a `DeprecationWarning`, until 0.0.46.
 - `site_lock` follows the module layout: `site_lock.core.{constants,settings,state}` and `site_lock.web.{middleware,page,rate_limit}` (the unlock template moves with the page). `site_lock.settings` still imports, with a `DeprecationWarning`, until 0.0.46.
 - `sharing` follows the module layout: `sharing.core.{constants,settings,services,service,policy,audience,tenant_cleanup,user_cleanup}`, `sharing.web.{deps,present,endpoints}`, and the page components and types move to `ui/`. `sharing.policy`, `sharing.constants` and `sharing.endpoints.api` still import, with a `DeprecationWarning`, until 0.0.46; new code imports `sharing.core.policy`.
+- `background_tasks` follows the module layout: `background_tasks.core.*` (constants, settings, services, config guards, health, invalidation, `sync_db`, tracking), `background_tasks.worker.*` (`celery_app`, `runner`, signals, task routing, heartbeats, worker settings, fleet inspection), `background_tasks.{executions,outbox,logs,web}.*`; the page components and TS helpers move to `ui/`. `background_tasks.{runner,celery_app,settings,sync_db,tenant_context,config_guards,task_routing,worker_settings,outbox_transport,outbox_worker}` still import, with a `DeprecationWarning`, until 0.0.46, so existing `scripts/run_worker.py` files keep working. Celery task names, durable event and handler names and the package-root exports are unchanged; module-name loggers move with their modules.
+- `users` follows the module layout: `users.core.*` (constants, settings, state, errors, exceptions, administrators, bootstrap, startup, data compatibility, directory, audit, roles cache, setup), `users.accounts.*` (backend, DB adapter, manager, registration, provider, token storage and strategy, credentials, reset and session revocation, session-version cache) and `users.web.{deps,shared_props}`; the `failureMessage` and `signIn` helpers move to `ui/utils/`. `users.constants`, `users.settings`, `users.state`, `users.bootstrap`, `users.deps`, `users.directory` and `users.middleware` (the `auth.web.middleware` re-export) still import, with a `DeprecationWarning`, until 0.0.46. Durable names, permission names, i18n keys and settings keys are unchanged; loggers named from `__name__` change with the module path.
 - `dashboard` follows the module layout: `dashboard.core.constants`, `dashboard.web.{endpoints,stats,doctor}`, and the page components move from `pages/components/` to `ui/components/`. Nothing outside the module imported the old paths, so no aliases remain.
 - `feature_flags` follows the module layout: `feature_flags.core.{constants,service,invalidation,tenant_cleanup}`, `feature_flags.web.{deps,endpoints}`, and the page components and types move to `ui/`. `feature_flags.constants` still imports, with a `DeprecationWarning`, until 0.0.46.
 - `keycloak` follows the module layout: `keycloak.core.{constants,settings,state}`, `keycloak.identity.{provider,oidc,renewal,directory,persistence,tokens,jwks}` and `keycloak.web.endpoints`. `keycloak.{constants,settings,provider,jwks,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 - `oidc` follows the module layout: `oidc.core.{constants,settings,presets,state,runtime}`, `oidc.identity.{provider,client,discovery,renewal,directory,persistence,tokens,jwks}` and `oidc.web.endpoints`. `oidc.{settings,provider,jwks}` still import, with a `DeprecationWarning`, until 0.0.46; other old `oidc.*` paths are gone.
 - `api_tokens` follows the module layout: `api_tokens.core.{constants,settings,services,tenant_cleanup,user_cleanup}`, `api_tokens.credentials.{format,scopes,owner,service,resolver,audit}` (`tokens.py` is now `credentials/format.py`), `api_tokens.web.{deps,endpoints}`, and the page components and types move to `ui/`. `api_tokens.{constants,service,resolver,tokens}` still import, with a `DeprecationWarning`, until 0.0.46.
 - `branding` follows the module layout: `branding.core.{constants,settings,services,service,presets,tenant_definitions,tenant_branding}`, `branding.assets.{images,reaper}`, `branding.web.{deps,shared_props,endpoints}`, and the form components move from `components/` to `ui/components/`. `branding.{constants,settings,services,tenant_branding,images}` and `branding.endpoints.assets` still import, with a `DeprecationWarning`, until 0.0.46.
+- `permissions` follows the module layout: `permissions.core.{constants,service,group_labels,write_safety}`, `permissions.grants.{source,role_invalidation,user_cleanup}` (`grants.py` is now `grants/source.py`), `permissions.web.{deps,endpoints}`, and the page components move from `pages/components/` to `ui/components/`. `permissions.deps` and `permissions.group_labels` still import, with a `DeprecationWarning`, until 0.0.46. The durable handler name `permissions.user_cleanup.purge_user_grants` is unchanged.
+- `settings` follows the module layout: `settings.core.{constants,settings,services,errors,exceptions,env_vars,service,invalidation,tenant_scope,tenant_view,...}`, `settings.module_settings.{discovery,props,store,reload}` (`_module_settings.py` is now `module_settings/discovery.py`, `_module_settings_props.py` is `module_settings/props.py`), `settings.web.{deps,browse_query,known_keys,endpoints}`, and the page components move from `pages/components/` to `ui/components/`. `settings.service`, `settings.reload`, `settings.deps`, `settings.tenant_scope`, `settings.tenant_view` and `settings.endpoints.module_api` still import, with a `DeprecationWarning`, until 0.0.46, and `settings.store`, `settings.constants` and `settings._secrets` until 0.1.0 (the release their re-exports were already promised for); `settings.errors`, `settings.exceptions`, `settings.services`, `settings.settings`, `settings.env_vars`, `settings.invalidation`, `settings.known_keys`, `settings.browse_query` and `settings.endpoints.{api,views,tenant_api}` moved with no alias. The deprecated `settings.hydrate`, `settings.module_registry` and `settings.registration` re-exports (#500) are unchanged. Permission names, i18n keys, the `settings.values` invalidation channel and `app.state.settings` are unchanged.
+- `audit_log` follows the module layout: `audit_log.core.{constants,settings,services,capture}`, `audit_log.entries.{service,filters,resolve,activity,export}`, `audit_log.web.{deps,endpoints}`, and the page components move from `pages/components/` to `ui/components/`. The `simple_module.audit_sinks` entry point now targets `audit_log.core.capture:audit_callback`. Nothing outside the module imported the old paths, so no aliases remain.
+- `auth` follows the module layout: `auth.core.{constants,state}` and `auth.web.{deps,middleware}`; `auth.oidc_common` stays as a declared domain area. `auth.constants`, `auth.state`, `auth.deps` and `auth.middleware` still import, with a `DeprecationWarning`, until 0.0.46.
+- `tenants` follows the module layout: `tenants.core.{constants,settings,services,errors,service,user_cleanup}` (with the membership, owner-guard and deletion helpers), `tenants.resolution.{resolver,host_resolver,token_tenant}`, `tenants.invitations.{service,mail}`, `tenants.web.{deps,shared_props,endpoints}`, and the page components and hooks move to `ui/components` and `ui/hooks`. The invitation mail template moves to `invitations/templates/invitation.txt`. `tenants.constants`, `tenants.errors`, `tenants.host_resolver`, `tenants.resolver`, `tenants.service` and `tenants.deps` still import, with a `DeprecationWarning`, until 0.0.46. The durable handler names `tenants.user_cleanup.purge_user_memberships` and `tenants.send_invitation_email` are unchanged.
+- `file_storage` follows the module layout: `file_storage.core.{constants,settings,services,errors,scope,format,health,audit_labels,tenant_cache,tenant_deletion,object_reaper,worker,worker_support}`, `file_storage.files.*`, `file_storage.multipart.{sessions,guards,support,checksum}`, `file_storage.backends.guard`, `file_storage.web.{deps,serving,cors,csp,cookieless,body_limits,endpoints}`, and the page components, hook and helpers move to `ui/`. `file_storage.settings`, `.service`, `.deps`, `.scope`, `.downloads`, `.upload_support` and `.tenant_deletion` still import, with a `DeprecationWarning`, until 0.0.46; the other old flat paths (`.constants`, `.errors`, `.services`, `.endpoints.*`, `.upload_guards`, `.uploads`, `.checksum`, `.worker`, `.cors`, `.csp` and so on) have no alias. The durable `TenantStorageCleanupRequested` event key and its handler names, and the Celery task names, are unchanged.
 
-### Fixed
 
+- Coalesce concurrent tenant membership and permission grant cache misses. In-flight invalidation retries against fresh authorization data; failures and cancellation release waiting readers. Cache unknown tenant subdomains for five seconds and drop the new slug's host lookups (on a new `tenants.hosts` invalidation channel, so no user id is read as a slug) and the owner's memberships after committed tenant creation; other users' caches are not cleared. Services built outside request dependencies pass `invalidate_hosts=make_host_invalidator(app)` beside `invalidate=make_invalidator(app)`. Retries after concurrent invalidation are bounded to three reads (2026-11-05 local performance review).
+- Offload S3 server-upload spool I/O, wait for in-flight I/O during cancellation, and reuse one client per multipart upload. Index the default tenant file browse order (migration `f6c2d4e8b109`; local performance review, 2026-11-05).
+- Users password creation, forgot-password fingerprints, reset verification and
+  password updates offload hashing to worker threads, keeping unrelated async
+  requests responsive during registration and bulk invites. Password policy,
+  single-use reset tokens and atomic credential revocation are preserved.
+- Admin user state totals and role options use a 30-second per-worker cache.
+  A committed user, role or membership write evicts this worker's entry; the
+  admin service's write paths (create, invite, delete, disable, enable, mark
+  verified, set roles) also publish `users.admin_summary` once after commit so
+  other workers evict theirs. Other writes (logins, lockout counters, password
+  changes) publish nothing and rely on the TTL.
+  List DTOs skip redundant validation of trusted database values; role options
+  select only the required columns, and managers share one password helper.
+- Users: `on_commit` callbacks queued before a fastapi-users adapter commit
+  (user create, update, delete through the manager) now run after that commit;
+  they used to be discarded when the request session was finalized.
 - Include module `ui/` sources in wheel-installed Tailwind scanning and the asset manifest; retain legacy `components/` support.
 - Background tasks: the executions list (when empty) and the Workers page no
   longer wait out the broker's ~1 s inspect timeout before rendering. The

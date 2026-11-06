@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 if TYPE_CHECKING:
     from httpx_oauth.oauth2 import BaseOAuth2
 
-    from users.settings import UsersSettings
+    from users.core.settings import UsersSettings
 
 logger = logging.getLogger(__name__)
 

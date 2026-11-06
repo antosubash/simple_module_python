@@ -25,7 +25,7 @@ pip install simple_module_auth
 ```python
 from fastapi import APIRouter
 
-from auth.deps import CurrentUser
+from auth.web.deps import CurrentUser
 
 router = APIRouter()
 
@@ -49,7 +49,7 @@ from .constants import PERM_PRODUCTS_CREATE
 async def create_product(): ...
 ```
 
-`auth.deps.require_permission` is deprecated and will be removed in **0.1.0**
+`auth.web.deps.require_permission` is deprecated and will be removed in **0.1.0**
 (#698). It retains its legacy any-of semantics, role-based admin bypass and cached
 permission check. Migrate to `RequiresPermission(PERM_KEY)`; for several required
 permissions, declare a dependency for each. Unlike the legacy helper,

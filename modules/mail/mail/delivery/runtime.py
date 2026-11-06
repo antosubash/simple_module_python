@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.core.service import SettingService
+from settings.module_settings.store import SettingsStore
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.health import HealthCheckResult, HealthStatus
 from simple_module_core.mail import MailSender, current_mail_sender, install_mail_sender

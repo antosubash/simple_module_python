@@ -15,7 +15,7 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 
-from background_tasks.constants import (
+from background_tasks.core.constants import (
     _MODULE_SETTINGS,
     API_PREFIX,
     LOGS_MENU_ICON,
@@ -80,8 +80,8 @@ class BackgroundTasksModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from background_tasks.services import BackgroundTasksServices
-        from background_tasks.settings import BackgroundTasksSettings
+        from background_tasks.core.services import BackgroundTasksServices
+        from background_tasks.core.settings import BackgroundTasksSettings
 
         register_module_settings(
             app,
@@ -141,13 +141,13 @@ class BackgroundTasksModule(ModuleBase):
         )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from background_tasks.endpoints.api_admin import router as api_admin
-        from background_tasks.endpoints.api_status import router as api_status
-        from background_tasks.endpoints.logs_api import router as logs_api
-        from background_tasks.endpoints.logs_views import router as logs_views
-        from background_tasks.endpoints.outbox_api import router as outbox_api
-        from background_tasks.endpoints.outbox_views import router as outbox_views
-        from background_tasks.endpoints.views import router as views
+        from background_tasks.web.endpoints.api_admin import router as api_admin
+        from background_tasks.web.endpoints.api_status import router as api_status
+        from background_tasks.web.endpoints.logs_api import router as logs_api
+        from background_tasks.web.endpoints.logs_views import router as logs_views
+        from background_tasks.web.endpoints.outbox_api import router as outbox_api
+        from background_tasks.web.endpoints.outbox_views import router as outbox_views
+        from background_tasks.web.endpoints.views import router as views
 
         api_router.include_router(api_admin)
         api_router.include_router(api_status)
@@ -164,17 +164,17 @@ class BackgroundTasksModule(ModuleBase):
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the Celery app, install signal handlers, hand-off to worker."""
-        from background_tasks._lifecycle import startup
+        from background_tasks.core._lifecycle import startup
 
         await startup(app, self.meta.name)
 
     async def on_shutdown(self, app: FastAPI) -> None:
-        from background_tasks._lifecycle import shutdown
+        from background_tasks.core._lifecycle import shutdown
 
         await shutdown(app)
 
     @staticmethod
     async def _start_invalidation_transport(app: FastAPI) -> None:
-        from background_tasks._lifecycle import start_invalidation_transport
+        from background_tasks.core._lifecycle import start_invalidation_transport
 
         await start_invalidation_transport(app)

@@ -13,7 +13,7 @@ pip install simple_module_permissions
 ## What it provides
 
 - `Role` and `Permission` SQLModel tables, seeded from module-registered defaults.
-- Direct user-level grants feed the framework's permission resolution through a grant source, so `simple_module_hosting.permissions.RequiresPermission` (re-exported as `permissions.deps.RequiresPermission`) and `auth.deps.require_permission(...)` both honour them.
+- Direct user-level grants feed the framework's permission resolution through a grant source, so `simple_module_hosting.permissions.RequiresPermission` (re-exported as `permissions.web.deps.RequiresPermission`) and `auth.web.deps.require_permission(...)` both honour them.
 - Admin UI for assigning roles/permissions to users, reached through the users admin area at `/users/admin`; role and user editors live at `/permissions/roles/{id}/edit` and `/permissions/users/{id}/edit`.
 - `register_permissions(self, registry)` hook — every module declares its permission strings at boot via `registry.add_group(...)`; the registry dedupes and persists them.
 
@@ -37,7 +37,7 @@ Guard a route:
 
 ```python
 from fastapi import APIRouter, Depends
-from permissions.deps import RequiresPermission
+from permissions.web.deps import RequiresPermission
 
 router = APIRouter()
 

@@ -12,7 +12,6 @@ from pathlib import Path
 
 import aiofiles
 
-from file_storage import constants
 from file_storage.backends import register_backend
 from file_storage.backends.filesystem_multipart import FilesystemMultipartMixin
 from file_storage.contracts.service import (
@@ -20,7 +19,8 @@ from file_storage.contracts.service import (
     StorageBackendError,
     StorageNotFoundError,
 )
-from file_storage.settings import FileStorageSettings
+from file_storage.core import constants
+from file_storage.core.settings import FileStorageSettings
 
 
 class FilesystemBackend(FilesystemMultipartMixin):

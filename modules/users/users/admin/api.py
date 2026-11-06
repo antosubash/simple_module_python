@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from users.admin.events import publish_admin_event
 from users.admin.links import admin_link_base
 from users.admin.service import UserService
-from users.constants import PERM_USERS_MANAGE, sanitize_list_filters
 from users.contracts.events import (
     RoleAssigned,
     UserCreated,
@@ -34,14 +33,15 @@ from users.contracts.schemas import (
     UserInvite,
     UserListItem,
 )
-from users.deps import get_event_bus, get_mailer, get_user_service
-from users.exceptions import (
+from users.core.constants import PERM_USERS_MANAGE, sanitize_list_filters
+from users.core.exceptions import (
     EmailAlreadyExistsError,
     ExternalUserNoPasswordError,
     UserNotFoundError,
 )
 from users.invites.bulk import bulk_router
 from users.invites.resend import resend_router
+from users.web.deps import get_event_bus, get_mailer, get_user_service
 
 _DUPLICATE_EMAIL = "A user with this email already exists."
 

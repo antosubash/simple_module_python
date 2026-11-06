@@ -16,8 +16,8 @@ vi.mock('../background_tasks/pages/api', () => ({ api: { GET: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { api } from '../background_tasks/pages/api';
-import type { WorkerSnapshot } from '../background_tasks/pages/constants';
 import Workers from '../background_tasks/pages/Workers';
+import type { WorkerSnapshot } from '../background_tasks/ui/utils/constants';
 
 const w = keys.background_tasks.workers;
 const base = { broker_url_redacted: 'redis://localhost:6379/0', queues: ['default'], routes: [] };

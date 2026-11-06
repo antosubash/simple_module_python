@@ -20,7 +20,7 @@ def actor(app) -> Callable[..., AbstractAsyncContextManager[Actor]]:
 
     The session carries a known CSRF token (``CSRF``) so mutations can echo it.
     """
-    from tenants.constants import SESSION_ACTIVE_TENANT
+    from tenants.core.constants import SESSION_ACTIVE_TENANT
 
     @asynccontextmanager
     async def factory(

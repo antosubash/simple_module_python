@@ -10,8 +10,8 @@ import httpx
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from starlette.requests import Request
 
-from auth.constants import REFRESH_RETRY_AFTER_SECONDS
 from auth.contracts.schemas import UserContext
+from auth.core.constants import REFRESH_RETRY_AFTER_SECONDS
 from auth.oidc_common.renewal_outcomes import coordinated_refresh
 from auth.oidc_common.session import SessionKeys
 

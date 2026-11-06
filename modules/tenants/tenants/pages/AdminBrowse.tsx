@@ -8,7 +8,7 @@ import { Input } from '@simple-module-py/ui/components/ui/input';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Building2, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { type AdminTenant, AdminTenantsTable } from '../components/AdminTenantsTable';
+import { type AdminTenant, AdminTenantsTable } from '../ui/components/AdminTenantsTable';
 
 interface Props {
   tenants: AdminTenant[];

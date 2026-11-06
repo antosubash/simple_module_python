@@ -10,7 +10,7 @@ vi.mock('@inertiajs/react', () => ({
   },
 }));
 
-import { parseFailureReason, useUploadQueue } from '../file_storage/pages/upload-queue';
+import { parseFailureReason, useUploadQueue } from '../file_storage/ui/utils/upload-queue';
 
 /** Enough XMLHttpRequest for the queue: open/send/abort plus the four events. */
 class FakeXhr {

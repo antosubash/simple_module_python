@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import ConfigDict, field_validator
 from sqlmodel import SQLModel
 
-from background_tasks.constants import TaskStatus
+from background_tasks.core.constants import TaskStatus
 
 
 class TaskExecutionListItem(SQLModel):

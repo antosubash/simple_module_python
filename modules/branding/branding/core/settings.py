@@ -3,7 +3,7 @@
 The four values an administrator can customise (app name, logo, favicon,
 primary colour) are stored in the shared settings store at SYSTEM scope,
 hydrated into ``app.state.branding.settings`` at boot, and hot-swapped on save
-through ``settings.reload.apply_changes_and_reload``.
+through ``settings.module_settings.reload.apply_changes_and_reload``.
 
 Logo/favicon are stored as ``file_storage`` UUIDs (empty string = unset); the
 frontend derives a download URL from the id.

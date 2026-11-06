@@ -12,8 +12,8 @@ import { Search } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { filterGroups, type PermissionGroup } from './components/permission-groups';
-import { RoleGroupCard } from './components/RoleGroupCard';
+import { filterGroups, type PermissionGroup } from '../ui/components/permission-groups';
+import { RoleGroupCard } from '../ui/components/RoleGroupCard';
 
 type Role = { id: string; name: string; description: string | null };
 

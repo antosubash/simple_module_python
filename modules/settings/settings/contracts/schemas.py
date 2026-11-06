@@ -24,7 +24,11 @@ from simple_module_db.stored_settings import (
 )
 from sqlmodel import Field, SQLModel
 
-from settings.constants import ERR_SCOPED_REQUIRES_ID, ERR_SYSTEM_SCOPE_NO_ID, ERR_VALUE_MISMATCH
+from settings.core.constants import (
+    ERR_SCOPED_REQUIRES_ID,
+    ERR_SYSTEM_SCOPE_NO_ID,
+    ERR_VALUE_MISMATCH,
+)
 
 _BOOL_LITERALS = frozenset(
     {"true", "false", "1", "0", "t", "f", "yes", "no", "y", "n", "on", "off"}

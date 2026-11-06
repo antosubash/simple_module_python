@@ -32,7 +32,7 @@ MEMBERS_URL = "/api/tenants/current/members"
 
 async def _member_ids(resp: httpx.Response) -> set[str]:
     assert resp.status_code == 200, resp.text
-    return {str(m["user_id"]) for m in resp.json()}
+    return {str(m["user_id"]) for m in resp.json()["items"]}
 
 
 async def test_pat_is_pinned_to_its_tenant_whatever_the_header_says(app, actor, bearer):
@@ -59,7 +59,7 @@ async def test_pat_is_pinned_to_its_tenant_whatever_the_header_says(app, actor, 
 async def _remove_membership(app: Any, user_id: str, tenant_id: str) -> None:
     from sqlalchemy import delete
     from tenants.models import Membership
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
 
     async with app.state.sm.db.session_factory() as session:
         await session.execute(
@@ -83,9 +83,9 @@ async def test_pat_stops_working_once_the_owner_leaves_its_tenant(app, actor, be
 
 async def test_pat_stops_working_while_its_tenant_is_suspended(app, actor, bearer):
     from sqlalchemy import update
-    from tenants.constants import TenantStatus
+    from tenants.core.constants import TenantStatus
     from tenants.models import Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
 
     async with actor(admin=True) as a:
         token = (await create_pat(a.client, ["feature_flags.view"]))["token"]

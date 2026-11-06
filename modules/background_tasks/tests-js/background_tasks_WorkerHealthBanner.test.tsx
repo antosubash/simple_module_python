@@ -9,7 +9,7 @@ vi.mock('@inertiajs/react', () => ({
   Link: ({ children }: { children: unknown }) => <a href="/x">{children as string}</a>,
 }));
 
-import { WorkerHealthBanner } from '../background_tasks/pages/components/WorkerHealthBanner';
+import { WorkerHealthBanner } from '../background_tasks/ui/components/WorkerHealthBanner';
 import { requestsOf, stubFetch } from './stub-fetch';
 
 const snapshot = (reachable: boolean) => ({
