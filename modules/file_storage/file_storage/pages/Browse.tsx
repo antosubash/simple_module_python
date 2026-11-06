@@ -10,18 +10,18 @@ import { Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
-import { BrowseEmpty } from './components/BrowseEmpty';
-import { DropzoneStrip } from './components/DropzoneStrip';
-import { FileFilterBar } from './components/FileFilterBar';
-import { FileTable } from './components/FileTable';
-import { SelectionFooter } from './components/SelectionFooter';
-import { UploadDropzone } from './components/UploadDropzone';
-import { UploadsCard } from './components/UploadsCard';
-import { PERMISSIONS, ROUTES } from './constants';
-import { describeTypes, formatBytes } from './format';
-import type { BrowseProps, FileFilters } from './types';
-import { useUploadQueue } from './upload-queue';
-import { useFileActions } from './use-file-actions';
+import { BrowseEmpty } from '../ui/components/BrowseEmpty';
+import { DropzoneStrip } from '../ui/components/DropzoneStrip';
+import { FileFilterBar } from '../ui/components/FileFilterBar';
+import { FileTable } from '../ui/components/FileTable';
+import { SelectionFooter } from '../ui/components/SelectionFooter';
+import { UploadDropzone } from '../ui/components/UploadDropzone';
+import { UploadsCard } from '../ui/components/UploadsCard';
+import { useFileActions } from '../ui/hooks/use-file-actions';
+import { PERMISSIONS, ROUTES } from '../ui/utils/constants';
+import { describeTypes, formatBytes } from '../ui/utils/format';
+import type { BrowseProps, FileFilters } from '../ui/utils/types';
+import { useUploadQueue } from '../ui/utils/upload-queue';
 
 function Browse(props: BrowseProps) {
   const { files, pagination, content_types: contentTypes, uploaders } = props;

@@ -26,7 +26,7 @@ from file_storage.contracts.service import ConfigurationError
 
 if TYPE_CHECKING:
     from file_storage.contracts.service import StorageBackend
-    from file_storage.settings import FileStorageSettings
+    from file_storage.core.settings import FileStorageSettings
 
 BackendFactory = Callable[["FileStorageSettings"], "StorageBackend"]
 

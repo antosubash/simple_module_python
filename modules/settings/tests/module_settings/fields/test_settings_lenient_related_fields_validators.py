@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 from background_tasks.settings import ENV_PREFIX, BackgroundTasksSettings
-from file_storage.settings import FileStorageSettings
+from file_storage.core.settings import FileStorageSettings
 from keycloak.core.settings import KeycloakSettings
 from pydantic import ValidationError
 from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX, build_settings

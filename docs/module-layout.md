@@ -219,7 +219,7 @@ when a later module PR moves files.
 | branding | 2 (+6 shims) | 0 | follows this layout |
 | dashboard | 2 | 0 | follows this layout |
 | feature_flags | 3 (+1 shim) | 0 | follows this layout |
-| file_storage | 39 | 65 | flat |
+| file_storage | 4 (+7 shims) | 0 | follows this layout |
 | keycloak | 3 (+5 shims) | 0 | follows this layout |
 | mail | 2 (+2 shims) | 0 | follows this layout |
 | oidc | 3 (+3 shims) | 0 | follows this layout |

@@ -1,0 +1,111 @@
+"""End-to-end tests for the file_storage REST API via authenticated_client."""
+
+from __future__ import annotations
+
+import httpx
+from file_storage.core import constants
+
+
+async def test_upload_then_list(authenticated_client: httpx.AsyncClient):
+    files = {"file": ("hello.txt", b"hi", "text/plain")}
+    resp = await authenticated_client.post(
+        f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+        files=files,
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["filename"] == "hello.txt"
+    assert body["content_type"] == "text/plain"
+    assert body["backend"] == constants.BackendId.FILESYSTEM
+    assert body["size_bytes"] == 2
+
+    list_resp = await authenticated_client.get(
+        f"{constants.ROUTE_PREFIX_API}{constants.PATH_FILES}"
+    )
+    assert list_resp.status_code == 200
+    listing = list_resp.json()
+    assert listing["total"] == 1
+    assert listing["items"][0]["id"] == body["id"]
+
+
+async def test_download_streams_filesystem_bytes(authenticated_client: httpx.AsyncClient):
+    payload = b"streamed content"
+    files = {"file": ("doc.bin", payload, "application/octet-stream")}
+    upload = await authenticated_client.post(
+        f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+        files=files,
+    )
+    file_id = upload.json()["id"]
+
+    resp = await authenticated_client.get(f"{constants.ROUTE_PREFIX_API}/files/{file_id}/download")
+    assert resp.status_code == 200
+    assert resp.content == payload
+    assert "attachment" in resp.headers.get("content-disposition", "")
+
+
+async def test_delete_removes_file(authenticated_client: httpx.AsyncClient):
+    upload = await authenticated_client.post(
+        f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+        files={"file": ("gone.txt", b"x", "text/plain")},
+    )
+    file_id = upload.json()["id"]
+
+    delete = await authenticated_client.delete(f"{constants.ROUTE_PREFIX_API}/files/{file_id}")
+    assert delete.status_code == 204
+
+    fetch = await authenticated_client.get(f"{constants.ROUTE_PREFIX_API}/files/{file_id}")
+    assert fetch.status_code == 404
+
+
+async def test_get_unknown_id_returns_404(authenticated_client: httpx.AsyncClient):
+    import uuid
+
+    resp = await authenticated_client.get(f"{constants.ROUTE_PREFIX_API}/files/{uuid.uuid4()}")
+    # /api/* requests without a browser Accept get a JSON {"detail": ...}
+    # body; only browser-shaped requests receive the Inertia error page.
+    assert resp.status_code == 404
+
+
+async def test_413_names_the_limit_it_enforced(app, authenticated_client: httpx.AsyncClient):
+    """ "File exceeds the maximum allowed size" tells a rejected uploader nothing.
+
+    The number is the only actionable part of the sentence, and it reached the
+    client through no other channel on the API path — so it goes in the message
+    (interpolated by the catalog, not concatenated) and alongside it as raw
+    bytes for callers that would rather phrase their own copy.
+    """
+    services = app.state.file_storage
+    original = services.settings.max_file_size_bytes
+    services.settings.max_file_size_bytes = 4
+    try:
+        resp = await authenticated_client.post(
+            f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+            files={"file": ("big.txt", b"far too many bytes", "text/plain")},
+        )
+    finally:
+        services.settings.max_file_size_bytes = original
+
+    assert resp.status_code == 413, resp.text
+    detail = resp.json()["detail"]
+    assert detail["code"] == constants.ErrorCode.TOO_LARGE
+    assert detail["max_bytes"] == 4
+    assert "4 B" in detail["message"]
+
+
+async def test_download_names_a_non_ascii_file_safely(authenticated_client: httpx.AsyncClient):
+    """The header was built by hand: a non-Latin-1 name could not be encoded as
+    a header at all, and a ``"`` in the name ended the quoted value early."""
+    name = 'Ünïcödé "quoted" 報告.txt'
+    upload = await authenticated_client.post(
+        f"{constants.ROUTE_PREFIX_API}{constants.PATH_UPLOAD}",
+        files={"file": (name, b"hi", "text/plain")},
+    )
+    assert upload.status_code == 201, upload.text
+    file_id = upload.json()["id"]
+
+    resp = await authenticated_client.get(f"{constants.ROUTE_PREFIX_API}/files/{file_id}/download")
+    assert resp.status_code == 200
+    disposition = resp.headers["content-disposition"]
+    assert disposition.startswith("attachment; ")
+    assert "filename*=UTF-8''" in disposition
+    assert disposition.count('"') == 2

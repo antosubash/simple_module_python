@@ -12,7 +12,7 @@ from simple_module_db.types import AwareDateTime
 from sqlalchemy import Index
 from sqlmodel import Field
 
-from file_storage import constants
+from file_storage.core import constants
 
 Base = create_module_base(constants.MODULE_NAME)
 

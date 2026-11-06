@@ -8,9 +8,10 @@ from collections.abc import AsyncIterator, Callable
 from tempfile import SpooledTemporaryFile
 from typing import TYPE_CHECKING, Any
 
-from file_storage import constants, upload_support
 from file_storage.contracts.service import Part, StorageBackendError
-from file_storage.upload_support import SizeMismatchError
+from file_storage.core import constants
+from file_storage.multipart import support as upload_support
+from file_storage.multipart.support import SizeMismatchError
 
 if TYPE_CHECKING:
     from file_storage.backends.s3 import S3Backend

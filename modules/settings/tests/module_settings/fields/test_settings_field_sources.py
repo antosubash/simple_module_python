@@ -80,7 +80,7 @@ class TestModulesView:
         """Module settings declare no ``env_prefix`` — they come from defaults
         plus DB overrides — so a leftover ``SM_*`` var changes nothing. Badging
         it "From environment" would invert the question this screen answers."""
-        from file_storage.settings import FileStorageSettings
+        from file_storage.core.settings import FileStorageSettings
         from settings.module_settings.discovery import _field_view
 
         name = _first_field(FileStorageSettings())
@@ -92,7 +92,7 @@ class TestModulesView:
         assert _field_view(name, instance, "SM_FILE_STORAGE_").source == "default"
 
     def test_overrides_mark_their_fields(self):
-        from file_storage.settings import FileStorageSettings
+        from file_storage.core.settings import FileStorageSettings
         from settings.module_settings.discovery import _field_view
 
         instance = FileStorageSettings()

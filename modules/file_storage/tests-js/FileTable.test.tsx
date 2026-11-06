@@ -22,8 +22,8 @@ configureI18n({
   },
 });
 
-import { FileTable } from '../file_storage/pages/components/FileTable';
-import type { StoredFile } from '../file_storage/pages/types';
+import { FileTable } from '../file_storage/ui/components/FileTable';
+import type { StoredFile } from '../file_storage/ui/utils/types';
 
 const FILES: StoredFile[] = [
   {

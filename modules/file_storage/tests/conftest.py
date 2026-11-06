@@ -14,11 +14,11 @@ from collections.abc import Generator
 from contextlib import asynccontextmanager
 
 import pytest
+from _file_storage_uploads_support import PART
+from _file_storage_worker_support import worker_db as worker_db
 from file_storage.backends import build_backend
 from file_storage.backends.filesystem import FilesystemBackend
-from file_storage.settings import FileStorageSettings
-from file_storage_uploads_helpers import PART
-from file_storage_worker_helpers import worker_db as worker_db
+from file_storage.core.settings import FileStorageSettings
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -177,7 +177,7 @@ def wire_backend(monkeypatch):
     # Tiny, hand-verifiable parts after testing settings propagation separately.
     backend.multipart_part_size_bytes = 5
     monkeypatch.setattr(
-        "file_storage.upload_support.choose_part_size", lambda size, preferred: preferred
+        "file_storage.multipart.support.choose_part_size", lambda size, preferred: preferred
     )
     return wire, backend
 

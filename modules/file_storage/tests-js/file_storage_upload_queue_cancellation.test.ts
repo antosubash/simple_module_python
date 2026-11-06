@@ -7,12 +7,12 @@ vi.mock('@inertiajs/react', () => ({
   },
 }));
 
-vi.mock('../file_storage/pages/constants', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../file_storage/pages/constants')>()),
+vi.mock('../file_storage/ui/utils/constants', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../file_storage/ui/utils/constants')>()),
   UPLOAD_CONCURRENCY: 1,
 }));
 
-import { useUploadQueue } from '../file_storage/pages/upload-queue';
+import { useUploadQueue } from '../file_storage/ui/utils/upload-queue';
 
 class PendingXhr {
   static instances: PendingXhr[] = [];

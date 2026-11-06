@@ -17,8 +17,8 @@ from typing import Any
 
 import httpx
 import pytest
+from file_storage.files.service import FileStorageService, StreamDownload
 from file_storage.models import StoredFile
-from file_storage.service import FileStorageService, StreamDownload
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 

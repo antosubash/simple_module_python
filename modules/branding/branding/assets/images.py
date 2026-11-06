@@ -18,7 +18,7 @@ from fastapi import HTTPException, UploadFile
 
 if TYPE_CHECKING:
     from file_storage.contracts.schemas import StoredFileOut
-    from file_storage.service import FileStorageService
+    from file_storage.files.service import FileStorageService
 
 # Raster + icon only. SVG is excluded on purpose: it is an XML document that can
 # carry <script>, so serving one back from our own origin would be stored XSS.
@@ -111,7 +111,7 @@ async def store_image(
     maps the refusal to 413, but branding calls the service directly, so an
     unmapped ``QuotaExceededError`` would surface as a 500.
     """
-    from file_storage.upload_support import QuotaExceededError
+    from file_storage.multipart.support import QuotaExceededError
 
     try:
         return await storage.upload(file, platform=platform)

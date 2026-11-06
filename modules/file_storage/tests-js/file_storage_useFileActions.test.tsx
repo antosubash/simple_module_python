@@ -9,8 +9,8 @@ vi.mock('@inertiajs/react', () => ({ router: { reload } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import { toast } from 'sonner';
-import type { StoredFile } from '../file_storage/pages/types';
-import { useFileActions } from '../file_storage/pages/use-file-actions';
+import { useFileActions } from '../file_storage/ui/hooks/use-file-actions';
+import type { StoredFile } from '../file_storage/ui/utils/types';
 
 const files = [
   { id: 'a', filename: 'a.txt', public: false },

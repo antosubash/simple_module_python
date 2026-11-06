@@ -11,7 +11,7 @@ import { configureI18n } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
-import { SelectionFooter } from '../file_storage/pages/components/SelectionFooter';
+import { SelectionFooter } from '../file_storage/ui/components/SelectionFooter';
 
 configureI18n({
   locale: 'en',

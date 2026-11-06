@@ -13,7 +13,7 @@ The file id is never taken from the request (``?v=`` is only a cache key):
   ``tenant_context(tenant)``, so only a row the tenant owns matches;
 * a **system** value is read as a *platform* file (``platform=True``): an
   ``all_tenants()`` lookup restricted to rows owned by
-  ``file_storage.scope.PLATFORM_TENANT_ID``.
+  ``file_storage.core.scope.PLATFORM_TENANT_ID``.
 
 Either way a setting pointed at someone else's file id serves a 404, never
 their file.
@@ -26,13 +26,13 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
-from file_storage.deps import get_file_storage_service
-from file_storage.service import (
+from file_storage.files.service import (
     FileStorageService,
     RedirectDownload,
     StoredFileNotFoundError,
     StreamDownload,
 )
+from file_storage.web.deps import get_file_storage_service
 from simple_module_db import tenant_context
 
 from branding.assets.images import ALLOWED_IMAGE_TYPES, normalize_content_type

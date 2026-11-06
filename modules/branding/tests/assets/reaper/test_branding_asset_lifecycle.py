@@ -14,8 +14,8 @@ from typing import Any
 
 import httpx
 import pytest
+from file_storage.files.service import FileStorageService, StoredFileNotFoundError
 from file_storage.models import StoredFile
-from file_storage.service import FileStorageService, StoredFileNotFoundError
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 

@@ -32,7 +32,7 @@ async def test_tenants_delete_removes_owned_data_but_retains_audit(
     app.state.background_tasks.settings.task_always_eager = True
     backend = FilesystemBackend(tmp_path)
     app.state.file_storage.backend = backend
-    monkeypatch.setattr("file_storage.tenant_deletion.build_backend", lambda settings: backend)
+    monkeypatch.setattr("file_storage.core.tenant_deletion.build_backend", lambda settings: backend)
     async with tenant_client() as owner:
         response = await owner.client.post(
             "/api/file-storage/upload",

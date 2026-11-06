@@ -11,7 +11,6 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import datetime
 from typing import Any
 
-from file_storage import constants
 from file_storage.backends import register_backend
 from file_storage.backends.s3_multipart import S3MultipartMixin
 from file_storage.contracts.service import (
@@ -20,7 +19,8 @@ from file_storage.contracts.service import (
     StorageError,
     StorageNotFoundError,
 )
-from file_storage.settings import FileStorageSettings
+from file_storage.core import constants
+from file_storage.core.settings import FileStorageSettings
 
 _MISSING_S3_EXTRA = (
     "S3 backend requires the 'aioboto3' package. Install with: uv add --optional s3 aioboto3"
