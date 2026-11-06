@@ -32,6 +32,7 @@ from starlette.requests import Request
 from users.accounts.session_version_cache import (  # noqa: F401
     SESSION_VERSION_TTL_SECONDS,
     clear_session_version_cache,
+    fill_session_version,
     forget_session_version,
     peek_session_version,
     read_session_version,
@@ -195,12 +196,13 @@ class UsersAuthProvider:
         hit, cached = read_session_version(user_id, session_id)
         if hit:
             return cached is not None and int(cached) == _stamped_version(session)
-        try:
-            from sqlalchemy import and_, select
+        from sqlalchemy import and_, select
 
-            from users.models import RevokedSession, User
+        from users.models import RevokedSession, User
 
-            session_factory = scope["app"].state.sm.db.session_factory
+        session_factory = scope["app"].state.sm.db.session_factory
+
+        async def read() -> tuple[int | None, frozenset[str]]:
             async with session_factory() as db_session:
                 rows = (
                     await db_session.execute(
@@ -215,8 +217,11 @@ class UsersAuthProvider:
                         .where(User.id == user_id)
                     )
                 ).all()
-                stored = rows[0][0] if rows else None
-                revoked = frozenset(row[1] for row in rows if row[1] is not None)
+            stored = rows[0][0] if rows else None
+            return stored, frozenset(row[1] for row in rows if row[1] is not None)
+
+        try:
+            stored, revoked = await fill_session_version(user_id, read)
         except Exception:
             # A database that cannot be reached is not evidence of a
             # revocation. Refusing here would log every signed-in user out of
@@ -224,7 +229,6 @@ class UsersAuthProvider:
             # request should retry rather than inherit the outage.
             logger.exception("Session version check failed for %s; keeping the session", user_id)
             return True
-        store_session_version(user_id, stored, revoked)
         if stored is None:
             return False
         return int(stored) == _stamped_version(session) and session_id not in revoked

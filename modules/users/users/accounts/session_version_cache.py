@@ -9,12 +9,16 @@ is where callers reach for it.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from cachetools import TTLCache
+from simple_module_core.singleflight import MISS, SingleFlight, fill
 
 __all__ = [
     "SESSION_VERSION_TTL_SECONDS",
     "clear_session_version_cache",
     "configure_session_version_cache",
+    "fill_session_version",
     "forget_session_version",
     "peek_session_version",
     "read_session_version",
@@ -73,8 +77,13 @@ just costs the read the cache was avoiding.
 """
 
 
-_MISS = object()
-"""Distinguishes "not cached" from a cached ``None`` in a single lookup."""
+_FLIGHT = SingleFlight()
+# Bumped by every forget so a read that started before a revocation is never
+# cached after it: that would re-admit the revoked sessions for a whole TTL.
+_epoch = 0
+
+type SessionVersionEntry = tuple[int | None, frozenset[str]]
+"""``(session_version, retired session ids)``; ``None`` for a missing account."""
 
 
 def forget_session_version(user_id) -> None:
@@ -83,6 +92,8 @@ def forget_session_version(user_id) -> None:
     Called by whatever just changed it — "sign out everywhere" and a password
     change — so this process stops answering from the value it read before.
     """
+    global _epoch
+    _epoch += 1
     _SESSION_VERSIONS.pop(user_id, None)
 
 
@@ -99,6 +110,8 @@ def peek_session_version(user_id):
 
 def clear_session_version_cache() -> None:
     """Empty the cache — used by tests that need a cold read."""
+    global _epoch
+    _epoch += 1
     _SESSION_VERSIONS.clear()
 
 
@@ -116,8 +129,8 @@ def read_session_version(user_id, session_id: str | None = None) -> tuple[bool, 
     caller has no ``except KeyError``, so landing in it turned a revocation
     check into a 500 on an authenticated request.
     """
-    cached = _SESSION_VERSIONS.get(user_id, _MISS)
-    if cached is _MISS:
+    cached = _SESSION_VERSIONS.get(user_id, MISS)
+    if cached is MISS:
         return False, None
     version, retired = cached
     if session_id in retired:
@@ -130,6 +143,24 @@ def store_session_version(
 ) -> None:
     """Record the account counter and retired IDs together with one TTL."""
     _SESSION_VERSIONS[user_id] = (None if stored is None else int(stored), revoked)
+
+
+async def fill_session_version(
+    user_id, read: Callable[[], Awaitable[SessionVersionEntry]]
+) -> SessionVersionEntry:
+    """Read through *read* once per account, caching only reads no forget raced.
+
+    Concurrent misses for one account share a single read. *read*'s exceptions
+    propagate uncached, so the caller decides how an outage is answered.
+    """
+    async with _FLIGHT.hold(user_id):
+        stored, revoked = await fill(
+            read,
+            epoch=lambda: _epoch,
+            store=lambda entry: store_session_version(user_id, *entry),
+            cached=lambda: _SESSION_VERSIONS.get(user_id, MISS),
+        )
+    return stored, revoked
 
 
 def session_version_ttl() -> float:
@@ -153,8 +184,9 @@ def configure_session_version_cache(ttl_seconds: int) -> None:
     round trip and can keep the cache. This TTL is then the bound on a *dropped*
     message rather than on every cross-worker revocation.
     """
-    global _SESSION_VERSIONS
+    global _SESSION_VERSIONS, _epoch
     ttl = max(0, int(ttl_seconds))
     if ttl == _SESSION_VERSIONS.ttl:
         return
+    _epoch += 1
     _SESSION_VERSIONS = TTLCache(maxsize=_CACHE_MAXSIZE, ttl=ttl)
