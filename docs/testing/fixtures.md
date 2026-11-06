@@ -15,7 +15,7 @@ The `simple_module_test` plugin provides app-level fixtures that every test dire
 | `authenticated_client` | function | `httpx.AsyncClient` | Admin-scoped HTTP calls — carries a signed session cookie. |
 | `captured_mail` | function | `CapturedMail` | Asserting on outgoing mail: installs a recording sender (`.messages`, `.to(address)`) as the process mail sender. |
 
-All fixtures are **function-scoped** — each test gets its own. The SQLite database is in-memory; tearing down and re-creating is cheap. The first schema each process builds is kept as a template and copied into every later empty in-memory database with SQLite's backup API, so `CREATE TABLE` runs once per worker rather than once per test (`simple_module_test._sqlite_template`). A database that already has tables is never overwritten.
+All fixtures are **function-scoped** — each test gets its own. The SQLite database is in-memory; tearing down and re-creating is cheap. The first schema each process builds is kept as a template and copied into every later empty in-memory database with SQLite's backup API, so `CREATE TABLE` runs once per worker rather than once per test (`simple_module_test._sqlite_template`). A database that already has tables is never overwritten. Those engines also share one SQLAlchemy dialect and compiled-statement cache (`simple_module_test._compile_cache`), so SQL compiled in one test is reused by the next; the cache key carries no data, only statement structure.
 
 ## Postgres
 

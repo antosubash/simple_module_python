@@ -13,6 +13,7 @@ import os
 
 import pytest
 
+from simple_module_test._compile_cache import share_sqlite_compile_cache
 from simple_module_test.app_factory import build_test_app as _build_test_app
 from simple_module_test.fake_events import FakeEventBus
 
@@ -142,6 +143,7 @@ def _cheap_password_hashing() -> None:
 
 
 _cheap_password_hashing()
+share_sqlite_compile_cache()
 
 
 @pytest.fixture
