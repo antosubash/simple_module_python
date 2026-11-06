@@ -1,4 +1,4 @@
-// Frontend mirror of background_tasks/constants.py.
+// Frontend mirror of background_tasks/core/constants.py.
 // Kept small and hand-maintained — the backend file is the source of truth.
 
 import { keys } from '@simple-module-py/i18n';

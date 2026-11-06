@@ -1,6 +1,6 @@
 """The transport when the broker is down, or up and mute.
 
-Split from ``test_bg_invalidation_redis.py`` — that file asks whether a working
+Split from ``test_background_tasks_invalidation_redis.py`` — that file asks whether a working
 Redis round trip works, these ask what happens when it does not, which needs no
 Redis at all and a different set of fixtures. Keeping them together pushed the
 file past the 300-line cap.

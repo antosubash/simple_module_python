@@ -633,7 +633,7 @@ Published (and consumable from any other module):
 
 ## Worker introspection
 
-`WorkerInspector` (`background_tasks/worker_inspector.py`) wraps `celery.control.inspect()`:
+`WorkerInspector` (`background_tasks/worker/inspector.py`) wraps `celery.control.inspect()`:
 
 | Method | Returns |
 |---|---|
@@ -645,7 +645,7 @@ It's synchronous; the view route calls it via `asyncio.to_thread`.
 
 The table below describes full tracking with `track_publish=True`; reduced modes gate these writes as described under [Execution tracking](#execution-tracking).
 
-Synchronous handlers in `signals.py`, all bound through Celery's `signals.<name>.connect`, persisting through a separate **sync** SQLAlchemy engine (`sync_db.py`) so they don't have to spin up an event loop:
+Synchronous handlers in `worker/signals.py`, all bound through Celery's `signals.<name>.connect`, persisting through a separate **sync** SQLAlchemy engine (`core/sync_db.py`) so they don't have to spin up an event loop:
 
 | Signal | What it writes |
 |---|---|

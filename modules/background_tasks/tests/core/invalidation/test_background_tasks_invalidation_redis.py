@@ -1,6 +1,6 @@
 """The transport against a real ``redis-server``, not the fake.
 
-``test_bg_invalidation.py`` proves this repo's own logic — retry, timeout,
+``test_background_tasks_invalidation.py`` proves this repo's own logic — retry, timeout,
 teardown — against a fake client. It cannot prove that redis-py does what the
 fake pretends: that ``pubsub().listen()`` yields frames shaped
 ``{"type": "message", "data": ...}``, that ``data`` arrives as ``bytes``, that
@@ -11,7 +11,7 @@ silently swallowed and nothing in the fake-based suite would notice.
 
 These tests are the answer to that. They need no ``docker-up``: the
 ``redis_server`` fixture starts its own ephemeral server. The cases where the
-broker is *not* working live in ``test_bg_invalidation_degraded.py``.
+broker is *not* working live in ``test_background_tasks_invalidation_degraded.py``.
 """
 
 from __future__ import annotations

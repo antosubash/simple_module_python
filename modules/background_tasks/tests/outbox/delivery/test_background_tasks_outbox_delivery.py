@@ -182,7 +182,7 @@ class TestFailureModes:
         assert (await dispatch(factory, bus, policy, now=now + timedelta(days=1))).dead == 0
 
     async def test_unknown_handler_is_retried(self, app, outbox_rows):
-        """Often a rolling deploy: a later worker may know it (see test_bg_outbox_retry_policy)."""
+        """Often a rolling deploy: a later worker may know it (see the retry-policy tests)."""
         now = datetime.now(UTC)
         async with app.state.sm.db.session_factory() as session:
             session.add(
