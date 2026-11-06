@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file. The format is b
 - Scaffold new modules with `core/` and `web/` areas and mirrored nested Python tests; existing modules migrate individually. See `docs/module-layout.md`.
 
 ### Security
+- The users session-revocation cache no longer stores a `session_version` read that a revocation raced: a read in flight when "sign out everywhere", a password change or a logout landed could put the old counter back and re-admit the revoked sessions in that worker until the cache TTL expired. Fills now go through `simple_module_core.singleflight.fill` (epoch-checked), and concurrent misses for one account share a single read.
 - **Behaviour change:** local browser auth mutations now refuse `Sec-Fetch-Site: cross-site`
   and require the session-bound CSRF token (no Origin/Referer equality check, so TLS proxies work), extending the shared token support (#504).
   Native API clients without browser headers retain their existing workflow.
