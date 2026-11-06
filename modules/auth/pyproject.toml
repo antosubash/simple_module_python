@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_auth"
-version = "0.0.43"
+version = "0.0.44"
 description = "Session-cookie authentication primitives — middleware, login/logout, redirect helpers for simple_module"
 readme = "README.md"
 license = "MIT"
@@ -25,9 +25,9 @@ dependencies = [
     "PyJWT[crypto]>=2.8,<3",
     "cryptography>=42",
     "httpx>=0.27,<0.29",
-    "simple_module_core==0.0.43",
-    "simple_module_db==0.0.43",
-    "simple_module_hosting==0.0.43",
+    "simple_module_core==0.0.44",
+    "simple_module_db==0.0.44",
+    "simple_module_hosting==0.0.44",
 ]
 
 [project.entry-points.simple_module]

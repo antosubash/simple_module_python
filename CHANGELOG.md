@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.44] — 2026-11-06
+
 ### Fixed
 
 - Load-test Inertia visits now send the initial page's asset version and cached i18n catalog marker, measuring real page responses instead of version conflicts and repeated catalog downloads. Invalid bootstrap pages stop the simulated user; 409 responses remain failures.
@@ -1882,7 +1884,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.43...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.44...HEAD
+[0.0.44]: https://github.com/antosubash/simple_module_python/compare/v0.0.43...v0.0.44
 [0.0.43]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...v0.0.43
 [0.0.42]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...v0.0.42
 [0.0.41]: https://github.com/antosubash/simple_module_python/compare/v0.0.40...v0.0.41
