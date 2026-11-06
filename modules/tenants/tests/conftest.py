@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 import httpx
 import pytest
 from simple_module_test.tenant_client import create_user, session_client
-from tenants.resolver import forget
+from tenants.resolution.resolver import forget
 
 
 @pytest.fixture(autouse=True)

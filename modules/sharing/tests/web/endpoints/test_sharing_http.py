@@ -70,9 +70,9 @@ async def test_grant_refusals(note_app, tenant_client):
 
 
 async def test_admin_page_lists_tenant_shares(note_app, tenant_client):
-    from tenants.constants import SESSION_ACTIVE_TENANT
+    from tenants.core.constants import SESSION_ACTIVE_TENANT
     from tenants.models import Membership
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
     from users.bootstrap import create_admin
 
     async with tenant_client(TenantRole.OWNER) as owner:

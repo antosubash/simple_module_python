@@ -57,7 +57,7 @@ async def test_only_managers_create_service_keys(actor):
 
 async def test_service_principal_is_pinned_to_its_tenant(app, actor):
     from api_tokens.credentials.resolver import resolve_api_token
-    from tenants.resolver import resolve_tenant
+    from tenants.resolution.resolver import resolve_tenant
 
     async with actor(admin=True) as a:
         resp = await _create_key(a.client, roles=["user"], scopes=["feature_flags.view"])

@@ -4,8 +4,8 @@ import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Building2 } from 'lucide-react';
-import { CreateOrgForm } from '../components/CreateOrgForm';
-import { type Membership, MembershipList } from '../components/MembershipList';
+import { CreateOrgForm } from '../ui/components/CreateOrgForm';
+import { type Membership, MembershipList } from '../ui/components/MembershipList';
 
 interface Props {
   memberships: Membership[];

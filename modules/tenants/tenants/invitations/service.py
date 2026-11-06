@@ -1,0 +1,166 @@
+"""Invitations: an owner/admin invites an email; that user accepts while signed in.
+
+Provider-agnostic: the raw token is returned once to the inviter and carried
+on ``InvitationCreated`` for email delivery; only its SHA-256 is stored.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import secrets
+from datetime import timedelta
+from functools import partial
+
+from simple_module_core.datetimes import aware as _aware
+from simple_module_core.datetimes import utcnow as _now
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
+
+from tenants.contracts.events import InvitationCreated
+from tenants.contracts.schemas import InvitationCreate
+from tenants.core.constants import MembershipRole, TenantStatus
+from tenants.core.errors import TenantError
+from tenants.core.service import TenantService
+from tenants.invitations.mail import invitation_mail_wanted, send_invitation_after_commit
+from tenants.models import Invitation, Tenant
+
+ACCEPT_PATH = "/tenants/invitations/accept"
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _pending_clause(tenant_id: str):
+    return (
+        (Invitation.tenant_id == tenant_id)
+        & Invitation.accepted_at.is_(None)
+        & (Invitation.expires_at > _now())
+    )
+
+
+async def pending_invitation_count(db: AsyncSession, tenant_id: str) -> int:
+    stmt = select(func.count()).select_from(Invitation).where(_pending_clause(tenant_id))
+    return int(await db.scalar(stmt) or 0)
+
+
+class InvitationService:
+    def __init__(self, tenants: TenantService, *, ttl_hours: int) -> None:
+        self.tenants = tenants
+        self.db = tenants.db
+        self.ttl = timedelta(hours=ttl_hours)
+
+    async def create(
+        self, tenant_id: str, data: InvitationCreate, *, base_url: str
+    ) -> tuple[Invitation, str, str]:
+        """Return ``(invitation, raw_token, accept_url)``."""
+        tenant = await self.tenants.lock(tenant_id)
+        if await self.tenants.has_member_email(tenant_id, data.email):
+            raise TenantError("already_member", status_code=409)
+        # An expired, unaccepted invite no longer counts as pending but would
+        # still occupy the unique index; drop it so the address can be re-invited.
+        await self.db.execute(
+            delete(Invitation).where(
+                col(Invitation.tenant_id) == tenant_id,
+                col(Invitation.email) == data.email,
+                Invitation.accepted_at.is_(None),
+                col(Invitation.expires_at) <= _now(),
+            )
+        )
+        duplicate = await self.db.scalar(
+            select(Invitation.id).where(_pending_clause(tenant_id), Invitation.email == data.email)
+        )
+        if duplicate is not None:
+            raise TenantError("already_invited", status_code=409)
+        await self.tenants.ensure_seat_available(tenant_id)
+        token = secrets.token_urlsafe(32)
+        invitation = Invitation(
+            tenant_id=tenant_id,
+            email=data.email,
+            role=data.role,
+            token_hash=hash_token(token),
+            expires_at=_now() + self.ttl,
+        )
+        self.db.add(invitation)
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            # A concurrent invite for the same address won the race past the
+            # read above; the partial unique index caught it. The request
+            # fails as a whole, so no savepoint is needed.
+            raise TenantError("already_invited", status_code=409) from exc
+        accept_url = f"{base_url.rstrip('/')}{ACCEPT_PATH}?token={token}"
+        event = InvitationCreated(tenant_id, tenant.name, data.email, data.role, accept_url)
+        bus = self.tenants.bus
+        # Mail only when there is somewhere to send it: no transport means the
+        # fallback log, and a relative link is useless in an inbox. Either way
+        # the one-time token is then never persisted in the outbox.
+        mail = invitation_mail_wanted(accept_url)
+        durable = mail and bus is not None and bus.durable_transport is not None
+        if durable:
+            await bus.publish_durable(event, self.db)
+        send_now = partial(send_invitation_after_commit, event) if mail and not durable else None
+        self.tenants._after_commit(event, callback=send_now)
+        return invitation, token, accept_url
+
+    async def list_pending(self, tenant_id: str) -> list[Invitation]:
+        stmt = select(Invitation).where(_pending_clause(tenant_id)).order_by(Invitation.created_at)
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    async def revoke(self, tenant_id: str, invitation_id: int) -> None:
+        invitation = await self.db.get(Invitation, invitation_id)
+        if invitation is None or invitation.tenant_id != tenant_id:
+            raise TenantError("invitation_not_found", status_code=404)
+        await self.db.delete(invitation)
+        await self.db.flush()
+
+    async def lookup(
+        self, token: str, *, for_update: bool = False
+    ) -> tuple[Invitation, Tenant] | None:
+        if not token:
+            return None
+        stmt = (
+            select(Invitation, Tenant)
+            .join(Tenant, col(Tenant.id) == Invitation.tenant_id)
+            .where(col(Invitation.token_hash) == hash_token(token))
+        )
+        if for_update:  # two concurrent accepts of one link must not both pass
+            stmt = stmt.with_for_update(of=Invitation)
+        row = (await self.db.execute(stmt)).first()
+        return (row[0], row[1]) if row else None
+
+    @staticmethod
+    def is_expired(invitation: Invitation) -> bool:
+        return _aware(invitation.expires_at) <= _now()
+
+    async def accept(
+        self, token: str, *, user_id: str, user_email: str, email_verified: bool = False
+    ) -> Tenant:
+        found = await self.lookup(token, for_update=True)
+        if found is None:
+            raise TenantError("invitation_not_found", status_code=404)
+        invitation, tenant = found
+        if invitation.accepted_at is not None:
+            raise TenantError("invitation_used", status_code=409)
+        if tenant.status != TenantStatus.ACTIVE:
+            raise TenantError("tenant_suspended", status_code=409)
+        if self.is_expired(invitation):
+            raise TenantError("invitation_expired", status_code=410)
+        # The link is a bearer secret; binding it to the invited address means
+        # a forwarded or leaked link cannot enrol a different account.
+        if user_email.strip().lower() != invitation.email:
+            raise TenantError("invitation_email_mismatch", status_code=403)
+        # ...and a self-asserted, unverified address proves nothing (#623).
+        if email_verified is not True:
+            raise TenantError("invitation_email_unverified", status_code=403)
+        invitation.accepted_at = _now()
+        await self.tenants.add_member(
+            tenant.id,
+            user_id,
+            MembershipRole(invitation.role),
+            email=invitation.email,
+            seat_reserved=True,
+        )
+        return tenant

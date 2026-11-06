@@ -5,7 +5,7 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Settings2 } from 'lucide-react';
-import { type TenantSetting, TenantSettingRow } from '../components/TenantSettingRow';
+import { type TenantSetting, TenantSettingRow } from '../ui/components/TenantSettingRow';
 
 interface Props {
   tenant: { id: string; name: string; slug: string };

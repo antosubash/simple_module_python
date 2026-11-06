@@ -157,7 +157,7 @@ async def test_users_provider_does_not_look_up_api_tokens(monkeypatch):
 async def test_personal_token_tenant_answer_varies_on_authorization(app, actor):
     """The tenant chosen for a PAT depended on its Authorization header, not a cookie."""
     from api_tokens.credentials.resolver import resolve_api_token
-    from tenants.resolver import resolve_tenant
+    from tenants.resolution.resolver import resolve_tenant
 
     async with actor(admin=True) as a:
         token = (await create_pat(a.client, ["feature_flags.view"]))["token"]

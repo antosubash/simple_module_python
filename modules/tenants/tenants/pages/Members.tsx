@@ -4,9 +4,9 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { PaginationBar } from '@simple-module-py/ui/components/PaginationBar';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
-import { type Invitation, InvitationsList } from '../components/InvitationsList';
-import { InviteForm } from '../components/InviteForm';
-import { type Member, type MembershipRole, MembersTable } from '../components/MembersTable';
+import { type Invitation, InvitationsList } from '../ui/components/InvitationsList';
+import { InviteForm } from '../ui/components/InviteForm';
+import { type Member, type MembershipRole, MembersTable } from '../ui/components/MembersTable';
 
 interface Tenant {
   id: string;

@@ -27,7 +27,7 @@ class Actor:
 async def join_tenant(app: Any, user_id: str, email: str, tenant_id: str | None = None) -> str:
     """Make *user_id* an owner of a new tenant (or of *tenant_id*); return its id."""
     from tenants.models import Membership, Tenant
-    from tenants.resolver import forget
+    from tenants.resolution.resolver import forget
 
     async with app.state.sm.db.session_factory() as session:
         if tenant_id is None:

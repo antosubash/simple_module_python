@@ -20,7 +20,7 @@ from sqlalchemy import Column, Index, UniqueConstraint, text
 from sqlalchemy.orm import validates
 from sqlmodel import Field
 
-from tenants.constants import (
+from tenants.core.constants import (
     MAX_EMAIL_LEN,
     MAX_NAME_LEN,
     MAX_SLUG_LEN,
