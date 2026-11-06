@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 from simple_module_db import init_db, session
 from simple_module_test import _compile_cache
 from simple_module_test.database import SQLITE_MEMORY
 from sqlalchemy import Column, Integer, MetaData, String, Table, inspect, select
+from sqlalchemy.engine import make_url
 
 _metadata = MetaData()
 _note = Table(
@@ -109,4 +111,5 @@ class TestNotShared:
 
 
 def test_server_databases_are_never_keyed() -> None:
-    assert _compile_cache._dialect_key("postgresql+asyncpg://u@h/db", {}) is None
+    server = SimpleNamespace(url=make_url("postgresql+asyncpg://u@h/db"))
+    assert _compile_cache._dialect_key(server, {}) is None

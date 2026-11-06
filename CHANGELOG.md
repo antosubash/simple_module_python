@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
-- Faster tests: `simple_module_test` gives every in-memory SQLite engine made through `init_db` with the same dialect options one shared dialect and compiled-statement cache, so a statement compiled in one test is reused by the next instead of being recompiled for every fresh engine. The databases stay separate.
+- Faster tests: `simple_module_test` gives every in-memory SQLite engine made through `init_db` with the same dialect options one shared dialect and compiled-statement cache, so a statement compiled in one test is reused by the next instead of being recompiled for every fresh engine. The databases stay separate. The patch is process-wide; set `SM_TEST_SEPARATE_COMPILE_CACHES=1` to skip it. `make test-py` drops from about 250 s to 232 s on 8 workers (test bodies 566 s to 511 s of worker time).
 - Faster test fixtures: `simple_module_test` builds the in-memory SQLite schema once per process and copies it into each test's database with SQLite's backup API, instead of running `create_all` for every `app` and `db_session` fixture. A database that already has tables is left alone. `make test-py` drops from 324 s to 256 s on 8 workers, and fixture setup time falls by about a third.
 - `simple_module_hosting.migrations.script_directory` reuses the loaded Alembic revision map while the revision files are unchanged (any added, removed or edited file reloads it). Each app boot previously loaded every migration file twice. The background-tasks Celery app also caches its entry-point scan for installed task packages.
 
