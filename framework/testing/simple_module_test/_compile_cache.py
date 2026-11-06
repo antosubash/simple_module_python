@@ -54,7 +54,7 @@ def share_sqlite_compile_cache() -> None:
         engine = original(url, **kw)
         sync = engine.sync_engine
         key = _dialect_key(sync, kw)
-        if key is None:
+        if key is None or sync._compiled_cache is None:  # None: query_cache_size=0
             return engine
         shared = _shared.get(key)
         # A dialect is initialized by its own engine's first connection, so only
