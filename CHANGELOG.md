@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `background_tasks`: the Redis invalidation listener now opens the connection a publish uses (one `PING` after every successful subscribe), so the first invalidation after boot or after a Redis outage no longer spends part of its 1 s budget connecting. Under load that connect was cancelled and the message was lost; other workers kept the stale value until its TTL (#880).
+
 ### Changed
 
 - Faster tests: `simple_module_test` gives every in-memory SQLite engine made through `init_db` with the same dialect options one shared dialect and compiled-statement cache, so a statement compiled in one test is reused by the next instead of being recompiled for every fresh engine. The databases stay separate. The patch is process-wide; set `SM_TEST_SEPARATE_COMPILE_CACHES=1` to skip it. `make test-py` drops from about 250 s to 232 s on 8 workers (test bodies 566 s to 511 s of worker time).
