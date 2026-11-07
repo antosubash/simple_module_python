@@ -32,7 +32,7 @@ Steps:
 1. Write tests:
    - `file_storage`: no `TextClause` among the browse index's elements;
    - `users`: an `expires_at` written and read on SQLite comes back aware UTC.
-2. Change `sa.text("created_at DESC")` to `sa.desc("created_at")`, and `expires_at` to `sa_type=AwareDateTime()`. Keep the `TIMESTAMPAware` import, because `created_at` still uses it.
+2. Change `sa.text("created_at DESC")` to `sa.desc(sa.column("created_at"))`, and `expires_at` to `sa_type=AwareDateTime()`. Keep the `TIMESTAMPAware` import, because `created_at` still uses it.
 3. In `ci-doctor`, run `alembic check` against the same throwaway database after `make migrate`.
 4. Add one docs sentence and a CHANGELOG Fixed entry citing #869.
 

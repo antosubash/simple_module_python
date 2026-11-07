@@ -25,10 +25,12 @@ limitation Alembic already handles (pure expression indexes are skipped on SQLit
 ## Approach
 
 1. **Fix the model in `file_storage`.** Replace `sa.text("created_at DESC")` with
-   `sa.desc("created_at")`.
+   `sa.desc(sa.column("created_at"))`. (Implementation note: the plain string form
+   `sa.desc("created_at")` wraps a text label, which Alembic still treats as an
+   expression, so it did not fix the diff.)
    - Both compile to the identical `CREATE INDEX … (tenant_id, is_deleted, created_at DESC, id)`
      on SQLite and Postgres, so no migration is needed.
-   - Measured: the `sa.desc()` form compares clean on SQLite and on Postgres, and the
+   - Measured: `desc()` over a column compares clean on SQLite and on Postgres, and the
      `sa.text()` form compares clean only on Postgres.
 2. **Guard for other modules in `make_include_object`** (the issue's suggestion).
    - On SQLite only, skip comparing an index pair when one side has a text element of the
@@ -70,7 +72,9 @@ Rejected:
 - The guard lives in `simple_module_db.migrations`, beside the existing foreign-key filter,
   as a small private helper. `make_include_object` keeps its signature.
 - `docs/module-authoring.md` (Migrations section) gets one sentence: write an ordered index
-  column as `sa.desc("col")`, not `sa.text("col DESC")`.
+  column as `sa.desc(sa.column("col"))`, not `sa.text("col DESC")` or `sa.desc("col")`.
+- The guard also accepts the `sa.desc("col")` label form, and SM026 counts a column wrapped
+  in `desc()`/`asc()` as a column, not as an unverifiable expression.
 - CHANGELOG `[Unreleased]` → Fixed, citing #869.
 - The `alembic check` step in `ci-doctor` runs from the repo root like `make migrate`, using
   the same `SM_DATABASE_URL`.
