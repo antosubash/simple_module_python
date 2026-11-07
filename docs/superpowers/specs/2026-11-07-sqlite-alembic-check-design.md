@@ -69,8 +69,9 @@ Rejected:
 - The guard matches only a single identifier with an optional `ASC`/`DESC`, plus optional
   `NULLS FIRST|LAST`, optionally double-quoted. Anything else in a text element is a real
   expression and keeps today's behaviour.
-- The guard lives in `simple_module_db.migrations`, beside the existing foreign-key filter,
-  as a small private helper. `make_include_object` keeps its signature.
+- The guard lives in the private module `simple_module_db._sqlite_index_compare`, called from
+  the existing foreign-key filter's `include_object` in `simple_module_db.migrations`.
+  `make_include_object` keeps its signature. It reuses core's `unwrap_ordering` helper.
 - `docs/module-authoring.md` (Migrations section) gets one sentence: write an ordered index
   column as `sa.desc(sa.column("col"))`, not `sa.text("col DESC")` or `sa.desc("col")`.
 - The guard also accepts the `sa.desc("col")` label form, and SM026 counts a column wrapped
@@ -89,7 +90,8 @@ Rejected:
   - a column change, a uniqueness change, and a `lower(email)` text element are all still
     reported;
   - called with no active migration context, the filter neither raises nor skips.
-- **Postgres:** a skipped-unless-Postgres test confirms the guard never skips there.
+- **Postgres:** a test patches the migration context's dialect to Postgres and confirms the
+  guard never skips there (no live Postgres needed).
 - **`file_storage`:** the model's index elements are plain columns or `desc()`, with no text
   element.
 - **`users`:** an `expires_at` round trip on SQLite reads back aware UTC.

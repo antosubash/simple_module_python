@@ -6,6 +6,7 @@ Design: `docs/superpowers/specs/2026-11-07-sqlite-alembic-check-design.md`.
 
 Files:
 - `framework/db/simple_module_db/migrations.py`
+- new `framework/db/simple_module_db/_sqlite_index_compare.py`
 - new `framework/db/tests/test_migrations_sqlite_index_compare.py`
 
 1. Write the tests first, against in-memory SQLite through a real `EnvironmentContext` and `compare_metadata`:
@@ -13,8 +14,8 @@ Files:
    - the same index without the filter still shows the remove/add pair;
    - a changed column, a uniqueness change and a `lower(email)` element are each still reported;
    - with no active migration context, the filter neither raises nor skips.
-2. Add a Postgres test, marked `@pytest.mark.postgres` and skipped without `SM_TEST_PG_URL`, showing the guard never skips there.
-3. Implement a private helper plus a branch in `include_object`, keeping `make_include_object`'s signature unchanged.
+2. Add a Postgres test that patches the migration context's dialect to Postgres and shows the guard never skips there.
+3. Implement a private module `simple_module_db/_sqlite_index_compare.py` plus a branch in `include_object`, keeping `make_include_object`'s signature unchanged.
 
 Done: the tests pass, and they fail without the guard. `migrations.py` stays under 300 lines.
 

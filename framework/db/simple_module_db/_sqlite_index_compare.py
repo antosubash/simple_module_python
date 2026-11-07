@@ -18,11 +18,10 @@ from __future__ import annotations
 import re
 
 from alembic import context
+from simple_module_core.diagnostics._expression_index import unwrap_ordering
 from sqlalchemy import Index
 from sqlalchemy.schema import SchemaItem
-from sqlalchemy.sql.elements import ColumnClause, TextClause, UnaryExpression
-
-_ORDERING_MODIFIERS = frozenset({"asc_op", "desc_op", "nulls_first_op", "nulls_last_op"})
+from sqlalchemy.sql.elements import ColumnClause, TextClause
 
 # One identifier, optionally double-quoted, then an optional ordering.
 _ORDERED_COLUMN = re.compile(
@@ -49,11 +48,7 @@ def _element_name(element: object) -> tuple[str | None, bool]:
 
     The name is ``None`` for a real expression, which never matches.
     """
-    while (
-        isinstance(element, UnaryExpression)
-        and getattr(element.modifier, "__name__", None) in _ORDERING_MODIFIERS
-    ):
-        element = element.element
+    element = unwrap_ordering(element)
     if isinstance(element, TextClause):
         match = _ORDERED_COLUMN.fullmatch(element.text)
         return (match[1] or match[2], True) if match else (None, True)
@@ -70,14 +65,15 @@ def differs_only_in_sqlite_ordering(left: SchemaItem, right: SchemaItem | None) 
     """True when two indexes are the same index as far as SQLite can tell.
 
     Requires an active SQLite migration context, equal uniqueness, the same
-    column names in the same order, and at least one element written as an
-    expression (otherwise Alembic's own comparison is already right).
+    column names in the same order (compared case-insensitively, as SQLite
+    compares identifiers), and at least one element written as an expression
+    (otherwise Alembic's own comparison is already right).
     """
     if not isinstance(left, Index) or not isinstance(right, Index) or left.unique != right.unique:
         return False
     if not _on_sqlite():
         return False
     sides = [[_element_name(e) for e in index.expressions] for index in (left, right)]
-    names = [[name for name, _ in side] for side in sides]
+    names = [[name.casefold() if name else None for name, _ in side] for side in sides]
     written_as_expression = any(is_expr for side in sides for _, is_expr in side)
     return written_as_expression and None not in names[0] and names[0] == names[1]

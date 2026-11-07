@@ -61,7 +61,9 @@ def _environment(connection, meta, *, filtered=True):
     return env
 
 
-@pytest.mark.parametrize("element", ["created_at DESC", '"created_at" ASC', "created_at"])
+@pytest.mark.parametrize(
+    "element", ["created_at DESC", '"created_at" ASC', "created_at", "Created_At DESC"]
+)
 def test_sqlite_text_index_compares_clean(connection, element):
     meta = _metadata(element)
     meta.create_all(connection)

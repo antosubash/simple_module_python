@@ -28,6 +28,13 @@ logger = logging.getLogger(__name__)
 _ORDERING_MODIFIERS = frozenset({"asc_op", "desc_op", "nulls_first_op", "nulls_last_op"})
 
 
+def unwrap_ordering(expr: Any) -> Any:
+    """``expr`` without its ``desc()``/``asc()``/``nulls_first()``/``nulls_last()`` wrappers."""
+    while getattr(getattr(expr, "modifier", None), "__name__", None) in _ORDERING_MODIFIERS:
+        expr = expr.element
+    return expr
+
+
 def _is_column(expr: Any) -> bool:
     """A column, possibly wrapped in ``desc()``/``asc()``/``nulls_last()``.
 
@@ -37,8 +44,7 @@ def _is_column(expr: Any) -> bool:
     non-literal column; ``text()``, ``literal_column()``, a function or a bare
     string label are expressions.
     """
-    while getattr(getattr(expr, "modifier", None), "__name__", None) in _ORDERING_MODIFIERS:
-        expr = expr.element
+    expr = unwrap_ordering(expr)
     return getattr(expr, "table", None) is not None or getattr(expr, "is_literal", None) is False
 
 
