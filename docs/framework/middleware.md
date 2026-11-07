@@ -175,7 +175,9 @@ separate header, and browsers enforce their intersection, so a page can
 tighten the policy (`frame-ancestors 'none'`, a `sandbox`) but never relax it.
 The nonce goes into the app policy only; a response policy that restricts
 `script-src` must allow the page's scripts itself, for example with
-a `'nonce-…'` source built from `request.state.csp_nonce`.
+a `'nonce-…'` source built from `request.state.csp_nonce`. `X-Frame-Options`
+stays `SAMEORIGIN`; CSP-aware browsers obey `frame-ancestors` instead, so a
+page's `frame-ancestors 'none'` is only weaker in browsers without CSP level 2.
 
 ### `SessionMiddleware`
 

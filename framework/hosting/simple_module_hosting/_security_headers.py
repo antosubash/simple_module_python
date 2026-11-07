@@ -134,7 +134,7 @@ class SecurityHeadersMiddleware:
                 if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:
                     # Separate policies intersect, so a response's own policy is
                     # kept beside the app policy: it can tighten a page (#870) but
-                    # never relax default-src, frame-ancestors or the nonce.
+                    # never relax default-src or frame-ancestors.
                     dyn = self._dynamic
                     policy = dyn.policy_for(scope.get("app")) if dyn else self.csp
                     policy = policy.replace("'strict-dynamic'", f"'nonce-{nonce}' 'strict-dynamic'")

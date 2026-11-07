@@ -1,4 +1,4 @@
-"""Nonce-bearing scripts and intersecting response policies (#785)."""
+"""Nonce-bearing scripts and intersecting response policies (#785, #870)."""
 
 from html.parser import HTMLParser
 from pathlib import Path
