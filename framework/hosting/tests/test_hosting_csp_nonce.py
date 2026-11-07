@@ -121,6 +121,46 @@ async def test_sandbox_response_keeps_both_policies(own):
         assert directive in app_policy
 
 
+async def _policies_for(*own: str) -> list[str]:
+    async def page(request):
+        response = PlainTextResponse("ok")
+        for policy in own:
+            response.headers.append(_CSP, policy)
+        return response
+
+    app = SecurityHeadersMiddleware(Starlette(routes=[Route("/", page)]))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/")
+    return response.headers.get_list(_CSP)
+
+
+async def test_stricter_response_policy_is_kept_beside_the_app_policy():
+    """A page can tighten the app policy; the two intersect (#870)."""
+    own = "default-src 'self'; frame-ancestors 'none'"
+    policies = await _policies_for(own)
+    assert len(policies) == 2
+    assert policies[0] == own
+    assert "frame-ancestors 'self'" in policies[1]
+    assert "'nonce-" in policies[1]
+    assert "'nonce-" not in policies[0]
+
+
+async def test_every_response_policy_is_kept():
+    first, second = "frame-ancestors 'none'", "img-src 'self'"
+    policies = await _policies_for(first, second)
+    assert policies[:2] == [first, second]
+    assert len(policies) == 3
+    assert "default-src 'self'" in policies[2]
+
+
+async def test_without_a_response_policy_only_the_app_policy_is_sent():
+    policies = await _policies_for()
+    assert len(policies) == 1
+    assert "default-src 'self'" in policies[0]
+
+
 async def test_not_modified_keeps_the_cached_policy():
     """A 304 must not carry a fresh nonce the cached body does not have."""
     from starlette.responses import Response

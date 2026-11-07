@@ -132,14 +132,13 @@ class SecurityHeadersMiddleware:
                 # A 304 refreshes the cached response's headers: a new nonce there
                 # would no longer match the cached body, so keep the cached CSP.
                 if self.csp and message.get("status") != _HTTP_NOT_MODIFIED:
-                    # Separate policies intersect: sandbox responses cannot replace
-                    # the app's default-src, frame-ancestors or other protections.
-                    own = (headers.get(_HEADER_CSP) or "").lower()
-                    keeps_own = any(d.split()[:1] == ["sandbox"] for d in own.split(";"))
+                    # Separate policies intersect, so a response's own policy is
+                    # kept beside the app policy: it can tighten a page (#870) but
+                    # never relax default-src, frame-ancestors or the nonce.
                     dyn = self._dynamic
                     policy = dyn.policy_for(scope.get("app")) if dyn else self.csp
                     policy = policy.replace("'strict-dynamic'", f"'nonce-{nonce}' 'strict-dynamic'")
-                    if keeps_own:
+                    if _HEADER_CSP in headers:
                         headers.append(_HEADER_CSP, policy)
                     else:
                         headers[_HEADER_CSP] = policy
