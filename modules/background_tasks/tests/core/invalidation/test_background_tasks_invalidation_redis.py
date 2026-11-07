@@ -41,8 +41,11 @@ def _patient_publish(monkeypatch):
     publish opens its command connection (the listener's pub/sub connection does
     not warm it). In CI that connect was cancelled by the 1 s timeout inside
     ``create_connection``, the bus logged "Invalidation broadcast failed", and the
-    message was lost (GH #865). These tests prove redis-py's wire behaviour; the timeout itself is
-    covered against a mute broker in ``test_background_tasks_invalidation_degraded.py``.
+    message was lost (GH #865). ``start()`` also reads it as
+    ``socket_connect_timeout``, so this fixture must run before a transport starts,
+    and a test here that needs the production bound has to set it back. These tests
+    prove redis-py's wire behaviour; the timeout itself is covered against a mute
+    broker in ``test_background_tasks_invalidation_degraded.py``.
     """
     monkeypatch.setattr(bg_invalidation, "PUBLISH_TIMEOUT_SECONDS", _DELIVERY_TIMEOUT_SECONDS)
 
