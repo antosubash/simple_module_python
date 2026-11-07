@@ -102,9 +102,9 @@ Serving rules:
 - `Cache-Control: public, max-age=3600`, a checksum `ETag` (`304` on
   `If-None-Match`) and `X-Content-Type-Options: nosniff`.
 - Every public response carries `Content-Security-Policy: default-src 'none';
-  style-src 'unsafe-inline'; sandbox` (the security-headers middleware now
-  emits it alongside the app policy as a second header, enforcing their
-  intersection). Only an allow-list of types is
+  style-src 'unsafe-inline'; sandbox` (the security-headers middleware
+  keeps it and sends the app policy as a second header, so browsers enforce
+  their intersection). Only an allow-list of types is
   served `inline` (and redirected on S3): common raster images, PDF, JSON,
   GeoJSON, plain text, CSV, opaque binaries (`application/octet-stream`, zip,
   gzip, protobuf / vector tiles) and `audio/*` / `video/*` / `font/*` minus

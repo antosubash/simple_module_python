@@ -169,9 +169,15 @@ nonce. Development retains the permissive Vite/HMR policy.
 
 CSP3 browsers ignore script host allowlists under `strict-dynamic`; a nonced
 entry can load its imports. Module sources are retained for older browsers
-and other fetch directives. A response CSP containing `sandbox` is emitted
-as a separate header alongside the app policy, so browsers enforce their
-intersection. Other response CSPs are overwritten by the app policy.
+and other fetch directives. A response that sets its own
+`Content-Security-Policy` keeps it: the app policy is sent beside it as a
+separate header, and browsers enforce their intersection, so a page can
+tighten the policy (`frame-ancestors 'none'`, a `sandbox`) but never relax it.
+The nonce goes into the app policy only; a response policy that restricts
+`script-src` must allow the page's scripts itself, for example with
+a `'nonce-…'` source built from `request.state.csp_nonce`. `X-Frame-Options`
+stays `SAMEORIGIN`; CSP-aware browsers obey `frame-ancestors` instead, so a
+page's `frame-ancestors 'none'` is only weaker in browsers without CSP level 2.
 
 ### `SessionMiddleware`
 
