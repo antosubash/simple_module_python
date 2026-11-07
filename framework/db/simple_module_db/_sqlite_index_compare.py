@@ -10,7 +10,9 @@ schema. Postgres reflects the ordering, so it compares these faithfully.
 :func:`differs_only_in_sqlite_ordering` recognises exactly that pair, so
 ``make_include_object`` can skip it on SQLite. Anything else still reaches
 Alembic: a different column list, a uniqueness change, or a real expression
-such as ``lower(email)``.
+such as ``lower(email)``. A change of ordering alone (``DESC`` to ``ASC``) is not
+reported on SQLite, which cannot reflect ordering at all; the Postgres round
+trip (``make migrations-roundtrip-pg``) is what catches it.
 """
 
 from __future__ import annotations
@@ -65,15 +67,27 @@ def _element_name(element: object) -> tuple[str | None, bool]:
     return None, False
 
 
+def _is_partial(index: Index) -> bool:
+    """A partial index (``WHERE`` predicate), modelled or reflected."""
+    return any(
+        index.dialect_options[dialect].get("where") is not None
+        for dialect in ("sqlite", "postgresql")
+    )
+
+
 def differs_only_in_sqlite_ordering(left: SchemaItem, right: SchemaItem | None) -> bool:
     """True when two indexes are the same index as far as SQLite can tell.
 
-    Requires an active SQLite migration context, equal uniqueness, the same
+    Requires an active SQLite migration context, equal uniqueness, no partial
+    index (``WHERE`` predicate) on either side, the same
     column names in the same order (compared case-insensitively, as SQLite
     compares identifiers), and at least one element written as an expression
     (otherwise Alembic's own comparison is already right).
     """
     if not isinstance(left, Index) or not isinstance(right, Index) or left.unique != right.unique:
+        return False
+    if _is_partial(left) or _is_partial(right):
+        # Only columns are compared here, so a changed predicate would be hidden.
         return False
     if not _on_sqlite():
         return False

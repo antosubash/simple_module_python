@@ -164,3 +164,25 @@ def test_postgres_text_index_is_not_hidden(monkeypatch):
         )
         is True
     )
+
+
+def _partial(where: str) -> sa.MetaData:
+    meta = sa.MetaData()
+    sa.Table(
+        "record",
+        meta,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("active", sa.Integer),
+        sa.Column("email", sa.String),
+        sa.Index("ix", sa.text("email DESC"), sqlite_where=sa.text(where)),
+    )
+    return meta
+
+
+def test_a_changed_partial_index_predicate_is_still_reported(connection):
+    """The guard compares columns only, so it must leave partial indexes alone."""
+    _partial("active = 1").create_all(connection)
+    target = _partial("active = 0")
+    with _environment(connection, target) as env:
+        diffs = compare_metadata(env.get_context(), target)
+    assert [diff[0] for diff in diffs] == ["remove_index", "add_index"]
