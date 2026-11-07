@@ -83,7 +83,9 @@ answering would hang that request indefinitely rather than degrade the fan-out.
 One second is far more than a local round trip needs and far less than a user
 waits. Exceeding it raises, which the bus logs and swallows: the local eviction
 has already happened, so the cost of the timeout is the same staleness window
-that existed before this transport.
+that existed before this transport. The listener opens the connection a publish
+uses ahead of time (``_warm_publish_connection``), so the budget normally covers
+a round trip on an open socket, not a connect.
 """
 
 
@@ -174,6 +176,7 @@ class RedisInvalidationTransport:
                 pubsub = self._client.pubsub()
                 async with asyncio.timeout(SUBSCRIBE_TIMEOUT_SECONDS):
                     await pubsub.subscribe(self._channel)
+                await self._warm_publish_connection()
                 if self._warned:
                     logger.info("Invalidation listener reconnected to %r", self._channel)
                 self._warned = False
@@ -197,6 +200,22 @@ class RedisInvalidationTransport:
                 if pubsub is not None:
                     with contextlib.suppress(Exception):
                         await pubsub.aclose()
+
+    async def _warm_publish_connection(self) -> None:
+        """Open the command connection the next publish will use, off the request path.
+
+        The client opens it lazily, so without this the first publish after boot,
+        or after Redis came back, paid the TCP connect inside its 1 s budget and
+        lost the message under load (GH #880). Runs after every successful
+        SUBSCRIBE because an outage drops both connections. A failure here leaves
+        the listener up: the subscription is what keeps this worker receiving, and
+        a cold publish still connects on its own.
+        """
+        try:
+            async with asyncio.timeout(SUBSCRIBE_TIMEOUT_SECONDS):
+                await self._client.ping()
+        except Exception as exc:
+            logger.debug("Invalidation publish connection not warmed: %s", exc)
 
     def _log_failure(self, exc: Exception) -> None:
         """Warn once per outage, then stay quiet about the same outage."""
