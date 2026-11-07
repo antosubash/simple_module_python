@@ -45,8 +45,8 @@ def token_is_live(access_token: UserAccessToken, user: Any, now: datetime | None
     now = now or datetime.now(UTC)
     expires_at = access_token.expires_at
     if expires_at is not None:
-        # SQLite hands back naive datetimes for a TIMESTAMPAware column; treat
-        # them as UTC rather than raising on the comparison.
+        # ``expires_at`` is ``AwareDateTime`` and reads back aware; this guard
+        # only covers rows or test doubles that still carry a naive value.
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=UTC)
         if expires_at <= now:

@@ -368,7 +368,12 @@ generated file against this checklist before treating it as portable
    (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
    confirm with the PostgreSQL round trip below. The warning is deliberately not
    an error: it fires on every autogenerate, including unrelated revisions, and
-   the Postgres round trip is the actual gate.
+   the Postgres round trip is the actual gate. Prefer writing an ordered index column as
+   `sa.desc(sa.column("col"))` over `sa.text("col DESC")` or `sa.desc("col")`:
+   the latter two are expressions to Alembic, and while the host's include filter
+   suppresses the false SQLite change when only the ordering differs, the column
+   form needs no filter and stays out of `SM` expression-index warnings
+   ([GH #869](https://github.com/antosubash/simple_module_python/issues/869)).
 3. **Enum types on downgrade.** `op.drop_table` leaves the PostgreSQL
    `CREATE TYPE` behind, so `downgrade` then `upgrade` fails with
    `DuplicateObject`. Autogenerate never emits the drop. Finish `downgrade()`

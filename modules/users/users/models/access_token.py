@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import ClassVar
 
 from fastapi_users_db_sqlalchemy.generics import GUID, TIMESTAMPAware, now_utc
+from simple_module_db.types import AwareDateTime
 from sqlmodel import Field
 
 from users.models._base import Base
@@ -43,7 +44,7 @@ class UserAccessToken(Base, table=True):  # ty: ignore[unsupported-base]
     )
     expires_at: datetime = Field(
         default_factory=_default_expires_at,
-        sa_type=TIMESTAMPAware(timezone=True),
+        sa_type=AwareDateTime(),
         index=True,
     )
     """When this particular row stops authenticating.

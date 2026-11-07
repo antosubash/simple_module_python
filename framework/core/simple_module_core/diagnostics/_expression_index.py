@@ -25,13 +25,37 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def index_is_expression_based(index: Any) -> bool:
-    """True when any element of ``index`` is an expression rather than a plain column.
+_ORDERING_MODIFIERS = frozenset({"asc_op", "desc_op", "nulls_first_op", "nulls_last_op"})
 
-    A plain ``Column`` is attached to its table; a ``text()`` or function
-    element is not.
+
+def unwrap_ordering(expr: Any) -> Any:
+    """``expr`` without its ``desc()``/``asc()``/``nulls_first()``/``nulls_last()`` wrappers."""
+    while getattr(getattr(expr, "modifier", None), "__name__", None) in _ORDERING_MODIFIERS:
+        expr = expr.element
+    return expr
+
+
+def _is_column(expr: Any) -> bool:
+    """A column, possibly wrapped in ``desc()``/``asc()``/``nulls_last()``.
+
+    SQLite reflects ``created_at DESC`` as the column ``created_at`` and Alembic
+    compares it as one (GH #869), so an ordering keeps an element a column. A
+    plain ``Column`` is attached to its table; ``sa.column("x")`` is a named,
+    non-literal column; ``text()``, ``literal_column()``, a function or a bare
+    string label are expressions.
     """
-    return any(getattr(expr, "table", None) is None for expr in index.expressions)
+    expr = unwrap_ordering(expr)
+    if hasattr(expr, "element"):
+        # Still wraps something once the ordering is gone: a label over an
+        # arbitrary expression (``lower(email).label("x")``) or ``sa.desc("col")``'s
+        # bare-string label. A column wraps nothing.
+        return False
+    return getattr(expr, "table", None) is not None or getattr(expr, "is_literal", None) is False
+
+
+def index_is_expression_based(index: Any) -> bool:
+    """True when any element of ``index`` is an expression rather than a plain column."""
+    return not all(_is_column(expr) for expr in index.expressions)
 
 
 def find_expression_indexes(tables: Iterable[Any]) -> list[tuple[str, str]]:
@@ -103,4 +127,5 @@ __all__ = [
     "find_expression_indexes",
     "index_is_expression_based",
     "module_all_tables",
+    "unwrap_ordering",
 ]

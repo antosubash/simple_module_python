@@ -84,3 +84,39 @@ def test_module_without_models_is_skipped():
         meta = ModuleMeta(name="NoModels")
 
     assert module_all_tables(NoModels()) == []
+
+
+def test_a_descending_column_is_a_column_not_an_expression():
+    """SQLite reflects ``created_at DESC`` as a column and Alembic compares it (GH #869)."""
+    md = sa.MetaData()
+    table = sa.Table(
+        "t",
+        md,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("created_at", sa.DateTime),
+        sa.Index("ix_t_named", "id", sa.desc(sa.column("created_at"))),
+    )
+    sa.Index("ix_t_bound", table.c.created_at.desc().nulls_last())
+    assert find_expression_indexes([table]) == []
+
+
+def test_text_ordering_and_literal_columns_still_count_as_expressions():
+    md = sa.MetaData()
+    table = sa.Table(
+        "t",
+        md,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("created_at", sa.DateTime),
+        sa.Index("ix_t_text", "id", sa.text("created_at DESC")),
+        sa.Index("ix_t_label", "id", sa.desc("created_at")),
+        sa.Index("ix_t_literal", sa.desc(sa.literal_column("created_at"))),
+    )
+    sa.Index("ix_t_labelled_func", sa.func.lower(table.c.id).label("x"))
+    sa.Index("ix_t_cast", sa.cast(table.c.created_at, sa.String).desc())
+    assert find_expression_indexes([table]) == [
+        ("t", "ix_t_cast"),
+        ("t", "ix_t_label"),
+        ("t", "ix_t_labelled_func"),
+        ("t", "ix_t_literal"),
+        ("t", "ix_t_text"),
+    ]

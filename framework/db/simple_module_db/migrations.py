@@ -28,6 +28,7 @@ from sqlalchemy.exc import NoReferenceError
 from sqlalchemy.schema import SchemaItem
 
 from simple_module_db._migration_render import render_item  # noqa: F401  (re-exported)
+from simple_module_db._sqlite_index_compare import differs_only_in_sqlite_ordering
 from simple_module_db.base import all_module_bases
 from simple_module_db.extensions import (  # noqa: F401  (ensure_db_extensions re-exported)
     ensure_db_extensions,
@@ -147,6 +148,9 @@ def make_include_object(
     ) -> bool:
         if type_ == "table":
             return name in allowlist
+        if type_ == "index" and differs_only_in_sqlite_ordering(object, compare_to):
+            # SQLite reflects ``created_at DESC`` as a plain column (GH #869).
+            return False
         if (
             ignore_unmodeled_fks
             and type_ == "foreign_key_constraint"
