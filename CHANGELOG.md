@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- `alembic check` and SQLite autogenerate no longer report the `file_storage` browse index (`sa.desc("created_at")` instead of `sa.text("created_at DESC")`) or `users_access_token.expires_at` (now `AwareDateTime`) as changed, so the host's `alembic check` on SQLite is clean. `make ci-doctor` now runs `alembic check` against its throwaway SQLite database, and a module index written with `sa.text("col DESC")` is no longer reported as changed on SQLite (#869).
+- `alembic check` and SQLite autogenerate no longer report the `file_storage` browse index (`sa.desc(sa.column("created_at"))` instead of `sa.text("created_at DESC")`) or `users_access_token.expires_at` (now `AwareDateTime`) as changed, so the host's `alembic check` on SQLite is clean. `make ci-doctor` now runs `alembic check` against its throwaway SQLite database, and a module index written with `sa.text("col DESC")` is no longer reported as changed on SQLite (#869).
 - `background_tasks`: the Redis invalidation listener now opens the connection a publish uses (one `PING` after every successful subscribe), so the first invalidation after boot or after a Redis outage no longer spends part of its 1 s budget connecting. Under load that connect was cancelled and the message was lost; other workers kept the stale value until its TTL (#880).
 
 ### Changed

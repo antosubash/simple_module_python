@@ -369,8 +369,9 @@ generated file against this checklist before treating it as portable
    confirm with the PostgreSQL round trip below. The warning is deliberately not
    an error: it fires on every autogenerate, including unrelated revisions, and
    the Postgres round trip is the actual gate. Write an ordered index column as
-   `sa.desc("col")`, not `sa.text("col DESC")`: SQLite reflects the latter as a
-   plain column, so autogenerate reports a false change
+   `sa.desc(sa.column("col"))`, not `sa.text("col DESC")` or `sa.desc("col")`:
+   both of those are expressions to Alembic, and SQLite reflects the index as plain
+   columns, so autogenerate reports a false change
    ([GH #869](https://github.com/antosubash/simple_module_python/issues/869)).
 3. **Enum types on downgrade.** `op.drop_table` leaves the PostgreSQL
    `CREATE TYPE` behind, so `downgrade` then `upgrade` fails with

@@ -66,7 +66,7 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True
             f"ix_{constants.TABLE_STORED_FILE}_tenant_browse",
             "tenant_id",
             "is_deleted",
-            sa.desc("created_at"),
+            sa.desc(sa.column("created_at")),
             "id",
         ),
     )
