@@ -38,8 +38,9 @@ def _patient_publish(monkeypatch):
     """Give a publish the delivery wait's budget instead of production's 1 s.
 
     ``PUBLISH_TIMEOUT_SECONDS`` bounds the whole publish, and a publisher's first
-    publish opens its command connection (the listener's pub/sub connection does
-    not warm it). In CI that connect was cancelled by the 1 s timeout inside
+    publish may open its command connection. The listener warms it after SUBSCRIBE
+    (GH #880), but these tests publish right after ``start()``, before that can
+    finish. In CI that connect was cancelled by the 1 s timeout inside
     ``create_connection``, the bus logged "Invalidation broadcast failed", and the
     message was lost (GH #865). ``start()`` also reads it as
     ``socket_connect_timeout``, so this fixture must run before a transport starts,

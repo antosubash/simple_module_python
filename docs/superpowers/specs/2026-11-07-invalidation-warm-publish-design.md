@@ -68,7 +68,7 @@ async def _warm_publish_connection(self) -> None:
 ## Testing
 
 New file `modules/background_tasks/tests/core/invalidation/test_background_tasks_invalidation_warmup.py`
-(the existing files are at 276–293 of the 300-line cap):
+(the existing `test_background_tasks_invalidation.py` is at 293 of the 300-line cap):
 
 - With the fake client: after the listener subscribes, the client receives one `ping`; after a
   scripted subscribe failure and a reconnect, it receives another.
@@ -78,8 +78,8 @@ New file `modules/background_tasks/tests/core/invalidation/test_background_tasks
   transport whose last command is `ping` (`CLIENT LIST`). A publish then reuses it, and the
   server's client count does not grow.
 
-The fake gains an `async def ping()`. Full `make test-py` with `SM_TEST_REDIS_URL`, plus
-`make lint`. No browser QA (`--skip-browser`): nothing user-visible changes.
+The new file carries its own small fake, with an `async def ping()`. Full `make test-py` with
+`SM_TEST_REDIS_URL`, plus `make lint`. No browser QA (`--skip-browser`): nothing user-visible changes.
 
 ## Risks
 
