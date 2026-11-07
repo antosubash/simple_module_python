@@ -98,29 +98,6 @@ async def test_scripts_share_the_request_nonce(template_dir, environment):
         assert any(s.get("src", "").endswith("/@vite/client") for s in scripts)
 
 
-@pytest.mark.parametrize("own", ["sandbox allow-scripts; script-src *", "SANDBOX\tallow-scripts"])
-async def test_sandbox_response_keeps_both_policies(own):
-    async def page(request):
-        return PlainTextResponse("ok", headers={_CSP: own})
-
-    app = SecurityHeadersMiddleware(Starlette(routes=[Route("/", page)]))
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        response = await client.get("/")
-    policies = response.headers.get_list(_CSP)
-    assert len(policies) == 2
-    assert own in policies
-    app_policy = next(policy for policy in policies if policy != own)
-    for directive in (
-        "frame-ancestors 'self'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "default-src 'self'",
-    ):
-        assert directive in app_policy
-
-
 async def _policies_for(*own: str) -> list[str]:
     async def page(request):
         response = PlainTextResponse("ok")
@@ -134,6 +111,21 @@ async def _policies_for(*own: str) -> list[str]:
     ) as client:
         response = await client.get("/")
     return response.headers.get_list(_CSP)
+
+
+@pytest.mark.parametrize("own", ["sandbox allow-scripts; script-src *", "SANDBOX\tallow-scripts"])
+async def test_sandbox_response_keeps_both_policies(own):
+    policies = await _policies_for(own)
+    assert len(policies) == 2
+    assert own in policies
+    app_policy = next(policy for policy in policies if policy != own)
+    for directive in (
+        "frame-ancestors 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "default-src 'self'",
+    ):
+        assert directive in app_policy
 
 
 async def test_stricter_response_policy_is_kept_beside_the_app_policy():

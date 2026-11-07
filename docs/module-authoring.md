@@ -658,7 +658,7 @@ on that response (for example `frame-ancestors 'none'` on a public page). The
 host keeps it and sends its own policy beside it, and browsers enforce both,
 so a response policy can only tighten. Because both apply, a response policy
 that restricts `script-src` must allow the page's scripts itself, for example
-with `'nonce-{request.state.csp_nonce}'`.
+with a `'nonce-…'` source built from `request.state.csp_nonce`.
 
 ## First-run setup steps
 

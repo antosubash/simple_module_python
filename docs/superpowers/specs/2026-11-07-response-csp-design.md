@@ -36,7 +36,7 @@ In `send_with_headers` (`framework/hosting/simple_module_hosting/_security_heade
 
 The request nonce is inserted into the app policy only. The response's policy
 is sent byte-for-byte; if it restricts `script-src` it must allow the page's
-scripts itself (`'self'`, or `'nonce-{request.state.csp_nonce}'` for inline or
+scripts itself (`'self'`, or a `'nonce-…'` source built from `request.state.csp_nonce` for inline or
 nonced scripts), because both policies apply. 304 handling is unchanged.
 
 ## Decisions made
