@@ -653,6 +653,13 @@ printable ASCII, as CSP's own grammar requires, so an internationalised domain
 is written in its punycode form (`https://xn--exmple-cua.com`). See
 [docs/framework/lifecycle.md](framework/lifecycle.md#register_csp_sourcesregistry).
 
+To make one page *stricter* than the app policy, set `Content-Security-Policy`
+on that response (for example `frame-ancestors 'none'` on a public page). The
+host keeps it and sends its own policy beside it, and browsers enforce both,
+so a response policy can only tighten. Because both apply, a response policy
+that restricts `script-src` must allow the page's scripts itself, for example
+with `'nonce-{request.state.csp_nonce}'`.
+
 ## First-run setup steps
 
 A module can declare what an install still needs before it is usable. While
