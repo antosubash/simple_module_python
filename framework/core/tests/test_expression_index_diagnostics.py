@@ -111,8 +111,12 @@ def test_text_ordering_and_literal_columns_still_count_as_expressions():
         sa.Index("ix_t_label", "id", sa.desc("created_at")),
         sa.Index("ix_t_literal", sa.desc(sa.literal_column("created_at"))),
     )
+    sa.Index("ix_t_labelled_func", sa.func.lower(table.c.id).label("x"))
+    sa.Index("ix_t_cast", sa.cast(table.c.created_at, sa.String).desc())
     assert find_expression_indexes([table]) == [
+        ("t", "ix_t_cast"),
         ("t", "ix_t_label"),
+        ("t", "ix_t_labelled_func"),
         ("t", "ix_t_literal"),
         ("t", "ix_t_text"),
     ]

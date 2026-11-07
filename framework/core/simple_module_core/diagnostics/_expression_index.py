@@ -45,6 +45,11 @@ def _is_column(expr: Any) -> bool:
     string label are expressions.
     """
     expr = unwrap_ordering(expr)
+    if hasattr(expr, "element"):
+        # Still wraps something once the ordering is gone: a label over an
+        # arbitrary expression (``lower(email).label("x")``) or ``sa.desc("col")``'s
+        # bare-string label. A column wraps nothing.
+        return False
     return getattr(expr, "table", None) is not None or getattr(expr, "is_literal", None) is False
 
 
@@ -122,4 +127,5 @@ __all__ = [
     "find_expression_indexes",
     "index_is_expression_based",
     "module_all_tables",
+    "unwrap_ordering",
 ]

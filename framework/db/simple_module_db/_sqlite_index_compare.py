@@ -15,6 +15,7 @@ such as ``lower(email)``.
 
 from __future__ import annotations
 
+import logging
 import re
 
 from alembic import context
@@ -22,6 +23,8 @@ from simple_module_core.diagnostics._expression_index import unwrap_ordering
 from sqlalchemy import Index
 from sqlalchemy.schema import SchemaItem
 from sqlalchemy.sql.elements import ColumnClause, TextClause
+
+logger = logging.getLogger(__name__)
 
 # One identifier, optionally double-quoted, then an optional ordering.
 _ORDERED_COLUMN = re.compile(
@@ -39,7 +42,8 @@ def _on_sqlite() -> bool:
     """
     try:
         return context.get_context().dialect.name == "sqlite"
-    except Exception:
+    except Exception as exc:
+        logger.debug("No Alembic migration context, SQLite index guard off: %s", exc)
         return False
 
 
