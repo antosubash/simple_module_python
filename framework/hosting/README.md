@@ -11,7 +11,7 @@ pip install simple_module_hosting
 For a new project, most users run the generator instead (shipped by the standalone `simple_module_cli` distribution):
 
 ```bash
-uvx --from simple_module_cli smpy new my-app
+uvx --from simple_module_cli@latest smpy new my-app
 ```
 
 ## What it provides

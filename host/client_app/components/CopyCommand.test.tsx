@@ -27,7 +27,7 @@ vi.mock('@simple-module-py/i18n', () => ({
 
 import { CopyCommand } from './CopyCommand';
 
-const COMMAND = 'uvx --from simple_module_cli smpy new my-app';
+const COMMAND = 'uvx --from simple_module_cli@latest smpy new my-app';
 
 function stubClipboard(impl: () => Promise<void>) {
   const writeText = vi.fn(impl);

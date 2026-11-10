@@ -10,7 +10,7 @@ import { Database, LayoutTemplate, Package, Route, ShieldCheck, Stethoscope } fr
 import { CopyCommand } from '../components/CopyCommand';
 
 /** The one command the hero exists to hand over. */
-const INSTALL_COMMAND = 'uvx --from simple_module_cli smpy new my-app';
+const INSTALL_COMMAND = 'uvx --from simple_module_cli@latest smpy new my-app';
 
 /**
  * The terminal transcript, one entry per numbered step.
