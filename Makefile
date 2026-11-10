@@ -252,6 +252,7 @@ ci-check-untranslated:
 ci-build-packages:
 	rm -rf dist-py-ci
 	uv build --all-packages --out-dir dist-py-ci
+	uv run python scripts/check_wheel_contents.py dist-py-ci
 	rm -rf dist-py-ci
 
 # Diagnostics

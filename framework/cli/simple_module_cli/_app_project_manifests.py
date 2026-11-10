@@ -51,6 +51,11 @@ _APP_NPM_DEV_DEPS = {
     "vite": "^8.2.2",
 }
 
+# `@tailwindcss/typography` (pulled in by @simple-module-py/ui) pins
+# postcss-selector-parser 6.0.10, which `npm audit` flags as a moderate ReDoS
+# (GH #900). This repo's root package.json carries the same override.
+_APP_NPM_OVERRIDES = {"postcss-selector-parser": "^6.1.5"}
+
 
 def _db_url(db: str, db_name: str, *, flat: bool, password: str = "<POSTGRES_PASSWORD>") -> str:
     if db == "postgres":

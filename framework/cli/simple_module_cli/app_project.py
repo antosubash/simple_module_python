@@ -22,6 +22,7 @@ from typing import Any
 from simple_module_cli._app_project_manifests import (
     _APP_NPM_DEPS,
     _APP_NPM_DEV_DEPS,
+    _APP_NPM_OVERRIDES,
     _APP_PY_DEV_DEPS,
     _FRAMEWORK_VERSION,
     _db_url,
@@ -160,19 +161,21 @@ def create_app_project(
     )
     host_pyproject.write_text(text, encoding="utf-8")
 
+    pkg_path = target / "package.json"
+    pkg_data: dict[str, Any] = (
+        _json.loads(pkg_path.read_text(encoding="utf-8"))
+        if pkg_path.exists()
+        else {"name": to_kebab_case(name), "private": True, "type": "module"}
+    )
     if flat:
         # The workspace template already emits a top-level package.json
         # with workspaces; flat mode has none, so seed one with the
         # framework npm pins so `npm install` resolves at the root.
-        pkg_path = target / "package.json"
-        pkg_data: dict[str, Any] = (
-            _json.loads(pkg_path.read_text(encoding="utf-8"))
-            if pkg_path.exists()
-            else {"name": to_kebab_case(name), "private": True, "type": "module"}
-        )
         pkg_data.setdefault("dependencies", {}).update(_APP_NPM_DEPS)
         pkg_data.setdefault("devDependencies", {}).update(_APP_NPM_DEV_DEPS)
-        pkg_path.write_text(_json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
+    # npm reads `overrides` only from the root package.json, in both layouts.
+    pkg_data.setdefault("overrides", {}).update(_APP_NPM_OVERRIDES)
+    pkg_path.write_text(_json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
 
     ctx = ScaffoldCtx(name=name, db=db, tenancy=tenancy, selected=tuple(resolved))
     for mod_name in resolved:

@@ -3,8 +3,8 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { type Plugin, defineConfig } from 'vite';
-import { loadModuleAssets } from './module-assets';
-import { viteDevServer } from './vite.dev-url';
+import { loadModuleAssets } from './module-assets.ts';
+import { viteDevServer } from './vite.dev-url.ts';
 
 // Force every importer (host, workspace module, wheel-installed module)
 // to resolve to one React copy + a single Inertia hook context. Without
@@ -29,11 +29,11 @@ function findNodeModulesRoot(start: string): string {
   }
   return start;
 }
-const fsRoot = findNodeModulesRoot(__dirname);
+const fsRoot = findNodeModulesRoot(import.meta.dirname);
 
 // Walks up from client_app to the directory holding the project .env itself —
 // fsRoot tracks node_modules, which (in flat mode) is NOT where .env lives.
-const { origin: devUrl, port: devPort } = viteDevServer(__dirname);
+const { origin: devUrl, port: devPort } = viteDevServer(import.meta.dirname);
 
 const {
   fsAllow: moduleFsAllow,
@@ -42,7 +42,7 @@ const {
   pagesPrefixes: modulePagesPrefixes,
   aliases: moduleAliases,
   npmNames: moduleNpmNames,
-} = loadModuleAssets(__dirname);
+} = loadModuleAssets(import.meta.dirname);
 const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // CJS-only deps like `clsx`, `tailwind-merge`, `class-variance-authority`
@@ -99,7 +99,7 @@ function collectOptimizeIncludes(): string[] {
     'use-sync-external-store/shim/with-selector',
   ]);
   const visited = new Set<string>();
-  const queue: string[] = [path.join(__dirname, 'package.json'), ...modulePkgJsonPaths];
+  const queue: string[] = [path.join(import.meta.dirname, 'package.json'), ...modulePkgJsonPaths];
   while (queue.length > 0) {
     const pkgJsonPath = queue.shift();
     if (!pkgJsonPath || visited.has(pkgJsonPath)) continue;
@@ -177,7 +177,7 @@ function moduleBareImportResolver(): Plugin {
 
 export default defineConfig({
   plugins: [moduleBareImportResolver(), react(), tailwindcss()],
-  root: __dirname,
+  root: import.meta.dirname,
   resolve: {
     // `#module/<pkg>` -> that module's package directory. Optional sugar for
     // hand-written imports; modules.generated.css does not rely on it.
@@ -187,22 +187,24 @@ export default defineConfig({
   optimizeDeps: {
     entries: ['main.tsx', 'pages/**/*.tsx', ...moduleOptimizeEntries],
     include: collectOptimizeIncludes(),
-    // Vite's dep scanner runs esbuild against every entry above. When the
+    // Vite's dep scanner runs Rolldown against every entry above. When the
     // entry sits outside the workspace (a wheel-installed module's
-    // pages/, or sometimes even a workspace module's pages/), esbuild's
-    // upward node_modules walk from the importer does not always reach
-    // the hoisted node_modules at fsRoot. Seeding it as NODE_PATH-style
-    // fallback ensures bare specifiers like `maplibre-gl` resolve during
-    // scan-imports. See GitHub issue #152.
-    esbuildOptions: {
-      nodePaths: [path.join(fsRoot, 'node_modules')],
+    // pages/, or sometimes even a workspace module's pages/), the upward
+    // node_modules walk from the importer does not always reach the
+    // hoisted node_modules at fsRoot. Adding it to the resolve search is
+    // a NODE_PATH-style fallback, so bare specifiers like `maplibre-gl`
+    // resolve during scan-imports. See GitHub issue #152.
+    rolldownOptions: {
+      resolve: {
+        modules: ['node_modules', path.join(fsRoot, 'node_modules')],
+      },
     },
   },
   build: {
     outDir: '../static/dist',
     manifest: true,
     rollupOptions: {
-      input: path.resolve(__dirname, 'main.tsx'),
+      input: path.resolve(import.meta.dirname, 'main.tsx'),
     },
   },
   server: {
