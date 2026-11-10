@@ -33,15 +33,17 @@ def migration_diagnostics(
         state = asyncio.run(read_migration_state(database_url, ini))
     except Exception:
         # Unreachable is a warning, as for SM033: doctor also runs where no
-        # database is up. The error text can carry credentials, so it is not shown.
+        # database is up. A revision file that fails to import lands here too.
+        # The error text can carry credentials, so it is not shown.
         return [
             Diagnostic(
                 level=DiagnosticLevel.WARNING,
                 code="SM010",
-                message="Could not read the migration state from the database; "
+                message="Could not read the migration state (database or Alembic revisions); "
                 "SM010 and SM011 were not checked",
                 module_name="migrations",
-                suggestion="Check SM_DATABASE_URL and that the database is running.",
+                suggestion="Check SM_DATABASE_URL and that the database is running, and that "
+                "the revisions load (`make migration-history`).",
             )
         ]
     if state is None:

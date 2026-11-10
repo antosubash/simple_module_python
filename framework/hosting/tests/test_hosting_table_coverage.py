@@ -63,6 +63,21 @@ async def test_hosting_table_coverage_is_quiet_when_covered(engine, monkeypatch)
     assert [d.code for d in state.rerun()] == ["SM019"]
 
 
+async def test_hosting_table_coverage_skips_when_the_database_cannot_be_read(caplog):
+    # A diagnostics-only read must not fail the boot or the wizard's migrations action.
+    class _BrokenEngine:
+        def connect(self):
+            raise RuntimeError("database is gone")
+
+    state = DiagnosticsState(runner=lambda: [_BOOT])
+    state.rerun()
+
+    await add_table_coverage(_app(_BrokenEngine(), state), [])
+
+    assert [d.code for d in state.rerun()] == ["SM019"]
+    assert "SM011 table coverage could not be read" in caplog.text
+
+
 async def test_hosting_table_coverage_skips_without_a_runner(engine):
     # Outside development no diagnostics run, so the database is not inspected.
     state = DiagnosticsState()
