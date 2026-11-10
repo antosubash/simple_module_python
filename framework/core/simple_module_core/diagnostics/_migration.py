@@ -79,13 +79,16 @@ class MigrationDiagnostics:
         module_tables: set[str],
         migrated_tables: set[str],
     ) -> list[Diagnostic]:
-        """SM011: Warning if module tables are missing from migration history."""
+        """SM011: Warning for module tables a database at every head does not have."""
         missing = module_tables - migrated_tables
         return [
             Diagnostic(
                 level=DiagnosticLevel.WARNING,
                 code="SM011",
-                message=f"Table '{table}' declared in models but not found in migration history",
+                message=(
+                    f"Table '{table}' is declared in models but missing from the migrated "
+                    "database, so no migration creates it"
+                ),
                 module_name=_MODULE_NAME,
                 suggestion=f'Run: make migration msg="add {table}"',
             )
