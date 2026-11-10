@@ -213,13 +213,13 @@ Fix locally with `make migrate`. In production, run migrations before rolling ov
 
 ## Diagnostic: `SM011`
 
-Fires as a warning when a module's model declares a table that doesn't appear in any Alembic migration. Typical causes:
+Fires as a warning when a database at every head lacks a table a module's `models` declare, so no migration creates it. `make doctor` checks the database `SM_DATABASE_URL` points at; a development boot checks its own database once it is open. Typical causes:
 
 - You added a model but haven't generated a migration for it yet.
 - You renamed a table but the old migration still references the old name.
 - You used `__abstract__ = True` somewhere it shouldn't be.
 
-The dev-mode boot log prints the offending table names. Resolution: run `make migration msg="..."`, review, `make migrate`.
+`make doctor` and the dev-mode boot log print the offending table names; while the database is behind head the check is skipped, since the table may be in a pending revision. Resolution: run `make migration msg="..."`, review, `make migrate`.
 
 ## Cross-module foreign keys
 

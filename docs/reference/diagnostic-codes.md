@@ -18,8 +18,8 @@ The framework runs a set of static checks over installed modules at app boot. Th
 | `SM007` | INFO | Module overrides zero `register_*` hooks and has no `on_startup`/`on_shutdown`. | Delete the module if it's vestigial; otherwise ignore. |
 | `SM008` | ERROR | Two modules declare the same `ModuleMeta.name`. Table-prefix collision. | Rename one. Remember: the name is the table-name prefix (all modules share one DB schema) and the Inertia namespace. |
 | `SM009` | ERROR | A file under `framework/*` imports from any package under `modules/*`, including dynamic imports with literal names or fixed f-string package prefixes. | Invert the dependency: have the module register a callback into the framework (see `principal_serializer` pattern). |
-| `SM010` | ERROR | DB `alembic_version` is behind the migration head. | Run `make migrate`. The lifespan migration check raises and aborts boot in every environment before serving. |
-| `SM011` | WARNING | A module's model declares a table that doesn't appear in any Alembic migration. | Run `uv run alembic revision --autogenerate -m "..."`, review, `make migrate`. |
+| `SM010` | ERROR or WARNING | `make doctor` reads `alembic_version` from `SM_DATABASE_URL` and the heads from the project's `alembic.ini` (else `host/alembic.ini`). ERROR when the database lacks any head; WARNING when it was never migrated (a production boot sends that to `/setup`) or could not be read, in which case SM011 is skipped too. A SQLite file that does not exist yet counts as never migrated and is not created. | Run `make migrate`. The lifespan migration check also refuses a behind-head database at boot in every environment. |
+| `SM011` | WARNING | A table in a module's `models` is missing from a database at every head, so no migration creates it. Reported by `make doctor` and, once the database is open, a development boot (also on the Doctor screen). Not checked while the database is behind head. | Generate a revision on the module's branch (`make migration LABEL=<branch_label> msg="..."` in this repo, `make migration msg="..."` in a scaffolded app), review it, `make migrate`. |
 | `SM012` | WARNING | Module overrides `register_settings` but does not assign to `app.state.<module_lower>`. Dev-only. | Either remove the override or move your state assignment into it. |
 | `SM013` | WARNING | Supported locale has no corresponding file in some module's `locales/`. | Add `modules/<name>/<name>/locales/<locale>.json`, or drop the locale from `SM_I18N_SUPPORTED_LOCALES`. |
 | `SM014` | WARNING | Non-default locale is missing keys present in the default (untranslated). | Translate the missing keys. |
@@ -50,7 +50,7 @@ The framework runs a set of static checks over installed modules at app boot. Th
 
 | Context | What runs |
 |---|---|
-| App boot in development | Full structural/page/i18n suite, results logged to stderr. ERRORS abort boot. After the routes are wired, SM031 (unguarded `/api` routes) is added. |
+| App boot in development | Full structural/page/i18n suite, results logged to stderr. ERRORS abort boot. After the routes are wired, SM031 (unguarded `/api` routes) is added; once the database is open and at head, SM011. |
 | App boot in non-development | Strict module discovery (raises on SM001-class failures) + the migration check (SM010) + SM025 (logged as a warning). The page/locale static suite is dev-only. |
 
 Sample dev-mode output:
@@ -60,7 +60,7 @@ running diagnostics …
 
 WARNING SM003  modules/orders/orders/pages/Unused.tsx: no inertia.render("Orders/Unused") call found
 WARNING SM013  locale "es" missing file for module "orders" (expected modules/orders/orders/locales/es.json)
-ERROR   SM010  DB revision 3a1b2c3d4e5f is behind migration head 9f8e7d6c5b4a — run `make migrate`
+ERROR   SM010  Database is behind: missing heads '9f8e7d6c5b4a' — run `make migrate`
 
 1 error, 2 warnings
 ```
