@@ -1,50 +1,7 @@
 """Doctor reads the migration state from the database it points at (#895)."""
 
-from pathlib import Path
-
-import sqlalchemy as sa
+from _alembic_project import sqlite_database, write_alembic_project
 from simple_module_db.migration_state import read_migration_state
-
-_REVISION = """revision = "{rev}"
-down_revision = {down}
-branch_labels = None
-depends_on = None
-
-
-def upgrade():
-    pass
-
-
-def downgrade():
-    pass
-"""
-
-
-def write_alembic_project(root: Path, chain: list[str]) -> Path:
-    """An ``alembic.ini`` over the ``"rev:down_revision"`` entries in *chain*.
-
-    ``down_revision`` is empty for a root, so a test can build several heads
-    without a real ``env.py``.
-    """
-    versions = root / "migrations" / "versions"
-    versions.mkdir(parents=True)
-    for entry in chain:
-        rev, _, down = entry.partition(":")
-        (versions / f"{rev}.py").write_text(
-            _REVISION.format(rev=rev, down=repr(down) if down else "None")
-        )
-    ini = root / "alembic.ini"
-    ini.write_text("[alembic]\nscript_location = %(here)s/migrations\n")
-    return ini
-
-
-def _sqlite(path: Path, *statements: str) -> str:
-    engine = sa.create_engine(f"sqlite:///{path}")
-    with engine.begin() as conn:
-        for statement in statements:
-            conn.execute(sa.text(statement))
-    engine.dispose()
-    return f"sqlite+aiosqlite:///{path}"
 
 
 async def test_db_migration_state_none_without_an_ini(tmp_path):
@@ -66,7 +23,7 @@ async def test_db_migration_state_missing_file_is_not_created(tmp_path):
 
 async def test_db_migration_state_reads_an_unstamped_database(tmp_path):
     ini = write_alembic_project(tmp_path, ["a:"])
-    url = _sqlite(tmp_path / "app.db", "CREATE TABLE orders_order (id INTEGER)")
+    url = sqlite_database(tmp_path / "app.db", "CREATE TABLE orders_order (id INTEGER)")
 
     state = await read_migration_state(url, ini)
 
@@ -77,7 +34,7 @@ async def test_db_migration_state_reads_an_unstamped_database(tmp_path):
 
 async def test_db_migration_state_reads_current_heads(tmp_path):
     ini = write_alembic_project(tmp_path, ["a:", "a2:a", "b:"])
-    url = _sqlite(
+    url = sqlite_database(
         tmp_path / "app.db",
         "CREATE TABLE alembic_version (version_num VARCHAR(32))",
         "INSERT INTO alembic_version VALUES ('a'), ('b')",
