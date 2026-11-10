@@ -11,13 +11,16 @@ Usage: ``python scripts/check_wheel_contents.py <dist-dir>`` (run by
 from __future__ import annotations
 
 import argparse
-import fnmatch
+import re
 import sys
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-# The module template's `[tool.hatch.build.targets.wheel] exclude` list.
-FORBIDDEN = ("*.test.*", "*.spec.*", "test-dom.tsx", "*/page-tests/*")
+# What the module template's `[tool.hatch.build.targets.wheel] exclude` keeps out,
+# narrowed to JS so a data file such as `openapi.spec.json` is not flagged.
+_JS_TEST = re.compile(r"\.(test|spec)\.[cm]?[jt]sx?$")
+_TEST_FILES = frozenset({"test-dom.tsx"})
+_TEST_DIRS = frozenset({"page-tests"})
 
 
 def forbidden_members(wheel: Path) -> list[str]:
@@ -26,10 +29,9 @@ def forbidden_members(wheel: Path) -> list[str]:
     return [
         name
         for name in names
-        if any(
-            fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(Path(name).name, pattern)
-            for pattern in FORBIDDEN
-        )
+        if _JS_TEST.search(PurePosixPath(name).name)
+        or PurePosixPath(name).name in _TEST_FILES
+        or _TEST_DIRS.intersection(PurePosixPath(name).parts[:-1])
     ]
 
 

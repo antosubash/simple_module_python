@@ -24,6 +24,9 @@ def _wheel(dist: Path, name: str, members: list[str]) -> None:
         "orders/pages/Browse.spec.tsx",
         "orders/pages/test-dom.tsx",
         "orders/pages/page-tests/helpers.ts",
+        "orders/pages/nested/page-tests/deep/x.ts",
+        "orders/ui/Thing.test.tsx",
+        "orders/ui/thing.spec.mjs",
     ],
 )
 def test_js_test_file_in_a_wheel_fails(tmp_path: Path, member: str, capsys) -> None:
@@ -36,7 +39,14 @@ def test_clean_wheels_pass(tmp_path: Path) -> None:
     _wheel(
         tmp_path,
         "pkg-0.1-py3-none-any.whl",
-        ["pkg/__init__.py", "pkg/pages/Browse.tsx", "pkg/testing.py", "pkg/latest.ts"],
+        [
+            "pkg/__init__.py",
+            "pkg/pages/Browse.tsx",
+            "pkg/testing.py",
+            "pkg/latest.ts",
+            "pkg/openapi.spec.json",
+            "pkg/fixtures.test.d/data.json",
+        ],
     )
     assert main([str(tmp_path)]) == 0
 

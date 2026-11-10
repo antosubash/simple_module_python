@@ -93,7 +93,8 @@ source prefixes for Vite's bare-import fallback and dependency scan. Existing
 hosts must update that reader when adopting UI sources; upgrading Python
 packages regenerates manifests but does not rewrite host-owned Vite config.
 Wheel templates include UI sources and exclude `**/*.test.*`, `**/*.spec.*`,
-`**/test-dom.tsx` and `**/page-tests/**` so old frontend test helpers do not ship.
+`**/test-dom.tsx` and `**/page-tests/**` so old frontend test helpers do not ship. `make ci-build-packages` fails when any built wheel
+(this repo's own modules included) still contains one (`scripts/check_wheel_contents.py`).
 Keep CSS tokens in root `theme.css` and component rules in root `styles.css`.
 
 The separate legacy `smpy module build` command still uses root `assets_src/`

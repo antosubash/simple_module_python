@@ -254,11 +254,11 @@ class TestCreateHost:
         # hoisted node_modules — not a hardcoded literal that breaks in
         # flat-vs-workspace layouts.
         assert "fsRoot" in vite_config, (
-            "nodePaths must reference fsRoot (not a hardcoded literal) so the "
+            "the resolve fallback must reference fsRoot (not a hardcoded literal) so the "
             "fallback works in both flat and workspace layouts (GH issue #152)."
         )
         assert "node_modules" in vite_config, (
-            "nodePaths entry must include 'node_modules' (GH issue #152)."
+            "the resolve fallback must include 'node_modules' (GH issue #152)."
         )
 
     async def test_scaffold_vite_resolver_does_not_skip_workspace_modules(self, tmp_path):
