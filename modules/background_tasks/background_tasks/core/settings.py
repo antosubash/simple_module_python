@@ -18,10 +18,12 @@ backend on different Redis databases.
 
 ``SM_BG_TASKS_BROKER_URL`` and ``SM_BG_TASKS_RESULT_BACKEND`` still work and
 take precedence over ``SM_REDIS_URL`` — a deployment that set them meant them —
-but log a deprecation warning. Being real env reads, they also beat a stored
-value (env → DB → default, GH #486). They are answered by pydantic's own env source
-now that ``env_prefix`` is set (GH #283), which is also what stops every other
-field being readable from its bare, unprefixed name.
+but log a deprecation warning when they hold a Redis URL (any other transport,
+such as ``memory://``, is theirs to set and logs nothing, GH #868). Being real
+env reads, they also beat a stored value (env → DB → default, GH #486). They
+are answered by pydantic's own env source now that ``env_prefix`` is set
+(GH #283), which is also what stops every other field being readable from its
+bare, unprefixed name.
 
 The other env read is ``SM_ENVIRONMENT``, consulted by the
 ``@model_validator`` to refuse a localhost broker in production — that's a

@@ -72,7 +72,8 @@ def forbid_localhost_broker_in_production(broker_url: str, result_backend: str) 
             f"Set {ENV_REDIS_URL} on the container to the Redis service host "
             "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
             f"the result backend. ({env_names} still override it per field, "
-            "but are deprecated.) These are read before the DB-backed "
+            "but are deprecated for a Redis URL; any other transport has no "
+            "other way to be set.) These are read before the DB-backed "
             "settings exist, so an environment variable is what satisfies "
             "this at boot."
         )
