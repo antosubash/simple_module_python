@@ -61,3 +61,14 @@ async def test_db_migration_state_reads_a_uri_mode_database(tmp_path):
 
     assert state is not None
     assert state.current == {"a"}
+
+
+async def test_db_migration_state_missing_uri_mode_file_is_not_created(tmp_path):
+    ini = write_alembic_project(tmp_path, ["a:"])
+    path = tmp_path / "app.db"
+
+    state = await read_migration_state(f"sqlite+aiosqlite:///file:{path}?uri=true", ini)
+
+    assert state is not None
+    assert state.current == set()
+    assert not path.exists()

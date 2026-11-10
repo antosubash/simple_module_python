@@ -1,5 +1,8 @@
 """Minimal ``.env`` parser + env-var helpers — dependency-free.
 
+Also holds ``absolutize_sqlite_url``, which anchors a relative SQLite
+``SM_DATABASE_URL`` at the project root for both the app and the doctor CLI.
+
 Used in places that can't or shouldn't pull in ``pydantic-settings`` (the
 diagnostics CLI runs before the host package is imported; the users-module
 bootstrap runs after settings are constructed and needs to read values that

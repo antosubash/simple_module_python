@@ -22,8 +22,7 @@ from typing import Any
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.dotenv import absolutize_sqlite_url as _absolutize_sqlite_url
-from simple_module_core.dotenv import find_env_file
+from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 PLACEHOLDER_SECRET_KEY = "change-me-in-production"
@@ -58,7 +57,7 @@ class BootstrapSettings(BaseSettings):
         anchor = (
             Path(env_file).parent if isinstance(env_file, (str, Path)) else find_env_file().parent
         )
-        self.database_url = _absolutize_sqlite_url(self.database_url, anchor=anchor)
+        self.database_url = absolutize_sqlite_url(self.database_url, anchor=anchor)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
 
