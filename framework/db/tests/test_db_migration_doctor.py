@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 from _alembic_project import sqlite_database, write_alembic_project
-from simple_module_core import ModuleBase, ModuleMeta
+from simple_module_core import ModuleBase, ModuleMeta, _migration_doctor
 from simple_module_core import __main__ as doctor
-from simple_module_core import _migration_doctor
 
 _STAMP = "CREATE TABLE alembic_version (version_num VARCHAR(32))"
 
