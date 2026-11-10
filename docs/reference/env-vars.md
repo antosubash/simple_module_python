@@ -101,6 +101,8 @@ Three fields are still read from the environment, because they have to work *bef
 | `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Same reasoning as the broker. |
 | `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Read at module-import time, so test suites that never run the FastAPI lifespan can still flip it. Runs tasks synchronously in the calling process. |
 
+For a Redis broker and result backend, set `SM_REDIS_URL` instead: the two per-field variables log a deprecation warning when they hold a Redis URL. They stay the way to set any other transport, such as `memory://` + `cache+memory://` for a production host that runs tasks in-process with no Redis, or an AMQP broker, and those values log no warning.
+
 ## File storage module
 
 File storage config is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under Files. The key fields and defaults:

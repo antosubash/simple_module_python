@@ -15,6 +15,10 @@ from background_tasks.core.constants import ENV_PREFIX, ENV_REDIS_URL
 
 logger = logging.getLogger("background_tasks.settings")
 
+# Schemes Celery accepts as both broker and result backend, so one
+# SM_REDIS_URL can carry them.
+_REDIS_SCHEMES = frozenset({"redis", "rediss", "redis+socket", "sentinel"})
+
 
 def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
     """Nudge deployments off the per-field names onto ``SM_REDIS_URL``.
@@ -25,12 +29,18 @@ def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
     than in the default factory because ``env_prefix`` means the env source
     answers these names before any default is consulted, so the factory never
     sees them.
+
+    Only a Redis URL is warned about (#868): for anything else, such as the
+    in-process ``memory://`` + ``cache+memory://`` pair or an AMQP broker,
+    ``SM_REDIS_URL`` can't express the value and these vars are the way to
+    set it.
     """
     for value, legacy_var in (
         (broker_url, f"{ENV_PREFIX}BROKER_URL"),
         (result_backend, f"{ENV_PREFIX}RESULT_BACKEND"),
     ):
-        if os.environ.get(legacy_var) == value:
+        scheme = value.partition("://")[0].lower()
+        if os.environ.get(legacy_var) == value and scheme in _REDIS_SCHEMES:
             logger.warning(
                 "%s is deprecated; use %s instead (one URL seeds both the "
                 "broker and the result backend).",
