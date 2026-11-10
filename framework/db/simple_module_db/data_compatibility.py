@@ -1,7 +1,6 @@
 """Database-backed Doctor diagnostics, separate from core's static checks."""
 
 from collections.abc import Sequence
-from pathlib import Path
 
 from alembic.runtime.migration import MigrationContext
 from simple_module_core.data_compatibility import collect_data_compatibility
@@ -9,6 +8,7 @@ from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.module import ModuleBase
 
 from simple_module_db.listeners import register_listeners
+from simple_module_db.migration_state import database_exists
 from simple_module_db.session import init_db
 
 DATA_COMPATIBILITY_CODE = "SM033"
@@ -19,7 +19,7 @@ async def database_compatibility_diagnostics(
 ) -> list[Diagnostic]:
     state = None
     try:
-        if not _database_exists(database_url):
+        if not database_exists(database_url):
             return []  # Nothing migrated yet; opening it would create an empty SQLite file.
         # Read-only diagnostics: never switch a legacy SQLite file to WAL.
         state = init_db(database_url, sqlite_wal=False)
@@ -80,14 +80,3 @@ def _problem(level: DiagnosticLevel, message: str) -> Diagnostic:
         suggestion="Check database connectivity and apply pending host schema migrations, "
         "then rerun doctor.",
     )
-
-
-def _database_exists(database_url: str) -> bool:
-    """False for a SQLite file that isn't there yet; every other URL is tried."""
-    from sqlalchemy.engine import make_url
-
-    url = make_url(database_url)
-    if not url.get_backend_name().startswith("sqlite"):
-        return True
-    database = url.database or ""
-    return database in ("", ":memory:") or Path(database).exists()
