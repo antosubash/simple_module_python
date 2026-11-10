@@ -2,7 +2,7 @@
 
 Two surfaces drive day-to-day work:
 
-1. **The `smpy` CLI** — installed globally with `uv tool install simple_module_cli`. Used to scaffold apps and modules and to bump dependency versions.
+1. **The `smpy` CLI** — installed globally with `uv tool install simple_module_cli` (upgrade with `uv tool upgrade simple_module_cli`). Used to scaffold apps and modules and to bump dependency versions.
 2. **The Makefile in your scaffolded app** — a thin wrapper around `uv` and `npm` for the inner dev loop (`dev`, `migrate`, `build`, `gen-pages`).
 
 Past those, there's no hidden tooling — read the `Makefile` and pyproject.toml in your app directly when something surprises you.

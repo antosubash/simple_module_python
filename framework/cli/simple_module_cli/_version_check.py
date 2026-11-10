@@ -26,8 +26,11 @@ def newer_release(current: str, fetcher: Fetcher | None = None) -> str | None:
     if current == PLACEHOLDER_VERSION:
         return None
     try:
+        running = Version(current)
+        if running.is_prerelease or running.is_devrelease or running.local:
+            return None  # a checkout or local build is not what PyPI ships
         latest = fetch_latest(CLI_DIST, include_pre=False, fetcher=fetcher or _quick_fetcher)
-        if latest is not None and Version(latest) > Version(current):
+        if latest is not None and Version(latest) > running:
             return latest
     except Exception:
         # OSError (timeouts, sockets), ValueError (bad JSON/versions), but also

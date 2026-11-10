@@ -15,7 +15,9 @@ def test_newer_release_reports_a_newer_stable_version(fake_pypi) -> None:
     assert _version_check.newer_release("0.0.36", fetcher) == "0.0.44"
 
 
-@pytest.mark.parametrize("current", ["0.0.44", "0.0.45", "0.0.0"])
+@pytest.mark.parametrize(
+    "current", ["0.0.44", "0.0.45", "0.0.0", "0.0.40.dev0", "0.0.40rc1", "0.0.40+local"]
+)
 def test_no_newer_release_when_current_or_placeholder(fake_pypi, current: str) -> None:
     fetcher = fake_pypi({"simple_module_cli": "0.0.44"})
     assert _version_check.newer_release(current, fetcher) is None
