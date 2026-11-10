@@ -13,6 +13,11 @@ dependencies = [
 {{MODULE_DEPS}}
 ]
 
+# `host/alembic.ini` runs ruff on every new revision. `smpy new` replaces this
+# group with the app's full dev tooling; a standalone `smpy create-host` keeps it.
+[dependency-groups]
+dev = ["ruff>=0.8"]
+
 # Host is an application, not a distributable package.
 [tool.uv]
 package = false
