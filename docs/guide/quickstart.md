@@ -37,7 +37,7 @@ The API and Vite dev servers start side by side. Visit:
 
 ## 4. Create an admin
 
-In another terminal, from inside `myapp`:
+Until an administrator exists, every page redirects to the `/setup` wizard, which asks for one. To create it from a terminal instead (from inside `myapp`):
 
 ```bash
 uv run smpy users create-admin --email admin@example.com --password changeme
@@ -49,25 +49,23 @@ Sign in at `/users/login` and you land on the dashboard.
 
 ```bash
 smpy create-module orders --dest modules/orders
-uv add ./modules/orders
+smpy add ../modules/orders --path host
 ```
 
-This generates a publishable starter module at `modules/orders/` with:
+This generates a publishable module at `modules/orders/` with a working CRUD sample for one `Order` table:
 
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
 - `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages.
-- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`, wiring `register_routes` and `register_settings`.
-- `orders/core/services.py` — module-scoped state container (stored on `app.state.orders` by `register_settings`).
-- `orders/core/settings.py` — the module's `pydantic_settings` settings class.
-- `orders/web/endpoints/api.py` — starter REST endpoints at `/api/orders`.
-- `orders/pages/` — empty page dir; add `.tsx` pages (and a `register_routes` view router) as you build views.
-- `tests/test_orders.py` — pytest smoke test. <!-- path-check: ignore --> Named after the package so a repo
-  with several modules doesn't collide at collection: without `tests/__init__.py`,
-  pytest derives the test module's name from the basename alone.
+- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`: settings, routes, a sidebar menu item and permissions.
+- `orders/models.py` — the `Order` table; `orders/contracts/schemas.py` — its DTOs.
+- `orders/core/` — `constants.py` (permissions, page keys, menu), `settings.py` (a `DbBackedSettings` class) and `services.py` (stored on `app.state.orders`).
+- `orders/web/` — the service plus REST endpoints at `/api/orders` and Inertia views at `/orders/`.
+- `orders/pages/` — `Browse`, `Create` and `Edit` pages; `orders/locales/en.json` — their strings.
+- `tests/` — pytest tests mirroring the areas (`tests/core/…`, `tests/web/crud/…`), with module-prefixed basenames such as `test_orders_crud.py`.
 
-You add the domain model (`models.py`), DTOs (`contracts/`), service, Inertia views, and pages yourself — the [first-module guide](/guide/first-module) walks through that.
+The [first-module guide](/guide/first-module) shows how to grow it: your own fields, validation, a migration and tests.
 
-`uv add ./modules/orders` adds the package to your app's dependencies; on the next `uv sync` (which `uv add` also runs) the entry point is registered and the module becomes discoverable on next boot.
+`smpy add ../modules/orders --path host` adds the package to `host/pyproject.toml` as a uv workspace source and runs `uv sync`, which registers its entry point; the module is discovered on the next boot. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead.
 
 ## 6. Generate a migration
 

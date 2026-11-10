@@ -30,6 +30,8 @@ class OrderOut(SQLModel):  # DTO — plain SQLModel, no table=True
     name: str
 ```
 
+On a DTO, `Field(regex=...)` is accepted but never enforced, and `Field(pattern=...)` raises `TypeError`, so check formats with a pydantic `field_validator`. Length and range limits work.
+
 Forbidden in module code: `pydantic.BaseModel` for DTOs, and SQLAlchemy `DeclarativeBase` + `Mapped[...]` / `mapped_column(...)` for tables. Autogenerate, fixtures, Inertia serialization, and the shared mixins all assume the SQLModel metaclass.
 
 ### 2. The file-size cap

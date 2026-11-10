@@ -8,10 +8,10 @@ Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on 
 
 ```bash
 smpy create-module orders --dest modules/orders
-uv add ./modules/orders
+smpy add ../modules/orders --path host
 ```
 
-This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table, and adds the package to your app's dependencies. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
+This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. `smpy add` wires it into the host: it adds `simple_module_orders` to `host/pyproject.toml` as a uv workspace source (`{ workspace = true }`), runs `uv sync` and regenerates the page manifest. `create-module` prints this same command. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
 
 New modules put shared settings and constants in `core/`, HTTP code in `web/`,
 and reusable frontend code in `ui/`. Root lookup paths (`models.py`, `contracts/`,
@@ -76,6 +76,27 @@ class OrderOut(SQLModel):
 ```
 
 DTOs are plain `SQLModel` subclasses — **not** `BaseModel` and **not** `table=True`. They're the public surface other modules import from `orders.contracts`.
+
+Length and range limits (`min_length`, `max_length`, `ge`, `le`) are enforced, but a format check is not. SQLModel's `Field` accepts `regex=` and silently **ignores** it, and it rejects pydantic's `pattern=` with a `TypeError`. Check formats with a `field_validator`, as `tenants.contracts.TenantCreate` does (the scaffold's `_reject_explicit_null` is the same mechanism). For example, to restrict `status`, give the `OrderUpdate` above a validator:
+
+```python
+import re
+
+from pydantic import field_validator
+
+_STATUS_RE = re.compile(r"^[a-z_]{1,20}$")
+
+
+class OrderUpdate(SQLModel):
+    status: str | None = Field(default=None, max_length=20)
+
+    @field_validator("status")
+    @classmethod
+    def _status_shape(cls, value: str | None) -> str | None:
+        if value is not None and not _STATUS_RE.fullmatch(value):
+            raise ValueError("status must be lowercase letters and underscores")
+        return value
+```
 
 ## 4. Generate a migration
 

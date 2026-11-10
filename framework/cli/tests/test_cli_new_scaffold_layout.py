@@ -204,3 +204,18 @@ def test_sm_new_generated_app_passes_its_own_ruff(tmp_path: Path) -> None:
     assert fmt.returncode == 0, f"`ruff format --check` failed:\n{fmt.stdout}\n{fmt.stderr}"
     check = subprocess.run([ruff, "check", "."], cwd=target, capture_output=True, text=True)
     assert check.returncode == 0, f"`ruff check` failed:\n{check.stdout}\n{check.stderr}"
+
+
+def test_landing_page_next_steps_match_the_first_module_guide() -> None:
+    """GH #898: `/setup` already creates the first admin, a module still has to
+    be wired into the host, and "Read the docs" goes to the docs site."""
+    from simple_module_cli import app_project
+
+    landing = (
+        Path(app_project.__file__).parent / "templates" / "host" / "client_app" / "pages"
+    ) / "Landing.tsx"
+    text = landing.read_text(encoding="utf-8")
+    assert "create-admin" not in text
+    assert "smpy add ../modules/orders --path host" in text
+    assert "make migrate" in text
+    assert "https://docs.py.simplemodule.dev/" in text
