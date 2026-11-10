@@ -86,4 +86,4 @@ for t in meta.sorted_tables:
     print(t.name)
 ```
 
-This is also what the boot-time `SM011` check uses — it compares this set against the Alembic history to detect tables that exist in code but not in any migration.
+This is also what the boot-time `SM011` check uses — it compares this set against the migrated database's tables to detect tables that exist in code but that no migration creates.

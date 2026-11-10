@@ -206,8 +206,8 @@ context.configure(
 
 On startup, the framework compares `alembic_version` to **every** head (`resolve_head_revisions` in `simple_module_hosting.migrations`; the history has several, so it never asks for a single head):
 
-- **Development:** prints a warning if the DB is behind. Result stored on `app.state.migration`.
-- **Production:** fails boot with `SM010`. Don't ship a web process that's pointed at an unmigrated DB.
+- **Every environment:** a database behind head fails the boot (`Database is N revision(s) behind … Run: make migrate`), except a never-migrated first run, which boots far enough to serve the `/setup` wizard. The result is stored on `app.state.migration`.
+- `make doctor` reports the same state as `SM010` before you boot. Don't ship a web process that's pointed at an unmigrated DB.
 
 Fix locally with `make migrate`. In production, run migrations before rolling over the web tier.
 

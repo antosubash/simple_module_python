@@ -31,7 +31,7 @@ class MigrationDiagnostics:
         ``/setup`` rather than refusing it. One behind on any branch is an ERROR,
         because a production boot refuses it.
         """
-        missing = set(heads) - set(current)
+        missing = heads - current
         if not missing:
             return []
         if not current:

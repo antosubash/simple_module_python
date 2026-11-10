@@ -626,8 +626,8 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | SM007 | INFO | Module defines no `register_*` hooks |
 | SM008 | ERROR | Duplicate module name / schema prefix conflict |
 | SM009 | ERROR | Framework package directly imports from a plugin module |
-| SM010 | ERROR | DB revision behind migration head |
-| SM011 | WARNING | Module table not in migration history |
+| SM010 | ERROR or WARNING | DB lacks a migration head (WARNING: never migrated) |
+| SM011 | WARNING | Module table missing from a database at head |
 | SM012 | WARNING | `register_settings` overridden but nothing added to `app.state` |
 | SM013 | WARNING | Locale file missing for a supported locale |
 | SM014 | WARNING | Non-default locale missing keys present in the default |
