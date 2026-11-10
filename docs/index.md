@@ -73,10 +73,11 @@ Then in another terminal, inside `myapp`:
 ```bash
 smpy create-module orders --dest modules/orders
 smpy add ../modules/orders --path host
-make migration msg="add orders tables" && make migrate
+make migration msg="add orders tables"   # review the generated revision
+make migrate
 ```
 
-That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test — all wired in once the dev server reloads. The full walkthrough is in [Your first module](/guide/first-module).
+That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test, wires it into the host and creates its table; the dev server picks it up when it reloads. The full walkthrough is in [Your first module](/guide/first-module).
 
 ## Where to start
 

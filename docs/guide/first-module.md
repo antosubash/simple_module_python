@@ -77,7 +77,7 @@ class OrderOut(SQLModel):
 
 DTOs are plain `SQLModel` subclasses — **not** `BaseModel` and **not** `table=True`. They're the public surface other modules import from `orders.contracts`.
 
-Length and range limits (`min_length`, `max_length`, `ge`, `le`) are enforced, but a format check is not. SQLModel's `Field` accepts `regex=` and silently **ignores** it, and it rejects pydantic's `pattern=` with a `TypeError`. Check formats with a `field_validator`, as the scaffold's `_reject_explicit_null` and `tenants.contracts.TenantCreate` do:
+Length and range limits (`min_length`, `max_length`, `ge`, `le`) are enforced, but a format check is not. SQLModel's `Field` accepts `regex=` and silently **ignores** it, and it rejects pydantic's `pattern=` with a `TypeError`. Check formats with a `field_validator`, as `tenants.contracts.TenantCreate` does (the scaffold's `_reject_explicit_null` is the same mechanism). For example, to restrict `status`, give the `OrderUpdate` above a validator:
 
 ```python
 import re

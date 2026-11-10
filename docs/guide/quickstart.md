@@ -37,7 +37,7 @@ The API and Vite dev servers start side by side. Visit:
 
 ## 4. Create an admin
 
-In another terminal, from inside `myapp`:
+Until an administrator exists, every page redirects to the `/setup` wizard, which asks for one. To create it from a terminal instead (from inside `myapp`):
 
 ```bash
 uv run smpy users create-admin --email admin@example.com --password changeme
