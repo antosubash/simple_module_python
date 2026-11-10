@@ -16,6 +16,16 @@ from urllib.error import HTTPError
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _no_pypi_version_check(monkeypatch):
+    """`smpy new` asks PyPI for a newer CLI (GH #899); keep CLI tests off the network."""
+
+    def offline(url: str) -> dict:
+        raise OSError(f"network disabled in tests: {url}")
+
+    monkeypatch.setattr("simple_module_cli._version_check._quick_fetcher", offline)
+
+
 @pytest.fixture
 def fake_pypi():
     """Return a factory building a `package-update` fetcher stub.

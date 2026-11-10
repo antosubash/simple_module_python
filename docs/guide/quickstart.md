@@ -8,7 +8,7 @@ Five minutes from `smpy new` to a running app with a freshly scaffolded module.
 uv tool install simple_module_cli
 ```
 
-(Or `pipx install simple_module_cli`.) That puts `smpy` on your PATH globally.
+(Or `pipx install simple_module_cli`.) That puts `smpy` on your PATH globally. Already installed? `uv tool upgrade simple_module_cli` (or `pipx upgrade simple_module_cli`). A new app pins the framework to the CLI's own version, so an old CLI scaffolds an old app; `smpy new` warns when PyPI has a newer one.
 
 ## 2. Scaffold an app
 
