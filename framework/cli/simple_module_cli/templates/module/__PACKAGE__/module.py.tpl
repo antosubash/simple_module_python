@@ -12,19 +12,7 @@ from simple_module_core.module_settings import register_module_settings
 from simple_module_core.permissions import PermissionRegistry
 
 from {{PACKAGE_NAME}}.core.constants import (
-    API_PREFIX,
-    LOCALE_NAMESPACE,
-    MENU_ICON,
-    MENU_LABEL,
-    MENU_LABEL_KEY,
-    MENU_ORDER,
-    MENU_URL,
-    PERM_GROUP,
-    PERM_{{PACKAGE_NAME_UPPER}}_CREATE,
-    PERM_{{PACKAGE_NAME_UPPER}}_DELETE,
-    PERM_{{PACKAGE_NAME_UPPER}}_EDIT,
-    PERM_{{PACKAGE_NAME_UPPER}}_VIEW,
-    VIEW_PREFIX,
+{{CONSTANTS_IMPORTS}}
 )
 
 

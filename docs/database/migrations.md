@@ -130,6 +130,8 @@ make migration msg="add orders tables"
 
 This runs `alembic -c host/alembic.ini revision --autogenerate` from the repo root. The resulting file lands in `host/migrations/versions/XXXX_add_orders_tables.py`.
 
+A `post_write_hooks` entry in `host/alembic.ini` (this repo's and every scaffolded app's) runs the project's ruff on each new revision: `ruff check --select I --fix`, then `ruff format`. A fresh revision therefore passes `make lint`. Only the import rules are fixed, so an empty handwritten revision keeps its `sa` and `op` imports. Ruff must be installed in the venv Alembic runs from (it is in the default dev group); without it Alembic reports `Could not find module ruff` after writing the file. An app scaffolded before 0.0.45 can copy the `[post_write_hooks]` block from a new `smpy new` app's `host/alembic.ini` (#896).
+
 **Always open and read the generated file** before committing. Autogenerate is good but not perfect:
 
 - It detects column additions, drops, type changes, index/constraint changes, new tables.
