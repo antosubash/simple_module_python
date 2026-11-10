@@ -177,7 +177,13 @@ def test_non_redis_broker_logs_no_warning(
 
 
 @pytest.mark.parametrize(
-    "url", ["rediss://cache:6380/0", "sentinel://sentinel:26379/0", "REDIS://cache:6379/0"]
+    "url",
+    [
+        "rediss://cache:6380/0",
+        "sentinel://sentinel:26379/0",
+        "redis+socket:///run/redis.sock",
+        "REDIS://cache:6379/0",
+    ],
 )
 def test_every_redis_scheme_still_warns(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, url: str

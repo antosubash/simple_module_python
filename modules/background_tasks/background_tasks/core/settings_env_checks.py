@@ -71,9 +71,8 @@ def forbid_localhost_broker_in_production(broker_url: str, result_backend: str) 
             f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
             f"Set {ENV_REDIS_URL} on the container to the Redis service host "
             "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
-            f"the result backend. ({env_names} still override it per field, "
-            "but are deprecated for a Redis URL; any other transport has no "
-            "other way to be set.) These are read before the DB-backed "
-            "settings exist, so an environment variable is what satisfies "
-            "this at boot."
+            f"the result backend. ({env_names} still override it per field; "
+            "they are deprecated for a Redis URL, but stay the way to set any "
+            "other transport.) Environment variables are read before the "
+            "DB-backed settings exist, so one is what satisfies this at boot."
         )
