@@ -52,6 +52,25 @@ class TestMigrationDiagnostics:
         )
         assert len(results) == 0
 
+    def test_check_heads_at_every_head(self):
+        assert MigrationDiagnostics().check_heads({"a", "b"}, {"a", "b"}) == []
+
+    def test_check_heads_never_migrated_warns(self):
+        (finding,) = MigrationDiagnostics().check_heads(set(), {"a", "b"})
+        assert finding.code == "SM010"
+        assert finding.level == DiagnosticLevel.WARNING
+        assert "make migrate" in finding.suggestion
+
+    def test_check_heads_behind_names_the_missing_heads(self):
+        (finding,) = MigrationDiagnostics().check_heads({"a", "old"}, {"a", "b", "c"})
+        assert finding.code == "SM010"
+        assert finding.level == DiagnosticLevel.ERROR
+        assert "missing heads 'b', 'c'" in finding.message
+
+    def test_check_heads_extra_revision_is_not_behind(self):
+        # Same rule as the boot check: only heads the database lacks count.
+        assert MigrationDiagnostics().check_heads({"a", "b", "extra"}, {"a", "b"}) == []
+
 
 class TestPrintDiagnostics:
     async def test_writes_to_stderr(self, capsys):
