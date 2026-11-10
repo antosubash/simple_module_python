@@ -15,9 +15,11 @@ from background_tasks.core.constants import ENV_PREFIX, ENV_REDIS_URL
 
 logger = logging.getLogger("background_tasks.settings")
 
-# Schemes Celery accepts as both broker and result backend, so one
-# SM_REDIS_URL can carry them.
-_REDIS_SCHEMES = frozenset({"redis", "rediss", "redis+socket", "sentinel"})
+# Schemes one SM_REDIS_URL can carry everywhere it is read: Celery's broker and
+# result backend, and redis-py's ``from_url`` behind the rate limiter, leases and
+# the invalidation transport. Celery's ``redis+socket`` and ``sentinel`` fail
+# there, so those values stay on the per-field vars without a warning.
+_REDIS_SCHEMES = frozenset({"redis", "rediss"})
 
 
 def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
@@ -39,8 +41,9 @@ def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
         (broker_url, f"{ENV_PREFIX}BROKER_URL"),
         (result_backend, f"{ENV_PREFIX}RESULT_BACKEND"),
     ):
-        scheme = value.partition("://")[0].lower()
-        if os.environ.get(legacy_var) == value and scheme in _REDIS_SCHEMES:
+        if os.environ.get(legacy_var) != value:
+            continue
+        if value.partition("://")[0].lower() in _REDIS_SCHEMES:
             logger.warning(
                 "%s is deprecated; use %s instead (one URL seeds both the "
                 "broker and the result backend).",

@@ -180,12 +180,10 @@ def test_non_redis_broker_logs_no_warning(
     "url",
     [
         "rediss://cache:6380/0",
-        "sentinel://sentinel:26379/0",
-        "redis+socket:///run/redis.sock",
         "REDIS://cache:6379/0",
     ],
 )
-def test_every_redis_scheme_still_warns(
+def test_redis_schemes_still_warn(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, url: str
 ) -> None:
     monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", url)
@@ -194,6 +192,18 @@ def test_every_redis_scheme_still_warns(
         BackgroundTasksSettings()
 
     assert "SM_BG_TASKS_BROKER_URL is deprecated" in caplog.text
+
+
+@pytest.mark.parametrize("url", ["sentinel://sentinel:26379/0", "redis+socket:///run/redis.sock"])
+def test_schemes_redis_url_cannot_carry_log_no_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, url: str
+) -> None:
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", url)
+
+    with caplog.at_level(logging.WARNING):
+        BackgroundTasksSettings()
+
+    assert "deprecated" not in caplog.text.lower()
 
 
 def test_warning_is_per_variable(
