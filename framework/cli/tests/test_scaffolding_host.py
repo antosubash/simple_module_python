@@ -243,9 +243,7 @@ class TestCreateHost:
         # The scanner fallback must be configured under optimizeDeps so it
         # applies to both dev pre-bundling and `vite build`'s pre-bundle pass.
         # Vite 8 scans with Rolldown; `esbuildOptions` is deprecated (GH #900).
-        assert "rolldownOptions" in vite_config, (
-            "vite.config.ts must configure optimizeDeps.rolldownOptions"
-        )
+        assert "rolldownOptions" in vite_config, "must configure optimizeDeps.rolldownOptions"
         assert "modules: ['node_modules', path.join(fsRoot, 'node_modules')]" in vite_config, (
             "vite.config.ts must add the workspace node_modules to "
             "optimizeDeps.rolldownOptions.resolve.modules (GH issue #152)."
