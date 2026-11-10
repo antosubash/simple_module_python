@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitValidationErrors } from './validation-errors';
+import { splitValidationErrors } from '../settings/ui/components/validation-errors';
 
 describe('splitValidationErrors', () => {
   it('maps located errors to their field', () => {

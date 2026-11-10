@@ -226,8 +226,8 @@ class TestCreateHost:
         )
 
     async def test_scaffold_vite_config_includes_node_paths_fallback(self, tmp_path):
-        """vite.config.ts must seed optimizeDeps.esbuildOptions.nodePaths
-        with the workspace node_modules so esbuild's scan-imports pass can
+        """vite.config.ts must add to optimizeDeps.rolldownOptions.resolve.modules
+        with the workspace node_modules so the dep scanner's scan-imports pass can
         resolve cross-package bare imports from module pages whose importers
         sit outside the host's client_app (e.g. wheel-installed modules).
 
@@ -242,12 +242,13 @@ class TestCreateHost:
 
         # The scanner fallback must be configured under optimizeDeps so it
         # applies to both dev pre-bundling and `vite build`'s pre-bundle pass.
-        assert "esbuildOptions" in vite_config, (
-            "vite.config.ts must configure optimizeDeps.esbuildOptions"
+        # Vite 8 scans with Rolldown; `esbuildOptions` is deprecated (GH #900).
+        assert "rolldownOptions" in vite_config, (
+            "vite.config.ts must configure optimizeDeps.rolldownOptions"
         )
-        assert "nodePaths" in vite_config, (
-            "vite.config.ts must seed optimizeDeps.esbuildOptions.nodePaths "
-            "with the workspace node_modules (GH issue #152)."
+        assert "modules: ['node_modules', path.join(fsRoot, 'node_modules')]" in vite_config, (
+            "vite.config.ts must add the workspace node_modules to "
+            "optimizeDeps.rolldownOptions.resolve.modules (GH issue #152)."
         )
         # The seeded path must reference fsRoot — the dir that contains the
         # hoisted node_modules — not a hardcoded literal that breaks in
