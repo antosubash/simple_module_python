@@ -14,8 +14,13 @@ describe('splitValidationErrors', () => {
     expect(r.form).toEqual(['timeout exceeds lease']);
   });
 
-  it('tolerates a non-list detail', () => {
-    expect(splitValidationErrors('nope')).toEqual({ fields: {}, form: [] });
+  it('surfaces a string detail at form level, so a 422 is never swallowed', () => {
+    expect(splitValidationErrors('nope')).toEqual({ fields: {}, form: ['nope'] });
+  });
+
+  it('tolerates a detail that is neither a list nor a string', () => {
+    expect(splitValidationErrors(null)).toEqual({ fields: {}, form: [] });
+    expect(splitValidationErrors({ msg: 'x' })).toEqual({ fields: {}, form: [] });
   });
 
   it('maps a nested loc to its field with the path in the message', () => {
