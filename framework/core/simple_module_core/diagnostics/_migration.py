@@ -87,7 +87,7 @@ class MigrationDiagnostics:
                 code="SM011",
                 message=f"Table '{table}' declared in models but not found in migration history",
                 module_name=_MODULE_NAME,
-                suggestion=f'Run: make migration LABEL=<branch_label> msg="add {table}"',
+                suggestion=f'Run: make migration msg="add {table}"',
             )
             for table in sorted(missing)
         ]
