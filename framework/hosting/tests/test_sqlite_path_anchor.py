@@ -19,42 +19,41 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_core.dotenv import find_env_file
-from simple_module_hosting.bootstrap_settings import _absolutize_sqlite_url
+from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file
 
 
 class TestAbsolutize:
     def test_relative_path_resolves_against_anchor(self, tmp_path: Path) -> None:
-        url = _absolutize_sqlite_url("sqlite+aiosqlite:///./host/app.db", anchor=tmp_path)
+        url = absolutize_sqlite_url("sqlite+aiosqlite:///./host/app.db", anchor=tmp_path)
         assert url == f"sqlite+aiosqlite:///{tmp_path / 'host' / 'app.db'}"
 
     def test_bare_relative_path_resolves(self, tmp_path: Path) -> None:
-        url = _absolutize_sqlite_url("sqlite+aiosqlite:///app.db", anchor=tmp_path)
+        url = absolutize_sqlite_url("sqlite+aiosqlite:///app.db", anchor=tmp_path)
         assert url == f"sqlite+aiosqlite:///{tmp_path / 'app.db'}"
 
     def test_absolute_path_untouched(self, tmp_path: Path) -> None:
         url = "sqlite+aiosqlite:////var/data/app.db"
-        assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
+        assert absolutize_sqlite_url(url, anchor=tmp_path) == url
 
     def test_memory_untouched(self, tmp_path: Path) -> None:
         url = "sqlite+aiosqlite:///:memory:"
-        assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
+        assert absolutize_sqlite_url(url, anchor=tmp_path) == url
 
     def test_uri_mode_untouched(self, tmp_path: Path) -> None:
         """SQLite URI-mode paths (shared in-memory DBs) are not file paths."""
         url = "sqlite+aiosqlite:///file:shared?mode=memory&cache=shared&uri=true"
-        assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
+        assert absolutize_sqlite_url(url, anchor=tmp_path) == url
 
     def test_bare_scheme_untouched(self, tmp_path: Path) -> None:
         url = "sqlite+aiosqlite://"
-        assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
+        assert absolutize_sqlite_url(url, anchor=tmp_path) == url
 
     def test_postgres_untouched(self, tmp_path: Path) -> None:
         url = "postgresql+asyncpg://u:p@localhost/db"
-        assert _absolutize_sqlite_url(url, anchor=tmp_path) == url
+        assert absolutize_sqlite_url(url, anchor=tmp_path) == url
 
     def test_query_string_survives(self, tmp_path: Path) -> None:
-        url = _absolutize_sqlite_url("sqlite+aiosqlite:///app.db?mode=ro", anchor=tmp_path)
+        url = absolutize_sqlite_url("sqlite+aiosqlite:///app.db?mode=ro", anchor=tmp_path)
         assert url == f"sqlite+aiosqlite:///{tmp_path / 'app.db'}?mode=ro"
 
 

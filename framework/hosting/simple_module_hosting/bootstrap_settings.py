@@ -22,30 +22,10 @@ from typing import Any
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.dotenv import find_env_file
+from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 PLACEHOLDER_SECRET_KEY = "change-me-in-production"
-
-
-def _absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
-    """Rewrite a relative sqlite path to an absolute one under ``anchor``.
-
-    ``sqlite+aiosqlite:///./host/app.db`` means "relative to the project
-    root" by convention, but SQLAlchemy resolves it against the process cwd
-    — correct in the web process (which chdirs) and silently wrong in every
-    CLI run from a subdirectory. Absolute paths (``:////...``), ``:memory:``,
-    SQLite URI-mode paths (``file:...?uri=true``), and non-sqlite URLs pass
-    through untouched.
-    """
-    if not url.startswith("sqlite"):
-        return url
-    scheme, sep, rest = url.partition(":///")
-    if not sep or not rest or rest.startswith(("/", ":memory:", "file:")):
-        return url
-    path_part, query_sep, query = rest.partition("?")
-    resolved = (anchor / path_part).resolve()
-    return f"{scheme}:///{resolved}{query_sep}{query}"
 
 
 class BootstrapSettings(BaseSettings):
@@ -77,7 +57,7 @@ class BootstrapSettings(BaseSettings):
         anchor = (
             Path(env_file).parent if isinstance(env_file, (str, Path)) else find_env_file().parent
         )
-        self.database_url = _absolutize_sqlite_url(self.database_url, anchor=anchor)
+        self.database_url = absolutize_sqlite_url(self.database_url, anchor=anchor)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
 

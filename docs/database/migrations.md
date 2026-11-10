@@ -206,20 +206,20 @@ context.configure(
 
 On startup, the framework compares `alembic_version` to **every** head (`resolve_head_revisions` in `simple_module_hosting.migrations`; the history has several, so it never asks for a single head):
 
-- **Development:** prints a warning if the DB is behind. Result stored on `app.state.migration`.
-- **Production:** fails boot with `SM010`. Don't ship a web process that's pointed at an unmigrated DB.
+- **Every environment:** a database behind head fails the boot (`Database is N revision(s) behind … Run: make migrate`), except a never-migrated first run, which boots far enough to serve the `/setup` wizard. The result is stored on `app.state.migration`.
+- `make doctor` reports the same state as `SM010` before you boot. Don't ship a web process that's pointed at an unmigrated DB.
 
 Fix locally with `make migrate`. In production, run migrations before rolling over the web tier.
 
 ## Diagnostic: `SM011`
 
-Fires as a warning when a module's model declares a table that doesn't appear in any Alembic migration. Typical causes:
+Fires as a warning when a database at every head lacks a table a module's `models` declare, so no migration creates it. `make doctor` checks the database `SM_DATABASE_URL` points at; a development boot checks its own database once it is open. Typical causes:
 
 - You added a model but haven't generated a migration for it yet.
 - You renamed a table but the old migration still references the old name.
 - You used `__abstract__ = True` somewhere it shouldn't be.
 
-The dev-mode boot log prints the offending table names. Resolution: run `make migration msg="..."`, review, `make migrate`.
+`make doctor` and the dev-mode boot log print the offending table names; while the database is behind head the check is skipped, since the table may be in a pending revision. Resolution: run `make migration msg="..."`, review, `make migrate`.
 
 ## Cross-module foreign keys
 

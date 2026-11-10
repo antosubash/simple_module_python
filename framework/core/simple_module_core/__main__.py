@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 from simple_module_core._data_doctor import data_compatibility_diagnostics
+from simple_module_core._migration_doctor import migration_diagnostics
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
@@ -39,7 +40,7 @@ from simple_module_core.discovery import (
     select_auth_provider,
     topological_sort,
 )
-from simple_module_core.dotenv import find_env_file, parse_dotenv
+from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file, parse_dotenv
 from simple_module_core.exceptions import InvalidModuleError
 
 
@@ -77,8 +78,13 @@ def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:
 
 
 def _database_url() -> str:
-    """``SM_DATABASE_URL``, defaulting like ``Settings.database_url``."""
-    return os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    """``SM_DATABASE_URL``, defaulting and anchored like ``Settings.database_url``.
+
+    A relative SQLite path is resolved against the project root, as the app
+    resolves it, so doctor run from ``host/`` reads the app's database.
+    """
+    url = os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    return absolutize_sqlite_url(url, anchor=find_env_file().parent)
 
 
 def _database_dialect() -> str:
@@ -188,6 +194,7 @@ def main() -> int:
         database_dialect=_database_dialect(),
     )
     diagnostics.extend(override_findings)
+    diagnostics.extend(migration_diagnostics(modules, _database_url(), find_env_file().parent))
     diagnostics.extend(data_compatibility_diagnostics(modules, _database_url()))
     # A missing dependency only warns at a dev boot, but production refuses
     # to start with it (GH #501), so doctor reports it as what it will be.
