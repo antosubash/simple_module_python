@@ -23,7 +23,9 @@ def test_no_newer_release_when_current_or_placeholder(fake_pypi, current: str) -
     assert _version_check.newer_release(current, fetcher) is None
 
 
-@pytest.mark.parametrize("error", [OSError("offline"), TimeoutError(), ValueError("bad json")])
+@pytest.mark.parametrize(
+    "error", [OSError("offline"), TimeoutError(), ValueError("bad json"), AttributeError("shape")]
+)
 def test_any_lookup_failure_skips_the_check(error: Exception) -> None:
     def failing(url: str) -> dict:
         raise error

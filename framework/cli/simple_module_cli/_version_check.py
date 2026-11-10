@@ -28,7 +28,7 @@ def newer_release(current: str, fetcher: Fetcher | None = None) -> str | None:
     try:
         running = Version(current)
         if running.is_prerelease or running.is_devrelease or running.local:
-            return None  # a checkout or local build is not what PyPI ships
+            return None  # pre-release, dev or local build: not what PyPI ships
         latest = fetch_latest(CLI_DIST, include_pre=False, fetcher=fetcher or _quick_fetcher)
         if latest is not None and Version(latest) > running:
             return latest
