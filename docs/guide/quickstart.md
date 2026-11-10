@@ -49,7 +49,7 @@ Sign in at `/users/login` and you land on the dashboard.
 
 ```bash
 smpy create-module orders --dest modules/orders
-uv add ./modules/orders
+smpy add ../modules/orders --path host
 ```
 
 This generates a publishable starter module at `modules/orders/` with:
@@ -67,7 +67,7 @@ This generates a publishable starter module at `modules/orders/` with:
 
 You add the domain model (`models.py`), DTOs (`contracts/`), service, Inertia views, and pages yourself — the [first-module guide](/guide/first-module) walks through that.
 
-`uv add ./modules/orders` adds the package to your app's dependencies; on the next `uv sync` (which `uv add` also runs) the entry point is registered and the module becomes discoverable on next boot.
+`smpy add ../modules/orders --path host` adds the package to `host/pyproject.toml` as a uv workspace source and runs `uv sync`, which registers its entry point; the module is discovered on the next boot. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead.
 
 ## 6. Generate a migration
 

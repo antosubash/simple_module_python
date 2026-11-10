@@ -124,12 +124,16 @@ Then `make migrate && make dev`.
 smpy create-module orders --dest modules/orders
 ```
 
-That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `core/services.py`, `core/settings.py`, a REST `web/endpoints/api.py`, an empty `pages/` dir, tests, and `pyproject.toml`/`package.json`/`tsconfig.json`. Flesh out models, contracts, views, and pages as your domain needs them. Add the package to your app's dependencies and re-sync:
+That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `core/services.py`, `core/settings.py`, a REST `web/endpoints/api.py`, an empty `pages/` dir, tests, and `pyproject.toml`/`package.json`/`tsconfig.json`. Flesh out models, contracts, views, and pages as your domain needs them. Wire it into the host, create its tables and restart:
 
 ```bash
-uv add ./modules/orders
+smpy add ../modules/orders --path host
+make migration msg="add orders tables"
+make migrate
 make dev
 ```
+
+In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead.
 
 The full walkthrough is in [Your first module](/guide/first-module).
 
