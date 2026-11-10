@@ -15,6 +15,12 @@ from background_tasks.core.constants import ENV_PREFIX, ENV_REDIS_URL
 
 logger = logging.getLogger("background_tasks.settings")
 
+# Schemes one SM_REDIS_URL can carry everywhere it is read: Celery's broker and
+# result backend, and redis-py's ``from_url`` behind the rate limiter, leases and
+# the invalidation transport. Celery's ``redis+socket`` and ``sentinel`` fail
+# there, so those values stay on the per-field vars without a warning.
+_REDIS_SCHEMES = frozenset({"redis", "rediss"})
+
 
 def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
     """Nudge deployments off the per-field names onto ``SM_REDIS_URL``.
@@ -25,12 +31,19 @@ def warn_on_legacy_redis_vars(broker_url: str, result_backend: str) -> None:
     than in the default factory because ``env_prefix`` means the env source
     answers these names before any default is consulted, so the factory never
     sees them.
+
+    Only a Redis URL is warned about (#868): for anything else, such as the
+    in-process ``memory://`` + ``cache+memory://`` pair or an AMQP broker,
+    ``SM_REDIS_URL`` can't express the value and these vars are the way to
+    set it.
     """
     for value, legacy_var in (
         (broker_url, f"{ENV_PREFIX}BROKER_URL"),
         (result_backend, f"{ENV_PREFIX}RESULT_BACKEND"),
     ):
-        if os.environ.get(legacy_var) == value:
+        if os.environ.get(legacy_var) != value:
+            continue
+        if value.partition("://")[0].lower() in _REDIS_SCHEMES:
             logger.warning(
                 "%s is deprecated; use %s instead (one URL seeds both the "
                 "broker and the result backend).",
@@ -61,8 +74,8 @@ def forbid_localhost_broker_in_production(broker_url: str, result_backend: str) 
             f"{names} must not point at localhost when SM_ENVIRONMENT={env!r}. "
             f"Set {ENV_REDIS_URL} on the container to the Redis service host "
             "(e.g. redis://redis:6379/0) — one URL seeds both the broker and "
-            f"the result backend. ({env_names} still override it per field, "
-            "but are deprecated.) These are read before the DB-backed "
-            "settings exist, so an environment variable is what satisfies "
-            "this at boot."
+            f"the result backend. ({env_names} still override it per field; "
+            "they are deprecated for a Redis URL, but stay the way to set any "
+            "other transport.) Environment variables are read before the "
+            "DB-backed settings exist, so one is what satisfies this at boot."
         )

@@ -145,3 +145,76 @@ def test_legacy_var_still_beats_redis_url_and_the_db(monkeypatch: pytest.MonkeyP
 
     assert settings.broker_url == "redis://legacy:6379/0"
     assert settings.result_backend == "redis://cache:6379/2"
+
+
+def test_in_process_transports_boot_production_without_a_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """#868: a production host with no Redis runs tasks in-process. No single
+    SM_REDIS_URL can name both halves, so the per-field vars are the only way
+    to say it and must not be called deprecated."""
+    monkeypatch.setenv("SM_ENVIRONMENT", "production")
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "memory://")
+    monkeypatch.setenv("SM_BG_TASKS_RESULT_BACKEND", "cache+memory://")
+
+    with caplog.at_level(logging.WARNING):
+        settings = BackgroundTasksSettings()
+
+    assert settings.broker_url == "memory://"
+    assert settings.result_backend == "cache+memory://"
+    assert "deprecated" not in caplog.text.lower()
+
+
+def test_non_redis_broker_logs_no_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "amqp://guest@rabbit:5672//")
+
+    with caplog.at_level(logging.WARNING):
+        BackgroundTasksSettings()
+
+    assert "deprecated" not in caplog.text.lower()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "rediss://cache:6380/0",
+        "REDIS://cache:6379/0",
+    ],
+)
+def test_redis_schemes_still_warn(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, url: str
+) -> None:
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", url)
+
+    with caplog.at_level(logging.WARNING):
+        BackgroundTasksSettings()
+
+    assert "SM_BG_TASKS_BROKER_URL is deprecated" in caplog.text
+
+
+@pytest.mark.parametrize("url", ["sentinel://sentinel:26379/0", "redis+socket:///run/redis.sock"])
+def test_schemes_redis_url_cannot_carry_log_no_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, url: str
+) -> None:
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", url)
+
+    with caplog.at_level(logging.WARNING):
+        BackgroundTasksSettings()
+
+    assert "deprecated" not in caplog.text.lower()
+
+
+def test_warning_is_per_variable(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A Redis broker can move to SM_REDIS_URL even when the backend can't."""
+    monkeypatch.setenv("SM_BG_TASKS_BROKER_URL", "redis://old:6379/4")
+    monkeypatch.setenv("SM_BG_TASKS_RESULT_BACKEND", "rpc://")
+
+    with caplog.at_level(logging.WARNING):
+        BackgroundTasksSettings()
+
+    assert "SM_BG_TASKS_BROKER_URL is deprecated" in caplog.text
+    assert "SM_BG_TASKS_RESULT_BACKEND" not in caplog.text
