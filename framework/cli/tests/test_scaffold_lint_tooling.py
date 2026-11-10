@@ -69,7 +69,7 @@ def test_module_imports_are_sorted_for_any_package_name(tmp_path: Path, name: st
     create_app_project(app, name="app", db="sqlite", tenancy=False, selected=[])
     create_module(app / "modules" / name, name, standalone=False)
     result = subprocess.run(
-        [_ruff(), "check", "--select", "I", f"modules/{name}"],
+        [_ruff(), "check", "--select", "I,F401,F821", f"modules/{name}"],
         cwd=app,
         capture_output=True,
         text=True,
