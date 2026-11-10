@@ -112,3 +112,12 @@ def test_db_doctor_anchors_a_relative_sqlite_url_at_the_project_root(
     assert code == 0
     assert "never been migrated" not in err
     assert not (tmp_path / "host" / "app.db").exists()
+
+
+def test_db_doctor_warns_on_a_broken_alembic_ini(tmp_path, run_doctor):
+    (tmp_path / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s/missing\n")
+
+    code, err = run_doctor(f"sqlite+aiosqlite:///{tmp_path / 'app.db'}")
+
+    assert code == 0
+    assert "could not read the migration state" in err.lower()

@@ -8,7 +8,6 @@ from pathlib import Path
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from alembic.util.exc import CommandError
 from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -43,21 +42,21 @@ def database_exists(database_url: str) -> bool:
 
 
 def _heads(alembic_ini: Path) -> frozenset[str]:
+    # An ini that exists but cannot be loaded (bad script_location, a broken
+    # revision) raises: the caller reports it rather than skipping silently.
     if not alembic_ini.is_file():
         return frozenset()
-    try:
-        return frozenset(ScriptDirectory.from_config(Config(str(alembic_ini))).get_heads())
-    except (CommandError, FileNotFoundError):
-        return frozenset()
+    return frozenset(ScriptDirectory.from_config(Config(str(alembic_ini))).get_heads())
 
 
 async def read_migration_state(database_url: str, alembic_ini: str | Path) -> MigrationState | None:
     """The heads in *alembic_ini* beside the current revisions and tables of the database.
 
     ``None`` when there is no ``alembic.ini`` or it defines no revisions: there
-    is nothing to compare against. A SQLite file that does not exist reads as
-    empty rather than being opened, which would create it. Connection errors
-    propagate; their text can carry credentials, so callers must not echo it.
+    is nothing to compare against. An ini Alembic cannot load raises. A SQLite
+    file that does not exist reads as empty rather than being opened, which
+    would create it. Connection errors propagate; their text can carry
+    credentials, so callers must not echo it.
     """
     heads = _heads(Path(alembic_ini))
     if not heads:
