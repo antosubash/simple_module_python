@@ -26,12 +26,16 @@ class MigrationState:
 
 
 def database_exists(database_url: str) -> bool:
-    """False for a SQLite file that isn't there yet; every other URL is tried."""
+    """False for a SQLite file that isn't there yet; every other URL is tried.
+
+    A URI-mode path (``file:...?uri=true``) is not a plain filesystem path, so
+    it is tried too rather than reported missing.
+    """
     url = make_url(database_url)
     if not url.get_backend_name().startswith("sqlite"):
         return True
     database = url.database or ""
-    return database in ("", ":memory:") or Path(database).exists()
+    return database in ("", ":memory:") or database.startswith("file:") or Path(database).exists()
 
 
 def _heads(alembic_ini: Path) -> frozenset[str]:

@@ -139,3 +139,23 @@ def env_bool(name: str, default: bool = False) -> bool:
     if raw in BOOL_LITERALS_FALSE:
         return False
     return default
+
+
+def absolutize_sqlite_url(url: str, *, anchor: Path) -> str:
+    """Rewrite a relative sqlite path to an absolute one under ``anchor``.
+
+    ``sqlite+aiosqlite:///./host/app.db`` means "relative to the project
+    root" by convention, but SQLAlchemy resolves it against the process cwd
+    — correct in the web process (which chdirs) and silently wrong in every
+    CLI run from a subdirectory. Absolute paths (``:////...``), ``:memory:``,
+    SQLite URI-mode paths (``file:...?uri=true``), and non-sqlite URLs pass
+    through untouched.
+    """
+    if not url.startswith("sqlite"):
+        return url
+    scheme, sep, rest = url.partition(":///")
+    if not sep or not rest or rest.startswith(("/", ":memory:", "file:")):
+        return url
+    path_part, query_sep, query = rest.partition("?")
+    resolved = (anchor / path_part).resolve()
+    return f"{scheme}:///{resolved}{query_sep}{query}"

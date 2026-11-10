@@ -46,3 +46,18 @@ async def test_db_migration_state_reads_current_heads(tmp_path):
     assert state.heads == {"a2", "b"}
     assert state.current == {"a", "b"}
     assert "alembic_version" in state.tables
+
+
+async def test_db_migration_state_reads_a_uri_mode_database(tmp_path):
+    ini = write_alembic_project(tmp_path, ["a:"])
+    path = tmp_path / "app.db"
+    sqlite_database(
+        path,
+        "CREATE TABLE alembic_version (version_num VARCHAR(32))",
+        "INSERT INTO alembic_version VALUES ('a')",
+    )
+
+    state = await read_migration_state(f"sqlite+aiosqlite:///file:{path}?mode=ro&uri=true", ini)
+
+    assert state is not None
+    assert state.current == {"a"}

@@ -11,6 +11,7 @@ from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
 from simple_module_hosting._hydrate_step import hydrate_all
+from simple_module_hosting._table_coverage import add_table_coverage
 from simple_module_hosting.data_compatibility import check_data_compatibility
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ async def run_deferred_startup(app: FastAPI) -> None:
     pending_checks = getattr(app.state, "deferred_data_compatibility", None)
     if pending_checks:
         await check_data_compatibility(app, pending_checks)
+        await add_table_coverage(app, pending_checks)
         app.state.deferred_data_compatibility = []
     deferred = get_deferred_startup(app)
     if not deferred:

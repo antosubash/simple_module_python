@@ -40,7 +40,7 @@ from simple_module_core.discovery import (
     select_auth_provider,
     topological_sort,
 )
-from simple_module_core.dotenv import find_env_file, parse_dotenv
+from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file, parse_dotenv
 from simple_module_core.exceptions import InvalidModuleError
 
 
@@ -78,8 +78,13 @@ def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:
 
 
 def _database_url() -> str:
-    """``SM_DATABASE_URL``, defaulting like ``Settings.database_url``."""
-    return os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    """``SM_DATABASE_URL``, defaulting and anchored like ``Settings.database_url``.
+
+    A relative SQLite path is resolved against the project root, as the app
+    resolves it, so doctor run from ``host/`` reads the app's database.
+    """
+    url = os.environ.get("SM_DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+    return absolutize_sqlite_url(url, anchor=find_env_file().parent)
 
 
 def _database_dialect() -> str:

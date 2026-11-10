@@ -96,3 +96,19 @@ def test_db_doctor_skips_without_an_alembic_project(tmp_path, run_doctor):
     assert code == 0
     assert "SM010" not in err
     assert "SM011" not in err
+
+
+def test_db_doctor_anchors_a_relative_sqlite_url_at_the_project_root(
+    tmp_path, monkeypatch, run_doctor
+):
+    # The app resolves ./app.db against the project root, not the cwd; doctor must too.
+    write_alembic_project(tmp_path, ["a:"])
+    sqlite_database(tmp_path / "app.db", _STAMP, "INSERT INTO alembic_version VALUES ('a')")
+    (tmp_path / "host").mkdir()
+    monkeypatch.chdir(tmp_path / "host")
+
+    code, err = run_doctor("sqlite+aiosqlite:///./app.db")
+
+    assert code == 0
+    assert "never been migrated" not in err
+    assert not (tmp_path / "host" / "app.db").exists()

@@ -71,3 +71,23 @@ async def test_hosting_table_coverage_skips_without_a_runner(engine):
 
     assert state.results == []
     assert state.supported is False
+
+
+async def test_hosting_table_coverage_runs_after_the_wizard_migrates(engine, monkeypatch):
+    # A first run defers the check; replaying deferred startup reports it once at head.
+    from simple_module_hosting import _deferred_startup
+
+    async def no_compat_issues(app, modules):
+        return None
+
+    monkeypatch.setattr(_deferred_startup, "check_data_compatibility", no_compat_issues)
+    state = DiagnosticsState(runner=lambda: [_BOOT])
+    state.rerun()
+    app = _app(engine, state)
+    app.state.deferred_data_compatibility = ["module"]
+    app.state.deferred_startup = []
+
+    await _deferred_startup.run_deferred_startup(app)
+
+    assert [d.code for d in state.rerun()] == ["SM019", "SM011"]
+    assert app.state.deferred_data_compatibility == []
