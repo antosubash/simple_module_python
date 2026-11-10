@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 
 export default function Create() {
   const { t } = useT();
@@ -43,3 +44,5 @@ export default function Create() {
     </PageShell>
   );
 }
+
+Create.layout = [AuthenticatedLayout];

@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { api } from './api';
@@ -55,3 +56,5 @@ export default function Browse({ items }: { items: Item[] }) {
     </PageShell>
   );
 }
+
+Browse.layout = [AuthenticatedLayout];

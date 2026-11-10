@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 
 class TestModuleTsconfig:
     async def test_tsconfig_resolves_ui_from_node_modules(self, tmp_path):
@@ -137,3 +139,20 @@ class TestStandaloneOverlay:
         pkg = (dest / "package.json").read_text(encoding="utf-8")
         assert "typecheck" not in pkg
         assert not (dest / ".github").exists()
+
+
+class TestPageLayout:
+    """GH #897: without a persistent layout a scaffolded page renders bare."""
+
+    @pytest.mark.parametrize("framework_repo", [False, True])
+    async def test_every_page_renders_inside_the_app_shell(self, tmp_path, framework_repo):
+        from simple_module_cli.scaffolding import create_module
+
+        dest = create_module(tmp_path / "orders", "orders", framework_repo=framework_repo)
+        for page in ("Browse", "Create", "Edit"):
+            source = (dest / "orders" / "pages" / f"{page}.tsx").read_text(encoding="utf-8")
+            assert (
+                "import { AuthenticatedLayout } from "
+                "'@simple-module-py/ui/layouts/AuthenticatedLayout';" in source
+            ), page
+            assert f"{page}.layout = [AuthenticatedLayout];" in source, page

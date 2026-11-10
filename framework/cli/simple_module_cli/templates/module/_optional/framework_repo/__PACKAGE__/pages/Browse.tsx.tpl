@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useApiErrorToast } from '@simple-module-py/ui/hooks/use-api-error-toast';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { api } from './api';
 import type { components } from './api.generated';
@@ -61,3 +62,5 @@ export default function Browse({ items }: { items: Item[] }) {
     </PageShell>
   );
 }
+
+Browse.layout = [AuthenticatedLayout];
