@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 
 export default function Create() {
   const form = useForm({ name: '', description: '' });
@@ -41,3 +42,5 @@ export default function Create() {
     </PageShell>
   );
 }
+
+Create.layout = [AuthenticatedLayout];

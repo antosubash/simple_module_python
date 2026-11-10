@@ -131,7 +131,7 @@ Or use Inertia's persistent-layout pattern for layouts that survive navigation:
 Browse.layout = (page: ReactNode) => <AuthenticatedLayout>{page}</AuthenticatedLayout>;
 ```
 
-The second form re-uses the layout instance across navigations — good for layouts with expensive setup or local state you want preserved.
+The second form re-uses the layout instance across navigations — good for layouts with expensive setup or local state you want preserved. The array form `Browse.layout = [AuthenticatedLayout];` is what the module scaffold (`smpy create-module`) and the in-repo modules use. The host sets no default layout: a page that assigns none renders bare, without the sidebar or header.
 
 ### Which layout
 

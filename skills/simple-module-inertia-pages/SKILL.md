@@ -39,6 +39,8 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 
 **Typing them in TSX.** A page receives its own props as typed component arguments (`export default function Browse({ items }: Props)`). Shared props are typed globally: `usePage().props.auth` is already a `SharedProps['auth']`. Components and layouts that need page props too use `usePageProps<Props>()` from `@simple-module-py/ui` (it returns `Props & SharedProps & { errors }`). Never write `usePage<{ props: X }>().props as unknown as X`; `make lint` rejects `as unknown as` outside tests unless the line carries `// cast-ok: <reason>`.
 
+**A page sets its own layout.** The host applies none by default, so a page with no `Page.layout` renders without the sidebar, header and footer. Signed-in screens end the file with `Browse.layout = [AuthenticatedLayout];` (import from `@simple-module-py/ui/layouts/AuthenticatedLayout`); `/admin/*` pages use `AdminLayout`, public ones `PublicLayout`. The module scaffold generates this.
+
 **`auth.user` is `None` when no `principal_serializer` is registered**, even if the user is authenticated. The framework can't know the shape of your user object. The `auth` module registers the callable during `register_settings(app)` (`modules/auth/auth/module.py`):
 
 ```python
