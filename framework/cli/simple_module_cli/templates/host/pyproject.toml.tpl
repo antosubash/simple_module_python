@@ -8,10 +8,16 @@ dependencies = [
     "simple_module_db>=1.0,<2.0",
     "simple_module_hosting>=1.0,<2.0",
     "simple_module_settings>=1.0,<2.0",
-    "alembic>=1.13",
+    # 1.16.3 added the `module` runner host/alembic.ini's post-write hooks use.
+    "alembic>=1.16.3",
     "uvicorn[standard]>=0.34",
 {{MODULE_DEPS}}
 ]
+
+# `host/alembic.ini` runs ruff on every new revision. `smpy new` replaces this
+# group with the app's full dev tooling; a standalone `smpy create-host` keeps it.
+[dependency-groups]
+dev = ["ruff>=0.8"]
 
 # Host is an application, not a distributable package.
 [tool.uv]

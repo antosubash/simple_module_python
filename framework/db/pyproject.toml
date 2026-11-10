@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "aiosqlite>=0.20,<0.23",
-    "alembic>=1.14,<2",
+    "alembic>=1.16.3,<2",
     "asyncpg>=0.30,<0.33",
     # psycopg2 is the *sync* Postgres driver Alembic uses for migrations.
     # The async app code goes through asyncpg; migration env.py rewrites the

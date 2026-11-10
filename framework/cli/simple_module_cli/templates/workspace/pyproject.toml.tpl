@@ -28,7 +28,7 @@ dev = [
     # pin, which pytest-playwright cannot load (GH #445).
     "playwright>=1.45",
     "ruff>=0.8",
-    "ty>=0.0.29",
+    "{{TY_REQUIREMENT}}",
     # Provides the build_test_app / fake_event_bus fixtures (pytest11 plugin).
     "simple_module_test=={{FRAMEWORK_VERSION}}",
 ]

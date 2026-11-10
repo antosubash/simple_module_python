@@ -13,7 +13,7 @@ from {{PACKAGE_NAME}}.core.constants import DESCRIPTION_MAX_LENGTH, NAME_MAX_LEN
 class {{SINGULAR_CLASS}}Out(SQLModel):
     """{{SINGULAR_CLASS}} data returned by the API."""
 
-    model_config = ConfigDict(from_attributes=True)  # ty: ignore[invalid-assignment]
+    model_config = ConfigDict(from_attributes=True){{MODEL_CONFIG_TY_IGNORE}}
 
     id: int
     name: str

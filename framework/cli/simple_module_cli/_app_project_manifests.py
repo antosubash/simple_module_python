@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from simple_module_cli._lint_tooling import TY_REQUIREMENT
 from simple_module_cli.scaffolding import resolve_framework_version
 
 _FRAMEWORK_VERSION = resolve_framework_version()
@@ -22,7 +23,7 @@ _APP_PY_DEV_DEPS = [
     # Floor: unpinned, uv backtracks playwright to 1.18 (GH #445).
     "playwright>=1.45",
     "ruff>=0.8",
-    "ty>=0.0.29",
+    TY_REQUIREMENT,
 ]
 
 _APP_NPM_DEPS = {

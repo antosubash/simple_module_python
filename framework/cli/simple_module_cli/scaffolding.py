@@ -21,6 +21,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeGuard
 
+from simple_module_cli._lint_tooling import (
+    MODEL_CONFIG_TY_IGNORE,
+    TY_REQUIREMENT,
+    module_constants_import,
+)
+
 # The template engine lives in _templating.py; the private names are imported
 # here because long-standing tests monkeypatch them on this module.
 from simple_module_cli._templating import (
@@ -137,6 +143,7 @@ def create_workspace(
             "{{HOST_NAME}}": validate_scaffold_name(name),
             "{{HOST_PYPI_NAME}}": to_kebab_case(name),
             "{{FRAMEWORK_VERSION}}": framework_version,
+            "{{TY_REQUIREMENT}}": TY_REQUIREMENT,
         },
         preserve_existing=preserve_existing,
     )
@@ -239,6 +246,8 @@ def create_module(
         "{{SINGULAR}}": singular,
         "{{SINGULAR_UPPER}}": singular.upper(),
         "{{SINGULAR_CLASS}}": to_pascal_case(singular),
+        "{{CONSTANTS_IMPORTS}}": module_constants_import(package_name.upper()),
+        "{{MODEL_CONFIG_TY_IGNORE}}": MODEL_CONFIG_TY_IGNORE if framework_repo else "",
         # npm-side pin for @simple-module-py/* devDependencies; "*" when the
         # caller skips pinning (mirrors _should_pin_framework_version).
         "{{FRAMEWORK_VERSION}}": (
