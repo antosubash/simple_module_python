@@ -19,7 +19,7 @@
   first-module guide gets a tested `field_validator` example, and the conventions skill
   gets the rule. `tenants.contracts.TenantCreate` already works around it this way.
 
-Out of scope: the quickstart's stale list of what `create-module` generates.
+Also fixed: the quickstart's list of what `create-module` generates (it described an empty `pages/` dir and a single `tests/test_orders.py`).
 
 ## Testing
 
