@@ -21,8 +21,8 @@ override (#879).
 
 Add `oauth_microsoft_trust_tenant_upn: bool = False` to `UsersSettings`
 (group "Microsoft OAuth"). `build_clients` resolves the policy once: it is
-**effective** only when the setting is on and `oauth_microsoft_tenant` parses
-as a UUID. `OAuthProvider` gains a `trust_email: bool = False` field (the
+**effective** only when the setting is on and `oauth_microsoft_tenant` is a
+canonical work/school tenant GUID (`is_tenant_guid`). `OAuthProvider` gains a `trust_email: bool = False` field (the
 NamedTuple stays positional-compatible), and Microsoft's `get_identity` returns
 `(graph id, UPN, True)` when `trust_email` is set, the id and UPN are non-empty,
 and the UPN has no `#EXT#` (case-insensitive). Everything else stays `False`.
@@ -39,7 +39,7 @@ Rejected:
 
 - `users/core/settings.py`: the field, plus a `model_validator` that logs
   `users.oauth.microsoft_trust_ignored` (WARNING) when the setting is on and the
-  tenant is `common`/`organizations`/`consumers`/any non-UUID. Not an error: a
+  tenant is `common`/`organizations`/`consumers` (or its GUID)/any non-canonical-GUID. Not an error: a
   settings edit in the admin UI must not fail, and the safe behaviour (no trust)
   is what applies.
 - `users/oauth/providers.py`: `OAuthProvider.trust_email`; the helper
@@ -55,7 +55,9 @@ Rejected:
 ## Decisions made
 
 - Setting name from the issue (`oauth_microsoft_trust_tenant_upn`), default off.
-- UUID check via `uuid.UUID(...)`, so any GUID form is accepted; verified-domain
+- GUID check via `uuid.UUID(...)`, restricted to the canonical hyphenated form
+  (case-insensitive) and excluding the `consumers` tenant's fixed GUID
+  (`9188040d-6c67-4c5b-b112-36a304b66dad`, personal accounts); verified-domain
   names (`contoso.onmicrosoft.com`) as tenant are **not** trusted, since the
   issue scopes trust to a GUID.
 - `#EXT#` match is case-insensitive; an empty id or UPN is never trusted.

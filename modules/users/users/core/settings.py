@@ -239,8 +239,8 @@ class UsersSettings(DbBackedSettings):
         ):
             logger.warning(
                 "users.oauth.microsoft_trust_ignored — oauth_microsoft_trust_tenant_upn is on "
-                "but oauth_microsoft_tenant=%r is not a tenant GUID; Microsoft emails stay "
-                "unverified. Set the tenant to your directory's GUID to trust member UPNs.",
+                "but oauth_microsoft_tenant=%r is not one work/school tenant GUID; Microsoft "
+                "emails stay unverified. Set it to your directory's GUID to trust member UPNs.",
                 self.oauth_microsoft_tenant,
             )
         return self

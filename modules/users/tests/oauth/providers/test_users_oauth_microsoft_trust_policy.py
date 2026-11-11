@@ -43,7 +43,7 @@ def test_trust_applies_to_a_tenant_guid():
         "",
         # Microsoft's personal-account tenant: a GUID, but not one directory.
         "9188040d-6c67-4c5b-b112-36a304b66dad",
-        # Non-canonical GUID spellings Entra does not accept as a tenant segment.
+        # Non-canonical GUID spellings (braces, no hyphens) are not a pinned tenant.
         "{6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b}",
         "6f1c2a3b4d5e4f608a7b9c0d1e2f3a4b",
     ],
