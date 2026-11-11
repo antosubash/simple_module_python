@@ -43,7 +43,7 @@ async def test_oauth_callback_error_response(failure, detail, public_code, statu
         provider_client.get_profile.side_effect = GetProfileError("private provider details")
     app.state.users = SimpleNamespace(
         oauth_clients={"oidc": OAuthProvider("oidc", "OIDC", provider_client)},
-        settings=SimpleNamespace(allow_signup=False),
+        settings=SimpleNamespace(allow_signup=False, oauth_signup_providers=[]),
     )
     manager = AsyncMock()
     manager.get_by_oauth_account.side_effect = UserNotExists()

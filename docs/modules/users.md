@@ -225,6 +225,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
 | `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's `userPrincipalName` as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
+| `oauth_signup_providers` / `oauth_signup_default_role` | `[]` / `""` — providers that create accounts on first sign-in with `allow_signup` off, and the role those accounts get (see [Provisioning accounts through SSO](#provisioning-accounts-through-sso)) |
 | `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
 
 ## Permissions
@@ -539,9 +540,17 @@ For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that
 
 - Guest accounts (a UPN containing `#EXT#`) and an empty id or UPN stay unverified.
 - With `common`, `organizations`, `consumers` (or its fixed GUID) or a domain-name tenant the setting has no effect, and the settings load logs a `users.oauth.microsoft_trust_ignored` warning.
-- An unverified, un-invited local account with the same address is still refused (`OAUTH_ACCOUNT_NOT_VERIFIED`), and `allow_signup=False` still refuses a Microsoft user who has no account.
+- An unverified, un-invited local account with the same address is still refused (`OAUTH_ACCOUNT_NOT_VERIFIED`), and with `allow_signup=False` a Microsoft user who has no account is refused unless `microsoft` is in `oauth_signup_providers` (see below).
 - A user whose UPN differs from the address they were invited with does not match the invite; invite them by their UPN.
 - The policy trusts whoever administers the tenant: an Entra admin who sets a member's UPN to an address that matches a verified local account (an administrator's, say) signs that member in as that account. Turn it on only for a directory whose admins you already trust with your users' identities.
+
+### Provisioning accounts through SSO
+
+With `allow_signup` off, an OAuth sign-in for an identity nobody holds is refused (`OAUTH_SIGNUP_DISABLED`), so opening local signup used to be the only way to let staff get an account on their first SSO sign-in. List the providers that may provision instead:
+
+- `oauth_signup_providers` (for example `["microsoft"]`): a first sign-in through a listed provider creates the account, as an external (SSO-only) user, when the provider proved the email. An unproven email is refused even with `allow_signup` on, so listing a provider never widens what it can do. For Microsoft that means turning on the trusted-tenant policy above; GitHub needs a verified primary email; generic OIDC needs `email_verified: true`.
+- `oauth_signup_default_role`: the role those accounts get, with `allow_signup` on too: a listed provider's accounts never get the `user` role that self-signup grants. Blank (the default) means none: the account signs in but holds no permissions until an admin grants a role. Every account the provider creates gets this role, so name one whose permissions you would give to anyone in that directory; `admin` is refused, and a name with no matching role is logged and grants nothing.
+- Local registration (`POST /api/users/auth/register`, `/users/register`, the "Sign up" links) still follows `allow_signup` alone. Providers that are not listed keep the old rule: they create accounts only with `allow_signup` on, and those accounts get the `user` role.
 
 ## Importing users from another system
 

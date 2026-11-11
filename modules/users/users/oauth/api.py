@@ -34,6 +34,7 @@ from users.web.deps import auth_backend, get_user_manager
 
 if TYPE_CHECKING:
     from users.accounts.manager import UserManager
+    from users.core.settings import UsersSettings
     from users.models import User
     from users.oauth.providers import OAuthProvider
 
@@ -82,6 +83,19 @@ def _unproven_account(user: User) -> bool:
     address, so nobody could have pre-created it.
     """
     return not user.is_verified and user.invited_at is None
+
+
+def _may_create_account(settings: UsersSettings, provider: str, email_verified: bool) -> bool:
+    """Whether a first sign-in through ``provider`` may create an account.
+
+    A provider listed in ``oauth_signup_providers`` provisions with signup
+    closed, but only when it proved the email; the listing applies with signup
+    open too, so it never widens what the provider can do (#874). Any other
+    provider follows ``allow_signup``.
+    """
+    if provider in settings.oauth_signup_providers:
+        return email_verified
+    return settings.allow_signup
 
 
 def register_oauth_routes(api_router: APIRouter) -> None:
@@ -136,15 +150,16 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         # with ``allow_signup`` off it must not be one: an operator enabling
         # SSO for staff would otherwise open signup to the provider's whole
         # user base (GH #543). Existing accounts still link and sign in.
-        if existing is None and not request.app.state.users.settings.allow_signup:
+        settings = request.app.state.users.settings
+        if existing is None and not _may_create_account(settings, provider, email_verified):
             return refuse_login(request, "OAUTH_SIGNUP_DISABLED", status.HTTP_403_FORBIDDEN)
         if existing is not None and not linked and _unproven_account(existing):
             return refuse_login(request, "OAUTH_ACCOUNT_NOT_VERIFIED", status.HTTP_403_FORBIDDEN)
 
-        # Mark this request so the manager's on_after_register provisions a
-        # *new* OAuth user as external (null password). Ignored when the login
-        # links to an existing account (on_after_register won't fire).
-        setattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, True)
+        # Mark this request with the provider so the manager's on_after_register
+        # provisions a *new* OAuth user as external (null password) and picks its
+        # role. Ignored when the login links to an existing account.
+        setattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, provider)
         try:
             user = await user_manager.oauth_callback(
                 provider,
