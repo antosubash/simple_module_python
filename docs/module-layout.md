@@ -171,6 +171,21 @@ root-layout test too. A shim that is a plain re-export instead (not an alias) mu
 by hand to the expiry test's `_SHIM_MODULES` tuple and `_EXPECTED` set and to
 the root-layout test's `DEPRECATED_ROOT` map until removed.
 
+## Downstream modules
+
+A module created with `smpy create-module` already follows this layout. The
+check that keeps it that way lives in this repo's
+[`host/tests/test_module_layout.py`](https://github.com/antosubash/simple_module_python/blob/main/host/tests/test_module_layout.py),
+which an app or a standalone module repo does not have. To keep the same ratchet:
+
+1. Copy that test into your own tests, for example `tests/test_module_layout.py`. <!-- path-check: ignore -->
+2. Point `MODULES` at your modules directory (`modules/` in a `smpy new` app).
+3. Replace `DOMAIN_AREAS` with your own modules' named areas, and empty
+   `DEPRECATED_ROOT` unless you keep root-level shims.
+
+`ALLOWED_ROOT` is the root lookup list in [Package root](#package-root-lookup-paths);
+keep the two in step when you upgrade the framework.
+
 ## Moving an existing module
 
 One module per PR; no logic changes in a move PR.

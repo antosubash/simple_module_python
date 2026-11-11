@@ -41,7 +41,7 @@ Treat 300 lines as the design pressure on every `.py`, `.ts`, and `.tsx` file (t
 New module settings and their app-state container live in `core/settings.py`
 and `core/services.py`; HTTP dependencies and services live in `web/`. Keep
 root lookup files in place and put non-page frontend code in `ui/`. See
-[Module layout](../../docs/module-layout.md).
+[Module layout](https://docs.py.simplemodule.dev/module-layout).
 
 ### 3. Per-module settings: `register_module_settings` → `app.state.<module>`
 
