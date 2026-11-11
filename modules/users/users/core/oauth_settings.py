@@ -20,6 +20,9 @@ logger = logging.getLogger("users.settings")
 # The ``{provider}`` URL segments ``users.oauth.providers.build_clients`` can serve.
 OAUTH_PROVIDER_NAMES = frozenset({"google", "github", "microsoft", "oidc"})
 OAUTH_PROVISIONING_GROUP = "OAuth provisioning"
+# Providers whose directory the domain's owner controls: a pinned Entra tenant,
+# or the operator's own OIDC IdP (#878). Not Google or GitHub.
+DOMAIN_TRUST_PROVIDERS = frozenset({"microsoft", "oidc"})
 
 # Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
 MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
@@ -134,7 +137,8 @@ class OAuthSettings(DbBackedSettings):
 
     # Addresses on these domains count as verified for that provider only, e.g.
     # ``{"microsoft": ["iiasa.ac.at"]}`` (#878). Exact domains, no subdomains.
-    # Microsoft additionally needs a member of a pinned tenant GUID.
+    # Only ``microsoft`` (a member of a pinned tenant GUID) and ``oidc`` (your
+    # own IdP) can be listed.
     oauth_trusted_email_domains: dict[str, list[str]] = Field(
         default_factory=dict, json_schema_extra={"group": OAUTH_PROVISIONING_GROUP}
     )
@@ -150,9 +154,13 @@ class OAuthSettings(DbBackedSettings):
         out: dict[str, list[str]] = {}
         for provider, domains in value.items():
             name = provider.strip().lower()
-            if name not in OAUTH_PROVIDER_NAMES:
-                known = sorted(OAUTH_PROVIDER_NAMES)
-                raise ValueError(f"unknown OAuth provider {provider!r}; expected any of {known}")
+            if name not in DOMAIN_TRUST_PROVIDERS:
+                allowed = sorted(DOMAIN_TRUST_PROVIDERS)
+                raise ValueError(
+                    f"domain trust is not available for {provider!r}; allowed: {allowed}. "
+                    "Anyone can add an unverified address on any domain to a Google or "
+                    "GitHub account, so a domain cannot vouch for it there."
+                )
             out[name] = sorted({normalize_domain(domain) for domain in domains})
         return out
 

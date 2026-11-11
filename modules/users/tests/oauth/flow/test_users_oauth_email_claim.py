@@ -9,6 +9,12 @@ from users.models import OAuthAccount
 from users.oauth import OAuthProvider
 
 _EMAIL = "victim@example.com"
+
+
+def _triple(identity):
+    return identity.account_id, identity.email, identity.email_verified
+
+
 _TOKEN = {"access_token": "token"}
 
 
@@ -112,7 +118,7 @@ async def test_provider_without_email_proof_cannot_link(users_app, anon_client, 
 async def test_oidc_identity_preserves_email_proof(claim, verified):
     provider = OAuthProvider("oidc", "OIDC", _ClaimClient(claim))
 
-    assert await provider.get_identity(_TOKEN) == (
+    assert _triple(await provider.get_identity(_TOKEN)) == (
         "idp-attacker",
         _EMAIL,
         verified,
@@ -125,13 +131,8 @@ async def test_oidc_identity_preserves_email_proof(claim, verified):
 async def test_non_oidc_identity_does_not_infer_email_proof(provider):
     client = _ClaimClient({"email_verified": True})
 
-    assert await OAuthProvider(provider, provider, client).get_identity(
-        {"access_token": "token"}
-    ) == (
-        "idp-attacker",
-        _EMAIL,
-        False,
-    )
+    identity = await OAuthProvider(provider, provider, client).get_identity(_TOKEN)
+    assert _triple(identity) == ("idp-attacker", _EMAIL, False)
 
 
 @pytest.mark.anyio
@@ -149,3 +150,12 @@ async def test_unproven_sso_account_cannot_capture_a_later_verified_login(users_
     async with users_app.state.sm.db.session_factory() as session:
         providers = {a.oauth_name for a in (await session.execute(select(OAuthAccount))).scalars()}
     assert providers == {"github"}
+
+
+@pytest.mark.anyio
+async def test_oidc_trusted_domain_counts_as_proof():
+    client = _ClaimClient({})
+    provider = OAuthProvider("oidc", "OIDC", client, trusted_domains=frozenset({"example.com"}))
+    assert (await provider.get_identity(_TOKEN)).email_verified is True
+    other = OAuthProvider("oidc", "OIDC", client, trusted_domains=frozenset({"corp.com"}))
+    assert (await other.get_identity(_TOKEN)).email_verified is False

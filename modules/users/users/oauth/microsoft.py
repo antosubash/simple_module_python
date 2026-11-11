@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import secrets
 from collections import OrderedDict
+from collections.abc import Collection
 from typing import Any
 
 import jwt
@@ -19,6 +20,7 @@ from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
 from httpx_oauth.exceptions import HTTPXOAuthError
 
 from users.core.oauth_settings import MICROSOFT_CONSUMERS_TENANT, is_tenant_guid
+from users.oauth.identity import OAuthIdentity, email_on_domains
 
 _LOGIN_HOST = "https://login.microsoftonline.com"
 _SCOPES = ["openid", "profile", "email"]
@@ -46,12 +48,48 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
         self._caches: OrderedDict[str, JWKSCache] = OrderedDict()
 
     async def identity(
-        self, token: dict[str, Any], nonce: str | None, *, trust_email: bool
-    ) -> tuple[str, str | None, bool]:
-        """Validate the ID token; return (Graph-compatible id, email, proof).
+        self,
+        token: dict[str, Any],
+        nonce: str | None,
+        *,
+        trust_email: bool,
+        trusted_domains: Collection[str] = (),
+    ) -> OAuthIdentity:
+        """Validate the ID token; return the Graph-compatible identity and profile.
 
         Raises :class:`IdTokenError` for a missing, invalid or foreign token.
         """
+        claims, tid = await self._validated_claims(token, nonce)
+        oid = claims.get("oid")
+        if not isinstance(oid, str) or not _GUID_RE.fullmatch(oid):
+            raise IdTokenError("ID token has no object id")
+        email = _account_email(claims)
+        # Proof only for a member of the one tenant the operator pinned: Entra
+        # names another ``idp`` for guests and other external identities (#873).
+        idp = claims.get("idp")
+        member = (
+            is_tenant_guid(self.tenant)
+            and tid == self.tenant
+            and (idp is None or (isinstance(idp, str) and idp in _home_issuers(tid)))
+        )
+        trusted = trust_email and member and email is not None and "#EXT#" not in email.upper()
+        # A member's address on a domain the operator owns is proof too (#878).
+        on_domain = _domain_email(claims, trusted_domains) if member else None
+        if on_domain is not None:
+            email, trusted = on_domain, True
+        return OAuthIdentity(
+            account_id=graph_account_id(oid),
+            email=email,
+            email_verified=bool(trusted),
+            subject=claims["sub"],
+            username=email or _text(claims.get("preferred_username")),
+            display_name=_text(claims.get("name")),
+            extra={"oid": oid, "tid": tid},
+        )
+
+    async def _validated_claims(
+        self, token: dict[str, Any], nonce: str | None
+    ) -> tuple[dict[str, Any], str]:
         id_token = token.get("id_token")
         if not isinstance(id_token, str) or not nonce:
             raise IdTokenError("ID token missing")
@@ -66,22 +104,7 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
             claimed_nonce.encode(), nonce.encode()
         ):
             raise IdTokenError("ID token nonce mismatch")
-        oid = claims.get("oid")
-        if not isinstance(oid, str) or not _GUID_RE.fullmatch(oid):
-            raise IdTokenError("ID token has no object id")
-        email = _account_email(claims)
-        # Proof only for a member of the one tenant the operator pinned: Entra
-        # names another ``idp`` for guests and other external identities (#873).
-        idp = claims.get("idp")
-        trusted = (
-            trust_email
-            and email is not None
-            and is_tenant_guid(self.tenant)
-            and tid == self.tenant
-            and (idp is None or (isinstance(idp, str) and idp in _home_issuers(tid)))
-            and "#EXT#" not in email.upper()
-        )
-        return graph_account_id(oid), email, trusted
+        return claims, tid
 
     def _accepts_tenant(self, tid: str) -> bool:
         if self.tenant == "consumers":
@@ -130,6 +153,30 @@ def _account_email(claims: dict[str, Any]) -> str | None:
         if isinstance(value, str) and "@" in value:
             return value
     return None
+
+
+def _domain_email(claims: dict[str, Any], domains: Collection[str]) -> str | None:
+    """The UPN or username on a trusted domain, else a domain-verified ``email``.
+
+    ``email`` is editable by the user and unverified unless Entra marks its
+    domain as verified with the ``xms_edov`` optional claim.
+    """
+    names = ["upn", "preferred_username"]
+    if claims.get("xms_edov") is True:
+        names.append("email")
+    for name in names:
+        value = claims.get(name)
+        if (
+            isinstance(value, str)
+            and "#EXT#" not in value.upper()
+            and email_on_domains(value, domains)
+        ):
+            return value
+    return None
+
+
+def _text(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _home_issuers(tid: str) -> set[str]:
