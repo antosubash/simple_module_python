@@ -10,10 +10,16 @@ from __future__ import annotations
 import logging
 import uuid
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from simple_module_core.settings_base import DbBackedSettings
 
+from users.core.constants import ADMIN_ROLE_NAME
+
 logger = logging.getLogger("users.settings")
+
+# The ``{provider}`` URL segments ``users.oauth.providers.build_clients`` can serve.
+OAUTH_PROVIDER_NAMES = frozenset({"google", "github", "microsoft", "oidc"})
+OAUTH_PROVISIONING_GROUP = "OAuth provisioning"
 
 # Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
 _MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
@@ -83,3 +89,33 @@ class OAuthSettings(DbBackedSettings):
                 self.oauth_microsoft_tenant,
             )
         return self
+
+    # Providers that may create an account on first sign-in with ``allow_signup``
+    # off (#874), and only when the provider proved the email. Local email and
+    # password registration keeps following ``allow_signup`` alone.
+    oauth_signup_providers: list[str] = Field(
+        default_factory=list, json_schema_extra={"group": OAUTH_PROVISIONING_GROUP}
+    )
+    # Role for accounts those providers create. Blank: no role until an admin
+    # grants one. A name with no matching role is logged and grants nothing.
+    oauth_signup_default_role: str = Field(
+        default="", json_schema_extra={"group": OAUTH_PROVISIONING_GROUP}
+    )
+
+    @field_validator("oauth_signup_providers")
+    @classmethod
+    def _known_signup_providers(cls, value: list[str]) -> list[str]:
+        unknown = sorted(set(value) - OAUTH_PROVIDER_NAMES)
+        if unknown:
+            known = sorted(OAUTH_PROVIDER_NAMES)
+            raise ValueError(f"unknown OAuth provider(s) {unknown}; expected any of {known}")
+        return value
+
+    @field_validator("oauth_signup_default_role")
+    @classmethod
+    def _no_admin_provisioning(cls, value: str) -> str:
+        """Auto-granting admin to a provider's whole user base is never the intent."""
+        value = value.strip()
+        if value.lower() == ADMIN_ROLE_NAME:
+            raise ValueError("SSO-provisioned accounts cannot get the admin role automatically")
+        return value
