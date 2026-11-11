@@ -10,8 +10,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from _users_microsoft_support import install_microsoft
 from _users_oauth_support import (
-    install_fake_provider,
     oauth_callback,
     seed_password_user,
     set_allow_signup,
@@ -22,8 +22,8 @@ from users.models import OAuthAccount
 _EMAIL = "jane@corp.com"
 
 
-def _microsoft(app, upn: str = _EMAIL, *, trust: bool = True) -> None:
-    install_fake_provider(app, "ms-jane", upn, provider="microsoft", trust_email=trust)
+def _microsoft(app, upn: str = _EMAIL, *, trust: bool = True, **claims) -> None:
+    install_microsoft(app, trust=trust, preferred_username=upn, **claims)
 
 
 @pytest.mark.anyio
@@ -70,10 +70,17 @@ async def test_unproven_local_account_is_still_refused(users_app, anon_client):
 
 
 @pytest.mark.anyio
-async def test_guest_upn_does_not_link(users_app, anon_client):
-    guest = "jane_corp.com#EXT#@other.onmicrosoft.com"
+@pytest.mark.parametrize(
+    "guest, claims",
+    [
+        # An ID token names a guest by their home address and sets ``idp``.
+        ("jane@other.com", {"idp": "https://sts.windows.net/other-tenant/"}),
+        ("jane_corp.com#EXT#@other.onmicrosoft.com", {}),
+    ],
+)
+async def test_guest_does_not_link(users_app, anon_client, guest, claims):
     await seed_password_user(users_app, guest, is_verified=True)
-    _microsoft(users_app, guest)
+    _microsoft(users_app, guest, **claims)
 
     resp = await oauth_callback(anon_client, "microsoft")
     assert resp.json()["detail"] == "OAUTH_USER_ALREADY_EXISTS"

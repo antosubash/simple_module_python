@@ -3,6 +3,8 @@
 import pytest
 from users.oauth import OAuthProvider
 
+_TOKEN = {"access_token": "t"}
+
 
 class _Google:
     def __init__(self, verified):
@@ -31,15 +33,14 @@ class _GitHub:
         return self.emails
 
 
-class _Microsoft:
-    async def get_id_email(self, token):
-        return "ms-1", "me@example.com"
-
-
 @pytest.mark.parametrize("verified", [True, False, None])
 async def test_google_uses_primary_email_verification(verified):
     provider = OAuthProvider("google", "Google", _Google(verified))
-    assert await provider.get_identity("t") == ("people/1", "me@example.com", verified is True)
+    assert await provider.get_identity(_TOKEN) == (
+        "people/1",
+        "me@example.com",
+        verified is True,
+    )
 
 
 @pytest.mark.parametrize(
@@ -52,46 +53,9 @@ async def test_google_uses_primary_email_verification(verified):
 )
 async def test_github_requires_the_chosen_email_to_be_verified(emails, expected):
     provider = OAuthProvider("github", "GitHub", _GitHub(emails))
-    assert await provider.get_identity("t") == ("42", "me@example.com", expected)
+    assert await provider.get_identity(_TOKEN) == ("42", "me@example.com", expected)
 
 
 async def test_github_unreadable_emails_is_not_proof():
     provider = OAuthProvider("github", "GitHub", _GitHub([], fail=True))
-    assert (await provider.get_identity("t"))[2] is False
-
-
-async def test_microsoft_email_is_never_proof():
-    provider = OAuthProvider("microsoft", "Microsoft", _Microsoft())
-    assert await provider.get_identity("t") == ("ms-1", "me@example.com", False)
-
-
-class _MicrosoftUpn:
-    def __init__(self, account_id, upn):
-        self.account_id, self.upn = account_id, upn
-
-    async def get_id_email(self, token):
-        return self.account_id, self.upn
-
-
-async def test_microsoft_trusted_tenant_member_upn_is_proof():
-    """#873: a member UPN of the pinned tenant is on a domain that tenant verified."""
-    provider = OAuthProvider(
-        "microsoft", "Microsoft", _MicrosoftUpn("ms-1", "jane@corp.com"), trust_email=True
-    )
-    assert await provider.get_identity("t") == ("ms-1", "jane@corp.com", True)
-
-
-@pytest.mark.parametrize(
-    "account_id, upn",
-    [
-        ("ms-1", "jane_ext.com#EXT#@corp.onmicrosoft.com"),
-        ("ms-1", "jane_ext.com#ext#@corp.onmicrosoft.com"),
-        ("", "jane@corp.com"),
-        ("ms-1", ""),
-    ],
-)
-async def test_microsoft_trust_excludes_guests_and_empty_identities(account_id, upn):
-    provider = OAuthProvider(
-        "microsoft", "Microsoft", _MicrosoftUpn(account_id, upn), trust_email=True
-    )
-    assert (await provider.get_identity("t"))[2] is False
+    assert (await provider.get_identity(_TOKEN))[2] is False

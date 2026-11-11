@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from _users_microsoft_support import install_microsoft
 from _users_oauth_support import (
     find_user,
     install_fake_provider,
@@ -26,7 +27,7 @@ async def test_listed_provider_with_proven_email_creates_the_account(users_app, 
 async def test_listed_provider_without_email_proof_is_refused(users_app, anon_client, allow_signup):
     """Listing a provider never widens it: an unproven email creates nothing."""
     set_users_settings(users_app, allow_signup=allow_signup, oauth_signup_providers=["microsoft"])
-    install_fake_provider(users_app, "ms-1", "who@example.com", provider="microsoft")
+    install_microsoft(users_app, trust=False, preferred_username="who@example.com")
 
     resp = await oauth_callback(anon_client, "microsoft")
     assert resp.status_code == 403

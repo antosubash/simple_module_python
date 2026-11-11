@@ -22,7 +22,7 @@ OAUTH_PROVIDER_NAMES = frozenset({"google", "github", "microsoft", "oidc"})
 OAUTH_PROVISIONING_GROUP = "OAuth provisioning"
 
 # Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
-_MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
+MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
 
 
 def is_tenant_guid(tenant: str) -> bool:
@@ -35,7 +35,7 @@ def is_tenant_guid(tenant: str) -> bool:
         parsed = uuid.UUID(tenant)
     except ValueError:
         return False
-    return str(parsed) == tenant.lower() and parsed != _MICROSOFT_CONSUMERS_TENANT
+    return str(parsed) == tenant.lower() and parsed != MICROSOFT_CONSUMERS_TENANT
 
 
 class OAuthSettings(DbBackedSettings):

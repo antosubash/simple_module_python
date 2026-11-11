@@ -9,6 +9,7 @@ from users.models import OAuthAccount
 from users.oauth import OAuthProvider
 
 _EMAIL = "victim@example.com"
+_TOKEN = {"access_token": "token"}
 
 
 class _ClaimClient:
@@ -88,7 +89,7 @@ async def test_oidc_existing_subject_can_sign_in_without_verified_email(users_ap
 
 @pytest.mark.anyio
 # Google proof comes from People API metadata: test_users_oauth_provider_identity.py.
-@pytest.mark.parametrize("provider", ["github", "microsoft"])
+@pytest.mark.parametrize("provider", ["github"])
 async def test_provider_without_email_proof_cannot_link(users_app, anon_client, provider):
     await seed_password_user(users_app, _EMAIL, is_verified=True)
 
@@ -111,16 +112,22 @@ async def test_provider_without_email_proof_cannot_link(users_app, anon_client, 
 async def test_oidc_identity_preserves_email_proof(claim, verified):
     provider = OAuthProvider("oidc", "OIDC", _ClaimClient(claim))
 
-    assert await provider.get_identity("token") == ("idp-attacker", _EMAIL, verified)
+    assert await provider.get_identity(_TOKEN) == (
+        "idp-attacker",
+        _EMAIL,
+        verified,
+    )
 
 
 @pytest.mark.anyio
 # Google proof comes from People API metadata: test_users_oauth_provider_identity.py.
-@pytest.mark.parametrize("provider", ["github", "microsoft"])
+@pytest.mark.parametrize("provider", ["github"])
 async def test_non_oidc_identity_does_not_infer_email_proof(provider):
     client = _ClaimClient({"email_verified": True})
 
-    assert await OAuthProvider(provider, provider, client).get_identity("token") == (
+    assert await OAuthProvider(provider, provider, client).get_identity(
+        {"access_token": "token"}
+    ) == (
         "idp-attacker",
         _EMAIL,
         False,
@@ -131,7 +138,7 @@ async def test_non_oidc_identity_does_not_infer_email_proof(provider):
 async def test_unproven_sso_account_cannot_capture_a_later_verified_login(users_app, anon_client):
     """Pre-hijack: an unproven provider creates the account, a verified one must not join it."""
     set_allow_signup(users_app, True)
-    assert (await _callback(users_app, anon_client, {}, "microsoft")).status_code == 303
+    assert (await _callback(users_app, anon_client, {}, "github")).status_code == 303
     assert (await find_user(users_app, _EMAIL)).is_verified is False
     anon_client.cookies.clear()
 
@@ -141,4 +148,4 @@ async def test_unproven_sso_account_cannot_capture_a_later_verified_login(users_
     assert response.json()["detail"] == "OAUTH_ACCOUNT_NOT_VERIFIED"
     async with users_app.state.sm.db.session_factory() as session:
         providers = {a.oauth_name for a in (await session.execute(select(OAuthAccount))).scalars()}
-    assert providers == {"microsoft"}
+    assert providers == {"github"}
