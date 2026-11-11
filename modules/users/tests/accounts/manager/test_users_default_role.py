@@ -12,8 +12,8 @@ from users.core.constants import OAUTH_REGISTRATION_REQUEST_FLAG, USER_ROLE_ID
 from users.models import OAuthAccount, Role, User, UserRole
 
 
-def _manager(app, session, *, allow_signup: bool) -> UserManager:
-    settings = app.state.users.settings.model_copy(update={"allow_signup": allow_signup})
+def _manager(app, session, *, allow_signup: bool, **update) -> UserManager:
+    settings = app.state.users.settings.model_copy(update={"allow_signup": allow_signup, **update})
     return UserManager(
         UserDatabaseWithRoles(session, User, OAuthAccount),
         MagicMock(send_verification=AsyncMock()),
@@ -21,10 +21,12 @@ def _manager(app, session, *, allow_signup: bool) -> UserManager:
     )
 
 
-def _request(*, oauth: bool) -> MagicMock:
+def _request(*, oauth: bool, provider: str = "oidc") -> MagicMock:
     request = MagicMock()
     request.app.state.sm.event_bus = MagicMock(publish=AsyncMock())
-    request.state = SimpleNamespace(**({OAUTH_REGISTRATION_REQUEST_FLAG: True} if oauth else {}))
+    request.state = SimpleNamespace(
+        **({OAUTH_REGISTRATION_REQUEST_FLAG: provider} if oauth else {})
+    )
     return request
 
 
@@ -73,3 +75,53 @@ async def test_a_deleted_user_role_is_not_recreated(users_app, users_db):
     await manager.on_after_register(user, _request(oauth=False))
     assert await _roles(users_db, user) == []
     assert await users_db.get(Role, USER_ROLE_ID) is None
+
+
+async def _role_named(session, name: str) -> Role:
+    role = Role(name=name)
+    session.add(role)
+    await session.commit()
+    return role
+
+
+async def test_listed_provider_gets_the_configured_role(users_app, users_db):
+    staff = await _role_named(users_db, "staff")
+    manager = _manager(
+        users_app,
+        users_db,
+        allow_signup=False,
+        oauth_signup_providers=["oidc"],
+        oauth_signup_default_role="staff",
+    )
+    user = await _user(users_db)
+    await manager.on_after_register(user, _request(oauth=True))
+    assert await _roles(users_db, user) == [staff.id]
+
+
+async def test_listed_provider_with_a_blank_role_gets_none(users_app, users_db):
+    """Even with signup open: the listed rule wins, so no ``user`` role."""
+    manager = _manager(users_app, users_db, allow_signup=True, oauth_signup_providers=["oidc"])
+    user = await _user(users_db)
+    await manager.on_after_register(user, _request(oauth=True))
+    assert await _roles(users_db, user) == []
+
+
+async def test_listed_provider_with_a_missing_role_gets_none(users_app, users_db, caplog):
+    manager = _manager(
+        users_app,
+        users_db,
+        allow_signup=False,
+        oauth_signup_providers=["oidc"],
+        oauth_signup_default_role="ghost",
+    )
+    user = await _user(users_db)
+    await manager.on_after_register(user, _request(oauth=True))
+    assert await _roles(users_db, user) == []
+    assert "ghost" in caplog.text
+
+
+async def test_unlisted_provider_with_signup_open_keeps_the_user_role(users_app, users_db):
+    manager = _manager(users_app, users_db, allow_signup=True, oauth_signup_providers=["microsoft"])
+    user = await _user(users_db)
+    await manager.on_after_register(user, _request(oauth=True, provider="oidc"))
+    assert await _roles(users_db, user) == [USER_ROLE_ID]

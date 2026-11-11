@@ -17,7 +17,7 @@ from simple_module_db.callbacks import register_on_commit
 from simple_module_hosting.session import sign_in_preserved_keys, stamp_session_expiry
 
 from users.accounts.db_adapter import UserDatabaseWithRoles, get_user_db
-from users.accounts.registration import attach_default_role
+from users.accounts.registration import attach_default_role, registration_role
 from users.accounts.reset_revocation import ResetRevocationMixin
 from users.contracts.events import UserRegistered
 from users.core.constants import (
@@ -59,7 +59,7 @@ class UserManager(
         self.cookie_max_age_seconds = settings.cookie_max_age_seconds
         # Read per request: ``get_user_manager`` builds a manager per request
         # from the live settings, so an admin toggling signup takes effect.
-        self.allow_signup = settings.allow_signup
+        self.settings = settings
         self.require_verification = settings.require_verification
 
     # ── Password policy ──────────────────────────────────────
@@ -128,20 +128,19 @@ class UserManager(
         # find-or-create) is external: drop the random password fastapi-users
         # assigned and mark the account SSO-only. Fires only for *new* users —
         # OAuth logins that link to an existing account don't reach here.
-        oauth_provisioned = request is not None and getattr(
-            request.state, OAUTH_REGISTRATION_REQUEST_FLAG, False
+        oauth_provider = (
+            getattr(request.state, OAUTH_REGISTRATION_REQUEST_FLAG, None) if request else None
         )
+        oauth_provisioned = oauth_provider is not None
         if oauth_provisioned:
             user.hashed_password = None
             user.is_external = True
             await self.user_db.update(user, {"hashed_password": None, "is_external": True})
-        # The OAuth callback refuses to create accounts with signups closed
-        # (#543); this is the second line: should one be provisioned anyway,
-        # it must not get the ``user`` role (file read/write, API tokens) —
-        # a provider's whole user base would hold it. Signups closed means
-        # an OAuth-provisioned account waits for an admin to grant a role.
-        if request is not None and (self.allow_signup or not oauth_provisioned):
-            await attach_default_role(self.user_db.session, user)
+        # Signups closed means an OAuth-provisioned account waits for an admin,
+        # unless its provider is listed for provisioning (#543, #874).
+        role = registration_role(self.settings, oauth_provider) if request else None
+        if role is not None:
+            await attach_default_role(self.user_db.session, user, role)
         await self._publish_user_registered(user, request)
         if user.is_verified:
             return
