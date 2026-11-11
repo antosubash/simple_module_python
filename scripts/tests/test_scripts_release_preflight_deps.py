@@ -29,6 +29,9 @@ def _third_party_imports(module: str, seen: set[str]) -> set[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module == "scripts":
+            # `from scripts import check_metadata` names the submodules themselves.
+            names = [f"scripts.{alias.name}" for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             names = [node.module]
         else:
@@ -48,9 +51,18 @@ def _normalize(dist: str) -> str:
 
 def _preflight_with_packages() -> set[str]:
     steps = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["preflight"]["steps"]
-    run = next(step["run"] for step in steps if ENTRY in step.get("run", ""))
-    args = shlex.split(run)
-    return {_normalize(args[i + 1]) for i, arg in enumerate(args) if arg == "--with"}
+    runs = [step["run"] for step in steps if ENTRY in step.get("run", "")]
+    assert runs, f"no preflight step runs {ENTRY}"
+    args = shlex.split(runs[0])
+    values = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--with"]
+    values += [arg.split("=", 1)[1] for arg in args if arg.startswith("--with=")]
+    # `--with a,b` declares several packages; drop version specifiers.
+    return {
+        _normalize(re.split(r"[<>=!~\[; ]", part.strip(), maxsplit=1)[0])
+        for value in values
+        for part in value.split(",")
+        if part.strip()
+    }
 
 
 def test_preflight_step_declares_every_third_party_import() -> None:
