@@ -23,6 +23,9 @@ classifiers = [
 dependencies = [
     "fastapi>=0.140,<0.163",
     "httpx>=0.27,<0.29",
+    # OidcTestIssuer: sign ID tokens and publish a JWKS (#879).
+    "cryptography>=42",
+    "PyJWT[crypto]>=2.8,<3",
     "pytest>=8.0,<10",
     "pytest-asyncio>=0.24,<2",
     "simple_module_core==0.0.45",

@@ -8,9 +8,11 @@ them from ``app.state.users.settings``.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 
 from pydantic import Field, field_validator, model_validator
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.settings_base import DbBackedSettings
 
 from users.core.constants import ADMIN_ROLE_NAME
@@ -89,6 +91,33 @@ class OAuthSettings(DbBackedSettings):
     oauth_microsoft_trust_tenant_upn: bool = Field(
         default=False, json_schema_extra={"group": "Microsoft OAuth"}
     )
+
+    # Development and testing only (#879): sign in with Microsoft against a
+    # local IdP (a Keycloak realm with Entra-shaped claims) by taking the
+    # endpoints, JWKS and issuer from this discovery document. Ignored, with a
+    # warning, in any other environment.
+    oauth_microsoft_discovery_url: str = Field(
+        default="", json_schema_extra={"group": "Microsoft OAuth"}
+    )
+
+    def microsoft_discovery_url(self) -> str:
+        """The discovery override if it may apply in this process, else ``""``."""
+        # Fail closed: an unset SM_ENVIRONMENT (a deployment that forgot it) never
+        # counts as development here, unlike the framework's general default.
+        if os.environ.get("SM_ENVIRONMENT") not in NON_PROD_ENVIRONMENTS:
+            return ""
+        return self.oauth_microsoft_discovery_url.strip()
+
+    @model_validator(mode="after")
+    def _warn_on_ignored_microsoft_discovery(self) -> OAuthSettings:
+        """A production instance must never send Microsoft sign-ins to another IdP."""
+        if self.oauth_microsoft_discovery_url.strip() and not self.microsoft_discovery_url():
+            logger.warning(
+                "users.oauth.microsoft_discovery_ignored — oauth_microsoft_discovery_url is set "
+                "but SM_ENVIRONMENT is not explicitly development or testing; Microsoft "
+                "sign-in keeps using login.microsoftonline.com."
+            )
+        return self
 
     @model_validator(mode="after")
     def _warn_on_ignored_microsoft_trust(self) -> OAuthSettings:

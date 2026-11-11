@@ -225,6 +225,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
 | `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's UPN (the `upn` claim, else `preferred_username`) as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
+| `oauth_microsoft_discovery_url` | `""` — development/testing only: take Microsoft's endpoints from this discovery document, for a local IdP (see [Microsoft sign-in without Entra](#microsoft-sign-in-without-entra-development)) |
 | `oauth_signup_providers` / `oauth_signup_default_role` | `[]` / `""` — providers that create accounts on first sign-in with `allow_signup` off, and the role those accounts get (see [Provisioning accounts through SSO](#provisioning-accounts-through-sso)) |
 | `oauth_trusted_email_domains` | `{}` — per provider, domains whose addresses count as verified; `microsoft` and `oidc` only (see [Trusted email domains](#trusted-email-domains)) |
 | `oauth_sync_profile` | `False` — update `full_name` from the IdP's display name on every sign-in, not only when the account is created |
@@ -541,6 +542,18 @@ Microsoft uses OpenID Connect on the tenant's v2.0 endpoints (`https://login.mic
 - The app registration needs the `openid`, `profile` and `email` delegated permissions; Graph `User.Read` is no longer requested.
 - The linked account id is the value Graph `/me` returned before: the `oid` claim for work and school accounts, and for a personal account the 16 hex digits `oid` carries after its zero prefix. Links made before this change keep matching.
 - The email is the optional `upn` claim when the app registration adds it, else `preferred_username`: the UPN for a tenant member, the home address for a guest. With email as an alternate login ID turned on, `preferred_username` is the address the user typed, so add the `upn` optional claim (Token configuration → Add optional claim → ID → `upn`) to keep matching invites by UPN. The optional `email` claim is not used, and a phone-number username counts as no email.
+
+### Microsoft sign-in without Entra (development)
+
+To click through Microsoft sign-in before an Entra app exists, point the provider at a local IdP that emits Entra-shaped claims. Set `oauth_microsoft_discovery_url` to its discovery document. The setting is honoured only when `SM_ENVIRONMENT` is explicitly set to `development` or `testing` (an unset variable does not count; `make dev` does not set it, so export `SM_ENVIRONMENT=development` or keep it in `.env`, as `.env.example` does); anywhere else it is ignored and the settings load logs `users.oauth.microsoft_discovery_ignored`, so it can never send production sign-ins to another IdP. The document is fetched on the first sign-in, not at boot; its URL and every endpoint in it must be HTTPS or plain HTTP to a loopback address. Every ID-token rule above still applies, with the document's `issuer` in place of Entra's.
+
+A Keycloak realm for this ships as `docs/examples/keycloak-entra-realm.json`. It holds a confidential client `smpy-microsoft` (secret `dev-only-secret`, PKCE S256, callback `http://localhost:8000/api/users/auth/microsoft/callback`) whose ID tokens carry a fixed `tid`, the Keycloak user id as `oid` and the email as `upn`, and a user `jane` / `jane` (`jane@corp.example`). With the shared dev-services Keycloak (`docker compose --profile identity up -d keycloak` in `../dev-services`, port 8081):
+
+1. Import the realm: in the admin console (`admin` / `admin`) use **Create realm → Browse** and pick the file, or `POST` it to `/admin/realms`.
+2. Configure the Users settings: `oauth_microsoft_client_id = smpy-microsoft`, `oauth_microsoft_client_secret = dev-only-secret`, `oauth_microsoft_tenant = 6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b` (the realm's `tid`) and `oauth_microsoft_discovery_url = http://127.0.0.1:8081/realms/smpy-entra/.well-known/openid-configuration`.
+3. Run the app on port 8000 and sign in with **Microsoft** as `jane`. On another port, add its callback URL to the client's redirect URIs.
+
+Add `oauth_microsoft_trust_tenant_upn`, `oauth_trusted_email_domains = {"microsoft": ["corp.example"]}` or `oauth_signup_providers = ["microsoft"]` to try the policies above.
 
 ### Signing in pre-approved staff with Microsoft
 

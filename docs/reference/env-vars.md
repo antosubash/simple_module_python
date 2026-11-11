@@ -9,7 +9,7 @@ This is the full reference. See [Configuration](/guide/configuration) for a narr
 | Variable | Default | Notes |
 |---|---|---|
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL: `postgresql+asyncpg://user:pw@host:5432/db` or `sqlite+aiosqlite:///./app.db`. Relative sqlite paths resolve against the project root (the `.env` location), not the process cwd — CLI tools run from `host/` hit the same file as the app. |
-| `SM_ENVIRONMENT` | `development` | `development` and `testing` are the only non-prod values (placeholder-secret check is skipped for both). Any value other than `development` triggers strict module discovery. |
+| `SM_ENVIRONMENT` | `development` | `development` and `testing` are the only non-prod values (placeholder-secret check is skipped for both). Any value other than `development` triggers strict module discovery. Unlike that default, `users` honours `oauth_microsoft_discovery_url` only when the variable is explicitly `development` or `testing` (unset does not count). |
 | `SM_SECRET_KEY` | `change-me-in-production` | **Must** be overridden in production — session cookie signing key. |
 | `SM_DEBUG` | `false` | Enables debug mode (tracebacks in HTTP responses). |
 | `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR`. |
