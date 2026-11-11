@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, NamedTuple
 
-from users.core.settings import is_tenant_guid
+from users.core.oauth_settings import is_tenant_guid
 
 if TYPE_CHECKING:
     from httpx_oauth.oauth2 import BaseOAuth2
