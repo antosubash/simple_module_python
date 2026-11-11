@@ -16,8 +16,8 @@ does (it keeps following `allow_signup` alone), #876–#879.
 ## Approach
 
 ```python
-oauth_signup_providers: list[str] = []   # e.g. ["microsoft"]
-oauth_signup_default_role: str = ""       # "" = no role; an admin grants one
+oauth_signup_providers: list[str] = []  # e.g. ["microsoft"]
+oauth_signup_default_role: str = ""  # "" = no role; an admin grants one
 ```
 
 - **Create gate** (`users/oauth/api.py`): a sign-in with no existing account
