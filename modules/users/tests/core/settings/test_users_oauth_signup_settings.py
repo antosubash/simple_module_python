@@ -31,3 +31,27 @@ def test_admin_is_never_the_provisioning_role(role):
 
 def test_a_role_name_is_stored_trimmed():
     assert UsersSettings(oauth_signup_default_role=" staff ").oauth_signup_default_role == "staff"
+
+
+def test_signup_provider_names_match_the_buildable_providers():
+    from users.core.oauth_settings import OAUTH_PROVIDER_NAMES
+    from users.oauth.providers import build_client_map
+
+    configured = UsersSettings(
+        oauth_google_client_id="g",
+        oauth_google_client_secret="g",
+        oauth_github_client_id="h",
+        oauth_github_client_secret="h",
+        oauth_microsoft_client_id="m",
+        oauth_microsoft_client_secret="m",
+    )
+    # OIDC needs a reachable discovery URL to build, so it is checked by name.
+    assert set(build_client_map(configured)) | {"oidc"} == OAUTH_PROVIDER_NAMES
+
+
+def test_oauth_fields_follow_the_core_fields():
+    """The settings editor groups by first appearance; the split keeps the old order."""
+    fields = list(UsersSettings.model_fields)
+    assert fields[0] == "allow_signup"
+    assert fields.index("bootstrap_user_password") < fields.index("oauth_google_client_id")
+    assert fields[-2:] == ["oauth_signup_providers", "oauth_signup_default_role"]

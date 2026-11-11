@@ -60,6 +60,7 @@ class UserManager(
         # Read per request: ``get_user_manager`` builds a manager per request
         # from the live settings, so an admin toggling signup takes effect.
         self.settings = settings
+        self.allow_signup = settings.allow_signup
         self.require_verification = settings.require_verification
 
     # ── Password policy ──────────────────────────────────────

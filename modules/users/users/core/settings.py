@@ -19,6 +19,7 @@ from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.settings_base import DbBackedSettings
 from simple_module_core.stored_settings import field_error
 
 from users.accounts.session_version_cache import SESSION_VERSION_TTL_SECONDS
@@ -37,8 +38,8 @@ DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 DEMO_SETTINGS_GROUP = "Demo account"
 
 
-class UsersSettings(OAuthSettings):
-    """Local user management configuration."""
+class _UsersCoreSettings(DbBackedSettings):
+    """Local user management configuration; the OAuth fields come from ``OAuthSettings``."""
 
     # ``DbBackedSettings`` (not ``BaseSettings``) so the DB is genuinely the
     # only source: omitting ``env_prefix`` would leave pydantic-settings
@@ -231,3 +232,14 @@ class UsersSettings(OAuthSettings):
                 related=["reset_password_token_secret", "verification_token_secret"],
             )
         return self
+
+
+class UsersSettings(OAuthSettings, _UsersCoreSettings):
+    """Local user management configuration.
+
+    Bases in this order because pydantic lists fields in reverse MRO order: the
+    core fields first, then the OAuth ones, as the settings editor showed them
+    before the split (it groups fields by first appearance).
+    """
+
+    model_config = SettingsConfigDict(extra="ignore")

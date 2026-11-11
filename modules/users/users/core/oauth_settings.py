@@ -105,6 +105,7 @@ class OAuthSettings(DbBackedSettings):
     @field_validator("oauth_signup_providers")
     @classmethod
     def _known_signup_providers(cls, value: list[str]) -> list[str]:
+        value = [name.strip().lower() for name in value]
         unknown = sorted(set(value) - OAUTH_PROVIDER_NAMES)
         if unknown:
             known = sorted(OAUTH_PROVIDER_NAMES)
