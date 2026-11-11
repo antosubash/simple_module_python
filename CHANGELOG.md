@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `users`: `oauth_microsoft_trust_tenant_upn` (off by default) lets a site that pins `oauth_microsoft_tenant` to one tenant GUID sign in pre-approved staff with Microsoft while self-signup stays closed. A member account's `userPrincipalName` then counts as a verified email, so the first Microsoft sign-in links to an invited or verified local account with that address instead of failing with `OAUTH_USER_ALREADY_EXISTS`. Guest UPNs (`#EXT#`) and empty identities stay unverified, the `mail` attribute is never used, and with `common`, `organizations`, `consumers` or a domain-name tenant the setting has no effect and logs `users.oauth.microsoft_trust_ignored`. Turning it on trusts the tenant's admins, who can set a member's UPN to any address in the tenant's domains (#873).
+
 ## [0.0.45] — 2026-11-11
 
 ### Fixed

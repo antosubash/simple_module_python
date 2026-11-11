@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -35,6 +36,23 @@ DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 # Groups the demo fields together in the module-settings editor.
 DEMO_SETTINGS_GROUP = "Demo account"
+
+
+# Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
+_MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
+
+
+def is_tenant_guid(tenant: str) -> bool:
+    """Whether a Microsoft ``tenant`` pins one work/school directory (a canonical GUID).
+
+    ``common`` & co, non-canonical spellings and the personal-account ``consumers``
+    tenant GUID do not qualify.
+    """
+    try:
+        parsed = uuid.UUID(tenant)
+    except ValueError:
+        return False
+    return str(parsed) == tenant.lower() and parsed != _MICROSOFT_CONSUMERS_TENANT
 
 
 class UsersSettings(DbBackedSettings):
@@ -205,6 +223,27 @@ class UsersSettings(DbBackedSettings):
     oauth_microsoft_tenant: str = Field(
         default="common", json_schema_extra={"group": "Microsoft OAuth"}
     )
+    # Treat a member account's userPrincipalName as a verified email, so it
+    # links to an invited or verified local account (#873). Only effective when
+    # the tenant is a GUID: that tenant verified the UPN's domain. Guest UPNs
+    # (``#EXT#``) stay unverified.
+    oauth_microsoft_trust_tenant_upn: bool = Field(
+        default=False, json_schema_extra={"group": "Microsoft OAuth"}
+    )
+
+    @model_validator(mode="after")
+    def _warn_on_ignored_microsoft_trust(self) -> UsersSettings:
+        """The UPN trust policy is inert unless one tenant is pinned by GUID."""
+        if self.oauth_microsoft_trust_tenant_upn and not is_tenant_guid(
+            self.oauth_microsoft_tenant
+        ):
+            logger.warning(
+                "users.oauth.microsoft_trust_ignored — oauth_microsoft_trust_tenant_upn is on "
+                "but oauth_microsoft_tenant=%r is not one work/school tenant GUID; Microsoft "
+                "emails stay unverified. Set it to your directory's GUID to trust member UPNs.",
+                self.oauth_microsoft_tenant,
+            )
+        return self
 
     @model_validator(mode="after")
     def _warn_on_writable_admin_demo(self) -> UsersSettings:

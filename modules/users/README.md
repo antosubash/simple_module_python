@@ -93,6 +93,12 @@ the **Microsoft OAuth** group:
 - `oauth_microsoft_tenant` — `common` (any work/school or personal account,
   the default), `organizations` (work/school only), or your tenant GUID to
   restrict sign-in to one tenant.
+- `oauth_microsoft_trust_tenant_upn` — off by default. With a tenant GUID,
+  a member account's `userPrincipalName` counts as a verified email, so it
+  links to an invited or verified local account on first sign-in. Guests
+  (`#EXT#`) stay unverified; with any other tenant value it has no effect.
+  It trusts the tenant's admins: whoever can set a member's UPN can sign in
+  as the local account with that address.
 
 Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 (`google`, `github`, `microsoft`, `oidc`).

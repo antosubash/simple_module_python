@@ -224,6 +224,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `oauth_google_client_id` / `oauth_google_client_secret` | `""` — Google OAuth |
 | `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
+| `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's `userPrincipalName` as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
 | `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
 
 ## Permissions
@@ -528,7 +529,19 @@ Built-in provider keys (the `{provider}` URL segment):
 | Microsoft (Entra ID) | `microsoft` | `oauth_microsoft_tenant`: `"common"` (any account), `"organizations"` (work/school), or a tenant GUID |
 | Generic OIDC | `oidc` | any provider exposing a discovery URL (Keycloak, Authentik, Auth0, Zitadel, …); discovery failure logs + disables rather than breaking boot |
 
-A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email=True`, `is_verified_by_default=True`); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
+A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
+
+### Signing in pre-approved staff with Microsoft
+
+Microsoft email claims are tenant-controlled, so by default a Microsoft sign-in never proves an email ("nOAuth"). That keeps `common`/`organizations` safe, but it also means that with self-signup closed nobody can sign in with Microsoft: a verified local account or pending invite with the same address is refused with `OAUTH_USER_ALREADY_EXISTS`.
+
+For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that tenant's GUID and turn on `oauth_microsoft_trust_tenant_upn`. A **member** account's `userPrincipalName` is on a domain the tenant verified, so it then counts as a verified email: it links to an invited or verified local account with that address, and an account it creates starts verified. The account id stays the Graph `id`; the `mail` attribute is never used.
+
+- Guest accounts (a UPN containing `#EXT#`) and an empty id or UPN stay unverified.
+- With `common`, `organizations`, `consumers` (or its fixed GUID) or a domain-name tenant the setting has no effect, and the settings load logs a `users.oauth.microsoft_trust_ignored` warning.
+- An unverified, un-invited local account with the same address is still refused (`OAUTH_ACCOUNT_NOT_VERIFIED`), and `allow_signup=False` still refuses a Microsoft user who has no account.
+- A user whose UPN differs from the address they were invited with does not match the invite; invite them by their UPN.
+- The policy trusts whoever administers the tenant: an Entra admin who sets a member's UPN to an address that matches a verified local account (an administrator's, say) signs that member in as that account. Turn it on only for a directory whose admins you already trust with your users' identities.
 
 ## Importing users from another system
 

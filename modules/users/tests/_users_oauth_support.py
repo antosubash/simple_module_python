@@ -29,11 +29,13 @@ class _FakeOAuthClient:
         return {"sub": self._account_id, "email": self._account_email, "email_verified": True}
 
 
-def install_fake_provider(app, account_id: str, account_email: str) -> None:
+def install_fake_provider(
+    app, account_id: str, account_email: str, provider: str = "oidc", **fields
+) -> None:
     from users.oauth import OAuthProvider
 
-    app.state.users.oauth_clients["oidc"] = OAuthProvider(
-        "oidc", "OIDC", _FakeOAuthClient(account_id, account_email)
+    app.state.users.oauth_clients[provider] = OAuthProvider(
+        provider, provider, _FakeOAuthClient(account_id, account_email), **fields
     )
 
 
@@ -71,13 +73,13 @@ async def seed_password_user(app, email: str, **fields) -> uuid.UUID:
     return user_id
 
 
-async def oauth_callback(client: httpx.AsyncClient) -> httpx.Response:
+async def oauth_callback(client: httpx.AsyncClient, provider: str = "oidc") -> httpx.Response:
     """Drive /login then /callback; return the callback response."""
-    login = await client.get("/api/users/auth/oidc/login", follow_redirects=False)
+    login = await client.get(f"/api/users/auth/{provider}/login", follow_redirects=False)
     assert login.status_code == 302
     state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
     return await client.get(
-        f"/api/users/auth/oidc/callback?code=abc&state={state}",
+        f"/api/users/auth/{provider}/callback?code=abc&state={state}",
         follow_redirects=False,
     )
 
