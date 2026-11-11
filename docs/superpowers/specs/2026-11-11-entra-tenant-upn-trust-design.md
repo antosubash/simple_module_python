@@ -42,8 +42,9 @@ Rejected:
   tenant is `common`/`organizations`/`consumers`/any non-UUID. Not an error: a
   settings edit in the admin UI must not fail, and the safe behaviour (no trust)
   is what applies.
-- `users/oauth/providers.py`: `OAuthProvider.trust_email`; helper
-  `_is_tenant_guid(tenant)`; Microsoft branch of `get_identity` as above.
+- `users/oauth/providers.py`: `OAuthProvider.trust_email`; the helper
+  `is_tenant_guid(tenant)` lives in `core/settings.py` (the settings validator and
+  `build_clients` both use it); Microsoft branch of `get_identity` as above.
 - No change to `api.py`: `email_verified` already drives `associate_by_email`
   and `is_verified_by_default`, the `_unproven_account` guard (unverified,
   un-invited local account → `OAUTH_ACCOUNT_NOT_VERIFIED`) and the

@@ -38,13 +38,21 @@ DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 DEMO_SETTINGS_GROUP = "Demo account"
 
 
+# Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
+_MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
+
+
 def is_tenant_guid(tenant: str) -> bool:
-    """Whether a Microsoft ``tenant`` pins one directory (a GUID), not ``common`` & co."""
+    """Whether a Microsoft ``tenant`` pins one work/school directory (a canonical GUID).
+
+    ``common`` & co, non-canonical spellings and the personal-account ``consumers``
+    tenant GUID do not qualify.
+    """
     try:
-        uuid.UUID(tenant)
+        parsed = uuid.UUID(tenant)
     except ValueError:
         return False
-    return True
+    return str(parsed) == tenant.lower() and parsed != _MICROSOFT_CONSUMERS_TENANT
 
 
 class UsersSettings(DbBackedSettings):

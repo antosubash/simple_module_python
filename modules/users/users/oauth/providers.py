@@ -53,7 +53,9 @@ class OAuthProvider(NamedTuple):
         # Microsoft (Entra) email claims are tenant-controlled and unverified
         # ("nOAuth"), unless the operator pinned one tenant and trusts its member
         # UPNs. A guest's UPN (``#EXT#``) belongs to another directory.
-        trusted = self.trust_email and bool(account_id and email) and "#EXT#" not in email.upper()
+        trusted = (
+            self.trust_email and bool(account_id) and bool(email) and "#EXT#" not in email.upper()
+        )
         return account_id, email, trusted
 
 

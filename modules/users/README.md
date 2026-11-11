@@ -97,6 +97,8 @@ the **Microsoft OAuth** group:
   a member account's `userPrincipalName` counts as a verified email, so it
   links to an invited or verified local account on first sign-in. Guests
   (`#EXT#`) stay unverified; with any other tenant value it has no effect.
+  It trusts the tenant's admins: whoever can set a member's UPN can sign in
+  as the local account with that address.
 
 Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 (`google`, `github`, `microsoft`, `oidc`).
