@@ -139,13 +139,20 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         """Verify state, exchange code, find-or-create user, set cookie, redirect."""
         provider_obj = _resolve_provider(request, provider)
         state_key = _SESSION_STATE_KEY_FMT.format(provider=provider)
-        expected_state = request.session.pop(state_key, None)
-        # Spent with the state: a login's PKCE verifier and nonce serve one reply.
+        expected_state = request.session.get(state_key)
+        # Compared before anything is spent, so a forged or stray reply cannot
+        # consume the pending login; the matching reply spends the state together
+        # with that login's PKCE verifier and nonce.
+        if (
+            not state
+            or not isinstance(expected_state, str)
+            or not secrets.compare_digest(state, expected_state)
+        ):
+            return refuse_login(request, "OAUTH_INVALID_STATE")
+        request.session.pop(state_key, None)
         login = _login_secrets(
             request.session.pop(_SESSION_LOGIN_KEY_FMT.format(provider=provider), None)
         )
-        if not state or not expected_state or not secrets.compare_digest(state, expected_state):
-            return refuse_login(request, "OAUTH_INVALID_STATE")
         if provider_obj.uses_pkce and login is None:
             return refuse_login(request, "OAUTH_INVALID_STATE")
         if "error" in request.query_params:

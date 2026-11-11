@@ -52,3 +52,20 @@ async def test_a_wrong_nonce_is_a_provider_error(users_app, anon_client):
 
     resp = await oauth_callback(anon_client, "microsoft")
     assert resp.json()["detail"] == "OAUTH_PROVIDER_ERROR"
+
+
+@pytest.mark.anyio
+async def test_a_forged_reply_leaves_the_pending_login_intact(users_app, anon_client):
+    set_allow_signup(users_app, True)
+    install_microsoft(users_app)
+    login = await anon_client.get("/api/users/auth/microsoft/login", follow_redirects=False)
+    state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+
+    forged = await anon_client.get(
+        "/api/users/auth/microsoft/callback?code=evil&state=forged", follow_redirects=False
+    )
+    assert forged.json()["detail"] == "OAUTH_INVALID_STATE"
+    real = await anon_client.get(
+        f"/api/users/auth/microsoft/callback?code=abc&state={state}", follow_redirects=False
+    )
+    assert real.status_code == 303

@@ -77,7 +77,7 @@ class OAuthProvider(NamedTuple):
         provider reads it from its own profile shape. Only a positive proof
         links an existing account or marks a new one verified (#622).
         """
-        if self.name == "microsoft":
+        if self.uses_pkce:
             nonce = login["nonce"] if login else None
             return await self.client.identity(token, nonce, trust_email=self.trust_email)
         access_token = token["access_token"]

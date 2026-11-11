@@ -27,6 +27,7 @@ _GUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 _PERSONAL_OID_PREFIX = "00000000-0000-0000-"
 # Issuers seen through ``common``/``organizations``; each keeps its own key cache.
 _MAX_ISSUER_CACHES = 32
+_CONSUMERS_TID = str(MICROSOFT_CONSUMERS_TENANT)
 
 
 class IdTokenError(HTTPXOAuthError):
@@ -66,10 +67,11 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
         ):
             raise IdTokenError("ID token nonce mismatch")
         oid = claims.get("oid")
-        if not isinstance(oid, str) or not _GUID_RE.match(oid):
+        if not isinstance(oid, str) or not _GUID_RE.fullmatch(oid):
             raise IdTokenError("ID token has no object id")
         email = claims.get("preferred_username")
-        email = email if isinstance(email, str) and email else None
+        # Personal accounts can sign in with a phone number: that is no email.
+        email = email if isinstance(email, str) and "@" in email else None
         # Proof only for a member of the one tenant the operator pinned: Entra
         # sets ``idp`` for guests and other external identities (#873).
         trusted = (
@@ -83,12 +85,11 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
         return graph_account_id(oid), email, trusted
 
     def _accepts_tenant(self, tid: str) -> bool:
-        consumers = str(MICROSOFT_CONSUMERS_TENANT)
         if self.tenant == "consumers":
-            return tid == consumers
+            return tid == _CONSUMERS_TID
         if self.tenant == "organizations":
-            return tid != consumers
-        if _GUID_RE.match(self.tenant):
+            return tid != _CONSUMERS_TID
+        if _GUID_RE.fullmatch(self.tenant):
             return tid == self.tenant
         # ``common`` or a verified-domain tenant: the authorize endpoint pins it.
         return True
@@ -124,4 +125,4 @@ def _unverified_tid(id_token: str) -> str | None:
         tid = jwt.decode(id_token, options={"verify_signature": False}).get("tid")
     except jwt.PyJWTError:
         return None
-    return tid if isinstance(tid, str) and _GUID_RE.match(tid) else None
+    return tid if isinstance(tid, str) and _GUID_RE.fullmatch(tid) else None

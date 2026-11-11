@@ -119,3 +119,8 @@ async def test_trust_needs_a_member_of_the_pinned_tenant(tenant, claims, trusted
 )
 def test_account_ids_match_what_graph_returned(oid, graph_id):
     assert graph_account_id(oid) == graph_id
+
+
+async def test_a_non_email_username_is_no_email():
+    token = sign(id_claims(nonce=_NONCE, preferred_username="+43 1 234 5678"))
+    assert (await _identity(FakeMicrosoft(), token))[1] is None

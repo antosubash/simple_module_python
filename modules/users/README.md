@@ -93,8 +93,8 @@ from the validated ID token. Configure under the **Microsoft OAuth** group:
 
 - `oauth_microsoft_client_id`, `oauth_microsoft_client_secret`
 - `oauth_microsoft_tenant` — `common` (any work/school or personal account,
-  the default), `organizations` (work/school only), or your tenant GUID to
-  restrict sign-in to one tenant.
+  the default), `organizations` (work/school only), `consumers` (personal
+  only), or your tenant GUID to restrict sign-in to one tenant.
 - `oauth_microsoft_trust_tenant_upn` — off by default. With a tenant GUID,
   a member account's `preferred_username` (its UPN) counts as a verified
   email, so it links to an invited or verified local account on first
