@@ -25,6 +25,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./inertia": {
+      "types": "./src/inertia.ts",
+      "default": "./src/inertia.ts"
     }
   },
   "files": [

@@ -213,23 +213,22 @@ def test_sm_new_rejects_mixed_separators(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
-def test_scaffold_adopts_every_locale_catalog_the_server_sends(tmp_path: Path) -> None:
-    """Issue #321: the scaffold gated ``updateI18n`` on a locale *change*, which
-    drops the catalog that arrives when the audience changes instead. Signing in
-    swaps the anonymous snapshot for one including admin-only modules at the same
-    locale, so every admin screen rendered raw keys ("dashboard.home.title")
-    until a hard refresh. A non-null ``messages`` payload is itself the server's
-    signal that the client needs it."""
+def test_scaffold_wires_the_shared_i18n_catalog_sync(tmp_path: Path) -> None:
+    """The scaffold uses ``@simple-module-py/i18n/inertia`` (GH #871), which sends
+    ``X-SM-I18n`` per tab (#788) and adopts every non-null catalog the server
+    sends. A same-locale catalog after sign-in is covered there
+    (``packages/i18n/src/inertia.test.ts``, #321), so the scaffold must not keep
+    a handler of its own that could gate it on a locale change again."""
     from simple_module_cli.scaffolding import create_host
 
     dest = tmp_path / "demo"
     create_host(dest, name="demo-host", modules=["Dashboard", "Auth"])
 
     app_tsx = (dest / "client_app" / "app.tsx").read_text()
-    assert "updateI18n" in app_tsx
-    assert "activeLocale" not in app_tsx, (
-        "the locale gate is back — a same-locale catalog would be dropped again"
-    )
+    assert "from '@simple-module-py/i18n/inertia'" in app_tsx
+    assert "bootI18nFromInitialPage(" in app_tsx
+    assert "subscribeI18nToNavigation(router)" in app_tsx
+    assert "router.on('success'" not in app_tsx
 
 
 def test_sm_new_host_app_tsx_wires_theme_and_title(tmp_path: Path) -> None:

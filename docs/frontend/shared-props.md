@@ -170,6 +170,9 @@ t("orders.items", { count: orders.length });   // pluralization
 Each tab advertises its cached locale/audience via `X-SM-I18n`. A matching
 Inertia visit receives `messages: null`; otherwise the server resends the catalog.
 The client reloads `i18n` once if it receives a changed locale without messages.
+The client side is `bootI18nFromInitialPage` and `subscribeI18nToNavigation(router)` from
+`@simple-module-py/i18n/inertia`; call both in `createInertiaApp`'s `setup()` (this repo's host
+and `smpy new` apps do).
 
 The `i18n.messages` block is the **resolved locale's** translations merged across all modules. Switching the locale (via `<LocaleSwitcher />`, which POSTs to `/i18n/set-locale`) triggers a full-page navigation so the messages are re-fetched. The active locale and supported locales are on `usePage().props.i18n` (`locale`, `supportedLocales`).
 

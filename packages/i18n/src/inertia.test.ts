@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 
-const { handlers, reload, language, update } = vi.hoisted(() => ({
-  handlers: {} as {
+const { handlers, reload, language, update, router } = vi.hoisted(() => {
+  const handlers = {} as {
     before: (event: { detail: { visit: { headers: Record<string, string> } } }) => void;
     success: (event: {
       detail: {
@@ -16,35 +16,30 @@ const { handlers, reload, language, update } = vi.hoisted(() => ({
         };
       };
     }) => void;
-  },
-  reload: vi.fn(),
-  language: { value: 'en' },
-  update: vi.fn(),
-}));
-vi.mock('@inertiajs/react', () => ({
-  router: {
-    on: vi.fn((name, handler) => {
+  };
+  const reload = vi.fn();
+  const router = {
+    on: vi.fn((name: 'before' | 'success', handler: never) => {
       handlers[name] = handler;
       return vi.fn();
     }),
     reload,
-  },
-}));
-vi.mock('@simple-module-py/i18n', () => ({
+  };
+  return { handlers, reload, language: { value: 'en' }, update: vi.fn(), router };
+});
+vi.mock('./index', () => ({
   configureI18n: vi.fn(),
   activeLocale: () => language.value,
   updateI18n: update,
 }));
 
-import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';
+import { bootI18nFromInitialPage, type I18nRouter, subscribeI18nToNavigation } from './inertia';
 
 beforeEach(() => {
   vi.clearAllMocks();
   language.value = 'en';
-  bootI18nFromInitialPage({
-    i18n: { locale: 'en', audience: 'public', supportedLocales: ['en'], messages: {} },
-  });
-  subscribeI18nToNavigation();
+  bootI18nFromInitialPage({ locale: 'en', audience: 'public', messages: {} });
+  subscribeI18nToNavigation(router as unknown as I18nRouter);
 });
 
 it('sends the catalog held by this tab and updates its audience after login', () => {
@@ -96,7 +91,7 @@ it('resets the retry guard after receiving a catalog', () => {
 });
 
 it('forces catalog delivery on recovery when the initial page had no audience', () => {
-  bootI18nFromInitialPage({});
+  bootI18nFromInitialPage(undefined);
   const visit = { headers: {} as Record<string, string> };
   handlers.before({ detail: { visit } });
   expect(visit.headers).toEqual({});
