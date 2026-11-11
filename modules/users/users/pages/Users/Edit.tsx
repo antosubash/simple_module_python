@@ -10,6 +10,7 @@ import { AccountCard } from './components/AccountCard';
 import { DangerZone } from './components/DangerZone';
 import { DetailsCard } from './components/DetailsCard';
 import { EditHeaderActions } from './components/EditHeaderActions';
+import { type LinkedSignIn, LinkedSignInsCard } from './components/LinkedSignInsCard';
 import { type ActivityEntry, RecentActivityCard } from './components/RecentActivityCard';
 import type { Role } from './components/RolePicker';
 import { useEditUserForm } from './components/useEditUserForm';
@@ -21,6 +22,7 @@ interface Props {
   has_permissions_module: boolean;
   /** `null` when the audit_log module is not installed. */
   recent_activity: ActivityEntry[] | null;
+  linked_sign_ins: LinkedSignIn[];
   auth?: { user?: { id?: string } };
 }
 
@@ -45,6 +47,7 @@ function Edit({
   roles,
   has_permissions_module,
   recent_activity: recentActivity,
+  linked_sign_ins: linkedSignIns,
   auth,
 }: Props) {
   const { t } = useT();
@@ -122,6 +125,9 @@ function Edit({
           {recentActivity !== null && (
             <RecentActivityCard entries={recentActivity} userId={user.id} />
           )}
+
+          {/* Only accounts that sign in through an identity provider have any. */}
+          {linkedSignIns.length > 0 && <LinkedSignInsCard links={linkedSignIns} />}
 
           <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
         </div>
