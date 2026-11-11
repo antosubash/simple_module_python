@@ -63,3 +63,35 @@ async def test_github_unreadable_emails_is_not_proof():
 async def test_microsoft_email_is_never_proof():
     provider = OAuthProvider("microsoft", "Microsoft", _Microsoft())
     assert await provider.get_identity("t") == ("ms-1", "me@example.com", False)
+
+
+class _MicrosoftUpn:
+    def __init__(self, account_id, upn):
+        self.account_id, self.upn = account_id, upn
+
+    async def get_id_email(self, token):
+        return self.account_id, self.upn
+
+
+async def test_microsoft_trusted_tenant_member_upn_is_proof():
+    """#873: a member UPN of the pinned tenant is on a domain that tenant verified."""
+    provider = OAuthProvider(
+        "microsoft", "Microsoft", _MicrosoftUpn("ms-1", "jane@corp.com"), trust_email=True
+    )
+    assert await provider.get_identity("t") == ("ms-1", "jane@corp.com", True)
+
+
+@pytest.mark.parametrize(
+    "account_id, upn",
+    [
+        ("ms-1", "jane_ext.com#EXT#@corp.onmicrosoft.com"),
+        ("ms-1", "jane_ext.com#ext#@corp.onmicrosoft.com"),
+        ("", "jane@corp.com"),
+        ("ms-1", ""),
+    ],
+)
+async def test_microsoft_trust_excludes_guests_and_empty_identities(account_id, upn):
+    provider = OAuthProvider(
+        "microsoft", "Microsoft", _MicrosoftUpn(account_id, upn), trust_email=True
+    )
+    assert (await provider.get_identity("t"))[2] is False

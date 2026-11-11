@@ -14,6 +14,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+from users.core.settings import is_tenant_guid
+
 if TYPE_CHECKING:
     from httpx_oauth.oauth2 import BaseOAuth2
 
@@ -28,6 +30,8 @@ class OAuthProvider(NamedTuple):
     name: str
     display_name: str
     client: BaseOAuth2
+    # Microsoft only: the operator trusts member UPNs of the pinned tenant (#873).
+    trust_email: bool = False
 
     async def get_identity(self, token: str) -> tuple[str, str | None, bool]:
         """Return subject, email, and proof that the provider verified that email.
@@ -46,8 +50,11 @@ class OAuthProvider(NamedTuple):
             return account_id, None, False
         if self.name == "github":
             return account_id, email, await _github_verified(self.client, token, email)
-        # Microsoft (Entra) email claims are tenant-controlled and unverified ("nOAuth").
-        return account_id, email, False
+        # Microsoft (Entra) email claims are tenant-controlled and unverified
+        # ("nOAuth"), unless the operator pinned one tenant and trusts its member
+        # UPNs. A guest's UPN (``#EXT#``) belongs to another directory.
+        trusted = self.trust_email and bool(account_id and email) and "#EXT#" not in email.upper()
+        return account_id, email, trusted
 
 
 def _google_identity(profile: dict[str, Any]) -> tuple[str, str | None, bool]:
@@ -120,6 +127,8 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
                     tenant=settings.oauth_microsoft_tenant or "common",
                     name="microsoft",
                 ),
+                trust_email=settings.oauth_microsoft_trust_tenant_upn
+                and is_tenant_guid(settings.oauth_microsoft_tenant),
             )
         )
 
