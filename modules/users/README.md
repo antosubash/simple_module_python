@@ -96,9 +96,9 @@ from the validated ID token. Configure under the **Microsoft OAuth** group:
   the default), `organizations` (work/school only), `consumers` (personal
   only), or your tenant GUID to restrict sign-in to one tenant.
 - `oauth_microsoft_trust_tenant_upn` — off by default. With a tenant GUID,
-  a member account's `preferred_username` (its UPN) counts as a verified
+  a member account's UPN (`upn` claim, else `preferred_username`) counts as a verified
   email, so it links to an invited or verified local account on first
-  sign-in. Guests (an `idp` claim, or `#EXT#`) stay unverified; with any other
+  sign-in. Guests (an `idp` claim naming another issuer, or `#EXT#`) stay unverified; with any other
   tenant value it has no effect.
   It trusts the tenant's admins: whoever can set a member's UPN can sign in
   as the local account with that address.
@@ -115,7 +115,8 @@ Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 
 > **Note:** the Microsoft identity email is the ID token's optional `upn`
 > claim when the app registration adds it, else `preferred_username`: the UPN
-> for tenant members, the home address for a guest. A pinned tenant GUID also requires the token's `tid` to match it.
+> for tenant members, the home address for a guest. A pinned tenant GUID also
+> requires the token's `tid` to match it.
 
 ### Migrating from `SM_USERS_OAUTH_*` env vars
 

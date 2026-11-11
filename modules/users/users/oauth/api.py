@@ -18,6 +18,7 @@ cookie.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from typing import TYPE_CHECKING
 
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
     from users.core.settings import UsersSettings
     from users.models import User
     from users.oauth.providers import LoginSecrets, OAuthProvider
+
+logger = logging.getLogger(__name__)
 
 _SESSION_STATE_KEY_FMT = "oauth_state:{provider}"
 _SESSION_LOGIN_KEY_FMT = "oauth_login:{provider}"
@@ -166,7 +169,9 @@ def register_oauth_routes(api_router: APIRouter) -> None:
             account_id, account_email, email_verified = await provider_obj.get_identity(
                 token, login
             )
-        except (HTTPXOAuthError, HTTPError):
+        except (HTTPXOAuthError, HTTPError) as exc:
+            # The browser only sees OAUTH_PROVIDER_ERROR; say why for the operator.
+            logger.warning("OAuth sign-in through %s refused: %s", provider, exc)
             return refuse_login(request, "OAUTH_PROVIDER_ERROR")
         if account_email is None:
             return refuse_login(request, "OAUTH_NO_EMAIL")

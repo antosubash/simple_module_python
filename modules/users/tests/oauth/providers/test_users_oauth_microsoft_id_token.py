@@ -102,9 +102,19 @@ async def test_the_signed_tid_must_match_the_issuer():
         (TENANT, {"idp": f"https://login.microsoftonline.com/{TENANT}/v2.0"}, True),
         (TENANT, {"preferred_username": "jane_x.com#EXT#@corp.onmicrosoft.com"}, False),
         (TENANT, {"preferred_username": None}, False),
+        (TENANT, {"idp": ["https://sts.windows.net/other/"]}, False),
         ("common", {}, False),
     ],
-    ids=["member", "guest-idp", "home-idp-v1", "home-idp-v2", "guest-ext", "no-username", "common"],
+    ids=[
+        "member",
+        "guest-idp",
+        "home-idp-v1",
+        "home-idp-v2",
+        "guest-ext",
+        "no-username",
+        "idp-list",
+        "common",
+    ],
 )
 async def test_trust_needs_a_member_of_the_pinned_tenant(tenant, claims, trusted):
     token = sign(id_claims(nonce=_NONCE, **claims))

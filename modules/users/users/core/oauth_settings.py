@@ -68,7 +68,7 @@ class OAuthSettings(DbBackedSettings):
     oauth_microsoft_tenant: str = Field(
         default="common", json_schema_extra={"group": "Microsoft OAuth"}
     )
-    # Treat a member account's UPN (the ID token's ``preferred_username``) as a
+    # Treat a member account's UPN (the ID token's ``upn`` claim, else ``preferred_username``) as a
     # verified email, so it links to an invited or verified local account (#873).
     # Only effective when the tenant is a GUID: that tenant verified the UPN's
     # domain. Guests (an ``idp`` claim or ``#EXT#``) stay unverified.

@@ -78,7 +78,7 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
             and email is not None
             and is_tenant_guid(self.tenant)
             and tid == self.tenant
-            and (idp is None or idp in _home_issuers(tid))
+            and (idp is None or (isinstance(idp, str) and idp in _home_issuers(tid)))
             and "#EXT#" not in email.upper()
         )
         return graph_account_id(oid), email, trusted

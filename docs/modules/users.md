@@ -224,7 +224,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `oauth_google_client_id` / `oauth_google_client_secret` | `""` — Google OAuth |
 | `oauth_github_client_id` / `oauth_github_client_secret` | `""` — GitHub OAuth |
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
-| `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's UPN (`preferred_username`) as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
+| `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's UPN (the `upn` claim, else `preferred_username`) as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
 | `oauth_signup_providers` / `oauth_signup_default_role` | `[]` / `""` — providers that create accounts on first sign-in with `allow_signup` off, and the role those accounts get (see [Provisioning accounts through SSO](#provisioning-accounts-through-sso)) |
 | `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
 
@@ -544,7 +544,7 @@ Microsoft uses OpenID Connect on the tenant's v2.0 endpoints (`https://login.mic
 
 Microsoft email claims are tenant-controlled, so by default a Microsoft sign-in never proves an email ("nOAuth"). That keeps `common`/`organizations` safe, but it also means that with self-signup closed nobody can sign in with Microsoft: a verified local account or pending invite with the same address is refused with `OAUTH_USER_ALREADY_EXISTS`.
 
-For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that tenant's GUID and turn on `oauth_microsoft_trust_tenant_upn`. A **member** account's UPN (the ID token's `preferred_username`) is on a domain the tenant verified, so it then counts as a verified email: it links to an invited or verified local account with that address, and an account it creates starts verified. The `mail` attribute and the `email` claim are never used.
+For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that tenant's GUID and turn on `oauth_microsoft_trust_tenant_upn`. A **member** account's UPN (the ID token's `upn` claim, else `preferred_username`) is on a domain the tenant verified, so it then counts as a verified email: it links to an invited or verified local account with that address, and an account it creates starts verified. The `mail` attribute and the `email` claim are never used.
 
 - Guest and other external accounts (an `idp` claim naming another issuer, or a UPN containing `#EXT#`) and an empty username stay unverified.
 - With `common`, `organizations`, `consumers` (or its fixed GUID) or a domain-name tenant the setting has no effect, and the settings load logs a `users.oauth.microsoft_trust_ignored` warning.
