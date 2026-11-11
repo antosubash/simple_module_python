@@ -12,6 +12,7 @@ Lets a module test an OIDC sign-in end to end without a real IdP (#879)::
 
 from __future__ import annotations
 
+import functools
 import json
 import time
 from typing import Any
@@ -22,13 +23,19 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
 
+@functools.cache
+def _signing_key() -> rsa.RSAPrivateKey:
+    """One RSA key per process: generating 2048-bit keys per test is slow."""
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
 class OidcTestIssuer:
     """A fake IdP whose endpoints live under ``issuer`` and whose tokens verify."""
 
     def __init__(self, issuer: str = "https://idp.test/realms/test", kid: str = "test-key") -> None:
         self.issuer = issuer.rstrip("/")
         self.kid = kid
-        self._key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self._key = _signing_key()
 
     @property
     def discovery_url(self) -> str:

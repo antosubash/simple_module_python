@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import httpx
 from auth.oidc_common.jwks import JWKSCache
@@ -18,6 +19,15 @@ from auth.oidc_common.jwks import JWKSCache
 from users.oauth.microsoft import IdTokenError, MicrosoftOidc
 
 _REQUIRED = ("issuer", "authorization_endpoint", "token_endpoint", "jwks_uri")
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _allowed_url(url: str) -> bool:
+    """HTTPS, or plain HTTP to this machine (a local Keycloak), without credentials."""
+    parts = urlsplit(url)
+    if not parts.hostname or parts.username or parts.password or "{" in url:
+        return False
+    return parts.scheme == "https" or (parts.scheme == "http" and parts.hostname in _LOOPBACK_HOSTS)
 
 
 class MicrosoftDevOidc(MicrosoftOidc):
@@ -61,6 +71,8 @@ class MicrosoftDevOidc(MicrosoftOidc):
 
     async def _discover(self) -> None:
         """Fetch the document once, on first use: never at boot or settings reload."""
+        if not _allowed_url(self.discovery_url):
+            raise IdTokenError("discovery URL must be HTTPS or a loopback HTTP address")
         if self._jwks is not None:
             return
         async with self._lock:
@@ -74,9 +86,9 @@ class MicrosoftDevOidc(MicrosoftOidc):
             except (httpx.HTTPError, ValueError) as exc:
                 raise IdTokenError(f"discovery failed: {exc}") from exc
             if not isinstance(doc, dict) or not all(
-                isinstance(doc.get(key), str) and doc[key] for key in _REQUIRED
+                isinstance(doc.get(key), str) and _allowed_url(doc[key]) for key in _REQUIRED
             ):
-                raise IdTokenError("discovery document lacks issuer or endpoints")
+                raise IdTokenError("discovery document lacks usable issuer or endpoints")
             self.authorize_endpoint = doc["authorization_endpoint"]
             self.access_token_endpoint = doc["token_endpoint"]
             self.refresh_token_endpoint = doc["token_endpoint"]

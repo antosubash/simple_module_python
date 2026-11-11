@@ -102,7 +102,9 @@ class OAuthSettings(DbBackedSettings):
 
     def microsoft_discovery_url(self) -> str:
         """The discovery override if it may apply in this process, else ``""``."""
-        if os.environ.get("SM_ENVIRONMENT", "development") not in NON_PROD_ENVIRONMENTS:
+        # Fail closed: an unset SM_ENVIRONMENT (a deployment that forgot it) never
+        # counts as development here, unlike the framework's general default.
+        if os.environ.get("SM_ENVIRONMENT") not in NON_PROD_ENVIRONMENTS:
             return ""
         return self.oauth_microsoft_discovery_url.strip()
 
@@ -112,8 +114,8 @@ class OAuthSettings(DbBackedSettings):
         if self.oauth_microsoft_discovery_url.strip() and not self.microsoft_discovery_url():
             logger.warning(
                 "users.oauth.microsoft_discovery_ignored — oauth_microsoft_discovery_url is set "
-                "but SM_ENVIRONMENT is not development or testing; Microsoft sign-in keeps "
-                "using login.microsoftonline.com."
+                "but SM_ENVIRONMENT is not explicitly development or testing; Microsoft "
+                "sign-in keeps using login.microsoftonline.com."
             )
         return self
 

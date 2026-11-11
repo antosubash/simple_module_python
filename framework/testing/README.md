@@ -24,6 +24,7 @@ All fixtures below are auto-registered via the `pytest11` entry point — instal
 - `client` — an `httpx.AsyncClient` bound to the test app.
 - `authenticated_client` — same but with an admin user seeded and a forged session cookie attached. **Requires the `users` module** to be installed (it seeds the admin via `users.core.bootstrap`); apps scaffolded by `smpy` include it.
 - `tenant_client` — factory: `async with tenant_client("member") as (client, tenant_id, user_id)` signs in a fresh user who is an `owner` / `admin` / `member` (default `owner`) of a new tenant — or of `tenant_id=` when given — with that tenant active. **Requires the `users` and `tenants` modules.**
+- `oidc_test_issuer` — an in-process OpenID Connect issuer (`OidcTestIssuer`): an RSA signing key with `jwks()`, `discovery()` and `sign(claims)`, for testing an OIDC sign-in through `httpx_mock` without an IdP.
 
 ## Usage
 

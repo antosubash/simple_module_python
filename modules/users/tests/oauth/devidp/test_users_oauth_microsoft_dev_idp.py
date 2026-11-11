@@ -34,6 +34,13 @@ def test_the_override_applies_in_development_and_tests(monkeypatch, environment)
     assert isinstance(build_client_map(settings)["microsoft"].client, MicrosoftDevOidc)
 
 
+def test_an_unset_environment_does_not_count_as_development(monkeypatch):
+    monkeypatch.delenv("SM_ENVIRONMENT", raising=False)
+    settings = _settings(oauth_microsoft_discovery_url="http://localhost:8080/.well-known/x")
+    assert settings.microsoft_discovery_url() == ""
+    assert not isinstance(build_client_map(settings)["microsoft"].client, MicrosoftDevOidc)
+
+
 def test_the_override_is_ignored_in_production(monkeypatch, caplog):
     monkeypatch.setenv("SM_ENVIRONMENT", "production")
     with caplog.at_level(logging.WARNING, logger="users.settings"):
@@ -106,3 +113,30 @@ async def test_a_token_from_another_issuer_is_refused(users_app, anon_client, ht
 
     assert resp.json()["detail"] == "OAUTH_PROVIDER_ERROR"
     assert await find_user(users_app, "jane@corp.com") is None
+
+
+@pytest.mark.anyio
+async def test_an_unreachable_discovery_document_refuses_the_login(
+    users_app, anon_client, httpx_mock
+):
+    issuer = OidcTestIssuer("https://idp.test/realms/entra")
+    _install(users_app, issuer)
+    httpx_mock.add_response(url=issuer.discovery_url, status_code=503)
+
+    resp = await anon_client.get("/api/users/auth/microsoft/login", follow_redirects=False)
+    assert resp.json()["detail"] == "OAUTH_PROVIDER_ERROR"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "discovery_url",
+    ["http://idp.example/.well-known/openid-configuration", "https://u:p@idp.test/x"],
+)
+async def test_a_remote_plain_http_discovery_url_is_refused(users_app, anon_client, discovery_url):
+    client = MicrosoftDevOidc(_CLIENT, "secret", _TENANT, discovery_url)
+    users_app.state.users.oauth_clients["microsoft"] = OAuthProvider(
+        "microsoft", "Microsoft", client
+    )
+
+    resp = await anon_client.get("/api/users/auth/microsoft/login", follow_redirects=False)
+    assert resp.json()["detail"] == "OAUTH_PROVIDER_ERROR"

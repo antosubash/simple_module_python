@@ -128,7 +128,12 @@ def register_oauth_routes(api_router: APIRouter) -> None:
             login = {"verifier": secrets.token_urlsafe(64), "nonce": secrets.token_urlsafe(32)}
             request.session[_SESSION_LOGIN_KEY_FMT.format(provider=provider)] = login
         callback_url = str(request.url_for(_CALLBACK_ROUTE_NAME, provider=provider))
-        authorization_url = await provider_obj.authorization_url(callback_url, state, login)
+        try:
+            authorization_url = await provider_obj.authorization_url(callback_url, state, login)
+        except (HTTPXOAuthError, HTTPError) as exc:
+            # A development discovery document that cannot be fetched (#879).
+            logger.warning("OAuth login through %s could not start: %s", provider, exc)
+            return refuse_login(request, "OAUTH_PROVIDER_ERROR")
         return RedirectResponse(authorization_url, status_code=302)
 
     @router.get("/{provider}/callback", name=_CALLBACK_ROUTE_NAME)
