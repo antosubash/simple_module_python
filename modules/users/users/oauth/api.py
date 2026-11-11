@@ -31,6 +31,7 @@ from starlette.responses import RedirectResponse
 
 from users.core.constants import OAUTH_REGISTRATION_REQUEST_FLAG
 from users.oauth.errors import refuse_login
+from users.oauth.profile import record_profile
 from users.web.deps import auth_backend, get_user_manager
 
 if TYPE_CHECKING:
@@ -166,15 +167,15 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         callback_url = str(request.url_for(_CALLBACK_ROUTE_NAME, provider=provider))
         try:
             token = await provider_obj.exchange_code(code, callback_url, login)
-            account_id, account_email, email_verified = await provider_obj.get_identity(
-                token, login
-            )
+            identity = await provider_obj.get_identity(token, login)
         except (HTTPXOAuthError, HTTPError) as exc:
             # The browser only sees OAUTH_PROVIDER_ERROR; say why for the operator.
             logger.warning("OAuth sign-in through %s refused: %s", provider, exc)
             return refuse_login(request, "OAUTH_PROVIDER_ERROR")
-        if account_email is None:
+        if identity.email is None:
             return refuse_login(request, "OAUTH_NO_EMAIL")
+        account_id, account_email = identity.account_id, identity.email
+        email_verified = identity.email_verified
 
         existing, linked = await _existing_account(
             user_manager, provider, account_id, account_email
@@ -210,6 +211,14 @@ def register_oauth_routes(api_router: APIRouter) -> None:
 
         if not user.is_active:
             return refuse_login(request, "LOGIN_BAD_CREDENTIALS")
+        await record_profile(
+            user_manager.user_db.session,
+            user,
+            provider,
+            identity,
+            created=existing is None,
+            sync_name=settings.oauth_sync_profile,
+        )
 
         login_response = await auth_backend.login(strategy, user)
         await user_manager.on_after_login(user, request, login_response)

@@ -110,6 +110,13 @@ when they proved the email, while local registration keeps following
 with signup open too (never the self-signup `user` role); blank (the default)
 means none until an admin grants one, and `admin` is refused.
 
+**Trusted email domains.** `oauth_trusted_email_domains` (e.g.
+`{"microsoft": ["iiasa.ac.at"]}`) makes addresses on the listed domains count
+as verified for that provider: `microsoft` (a member of a pinned tenant GUID)
+and `oidc` only. `oauth_sync_profile` updates `full_name` from the IdP on every
+sign-in; each link stores the IdP's subject, username and last sign-in, shown
+on the admin Edit user page.
+
 Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 (`google`, `github`, `microsoft`, `oidc`).
 

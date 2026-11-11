@@ -15,6 +15,7 @@ from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
+from users.admin.linked_sign_ins import linked_sign_ins_for
 from users.admin.recent_activity import recent_activity_for
 from users.admin.service import UserService
 from users.core.constants import PERM_USERS_MANAGE, sanitize_list_filters
@@ -194,5 +195,6 @@ async def admin_edit_page(
             # is then absent rather than empty, which is the honest rendering
             # of "this deployment does not record activity".
             "recent_activity": await recent_activity_for(request, uid, db, t),
+            "linked_sign_ins": await linked_sign_ins_for(request, uid, db),
         },
     )

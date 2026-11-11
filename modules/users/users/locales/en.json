@@ -428,5 +428,11 @@
     "email_exists": "A user with this email already exists.",
     "not_found": "User not found",
     "external_password": "External (SSO) users have no password to reset"
+  },
+  "linked_sign_ins": {
+    "title": "Linked sign-ins",
+    "last_sign_in": "Last signed in {when}",
+    "never": "Not signed in through it yet",
+    "subject": "Subject"
   }
 }

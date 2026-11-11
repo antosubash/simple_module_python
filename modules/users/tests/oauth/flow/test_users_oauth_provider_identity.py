@@ -3,6 +3,11 @@
 import pytest
 from users.oauth import OAuthProvider
 
+
+def _triple(identity):
+    return identity.account_id, identity.email, identity.email_verified
+
+
 _TOKEN = {"access_token": "t"}
 
 
@@ -27,6 +32,9 @@ class _GitHub:
     async def get_id_email(self, token):
         return "42", "me@example.com"
 
+    async def get_profile(self, token):
+        return {"id": 42, "login": "octo", "name": "Octo Cat"}
+
     async def get_emails(self, token):
         if self.fail:
             raise RuntimeError("scope missing")
@@ -36,7 +44,7 @@ class _GitHub:
 @pytest.mark.parametrize("verified", [True, False, None])
 async def test_google_uses_primary_email_verification(verified):
     provider = OAuthProvider("google", "Google", _Google(verified))
-    assert await provider.get_identity(_TOKEN) == (
+    assert _triple(await provider.get_identity(_TOKEN)) == (
         "people/1",
         "me@example.com",
         verified is True,
@@ -53,9 +61,45 @@ async def test_google_uses_primary_email_verification(verified):
 )
 async def test_github_requires_the_chosen_email_to_be_verified(emails, expected):
     provider = OAuthProvider("github", "GitHub", _GitHub(emails))
-    assert await provider.get_identity(_TOKEN) == ("42", "me@example.com", expected)
+    assert _triple(await provider.get_identity(_TOKEN)) == ("42", "me@example.com", expected)
 
 
 async def test_github_unreadable_emails_is_not_proof():
     provider = OAuthProvider("github", "GitHub", _GitHub([], fail=True))
-    assert (await provider.get_identity(_TOKEN))[2] is False
+    assert (await provider.get_identity(_TOKEN)).email_verified is False
+
+
+@pytest.mark.parametrize(
+    "names, expected",
+    [
+        (
+            [{"displayName": "Other"}, {"displayName": "Jane", "metadata": {"primary": True}}],
+            "Jane",
+        ),
+        ([{"displayName": "First"}], "First"),
+        (["not-a-dict", {"displayName": "Jane"}], "Jane"),
+        (None, None),
+    ],
+    ids=["primary-wins", "first-otherwise", "skips-junk", "none"],
+)
+async def test_google_display_name_prefers_the_primary_name(names, expected):
+    google = _Google(True)
+    google.profile = {**google.profile, "names": names}
+    provider = OAuthProvider("google", "Google", google)
+    assert (await provider.get_identity(_TOKEN)).display_name == expected
+
+
+async def test_github_reads_its_profile_once_when_it_has_a_public_email():
+    calls = []
+
+    class _PublicGitHub(_GitHub):
+        async def get_profile(self, token):
+            calls.append("profile")
+            return {"id": 7, "login": "octo", "name": "Octo Cat", "email": "me@example.com"}
+
+        async def get_id_email(self, token):
+            raise AssertionError("not needed with a public email")
+
+    github = _PublicGitHub([{"email": "me@example.com", "verified": True}])
+    identity = await OAuthProvider("github", "GitHub", github).get_identity(_TOKEN)
+    assert (identity.account_id, identity.username, calls) == ("7", "octo", ["profile"])

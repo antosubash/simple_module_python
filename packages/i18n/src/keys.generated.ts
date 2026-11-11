@@ -1648,6 +1648,12 @@ export const keys = {
       title: 'users.invite_results.title',
       toast_copied: 'users.invite_results.toast_copied',
     },
+    linked_sign_ins: {
+      last_sign_in: 'users.linked_sign_ins.last_sign_in',
+      never: 'users.linked_sign_ins.never',
+      subject: 'users.linked_sign_ins.subject',
+      title: 'users.linked_sign_ins.title',
+    },
     login: {
       aside_body: 'users.login.aside_body',
       aside_check_sessions: 'users.login.aside_check_sessions',

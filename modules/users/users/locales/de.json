@@ -428,5 +428,11 @@
     "email_exists": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
     "not_found": "Benutzer nicht gefunden",
     "external_password": "Externe Benutzer (SSO) haben kein Passwort zum Zurücksetzen."
+  },
+  "linked_sign_ins": {
+    "title": "Verknüpfte Anmeldungen",
+    "last_sign_in": "Zuletzt angemeldet {when}",
+    "never": "Noch nicht darüber angemeldet",
+    "subject": "Subjekt"
   }
 }

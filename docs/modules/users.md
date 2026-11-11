@@ -169,7 +169,7 @@ permissions role pages. The edit page's *Recent activity* card reads the core
 
 `UserAccessToken` (table `users_access_token`) — bearer API tokens, stored as SHA-256 digests (the secret is shown once at login); resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
 
-`OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`.
+`OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`, plus the IdP profile refreshed on each sign-in (#877): `subject`, `username`, `display_name`, `extra`, `last_sign_in_at`.
 
 `RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK, SHA-256 digest of the secret), `family_id` (rotation lineage; presenting an already-revoked token revokes the whole family), `user_id`, `created_at`, `expires_at`, `revoked_at`.
 
@@ -226,6 +226,8 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
 | `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's UPN (the `upn` claim, else `preferred_username`) as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
 | `oauth_signup_providers` / `oauth_signup_default_role` | `[]` / `""` — providers that create accounts on first sign-in with `allow_signup` off, and the role those accounts get (see [Provisioning accounts through SSO](#provisioning-accounts-through-sso)) |
+| `oauth_trusted_email_domains` | `{}` — per provider, domains whose addresses count as verified; `microsoft` and `oidc` only (see [Trusted email domains](#trusted-email-domains)) |
+| `oauth_sync_profile` | `False` — update `full_name` from the IdP's display name on every sign-in, not only when the account is created |
 | `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
 
 ## Permissions
@@ -546,7 +548,7 @@ Microsoft email claims are tenant-controlled, so by default a Microsoft sign-in 
 
 For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that tenant's GUID and turn on `oauth_microsoft_trust_tenant_upn`. A **member** account's UPN (the ID token's `upn` claim, else `preferred_username`) is on a domain the tenant verified, so it then counts as a verified email: it links to an invited or verified local account with that address, and an account it creates starts verified. The `mail` attribute and the `email` claim are never used.
 
-- Guest and other external accounts (an `idp` claim naming another issuer, or a UPN containing `#EXT#`) and an empty username stay unverified.
+- Guest and other external accounts (an `idp` claim naming another issuer, or a UPN containing `#EXT#`, even when another name claim such as `preferred_username` shows a listed-domain address) and an empty username stay unverified.
 - With `common`, `organizations`, `consumers` (or its fixed GUID) or a domain-name tenant the setting has no effect, and the settings load logs a `users.oauth.microsoft_trust_ignored` warning.
 - An unverified, un-invited local account with the same address is still refused (`OAUTH_ACCOUNT_NOT_VERIFIED`), and with `allow_signup=False` a Microsoft user who has no account is refused unless `microsoft` is in `oauth_signup_providers` (see below).
 - A user whose UPN differs from the address they were invited with does not match the invite; invite them by their UPN.
@@ -559,6 +561,18 @@ With `allow_signup` off, an OAuth sign-in for an identity nobody holds is refuse
 - `oauth_signup_providers` (for example `["microsoft"]`): a first sign-in through a listed provider creates the account, as an external (SSO-only) user, when the provider proved the email. An unproven email is refused even with `allow_signup` on, so listing a provider never widens what it can do. For Microsoft that means turning on the trusted-tenant policy above; GitHub needs a verified primary email; generic OIDC needs `email_verified: true`.
 - `oauth_signup_default_role`: the role those accounts get, with `allow_signup` on too: a listed provider's accounts never get the `user` role that self-signup grants. Blank (the default) means none: the account signs in but holds no permissions until an admin grants a role. Every account the provider creates gets this role, so name one whose permissions you would give to anyone in that directory; `admin` is refused, and a name with no matching role is logged and grants nothing.
 - Local registration (`POST /api/users/auth/register`, `/users/register`, the "Sign up" links) still follows `allow_signup` alone. Providers that are not listed keep the old rule: they create accounts only with `allow_signup` on, and those accounts get the `user` role.
+
+### Trusted email domains
+
+`oauth_trusted_email_domains` lets an operator vouch for addresses on domains their organisation owns, per provider, for example `{"microsoft": ["iiasa.ac.at"]}`. An address on a listed domain then counts as verified for that provider only, so it links to an invited or verified local account and can provision one (see above). Domains match exactly and case-insensitively after IDNA normalisation; subdomains are never implied.
+
+- Only `microsoft` and `oidc` can be listed. Anyone can add an unverified address on any domain to a Google or GitHub account, so a domain cannot vouch for it there; those keys are refused.
+- `microsoft` needs `oauth_microsoft_tenant` set to the tenant GUID (otherwise the domains are ignored and the settings load logs `users.oauth.trusted_domains_ignored`), and a member of that tenant: matching `tid` and no `idp` naming another issuer. The address is the `upn` claim or `preferred_username` on a listed domain; the user-editable `email` claim counts only when Entra marks its domain verified (the `xms_edov` optional claim).
+- `oidc` trusts the address your IdP returns on a listed domain unless the IdP itself says `email_verified: false`. List a domain only if your IdP does not let users set their own email.
+
+### Linked identities
+
+Each sign-in refreshes the IdP profile on the account's `users_oauth_account` link: `subject` (`sub`), `username`, `display_name`, `extra` (Microsoft's `oid` and `tid`) and `last_sign_in_at`. The admin **Edit user** page lists them under "Linked sign-ins". A new account takes `full_name` from the IdP's display name; later sign-ins update it only with `oauth_sync_profile` on, and never clear it. Google's display name comes from the People API `names` field (the `profile` scope already requested). The account's email never changes on sign-in.
 
 ## Importing users from another system
 

@@ -10,9 +10,12 @@ metaclass — same constraint as ``User`` / ``UserAccessToken``).
 # Relationship resolution requires runtime annotations.
 
 import uuid
-from typing import ClassVar
+from datetime import datetime
+from typing import Any, ClassVar
 
+import sqlalchemy as sa
 from fastapi_users_db_sqlalchemy.generics import GUID
+from simple_module_db.types import AwareDateTime
 from sqlmodel import Field
 
 from users.models._base import Base
@@ -42,3 +45,10 @@ class OAuthAccount(Base, table=True):  # ty: ignore[unsupported-base]
     refresh_token: str | None = Field(default=None, max_length=1024)
     account_id: str = Field(max_length=320, index=True)
     account_email: str = Field(max_length=320)
+    # The IdP's profile, refreshed on every sign-in (#877): who the identity is
+    # at the provider, for administrators and for a provider that changes its key.
+    subject: str | None = Field(default=None, max_length=320)
+    username: str | None = Field(default=None, max_length=320)
+    display_name: str | None = Field(default=None, max_length=320)
+    extra: dict[str, Any] | None = Field(default=None, sa_type=sa.JSON)
+    last_sign_in_at: datetime | None = Field(default=None, sa_type=AwareDateTime())

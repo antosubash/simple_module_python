@@ -20,9 +20,23 @@ logger = logging.getLogger("users.settings")
 # The ``{provider}`` URL segments ``users.oauth.providers.build_clients`` can serve.
 OAUTH_PROVIDER_NAMES = frozenset({"google", "github", "microsoft", "oidc"})
 OAUTH_PROVISIONING_GROUP = "OAuth provisioning"
+# Providers whose directory the domain's owner controls: a pinned Entra tenant,
+# or the operator's own OIDC IdP (#878). Not Google or GitHub.
+DOMAIN_TRUST_PROVIDERS = frozenset({"microsoft", "oidc"})
 
 # Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
 MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
+
+
+def normalize_domain(domain: str) -> str:
+    """Lowercase, IDNA-encoded form used for exact domain comparison."""
+    value = domain.strip().rstrip(".").lower()
+    if not value or "@" in value or "*" in value or value.startswith("."):
+        raise ValueError(f"not a domain: {domain!r}")
+    try:
+        return value.encode("idna").decode("ascii")
+    except UnicodeError as exc:
+        raise ValueError(f"not a domain: {domain!r}") from exc
 
 
 def is_tenant_guid(tenant: str) -> bool:
@@ -120,3 +134,53 @@ class OAuthSettings(DbBackedSettings):
         if value.lower() == ADMIN_ROLE_NAME:
             raise ValueError("SSO-provisioned accounts cannot get the admin role automatically")
         return value
+
+    # Addresses on these domains count as verified for that provider only, e.g.
+    # ``{"microsoft": ["iiasa.ac.at"]}`` (#878). Exact domains, no subdomains.
+    # Only ``microsoft`` (a member of a pinned tenant GUID) and ``oidc`` (your
+    # own IdP) can be listed.
+    oauth_trusted_email_domains: dict[str, list[str]] = Field(
+        default_factory=dict, json_schema_extra={"group": OAUTH_PROVISIONING_GROUP}
+    )
+    # Update ``full_name`` from the IdP's display name on every sign-in, not
+    # only when the account is created (#877). The email is never changed.
+    oauth_sync_profile: bool = Field(
+        default=False, json_schema_extra={"group": OAUTH_PROVISIONING_GROUP}
+    )
+
+    @field_validator("oauth_trusted_email_domains")
+    @classmethod
+    def _normalise_trusted_domains(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for provider, domains in value.items():
+            name = provider.strip().lower()
+            if name not in DOMAIN_TRUST_PROVIDERS:
+                allowed = sorted(DOMAIN_TRUST_PROVIDERS)
+                raise ValueError(
+                    f"domain trust is not available for {provider!r}; allowed: {allowed}. "
+                    "Anyone can add an unverified address on any domain to a Google or "
+                    "GitHub account, so a domain cannot vouch for it there."
+                )
+            out[name] = sorted({normalize_domain(domain) for domain in domains})
+        return out
+
+    @model_validator(mode="after")
+    def _warn_on_ignored_microsoft_domains(self) -> OAuthSettings:
+        """Microsoft emails are tenant-editable: a domain needs one pinned tenant."""
+        if self.oauth_trusted_email_domains.get("microsoft") and not is_tenant_guid(
+            self.oauth_microsoft_tenant
+        ):
+            logger.warning(
+                "users.oauth.trusted_domains_ignored — oauth_trusted_email_domains lists "
+                "domains for microsoft but oauth_microsoft_tenant=%r is not one work/school "
+                "tenant GUID; those domains are not trusted.",
+                self.oauth_microsoft_tenant,
+            )
+        return self
+
+    def trusted_domains(self, provider: str) -> frozenset[str]:
+        """The domains whose addresses ``provider`` may verify (#878)."""
+        domains = self.oauth_trusted_email_domains.get(provider, [])
+        if provider == "microsoft" and not is_tenant_guid(self.oauth_microsoft_tenant):
+            return frozenset()
+        return frozenset(domains)

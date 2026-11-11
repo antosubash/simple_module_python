@@ -19,7 +19,14 @@ async def _identity(client: FakeMicrosoft, token: str, *, trust: bool = False):
 
 async def test_a_valid_token_gives_the_graph_compatible_identity():
     token = sign(id_claims(nonce=_NONCE))
-    assert await _identity(FakeMicrosoft(), token) == (OID, "jane@corp.com", False)
+    identity = await _identity(FakeMicrosoft(), token)
+    assert (identity.account_id, identity.email, identity.email_verified) == (
+        OID,
+        "jane@corp.com",
+        False,
+    )
+    assert identity.subject == "pairwise-sub"
+    assert identity.extra == {"oid": OID, "tid": TENANT}
 
 
 @pytest.mark.parametrize(
@@ -80,7 +87,7 @@ async def test_a_pinned_tenant_refuses_another_tenant():
 async def test_multi_tenant_segments_validate_the_tokens_own_issuer(tenant, tid, accepted):
     token = sign(id_claims(tid, nonce=_NONCE))
     if accepted:
-        assert (await _identity(FakeMicrosoft(tenant), token))[0] == OID
+        assert (await _identity(FakeMicrosoft(tenant), token)).account_id == OID
     else:
         with pytest.raises(IdTokenError):
             await _identity(FakeMicrosoft(tenant), token)
@@ -118,7 +125,7 @@ async def test_the_signed_tid_must_match_the_issuer():
 )
 async def test_trust_needs_a_member_of_the_pinned_tenant(tenant, claims, trusted):
     token = sign(id_claims(nonce=_NONCE, **claims))
-    assert (await _identity(FakeMicrosoft(tenant), token, trust=True))[2] is trusted
+    assert (await _identity(FakeMicrosoft(tenant), token, trust=True)).email_verified is trusted
 
 
 @pytest.mark.parametrize(
@@ -135,9 +142,69 @@ def test_account_ids_match_what_graph_returned(oid, graph_id):
 
 async def test_a_non_email_username_is_no_email():
     token = sign(id_claims(nonce=_NONCE, preferred_username="+43 1 234 5678"))
-    assert (await _identity(FakeMicrosoft(), token))[1] is None
+    assert (await _identity(FakeMicrosoft(), token)).email is None
 
 
 async def test_the_upn_claim_wins_over_an_alternate_login_alias():
     claims = id_claims(nonce=_NONCE, preferred_username="alias@corp.com", upn="jane@corp.com")
-    assert (await _identity(FakeMicrosoft(), sign(claims)))[1] == "jane@corp.com"
+    assert (await _identity(FakeMicrosoft(), sign(claims))).email == "jane@corp.com"
+
+
+_DOMAINS = frozenset({"corp.com"})
+
+
+@pytest.mark.parametrize(
+    "tenant, claims, email, verified",
+    [
+        (TENANT, {}, "jane@corp.com", True),
+        # ``email`` is user-editable: only a domain Entra verified (xms_edov) counts.
+        (TENANT, {"preferred_username": "j@x.org", "email": "jane@corp.com"}, "j@x.org", False),
+        (
+            TENANT,
+            {"preferred_username": "j@x.org", "email": "jane@corp.com", "xms_edov": True},
+            "jane@corp.com",
+            True,
+        ),
+        (TENANT, {"preferred_username": "jane@mail.corp.com"}, "jane@mail.corp.com", False),
+        (TENANT, {"idp": "https://sts.windows.net/other/"}, "jane@corp.com", False),
+        ("common", {}, "jane@corp.com", False),
+        # A guest UPN must not be rescued by an alternate username on a listed domain.
+        (
+            TENANT,
+            {
+                "upn": "jane_corp.com#EXT#@tenant.onmicrosoft.com",
+                "preferred_username": "jane@corp.com",
+            },
+            "jane_corp.com#EXT#@tenant.onmicrosoft.com",
+            False,
+        ),
+    ],
+    ids=[
+        "upn-on-domain",
+        "email-unverified",
+        "email-xms-edov",
+        "subdomain",
+        "guest",
+        "common",
+        "guest-upn-alias",
+    ],
+)
+async def test_trusted_domains_need_a_member(tenant, claims, email, verified):
+    token = sign(id_claims(nonce=_NONCE, **claims))
+    identity = await FakeMicrosoft(tenant).identity(
+        {"id_token": token}, _NONCE, trust_email=False, trusted_domains=_DOMAINS
+    )
+    assert (identity.email, identity.email_verified) == (email, verified)
+
+
+async def test_the_username_stays_the_sign_in_name_when_a_domain_email_wins():
+    claims = id_claims(
+        nonce=_NONCE,
+        preferred_username="jane@tenant.onmicrosoft.com",
+        email="jane@corp.com",
+        xms_edov=True,
+    )
+    identity = await FakeMicrosoft().identity(
+        {"id_token": sign(claims)}, _NONCE, trust_email=False, trusted_domains=_DOMAINS
+    )
+    assert (identity.email, identity.username) == ("jane@corp.com", "jane@tenant.onmicrosoft.com")
