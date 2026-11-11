@@ -195,3 +195,16 @@ async def test_trusted_domains_need_a_member(tenant, claims, email, verified):
         {"id_token": token}, _NONCE, trust_email=False, trusted_domains=_DOMAINS
     )
     assert (identity.email, identity.email_verified) == (email, verified)
+
+
+async def test_the_username_stays_the_sign_in_name_when_a_domain_email_wins():
+    claims = id_claims(
+        nonce=_NONCE,
+        preferred_username="jane@tenant.onmicrosoft.com",
+        email="jane@corp.com",
+        xms_edov=True,
+    )
+    identity = await FakeMicrosoft().identity(
+        {"id_token": sign(claims)}, _NONCE, trust_email=False, trusted_domains=_DOMAINS
+    )
+    assert (identity.email, identity.username) == ("jane@corp.com", "jane@tenant.onmicrosoft.com")

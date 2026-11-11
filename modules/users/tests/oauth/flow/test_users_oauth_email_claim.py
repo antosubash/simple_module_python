@@ -20,7 +20,7 @@ _TOKEN = {"access_token": "token"}
 
 class _ClaimClient:
     def __init__(self, claim):
-        self.profile = {"sub": "idp-attacker", "email": _EMAIL, **claim}
+        self.profile = {"id": "idp-attacker", "sub": "idp-attacker", "email": _EMAIL, **claim}
 
     async def get_authorization_url(self, redirect_uri, state):
         return f"https://idp.example/authorize?state={state}"

@@ -105,10 +105,14 @@ class OAuthProvider(NamedTuple):
             )
         if self.name == "google":
             return _google_identity(await self.client.get_profile(access_token))
-        account_id, email = await self.client.get_id_email(access_token)
         if self.name != "github":
+            account_id, email = await self.client.get_id_email(access_token)
             return OAuthIdentity(account_id, email, False)
+        # One /user request: ``get_id_email`` would fetch it again internally.
         profile = await self.client.get_profile(access_token)
+        account_id, email = str(profile["id"]), profile.get("email")
+        if email is None:  # no public email: get_id_email falls back to /user/emails
+            account_id, email = await self.client.get_id_email(access_token)
         verified = email is not None and await _github_verified(self.client, access_token, email)
         return OAuthIdentity(
             account_id,

@@ -86,7 +86,8 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
             email=email,
             email_verified=bool(trusted),
             subject=text_or_none(claims.get("sub")),
-            username=email or text_or_none(claims.get("preferred_username")),
+            # The IdP's own sign-in name, not the trusted address chosen above.
+            username=_account_email(claims) or text_or_none(claims.get("preferred_username")),
             display_name=text_or_none(claims.get("name")),
             extra={"oid": oid, "tid": tid},
         )

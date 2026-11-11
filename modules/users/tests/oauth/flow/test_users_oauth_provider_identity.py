@@ -87,3 +87,19 @@ async def test_google_display_name_prefers_the_primary_name(names, expected):
     google.profile = {**google.profile, "names": names}
     provider = OAuthProvider("google", "Google", google)
     assert (await provider.get_identity(_TOKEN)).display_name == expected
+
+
+async def test_github_reads_its_profile_once_when_it_has_a_public_email():
+    calls = []
+
+    class _PublicGitHub(_GitHub):
+        async def get_profile(self, token):
+            calls.append("profile")
+            return {"id": 7, "login": "octo", "name": "Octo Cat", "email": "me@example.com"}
+
+        async def get_id_email(self, token):
+            raise AssertionError("not needed with a public email")
+
+    github = _PublicGitHub([{"email": "me@example.com", "verified": True}])
+    identity = await OAuthProvider("github", "GitHub", github).get_identity(_TOKEN)
+    assert (identity.account_id, identity.username, calls) == ("7", "octo", ["profile"])
