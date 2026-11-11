@@ -102,7 +102,7 @@ jobs:
         env:
           PENDING_PUBLISHERS: ${{ inputs.pending_publishers }}
         run: >-
-          uv run --no-project --with tomlkit python -m scripts.release_preflight
+          uv run --no-project --with tomlkit --with pyyaml python -m scripts.release_preflight
           --pending-publishers "$PENDING_PUBLISHERS"
 
   # Bump versions in the working tree (no commit yet), build artifacts, upload.
