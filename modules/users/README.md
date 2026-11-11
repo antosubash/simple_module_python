@@ -103,8 +103,9 @@ the **Microsoft OAuth** group:
 **Provisioning through SSO with signup closed.** `oauth_signup_providers`
 (e.g. `["microsoft"]`) lets those providers create an account on first sign-in
 when they proved the email, while local registration keeps following
-`allow_signup`. `oauth_signup_default_role` is the role those accounts get;
-blank (the default) means none until an admin grants one, and `admin` is refused.
+`allow_signup`. `oauth_signup_default_role` is the role those accounts get,
+with signup open too (never the self-signup `user` role); blank (the default)
+means none until an admin grants one, and `admin` is refused.
 
 Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 (`google`, `github`, `microsoft`, `oidc`).
