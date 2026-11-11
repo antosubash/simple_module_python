@@ -179,7 +179,11 @@ check that keeps it that way lives in this repo's
 which an app or a standalone module repo does not have. To keep the same ratchet:
 
 1. Copy that test into your own tests, for example `tests/test_module_layout.py`. <!-- path-check: ignore -->
-2. Point `MODULES` at your modules directory (`modules/` in a `smpy new` app).
+2. Point `MODULES` at your modules directory (`modules/` in a `smpy new` app). The
+   copy computes it with `parents[2]`, which is right for `host/tests/`; from
+   `tests/test_module_layout.py` use `parents[1]`. <!-- path-check: ignore -->
+   A standalone module repo has the package at its root, with no `modules/<name>/`
+   level, so change the `package`, `pyproject.toml` and `tests/` paths in the test too.
 3. Replace `DOMAIN_AREAS` with your own modules' named areas, and empty
    `DEPRECATED_ROOT` unless you keep root-level shims.
 
