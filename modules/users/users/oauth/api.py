@@ -31,6 +31,7 @@ from starlette.responses import RedirectResponse
 
 from users.core.constants import OAUTH_REGISTRATION_REQUEST_FLAG
 from users.oauth.errors import refuse_login
+from users.oauth.profile import record_profile
 from users.web.deps import auth_backend, get_user_manager
 
 if TYPE_CHECKING:
@@ -210,6 +211,14 @@ def register_oauth_routes(api_router: APIRouter) -> None:
 
         if not user.is_active:
             return refuse_login(request, "LOGIN_BAD_CREDENTIALS")
+        await record_profile(
+            user_manager.user_db.session,
+            user,
+            provider,
+            identity,
+            created=existing is None,
+            sync_name=settings.oauth_sync_profile,
+        )
 
         login_response = await auth_backend.login(strategy, user)
         await user_manager.on_after_login(user, request, login_response)
