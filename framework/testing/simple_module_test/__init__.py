@@ -25,13 +25,16 @@ their definitions. ``authenticated_client`` additionally requires the ``users``
 module to be installed — it seeds an admin via ``users.core.bootstrap``.
 ``tenant_client`` (``users`` + ``tenants``) is a factory yielding a client signed
 in as an ``owner``/``admin``/``member`` of a real tenant — see
-``simple_module_test.tenant_client``.
+``simple_module_test.tenant_client``. ``oidc_test_issuer`` is an in-process
+OpenID Connect issuer (:class:`OidcTestIssuer`: signing key, JWKS, discovery
+document and ``sign(claims)``) for testing an OIDC sign-in without an IdP.
 """
 
 from simple_module_test.app_factory import build_test_app
 from simple_module_test.fake_events import FakeEventBus, RecordedEvent
 from simple_module_test.inertia import inertia_headers
 from simple_module_test.inertia_page import InertiaPage, inertia_page
+from simple_module_test.oidc_issuer import OidcTestIssuer
 from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
 from simple_module_test.tenant_client import TenantClient
@@ -40,6 +43,7 @@ from simple_module_test.waiting import wait_for, wait_for_sync
 __all__ = [
     "FakeEventBus",
     "InertiaPage",
+    "OidcTestIssuer",
     "RecordedEvent",
     "TenantClient",
     "build_test_app",
