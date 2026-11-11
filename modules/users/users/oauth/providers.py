@@ -123,8 +123,9 @@ class OAuthProvider(NamedTuple):
 def _google_identity(profile: dict[str, Any]) -> OAuthIdentity:
     """People API profile → resourceName, primary email and its ``metadata.verified``."""
     subject = str(profile["resourceName"])
-    names = profile.get("names") or [{}]
-    display_name = text_or_none(names[0].get("displayName")) if isinstance(names[0], dict) else None
+    names = [n for n in profile.get("names") or [] if isinstance(n, dict)]
+    name = next((n for n in names if n.get("metadata", {}).get("primary")), None)
+    display_name = text_or_none((name or (names[0] if names else {})).get("displayName"))
     primary = next(
         (e for e in profile.get("emailAddresses", []) if e.get("metadata", {}).get("primary")),
         None,
@@ -138,6 +139,7 @@ def _google_identity(profile: dict[str, Any]) -> OAuthIdentity:
         subject=subject,
         username=primary.get("value"),
         display_name=display_name,
+        domain_trust_allowed=primary.get("metadata", {}).get("verified") is not False,
     )
 
 

@@ -548,7 +548,7 @@ Microsoft email claims are tenant-controlled, so by default a Microsoft sign-in 
 
 For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that tenant's GUID and turn on `oauth_microsoft_trust_tenant_upn`. A **member** account's UPN (the ID token's `upn` claim, else `preferred_username`) is on a domain the tenant verified, so it then counts as a verified email: it links to an invited or verified local account with that address, and an account it creates starts verified. The `mail` attribute and the `email` claim are never used.
 
-- Guest and other external accounts (an `idp` claim naming another issuer, or a UPN containing `#EXT#`) and an empty username stay unverified.
+- Guest and other external accounts (an `idp` claim naming another issuer, or a UPN containing `#EXT#`, even when another name claim such as `preferred_username` shows a listed-domain address) and an empty username stay unverified.
 - With `common`, `organizations`, `consumers` (or its fixed GUID) or a domain-name tenant the setting has no effect, and the settings load logs a `users.oauth.microsoft_trust_ignored` warning.
 - An unverified, un-invited local account with the same address is still refused (`OAUTH_ACCOUNT_NOT_VERIFIED`), and with `allow_signup=False` a Microsoft user who has no account is refused unless `microsoft` is in `oauth_signup_providers` (see below).
 - A user whose UPN differs from the address they were invited with does not match the invite; invite them by their UPN.
@@ -572,7 +572,7 @@ With `allow_signup` off, an OAuth sign-in for an identity nobody holds is refuse
 
 ### Linked identities
 
-Each sign-in refreshes the IdP profile on the account's `users_oauth_account` link: `subject` (`sub`), `username`, `display_name`, `extra` (Microsoft's `oid` and `tid`) and `last_sign_in_at`. The admin **Edit user** page lists them under "Linked sign-ins". A new account takes `full_name` from the IdP's display name; later sign-ins update it only with `oauth_sync_profile` on, and never clear it. The account's email never changes on sign-in.
+Each sign-in refreshes the IdP profile on the account's `users_oauth_account` link: `subject` (`sub`), `username`, `display_name`, `extra` (Microsoft's `oid` and `tid`) and `last_sign_in_at`. The admin **Edit user** page lists them under "Linked sign-ins". A new account takes `full_name` from the IdP's display name; later sign-ins update it only with `oauth_sync_profile` on, and never clear it. Google's display name comes from the People API `names` field (the `profile` scope already requested). The account's email never changes on sign-in.
 
 ## Importing users from another system
 

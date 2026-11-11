@@ -67,3 +67,23 @@ async def test_github_requires_the_chosen_email_to_be_verified(emails, expected)
 async def test_github_unreadable_emails_is_not_proof():
     provider = OAuthProvider("github", "GitHub", _GitHub([], fail=True))
     assert (await provider.get_identity(_TOKEN)).email_verified is False
+
+
+@pytest.mark.parametrize(
+    "names, expected",
+    [
+        (
+            [{"displayName": "Other"}, {"displayName": "Jane", "metadata": {"primary": True}}],
+            "Jane",
+        ),
+        ([{"displayName": "First"}], "First"),
+        (["not-a-dict", {"displayName": "Jane"}], "Jane"),
+        (None, None),
+    ],
+    ids=["primary-wins", "first-otherwise", "skips-junk", "none"],
+)
+async def test_google_display_name_prefers_the_primary_name(names, expected):
+    google = _Google(True)
+    google.profile = {**google.profile, "names": names}
+    provider = OAuthProvider("google", "Google", google)
+    assert (await provider.get_identity(_TOKEN)).display_name == expected
