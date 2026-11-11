@@ -103,6 +103,11 @@ from the validated ID token. Configure under the **Microsoft OAuth** group:
   It trusts the tenant's admins: whoever can set a member's UPN can sign in
   as the local account with that address.
 
+**Microsoft sign-in without Entra.** In development and testing only,
+`oauth_microsoft_discovery_url` points the Microsoft provider at a local IdP;
+`docs/examples/keycloak-entra-realm.json` is a Keycloak realm that emits
+Entra-shaped claims (see the users module docs).
+
 **Provisioning through SSO with signup closed.** `oauth_signup_providers`
 (e.g. `["microsoft"]`) lets those providers create an account on first sign-in
 when they proved the email, while local registration keeps following

@@ -14,6 +14,7 @@ The `simple_module_test` plugin provides app-level fixtures that every test dire
 | `client` | function | `httpx.AsyncClient` | Anonymous HTTP calls to the app. |
 | `authenticated_client` | function | `httpx.AsyncClient` | Admin-scoped HTTP calls — carries a signed session cookie. |
 | `captured_mail` | function | `CapturedMail` | Asserting on outgoing mail: installs a recording sender (`.messages`, `.to(address)`) as the process mail sender. |
+| `oidc_test_issuer` | function | `OidcTestIssuer` | Testing an OpenID Connect sign-in without an IdP: an RSA signing key with `jwks()`, `discovery()` and `sign(claims)`. |
 
 All fixtures are **function-scoped** — each test gets its own. The SQLite database is in-memory; tearing down and re-creating is cheap. The first schema each process builds is kept as a template and copied into every later empty in-memory database with SQLite's backup API, so `CREATE TABLE` runs once per worker rather than once per test (`simple_module_test._sqlite_template`). A database that already has tables is never overwritten. Those engines also share one SQLAlchemy dialect and compiled-statement cache (`simple_module_test._compile_cache`), so SQL compiled in one test is reused by the next; the cache key carries no data, only statement structure. The patch applies to the whole pytest process; set `SM_TEST_SEPARATE_COMPILE_CACHES=1` to skip it.
 
@@ -211,6 +212,8 @@ async def test_webhook_delivery(httpx_mock, db_session):
     await deliver_webhook(db_session, "https://example.com/hook", {"id": 1})
     assert httpx_mock.get_request().content == b'{"id": 1}'
 ```
+
+For an OpenID Connect sign-in, serve an `OidcTestIssuer` (from `simple_module_test`, or the `oidc_test_issuer` fixture) through `httpx_mock`: its discovery document, its JWKS and a token response carrying `issuer.sign({...})`. `sign` fills `iss`, `iat` and `exp`; a claim set to `None` is left out. `modules/users/tests/oauth/devidp/` drives a whole Microsoft sign-in this way.
 
 ## Parametrization
 

@@ -193,17 +193,11 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
         )
 
     if settings.oauth_microsoft_client_id and settings.oauth_microsoft_client_secret:
-        from users.oauth.microsoft import MicrosoftOidc
-
         out.append(
             OAuthProvider(
                 "microsoft",
                 "Microsoft",
-                MicrosoftOidc(
-                    settings.oauth_microsoft_client_id,
-                    settings.oauth_microsoft_client_secret,
-                    settings.oauth_microsoft_tenant or "common",
-                ),
+                _microsoft_client(settings),
                 trust_email=settings.oauth_microsoft_trust_tenant_upn
                 and is_tenant_guid(settings.oauth_microsoft_tenant),
             )
@@ -238,6 +232,26 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
             )
 
     return [p._replace(trusted_domains=settings.trusted_domains(p.name)) for p in out]
+
+
+def _microsoft_client(settings: UsersSettings) -> BaseOAuth2:
+    """Entra's fixed endpoints, or a discovery override in development (#879)."""
+    tenant = settings.oauth_microsoft_tenant or "common"
+    discovery_url = settings.microsoft_discovery_url()
+    if discovery_url:
+        from users.oauth.microsoft_dev import MicrosoftDevOidc
+
+        return MicrosoftDevOidc(
+            settings.oauth_microsoft_client_id,
+            settings.oauth_microsoft_client_secret,
+            tenant,
+            discovery_url,
+        )
+    from users.oauth.microsoft import MicrosoftOidc
+
+    return MicrosoftOidc(
+        settings.oauth_microsoft_client_id, settings.oauth_microsoft_client_secret, tenant
+    )
 
 
 def build_client_map(settings: UsersSettings) -> dict[str, OAuthProvider]:
