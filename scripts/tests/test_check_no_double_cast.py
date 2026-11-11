@@ -37,7 +37,7 @@ def test_is_checked_directories():
     assert is_checked(Path("modules/users/users/auth_local/components/AuthIntro.tsx"))
     assert is_checked(Path("modules/users/users/lib/format.ts"))
     assert is_checked(Path("packages/ui/src/layouts/SidebarLayout.tsx"))
-    assert is_checked(Path("host/client_app/i18n.ts"))
+    assert is_checked(Path("host/client_app/app.tsx"))
 
 
 def test_is_checked_excludes_tests_and_other_dirs():

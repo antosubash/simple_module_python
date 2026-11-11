@@ -199,8 +199,8 @@ returns goes into every Inertia response (`docs/frontend/shared-props.md`).
 Keep providers cheap, and return callables for anything that costs a query,
 so a partial reload that does not name them skips them. The framework's own (`auth`, `menus`,
 `i18n`) come to about 3 KB, and the translation catalog is sent once per tab:
-the client echoes the catalog it holds in `X-SM-I18n`, so later visits come
-back without it.
+the client echoes the catalog it holds in `X-SM-I18n` (wired by
+`@simple-module-py/i18n/inertia`), so later visits come back without it.
 
 ### Link to the canonical URL
 
