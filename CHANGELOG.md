@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.45] — 2026-11-11
+
 ### Fixed
 
 - Apps scaffolded with `smpy new` now keep a separate i18n catalog per tab, as this repo's host has done since #788: every Inertia visit sends `X-SM-I18n`. The logic moved from `host/client_app/i18n.ts` into `@simple-module-py/i18n/inertia` (`bootI18nFromInitialPage`, `subscribeI18nToNavigation(router)`), and the scaffold's `client_app/app.tsx` uses it. An existing app can replace its `router.on('success')` catalog handler with those two calls; without the header the server still falls back to the per-session markers (#871).
@@ -1906,7 +1908,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.44...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.45...HEAD
+[0.0.45]: https://github.com/antosubash/simple_module_python/compare/v0.0.44...v0.0.45
 [0.0.44]: https://github.com/antosubash/simple_module_python/compare/v0.0.43...v0.0.44
 [0.0.43]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...v0.0.43
 [0.0.42]: https://github.com/antosubash/simple_module_python/compare/v0.0.41...v0.0.42
