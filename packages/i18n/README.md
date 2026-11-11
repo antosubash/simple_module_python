@@ -17,20 +17,22 @@ Peer-depends on React 19. Runtime deps `i18next` and `react-i18next` install aut
 - `useT()` — re-exported `react-i18next` `useTranslation` hook; returns `{ t }`.
 - `t` — non-hook translation accessor (re-exported from `i18next`) for use in schemas or utilities.
 - `keys` — generated, typed key tree (`keys.<module>.<...>`) you pass to `t()`.
+- `@simple-module-py/i18n/inertia` — `bootI18nFromInitialPage(i18n)` and `subscribeI18nToNavigation(router)`: keep each tab's catalog in step with the server. Every Inertia visit reports the catalog the tab holds in `X-SM-I18n`, adopts the catalog the server sends back, and reloads `i18n` once when the locale changed without one.
 
 ## Usage
 
 Root setup (in `client_app`):
 
 ```tsx
-import { configureI18n, updateI18n } from "@simple-module-py/i18n";
+import { router } from "@inertiajs/react";
+import { bootI18nFromInitialPage, subscribeI18nToNavigation } from "@simple-module-py/i18n/inertia";
 
-// On boot, from Inertia shared props (provided by InertiaLayoutDataMiddleware):
-configureI18n({ locale: props.i18n.locale, messages: props.i18n.messages ?? {} });
-
-// On every Inertia navigation that brings a new locale:
-updateI18n({ locale: nextLocale, messages: nextMessages });
+// In createInertiaApp's setup(), from the initial page's shared props:
+bootI18nFromInitialPage(props.initialPage.props.i18n);
+subscribeI18nToNavigation(router);
 ```
+
+`configureI18n` / `updateI18n` remain for an app that wires navigation itself.
 
 In a module page:
 

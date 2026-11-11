@@ -1,4 +1,5 @@
 import { createInertiaApp, router } from '@inertiajs/react';
+import { bootI18nFromInitialPage, subscribeI18nToNavigation } from '@simple-module-py/i18n/inertia';
 import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { OfflineBanner } from '@simple-module-py/ui/components/OfflineBanner';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
@@ -11,7 +12,6 @@ import {
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { bootI18nFromInitialPage, subscribeI18nToNavigation } from './i18n';
 import { resolvePage } from './pages';
 
 // The configured app name is held in the app-title module (Inertia's title
@@ -31,7 +31,7 @@ createInertiaApp({
     const branding = (props.initialPage.props as { branding?: { appName?: string | null } })
       .branding;
     setTitleAppName(branding?.appName);
-    bootI18nFromInitialPage(props.initialPage.props);
+    bootI18nFromInitialPage(props.initialPage.props.i18n);
     // Before the first render, so a dark-theme user never sees a light frame
     // flash. The returned unsubscribe is deliberately dropped: the listener
     // keeps `system` following the OS for the life of the document.
@@ -42,7 +42,7 @@ createInertiaApp({
 
       useEffect(() => {
         const stopReset = router.on('navigate', () => boundaryRef.current?.reset());
-        const stopI18n = subscribeI18nToNavigation();
+        const stopI18n = subscribeI18nToNavigation(router);
         // Authored content renders author-entered URLs as plain <a href>, which
         // the browser follows with a full document load — a blank page until
         // this client-rendered app boots again. Route them through Inertia.
