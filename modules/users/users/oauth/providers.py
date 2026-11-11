@@ -159,13 +159,13 @@ def build_clients(settings: UsersSettings) -> list[OAuthProvider]:
     out: list[OAuthProvider] = []
 
     if settings.oauth_google_client_id and settings.oauth_google_client_secret:
-        from httpx_oauth.clients.google import GoogleOAuth2
+        from users.oauth.google import GoogleWithNames
 
         out.append(
             OAuthProvider(
                 "google",
                 "Google",
-                GoogleOAuth2(
+                GoogleWithNames(
                     settings.oauth_google_client_id,
                     settings.oauth_google_client_secret,
                 ),

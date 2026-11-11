@@ -74,6 +74,7 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
             is_tenant_guid(self.tenant)
             and tid == self.tenant
             and (idp is None or (isinstance(idp, str) and idp in _home_issuers(tid)))
+            and not _guest_name(claims)
         )
         trusted = trust_email and member and email is not None and "#EXT#" not in email.upper()
         # A member's address on a domain the operator owns is proof too (#878).
@@ -156,6 +157,14 @@ def _account_email(claims: dict[str, Any]) -> str | None:
         if isinstance(value, str) and "@" in value:
             return value
     return None
+
+
+def _guest_name(claims: dict[str, Any]) -> bool:
+    """A guest's UPN (``#EXT#``) in any name claim: never a member, whatever else it says."""
+    return any(
+        isinstance(claims.get(name), str) and "#EXT#" in claims[name].upper()
+        for name in ("upn", "preferred_username")
+    )
 
 
 def _domain_email(claims: dict[str, Any], domains: Collection[str]) -> str | None:

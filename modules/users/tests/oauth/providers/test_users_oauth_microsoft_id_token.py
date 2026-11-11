@@ -168,8 +168,26 @@ _DOMAINS = frozenset({"corp.com"})
         (TENANT, {"preferred_username": "jane@mail.corp.com"}, "jane@mail.corp.com", False),
         (TENANT, {"idp": "https://sts.windows.net/other/"}, "jane@corp.com", False),
         ("common", {}, "jane@corp.com", False),
+        # A guest UPN must not be rescued by an alternate username on a listed domain.
+        (
+            TENANT,
+            {
+                "upn": "jane_corp.com#EXT#@tenant.onmicrosoft.com",
+                "preferred_username": "jane@corp.com",
+            },
+            "jane_corp.com#EXT#@tenant.onmicrosoft.com",
+            False,
+        ),
     ],
-    ids=["upn-on-domain", "email-unverified", "email-xms-edov", "subdomain", "guest", "common"],
+    ids=[
+        "upn-on-domain",
+        "email-unverified",
+        "email-xms-edov",
+        "subdomain",
+        "guest",
+        "common",
+        "guest-upn-alias",
+    ],
 )
 async def test_trusted_domains_need_a_member(tenant, claims, email, verified):
     token = sign(id_claims(nonce=_NONCE, **claims))
