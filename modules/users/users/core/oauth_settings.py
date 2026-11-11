@@ -22,7 +22,7 @@ OAUTH_PROVIDER_NAMES = frozenset({"google", "github", "microsoft", "oidc"})
 OAUTH_PROVISIONING_GROUP = "OAuth provisioning"
 
 # Microsoft's fixed "consumers" tenant (personal accounts): a GUID, but not one directory.
-_MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
+MICROSOFT_CONSUMERS_TENANT = uuid.UUID("9188040d-6c67-4c5b-b112-36a304b66dad")
 
 
 def is_tenant_guid(tenant: str) -> bool:
@@ -35,7 +35,7 @@ def is_tenant_guid(tenant: str) -> bool:
         parsed = uuid.UUID(tenant)
     except ValueError:
         return False
-    return str(parsed) == tenant.lower() and parsed != _MICROSOFT_CONSUMERS_TENANT
+    return str(parsed) == tenant.lower() and parsed != MICROSOFT_CONSUMERS_TENANT
 
 
 class OAuthSettings(DbBackedSettings):
@@ -68,10 +68,10 @@ class OAuthSettings(DbBackedSettings):
     oauth_microsoft_tenant: str = Field(
         default="common", json_schema_extra={"group": "Microsoft OAuth"}
     )
-    # Treat a member account's userPrincipalName as a verified email, so it
-    # links to an invited or verified local account (#873). Only effective when
-    # the tenant is a GUID: that tenant verified the UPN's domain. Guest UPNs
-    # (``#EXT#``) stay unverified.
+    # Treat a member account's UPN (the ID token's ``upn`` claim, else ``preferred_username``) as a
+    # verified email, so it links to an invited or verified local account (#873).
+    # Only effective when the tenant is a GUID: that tenant verified the UPN's
+    # domain. Guests (an ``idp`` claim or ``#EXT#``) stay unverified.
     oauth_microsoft_trust_tenant_upn: bool = Field(
         default=False, json_schema_extra={"group": "Microsoft OAuth"}
     )

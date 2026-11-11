@@ -86,17 +86,20 @@ OAuth providers are configured in the admin UI at **/settings/modules → Users*
 secret are set; the secret is masked in the UI. Changes apply live — no restart.
 
 **Microsoft (Entra ID).** Register an app in the Entra admin center and set the
-redirect URI to `<base-url>/api/users/auth/microsoft/callback`. Configure under
-the **Microsoft OAuth** group:
+redirect URI to `<base-url>/api/users/auth/microsoft/callback`; it needs the
+`openid`, `profile` and `email` delegated permissions (Graph `User.Read` is not
+used). Sign-in is OpenID Connect with PKCE and a nonce, and the identity comes
+from the validated ID token. Configure under the **Microsoft OAuth** group:
 
 - `oauth_microsoft_client_id`, `oauth_microsoft_client_secret`
 - `oauth_microsoft_tenant` — `common` (any work/school or personal account,
-  the default), `organizations` (work/school only), or your tenant GUID to
-  restrict sign-in to one tenant.
+  the default), `organizations` (work/school only), `consumers` (personal
+  only), or your tenant GUID to restrict sign-in to one tenant.
 - `oauth_microsoft_trust_tenant_upn` — off by default. With a tenant GUID,
-  a member account's `userPrincipalName` counts as a verified email, so it
-  links to an invited or verified local account on first sign-in. Guests
-  (`#EXT#`) stay unverified; with any other tenant value it has no effect.
+  a member account's UPN (`upn` claim, else `preferred_username`) counts as a verified
+  email, so it links to an invited or verified local account on first
+  sign-in. Guests (an `idp` claim naming another issuer, or `#EXT#`) stay unverified; with any other
+  tenant value it has no effect.
   It trusts the tenant's admins: whoever can set a member's UPN can sign in
   as the local account with that address.
 
@@ -110,10 +113,10 @@ means none until an admin grants one, and `admin` is refused.
 Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 (`google`, `github`, `microsoft`, `oidc`).
 
-> **Note:** for Microsoft *guest/external* accounts the identity email comes
-> from the Graph `userPrincipalName`, which may not be a plain email
-> (e.g. `user_ext.com#EXT#@tenant.onmicrosoft.com`). For tenant members it is
-> the user's email.
+> **Note:** the Microsoft identity email is the ID token's optional `upn`
+> claim when the app registration adds it, else `preferred_username`: the UPN
+> for tenant members, the home address for a guest. A pinned tenant GUID also
+> requires the token's `tid` to match it.
 
 ### Migrating from `SM_USERS_OAUTH_*` env vars
 

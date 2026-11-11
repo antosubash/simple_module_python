@@ -18,6 +18,7 @@ cookie.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from typing import TYPE_CHECKING
 
@@ -36,10 +37,23 @@ if TYPE_CHECKING:
     from users.accounts.manager import UserManager
     from users.core.settings import UsersSettings
     from users.models import User
-    from users.oauth.providers import OAuthProvider
+    from users.oauth.providers import LoginSecrets, OAuthProvider
+
+logger = logging.getLogger(__name__)
 
 _SESSION_STATE_KEY_FMT = "oauth_state:{provider}"
+_SESSION_LOGIN_KEY_FMT = "oauth_login:{provider}"
 _CALLBACK_ROUTE_NAME = "users_oauth_callback"
+
+
+def _login_secrets(value: object) -> LoginSecrets | None:
+    """The stored PKCE verifier and nonce, or ``None`` if absent or malformed."""
+    if not isinstance(value, dict):
+        return None
+    verifier, nonce = value.get("verifier"), value.get("nonce")
+    if not isinstance(verifier, str) or not verifier or not isinstance(nonce, str) or not nonce:
+        return None
+    return {"verifier": verifier, "nonce": nonce}
 
 
 def _resolve_provider(request: Request, provider: str) -> OAuthProvider:
@@ -108,8 +122,12 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         provider_obj = _resolve_provider(request, provider)
         state = secrets.token_urlsafe(32)
         request.session[_SESSION_STATE_KEY_FMT.format(provider=provider)] = state
+        login: LoginSecrets | None = None
+        if provider_obj.uses_pkce:
+            login = {"verifier": secrets.token_urlsafe(64), "nonce": secrets.token_urlsafe(32)}
+            request.session[_SESSION_LOGIN_KEY_FMT.format(provider=provider)] = login
         callback_url = str(request.url_for(_CALLBACK_ROUTE_NAME, provider=provider))
-        authorization_url = await provider_obj.client.get_authorization_url(callback_url, state)
+        authorization_url = await provider_obj.authorization_url(callback_url, state, login)
         return RedirectResponse(authorization_url, status_code=302)
 
     @router.get("/{provider}/callback", name=_CALLBACK_ROUTE_NAME)
@@ -124,8 +142,21 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         """Verify state, exchange code, find-or-create user, set cookie, redirect."""
         provider_obj = _resolve_provider(request, provider)
         state_key = _SESSION_STATE_KEY_FMT.format(provider=provider)
-        expected_state = request.session.pop(state_key, None)
-        if not state or not expected_state or not secrets.compare_digest(state, expected_state):
+        expected_state = request.session.get(state_key)
+        # Compared before anything is spent, so a forged or stray reply cannot
+        # consume the pending login; the matching reply spends the state together
+        # with that login's PKCE verifier and nonce.
+        if (
+            not state
+            or not isinstance(expected_state, str)
+            or not secrets.compare_digest(state, expected_state)
+        ):
+            return refuse_login(request, "OAUTH_INVALID_STATE")
+        request.session.pop(state_key, None)
+        login = _login_secrets(
+            request.session.pop(_SESSION_LOGIN_KEY_FMT.format(provider=provider), None)
+        )
+        if provider_obj.uses_pkce and login is None:
             return refuse_login(request, "OAUTH_INVALID_STATE")
         if "error" in request.query_params:
             return refuse_login(request, "OAUTH_PROVIDER_ERROR")
@@ -134,11 +165,13 @@ def register_oauth_routes(api_router: APIRouter) -> None:
 
         callback_url = str(request.url_for(_CALLBACK_ROUTE_NAME, provider=provider))
         try:
-            token = await provider_obj.client.get_access_token(code, callback_url)
+            token = await provider_obj.exchange_code(code, callback_url, login)
             account_id, account_email, email_verified = await provider_obj.get_identity(
-                token["access_token"]
+                token, login
             )
-        except (HTTPXOAuthError, HTTPError):
+        except (HTTPXOAuthError, HTTPError) as exc:
+            # The browser only sees OAUTH_PROVIDER_ERROR; say why for the operator.
+            logger.warning("OAuth sign-in through %s refused: %s", provider, exc)
             return refuse_login(request, "OAUTH_PROVIDER_ERROR")
         if account_email is None:
             return refuse_login(request, "OAUTH_NO_EMAIL")
