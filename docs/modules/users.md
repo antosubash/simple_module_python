@@ -226,6 +226,8 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `oauth_microsoft_client_id` / `oauth_microsoft_client_secret` / `oauth_microsoft_tenant` | `""` / `""` / `"common"` — Microsoft (Entra ID) |
 | `oauth_microsoft_trust_tenant_upn` | `False` — treat a member's UPN (the `upn` claim, else `preferred_username`) as a verified email; only with a tenant GUID (see [Signing in pre-approved staff with Microsoft](#signing-in-pre-approved-staff-with-microsoft)) |
 | `oauth_signup_providers` / `oauth_signup_default_role` | `[]` / `""` — providers that create accounts on first sign-in with `allow_signup` off, and the role those accounts get (see [Provisioning accounts through SSO](#provisioning-accounts-through-sso)) |
+| `oauth_trusted_email_domains` | `{}` — per provider, domains whose addresses count as verified; `microsoft` and `oidc` only (see [Trusted email domains](#trusted-email-domains)) |
+| `oauth_sync_profile` | `False` — update `full_name` from the IdP's display name on every sign-in, not only when the account is created |
 | `oauth_oidc_client_id` / `oauth_oidc_client_secret` / `oauth_oidc_discovery_url` / `oauth_oidc_display_name` | `""` / `""` / `""` / `"OIDC"` — generic OIDC |
 
 ## Permissions
@@ -559,6 +561,18 @@ With `allow_signup` off, an OAuth sign-in for an identity nobody holds is refuse
 - `oauth_signup_providers` (for example `["microsoft"]`): a first sign-in through a listed provider creates the account, as an external (SSO-only) user, when the provider proved the email. An unproven email is refused even with `allow_signup` on, so listing a provider never widens what it can do. For Microsoft that means turning on the trusted-tenant policy above; GitHub needs a verified primary email; generic OIDC needs `email_verified: true`.
 - `oauth_signup_default_role`: the role those accounts get, with `allow_signup` on too: a listed provider's accounts never get the `user` role that self-signup grants. Blank (the default) means none: the account signs in but holds no permissions until an admin grants a role. Every account the provider creates gets this role, so name one whose permissions you would give to anyone in that directory; `admin` is refused, and a name with no matching role is logged and grants nothing.
 - Local registration (`POST /api/users/auth/register`, `/users/register`, the "Sign up" links) still follows `allow_signup` alone. Providers that are not listed keep the old rule: they create accounts only with `allow_signup` on, and those accounts get the `user` role.
+
+### Trusted email domains
+
+`oauth_trusted_email_domains` lets an operator vouch for addresses on domains their organisation owns, per provider, for example `{"microsoft": ["iiasa.ac.at"]}`. An address on a listed domain then counts as verified for that provider only, so it links to an invited or verified local account and can provision one (see above). Domains match exactly and case-insensitively after IDNA normalisation; subdomains are never implied.
+
+- Only `microsoft` and `oidc` can be listed. Anyone can add an unverified address on any domain to a Google or GitHub account, so a domain cannot vouch for it there; those keys are refused.
+- `microsoft` needs `oauth_microsoft_tenant` set to the tenant GUID (otherwise the domains are ignored and the settings load logs `users.oauth.trusted_domains_ignored`), and a member of that tenant: matching `tid` and no `idp` naming another issuer. The address is the `upn` claim or `preferred_username` on a listed domain; the user-editable `email` claim counts only when Entra marks its domain verified (the `xms_edov` optional claim).
+- `oidc` trusts the address your IdP returns on a listed domain unless the IdP itself says `email_verified: false`. List a domain only if your IdP does not let users set their own email.
+
+### Linked identities
+
+Each sign-in refreshes the IdP profile on the account's `users_oauth_account` link: `subject` (`sub`), `username`, `display_name`, `extra` (Microsoft's `oid` and `tid`) and `last_sign_in_at`. The admin **Edit user** page lists them under "Linked sign-ins". A new account takes `full_name` from the IdP's display name; later sign-ins update it only with `oauth_sync_profile` on, and never clear it. The account's email never changes on sign-in.
 
 ## Importing users from another system
 
