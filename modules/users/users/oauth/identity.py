@@ -25,10 +25,17 @@ class OAuthIdentity:
     username: str | None = None
     display_name: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+    # False when the provider explicitly said the email is NOT verified: a
+    # trusted domain must not overrule the IdP's own verdict (#878).
+    domain_trust_allowed: bool = field(default=True, compare=False)
 
     def trusting(self, domains: Collection[str]) -> OAuthIdentity:
         """This identity with its email verified when it sits on one of ``domains``."""
-        if self.email_verified or not email_on_domains(self.email, domains):
+        if (
+            self.email_verified
+            or not self.domain_trust_allowed
+            or not email_on_domains(self.email, domains)
+        ):
             return self
         return replace(self, email_verified=True)
 

@@ -159,3 +159,14 @@ async def test_oidc_trusted_domain_counts_as_proof():
     assert (await provider.get_identity(_TOKEN)).email_verified is True
     other = OAuthProvider("oidc", "OIDC", client, trusted_domains=frozenset({"corp.com"}))
     assert (await other.get_identity(_TOKEN)).email_verified is False
+
+
+@pytest.mark.anyio
+async def test_a_trusted_domain_never_overrules_an_explicit_unverified():
+    provider = OAuthProvider(
+        "oidc",
+        "OIDC",
+        _ClaimClient({"email_verified": False}),
+        trusted_domains=frozenset({"example.com"}),
+    )
+    assert (await provider.get_identity(_TOKEN)).email_verified is False

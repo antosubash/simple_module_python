@@ -101,6 +101,7 @@ class OAuthProvider(NamedTuple):
                 subject=str(profile["sub"]),
                 username=_text(profile.get("preferred_username")),
                 display_name=_text(profile.get("name")),
+                domain_trust_allowed=profile.get("email_verified") is not False,
             )
         if self.name == "google":
             return _google_identity(await self.client.get_profile(access_token))
