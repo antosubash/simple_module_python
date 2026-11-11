@@ -180,7 +180,7 @@ class _UsersCoreSettings(DbBackedSettings):
     bootstrap_user_password: str = ""
 
     @model_validator(mode="after")
-    def _warn_on_writable_admin_demo(self) -> UsersSettings:
+    def _warn_on_writable_admin_demo(self) -> _UsersCoreSettings:
         """A writable admin demo is a public superuser — say so, loudly.
 
         Not an error: an operator who resets the demo database on a timer has
@@ -200,7 +200,7 @@ class _UsersCoreSettings(DbBackedSettings):
         return self
 
     @model_validator(mode="after")
-    def _forbid_placeholder_token_secrets_in_production(self) -> UsersSettings:
+    def _forbid_placeholder_token_secrets_in_production(self) -> _UsersCoreSettings:
         """Fail boot if the reset/verify token secrets are still placeholders.
 
         Both are HMAC keys for fastapi-users JWTs. A well-known default lets
