@@ -98,11 +98,13 @@ async def test_the_signed_tid_must_match_the_issuer():
     [
         (TENANT, {}, True),
         (TENANT, {"idp": "https://sts.windows.net/other/"}, False),
+        (TENANT, {"idp": f"https://sts.windows.net/{TENANT}/"}, True),
+        (TENANT, {"idp": f"https://login.microsoftonline.com/{TENANT}/v2.0"}, True),
         (TENANT, {"preferred_username": "jane_x.com#EXT#@corp.onmicrosoft.com"}, False),
         (TENANT, {"preferred_username": None}, False),
         ("common", {}, False),
     ],
-    ids=["member", "guest-idp", "guest-ext", "no-username", "common"],
+    ids=["member", "guest-idp", "home-idp-v1", "home-idp-v2", "guest-ext", "no-username", "common"],
 )
 async def test_trust_needs_a_member_of_the_pinned_tenant(tenant, claims, trusted):
     token = sign(id_claims(nonce=_NONCE, **claims))
@@ -124,3 +126,8 @@ def test_account_ids_match_what_graph_returned(oid, graph_id):
 async def test_a_non_email_username_is_no_email():
     token = sign(id_claims(nonce=_NONCE, preferred_username="+43 1 234 5678"))
     assert (await _identity(FakeMicrosoft(), token))[1] is None
+
+
+async def test_the_upn_claim_wins_over_an_alternate_login_alias():
+    claims = id_claims(nonce=_NONCE, preferred_username="alias@corp.com", upn="jane@corp.com")
+    assert (await _identity(FakeMicrosoft(), sign(claims)))[1] == "jane@corp.com"

@@ -113,9 +113,9 @@ means none until an admin grants one, and `admin` is refused.
 Each provider's callback URL is `<base-url>/api/users/auth/<provider>/callback`
 (`google`, `github`, `microsoft`, `oidc`).
 
-> **Note:** the Microsoft identity email is the ID token's
-> `preferred_username`: the UPN for tenant members, the home address for a
-> guest. A pinned tenant GUID also requires the token's `tid` to match it.
+> **Note:** the Microsoft identity email is the ID token's optional `upn`
+> claim when the app registration adds it, else `preferred_username`: the UPN
+> for tenant members, the home address for a guest. A pinned tenant GUID also requires the token's `tid` to match it.
 
 ### Migrating from `SM_USERS_OAUTH_*` env vars
 

@@ -538,7 +538,7 @@ Microsoft uses OpenID Connect on the tenant's v2.0 endpoints (`https://login.mic
 
 - The app registration needs the `openid`, `profile` and `email` delegated permissions; Graph `User.Read` is no longer requested.
 - The linked account id is the value Graph `/me` returned before: the `oid` claim for work and school accounts, and for a personal account the 16 hex digits `oid` carries after its zero prefix. Links made before this change keep matching.
-- The email is `preferred_username`: the UPN for a tenant member, the home address for a guest. The optional `email` claim is not used.
+- The email is the optional `upn` claim when the app registration adds it, else `preferred_username`: the UPN for a tenant member, the home address for a guest. With email as an alternate login ID turned on, `preferred_username` is the address the user typed, so add the `upn` optional claim (Token configuration → Add optional claim → ID → `upn`) to keep matching invites by UPN. The optional `email` claim is not used, and a phone-number username counts as no email.
 
 ### Signing in pre-approved staff with Microsoft
 
@@ -546,7 +546,7 @@ Microsoft email claims are tenant-controlled, so by default a Microsoft sign-in 
 
 For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that tenant's GUID and turn on `oauth_microsoft_trust_tenant_upn`. A **member** account's UPN (the ID token's `preferred_username`) is on a domain the tenant verified, so it then counts as a verified email: it links to an invited or verified local account with that address, and an account it creates starts verified. The `mail` attribute and the `email` claim are never used.
 
-- Guest and other external accounts (an `idp` claim in the ID token, or a UPN containing `#EXT#`) and an empty username stay unverified.
+- Guest and other external accounts (an `idp` claim naming another issuer, or a UPN containing `#EXT#`) and an empty username stay unverified.
 - With `common`, `organizations`, `consumers` (or its fixed GUID) or a domain-name tenant the setting has no effect, and the settings load logs a `users.oauth.microsoft_trust_ignored` warning.
 - An unverified, un-invited local account with the same address is still refused (`OAUTH_ACCOUNT_NOT_VERIFIED`), and with `allow_signup=False` a Microsoft user who has no account is refused unless `microsoft` is in `oauth_signup_providers` (see below).
 - A user whose UPN differs from the address they were invited with does not match the invite; invite them by their UPN.

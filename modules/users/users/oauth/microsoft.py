@@ -69,17 +69,16 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
         oid = claims.get("oid")
         if not isinstance(oid, str) or not _GUID_RE.fullmatch(oid):
             raise IdTokenError("ID token has no object id")
-        email = claims.get("preferred_username")
-        # Personal accounts can sign in with a phone number: that is no email.
-        email = email if isinstance(email, str) and "@" in email else None
+        email = _account_email(claims)
         # Proof only for a member of the one tenant the operator pinned: Entra
-        # sets ``idp`` for guests and other external identities (#873).
+        # names another ``idp`` for guests and other external identities (#873).
+        idp = claims.get("idp")
         trusted = (
             trust_email
             and email is not None
             and is_tenant_guid(self.tenant)
             and tid == self.tenant
-            and "idp" not in claims
+            and (idp is None or idp in _home_issuers(tid))
             and "#EXT#" not in email.upper()
         )
         return graph_account_id(oid), email, trusted
@@ -117,6 +116,25 @@ def graph_account_id(oid: str) -> str:
     if oid.startswith(_PERSONAL_OID_PREFIX):
         return oid[len(_PERSONAL_OID_PREFIX) :].replace("-", "")
     return oid
+
+
+def _account_email(claims: dict[str, Any]) -> str | None:
+    """The sign-in address: the optional ``upn`` claim, else ``preferred_username``.
+
+    With email as an alternate login ID, ``preferred_username`` is whatever the
+    user typed; an app registration that adds the ``upn`` optional claim gets the
+    UPN Graph used to return. A phone-number username is no email.
+    """
+    for name in ("upn", "preferred_username"):
+        value = claims.get(name)
+        if isinstance(value, str) and "@" in value:
+            return value
+    return None
+
+
+def _home_issuers(tid: str) -> set[str]:
+    """``idp`` values that mean the tenant itself authenticated the account (v1 and v2)."""
+    return {f"{_LOGIN_HOST}/{tid}/v2.0", f"https://sts.windows.net/{tid}/"}
 
 
 def _unverified_tid(id_token: str) -> str | None:
