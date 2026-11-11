@@ -20,7 +20,7 @@ from httpx_oauth.clients.microsoft import MicrosoftGraphOAuth2
 from httpx_oauth.exceptions import HTTPXOAuthError
 
 from users.core.oauth_settings import MICROSOFT_CONSUMERS_TENANT, is_tenant_guid
-from users.oauth.identity import OAuthIdentity, email_on_domains
+from users.oauth.identity import OAuthIdentity, email_on_domains, text_or_none
 
 _LOGIN_HOST = "https://login.microsoftonline.com"
 _SCOPES = ["openid", "profile", "email"]
@@ -63,6 +63,9 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
         oid = claims.get("oid")
         if not isinstance(oid, str) or not _GUID_RE.fullmatch(oid):
             raise IdTokenError("ID token has no object id")
+        subject = claims.get("sub")
+        if not isinstance(subject, str) or not subject:
+            raise IdTokenError("ID token has no subject")
         email = _account_email(claims)
         # Proof only for a member of the one tenant the operator pinned: Entra
         # names another ``idp`` for guests and other external identities (#873).
@@ -81,9 +84,9 @@ class MicrosoftOidc(MicrosoftGraphOAuth2):
             account_id=graph_account_id(oid),
             email=email,
             email_verified=bool(trusted),
-            subject=claims["sub"],
-            username=email or _text(claims.get("preferred_username")),
-            display_name=_text(claims.get("name")),
+            subject=text_or_none(claims.get("sub")),
+            username=email or text_or_none(claims.get("preferred_username")),
+            display_name=text_or_none(claims.get("name")),
             extra={"oid": oid, "tid": tid},
         )
 
@@ -173,10 +176,6 @@ def _domain_email(claims: dict[str, Any], domains: Collection[str]) -> str | Non
         ):
             return value
     return None
-
-
-def _text(value: object) -> str | None:
-    return value if isinstance(value, str) and value.strip() else None
 
 
 def _home_issuers(tid: str) -> set[str]:

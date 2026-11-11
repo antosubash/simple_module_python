@@ -48,3 +48,8 @@ def email_on_domains(email: str | None, domains: Collection[str]) -> bool:
         return normalize_domain(email.rsplit("@", 1)[1]) in domains
     except ValueError:
         return False
+
+
+def text_or_none(value: object) -> str | None:
+    """``value`` when it is a non-blank string, else ``None`` (claims are untyped)."""
+    return value if isinstance(value, str) and value.strip() else None

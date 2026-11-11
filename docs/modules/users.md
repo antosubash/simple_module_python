@@ -169,7 +169,7 @@ permissions role pages. The edit page's *Recent activity* card reads the core
 
 `UserAccessToken` (table `users_access_token`) — bearer API tokens, stored as SHA-256 digests (the secret is shown once at login); resolved by `UsersAuthProvider` on `Authorization: Bearer` requests (sessions remain the primary browser auth).
 
-`OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`.
+`OAuthAccount` (table `users_oauth_account`) — linked OAuth/OIDC accounts: `oauth_name`, `account_id`, `account_email`, `access_token`, `refresh_token`, `expires_at`, plus the IdP profile refreshed on each sign-in (#877): `subject`, `username`, `display_name`, `extra`, `last_sign_in_at`.
 
 `RefreshToken` (table `users_refresh_token`) — opaque refresh tokens for the bearer flow: `token` (PK, SHA-256 digest of the secret), `family_id` (rotation lineage; presenting an already-revoked token revokes the whole family), `user_id`, `created_at`, `expires_at`, `revoked_at`.
 

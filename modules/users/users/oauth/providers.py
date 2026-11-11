@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 from auth.oidc_common.session import pkce_challenge
 
 from users.core.oauth_settings import is_tenant_guid
-from users.oauth.identity import OAuthIdentity
+from users.oauth.identity import OAuthIdentity, text_or_none
 
 if TYPE_CHECKING:
     from httpx_oauth.oauth2 import BaseOAuth2
@@ -99,8 +99,8 @@ class OAuthProvider(NamedTuple):
                 profile.get("email"),
                 profile.get("email_verified") is True,
                 subject=str(profile["sub"]),
-                username=_text(profile.get("preferred_username")),
-                display_name=_text(profile.get("name")),
+                username=text_or_none(profile.get("preferred_username")),
+                display_name=text_or_none(profile.get("name")),
                 domain_trust_allowed=profile.get("email_verified") is not False,
             )
         if self.name == "google":
@@ -115,20 +115,16 @@ class OAuthProvider(NamedTuple):
             email,
             verified,
             subject=account_id,
-            username=_text(profile.get("login")),
-            display_name=_text(profile.get("name")),
+            username=text_or_none(profile.get("login")),
+            display_name=text_or_none(profile.get("name")),
         )
-
-
-def _text(value: object) -> str | None:
-    return value if isinstance(value, str) and value.strip() else None
 
 
 def _google_identity(profile: dict[str, Any]) -> OAuthIdentity:
     """People API profile → resourceName, primary email and its ``metadata.verified``."""
     subject = str(profile["resourceName"])
     names = profile.get("names") or [{}]
-    display_name = _text(names[0].get("displayName")) if isinstance(names[0], dict) else None
+    display_name = text_or_none(names[0].get("displayName")) if isinstance(names[0], dict) else None
     primary = next(
         (e for e in profile.get("emailAddresses", []) if e.get("metadata", {}).get("primary")),
         None,
