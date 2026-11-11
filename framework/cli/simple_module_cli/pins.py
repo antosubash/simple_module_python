@@ -15,6 +15,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# What resolve_framework_version() returns for an install without dist-info.
+PLACEHOLDER_VERSION = "0.0.0"
+
 
 def resolve_framework_version() -> str:
     """Resolve the framework version that scaffolded apps should pin against.
@@ -31,7 +34,7 @@ def resolve_framework_version() -> str:
     try:
         return pkg_version("simple_module_cli")
     except PackageNotFoundError:
-        return "0.0.0"
+        return PLACEHOLDER_VERSION
 
 
 def _pin_one(dep: str, version: str) -> str:

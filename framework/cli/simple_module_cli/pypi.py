@@ -57,6 +57,6 @@ def fetch_latest(name: str, *, include_pre: bool, fetcher: Fetcher) -> str | Non
     return fallback if is_valid_version(fallback) else None
 
 
-def default_fetcher(url: str) -> dict[str, Any]:
-    with urllib.request.urlopen(url, timeout=10) as resp:
+def default_fetcher(url: str, timeout: float = 10) -> dict[str, Any]:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))

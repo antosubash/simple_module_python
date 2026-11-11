@@ -9,7 +9,7 @@ pip install simple_module_cli
 # or, to keep the CLI in its own venv:
 pipx install simple_module_cli
 # or, to run it without installing:
-uvx --from simple_module_cli smpy new my-app
+uvx --from simple_module_cli@latest smpy new my-app
 ```
 
 The package depends only on `typer`, `tomlkit` and `packaging` — installing it does **not** pull in FastAPI, SQLModel, or any other framework runtime.

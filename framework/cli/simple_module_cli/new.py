@@ -10,10 +10,12 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli._version_check import warn_if_outdated
 from simple_module_cli.add_cmd import run_add
 from simple_module_cli.app_project import create_app_project
 from simple_module_cli.case import InvalidScaffoldNameError, to_kebab_case, validate_scaffold_name
 from simple_module_cli.catalog import PRESETS, expand_deps
+from simple_module_cli.pins import resolve_framework_version
 from simple_module_cli.wizard import run_wizard
 
 __all__ = ["new_project"]
@@ -110,6 +112,7 @@ def new_project(
     except InvalidScaffoldNameError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    warn_if_outdated(resolve_framework_version())
     pypi_name = to_kebab_case(name)
     if pypi_name != name:
         typer.echo(f"Normalizing PyPI name to {pypi_name!r}.")

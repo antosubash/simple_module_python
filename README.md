@@ -15,10 +15,12 @@ A modular-monolith framework for Python. Each feature lives in its own self-cont
 If you want to **build an app on simple_module**, not hack on the framework itself:
 
 ```bash
-uvx --from simple_module_cli smpy new my-app
+uvx --from simple_module_cli@latest smpy new my-app
 cd my-app
 make dev
 ```
+
+`@latest` matters: without it `uvx` reuses an `smpy` you installed earlier with `uv tool install`, and an older CLI scaffolds an app pinned to its own, older framework version. `smpy new` warns when PyPI has a newer CLI.
 
 That scaffolds a working FastAPI + Inertia + React app with `users`, `dashboard`, and `permissions` pre-wired. You land on `/users/login`, sign in with the admin account you bootstrap, and go from there.
 

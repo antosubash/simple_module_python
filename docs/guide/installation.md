@@ -32,6 +32,8 @@ That puts `smpy` on your PATH globally. Confirm with:
 smpy --help
 ```
 
+Already installed? `uv tool upgrade simple_module_cli` (or `pipx upgrade simple_module_cli`). A new app pins the framework to the CLI's own version, so an old CLI scaffolds an old app; `smpy new` warns when PyPI has a newer one.
+
 ## Scaffold a new app
 
 ```bash

@@ -62,7 +62,7 @@ features:
 ## Try it in 60 seconds
 
 ```bash
-uv tool install simple_module_cli
+uv tool install simple_module_cli   # already installed? uv tool upgrade simple_module_cli
 smpy new myapp --yes
 cd myapp
 make dev          # API on :8000, Vite on :5050
