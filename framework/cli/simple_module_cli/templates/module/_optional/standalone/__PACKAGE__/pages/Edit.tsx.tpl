@@ -1,23 +1,24 @@
 import { Head, useForm } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
+import type { components } from './api.generated';
 
-export default function Create() {
-  const { t } = useT();
-  const form = useForm({ name: '', description: '' });
+type Item = components['schemas']['{{SINGULAR_CLASS}}Out'];
+
+export default function Edit({ item }: { item: Item }) {
+  const form = useForm({ name: item.name, description: item.description ?? '' });
   return (
-    <PageShell title={t(keys.{{PACKAGE_NAME}}.create.title)}>
-      <Head title={t(keys.{{PACKAGE_NAME}}.create.title)} />
+    <PageShell title="Edit {{SINGULAR_CLASS}}">
+      <Head title="Edit {{SINGULAR_CLASS}}" />
       <form
         className="max-w-xl space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          form.post('/{{MODULE_SLUG}}/');
+          form.post(`/{{MODULE_SLUG}}/${item.id}`);
         }}
       >
         <label className="block">
-          <span className="block text-sm">{t(keys.{{PACKAGE_NAME}}.form.name_label)}</span>
+          <span className="block text-sm">Name</span>
           <input
             required
             value={form.data.name}
@@ -26,7 +27,7 @@ export default function Create() {
           />
         </label>
         <label className="block">
-          <span className="block text-sm">{t(keys.{{PACKAGE_NAME}}.form.description_label)}</span>
+          <span className="block text-sm">Description</span>
           <textarea
             value={form.data.description}
             onChange={(e) => form.setData('description', e.target.value)}
@@ -38,11 +39,11 @@ export default function Create() {
           disabled={form.processing}
           className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
         >
-          {t(keys.{{PACKAGE_NAME}}.create.submit_button)}
+          Save
         </button>
       </form>
     </PageShell>
   );
 }
 
-Create.layout = [AuthenticatedLayout];
+Edit.layout = [AuthenticatedLayout];

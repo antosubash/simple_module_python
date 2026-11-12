@@ -27,7 +27,11 @@ make migrate
 same `create_module` as `smpy create-module`, so both produce the same tree
 below (permissions, menu item with `label_key`, `core/constants.py`, CRUD sample,
 `locales/en.json`); the in-repo variant adds workspace-sourced `pyproject.toml`
-metadata, `LICENSE`, and i18n-keyed pages. For a **standalone publishable
+metadata and a `LICENSE`. The pages read their text from `locales/en.json`
+through `t(keys.<module>.…)`; the host's `make gen-i18n` (also run by
+`make install` and each dev boot) adds the module to `keys`. A `--standalone`
+module repo gets pages with literal English instead, since it has no host to
+generate `keys`. For a **standalone publishable
 package** (its own repo, with CI + PyPI `publish.yml`), use
 `smpy create-module orders`; pass `--standalone` to force the `.github/`
 workflows, then `uv sync` (or `pip install -e ./orders`) to install it into the

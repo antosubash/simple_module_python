@@ -852,7 +852,8 @@ survive a real host build (Vite import resolution, Tailwind scanning, the
 `gen-pages` CSS emission). `verify` answers that by scaffolding a
 throwaway host into `.smpy/verify-host/` (cached, gitignored), installing
 your module into it as an editable path dependency, and running the host's
-real `gen-pages` + `npm run build`:
+real `gen-pages`, `gen-i18n` (so pages that read `keys.<module>` type-check)
+and `npm run build`:
 
 ```bash
 uv run smpy module verify          # warm re-runs reuse the cached host

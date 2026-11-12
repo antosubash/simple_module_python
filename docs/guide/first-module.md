@@ -246,7 +246,7 @@ async def create_order(data: OrderCreate, service: OrderServiceDep) -> OrderOut:
 `pages/Browse.tsx` was scaffolded — extend it:
 
 ```tsx
-import { useT } from "@simple-module-py/i18n";
+import { keys, useT } from "@simple-module-py/i18n";
 import { PageShell } from "@simple-module-py/ui/components/PageShell";
 import {
   Table,
@@ -261,14 +261,14 @@ import type { OrderOut } from "../contracts";
 export default function Browse({ orders }: { orders: OrderOut[] }) {
   const { t } = useT();
   return (
-    <PageShell title={t("orders.browse.title")}>
+    <PageShell title={t(keys.orders.browse.title)}>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>#</TableHead>
-            <TableHead>{t("orders.fields.customer")}</TableHead>
-            <TableHead>{t("orders.fields.total")}</TableHead>
-            <TableHead>{t("orders.fields.status")}</TableHead>
+            <TableHead>{t(keys.orders.fields.customer)}</TableHead>
+            <TableHead>{t(keys.orders.fields.total)}</TableHead>
+            <TableHead>{t(keys.orders.fields.status)}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -287,7 +287,7 @@ export default function Browse({ orders }: { orders: OrderOut[] }) {
 }
 ```
 
-Translations (`orders/locales/en.json`):
+Translations (`orders/locales/en.json`). `keys.orders.*` is generated from this file by `make gen-i18n`, which `make install`, `make build` and every dev boot run, so a new key needs one of them before `tsc` sees it:
 
 ```json
 {

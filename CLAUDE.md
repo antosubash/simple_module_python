@@ -446,7 +446,9 @@ templates `smpy create-module` / `smpy new` use
 (`framework/cli/simple_module_cli/templates/module/`). Change a convention there,
 once. The `framework_repo` variant is a template overlay
 (`_optional/framework_repo/`: workspace-sourced `pyproject.toml` with the
-`check_metadata.py` fields, `LICENSE`, `README.md`, i18n-keyed pages).
+`check_metadata.py` fields, `LICENSE`, `README.md`). Pages are i18n-keyed
+everywhere except `--standalone` module repos (`_optional/standalone/`), which
+have no host to generate `keys`.
 
 It generates a CRUD sample (model, DTOs, service, REST + Inertia endpoints,
 Browse/Create/Edit pages, `locales/en.json`, tests) whose permissions, page keys

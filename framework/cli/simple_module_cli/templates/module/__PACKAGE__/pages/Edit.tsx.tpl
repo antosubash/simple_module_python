@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type { components } from './api.generated';
@@ -6,10 +7,11 @@ import type { components } from './api.generated';
 type Item = components['schemas']['{{SINGULAR_CLASS}}Out'];
 
 export default function Edit({ item }: { item: Item }) {
+  const { t } = useT();
   const form = useForm({ name: item.name, description: item.description ?? '' });
   return (
-    <PageShell title="Edit {{SINGULAR_CLASS}}">
-      <Head title="Edit {{SINGULAR_CLASS}}" />
+    <PageShell title={t(keys.{{PACKAGE_NAME}}.edit.title)}>
+      <Head title={t(keys.{{PACKAGE_NAME}}.edit.title)} />
       <form
         className="max-w-xl space-y-3"
         onSubmit={(e) => {
@@ -18,7 +20,7 @@ export default function Edit({ item }: { item: Item }) {
         }}
       >
         <label className="block">
-          <span className="block text-sm">Name</span>
+          <span className="block text-sm">{t(keys.{{PACKAGE_NAME}}.form.name_label)}</span>
           <input
             required
             value={form.data.name}
@@ -27,7 +29,7 @@ export default function Edit({ item }: { item: Item }) {
           />
         </label>
         <label className="block">
-          <span className="block text-sm">Description</span>
+          <span className="block text-sm">{t(keys.{{PACKAGE_NAME}}.form.description_label)}</span>
           <textarea
             value={form.data.description}
             onChange={(e) => form.setData('description', e.target.value)}
@@ -39,7 +41,7 @@ export default function Edit({ item }: { item: Item }) {
           disabled={form.processing}
           className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
         >
-          Save
+          {t(keys.{{PACKAGE_NAME}}.edit.submit_button)}
         </button>
       </form>
     </PageShell>

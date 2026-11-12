@@ -23,7 +23,9 @@ dev-api:
 dev-ui:
 	cd client_app && npm run dev
 
-build:
+# Module pages read `keys.<module>` (gen-i18n); a bundle built without them
+# crashes those pages at runtime, and tsc does not catch it.
+build: gen-pages gen-i18n
 	cd client_app && npm run build
 
 # Testing
