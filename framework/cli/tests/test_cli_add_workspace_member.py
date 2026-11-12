@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import typer
+from simple_module_cli._add_install import _sync_command
 from simple_module_cli.add_cmd import run_add
 from simple_module_cli.cli import _app_add_command
 from simple_module_cli.git_source import parse_add_spec
@@ -107,6 +108,7 @@ def test_workspace_hint_inside_host_dir_prints_a_path_spec(
     command = _app_add_command(module)
 
     assert command is not None
+    assert command.endswith("--path host")  # printed for the app root
     spec = command.split("smpy add ", 1)[1].split(" --path", 1)[0]
     assert spec == "./modules/forest_plots"
     assert parse_add_spec(spec).kind == "path"
@@ -132,8 +134,6 @@ def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) 
 
 def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:
     """A flat app nested under an unrelated workspace must not sync that workspace."""
-    from simple_module_cli._add_install import _sync_command
-
     (tmp_path / "pyproject.toml").write_text(WORKSPACE, encoding="utf-8")
     app_dir = tmp_path / "elsewhere" / "app"
     app_dir.mkdir(parents=True)
