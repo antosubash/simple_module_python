@@ -71,7 +71,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 `smpy users create-admin` is contributed by the `users` module as a `smpy users` subcommand:
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
 
 ## Scaffolded-app Makefile

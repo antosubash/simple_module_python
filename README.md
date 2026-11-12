@@ -276,7 +276,7 @@ of them: a host that ships only `keycloak` (or only `oidc`) keeps it regardless 
 Either use the CLI:
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
 
 Or let the app bootstrap it automatically on first boot by setting env vars **before** running `make migrate && make dev`:

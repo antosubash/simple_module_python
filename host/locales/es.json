@@ -1,10 +1,4 @@
 {
-  "admin": {
-    "title": "Administración",
-    "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
-    "empty": "No hay herramientas de administración disponibles para tu cuenta.",
-    "overview": "Resumen"
-  },
   "landing": {
     "badge": "✦ Plantilla FastAPI + Inertia con todo incluido",
     "hero_title_line1": "Aplicaciones Python modulares,",

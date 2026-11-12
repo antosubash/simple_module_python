@@ -24,5 +24,10 @@
   },
   "errors": {
     "token_not_allowed": "API-Tokens können auf dieser Route nicht verwendet werden. Verwenden Sie eine angemeldete Sitzung oder eine Route, deren Berechtigung zum Geltungsbereich des Tokens gehört."
+  },
+  "admin": {
+    "title": "Administration",
+    "description": "Benutzer, Zugriff, Darstellung und Systemeinstellungen verwalten.",
+    "empty": "Für Ihr Konto sind keine Administrationswerkzeuge verfügbar."
   }
 }

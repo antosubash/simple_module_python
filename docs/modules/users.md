@@ -331,7 +331,7 @@ undo the committed account; these callbacks do not retry mail delivery.
 - `smpy users create-admin --email <e> --password <p> [--full-name <name>] [--force]` — creates (or, with `--force`, updates) an admin user. Idempotent: re-running with the same email is a no-op without `--force`.
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
 
 Programmatically:

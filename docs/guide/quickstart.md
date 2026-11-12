@@ -40,8 +40,10 @@ The API and Vite dev servers start side by side. Visit:
 Until an administrator exists, every page redirects to the `/setup` wizard, which asks for one. To create it from a terminal instead (from inside `myapp`):
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
+
+It prompts for the password without echoing it. Pick a real one (a passphrase such as `correct-horse-battery-staple` is fine locally); `--password` exists for scripts, but it lands in your shell history.
 
 Sign in at `/users/login` and you land on the dashboard.
 
@@ -81,11 +83,11 @@ make migrate
 Restart `make dev` (modules are discovered at boot). Then:
 
 ```bash
-curl http://localhost:8000/api/orders
-# → [] (200)
+curl -i http://localhost:8000/api/orders
+# → 401 {"detail":"Not authenticated"}
 ```
 
-Visit `http://localhost:8000/orders` — you see the `Browse` page with an empty list and a "Create" button. The sidebar menu now includes an **Orders** entry (registered via `register_menu_items`).
+The scaffold guards every route with the module's `orders.*` permissions, so an anonymous request is refused. Sign in as the admin and visit `http://localhost:8000/orders/` — you see the `Browse` page with an empty list and a "Create" button. The sidebar menu now includes an **Orders** entry (registered via `register_menu_items`).
 
 ## 8. Run the tests
 
@@ -93,11 +95,14 @@ Visit `http://localhost:8000/orders` — you see the `Browse` page with an empty
 uv run pytest
 ```
 
-Single file:
+Just the new module, or a single file:
 
 ```bash
-uv run pytest modules/orders/tests/test_orders.py -v
+uv run pytest modules/orders
+uv run pytest modules/orders/tests/web/crud/test_orders_crud.py -v
 ```
+
+The scaffold writes `modules/orders/tests/web/crud/test_orders_crud.py` (REST and page endpoints), `modules/orders/tests/core/module/test_orders_module.py` and `modules/orders/tests/core/contracts/test_orders_schemas.py`.
 
 ## What just happened
 

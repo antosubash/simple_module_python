@@ -58,10 +58,13 @@ function AdminPage() {
 
   return (
     <>
-      <Head title={t(keys.host.admin.title)} />
-      <PageShell title={t(keys.host.admin.title)} description={t(keys.host.admin.description)}>
+      <Head title={t(keys.hosting.admin.title)} />
+      <PageShell
+        title={t(keys.hosting.admin.title)}
+        description={t(keys.hosting.admin.description)}
+      >
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(keys.host.admin.empty)}</p>
+          <p className="text-sm text-muted-foreground">{t(keys.hosting.admin.empty)}</p>
         ) : (
           <div className="space-y-8">
             {grouped.map(([group, groupItems_]) => (

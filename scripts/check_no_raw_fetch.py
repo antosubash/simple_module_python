@@ -31,6 +31,7 @@ _SOURCE_ROOTS = (
     ("packages", "ui", "src"),
     ("host", "client_app"),
     ("framework", "hosting", "simple_module_hosting", "setup_wizard"),
+    ("framework", "hosting", "simple_module_hosting", "admin_overview"),
 )
 _CLIENT_ROOT = ("packages", "ui", "src", "lib")
 

@@ -107,8 +107,10 @@ Or run the whole stack in containers — `make docker-up` builds the image (`doc
 If you included the `users` module:
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
+
+It prompts for the password; `--password` is for scripts and ends up in your shell history.
 
 Or set bootstrap env vars so the admin is auto-created on first boot:
 

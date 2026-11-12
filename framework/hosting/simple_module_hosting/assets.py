@@ -143,26 +143,32 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
     return result
 
 
-def framework_assets() -> ModuleAssets:
-    """The frontend the framework itself ships: the ``/setup`` wizard.
+def framework_assets() -> list[ModuleAssets]:
+    """The frontends the framework itself ships: ``/setup`` and ``/admin``.
 
     Emitted through the same records as a module's assets so a host's
-    ``vite.config.ts`` treats it identically — allowed in ``server.fs``, its
-    bare imports resolved against the host's ``node_modules``, its classes
+    ``vite.config.ts`` treats them identically — allowed in ``server.fs``, their
+    bare imports resolved against the host's ``node_modules``, their classes
     scanned by Tailwind — with nothing for the host to add by hand.
     """
-    from simple_module_hosting.setup_wizard import PAGES_NAME, package_dir, pages_dir
+    from simple_module_hosting import admin_overview, setup_wizard
 
-    root = package_dir()
-    return ModuleAssets(
-        name=PAGES_NAME,
-        package_name="simple_module_hosting.setup_wizard",
-        package_dir=root,
-        pages_dir=pages_dir(),
-        theme_css=None,
-        styles_css=None,
-        components_dir=root / COMPONENTS_DIR,
-    )
+    result = []
+    for package in (setup_wizard, admin_overview):
+        root = package.package_dir()
+        components = root / COMPONENTS_DIR
+        result.append(
+            ModuleAssets(
+                name=package.PAGES_NAME,
+                package_name=package.__name__,
+                package_dir=root,
+                pages_dir=package.pages_dir(),
+                theme_css=None,
+                styles_css=None,
+                components_dir=components if components.is_dir() else None,
+            )
+        )
+    return result
 
 
 _CSS_HEADER = """\
