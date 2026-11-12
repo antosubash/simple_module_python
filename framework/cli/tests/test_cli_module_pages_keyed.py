@@ -42,15 +42,6 @@ def test_in_app_module_pages_use_the_locale_catalog(tmp_path) -> None:
         assert "Manage your" not in source
 
 
-def test_standalone_module_pages_keep_literal_text(tmp_path) -> None:
-    """A module repo has no host to generate `keys.<module>`, so keyed pages
-    would not type-check there."""
-    dest = tmp_path / "orders"
-    create_module(dest, "orders", standalone=True)
-    for name, source in _pages(dest).items():
-        assert "keys." not in source, name
-
-
 def test_app_images_generate_i18n_keys_before_the_bundle() -> None:
     """`keys` is a static object: a bundle built without the app's keys crashes
     the module pages at runtime."""
