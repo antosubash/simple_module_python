@@ -103,10 +103,13 @@ def test_expression_index_warning_silent_elsewhere(caplog):
     assert caplog.text == ""
 
 
-def test_hook_warns_during_autogenerate_on_sqlite(caplog):
+def test_hook_is_silent_when_the_revision_creates_the_index(caplog):
+    """The re-emitted index is in the revision (GH #917); scope tests in
+    test_db_expression_index_warning_scope.py."""
     with caplog.at_level(logging.WARNING, logger="alembic.env"):
-        _autogenerate(_metadata(with_index=True))
-    assert "ix_flags_email_lower" in caplog.text
+        code, _, _ = _autogenerate(_metadata(with_index=True))
+    assert "ix_flags_email_lower" in code
+    assert "ix_flags_email_lower" not in caplog.text
 
 
 def test_plain_column_index_is_not_flagged():

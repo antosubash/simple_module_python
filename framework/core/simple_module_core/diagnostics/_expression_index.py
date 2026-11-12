@@ -15,6 +15,7 @@ from __future__ import annotations
 import importlib
 import logging
 from collections.abc import Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
@@ -94,6 +95,30 @@ def module_all_tables(mod: ModuleBase) -> list[Any]:
     return list(seen.values())
 
 
+_ROUNDTRIP_TARGET = "migrations-roundtrip-pg:"
+_DOCS_URL = "https://docs.py.simplemodule.dev/module-authoring"
+
+
+def expression_index_advice(root: Path | None = None) -> str:
+    """How to verify expression indexes, in terms of what this project has.
+
+    The framework repository has a Postgres round-trip make target; an app made
+    by ``smpy new`` does not, so pointing it there sends users nowhere (GH #917).
+    ``root`` defaults to the working directory, where make, alembic and doctor run.
+    """
+    makefile = (root or Path.cwd()) / "Makefile"
+    try:
+        has_target = _ROUNDTRIP_TARGET in makefile.read_text(encoding="utf-8")
+    except OSError:
+        has_target = False
+    if has_target:
+        return "verify them on PostgreSQL with `make migrations-roundtrip-pg`"
+    return (
+        "verify them on PostgreSQL: run `alembic upgrade heads` with `SM_DATABASE_URL` "
+        f"pointing at a PostgreSQL database. See {_DOCS_URL}"
+    )
+
+
 def check_expression_indexes_unverifiable(
     tables: Iterable[Any], dialect: str | None, module_name: str
 ) -> list[Diagnostic]:
@@ -114,16 +139,14 @@ def check_expression_indexes_unverifiable(
                 f"about them"
             ),
             module_name=module_name,
-            suggestion=(
-                "Add them to a revision by hand and verify on Postgres: "
-                "`make migrations-roundtrip-pg`"
-            ),
+            suggestion=f"Add them to a revision by hand and {expression_index_advice()}",
         )
     ]
 
 
 __all__ = [
     "check_expression_indexes_unverifiable",
+    "expression_index_advice",
     "find_expression_indexes",
     "index_is_expression_based",
     "module_all_tables",

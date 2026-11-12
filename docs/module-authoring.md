@@ -362,13 +362,17 @@ generated file against this checklist before treating it as portable
    scaffolded `env.py`) rewrite these for you; check any revision written
    without them, and always write `server_default=sa.false()` on the model.
 2. **Expression indexes.** SQLite cannot reflect `Index(..., text("lower(email)"))`,
-   so autogenerate skips it and `alembic check` cannot see it. Autogenerate on
-   SQLite logs a banner naming every expression index in your models, and
-   `make doctor` reports `SM026`. Add each one to a revision by hand
+   so autogenerate skips it and `alembic check` cannot see it. The revision hook
+   re-emits the expression indexes of every table a revision creates, so an
+   initial schema needs nothing. When a revision changes an existing table that
+   has one, autogenerate on SQLite logs a banner naming it, and `make doctor`
+   reports `SM026` for every expression index. If the change affects the index,
+   add it to the revision by hand
    (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
-   confirm with the PostgreSQL round trip below. The warning is deliberately not
-   an error: it fires on every autogenerate, including unrelated revisions, and
-   the Postgres round trip is the actual gate. Prefer writing an ordered index column as
+   confirm with the PostgreSQL round trip below; in an app without that make
+   target, run `alembic upgrade heads` with `SM_DATABASE_URL` pointing at a
+   PostgreSQL database. The warning is deliberately not an error: SQLite can
+   neither confirm nor refute the drift, and PostgreSQL is the actual gate. Prefer writing an ordered index column as
    `sa.desc(sa.column("col"))` over `sa.text("col DESC")` or `sa.desc("col")`:
    the latter two are expressions to Alembic, and while the host's include filter
    suppresses the false SQLite change when only the ordering differs, the column
