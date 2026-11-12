@@ -3,7 +3,16 @@ import { configureI18n, keys } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-configureI18n({ locale: 'en', messages: {} });
+import en from '../simple_module_hosting/locales/en.json';
+
+// The real catalog, so a missing or misspelt string fails here rather than
+// rendering its key.
+configureI18n({
+  locale: 'en',
+  messages: Object.fromEntries(
+    Object.entries(en.admin).map(([key, value]) => [`hosting.admin.${key}`, value]),
+  ),
+});
 
 const props = vi.hoisted(() => ({ menus: { adminSidebar: [] as unknown[] } }));
 
@@ -25,7 +34,8 @@ describe('Admin overview', () => {
   it('shows the empty state when the viewer has no admin tools', () => {
     props.menus.adminSidebar = [];
     render(<Overview />);
-    expect(screen.getByText(keys.hosting.admin.empty)).toBeInTheDocument();
+    expect(screen.getByText(en.admin.empty)).toBeInTheDocument();
+    expect(screen.queryByText(keys.hosting.admin.empty)).not.toBeInTheDocument();
   });
 
   it('renders one card per admin sidebar entry, grouped', () => {

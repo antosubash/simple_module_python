@@ -193,6 +193,7 @@ smpy settings import-from-env
 Bootstraps the first admin user, or rotates an existing admin's password.
 
 ```bash
+smpy users create-admin -e admin@example.com                       # prompts for the password
 smpy users create-admin -e admin@example.com -p hunter2
 smpy users create-admin -e admin@example.com -p new-password --force      # rotate
 smpy users create-admin -e admin@example.com -p hunter2 --full-name "Admin"

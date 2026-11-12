@@ -67,7 +67,7 @@ function AdminPage() {
           <p className="text-sm text-muted-foreground">{t(keys.hosting.admin.empty)}</p>
         ) : (
           <div className="space-y-8">
-            {grouped.map(([group, groupItems_]) => (
+            {grouped.map(([group, cards]) => (
               <section key={group || 'ungrouped'}>
                 {group && (
                   <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -75,7 +75,7 @@ function AdminPage() {
                   </h2>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {groupItems_.map((item) => (
+                  {cards.map((item) => (
                     <ToolCard key={item.url} item={item} />
                   ))}
                 </div>

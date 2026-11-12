@@ -98,7 +98,7 @@ def _database_dialect() -> str:
 
 
 def _hosting_locales() -> Path | None:
-    """The framework's own ``hosting`` catalog (setup wizard), found without importing it.
+    """The framework's own ``hosting`` catalog (setup wizard, admin overview), found without importing it.
 
     The running app's ``build_i18n_registry`` always adds it, so doctor must
     too, or every ``hosting.*`` host override reads as unknown (SM027). Core

@@ -167,8 +167,15 @@ def write_module_pages_manifest(
     framework = framework_assets()
     pages_map = dict(compute_module_pages(modules))
     for entry in framework:
-        if entry.pages_dir is not None:
-            pages_map[entry.name] = entry.pages_dir
+        if entry.pages_dir is None:
+            continue
+        if entry.name in pages_map:
+            # Overwriting would silently unregister the module's pages.
+            raise ValueError(
+                f"Module name {entry.name!r} is reserved for the framework's own pages "
+                f"({entry.package_name}); rename the module's ModuleMeta.name."
+            )
+        pages_map[entry.name] = entry.pages_dir
 
     manifest_path = output_dir / "modules.manifest.json"
     manifest_payload = {name: path.as_posix() for name, path in pages_map.items()}
