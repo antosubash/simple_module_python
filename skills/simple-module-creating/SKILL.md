@@ -31,7 +31,9 @@ metadata, `LICENSE`, and i18n-keyed pages. For a **standalone publishable
 package** (its own repo, with CI + PyPI `publish.yml`), use
 `smpy create-module orders`; pass `--standalone` to force the `.github/`
 workflows, then `uv sync` (or `pip install -e ./orders`) to install it into the
-host.
+host. Inside a `smpy new` app, `smpy create-module orders --dest modules/orders`
+makes a workspace member and prints the app's steps (`smpy add … --path host`,
+`make install`, `make migration`); don't run `uv sync` inside the module there.
 
 ## What scaffolding produces
 

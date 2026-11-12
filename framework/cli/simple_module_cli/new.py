@@ -177,8 +177,7 @@ def new_project(
     typer.echo("\nNext steps:")
     typer.echo(f"  cd {target}")
     if no_install:
-        typer.echo("  uv sync")
-        typer.echo("  npm install")
+        typer.echo("  make install")
         typer.echo('  make migration msg="initial schema"')
         typer.echo("  make migrate")
         typer.echo("  make dev")
@@ -188,7 +187,9 @@ def new_project(
         return
 
     typer.echo("Installing dependencies...")
-    for cmd in (["uv", "sync"], ["npm", "install"]):
+    # What `make install` runs: a workspace syncs every member, not just the root.
+    uv_sync = ["uv", "sync"] if flat else ["uv", "sync", "--all-packages"]
+    for cmd in (uv_sync, ["npm", "install"]):
         if shutil.which(cmd[0]) is None:
             typer.echo(
                 f"WARNING: '{cmd[0]}' not found on PATH; skipping `{' '.join(cmd)}`. "
