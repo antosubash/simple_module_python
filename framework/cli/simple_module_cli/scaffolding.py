@@ -220,18 +220,14 @@ def create_module(
     simple_module_python monorepo itself (``make new-module``): it overlays
     ``_optional/framework_repo/`` (a workspace-sourced ``pyproject.toml`` with
     the metadata ``scripts/check_metadata.py`` requires, a LICENSE and README
-    that pass ``check_readmes.py``) and implies no ``.github/``. Wiring into the repo's own pyproject files is
-    :mod:`simple_module_cli.framework_repo`'s job.
-
-    The base pages read their strings from ``locales/en.json`` through
-    ``t(keys.<package>.…)`` (GH #918); the host's ``gen-i18n`` (run by
-    ``make install`` and every dev boot) adds the module to ``keys``.
+    that pass ``check_readmes.py``) and implies no ``.github/``. Wiring into
+    the repo's own pyproject files is :mod:`simple_module_cli.framework_repo`'s job.
 
     ``standalone=True`` additionally overlays ``_optional/standalone/`` (npm
     devDependencies + a tsconfig that resolves ``@simple-module-py/ui`` from the
-    repo's own ``node_modules``) so the module type-checks outside a workspace.
-    It also swaps in pages with literal English: a module repo has no host to
-    generate ``keys`` for it, so keyed pages would not type-check there.
+    repo's own ``node_modules``) so the module type-checks outside a workspace,
+    and pages with literal English: the base pages use ``t(keys.<package>.…)``
+    (GH #918), and a module repo has no host whose ``gen-i18n`` adds its keys.
     """
     dest = Path(dest)
     existed_before = dest.exists()
