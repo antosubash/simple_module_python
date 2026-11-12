@@ -16,9 +16,10 @@ def own_package_missing(ep, exc: BaseException) -> bool:
     return target == exc.name or target.startswith(f"{exc.name}.")
 
 
-def stale_path_message(ep, exc: ModuleNotFoundError) -> str:
+def stale_path_message(ep, exc: BaseException) -> str:
+    missing = getattr(exc, "name", None)
     return (
-        f"Module entry point '{ep.name}' is installed but {exc.name!r} cannot be imported "
+        f"Module entry point '{ep.name}' is installed but {missing!r} cannot be imported "
         "in this process. If it was added after the server started (smpy add, uv sync), "
         "restart `make dev`: a reload keeps the old import path"
     )
