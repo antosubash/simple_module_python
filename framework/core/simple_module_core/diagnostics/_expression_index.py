@@ -107,8 +107,8 @@ def expression_index_advice(root: Path | None = None) -> str:
     by ``smpy new`` does not, so pointing it there sends users nowhere (GH #917).
     ``root`` defaults to the working directory, where make, alembic and doctor run.
     """
-    makefile = (root or Path.cwd()) / "Makefile"
     try:
+        makefile = (root or Path.cwd()) / "Makefile"
         has_target = _ROUNDTRIP_TARGET.search(makefile.read_text(encoding="utf-8")) is not None
     except OSError:
         has_target = False

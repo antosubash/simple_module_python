@@ -66,3 +66,17 @@ def test_a_failed_initial_migration_stops_and_prints_the_manual_steps(
     assert "make migration" in steps
     assert "make migrate" in steps
     assert "Setup complete" not in result.output
+
+
+def test_a_missing_executable_prints_the_manual_steps(tmp_path, monkeypatch) -> None:
+    def missing(cmd, **kwargs):
+        raise FileNotFoundError(cmd[0])
+
+    monkeypatch.setattr(new_mod.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(new_mod.subprocess, "run", missing)
+    result = CliRunner().invoke(
+        app, ["new", "demo", "--yes", "--db", "sqlite", "--dest", str(tmp_path / "demo")]
+    )
+    assert result.exit_code == 0, result.output
+    assert "could not run" in result.output
+    assert "make install" in result.output.split("Next steps", 1)[1]

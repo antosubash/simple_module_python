@@ -84,3 +84,12 @@ def test_a_ci_prefixed_target_is_not_the_roundtrip_target(tmp_path, monkeypatch)
     (tmp_path / "Makefile").write_text("ci-migrations-roundtrip-pg:\n\techo\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     assert "make migrations-roundtrip-pg" not in expression_index_advice()
+
+
+def test_dropping_the_index_does_not_count_as_creating_it() -> None:
+    from alembic.operations.ops import DropIndexOp, UpgradeOps
+    from simple_module_db.migration_portability import warn_unverifiable_expression_indexes
+
+    ops = UpgradeOps(ops=[DropIndexOp("ix_people_email_lower", table_name="people")])
+    found = warn_unverifiable_expression_indexes("sqlite", _metadata(), ops, set())
+    assert found == [("people", "ix_people_email_lower")]

@@ -24,7 +24,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import sqlalchemy as sa
-from alembic.operations.ops import AddColumnOp, AlterColumnOp, CreateTableOp
+from alembic.operations.ops import AddColumnOp, AlterColumnOp, CreateIndexOp, CreateTableOp
 from simple_module_core.diagnostics._expression_index import (
     expression_index_advice,
     find_expression_indexes,
@@ -145,7 +145,9 @@ def warn_unverifiable_expression_indexes(
         return []
     found = find_expression_indexes(metadata.tables.values())
     if upgrade_ops is not None:
-        emitted = {getattr(op, "index_name", None) for op in iter_ops_recursive(upgrade_ops)}
+        emitted = {
+            op.index_name for op in iter_ops_recursive(upgrade_ops) if isinstance(op, CreateIndexOp)
+        }
         existing = existing_index_names or set()
         found = [(t, i) for t, i in found if i not in emitted and i not in existing]
     if not found:

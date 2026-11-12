@@ -198,11 +198,11 @@ def new_project(
 
     alembic = _alembic_argv(target, host_dir)
     typer.echo("Creating the database...")
-    # `heads` (plural) applies every per-module branch head; `head` (singular)
-    # errors once a second module ships its own migration branch label.
     if not _bootstrap_initial_migration(target, host_dir, alembic):
         _echo_next_steps(target, manual_setup[1:], resolved)
         return
+    # `heads` (plural) applies every per-module branch head; `head` (singular)
+    # errors once a second module ships its own migration branch label.
     if not _run_quietly([*alembic, "upgrade", "heads"], target):
         # The revision exists now; regenerating it would create a duplicate.
         _echo_next_steps(target, manual_setup[2:], resolved)
@@ -213,9 +213,15 @@ def new_project(
 
 def _run_quietly(cmd: list[str], cwd: Path) -> bool:
     """Run a setup step, showing its output only when it fails (GH #917)."""
-    result = subprocess.run(
-        cmd, cwd=cwd, check=False, capture_output=True, text=True, errors="replace"
-    )
+    try:
+        result = subprocess.run(
+            cmd, cwd=cwd, check=False, capture_output=True, text=True, errors="replace"
+        )
+    except OSError as exc:  # the executable is missing
+        typer.echo(
+            f"WARNING: {' '.join(cmd)} could not run ({exc}); finish setup manually.", err=True
+        )
+        return False
     if result.returncode == 0:
         return True
     typer.echo(f"{result.stdout}{result.stderr}", err=True)

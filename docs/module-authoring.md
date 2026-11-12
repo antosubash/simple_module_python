@@ -371,8 +371,10 @@ generated file against this checklist before treating it as portable
    (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
    confirm with the PostgreSQL round trip below; in an app without that make
    target, point `SM_DATABASE_URL` at a PostgreSQL database, run `make migrate`,
-   then `uv run alembic -c host/alembic.ini check`, which reports a missing index. The warning is deliberately not an error: SQLite can
-   neither confirm nor refute the drift, and PostgreSQL is the actual gate. Prefer writing an ordered index column as
+   then `uv run alembic -c host/alembic.ini check`, which reports a missing
+   index. The warning is deliberately not an error:
+   SQLite can neither confirm nor refute the drift, and PostgreSQL is the actual
+   gate. Prefer writing an ordered index column as
    `sa.desc(sa.column("col"))` over `sa.text("col DESC")` or `sa.desc("col")`:
    the latter two are expressions to Alembic, and while the host's include filter
    suppresses the false SQLite change when only the ordering differs, the column
