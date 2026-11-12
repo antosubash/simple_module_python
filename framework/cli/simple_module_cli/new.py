@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -174,19 +175,15 @@ def new_project(
             rel = path.relative_to(target) if path.is_relative_to(target) else path
             typer.echo(f"  {rel}")
     typer.echo("\nGenerated secrets were written to .env (gitignored), not .env.example.")
-    typer.echo("\nNext steps:")
-    typer.echo(f"  cd {target}")
     if no_install:
-        typer.echo("  make install")
-        typer.echo('  make migration msg="initial schema"')
-        typer.echo("  make migrate")
-        typer.echo("  make dev")
-        typer.echo("  make docker-up   # or run the full stack in containers")
-        if "background_tasks" in resolved:
-            typer.echo("  docker compose up -d redis worker beat   # background jobs")
+        _echo_next_steps(
+            target,
+            ["make install", 'make migration msg="initial schema"', "make migrate"],
+            resolved,
+        )
         return
 
-    typer.echo("Installing dependencies...")
+    typer.echo("\nInstalling dependencies...")
     # What `make install` runs: a workspace syncs every member, not just the root.
     uv_sync = ["uv", "sync"] if flat else ["uv", "sync", "--all-packages"]
     for cmd in (uv_sync, ["npm", "install"]):
@@ -197,24 +194,41 @@ def new_project(
                 err=True,
             )
             return
-        result = subprocess.run(cmd, cwd=target, check=False)
-        if result.returncode != 0:
-            typer.echo(
-                f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
-                "finish setup manually.",
-                err=True,
-            )
+        if not _run_quietly(cmd, target):
             return
 
     alembic = _alembic_argv(target, host_dir)
+    typer.echo("Creating the database...")
     _bootstrap_initial_migration(target, host_dir, alembic)
     # `heads` (plural) applies every per-module branch head; `head` (singular)
     # errors once a second module ships its own migration branch label.
-    subprocess.run([*alembic, "upgrade", "heads"], cwd=target, check=False)
-    typer.echo("\nSetup complete. Run `make dev` in the new directory.")
-    typer.echo("To run the full stack in containers instead: make docker-up")
+    if not _run_quietly([*alembic, "upgrade", "heads"], target):
+        return
+    typer.echo("\nSetup complete.")
+    _echo_next_steps(target, [], resolved)
+
+
+def _run_quietly(cmd: list[str], cwd: Path) -> bool:
+    """Run a setup step, showing its output only when it fails (GH #917)."""
+    result = subprocess.run(cmd, cwd=cwd, check=False, capture_output=True, text=True)
+    if result.returncode == 0:
+        return True
+    typer.echo(f"{result.stdout}{result.stderr}", err=True)
+    typer.echo(
+        f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); finish setup manually.",
+        err=True,
+    )
+    return False
+
+
+def _echo_next_steps(target: Path, setup: list[str], resolved: Sequence[str]) -> None:
+    typer.echo("\nNext steps:")
+    typer.echo(f"  cd {target}")
+    for step in [*setup, "make dev"]:
+        typer.echo(f"  {step}")
+    typer.echo("  make docker-up   # or run the full stack in containers")
     if "background_tasks" in resolved:
-        typer.echo("For background jobs, also run: docker compose up -d redis worker beat")
+        typer.echo("  docker compose up -d redis worker beat   # background jobs")
 
 
 def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str]) -> None:
@@ -228,8 +242,4 @@ def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str
     versions_dir = host_dir / "migrations" / "versions"
     if any(p.name != "__init__.py" for p in versions_dir.glob("*.py")):
         return
-    subprocess.run(
-        [*alembic, "revision", "--autogenerate", "-m", "initial schema"],
-        cwd=target,
-        check=False,
-    )
+    _run_quietly([*alembic, "revision", "--autogenerate", "-m", "initial schema"], target)
