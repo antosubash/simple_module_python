@@ -15,7 +15,7 @@ The `smpy` command is provided by `simple_module_cli` (installed as a dep of `si
 |---|---|
 | `smpy new <name>` | Greenfield: scaffold a complete app (host + selected modules) in one shot, with an interactive wizard for DB / tenancy / module preset |
 | `smpy create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
-| `smpy create-module <name>` | You're authoring a publishable module package (separate repo, distributed via PyPI) |
+| `smpy create-module <name>` | You're adding a module to a `smpy new` app (`--dest modules/<name>`), or authoring a publishable module package in its own repo |
 | `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency, optional extra and dependency group to its latest non-yanked PyPI release, and `@simple-module-py/*` npm pins to the same core version (workspace/path/git/URL sources are left untouched) |
 | `smpy migrations prepare <upgrade-id> --head <label>@head` | Write the host-side revision for a framework data upgrade that boot or `make doctor` reported (`mail.settings_namespace_v1`, `users.hashed_bearer_tokens_v1`); it never applies it — run your migrate step afterwards |
 | `smpy doctor` | Run the module diagnostics (`SM0xx`, including `SM033` data-compatibility findings) against this host's database |
@@ -90,12 +90,14 @@ smpy create-host MyApp --dest ./apps/myapp   # custom destination
 
 ## `smpy create-module <name>` — module package
 
-For module authors publishing to PyPI. Scaffolds a standalone repo containing one module.
+Scaffolds one module package: inside a `smpy new` app, or as a standalone repo to publish to PyPI.
 
 ```bash
-smpy create-module orders                    # writes ./simple_module_orders/
-smpy create-module orders --dest ./packages/orders
+smpy create-module orders --dest modules/orders   # inside an app: a workspace member
+smpy create-module orders                         # writes ./simple_module_orders/
 ```
+
+Inside an app the printed next steps are the app's: `smpy add ../modules/orders --path host` (which syncs the whole workspace), `make install`, `make migration msg="add orders"`, `make migrate`, `make test`, then restart `make dev`. Never run `uv sync` inside the module directory there: it syncs the module alone and uninstalls the rest of the app from the shared venv. Outside an app it prints the standalone flow (`uv sync --extra dev`, `uv run pytest`, `smpy module verify`).
 
 The result is a complete package: `pyproject.toml` with the entry point declared, `module.py` with `ModuleBase`/`ModuleMeta` skeleton, `models.py`, `contracts/`, `web/endpoints/{api,views}.py`, `pages/`, `locales/en.json`, `core/{constants,settings,services}.py`, `web/{deps,service}.py`, plus nested `tests/<area>/<feature>/test_<module>_*.py` wired up with `simple_module_test` fixtures.
 
@@ -214,7 +216,8 @@ Don't bake `--password` literals into a script you commit; use a secrets store a
 - **Ran `smpy new` inside an existing project.** The default `--dest ./<name>` creates a sibling directory. If the directory already exists and is non-empty, the command errors out — pass `--dest` explicitly to disambiguate.
 - **Ran `smpy host gen-pages` from outside the host directory.** Defaults to `./client_app`; pass `--host-dir` from elsewhere.
 - **Forgot `smpy host sync-js-deps` after `pip install`-ing a module with pages.** Vite resolves module imports against `client_app/node_modules`; the new module's JS deps won't land until you sync.
-- **Used `smpy create-module` to add a module to an existing host.** That command is for **publishable** packages, intended to live in their own repo. To add a module to an existing host: install it (`pip install simple_module_<name>` or add to `pyproject.toml` and `uv sync`), then autogenerate a migration. See **simple-module-creating** + **simple-module-migrations**.
+- **Ran `uv sync` inside a module of a `smpy new` app.** That syncs the module's own project and uninstalls the app's other packages from the shared venv. Run `make install` (`uv sync --all-packages`) at the app root instead; a plain `uv sync` at the root also works, since the root depends on the host.
+- **A module added while `make dev` runs logs "installed but … cannot be imported in this process".** The reload keeps the import path the server started with; restart `make dev`.
 - **Calling `smpy create-admin` before migrations have run.** The users tables don't exist yet; the command will error. Run `alembic upgrade head` first (or use `smpy new` which does it for you when `--no-install` isn't set).
 - **Expecting `--with products` (or `keycloak` / `audit_log`) to work on `smpy new`.** Those modules exist in the monorepo but aren't scaffolder-catalog keys, so `smpy new --with products` errors. Either scaffold without them and `pip install simple_module_products` into the host afterward, or use `smpy create-host --with Products` (which doesn't validate against the catalog).
 - **Port 5050 already taken when starting a scaffolded app.** Set `SM_VITE_DEV_URL` in the project `.env` (e.g. `http://localhost:5310`) — the scaffolded `vite.config.ts` derives the dev server's port and origin from that same value, so it's the only knob to turn.

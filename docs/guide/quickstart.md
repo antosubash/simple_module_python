@@ -17,7 +17,7 @@ smpy new myapp --yes
 cd myapp
 ```
 
-`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync`, `npm install`, and `alembic upgrade heads` for you.
+`--yes` accepts the defaults (SQLite, no multi-tenancy, the `standard` preset: `auth`, `users`, `dashboard`, `permissions`). The CLI runs `uv sync --all-packages`, `npm install`, and `alembic upgrade heads` for you.
 
 For an interactive run with prompts, drop the `--yes`. For a preset + extras: `smpy new myapp --preset standard --with background_tasks,file_storage --yes`.
 
@@ -67,7 +67,7 @@ This generates a publishable module at `modules/orders/` with a working CRUD sam
 
 The [first-module guide](/guide/first-module) shows how to grow it: your own fields, validation, a migration and tests.
 
-`smpy add ../modules/orders --path host` adds the package to `host/pyproject.toml` as a uv workspace source and runs `uv sync`, which registers its entry point; the module is discovered on the next boot. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead.
+`smpy add ../modules/orders --path host` adds the package to `host/pyproject.toml` as a uv workspace source and syncs the whole workspace from the app root (`uv sync --all-packages`, what `make install` runs), which registers its entry point; the module is discovered on the next boot. Don't run `uv sync` inside `modules/orders`: that syncs the module alone and uninstalls the rest of the app from the shared venv. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead.
 
 ## 6. Generate a migration
 
@@ -80,7 +80,7 @@ make migrate
 
 ## 7. Hit the module
 
-Restart `make dev` (modules are discovered at boot). Then:
+Restart `make dev` (modules are discovered at start-up). The reload `make dev` does when files change is not enough: it keeps the import path it started with, so a module installed since then logs "installed but … cannot be imported in this process" until you restart. Then:
 
 ```bash
 curl -i http://localhost:8000/api/orders

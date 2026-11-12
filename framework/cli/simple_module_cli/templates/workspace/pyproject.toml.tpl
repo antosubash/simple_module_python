@@ -3,11 +3,18 @@ name = "{{HOST_PYPI_NAME}}"
 version = "0.1.0"
 description = "SimpleModule application workspace root"
 requires-python = ">=3.12"
-dependencies = []
+# The app itself, so a plain `uv sync` here installs the host's dependencies
+# (every module wired into it) instead of uninstalling them (GH #916). The host
+# is `package = false`, so it is not installed itself. `make install` also
+# syncs the members the host does not list yet.
+dependencies = ["{{HOST_PYPI_NAME}}-host"]
 
 # Workspace root: not built or installed itself.
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+{{HOST_PYPI_NAME}}-host = { workspace = true }
 
 # uv workspace — `host/` is the application; modules/* are workspace
 # members so you can iterate on them without publishing to PyPI. Add a

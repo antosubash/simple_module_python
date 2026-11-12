@@ -126,25 +126,35 @@ def create_host(
     typer.echo("  python main.py")
 
 
-def _echo_workspace_hint(target: Path) -> None:
-    """Tell the user how to wire a workspace-member module into the host (GH #442)."""
+def _app_add_command(target: Path) -> str | None:
+    """``smpy add …`` wiring a module into its app's host, or None outside an app (GH #442)."""
     root = find_workspace_root(target.parent)
     if root is None:
-        return
+        return None
     host = root / "host"
     if not (host / "pyproject.toml").is_file() or not is_workspace_member(host, target):
-        return
+        return None
     rel = os.path.relpath(target.resolve(), host.resolve())
     if not rel.startswith("."):
         rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
-    host_arg = os.path.relpath(host.resolve(), Path.cwd())
-    if host_arg.startswith(".."):
-        host_arg = str(host.resolve())
-    typer.echo(
-        f"\nThis module is a uv workspace member. Wire it into the host with:\n"
-        f"  smpy add {rel} --path {host_arg}"
-        "   # adds it as { workspace = true }"
-    )
+    # The steps are printed "from the app root", so name the host relative to it.
+    host_arg = host.resolve().relative_to(root.resolve()).as_posix()
+    return f"smpy add {rel} --path {host_arg}"
+
+
+def _echo_app_next_steps(add_command: str, slug: str) -> None:
+    """The module lives in an app's workspace: wire it in with the app's own commands.
+
+    Never ``uv sync`` inside the module: that syncs the module alone and
+    uninstalls the rest of the app from the shared venv (GH #916).
+    """
+    typer.echo("\nNext steps (from the app root):")
+    typer.echo(f"  {add_command}   # adds it as {{ workspace = true }}")
+    typer.echo("  make install")
+    typer.echo(f'  make migration msg="add {slug}"')
+    typer.echo("  make migrate")
+    typer.echo("  make test")
+    typer.echo("Then restart `make dev`: modules are discovered at start-up, not on reload.")
 
 
 @app.command("create-module")
@@ -193,14 +203,17 @@ def create_module(
             "Skipped .github/ workflows: this module is inside an existing repo, "
             "where nested workflows never run. Use --standalone to emit them."
         )
-    _echo_workspace_hint(target)
-    typer.echo("\nNext steps:")
-    typer.echo(f"  cd {target}")
-    typer.echo("  uv sync --extra dev")
-    typer.echo("  uv run pytest")
-    typer.echo("  npm install")
-    typer.echo("  npm run typecheck")
-    typer.echo("  uv run smpy module verify")
+    add_command = _app_add_command(target)
+    if add_command is not None:
+        _echo_app_next_steps(add_command, slug)
+    else:
+        typer.echo("\nNext steps:")
+        typer.echo(f"  cd {target}")
+        typer.echo("  uv sync --extra dev")
+        typer.echo("  uv run pytest")
+        typer.echo("  npm install")
+        typer.echo("  npm run typecheck")
+        typer.echo("  uv run smpy module verify")
     typer.echo(
         "\nThe pages ship sample API types (pages/api.generated.ts). Once the host serves "
         "the module, refresh them after any endpoint change:\n"

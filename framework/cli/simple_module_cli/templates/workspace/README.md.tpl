@@ -67,8 +67,10 @@ make migration msg="add my-feature" && make migrate
 ## How the workspace fits together
 
 - **uv workspace** (`pyproject.toml` here): members are `host` and every
-  directory under `modules/*`. `uv sync --all-packages` installs them all
-  in editable mode against the host's venv.
+  directory under `modules/*`. `make install` (`uv sync --all-packages`)
+  installs them all in editable mode in one venv. The root depends on the
+  host, so a plain `uv sync` here installs the app too; never run `uv sync`
+  inside a module directory, which syncs that module alone.
 - **npm workspace** (`package.json` here): `host/client_app` and every
   module's frontend assets share one hoisted `node_modules`. Vite walks
   up from each `.tsx` file and finds React, Inertia, and shared UI

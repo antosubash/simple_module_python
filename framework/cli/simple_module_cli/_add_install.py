@@ -8,6 +8,8 @@ from pathlib import Path
 
 import typer
 
+from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
+
 ExecRunner = Callable[[list[str], Path], int]
 
 
@@ -28,6 +30,24 @@ def _default_exec_runner(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=cwd, check=False).returncode
 
 
+def _sync_command(project_dir: Path) -> tuple[list[str], Path]:
+    """How to sync after editing ``project_dir``'s pyproject.
+
+    A host inside an app workspace shares one venv with the root's dev tools
+    and every module member. ``uv sync`` from ``host/`` would sync the host
+    alone and uninstall the rest (GH #916), so sync the workspace from its
+    root, as ``make install`` does.
+    """
+    root = find_workspace_root(project_dir)
+    if (
+        root is not None
+        and root != project_dir.resolve()
+        and is_workspace_member(project_dir, project_dir)
+    ):
+        return ["uv", "sync", "--all-packages"], root
+    return ["uv", "sync"], project_dir
+
+
 def _fail(message: str) -> typer.Exit:
     typer.echo(f"ERROR: {message}", err=True)
     return typer.Exit(code=1)
@@ -40,8 +60,12 @@ def post_install(
     exec_runner: ExecRunner,
 ) -> None:
     """uv sync → gen-pages → sync-js-deps → entry-point check → reminders."""
-    if exec_runner(["uv", "sync"], project_dir) != 0:
-        raise _fail("`uv sync` failed — pyproject was written; fix and re-run `uv sync`.")
+    sync_cmd, sync_dir = _sync_command(project_dir)
+    if exec_runner(sync_cmd, sync_dir) != 0:
+        shown = " ".join(sync_cmd)
+        raise _fail(
+            f"`{shown}` failed — pyproject was written; fix and re-run `{shown}` from {sync_dir}."
+        )
     if (project_dir / "client_app").is_dir():
         exec_runner(["uv", "run", "smpy", "host", "gen-pages"], project_dir)
         exec_runner(["uv", "run", "smpy", "host", "sync-js-deps"], project_dir)
