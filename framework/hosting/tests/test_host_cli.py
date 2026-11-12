@@ -31,6 +31,19 @@ def test_gen_pages_errors_on_missing_client_app(tmp_path: Path) -> None:
     assert "not found" in result.output.lower() or "not found" in (result.stderr or "").lower()
 
 
+def test_gen_pages_reports_manifest_error_without_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise ValueError("duplicate page 'X'")
+
+    monkeypatch.setattr("simple_module_hosting.host_cli.write_module_pages_manifest", _boom)
+    result = CliRunner().invoke(app, ["gen-pages", "--host-dir", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "ERROR: duplicate page 'X'" in result.output
+    assert not isinstance(result.exception, ValueError)
+
+
 @pytest.mark.parametrize(
     "module_target",
     ["simple_module_hosting", "simple_module_hosting.host_cli"],
