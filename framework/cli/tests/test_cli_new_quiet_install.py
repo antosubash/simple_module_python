@@ -55,3 +55,15 @@ def test_a_failing_step_shows_its_output(tmp_path, monkeypatch) -> None:
     assert "chatter from npm" in result.output
     assert "boom" in result.output
     assert "failed" in result.output
+
+
+def test_a_failed_initial_migration_stops_and_prints_the_manual_steps(
+    tmp_path, monkeypatch
+) -> None:
+    result, calls = _invoke(tmp_path, monkeypatch, fail="--autogenerate")
+
+    assert not any("upgrade" in c for c in calls)
+    steps = result.output.split("Next steps", 1)[1]
+    assert "make migration" in steps
+    assert "make migrate" in steps
+    assert "Setup complete" not in result.output

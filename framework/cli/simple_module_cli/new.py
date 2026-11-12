@@ -175,12 +175,9 @@ def new_project(
             rel = path.relative_to(target) if path.is_relative_to(target) else path
             typer.echo(f"  {rel}")
     typer.echo("\nGenerated secrets were written to .env (gitignored), not .env.example.")
+    manual_setup = ["make install", 'make migration msg="initial schema"', "make migrate"]
     if no_install:
-        _echo_next_steps(
-            target,
-            ["make install", 'make migration msg="initial schema"', "make migrate"],
-            resolved,
-        )
+        _echo_next_steps(target, manual_setup, resolved)
         return
 
     typer.echo("\nInstalling dependencies...")
@@ -193,16 +190,21 @@ def new_project(
                 "Install it and finish setup manually.",
                 err=True,
             )
+            _echo_next_steps(target, manual_setup, resolved)
             return
         if not _run_quietly(cmd, target):
+            _echo_next_steps(target, manual_setup, resolved)
             return
 
     alembic = _alembic_argv(target, host_dir)
     typer.echo("Creating the database...")
-    _bootstrap_initial_migration(target, host_dir, alembic)
     # `heads` (plural) applies every per-module branch head; `head` (singular)
     # errors once a second module ships its own migration branch label.
-    if not _run_quietly([*alembic, "upgrade", "heads"], target):
+    if not (
+        _bootstrap_initial_migration(target, host_dir, alembic)
+        and _run_quietly([*alembic, "upgrade", "heads"], target)
+    ):
+        _echo_next_steps(target, manual_setup[1:], resolved)
         return
     typer.echo("\nSetup complete.")
     _echo_next_steps(target, [], resolved)
@@ -231,15 +233,16 @@ def _echo_next_steps(target: Path, setup: list[str], resolved: Sequence[str]) ->
         typer.echo("  docker compose up -d redis worker beat   # background jobs")
 
 
-def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str]) -> None:
+def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str]) -> bool:
     """Autogenerate the baseline migration if the scaffold ships none.
 
     Without a real revision, ``alembic upgrade head`` is a silent no-op
     against an empty schema — the bundled modules' tables never exist.
 
     Runs from ``target`` (the project root) — see :func:`_alembic_argv`.
+    Returns False when the autogenerate failed.
     """
     versions_dir = host_dir / "migrations" / "versions"
     if any(p.name != "__init__.py" for p in versions_dir.glob("*.py")):
-        return
-    _run_quietly([*alembic, "revision", "--autogenerate", "-m", "initial schema"], target)
+        return True
+    return _run_quietly([*alembic, "revision", "--autogenerate", "-m", "initial schema"], target)

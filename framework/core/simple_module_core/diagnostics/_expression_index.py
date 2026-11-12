@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -95,7 +96,7 @@ def module_all_tables(mod: ModuleBase) -> list[Any]:
     return list(seen.values())
 
 
-_ROUNDTRIP_TARGET = "migrations-roundtrip-pg:"
+_ROUNDTRIP_TARGET = re.compile(r"^migrations-roundtrip-pg:", re.MULTILINE)
 _DOCS_URL = "https://docs.py.simplemodule.dev/module-authoring"
 
 
@@ -108,7 +109,7 @@ def expression_index_advice(root: Path | None = None) -> str:
     """
     makefile = (root or Path.cwd()) / "Makefile"
     try:
-        has_target = _ROUNDTRIP_TARGET in makefile.read_text(encoding="utf-8")
+        has_target = _ROUNDTRIP_TARGET.search(makefile.read_text(encoding="utf-8")) is not None
     except OSError:
         has_target = False
     if has_target:

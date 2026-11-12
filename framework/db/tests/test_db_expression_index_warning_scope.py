@@ -69,3 +69,9 @@ def test_advice_in_a_checkout_with_the_roundtrip_target(tmp_path, monkeypatch) -
     (tmp_path / "Makefile").write_text("migrations-roundtrip-pg:\n\techo\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     assert "make migrations-roundtrip-pg" in expression_index_advice()
+
+
+def test_a_ci_prefixed_target_is_not_the_roundtrip_target(tmp_path, monkeypatch) -> None:
+    (tmp_path / "Makefile").write_text("ci-migrations-roundtrip-pg:\n\techo\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    assert "make migrations-roundtrip-pg" not in expression_index_advice()
