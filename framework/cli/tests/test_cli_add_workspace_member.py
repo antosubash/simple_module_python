@@ -128,3 +128,15 @@ def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) 
     )
 
     assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
+
+
+def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:
+    """A flat app nested under an unrelated workspace must not sync that workspace."""
+    from simple_module_cli._add_install import _sync_command
+
+    (tmp_path / "pyproject.toml").write_text(WORKSPACE, encoding="utf-8")
+    app_dir = tmp_path / "elsewhere" / "app"
+    app_dir.mkdir(parents=True)
+    (app_dir / "pyproject.toml").write_text(HOST, encoding="utf-8")
+
+    assert _sync_command(app_dir) == (["uv", "sync"], app_dir)

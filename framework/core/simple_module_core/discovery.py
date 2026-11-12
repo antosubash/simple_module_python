@@ -64,10 +64,10 @@ def discover_modules(
     # Imported here to avoid a circular import at module load time.
     from simple_module_core.versioning import check_framework_compatibility
 
-    def fail(msg: str, exc: BaseException | None = None, *, traceback: bool = True) -> None:
+    def fail(msg: str, exc: BaseException | None = None, *, with_traceback: bool = True) -> None:
         if strict:
             raise InvalidModuleError(msg) from exc
-        if exc is not None and traceback:
+        if exc is not None and with_traceback:
             logger.exception("%s — skipping", msg)
         else:
             logger.error("%s — skipping", msg)
@@ -81,7 +81,7 @@ def discover_modules(
             module_cls = ep.load()
         except Exception as exc:
             if own_package_missing(ep, exc):
-                fail(stale_path_message(ep, exc), exc, traceback=False)
+                fail(stale_path_message(ep, exc), exc, with_traceback=False)
             else:
                 fail(f"Failed to load module entry point '{ep.name}': {exc}", exc)
             continue

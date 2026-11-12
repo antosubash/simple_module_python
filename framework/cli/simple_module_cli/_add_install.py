@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from simple_module_cli.uv_workspace import find_workspace_root
+from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
 
 ExecRunner = Callable[[list[str], Path], int]
 
@@ -39,7 +39,11 @@ def _sync_command(project_dir: Path) -> tuple[list[str], Path]:
     root, as ``make install`` does.
     """
     root = find_workspace_root(project_dir)
-    if root is not None and root != project_dir.resolve():
+    if (
+        root is not None
+        and root != project_dir.resolve()
+        and is_workspace_member(project_dir, project_dir)
+    ):
         return ["uv", "sync", "--all-packages"], root
     return ["uv", "sync"], project_dir
 
@@ -59,7 +63,9 @@ def post_install(
     sync_cmd, sync_dir = _sync_command(project_dir)
     if exec_runner(sync_cmd, sync_dir) != 0:
         shown = " ".join(sync_cmd)
-        raise _fail(f"`{shown}` failed — pyproject was written; fix and re-run `{shown}`.")
+        raise _fail(
+            f"`{shown}` failed — pyproject was written; fix and re-run `{shown}` from {sync_dir}."
+        )
     if (project_dir / "client_app").is_dir():
         exec_runner(["uv", "run", "smpy", "host", "gen-pages"], project_dir)
         exec_runner(["uv", "run", "smpy", "host", "sync-js-deps"], project_dir)

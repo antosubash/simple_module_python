@@ -137,9 +137,8 @@ def _app_add_command(target: Path) -> str | None:
     rel = os.path.relpath(target.resolve(), host.resolve())
     if not rel.startswith("."):
         rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
-    host_arg = os.path.relpath(host.resolve(), Path.cwd())
-    if host_arg.startswith(".."):
-        host_arg = str(host.resolve())
+    # The steps are printed "from the app root", so name the host relative to it.
+    host_arg = host.resolve().relative_to(root.resolve()).as_posix()
     return f"smpy add {rel} --path {host_arg}"
 
 
