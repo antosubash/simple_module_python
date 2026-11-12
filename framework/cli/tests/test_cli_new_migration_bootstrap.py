@@ -22,12 +22,13 @@ def test_bootstrap_initial_migration_runs_autogenerate_when_versions_empty(
 
     calls: list[tuple[list[str], Path]] = []
 
-    def fake_run(cmd, *, cwd, check):
-        del check
+    def fake_run(cmd, *, cwd, check, **kwargs):
+        del check, kwargs
         calls.append((list(cmd), Path(cwd)))
 
         class _Result:
             returncode = 0
+            stdout = stderr = ""
 
         return _Result()
 

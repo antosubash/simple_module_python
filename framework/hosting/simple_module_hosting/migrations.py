@@ -248,7 +248,10 @@ def _note_unverifiable_expression_indexes(engine) -> None:
     if engine.dialect.name != "sqlite":
         return
     try:
-        from simple_module_core.diagnostics._expression_index import find_expression_indexes
+        from simple_module_core.diagnostics._expression_index import (
+            expression_index_advice,
+            find_expression_indexes,
+        )
         from simple_module_db.base import all_module_bases
 
         found = find_expression_indexes(
@@ -260,8 +263,9 @@ def _note_unverifiable_expression_indexes(engine) -> None:
     if found:
         logger.info(
             "Migrations are at head, but SQLite cannot verify expression indexes (%s); "
-            "check them on PostgreSQL (make migrations-roundtrip-pg). See SM026.",
+            "%s. See SM026.",
             ", ".join(f"{index} ({table})" for table, index in found),
+            expression_index_advice(),
         )
 
 
