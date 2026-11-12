@@ -1,10 +1,4 @@
 {
-  "admin": {
-    "title": "Administration",
-    "description": "Manage users, access, appearance and system configuration.",
-    "empty": "No admin tools are available to your account.",
-    "overview": "Overview"
-  },
   "landing": {
     "badge": "✦ Batteries-included FastAPI + Inertia starter",
     "hero_title_line1": "Modular Python apps,",

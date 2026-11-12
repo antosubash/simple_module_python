@@ -24,5 +24,10 @@
   },
   "errors": {
     "token_not_allowed": "Los tokens de API no se pueden usar en esta ruta. Usa una sesión iniciada o una ruta protegida por un permiso incluido en el token."
+  },
+  "admin": {
+    "title": "Administración",
+    "description": "Gestiona usuarios, accesos, apariencia y configuración del sistema.",
+    "empty": "No hay herramientas de administración disponibles para tu cuenta."
   }
 }

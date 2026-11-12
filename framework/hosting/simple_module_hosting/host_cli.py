@@ -45,7 +45,11 @@ def gen_pages(
     # Skip the auth provider the host won't boot — its pages would otherwise
     # ship in the bundle with no view endpoint able to render them.
     modules = select_auth_provider(discover_modules(), resolve_auth_provider())
-    written = write_module_pages_manifest(modules, host_dir)
+    try:
+        written = write_module_pages_manifest(modules, host_dir)
+    except ValueError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(
         f"Module pages manifest: {len(modules)} module(s) "
         f"→ {written['manifest'].name}, {written['generated'].name}, "

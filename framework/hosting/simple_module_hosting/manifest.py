@@ -160,13 +160,22 @@ def write_module_pages_manifest(
     if repo_root is None:
         repo_root = repo_root_from_client_app(output_dir)
 
-    # The framework's own frontend (the setup wizard) is emitted alongside the
-    # modules', so every host's resolver finds ``Setup/Wizard`` and its Vite
-    # config serves it from the wheel — with no host-side file to add.
+    # The framework's own frontends (the setup wizard, the admin overview) are
+    # emitted alongside the modules', so every host's resolver finds
+    # ``Setup/Wizard`` and ``Admin/Overview`` and its Vite config serves them
+    # from the wheel — with no host-side file to add.
     framework = framework_assets()
     pages_map = dict(compute_module_pages(modules))
-    if framework.pages_dir is not None:
-        pages_map[framework.name] = framework.pages_dir
+    for entry in framework:
+        if entry.pages_dir is None:
+            continue
+        if entry.name in pages_map:
+            # Overwriting would silently unregister the module's pages.
+            raise ValueError(
+                f"Module name {entry.name!r} is reserved for the framework's own pages "
+                f"({entry.package_name}); rename the module's ModuleMeta.name."
+            )
+        pages_map[entry.name] = entry.pages_dir
 
     manifest_path = output_dir / "modules.manifest.json"
     manifest_payload = {name: path.as_posix() for name, path in pages_map.items()}
@@ -193,7 +202,7 @@ def write_module_pages_manifest(
 
     # Rendered from the richer asset record rather than pages_map, so that a
     # module shipping CSS but no pages/ still contributes its stylesheets.
-    assets = [*compute_module_assets(modules), framework]
+    assets = [*compute_module_assets(modules), *framework]
     css_path = output_dir / "modules.generated.css"
     css_text = render_modules_css(assets, in_repo=lambda p: _is_in_repo_module(p, repo_root))
 

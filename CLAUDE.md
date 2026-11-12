@@ -248,8 +248,8 @@ Per-middleware detail: `docs/framework/middleware.md`,
 `SidebarLayout` renders the menu its `menuKey` names, so a page left on
 `AuthenticatedLayout` after its item moved shows a sidebar without it.
 `group=` sub-clusters inside a sidebar (`Access`, `Appearance`, `System`).
-`/admin` itself is a host route (`host/routes.py`) rendered from the
-`adminSidebar` shared prop; old URLs 301 from `host/routes_legacy.py`.
+`/admin` itself ships with `simple_module_hosting` (`admin_overview/`, mounted
+by `create_app` like `/setup`) and renders the `adminSidebar` shared prop; old URLs 301 from `host/routes_legacy.py`.
 `/api/*` paths never move.
 
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
