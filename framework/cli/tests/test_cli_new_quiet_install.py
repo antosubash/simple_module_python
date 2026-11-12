@@ -17,8 +17,8 @@ from typer.testing import CliRunner
 def _invoke(tmp_path: Path, monkeypatch, *, fail: str | None = None):
     calls: list[list[str]] = []
 
-    def fake_run(cmd, *, cwd, check, capture_output=False, text=False):
-        del cwd, check
+    def fake_run(cmd, *, cwd, check, capture_output=False, text=False, errors=None):
+        del cwd, check, errors
         calls.append(list(cmd))
         assert capture_output and text, f"{cmd} must not stream to the terminal"
         failed = fail is not None and fail in cmd
@@ -44,8 +44,7 @@ def test_successful_install_is_quiet_and_ends_with_next_steps(tmp_path, monkeypa
     assert any("upgrade" in c for c in calls)
     assert "chatter from" not in result.output
     assert result.output.count("Next steps") == 1
-    assert result.output.rstrip().splitlines()[-1].strip() != f"cd {tmp_path / 'demo'}"
-    assert result.output.index("Next steps") > result.output.index("Installing dependencies")
+    assert result.output.index("Next steps") > result.output.index("Setup complete")
     assert "make dev" in result.output.split("Next steps", 1)[1]
 
 

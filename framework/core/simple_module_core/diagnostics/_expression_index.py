@@ -115,8 +115,10 @@ def expression_index_advice(root: Path | None = None) -> str:
     if has_target:
         return "verify them on PostgreSQL with `make migrations-roundtrip-pg`"
     return (
-        "verify them on PostgreSQL: run `alembic upgrade heads` with `SM_DATABASE_URL` "
-        f"pointing at a PostgreSQL database. See {_DOCS_URL}"
+        "verify them on PostgreSQL: point `SM_DATABASE_URL` at a PostgreSQL database, "
+        "run `make migrate`, then `alembic check` with the app's alembic.ini "
+        "(`uv run alembic -c host/alembic.ini check` in a `smpy new` app), which "
+        f"reports a missing index. See {_DOCS_URL}"
     )
 
 

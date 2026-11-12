@@ -364,14 +364,14 @@ generated file against this checklist before treating it as portable
 2. **Expression indexes.** SQLite cannot reflect `Index(..., text("lower(email)"))`,
    so autogenerate skips it and `alembic check` cannot see it. The revision hook
    re-emits the expression indexes of every table a revision creates, so an
-   initial schema needs nothing. When a revision changes an existing table that
-   has one, autogenerate on SQLite logs a banner naming it, and `make doctor`
-   reports `SM026` for every expression index. If the change affects the index,
-   add it to the revision by hand
+   initial schema needs nothing. When the models declare an expression index the
+   database does not have (one added to an existing table), autogenerate on
+   SQLite logs a banner naming it, and `make doctor` reports `SM026` for every
+   expression index. Add it to the revision by hand
    (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
    confirm with the PostgreSQL round trip below; in an app without that make
-   target, run `alembic upgrade heads` with `SM_DATABASE_URL` pointing at a
-   PostgreSQL database. The warning is deliberately not an error: SQLite can
+   target, point `SM_DATABASE_URL` at a PostgreSQL database, run `make migrate`,
+   then `uv run alembic -c host/alembic.ini check`, which reports a missing index. The warning is deliberately not an error: SQLite can
    neither confirm nor refute the drift, and PostgreSQL is the actual gate. Prefer writing an ordered index column as
    `sa.desc(sa.column("col"))` over `sa.text("col DESC")` or `sa.desc("col")`:
    the latter two are expressions to Alembic, and while the host's include filter

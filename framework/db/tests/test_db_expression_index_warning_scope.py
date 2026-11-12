@@ -52,8 +52,17 @@ def test_revision_on_another_table_is_silent(caplog) -> None:
     assert "ix_people_email_lower" not in _run_hook(existing, _metadata(), caplog)
 
 
-def test_revision_altering_the_indexed_table_warns(caplog) -> None:
+def test_revision_altering_a_table_whose_index_exists_is_silent(caplog) -> None:
+    """SQLite records the index's name even though it cannot reflect it."""
     text = _run_hook(_metadata(), _metadata(extra_column=True), caplog)
+    assert "ix_people_email_lower" not in text
+
+
+def test_an_expression_index_added_to_an_existing_table_warns(caplog) -> None:
+    """Autogenerate emits nothing for it on SQLite, so the revision misses it."""
+    existing = _metadata()
+    existing.tables["people"].indexes.clear()
+    text = _run_hook(existing, _metadata(), caplog)
     assert "ix_people_email_lower on people" in text
 
 
@@ -61,7 +70,7 @@ def test_advice_outside_this_repo_points_at_what_exists(tmp_path, monkeypatch) -
     monkeypatch.chdir(tmp_path)
     advice = expression_index_advice()
     assert "migrations-roundtrip-pg" not in advice
-    assert "alembic upgrade heads" in advice
+    assert "alembic -c host/alembic.ini check" in advice
     assert "PostgreSQL" in advice
 
 
