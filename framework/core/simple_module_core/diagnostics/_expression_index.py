@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import importlib
 import logging
+import re
 from collections.abc import Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
@@ -94,6 +96,32 @@ def module_all_tables(mod: ModuleBase) -> list[Any]:
     return list(seen.values())
 
 
+_ROUNDTRIP_TARGET = re.compile(r"^migrations-roundtrip-pg:", re.MULTILINE)
+_DOCS_URL = "https://docs.py.simplemodule.dev/module-authoring"
+
+
+def expression_index_advice(root: Path | None = None) -> str:
+    """How to verify expression indexes, in terms of what this project has.
+
+    The framework repository has a Postgres round-trip make target; an app made
+    by ``smpy new`` does not, so pointing it there sends users nowhere (GH #917).
+    ``root`` defaults to the working directory, where make, alembic and doctor run.
+    """
+    try:
+        makefile = (root or Path.cwd()) / "Makefile"
+        has_target = _ROUNDTRIP_TARGET.search(makefile.read_text(encoding="utf-8")) is not None
+    except OSError:
+        has_target = False
+    if has_target:
+        return "verify them on PostgreSQL with `make migrations-roundtrip-pg`"
+    return (
+        "verify them on PostgreSQL: point `SM_DATABASE_URL` at a PostgreSQL database, "
+        "run `make migrate`, then `alembic check` with the app's alembic.ini "
+        "(`uv run alembic -c host/alembic.ini check` in a `smpy new` app), which "
+        f"reports a missing index. See {_DOCS_URL}"
+    )
+
+
 def check_expression_indexes_unverifiable(
     tables: Iterable[Any], dialect: str | None, module_name: str
 ) -> list[Diagnostic]:
@@ -114,16 +142,14 @@ def check_expression_indexes_unverifiable(
                 f"about them"
             ),
             module_name=module_name,
-            suggestion=(
-                "Add them to a revision by hand and verify on Postgres: "
-                "`make migrations-roundtrip-pg`"
-            ),
+            suggestion=f"Add them to a revision by hand and {expression_index_advice()}",
         )
     ]
 
 
 __all__ = [
     "check_expression_indexes_unverifiable",
+    "expression_index_advice",
     "find_expression_indexes",
     "index_is_expression_based",
     "module_all_tables",

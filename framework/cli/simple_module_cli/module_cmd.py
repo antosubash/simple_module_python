@@ -50,6 +50,8 @@ def run_verify(info: ModuleInfo, *, fresh: bool = False, runner=subprocess.run) 
             ],
             host,
         ),
+        # Keyed pages read `keys.<module>`, which only the host's gen-i18n adds (GH #918).
+        ("gen-i18n", [uv, "run", "python", "-m", "simple_module_hosting", "gen-i18n"], host),
         ("frontend build (tsc + vite)", [npm, "run", "build"], client_app),
     )
     for label, cmd, cwd in steps:

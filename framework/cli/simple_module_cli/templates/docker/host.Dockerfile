@@ -36,8 +36,11 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --all-packages --no-dev
 
-# Page manifest + generated module imports, then the production bundle.
+# Page manifest + generated module imports, the app's i18n keys (module pages
+# read `keys.<module>`, which the published @simple-module-py/i18n lacks), then
+# the production bundle.
 RUN cd host && uv run python -m simple_module_hosting gen-pages --host-dir=client_app
+RUN cd host && uv run python -m simple_module_hosting gen-i18n
 RUN npm run build
 
 # Re-sync so hatch force-include picks up freshly built module static/dist.

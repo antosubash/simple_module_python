@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 import typer
+from simple_module_cli._add_install import _sync_command
 from simple_module_cli.add_cmd import run_add
-from simple_module_cli.cli import _echo_workspace_hint
+from simple_module_cli.cli import _app_add_command
 from simple_module_cli.git_source import parse_add_spec
 from simple_module_cli.uv_workspace import is_workspace_member
 
@@ -92,7 +93,7 @@ def test_missing_path_error_names_the_resolution_base(
 
 
 def test_workspace_hint_inside_host_dir_prints_a_path_spec(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # GH #471: a bare "modules/x" would be parsed by `smpy add` as a PyPI requirement.
     (tmp_path / "pyproject.toml").write_text(
@@ -104,9 +105,38 @@ def test_workspace_hint_inside_host_dir_prints_a_path_spec(
     _write_module(module)
     monkeypatch.chdir(tmp_path)
 
-    _echo_workspace_hint(module)
+    command = _app_add_command(module)
 
-    out = capsys.readouterr().out
-    spec = out.split("smpy add ", 1)[1].split(" --path", 1)[0]
+    assert command is not None
+    assert command.endswith("--path host")  # printed for the app root
+    spec = command.split("smpy add ", 1)[1].split(" --path", 1)[0]
     assert spec == "./modules/forest_plots"
     assert parse_add_spec(spec).kind == "path"
+
+
+def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) -> None:
+    """GH #916: `uv sync` from host/ would uninstall the root's dev tools and other members."""
+    _write_module(workspace / "modules" / "forest_plots")
+    calls: list[tuple[list[str], Path]] = []
+
+    def runner(cmd: list[str], cwd: Path) -> int:
+        calls.append((cmd, cwd))
+        return 0
+
+    run_add(
+        "../modules/forest_plots",
+        pyproject=workspace / "host" / "pyproject.toml",
+        exec_runner=runner,
+    )
+
+    assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
+
+
+def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:
+    """A flat app nested under an unrelated workspace must not sync that workspace."""
+    (tmp_path / "pyproject.toml").write_text(WORKSPACE, encoding="utf-8")
+    app_dir = tmp_path / "elsewhere" / "app"
+    app_dir.mkdir(parents=True)
+    (app_dir / "pyproject.toml").write_text(HOST, encoding="utf-8")
+
+    assert _sync_command(app_dir) == (["uv", "sync"], app_dir)

@@ -248,8 +248,8 @@ Per-middleware detail: `docs/framework/middleware.md`,
 `SidebarLayout` renders the menu its `menuKey` names, so a page left on
 `AuthenticatedLayout` after its item moved shows a sidebar without it.
 `group=` sub-clusters inside a sidebar (`Access`, `Appearance`, `System`).
-`/admin` itself is a host route (`host/routes.py`) rendered from the
-`adminSidebar` shared prop; old URLs 301 from `host/routes_legacy.py`.
+`/admin` itself ships with `simple_module_hosting` (`admin_overview/`, mounted
+by `create_app` like `/setup`) and renders the `adminSidebar` shared prop; old URLs 301 from `host/routes_legacy.py`.
 `/api/*` paths never move.
 
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
@@ -446,7 +446,9 @@ templates `smpy create-module` / `smpy new` use
 (`framework/cli/simple_module_cli/templates/module/`). Change a convention there,
 once. The `framework_repo` variant is a template overlay
 (`_optional/framework_repo/`: workspace-sourced `pyproject.toml` with the
-`check_metadata.py` fields, `LICENSE`, `README.md`, i18n-keyed pages).
+`check_metadata.py` fields, `LICENSE`, `README.md`). Pages are i18n-keyed
+everywhere except `--standalone` module repos (`_optional/standalone/`), which
+have no host to generate `keys`.
 
 It generates a CRUD sample (model, DTOs, service, REST + Inertia endpoints,
 Browse/Create/Edit pages, `locales/en.json`, tests) whose permissions, page keys

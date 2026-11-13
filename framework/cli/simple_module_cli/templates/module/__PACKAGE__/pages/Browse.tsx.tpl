@@ -1,8 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { useApiErrorToast } from '@simple-module-py/ui/hooks/use-api-error-toast';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { useState } from 'react';
 import { api } from './api';
 import type { components } from './api.generated';
 
@@ -10,43 +11,48 @@ import type { components } from './api.generated';
 type Item = components['schemas']['{{SINGULAR_CLASS}}Out'];
 
 export default function Browse({ items }: { items: Item[] }) {
-  const [error, setError] = useState<string | null>(null);
+  const { t } = useT();
+  const showError = useApiErrorToast(keys.{{PACKAGE_NAME}}.browse.delete_failed);
+  const editLabel = t(keys.{{PACKAGE_NAME}}.browse.edit_link);
 
   async function remove(item: Item) {
-    setError(null);
     const result = await apiResult(
       api.DELETE('/api/{{MODULE_SLUG}}/{item_id}', { params: { path: { item_id: item.id } } }),
     );
-    if (!result.ok) {
-      setError(result.detail ?? 'Could not delete');
-      return;
-    }
-    router.reload({ only: ['items'] });
+    showError(result);
+    if (result.ok) router.reload({ only: ['items'] });
   }
 
   return (
-    <PageShell title="{{MODULE_NAME}}" description="Manage your {{PACKAGE_NAME}}">
-      <Head title="{{MODULE_NAME}}" />
+    <PageShell
+      title={t(keys.{{PACKAGE_NAME}}.browse.title)}
+      description={t(keys.{{PACKAGE_NAME}}.browse.description)}
+    >
+      <Head title={t(keys.{{PACKAGE_NAME}}.browse.title)} />
       <div className="mb-4 flex justify-end">
         <Link
           href="/{{MODULE_SLUG}}/create"
           className="rounded bg-primary px-3 py-1.5 text-primary-foreground"
         >
-          New {{SINGULAR_CLASS}}
+          {t(keys.{{PACKAGE_NAME}}.browse.new_button)}
         </Link>
       </div>
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {items.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">No {{PACKAGE_NAME}} yet.</p>
+        <div className="py-12 text-center">
+          <h2 className="text-lg font-medium">{t(keys.{{PACKAGE_NAME}}.browse.empty_title)}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t(keys.{{PACKAGE_NAME}}.browse.empty_description)}
+          </p>
+        </div>
       ) : (
         <ul className="divide-y">
           {items.map((item) => (
             <li key={item.id} className="flex justify-between gap-4 py-2">
               <span>{item.name}</span>
               <span className="flex gap-3">
-                <Link href={`/{{MODULE_SLUG}}/${item.id}/edit`}>Edit</Link>
+                <Link href={`/{{MODULE_SLUG}}/${item.id}/edit`}>{editLabel}</Link>
                 <button type="button" onClick={() => remove(item)}>
-                  Delete
+                  {t(keys.{{PACKAGE_NAME}}.browse.delete_button)}
                 </button>
               </span>
             </li>

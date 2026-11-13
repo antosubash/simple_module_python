@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -174,61 +175,83 @@ def new_project(
             rel = path.relative_to(target) if path.is_relative_to(target) else path
             typer.echo(f"  {rel}")
     typer.echo("\nGenerated secrets were written to .env (gitignored), not .env.example.")
-    typer.echo("\nNext steps:")
-    typer.echo(f"  cd {target}")
+    manual_setup = ["make install", 'make migration msg="initial schema"', "make migrate"]
     if no_install:
-        typer.echo("  uv sync")
-        typer.echo("  npm install")
-        typer.echo('  make migration msg="initial schema"')
-        typer.echo("  make migrate")
-        typer.echo("  make dev")
-        typer.echo("  make docker-up   # or run the full stack in containers")
-        if "background_tasks" in resolved:
-            typer.echo("  docker compose up -d redis worker beat   # background jobs")
+        _echo_next_steps(target, manual_setup, resolved)
         return
 
-    typer.echo("Installing dependencies...")
-    for cmd in (["uv", "sync"], ["npm", "install"]):
+    typer.echo("\nInstalling dependencies...")
+    # What `make install` runs: a workspace syncs every member, not just the root.
+    uv_sync = ["uv", "sync"] if flat else ["uv", "sync", "--all-packages"]
+    for cmd in (uv_sync, ["npm", "install"]):
         if shutil.which(cmd[0]) is None:
             typer.echo(
                 f"WARNING: '{cmd[0]}' not found on PATH; skipping `{' '.join(cmd)}`. "
                 "Install it and finish setup manually.",
                 err=True,
             )
+            _echo_next_steps(target, manual_setup, resolved)
             return
-        result = subprocess.run(cmd, cwd=target, check=False)
-        if result.returncode != 0:
-            typer.echo(
-                f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); "
-                "finish setup manually.",
-                err=True,
-            )
+        if not _run_quietly(cmd, target):
+            _echo_next_steps(target, manual_setup, resolved)
             return
 
     alembic = _alembic_argv(target, host_dir)
-    _bootstrap_initial_migration(target, host_dir, alembic)
+    typer.echo("Creating the database...")
+    if not _bootstrap_initial_migration(target, host_dir, alembic):
+        _echo_next_steps(target, manual_setup[1:], resolved)
+        return
     # `heads` (plural) applies every per-module branch head; `head` (singular)
     # errors once a second module ships its own migration branch label.
-    subprocess.run([*alembic, "upgrade", "heads"], cwd=target, check=False)
-    typer.echo("\nSetup complete. Run `make dev` in the new directory.")
-    typer.echo("To run the full stack in containers instead: make docker-up")
+    if not _run_quietly([*alembic, "upgrade", "heads"], target):
+        # The revision exists now; regenerating it would create a duplicate.
+        _echo_next_steps(target, manual_setup[2:], resolved)
+        return
+    typer.echo("\nSetup complete.")
+    _echo_next_steps(target, [], resolved)
+
+
+def _run_quietly(cmd: list[str], cwd: Path) -> bool:
+    """Run a setup step, showing its output only when it fails (GH #917)."""
+    try:
+        result = subprocess.run(
+            cmd, cwd=cwd, check=False, capture_output=True, text=True, errors="replace"
+        )
+    except OSError as exc:  # the executable is missing
+        typer.echo(
+            f"WARNING: {' '.join(cmd)} could not run ({exc}); finish setup manually.", err=True
+        )
+        return False
+    if result.returncode == 0:
+        return True
+    typer.echo(f"{result.stdout}{result.stderr}", err=True)
+    typer.echo(
+        f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); finish setup manually.",
+        err=True,
+    )
+    return False
+
+
+def _echo_next_steps(target: Path, setup: list[str], resolved: Sequence[str]) -> None:
+    typer.echo("\nNext steps:")
+    typer.echo(f"  cd {target}")
+    for step in [*setup, "make dev"]:
+        typer.echo(f"  {step}")
+    typer.echo("  make docker-up   # or run the full stack in containers")
     if "background_tasks" in resolved:
-        typer.echo("For background jobs, also run: docker compose up -d redis worker beat")
+        typer.echo("  docker compose up -d redis worker beat   # background jobs")
 
 
-def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str]) -> None:
+def _bootstrap_initial_migration(target: Path, host_dir: Path, alembic: list[str]) -> bool:
     """Autogenerate the baseline migration if the scaffold ships none.
 
     Without a real revision, ``alembic upgrade head`` is a silent no-op
     against an empty schema — the bundled modules' tables never exist.
 
     Runs from ``target`` (the project root) — see :func:`_alembic_argv`.
+    Returns False when the autogenerate failed.
     """
     versions_dir = host_dir / "migrations" / "versions"
     if any(p.name != "__init__.py" for p in versions_dir.glob("*.py")):
-        return
-    subprocess.run(
-        [*alembic, "revision", "--autogenerate", "-m", "initial schema"],
-        cwd=target,
-        check=False,
-    )
+        return True
+    return _run_quietly([*alembic, "revision", "--autogenerate", "-m", "initial schema"], target)

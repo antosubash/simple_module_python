@@ -15,7 +15,7 @@ dependencies = [
     "simple_module_inertia==0.0.45",
     "simple_module_settings==0.0.45",
     "simple_module_auth==0.0.45",
-    "cachetools>=5.3,<8",
+    "cachetools>=5.3,<9",
     "email-validator>=2.1,<3",
 ]
 

@@ -761,12 +761,6 @@ export const keys = {
     },
   },
   host: {
-    admin: {
-      description: 'host.admin.description',
-      empty: 'host.admin.empty',
-      overview: 'host.admin.overview',
-      title: 'host.admin.title',
-    },
     landing: {
       badge: 'host.landing.badge',
       command_copied: 'host.landing.command_copied',
@@ -816,6 +810,11 @@ export const keys = {
     },
   },
   hosting: {
+    admin: {
+      description: 'hosting.admin.description',
+      empty: 'hosting.admin.empty',
+      title: 'hosting.admin.title',
+    },
     errors: {
       token_not_allowed: 'hosting.errors.token_not_allowed',
     },

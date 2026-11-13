@@ -11,8 +11,9 @@ schema. Postgres reflects the ordering, so it compares these faithfully.
 ``make_include_object`` can skip it on SQLite. Anything else still reaches
 Alembic: a different column list, a uniqueness change, or a real expression
 such as ``lower(email)``. A change of ordering alone (``DESC`` to ``ASC``) is not
-reported on SQLite, which cannot reflect ordering at all; the Postgres round
-trip (``make migrations-roundtrip-pg``) is what catches it.
+reported on SQLite, which cannot reflect ordering at all; a PostgreSQL
+round trip (``make migrations-roundtrip-pg`` in the framework repository) is what
+catches it.
 """
 
 from __future__ import annotations

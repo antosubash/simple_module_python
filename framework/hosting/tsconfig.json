@@ -1,7 +1,7 @@
 {
   // Type-checks the pages simple_module_hosting ships itself (the /setup
-  // wizard). They are bundled by each host's Vite build from the installed
-  // wheel, so nothing else in the repo would compile them.
+  // wizard and the /admin overview). They are bundled by each host's Vite
+  // build from the installed wheel, so nothing else in the repo would compile them.
   "extends": "@simple-module-py/tsconfig/base.json",
   "compilerOptions": {
     "paths": {

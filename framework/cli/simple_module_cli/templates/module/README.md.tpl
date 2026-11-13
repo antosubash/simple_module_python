@@ -20,6 +20,13 @@ uv run pytest
 
 ## Frontend assets (optional)
 
+The pages read their text from `{{PACKAGE_NAME}}/locales/en.json`. Inside an
+app they use `t(keys.{{PACKAGE_NAME}}.…)`; the host's `make gen-i18n` (also run
+by `make install`, `make build` and each dev boot) adds this module to `keys`.
+A standalone module repo has no host to generate them, so its scaffolded pages
+use literal English: once the module is installed in an app, switch a string
+to `t(keys.{{PACKAGE_NAME}}.browse.title)` and the like.
+
 If this module ships TSX pages:
 
 1. Drop them in `{{PACKAGE_NAME}}/pages/` (the scaffold created the

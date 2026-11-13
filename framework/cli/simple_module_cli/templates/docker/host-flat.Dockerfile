@@ -32,8 +32,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Flat mode keeps the frontend's own package.json under client_app/.
 RUN cd client_app && if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
-# Page manifest + generated module imports, then the production bundle.
+# Page manifest + generated module imports, the app's i18n keys (module pages
+# read `keys.<module>`, which the published @simple-module-py/i18n lacks), then
+# the production bundle.
 RUN uv run python -m simple_module_hosting gen-pages --host-dir=client_app
+RUN uv run python -m simple_module_hosting gen-i18n
 RUN cd client_app && npm run build
 
 # node_modules never ships in the runtime image.

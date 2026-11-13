@@ -36,6 +36,7 @@ from simple_module_db.extensions import (  # noqa: F401  (ensure_db_extensions r
 from simple_module_db.migration_portability import (
     iter_ops_recursive,
     rewrite_boolean_defaults,
+    sqlite_index_names,
     warn_unverifiable_expression_indexes,
 )
 
@@ -195,8 +196,8 @@ def make_process_revision_directives(
     alone, which keeps this dialect-agnostic rather than special-casing SQLite.
 
     It also rewrites ``0``/``1``/``false``/``true`` server defaults on Boolean
-    columns to ``sa.false()``/``sa.true()`` and, when running on SQLite, warns
-    that expression indexes cannot be verified (see
+    columns to ``sa.false()``/``sa.true()`` and, when running on SQLite, names
+    the expression indexes the revision misses (see
     :mod:`simple_module_db.migration_portability`).
 
     Call as::
@@ -213,15 +214,17 @@ def make_process_revision_directives(
                 expression_indexes.setdefault(table.name, []).append(index)
 
     def process_revision_directives(context, revision, directives):
-        warn_unverifiable_expression_indexes(
-            getattr(getattr(context, "dialect", None), "name", None), metadata
-        )
+        dialect_name = getattr(getattr(context, "dialect", None), "name", None)
         for script in directives:
             upgrade_ops = getattr(script, "upgrade_ops", None)
             if upgrade_ops is not None:
                 rewrite_boolean_defaults(upgrade_ops)
                 if expression_indexes:
                     _inject_create_index_after_create_table(upgrade_ops, expression_indexes)
+                # After the re-emission, so an index this revision creates is not reported.
+                warn_unverifiable_expression_indexes(
+                    dialect_name, metadata, upgrade_ops, _existing_sqlite_indexes(context)
+                )
             downgrade_ops = getattr(script, "downgrade_ops", None)
             if downgrade_ops is not None:
                 # A downgrade re-creates dropped tables/columns from reflected
@@ -231,6 +234,13 @@ def make_process_revision_directives(
                     _inject_drop_index_before_drop_table(downgrade_ops, expression_indexes)
 
     return process_revision_directives
+
+
+def _existing_sqlite_indexes(context) -> set[str]:
+    connection = getattr(context, "connection", None)
+    if connection is None or connection.dialect.name != "sqlite":
+        return set()
+    return sqlite_index_names(connection)
 
 
 def _existing_index_names(container, op_type) -> set[str | None]:

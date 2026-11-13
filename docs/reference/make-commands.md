@@ -25,7 +25,7 @@ smpy --help
 
 | Command | What |
 |---|---|
-| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` + `gen-pages` unless `--no-sync`. |
+| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` + `gen-pages` unless `--no-sync` (inside a workspace app the sync runs from the app root as `uv sync --all-packages`). |
 | `smpy update [name]` | Update git-sourced modules to their newest release tag. Omit the name to update every git-sourced module; `--dry-run` previews. |
 
 `smpy add` handles a repo containing several modules: `--module a,b` picks specific dist names and `--all` takes every module it finds.
@@ -71,7 +71,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 `smpy users create-admin` is contributed by the `users` module as a `smpy users` subcommand:
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
 
 ## Scaffolded-app Makefile

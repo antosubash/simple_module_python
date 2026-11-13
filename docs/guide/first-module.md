@@ -11,7 +11,7 @@ smpy create-module orders --dest modules/orders
 smpy add ../modules/orders --path host
 ```
 
-This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. `smpy add` wires it into the host: it adds `simple_module_orders` to `host/pyproject.toml` as a uv workspace source (`{ workspace = true }`), runs `uv sync` and regenerates the page manifest. `create-module` prints this same command. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
+This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. `smpy add` wires it into the host: it adds `simple_module_orders` to `host/pyproject.toml` as a uv workspace source (`{ workspace = true }`), syncs the whole workspace from the app root (`uv sync --all-packages`) and regenerates the page manifest. `create-module` prints this same command. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
 
 New modules put shared settings and constants in `core/`, HTTP code in `web/`,
 and reusable frontend code in `ui/`. Root lookup paths (`models.py`, `contracts/`,
@@ -246,7 +246,7 @@ async def create_order(data: OrderCreate, service: OrderServiceDep) -> OrderOut:
 `pages/Browse.tsx` was scaffolded — extend it:
 
 ```tsx
-import { useT } from "@simple-module-py/i18n";
+import { keys, useT } from "@simple-module-py/i18n";
 import { PageShell } from "@simple-module-py/ui/components/PageShell";
 import {
   Table,
@@ -261,14 +261,14 @@ import type { OrderOut } from "../contracts";
 export default function Browse({ orders }: { orders: OrderOut[] }) {
   const { t } = useT();
   return (
-    <PageShell title={t("orders.browse.title")}>
+    <PageShell title={t(keys.orders.browse.title)}>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>#</TableHead>
-            <TableHead>{t("orders.fields.customer")}</TableHead>
-            <TableHead>{t("orders.fields.total")}</TableHead>
-            <TableHead>{t("orders.fields.status")}</TableHead>
+            <TableHead>{t(keys.orders.fields.customer)}</TableHead>
+            <TableHead>{t(keys.orders.fields.total)}</TableHead>
+            <TableHead>{t(keys.orders.fields.status)}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -287,7 +287,7 @@ export default function Browse({ orders }: { orders: OrderOut[] }) {
 }
 ```
 
-Translations (`orders/locales/en.json`):
+Translations (`orders/locales/en.json`). `keys.orders.*` is generated from this file by `make gen-i18n`, which `make install`, `make build` and every dev boot run, so a new key needs one of them before `tsc` sees it:
 
 ```json
 {

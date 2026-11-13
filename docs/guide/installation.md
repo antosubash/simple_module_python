@@ -60,7 +60,7 @@ smpy new myapp --preset standard --with background_tasks,file_storage
 
 Dependencies between modules are resolved automatically — e.g. `users` always pulls in `auth`, and `file_storage` pulls in `settings`. The `settings` module ships only in the `full` preset (or when added explicitly with `--with settings`).
 
-After scaffolding, `smpy new` runs `uv sync`, `npm install`, and `alembic upgrade heads` for you (skip with `--no-install` if you'd rather drive that yourself).
+After scaffolding, `smpy new` runs `uv sync --all-packages` (`uv sync` for `--flat`), `npm install`, and `alembic upgrade heads` for you. With `--no-install` it prints those steps instead, starting with `make install`.
 
 ## Boot it
 
@@ -107,8 +107,10 @@ Or run the whole stack in containers — `make docker-up` builds the image (`doc
 If you included the `users` module:
 
 ```bash
-uv run smpy users create-admin --email admin@example.com --password changeme
+uv run smpy users create-admin --email admin@example.com
 ```
+
+It prompts for the password; `--password` is for scripts and ends up in your shell history.
 
 Or set bootstrap env vars so the admin is auto-created on first boot:
 
@@ -200,7 +202,7 @@ Run `make kill` to free the app's API and Vite ports (`:8000` and the port in `S
 The DB is ahead of or behind the migration files. For a dev DB: `rm app.db && make migrate`. For Postgres: `docker compose down -v && docker compose up -d postgres && make migrate`.
 
 **Entry points aren't discovered after editing a module's `pyproject.toml`.**
-Re-run `uv sync` — entry points are registered at install time, not at import time.
+Re-run `make install` (`uv sync --all-packages`) — entry points are registered at install time, not at import time. Then restart `make dev`: a reload keeps the import path the server started with.
 
 ## Next steps
 

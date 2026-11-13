@@ -9,6 +9,7 @@
       "modules/*/*/**/components/**",
       "modules/*/tests-js/**",
       "framework/hosting/simple_module_hosting/setup_wizard/**",
+      "framework/hosting/simple_module_hosting/admin_overview/**",
       "framework/hosting/tsconfig.json",
       "!.claude",
       "!**/*.md",

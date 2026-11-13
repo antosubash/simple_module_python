@@ -1,10 +1,4 @@
 {
-  "admin": {
-    "title": "Administration",
-    "description": "Benutzer, Zugriff, Darstellung und Systemeinstellungen verwalten.",
-    "empty": "Für Ihr Konto sind keine Administrationswerkzeuge verfügbar.",
-    "overview": "Übersicht"
-  },
   "landing": {
     "badge": "✦ FastAPI + Inertia als Komplettpaket",
     "hero_title_line1": "Modulare Python-Apps,",

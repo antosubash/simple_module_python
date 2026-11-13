@@ -362,13 +362,19 @@ generated file against this checklist before treating it as portable
    scaffolded `env.py`) rewrite these for you; check any revision written
    without them, and always write `server_default=sa.false()` on the model.
 2. **Expression indexes.** SQLite cannot reflect `Index(..., text("lower(email)"))`,
-   so autogenerate skips it and `alembic check` cannot see it. Autogenerate on
-   SQLite logs a banner naming every expression index in your models, and
-   `make doctor` reports `SM026`. Add each one to a revision by hand
+   so autogenerate skips it and `alembic check` cannot see it. The revision hook
+   re-emits the expression indexes of every table a revision creates, so an
+   initial schema needs nothing. When the models declare an expression index the
+   database does not have (one added to an existing table), autogenerate on
+   SQLite logs a banner naming it, and `make doctor` reports `SM026` for every
+   expression index. Add it to the revision by hand
    (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
-   confirm with the PostgreSQL round trip below. The warning is deliberately not
-   an error: it fires on every autogenerate, including unrelated revisions, and
-   the Postgres round trip is the actual gate. Prefer writing an ordered index column as
+   confirm with the PostgreSQL round trip below; in an app without that make
+   target, point `SM_DATABASE_URL` at a PostgreSQL database, run `make migrate`,
+   then `uv run alembic -c host/alembic.ini check`, which reports a missing
+   index. The warning is deliberately not an error:
+   SQLite can neither confirm nor refute the drift, and PostgreSQL is the actual
+   gate. Prefer writing an ordered index column as
    `sa.desc(sa.column("col"))` over `sa.text("col DESC")` or `sa.desc("col")`:
    the latter two are expressions to Alembic, and while the host's include filter
    suppresses the false SQLite change when only the ordering differs, the column
@@ -846,7 +852,8 @@ survive a real host build (Vite import resolution, Tailwind scanning, the
 `gen-pages` CSS emission). `verify` answers that by scaffolding a
 throwaway host into `.smpy/verify-host/` (cached, gitignored), installing
 your module into it as an editable path dependency, and running the host's
-real `gen-pages` + `npm run build`:
+real `gen-pages`, `gen-i18n` (so pages that read `keys.<module>` type-check)
+and `npm run build`:
 
 ```bash
 uv run smpy module verify          # warm re-runs reuse the cached host
