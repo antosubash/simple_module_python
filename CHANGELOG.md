@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- The development type checker and scaffolded apps now use ty 0.0.100. Their configuration uses its renamed attribute rules while preserving the existing SQLModel suppressions; generated apps pin the tested 0.0.100 series (#894).
+
 ### Added
 
 - `users`: `oauth_microsoft_discovery_url` points Microsoft sign-in at a local IdP through its discovery document, honoured only when `SM_ENVIRONMENT` is explicitly development or testing (unset does not count; anywhere else it is ignored and `users.oauth.microsoft_discovery_ignored` is logged). `docs/examples/keycloak-entra-realm.json` is a Keycloak realm with Entra-shaped claims (`tid`, `oid`, `upn`) for clicking through the flow before an Entra app exists. `simple_module_test` gains `OidcTestIssuer` and the `oidc_test_issuer` fixture (RSA key, JWKS, discovery document, `sign(claims)`) for testing an OpenID Connect sign-in without an IdP (#879).

@@ -52,7 +52,7 @@ class TenantCelery(Celery):
         kwargs.setdefault("task_cls", TenantTask)
         super().__init__(*args, **kwargs)
 
-    def _task_from_fun(  # ty: ignore[invalid-method-override]
+    def _task_from_fun(  # ty: ignore[incompatible-method-override]
         self,
         fun: Any,
         name: Any = None,

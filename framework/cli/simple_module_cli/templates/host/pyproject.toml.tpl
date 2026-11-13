@@ -49,7 +49,8 @@ ignore = [
 # see through this, so ORM query expressions trip these rules with false
 # positives — real bugs still surface in tests.
 [tool.ty.rules]
-unresolved-attribute = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 unsupported-operator = "ignore"
 unknown-argument = "ignore"
 no-matching-overload = "ignore"
