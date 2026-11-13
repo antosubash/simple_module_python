@@ -206,14 +206,9 @@ class TestDevServer:
         """Read duck-typed off ``app.state.background_tasks`` so the dashboard
         never imports the module — it is optional."""
         monkeypatch.setattr(
-            app.state,
-            "background_tasks",
-            SimpleNamespace(
-                last_worker_snapshot=SimpleNamespace(
-                    workers=[SimpleNamespace(hostname="celery@w1", online=True)]
-                )
-            ),
-            raising=False,
+            app.state.background_tasks,
+            "last_worker_snapshot",
+            SimpleNamespace(workers=[SimpleNamespace(hostname="celery@w1", online=True)]),
         )
 
         props = await _props(authenticated_client)
@@ -227,17 +222,14 @@ class TestDevServer:
         """A worker the broker remembers but that no longer answers is not
         something this row may claim is running."""
         monkeypatch.setattr(
-            app.state,
-            "background_tasks",
+            app.state.background_tasks,
+            "last_worker_snapshot",
             SimpleNamespace(
-                last_worker_snapshot=SimpleNamespace(
-                    workers=[
-                        SimpleNamespace(hostname="celery@gone", online=False),
-                        SimpleNamespace(hostname="celery@w2", online=True),
-                    ]
-                )
+                workers=[
+                    SimpleNamespace(hostname="celery@gone", online=False),
+                    SimpleNamespace(hostname="celery@w2", online=True),
+                ]
             ),
-            raising=False,
         )
 
         props = await _props(authenticated_client)
