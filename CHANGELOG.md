@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.46] — 2026-11-13
+
 ### Changed
 
 - The development type checker and scaffolded apps now use ty 0.0.100. Their configuration uses its renamed attribute rules while preserving the existing SQLModel suppressions; generated apps pin the tested 0.0.100 series (#894).
@@ -1937,7 +1939,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.45...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.46...HEAD
+[0.0.46]: https://github.com/antosubash/simple_module_python/compare/v0.0.45...v0.0.46
 [0.0.45]: https://github.com/antosubash/simple_module_python/compare/v0.0.44...v0.0.45
 [0.0.44]: https://github.com/antosubash/simple_module_python/compare/v0.0.43...v0.0.44
 [0.0.43]: https://github.com/antosubash/simple_module_python/compare/v0.0.42...v0.0.43

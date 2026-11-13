@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/tsconfig",
-  "version": "0.0.45",
+  "version": "0.0.46",
   "description": "Shared TypeScript compiler options (base.json) for simple_module apps",
   "keywords": [
     "simple-module",
