@@ -33,9 +33,19 @@ def _root_at_debug() -> Iterator[None]:
     db_logger.setLevel(db_before)
 
 
-def _count() -> int:
+def _count(logger: str | None = None) -> int:
+    stmt = select(func.count()).select_from(RetainedLog)
+    if logger is not None:
+        stmt = stmt.where(RetainedLog.logger == logger)
     with sync_db.get_sync_session_factory()() as session:
-        return session.execute(select(func.count()).select_from(RetainedLog)).scalar_one()
+        return session.execute(stmt).scalar_one()
+
+
+def _wait_for_app_lines(expected: int, timeout: float = 15.0) -> None:
+    deadline = time.monotonic() + timeout
+    while _count(APP_LOGGER.name) < expected:
+        assert time.monotonic() < deadline, "the sink never stored the app lines"
+        time.sleep(0.05)  # intentional-sleep: polls the writer thread's flush
 
 
 def test_sink_writes_are_not_retained_again():
@@ -43,9 +53,10 @@ def test_sink_writes_are_not_retained_again():
     assert handler is not None
     for i in range(5):
         APP_LOGGER.info("line %d", i)
-    time.sleep(1.5)  # intentional-sleep: absence of feedback growth can only be observed over time
+    # The writer flushes on its own clock; a slow runner needs more than one interval.
+    _wait_for_app_lines(5)
     first = _count()
-    time.sleep(1.5)  # intentional-sleep: second observation window
+    time.sleep(1.5)  # intentional-sleep: absence of feedback growth can only be observed over time
     assert _count() == first
     log_sink.uninstall_log_sink()
     with sync_db.get_sync_session_factory()() as session:

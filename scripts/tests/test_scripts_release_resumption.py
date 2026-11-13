@@ -136,7 +136,10 @@ def test_preflight_accepts_existing_projects() -> None:
 def test_preflight_fails_closed_on_registry_errors(error: URLError, confirmed: str) -> None:
     from scripts.release_preflight import main
 
-    with patch("scripts.release_preflight.urlopen", side_effect=error):
+    with (
+        patch("scripts.release_preflight.urlopen", side_effect=error),
+        patch("scripts.release_preflight.sleep"),
+    ):
         assert main(["--pending-publishers", confirmed]) == 1
 
 

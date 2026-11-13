@@ -3,6 +3,7 @@
 import argparse
 from collections.abc import Sequence
 from pathlib import Path
+from time import sleep
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -10,6 +11,23 @@ from scripts.check_metadata import parse_publish_matrix
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/release.yml"
 PYPI_PROJECT_URL = "https://pypi.org/pypi/{name}/json"
+ATTEMPTS = 3
+RETRY_DELAY_SECONDS = 2.0
+
+
+def _probe(name: str) -> None:
+    """Open the project's JSON page; retry network failures and 5xx, raise the last one."""
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            with urlopen(PYPI_PROJECT_URL.format(name=name), timeout=30):
+                return
+        except HTTPError as exc:
+            if exc.code < 500 or attempt == ATTEMPTS:
+                raise
+        except (URLError, TimeoutError, OSError):
+            if attempt == ATTEMPTS:
+                raise
+        sleep(RETRY_DELAY_SECONDS * attempt)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -25,8 +43,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     errors: list[str] = []
     for name in parse_publish_matrix(WORKFLOW):
         try:
-            with urlopen(PYPI_PROJECT_URL.format(name=name), timeout=30):
-                pass
+            _probe(name)
         except HTTPError as exc:
             if exc.code == 404:
                 if name in confirmed:
