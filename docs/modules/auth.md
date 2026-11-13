@@ -52,7 +52,7 @@ Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `h
 from auth.web.deps import CurrentUser, get_current_user, require_permission
 ```
 
-The old `auth.deps` import path still works, with a `DeprecationWarning`, until 0.0.46 (as do `auth.constants`, `auth.state` and `auth.middleware`).
+The old `auth.deps`, `auth.constants`, `auth.state` and `auth.middleware` import paths were removed in 0.0.46; import from `auth.web.deps`, `auth.core.*` and `auth.web.middleware`.
 
 | Dependency | What it does |
 |---|---|
