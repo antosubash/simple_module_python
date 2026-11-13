@@ -75,7 +75,7 @@ def deprecated(
                 entry.warn(stacklevel=2)
                 original_init(self, *args, **kwargs)
 
-            obj.__init__ = init  # ty: ignore[invalid-assignment]
+            obj.__init__ = init
             return obj
 
         @functools.wraps(cast("Callable[..., Any]", obj))

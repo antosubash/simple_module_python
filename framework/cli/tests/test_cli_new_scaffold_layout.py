@@ -179,7 +179,8 @@ def test_sm_new_root_pyproject_has_dev_tooling_and_config(tmp_path: Path) -> Non
     assert any(d.startswith("simple_module_test==") for d in dev)
     assert data["tool"]["pytest"]["ini_options"]["asyncio_mode"] == "auto"
     assert data["tool"]["ruff"]["line-length"] == 100
-    assert "unresolved-attribute" in data["tool"]["ty"]["rules"]
+    assert data["tool"]["ty"]["rules"]["missing-attribute"] == "ignore"
+    assert data["tool"]["ty"]["rules"]["missing-union-attribute"] == "ignore"
 
 
 def test_sm_new_generated_app_passes_its_own_ruff(tmp_path: Path) -> None:

@@ -64,7 +64,9 @@ def test_env_overrides_bad_json_or_shape_is_ignored(monkeypatch, caplog) -> None
 def test_celery_overrides_is_not_a_db_backed_setting(monkeypatch) -> None:
     assert "celery_overrides" not in BackgroundTasksSettings.model_fields
     # A stored/hydrated value is ignored, not applied.
-    s = BackgroundTasksSettings(celery_overrides={"task_serializer": "pickle"})  # pyright: ignore
+    s = BackgroundTasksSettings(  # ty: ignore[pydantic-discarded-extra-argument]
+        celery_overrides={"task_serializer": "pickle"}
+    )
     assert not hasattr(s, "celery_overrides")
     monkeypatch.setattr(celery_app, "_discover_task_packages", list)
     c = celery_app.build_celery(BackgroundTasksSettings(task_always_eager=True))

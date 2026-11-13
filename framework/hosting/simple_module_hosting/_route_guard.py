@@ -96,7 +96,7 @@ def guard_included_routers(app: FastAPI, *, warm: bool = True) -> None:
         if isinstance(route, _IncludedRouter) and not isinstance(route.matches, _PrefixGuard):
             guard = _PrefixGuard(route)
             guard._current_prefix()
-            route.matches = guard  # ty: ignore[invalid-assignment]
+            route.matches = guard
             if warm:
                 for _ in route.effective_route_contexts():
                     pass

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-# ty is pre-1.0 and renames rules between releases (0.0.100 renamed
-# ``unresolved-attribute``, which the scaffold's ``[tool.ty.rules]`` names), so
+# ty is pre-1.0 and renames rules between releases, so
 # new apps get the range this repo is tested on, not the newest ty.
 # ``test_scaffold_lint_tooling.py`` fails once ``uv.lock`` moves past it.
-TY_REQUIREMENT = "ty>=0.0.90,<0.0.100"
+TY_REQUIREMENT = "ty>=0.0.100,<0.0.101"
 
 # Apps turn ty's ``invalid-assignment`` off, so this ignore would be reported as
 # unused there; only a module inside the framework repo, which checks the rule,

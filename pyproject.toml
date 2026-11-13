@@ -113,7 +113,8 @@ exclude = ["framework/hosting/simple_module_hosting/templates/**"]
 # trigger false positives in every service / endpoint / test that uses the ORM.
 # Downgrading these rules trades a known SQLModel typing limitation for a
 # clean lint baseline. Real bugs caught by these rules surface in tests.
-unresolved-attribute = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 unsupported-operator = "ignore"
 unknown-argument = "ignore"
 no-matching-overload = "ignore"
