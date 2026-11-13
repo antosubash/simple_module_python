@@ -137,7 +137,8 @@ JS tests stay in `tests-js/`, not in package `ui/`.
 
 Inventory old import paths used outside the module, both in this repository
 and downstream. Every such old path becomes a shim using
-`simple_module_core.deprecation.deprecated_module`, with `remove_in="0.0.46"`.
+`simple_module_core.deprecation.deprecated_module`, with `remove_in` set two
+releases ahead of the one that ships the move.
 Update internal imports to the new path; do not make new code depend on shims.
 A shim built as the `sys.modules` alias below is discovered automatically by
 `host/tests/test_deprecation_expiry.py` (`_layout_shims()`), so it needs no manual
@@ -148,7 +149,7 @@ For example, after moving `orders.service` to `orders.web.service`, leave this
 at `orders/service.py` if external callers use that old path:
 
 ```python
-"""Moved to :mod:`orders.web.service`; this alias goes in 0.0.46 (module layout)."""
+"""Moved to :mod:`orders.web.service`; this alias goes in 0.0.48 (module layout)."""
 
 from __future__ import annotations
 
@@ -157,7 +158,7 @@ import sys
 
 from simple_module_core.deprecation import deprecated_module
 
-deprecated_module("orders.service", remove_in="0.0.46", use="orders.web.service")
+deprecated_module("orders.service", remove_in="0.0.48", use="orders.web.service")
 sys.modules[__name__] = importlib.import_module("orders.web.service")
 ```
 
@@ -210,7 +211,7 @@ One module per PR; no logic changes in a move PR.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
    package initializers and prefix each basename with the module name.
    JS tests remain in `tests-js/`.
-4. Add external-import shims with removal release `0.0.46`, alias shims are
+4. Add external-import shims with a removal release two releases ahead; alias shims are
    auto-discovered by the expiry test (re-export shims are registered by hand),
    drop the shim's `DEPRECATED_ROOT` entry once it expires, and update the
    status table below. Domain areas must be named in `DOMAIN_AREAS`.
