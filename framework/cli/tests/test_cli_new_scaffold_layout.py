@@ -117,6 +117,17 @@ def test_sm_new_dev_api_watches_modules_dir(tmp_path: Path) -> None:
     assert "../modules" in makefile
 
 
+def test_sm_new_dev_api_reloads_on_locale_edits(tmp_path: Path) -> None:
+    """GH #930: the reloader watches only *.py by default, so a locale edit
+    never reached a running `make dev`."""
+    from simple_module_cli.app_project import create_app_project
+
+    for flat in (False, True):
+        target = tmp_path / ("flat" if flat else "ws")
+        create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[], flat=flat)
+        assert "--reload-include '*locales/*.json'" in (target / "Makefile").read_text()
+
+
 def test_sm_new_makefile_has_quality_gate_targets(tmp_path: Path) -> None:
     """Regression #201: the scaffold Makefile must emit test/lint/doctor targets
     and use `alembic upgrade heads` (plural) for per-module branch heads."""

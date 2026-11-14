@@ -18,7 +18,7 @@ dev: gen-pages
 	$(MAKE) -j2 dev-api dev-ui
 
 dev-api:
-	uv run uvicorn main:app --reload --port $(API_PORT)
+	uv run uvicorn main:app --reload --reload-include '*locales/*.json' --port $(API_PORT)
 
 dev-ui:
 	cd client_app && npm run dev

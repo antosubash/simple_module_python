@@ -53,17 +53,17 @@ export default function Landing({ isAuthenticated }: LandingProps) {
           <li>
             Scaffold a module:{' '}
             <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[13px] text-foreground">
-              smpy create-module orders --dest modules/orders
+              uv run smpy create-module orders --dest modules/orders
             </code>
           </li>
           <li>
             Wire it into the host:{' '}
             <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[13px] text-foreground">
-              smpy add ../modules/orders --path host
+              uv run smpy add ../modules/orders --path host
             </code>{' '}
             (
             <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[13px] text-foreground">
-              smpy add ./modules/orders
+              uv run smpy add ./modules/orders
             </code>{' '}
             in a flat app)
           </li>

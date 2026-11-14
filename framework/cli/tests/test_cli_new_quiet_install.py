@@ -109,7 +109,10 @@ def test_a_failed_sync_is_retried_once_with_refresh(tmp_path, monkeypatch) -> No
     result, calls = _invoke_sync_failures(tmp_path, monkeypatch, failures=1)
 
     syncs = [c for c in calls if c[:2] == ["uv", "sync"]]
-    assert syncs == [["uv", "sync", "--all-packages"], ["uv", "sync", "--all-packages", "--refresh"]]
+    assert syncs == [
+        ["uv", "sync", "--all-packages"],
+        ["uv", "sync", "--all-packages", "--refresh"],
+    ]
     assert "retrying with --refresh" in result.output
     assert "No solution found" not in result.output
     assert "Setup complete" in result.output
