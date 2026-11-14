@@ -258,9 +258,8 @@ def _note_unverifiable_expression_indexes(engine) -> None:
         found = find_expression_indexes(
             table for base in all_module_bases for table in base.metadata.tables.values()
         )
-        url = getattr(engine, "url", None)
         # Only those the database lacks by name, as doctor's SM026 (GH #933).
-        existing = sqlite_file_index_names(str(url)) if url is not None else None
+        existing = sqlite_file_index_names(str(engine.url))
         if existing is not None:
             found = [(table, index) for table, index in found if index not in existing]
     except Exception:  # pragma: no cover - purely advisory

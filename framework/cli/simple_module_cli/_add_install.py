@@ -86,6 +86,7 @@ def post_install(
             f"{dist} ships database models — generate and apply the migration:\n"
             f'  make migration msg="add {slug}"\n  make migrate'
         )
-    # Only `pyproject.toml` changed, so nothing reloads, and a reload would not
-    # import the new package anyway (GH #915, #931).
+    # Only `pyproject.toml` changed, which the dev reloader does not watch; and a
+    # reload still logs the new module as not importable in that process (GH #915,
+    # #931), so only a restart serves it.
     typer.echo("If `make dev` is running, restart it: modules are discovered at start-up.")

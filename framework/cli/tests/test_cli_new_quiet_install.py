@@ -78,7 +78,8 @@ def test_a_missing_executable_prints_the_manual_steps(tmp_path, monkeypatch) -> 
         app, ["new", "demo", "--yes", "--db", "sqlite", "--dest", str(tmp_path / "demo")]
     )
     assert result.exit_code == 0, result.output
-    assert "could not run" in result.output
+    # Once, although the sync is retried with --refresh (GH #932).
+    assert result.output.count("could not run") == 1
     assert "make install" in result.output.split("Next steps", 1)[1]
 
 
@@ -124,4 +125,4 @@ def test_a_sync_that_fails_after_refresh_shows_the_output(tmp_path, monkeypatch)
     assert len([c for c in calls if c[:2] == ["uv", "sync"]]) == 2
     assert "No solution found" in result.output
     assert "Setup complete" not in result.output
-    assert "uv sync --all-packages --refresh" in result.output.split("Next steps", 1)[1]
+    assert "already retried with --refresh" in result.output.split("Next steps", 1)[1]

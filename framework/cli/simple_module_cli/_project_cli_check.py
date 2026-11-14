@@ -69,7 +69,7 @@ def running_cli() -> str:
 
 
 def warn_if_not_the_apps_cli(command: str | None, current: str, start: Path) -> None:
-    """One stderr warning when the app pins another framework version than this CLI's."""
+    """One stderr warning when the project pins another framework version than this CLI's."""
     if command in _EXEMPT_COMMANDS or current == PLACEHOLDER_VERSION:
         return
     found = app_framework_pin(start)
@@ -77,8 +77,8 @@ def warn_if_not_the_apps_cli(command: str | None, current: str, start: Path) -> 
         return
     root, pinned = found
     typer.echo(
-        f"WARNING: this app ({root}) uses the framework {pinned}, but this smpy is "
+        f"WARNING: this project ({root}) pins the framework to {pinned}, but this smpy is "
         f"{current} ({running_cli()}).\n"
-        "  Use the app's own CLI: `uv sync --all-packages`, then `uv run smpy ...`.",
+        "  Use the project's own CLI: `uv sync --all-packages`, then `uv run smpy ...`.",
         err=True,
     )

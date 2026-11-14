@@ -197,7 +197,9 @@ def new_project(
             _echo_next_steps(target, manual_setup, resolved)
             if cmd is uv_sync:
                 typer.echo(
-                    f"If uv cannot find this release's packages, run `{' '.join(cmd)} --refresh`."
+                    f"`{' '.join(cmd)}` was already retried with --refresh. If uv still cannot "
+                    "find this release's packages, PyPI may not list them yet: wait a few "
+                    "minutes, then run `make install`."
                 )
             return
 
@@ -238,9 +240,10 @@ def _run_quietly(cmd: list[str], cwd: Path, *, report: bool = True) -> bool:
             cmd, cwd=cwd, check=False, capture_output=True, text=True, errors="replace"
         )
     except OSError as exc:  # the executable is missing
-        typer.echo(
-            f"WARNING: {' '.join(cmd)} could not run ({exc}); finish setup manually.", err=True
-        )
+        if report:
+            typer.echo(
+                f"WARNING: {' '.join(cmd)} could not run ({exc}); finish setup manually.", err=True
+            )
         return False
     if result.returncode == 0:
         return True
