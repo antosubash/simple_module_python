@@ -36,6 +36,7 @@ from simple_module_db.extensions import (  # noqa: F401  (ensure_db_extensions r
 from simple_module_db.migration_portability import (
     iter_ops_recursive,
     rewrite_boolean_defaults,
+    silence_expression_index_reflection_warnings,
     sqlite_index_names,
     warn_unverifiable_expression_indexes,
 )
@@ -207,6 +208,7 @@ def make_process_revision_directives(
             process_revision_directives=make_process_revision_directives(target_metadata),
         )
     """
+    silence_expression_index_reflection_warnings(metadata)
     expression_indexes: dict[str, list[Index]] = {}
     for table in metadata.tables.values():
         for index in table.indexes:

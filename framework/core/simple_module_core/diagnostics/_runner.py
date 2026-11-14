@@ -33,6 +33,7 @@ def run_diagnostics(
     i18n_extra_sources: list[tuple[str, str, Path]] | None = None,
     database_dialect: str | None = None,
     i18n_unknown_overrides: dict[str, list[str]] | None = None,
+    existing_index_names: frozenset[str] | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
@@ -44,7 +45,8 @@ def run_diagnostics(
     host/ui locale dirs that aren't owned by a ``ModuleBase``.
     ``database_dialect`` (``"sqlite"``, ``"postgresql"``...) enables SM026, which
     flags expression indexes a SQLite database cannot verify, and SM029, which flags
-    modules declaring ``db_extensions`` on SQLite.
+    modules declaring ``db_extensions`` on SQLite. ``existing_index_names``
+    (``sqlite_file_index_names``) limits SM026 to indexes the database lacks.
     ``i18n_unknown_overrides`` (``I18nRegistry.unknown_override_keys``) enables SM027.
     """
     diagnostics = ModuleDiagnostics().run(modules)
@@ -53,7 +55,10 @@ def run_diagnostics(
         for mod in modules:
             diagnostics.extend(
                 check_expression_indexes_unverifiable(
-                    module_all_tables(mod), database_dialect, mod.meta.name
+                    module_all_tables(mod),
+                    database_dialect,
+                    mod.meta.name,
+                    existing_index_names=existing_index_names,
                 )
             )
             diagnostics.extend(check_db_extensions_need_postgres(mod, database_dialect))

@@ -21,7 +21,7 @@ dev: docker-up gen-pages
 	$(MAKE) -j2 dev-api dev-ui
 
 dev-api:
-	uv run --project host uvicorn host.main:app --reload --port 8000
+	uv run --project host uvicorn host.main:app --reload --reload-include '*locales/*.json' --port 8000
 
 dev-ui:
 	npm run dev

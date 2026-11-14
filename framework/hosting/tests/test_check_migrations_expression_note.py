@@ -9,8 +9,9 @@ import pytest
 from simple_module_hosting.migrations import _note_unverifiable_expression_indexes
 
 
-def _engine(dialect: str):
-    return SimpleNamespace(dialect=SimpleNamespace(name=dialect))
+def _engine(dialect: str, url: str = "sqlite://"):
+    # "sqlite://" is in-memory: no file to read index names from, so every index is reported.
+    return SimpleNamespace(dialect=SimpleNamespace(name=dialect), url=url)
 
 
 def test_sqlite_logs_that_expression_indexes_are_unverified(caplog):
@@ -28,3 +29,18 @@ def test_postgres_stays_quiet(caplog):
         _note_unverifiable_expression_indexes(_engine("postgresql"))
 
     assert caplog.text == ""
+
+
+def test_sqlite_that_has_the_index_stays_quiet(caplog, tmp_path):
+    """GH #933: a migrated app's database already has it by name."""
+    pytest.importorskip("simple_module_users")
+    import sqlite3
+
+    db = tmp_path / "app.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE users_user (id INTEGER PRIMARY KEY, email TEXT)")
+        conn.execute("CREATE INDEX ix_users_user_email_lower ON users_user (lower(email))")
+    with caplog.at_level(logging.INFO, logger="simple_module_hosting.migrations"):
+        _note_unverifiable_expression_indexes(_engine("sqlite", f"sqlite:///{db}"))
+
+    assert "ix_users_user_email_lower" not in caplog.text

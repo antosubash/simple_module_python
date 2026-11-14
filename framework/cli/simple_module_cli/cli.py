@@ -20,6 +20,11 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli._project_cli_check import (
+    app_framework_pin,
+    running_cli,
+    warn_if_not_the_apps_cli,
+)
 from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.docker_cmd import docker_app
@@ -42,6 +47,12 @@ app = typer.Typer(
     add_completion=False,
 )
 
+
+@app.callback()
+def _check_project_cli(ctx: typer.Context) -> None:
+    warn_if_not_the_apps_cli(ctx.invoked_subcommand, resolve_framework_version(), Path.cwd())
+
+
 app.command("new")(new_project)
 app.command("add")(add_module)
 app.command("update")(update_modules)
@@ -60,9 +71,16 @@ def doctor() -> None:
         from simple_module_core.__main__ import main as run_doctor
     except ImportError:
         # The CLI installs on its own (to scaffold); doctor needs a project's framework.
-        typer.echo(
-            "ERROR: smpy doctor needs simple_module_core; run it inside a project.", err=True
-        )
+        if app_framework_pin(Path.cwd()) is None:
+            message = "smpy doctor needs simple_module_core; run it inside a project."
+        else:
+            # Inside an app, this is a global smpy outside the app's venv (GH #929).
+            message = (
+                f"this smpy ({running_cli()}) is not installed in this project's venv, "
+                "so it cannot see the app's modules. Run `uv sync --all-packages`, "
+                "then `uv run smpy doctor`."
+            )
+        typer.echo(f"ERROR: {message}", err=True)
         raise typer.Exit(1) from None
 
     raise typer.Exit(run_doctor())
@@ -139,7 +157,8 @@ def _app_add_command(target: Path) -> str | None:
         rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
     # The steps are printed "from the app root", so name the host relative to it.
     host_arg = host.resolve().relative_to(root.resolve()).as_posix()
-    return f"smpy add {rel} --path {host_arg}"
+    # `uv run`: after `uvx … smpy new`, `smpy` itself is not on PATH (GH #931).
+    return f"uv run smpy add {rel} --path {host_arg}"
 
 
 def _echo_app_next_steps(add_command: str, slug: str) -> None:
@@ -150,7 +169,7 @@ def _echo_app_next_steps(add_command: str, slug: str) -> None:
     """
     typer.echo("\nNext steps (from the app root):")
     typer.echo(f"  {add_command}   # adds it as {{ workspace = true }}")
-    typer.echo("  make install")
+    typer.echo("  make install   # links its pages (npm) and generates its i18n keys")
     typer.echo(f'  make migration msg="add {slug}"')
     typer.echo("  make migrate")
     typer.echo("  make test")

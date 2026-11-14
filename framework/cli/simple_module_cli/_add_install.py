@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -11,6 +12,8 @@ import typer
 from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
 
 ExecRunner = Callable[[list[str], Path], int]
+
+_DIST_PREFIX = re.compile(r"^simple[-_]module[-_]", re.IGNORECASE)
 
 
 _ENTRYPOINT_CHECK = (
@@ -77,7 +80,13 @@ def post_install(
                 "entry point — it is not a SimpleModule module."
             )
     for dist in models_dists:
+        # The same message `smpy create-module`'s next steps suggest (GH #931).
+        slug = _DIST_PREFIX.sub("", dist)
         typer.echo(
             f"{dist} ships database models — generate and apply the migration:\n"
-            f'  make migration msg="add {dist}"\n  make migrate'
+            f'  make migration msg="add {slug}"\n  make migrate'
         )
+    # Only `pyproject.toml` changed, which the dev reloader does not watch; and a
+    # reload still logs the new module as not importable in that process (GH #915,
+    # #931), so only a restart serves it.
+    typer.echo("If `make dev` is running, restart it: modules are discovered at start-up.")

@@ -48,7 +48,7 @@ def test_create_module_inside_an_app_prints_the_app_flow(tmp_path, monkeypatch) 
 
     assert result.exit_code == 0, result.output
     steps = result.output.split("Next steps", 1)[1]
-    assert "smpy add ../modules/notes --path host" in steps
+    assert "uv run smpy add ../modules/notes --path host" in steps
     assert "make install" in steps
     assert 'make migration msg="add notes"' in steps
     assert "make test" in steps
