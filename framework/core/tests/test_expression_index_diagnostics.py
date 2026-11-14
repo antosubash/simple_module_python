@@ -120,3 +120,44 @@ def test_text_ordering_and_literal_columns_still_count_as_expressions():
         ("t", "ix_t_literal"),
         ("t", "ix_t_text"),
     ]
+
+
+def test_sm026_skips_indexes_the_database_already_has():
+    """GH #933: a migrated fresh app has the index; SM026 has nothing to say."""
+    assert (
+        check_expression_indexes_unverifiable(
+            _tables(),
+            "sqlite",
+            "Users",
+            existing_index_names=frozenset({"ix_users_user_email_lower"}),
+        )
+        == []
+    )
+    missing = check_expression_indexes_unverifiable(
+        _tables(), "sqlite", "Users", existing_index_names=frozenset()
+    )
+    assert [d.code for d in missing] == ["SM026"]
+
+
+def test_sqlite_file_index_names_reads_the_file(tmp_path):
+    from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
+
+    db = tmp_path / "app.db"
+    engine = sa.create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        _tables()[0].metadata.create_all(conn)
+    engine.dispose()
+
+    names = sqlite_file_index_names(f"sqlite+aiosqlite:///{db}")
+    assert names is not None
+    assert "ix_users_user_email_lower" in names
+
+
+def test_sqlite_file_index_names_is_none_when_it_cannot_tell(tmp_path):
+    from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
+
+    missing = tmp_path / "missing.db"
+    assert sqlite_file_index_names(f"sqlite+aiosqlite:///{missing}") is None
+    assert not missing.exists()  # read-only: never creates the file
+    assert sqlite_file_index_names("sqlite+aiosqlite:///:memory:") is None
+    assert sqlite_file_index_names("postgresql+asyncpg://u@h/db") is None

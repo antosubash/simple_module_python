@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
 
 from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
 
@@ -57,6 +58,7 @@ def run_dev_boot(
         i18n_extra_sources=i18n_extra,
         i18n_unknown_overrides=i18n_unknown_overrides,
         database_dialect=settings.database_url.split(":", 1)[0].split("+", 1)[0],
+        existing_index_names=sqlite_file_index_names(settings.database_url),
     )
     diagnostics = diagnostics_state.rerun()
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

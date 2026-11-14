@@ -251,12 +251,18 @@ def _note_unverifiable_expression_indexes(engine) -> None:
         from simple_module_core.diagnostics._expression_index import (
             expression_index_advice,
             find_expression_indexes,
+            sqlite_file_index_names,
         )
         from simple_module_db.base import all_module_bases
 
         found = find_expression_indexes(
             table for base in all_module_bases for table in base.metadata.tables.values()
         )
+        url = getattr(engine, "url", None)
+        # Only those the database lacks by name, as doctor's SM026 (GH #933).
+        existing = sqlite_file_index_names(str(url)) if url is not None else None
+        if existing is not None:
+            found = [(table, index) for table, index in found if index not in existing]
     except Exception:  # pragma: no cover - purely advisory
         logger.debug("Could not inspect expression indexes", exc_info=True)
         return
