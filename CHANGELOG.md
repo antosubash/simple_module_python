@@ -14,6 +14,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `smpy new` apps keep `simple_module_cli` in the workspace root's `dev` group, so a plain `uv sync` no longer uninstalls it and `uv run smpy` no longer falls through to an older global `smpy`. Inside an app, `smpy` now warns when the app pins another framework version than its own (except `new`, `update` and `package-update`), and `smpy doctor` run by a CLI outside the project's venv says so instead of "run it inside a project". Existing apps: add `"simple_module_cli==<version>"` to `[dependency-groups] dev` in the root `pyproject.toml` (#929).
+- `make dev` reloads when a `locales/*.json` catalog changes: the app template's `dev-api` (and this repository's) pass `--reload-include '*locales/*.json'`, since uvicorn watches only `*.py`. Existing apps: add that flag to the `uvicorn` line of `dev-api` (#930).
+- `smpy add` ends with "If `make dev` is running, restart it" (the module 404s until a restart), and suggests `make migration msg="add <name>"` like `create-module`. `create-module`'s next steps and the landing page say `uv run smpy` (#931).
+- `smpy new` retries its `uv sync` once with `--refresh` when it fails, so a uv index cache from before a release no longer breaks the first app made with it (#932).
+- **Behaviour change:** `make_process_revision_directives` ignores SQLAlchemy's and Alembic's SQLite warnings about the expression indexes the models declare (the hook re-emits them for new tables and names any the database lacks), and SM026 plus the boot-time note now report only expression indexes the SQLite database does not have by name. A migrated fresh app prints neither (#933).
+
 ## [0.0.46] — 2026-11-13
 
 ### Changed

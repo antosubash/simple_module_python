@@ -366,8 +366,9 @@ generated file against this checklist before treating it as portable
    re-emits the expression indexes of every table a revision creates, so an
    initial schema needs nothing. When the models declare an expression index the
    database does not have (one added to an existing table), autogenerate on
-   SQLite logs a banner naming it, and `make doctor` reports `SM026` for every
-   expression index. Add it to the revision by hand
+   SQLite logs a banner naming it, and `make doctor` reports it as `SM026`
+   (SQLAlchemy's and Alembic's own warnings about declared expression indexes
+   are silenced, since the hook covers them). Add it to the revision by hand
    (`op.create_index(..., [sa.text("lower(email)")], if_not_exists=True)`) and
    confirm with the PostgreSQL round trip below; in an app without that make
    target, point `SM_DATABASE_URL` at a PostgreSQL database, run `make migrate`,
