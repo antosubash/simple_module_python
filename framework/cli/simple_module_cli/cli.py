@@ -139,7 +139,8 @@ def _app_add_command(target: Path) -> str | None:
         rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
     # The steps are printed "from the app root", so name the host relative to it.
     host_arg = host.resolve().relative_to(root.resolve()).as_posix()
-    return f"smpy add {rel} --path {host_arg}"
+    # `uv run`: after `uvx … smpy new`, `smpy` itself is not on PATH (GH #931).
+    return f"uv run smpy add {rel} --path {host_arg}"
 
 
 def _echo_app_next_steps(add_command: str, slug: str) -> None:
@@ -150,7 +151,7 @@ def _echo_app_next_steps(add_command: str, slug: str) -> None:
     """
     typer.echo("\nNext steps (from the app root):")
     typer.echo(f"  {add_command}   # adds it as {{ workspace = true }}")
-    typer.echo("  make install")
+    typer.echo("  make install   # links its pages (npm) and generates its i18n keys")
     typer.echo(f'  make migration msg="add {slug}"')
     typer.echo("  make migrate")
     typer.echo("  make test")
