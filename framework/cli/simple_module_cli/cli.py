@@ -20,6 +20,11 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli._project_cli_check import (
+    app_framework_pin,
+    running_cli,
+    warn_if_not_the_apps_cli,
+)
 from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
 from simple_module_cli.docker_cmd import docker_app
@@ -42,6 +47,12 @@ app = typer.Typer(
     add_completion=False,
 )
 
+
+@app.callback()
+def _check_project_cli(ctx: typer.Context) -> None:
+    warn_if_not_the_apps_cli(ctx.invoked_subcommand, resolve_framework_version(), Path.cwd())
+
+
 app.command("new")(new_project)
 app.command("add")(add_module)
 app.command("update")(update_modules)
@@ -60,9 +71,16 @@ def doctor() -> None:
         from simple_module_core.__main__ import main as run_doctor
     except ImportError:
         # The CLI installs on its own (to scaffold); doctor needs a project's framework.
-        typer.echo(
-            "ERROR: smpy doctor needs simple_module_core; run it inside a project.", err=True
-        )
+        if app_framework_pin(Path.cwd()) is None:
+            message = "smpy doctor needs simple_module_core; run it inside a project."
+        else:
+            # Inside an app, this is a global smpy outside the app's venv (GH #929).
+            message = (
+                f"this smpy ({running_cli()}) is not installed in this project's venv, "
+                "so it cannot see the app's modules. Run `uv sync --all-packages`, "
+                "then `uv run smpy doctor`."
+            )
+        typer.echo(f"ERROR: {message}", err=True)
         raise typer.Exit(1) from None
 
     raise typer.Exit(run_doctor())
