@@ -192,8 +192,13 @@ def new_project(
             )
             _echo_next_steps(target, manual_setup, resolved)
             return
-        if not _run_quietly(cmd, target):
+        run = _sync_retrying_with_refresh if cmd is uv_sync else _run_quietly
+        if not run(cmd, target):
             _echo_next_steps(target, manual_setup, resolved)
+            if cmd is uv_sync:
+                typer.echo(
+                    f"If uv cannot find this release's packages, run `{' '.join(cmd)} --refresh`."
+                )
             return
 
     alembic = _alembic_argv(target, host_dir)
@@ -211,8 +216,23 @@ def new_project(
     _echo_next_steps(target, [], resolved)
 
 
-def _run_quietly(cmd: list[str], cwd: Path) -> bool:
-    """Run a setup step, showing its output only when it fails (GH #917)."""
+def _sync_retrying_with_refresh(cmd: list[str], cwd: Path) -> bool:
+    """``uv sync``, retried once with ``--refresh`` when it fails (GH #932).
+
+    The pins are this CLI's own version, so they are published; right after a
+    release uv's cached index may still predate them.
+    """
+    if _run_quietly(cmd, cwd, report=False):
+        return True
+    typer.echo("uv's cached PyPI index may predate this release; retrying with --refresh...")
+    return _run_quietly([*cmd, "--refresh"], cwd)
+
+
+def _run_quietly(cmd: list[str], cwd: Path, *, report: bool = True) -> bool:
+    """Run a setup step, showing its output only when it fails (GH #917).
+
+    ``report=False`` keeps a failure silent, for a caller that retries.
+    """
     try:
         result = subprocess.run(
             cmd, cwd=cwd, check=False, capture_output=True, text=True, errors="replace"
@@ -224,6 +244,8 @@ def _run_quietly(cmd: list[str], cwd: Path) -> bool:
         return False
     if result.returncode == 0:
         return True
+    if not report:
+        return False
     typer.echo(f"{result.stdout}{result.stderr}", err=True)
     typer.echo(
         f"WARNING: {' '.join(cmd)} failed (exit {result.returncode}); finish setup manually.",
