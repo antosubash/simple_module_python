@@ -54,7 +54,7 @@ jobs:
       - run: make ci-check-hardcoded-strings
       - run: make ci-check-ci-parity
       - run: make ci-check-locales
-      # Backticked repo paths in docs/, CLAUDE.md, README.md and skills must exist (#519).
+      # Backticked repo paths in docs/, AGENTS.md, CLAUDE.md, README.md and skills must exist (#519).
       - run: make ci-doc-paths
       # Fixed sleeps in tests are timing bets; poll with simple_module_test.wait_for.
       - run: make ci-check-test-sleeps
