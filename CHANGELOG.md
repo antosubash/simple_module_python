@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- Docs: the repository's agent guide is now `AGENTS.md`, read by Codex, Cursor and other agents; `CLAUDE.md` imports it and keeps only the Claude Code rules. Both, and the README, were corrected against the code (lint and CI checks, the `/setup` first run, `make migration LABEL=…`, DB-backed settings and the generated `SM_SECRET_KEY`, which modules need `users` under Keycloak, signup as a setting). The README gains a demo GIF, recorded with `scripts/record_readme_demo.py`, and a table of the bundled modules. `make ci-doc-paths` also checks `AGENTS.md`.
+
 ### Fixed
 
 - `smpy new` apps keep `simple_module_cli` in the workspace root's `dev` group, so a plain `uv sync` no longer uninstalls it and `uv run smpy` no longer falls through to an older global `smpy`. Inside a project, `smpy` now warns when the project pins the framework to another version than its own (except `new`, `update` and `package-update`), and `smpy doctor` run by a CLI outside the project's venv says so instead of "run it inside a project". Existing apps: add `"simple_module_cli==<version>"` to `[dependency-groups] dev` in the root `pyproject.toml` (#929).

@@ -1,18 +1,20 @@
 # simple_module_python
 
-A modular-monolith framework for Python. Each feature lives in its own self-contained module — its own SQLModel tables, FastAPI endpoints, React pages — but everything ships as one FastAPI + Inertia.js + React app. No microservice tax, no API-client glue; just plugin modules that compose at boot.
+A modular-monolith framework for Python. Each feature lives in its own self-contained module, with its own SQLModel tables, FastAPI endpoints and React pages, but everything ships as one FastAPI + Inertia.js + React app. No microservice tax, no API-client glue: plugin modules that compose at boot.
+
+![Signing in, browsing the admin, toggling a feature flag, re-theming the app from the branding page and opening the doctor panel](docs/assets/readme-demo.gif)
 
 ## Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLModel (SQLAlchemy async + Pydantic), Alembic
-- **Frontend:** Inertia.js + React + Tailwind CSS 4, Vite HMR
+- **Frontend:** Inertia.js v3 + React + Tailwind CSS 4, Vite HMR
 - **UI:** shadcn/ui primitives + emerald/teal design tokens, Sora display font, DM Sans body, JetBrains Mono code
-- **Auth:** Pluggable providers — local users (email+password + OAuth/OIDC: Google, GitHub, Microsoft/Entra) via fastapi-users, Keycloak OIDC SSO, or any OIDC provider (Microsoft Entra, Auth0, Okta, Keycloak) via the generic `oidc` module; cookie sessions or bearer tokens resolved through a principal-resolver chain
-- **Tooling:** uv workspaces, Ruff, ty, Biome, pytest
+- **Auth:** pluggable providers: local users (email + password, OAuth/OIDC sign-in with Google, GitHub, Microsoft/Entra) via fastapi-users, Keycloak OIDC SSO, or any OIDC provider (Microsoft Entra, Auth0, Okta, Keycloak) via the generic `oidc` module; cookie sessions or bearer tokens
+- **Tooling:** uv workspaces, npm workspaces, Ruff, ty, Biome, pytest, Vitest, Playwright
 
-## Use in a new project
+## Build an app
 
-If you want to **build an app on simple_module**, not hack on the framework itself:
+To **build an app on simple_module** rather than work on the framework itself:
 
 ```bash
 uvx --from simple_module_cli@latest smpy new my-app
@@ -22,37 +24,61 @@ make dev
 
 `@latest` matters: without it `uvx` reuses an `smpy` you installed earlier with `uv tool install`, and an older CLI scaffolds an app pinned to its own, older framework version. `smpy new` warns when PyPI has a newer CLI.
 
-That scaffolds a working FastAPI + Inertia + React app with `users`, `dashboard`, and `permissions` pre-wired. You land on `/users/login`, sign in with the admin account you bootstrap, and go from there.
+`smpy new` scaffolds the app, installs it and runs the first migration. The default `standard` preset wires `auth`, `users`, `dashboard` and `permissions`; `--preset minimal` keeps only users, `--preset full` adds settings, feature flags, file storage, background tasks and site lock, and `--with background_tasks,file_storage` adds single modules. Until an admin exists, every page redirects to the `/setup` wizard, which creates one; after that you sign in at `/users/login`.
 
-See [CHANGELOG.md](CHANGELOG.md) for the list of published PyPI / npm packages at each release.
+Inside the app, use its own CLI with `uv run smpy …`:
 
----
+| Command | What it does |
+|---|---|
+| `uv run smpy add <spec>` | Add a module from PyPI, a `git+` URL or a local path |
+| `uv run smpy create-module <name>` | Scaffold a publishable module package |
+| `uv run smpy update` / `package-update` | Update git-sourced modules / the `simple_module_*` pins |
+| `uv run smpy users create-admin` | Create (or with `--force`, reset) an admin |
+| `uv run smpy doctor` | Check installed modules and database compatibility |
+| `uv run smpy skills add` | Install the agent skills for this framework into the project |
 
-## Quickstart
+The [quickstart](docs/guide/quickstart.md) walks through the first module. See [CHANGELOG.md](CHANGELOG.md) for the published PyPI / npm packages at each release.
+
+## Bundled modules
+
+| Module | What it does |
+|---|---|
+| `auth` | Session-cookie auth primitives (middleware, login/logout, redirects); every provider builds on it |
+| `users` | Local accounts: password login, invites, signup, roles, OAuth, admin UI. The default auth provider |
+| `keycloak` | Keycloak OIDC auth provider |
+| `oidc` | Generic OIDC auth provider (Microsoft Entra, Auth0, Okta, Keycloak, …) |
+| `permissions` | Role-based permissions and their admin UI |
+| `api_tokens` | Personal access tokens and service API keys |
+| `tenants` | Organisations, memberships and tenant resolution for multi-tenant installs |
+| `dashboard` | Authenticated home and the `/admin/doctor/` diagnostics panel |
+| `settings` | Admin settings UI for DB-backed settings, and `smpy settings` |
+| `feature_flags` | Feature flags with per-tenant overrides |
+| `file_storage` | Uploads to the local filesystem or S3 |
+| `background_tasks` | Celery + Redis task queue, durable event outbox, admin monitoring UI |
+| `mail` | Outgoing mail (SMTP or console) |
+| `audit_log` | Field-level audit trail for SQLModel entities |
+| `branding` | App name, logo, favicon and primary colour |
+| `sharing` | Generic resource shares between users |
+| `site_lock` | Site-wide password gate for staging and pre-launch |
+
+Each has a page under [docs/modules/](docs/modules/index.md).
+
+## Work on the framework
 
 ```bash
-# 1. Install Python and JS deps
-make install
-
-# 2. Copy env template (defaults work for local SQLite dev)
-cp .env.example .env
-
-# 3. Start the shared dev-services stack — Postgres/Redis/MinIO (skip if using the default SQLite)
-make docker-up
-
-# 4. Run migrations
-make migrate
-
-# 5. Start API + Vite dev server in parallel
-make dev
+make install       # uv sync --all-packages + npm install
+make migrate       # Alembic upgrade heads on ./app.db (SQLite, the default)
+make dev           # shared Docker stack + gen-pages + API (:8000) and Vite (:5050)
 ```
 
-Hit `http://localhost:8000` — you land on the public page. `/users/login` is the email+password login, `/dashboard/` is the authenticated home, and `/admin/doctor/` is the admin-only "smpy doctor" panel (static checks, migrations, dev server, modules).
+No `.env` is needed: the defaults use SQLite, and `.env.example` lists what you can override. `make dev` first starts the author's shared Postgres/Redis stack from a sibling `../dev-services` checkout. Without it, run `make gen-pages`, then `make dev-api` and `make dev-ui` in two terminals.
+
+Open `http://localhost:8000`. The first visit goes to the `/setup` wizard until an admin exists (or create one with `uv run smpy users create-admin --email admin@example.com`). Then `/users/login` signs you in, `/dashboard/` is the authenticated home, `/admin` the admin section, and `/admin/doctor/` the diagnostics panel.
 
 ## Run it in Docker
 
 The repo ships a default image (`./Dockerfile`) that builds the host plus every
-bundled module — Python workspace, `gen-pages`, and the production Vite bundle —
+bundled module (Python workspace, `gen-pages`, and the production Vite bundle)
 and serves it with uvicorn. It is standalone: SQLite lives inside the container
 under `/app/data`, so no Postgres and no Redis are needed to boot.
 
@@ -60,10 +86,8 @@ under `/app/data`, so no Postgres and no Redis are needed to boot.
 make docker-app        # build ./Dockerfile, then run it on http://localhost:8000
 ```
 
-Both run targets take `SM_APP_PORT=8010` when a `make dev` already holds
-8000.
-
-or without make:
+`make docker-app` and `make docker-compose-app` both take `SM_APP_PORT=8010`
+when a `make dev` already holds 8000. Without make:
 
 ```bash
 docker build -t simple-module-python .
@@ -82,18 +106,17 @@ Read it with `docker logs`. Pass `-e SM_USERS_BOOTSTRAP_EMAIL=… -e SM_USERS_BO
 to seed your own instead; an explicit `changeme` is refused because the image runs
 with `SM_ENVIRONMENT=production`. The seed only applies while the users table is
 empty, so on a reused volume the existing password still stands and no credentials
-are logged — reset it with
+are logged. Reset it with
 `smpy users create-admin --email … --password … --force`.
 
 `make docker-compose-app` (or `docker compose up --build app`) runs the same
-image through compose with a named volume — independent of the shared
+image through compose with a named volume, independent of the shared
 dev-services stack that `worker`/`beat` use.
 
-What the entrypoint does before uvicorn binds: applies `alembic upgrade heads`
-(a fresh volume has no tables, and production fails boot on `SM010` when the DB
-is behind head), and generates an ephemeral `SM_SECRET_KEY` when none is set —
-enough to boot and log in, but sessions die on restart, so set one for anything
-real.
+Before uvicorn binds, the entrypoint applies `alembic upgrade heads` (a fresh
+volume has no tables, and production fails boot on `SM010` when the DB is behind
+head) and generates an ephemeral `SM_SECRET_KEY` when none is set: enough to boot
+and log in, but sessions die on restart, so set one for anything real.
 
 The image runs with `SM_ENVIRONMENT=production` because it serves the built
 bundle rather than a Vite dev server. Useful overrides:
@@ -107,12 +130,12 @@ bundle rather than a Vite dev server. Useful overrides:
 
 **No background tasks.** The image skips installing the Celery module
 (`uv sync … --no-install-package simple-module-background-tasks`), so nothing in
-it wants a broker — a queue means a second process and a Redis, which is the
+it wants a broker: a queue means a second process and a Redis, which is the
 opposite of a standalone image. `docker-compose.yml`'s `worker` / `beat`
 services cover that path: they build `docker/worker.Dockerfile` against the
 shared `../dev-services` Postgres + Redis on the external `devnet` network. To
 run tasks from the web process instead, drop the `--no-install-package` flag
-from the Dockerfile and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND`.
+from the Dockerfile and set `SM_REDIS_URL`.
 
 ## Create a new module
 
@@ -120,112 +143,114 @@ from the Dockerfile and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND`.
 make new-module name=orders
 ```
 
-That scaffolds `modules/orders/` with a working CRUD module end-to-end — `ModuleMeta`, SQLModel table with `AuditMixin`, SQLModel contracts, service layer, REST + Inertia view endpoints, `Browse/Create/Edit.tsx` pages, and tests. Next:
+That scaffolds `modules/orders/` with a working CRUD module: `ModuleMeta`, a SQLModel table with `AuditMixin`, SQLModel contracts, a service layer, REST + Inertia view endpoints, `Browse/Create/Edit.tsx` pages, translations and tests. It also wires the module into the workspace and regenerates the i18n keys and typed API client. Next:
 
 ```bash
 # 1. Edit modules/orders/orders/models.py to your actual schema
-# 2. Generate a migration
-make migration msg="add orders tables"
-# 3. Apply it
+# 2. Generate the module's first migration on its own branch; set
+#    branch_labels = ("orders",) in the new revision
+make migration LABEL=orders msg="add orders tables"
+# 3. Apply it and run the tests
 make migrate
-# 4. Run the scaffolded tests
 make test
 ```
 
-The new module is automatically discovered (via Python entry points), its routes register at `/api/orders` and `/orders`, and its sidebar entry appears in the menu.
+The migration history has several heads, so `make migration` always names a branch with `LABEL`. [Module authoring](docs/module-authoring.md) covers the first revision and how to review one autogenerated on SQLite.
+
+The new module is discovered through its Python entry point; its routes register at `/api/orders` and `/orders`, and its menu entry appears in the sidebar.
 
 ## Project layout
 
 ```
 framework/
-  cli/         # smpy CLI — scaffolding, skills, package updates
   core/        # module system, discovery, events, diagnostics
-  db/          # per-module Base, session, mixins, listeners
-  hosting/     # app_builder, middleware, settings, Inertia glue
-  testing/     # shared pytest fixtures + helpers
-modules/       # plugin modules (auth, dashboard, users, settings, ...)
-host/
-  main.py      # FastAPI entry point
-  routes.py    # host-level routes (landing page)
-  client_app/  # Vite + React client app
-  migrations/  # Alembic migrations
+  db/          # per-module Base, sessions, mixins, tenancy, migration helpers
+  hosting/     # create_app, middleware, settings, setup wizard, /admin
+  inertia/     # Inertia.js v3 server adapter
+  testing/     # pytest plugin with shared fixtures and helpers
+  cli/         # smpy: new, add, update, create-module, skills, openapi, ...
+modules/       # the 17 bundled plugin modules
+host/          # the dev host app: main.py, client_app/ (Vite + React), all Alembic migrations
 packages/
-  ui/          # shared shadcn/ui components, layouts, and design-system primitives
+  ui/          # shared shadcn/ui components, layouts, design tokens
   i18n/        # generated i18n keys + translation runtime
-scripts/
-  new_module.py  # thin wrapper over the CLI scaffolder (`make new-module`)
-docs/
-  plans/                      # design + implementation plans
-  framework-conventions.md    # invariants for module authors
+  tsconfig/    # shared TypeScript config
+skills/        # agent skills shipped to users (smpy skills add)
+tests/         # e2e (Playwright), perf, integration and load tests
+scripts/       # generators and the CI checks behind make lint
+docker/        # entrypoint and worker image
+docs/          # VitePress site: guide, framework, database, frontend, testing, modules, reference
 ```
 
 ## Common commands
 
 | Command | What it does |
 |---|---|
-| `make install` | Install Python (`uv sync`) and JS (`npm install`) deps |
-| `make dev` | Docker up + API + Vite dev servers in parallel |
-| `make test` | Run the pytest suite |
-| `make lint` | Ruff + ty + Biome + tsc |
-| `make doctor` | Run module diagnostics (orphan pages, missing meta, coupling violations) |
-| `make migrate` | Apply pending Alembic migrations |
-| `make migration msg="..."` | Autogenerate a new migration |
+| `make install` | Install Python (`uv sync --all-packages`) and JS (`npm install`) deps |
+| `make dev` | Shared Docker stack + `gen-pages` + API and Vite dev servers |
+| `make dev-api` / `make dev-ui` | Just the API (:8000, reloads on `.py` and locale changes) / just Vite (:5050) |
+| `make test` | `make test-py` (pytest, parallel) then `make test-js` (Vitest) |
+| `make test-py-pg` | The pytest suite on Postgres |
+| `make test-e2e` | Playwright smoke tests against a running `make dev` |
+| `make lint` | Every CI lint check: Ruff, ty, Biome, tsc, file-size cap, translations, generated-file freshness, doc paths and more |
+| `make doctor` | Module diagnostics (`SM0xx`): orphan pages, render mismatches, coupling, migration drift, locale drift, … |
+| `make migrate` | Apply pending Alembic migrations (`upgrade heads`) |
+| `make migration LABEL=<label> msg="..."` | Autogenerate a migration on one branch of the history |
+| `make gen-pages` / `gen-i18n` / `gen-api-types` | Regenerate the page manifest / i18n keys / typed API clients |
 | `make new-module name=<name>` | Scaffold a new module |
+| `make worker` / `make beat` | Celery worker / beat for `background_tasks` |
 | `make kill` | Stop any running dev servers (ports 8000, 5050, 5173) |
 | `make docker-build` / `docker-app` | Build the default app image / run it standalone on port 8000 |
 | `make docker-up` / `docker-down` | `docker-up` brings up the shared dev-services stack (Postgres/Redis/MinIO); `docker-down` stops only this repo's worker/beat (SQLite needs no Docker) |
 
 ## Configuration
 
-Local deployments only need one env var — everything else has sensible defaults and is managed in the admin UI at `/admin/settings/`.
+Configuration lives in the database and is edited in the admin UI at `/admin/settings/`. A local run needs no env var at all.
 
-| Variable | Default | Required |
+| Variable | Default | Notes |
 |---|---|---|
-| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Yes — async URL. Postgres: `postgresql+asyncpg://...` |
-| `SM_ENVIRONMENT` | `development` | No — any value other than `development`, `test`, `testing` triggers strict discovery and placeholder-secret checks |
-| `SM_SECRET_KEY` | `change-me-in-production` | No in dev; **must** be overridden in production |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — Vite HMR origin |
-| `SM_AUTH_PROVIDER` | `users` | No — `users`, `keycloak` or `oidc`. Only read when more than one is installed; see [Auth providers](#auth-providers-exactly-one-is-active) |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Async URL. Postgres: `postgresql+asyncpg://...` |
+| `SM_ENVIRONMENT` | `development` | Any value other than `development`, `test`, `testing` turns on strict discovery and the placeholder-secret checks |
+| `SM_SECRET_KEY` | unset: generated once and stored in the DB | Set it to pin the key yourself; a placeholder value is refused in production |
+| `SM_REDIS_URL` | unset | Seeds the Celery broker and result backend, and the shared rate-limit store |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only: Vite HMR origin |
+| `SM_DEBUG`, `SM_MODULES_ENABLED` | off / every installed module | Process wiring read before the DB opens |
+| `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` | unset | Seed the first admin on an empty users table |
 
-Power users can still override the following bootstrap knobs via env if needed: `SM_DB_POOL_SIZE`, `SM_DB_MAX_OVERFLOW`, `SM_DB_POOL_PRE_PING`, `SM_DB_POOL_RECYCLE`, `SM_DEBUG`, `SM_LOG_LEVEL`, `SM_LOG_FORMAT`, `SM_MODULES_ENABLED`. These are needed before the DB connection is open.
-
-All module-level settings — users, SMTP, Celery broker, file storage backend, etc. — live in the admin UI. After upgrading an existing deployment, run once:
+Host settings such as `SM_AUTH_PROVIDER`, the DB pool, logging, `SM_TRUSTED_PROXY` and the i18n locales are DB-backed; an env var still wins over the stored value, so existing deployments keep their behaviour. To copy your current environment (and `.env`) into the settings store once:
 
 ```bash
 uv run smpy settings import-from-env
 ```
 
-to seed DB overrides from the current `SM_*` environment.
-
-> **docker-compose note:** `docker-compose.yml` sets a few `SM_BG_TASKS_*` vars so Celery can reach the `redis` service by container hostname before the DB-backed settings are loaded. That's deployment plumbing — not a module config knob.
-
-See `framework-conventions.md` for the settings-per-module convention.
+Every variable is listed in [the env-var reference](docs/reference/env-vars.md).
 
 ## UI & design system
 
-The frontend uses an emerald + teal design system mirrored as Tailwind 4 tokens. Module pages should compose from a small set of shared primitives so they stay visually consistent without duplication.
+The frontend uses an emerald + teal design system mirrored as Tailwind 4 tokens. Module pages compose from a small set of shared primitives so they stay visually consistent without duplication.
 
 **Shared primitives** (in `packages/ui/src/`):
 
 | Component | When to use |
 |---|---|
 | `PageShell` | Every authenticated page. Wraps title + description + actions header and a max-width content area. |
-| `StatCard` | Top-of-page KPI tiles — icon, value, label, optional delta badge. Used on Dashboard, Users, Doctor. |
+| `StatCard` | Top-of-page KPI tiles: icon, value, label, optional delta badge. Used on Dashboard, Users, Doctor. |
 | `SectionTitle` | Card section headings with the gradient accent bar. |
 | `FilterPills` | Segmented filter chips for status/tab-style toggles. |
-| `AuthCardShell` | Login / register / forgot / accept-invite / verify — light glass card on emerald mesh blobs. |
-| `ErrorScreen` | 403 / 404 / 500 — gradient HTTP numerals + accent badge per status. |
+| `AuthCardShell` | Login / register / forgot / accept-invite / verify: light glass card on emerald mesh blobs. |
+| `ErrorScreen` | 403 / 404 / 500: gradient HTTP numerals + accent badge per status. |
 
-**Design tokens** live in `packages/ui/src/styles/globals.css` under the `@theme` block — primary emerald scale (`--color-primary-50…900`), display/sans/mono families, semantic shadcn tokens. Override the CSS variables to rebrand without touching component code.
+**Design tokens** live in `packages/ui/src/styles/globals.css` under the `@theme` block: primary emerald scale (`--color-primary-50…900`), display/sans/mono families, semantic shadcn tokens. Override the CSS variables (or use the `branding` module) to rebrand without touching component code.
 
 **Module pages** should:
 
 - Wrap in `PageShell` with `title`, optional `description`, and `actions`.
 - Use `Card` + `CardContent` from `@simple-module-py/ui/components/ui/card` for content blocks.
 - Reach for `StatCard` / `SectionTitle` / `FilterPills` before rolling new layouts.
-- Use lucide-react icons (already a dependency) and the existing `Badge` / `Button` variants — emerald primary for the main CTA, outline / ghost for secondary actions.
+- Use lucide-react icons and the existing `Badge` / `Button` variants: emerald primary for the main CTA, outline / ghost for secondary actions.
+- Put every user-visible string through `t(keys.<ns>.…)`; CI fails on untranslated literals.
 
-The 300-line file cap (enforced by CI) usually pushes you to factor row-level components into `pages/components/` — see `modules/users/users/admin/components/UserRow.tsx` and `modules/dashboard/dashboard/ui/components/doctor/report.ts` for the pattern.
+The 300-line file cap (enforced by CI) usually pushes you to factor row-level components out; see `modules/users/users/admin/components/UserRow.tsx` and `modules/dashboard/dashboard/ui/components/doctor/report.ts` for the pattern.
 
 ## User management
 
@@ -235,69 +260,65 @@ This repo ships three authentication providers, and **exactly one can be active 
 
 | Module | What it does |
 |---|---|
-| `users` (default) | Local accounts — password login, invites, signup, roles, an admin UI |
+| `users` (default) | Local accounts: password login, invites, signup, roles, an admin UI |
 | `keycloak` | Delegates authentication to a Keycloak realm over OIDC |
-| `oidc` | Delegates authentication to any OIDC provider (Entra preset; Keycloak via the generic preset) — see [docs/modules/oidc.md](docs/modules/oidc.md) |
+| `oidc` | Delegates authentication to any OIDC provider (Entra preset; Keycloak via the generic preset); see [docs/modules/oidc.md](docs/modules/oidc.md) |
 
-They all claim the same slot (`app.state.auth.auth_provider`), so running two together
-is a misconfiguration, not a supported combination. Installing several and activating
-none is reported as `SM020` (error — fails boot); installing neither is `SM021`.
+They all claim the same slot, so running two together is a misconfiguration, not a
+supported combination. Installing several and activating none is reported as `SM020`
+(error, fails boot); installing none is `SM021`.
 
 `uv sync --all-packages` installs *every* workspace member, so a dev clone has every
-provider on disk. The host therefore activates one and skips the others rather than
-failing on `SM020`, and **`users` is the default** — `keycloak` and `oidc` are installed but inert
-until you ask for it. To switch:
+provider on disk. The host therefore activates one and skips the others, and **`users`
+is the default**: `keycloak` and `oidc` are installed but inert until you select one.
+To switch, set the auth provider host setting in `/admin/settings/`, or in `.env`:
 
 ```bash
-# .env
 SM_AUTH_PROVIDER=keycloak
 ```
 
-Then re-run `make gen-pages` so the frontend manifest picks up the active provider's
-pages (`make dev` does this for you), and configure the realm under
-`/admin/settings/`. Switching back is the same knob set to `users`.
+Then restart and re-run `make gen-pages` so the frontend manifest picks up the active
+provider's pages (`make dev` does this for you), and configure the provider under
+`/admin/settings/`. Switching back is the same setting set to `users`.
 
-Two caveats when running Keycloak:
+With Keycloak or OIDC active:
 
-- `dashboard`, `permissions`, `audit_log`, and `background_tasks` declare a
-  dependency on the `Users` **module** and import from the `users` package, so
-  `simple_module_users` still has to be installed even though it is inactive. A
-  host that wants Keycloak *and* none of the local-account machinery should leave
-  those modules out of its own dependency list.
+- `permissions` declares a dependency on the `Users` module and imports its role
+  contracts, so `simple_module_users` still has to be installed even though it is
+  inactive. A host that wants no local-account machinery leaves `permissions` out.
 - The local-account flows (`/users/login`, invites, signup, the sections below)
-  belong to the `users` module and are gone while Keycloak is active — Keycloak's
-  realm owns login, logout, and user administration instead.
+  belong to the `users` module and are gone; the identity provider owns login,
+  logout and user administration instead.
 
-Only one provider is ever discovered, so nothing here changes if you install just one
-of them: a host that ships only `keycloak` (or only `oidc`) keeps it regardless of `SM_AUTH_PROVIDER`.
+A host that ships only `keycloak` (or only `oidc`) keeps it regardless of `SM_AUTH_PROVIDER`.
 
 ### Creating the first admin
 
-Either use the CLI:
+Use the `/setup` wizard on first visit, or the CLI:
 
 ```bash
 uv run smpy users create-admin --email admin@example.com
 ```
 
-Or let the app bootstrap it automatically on first boot by setting env vars **before** running `make migrate && make dev`:
+Or let the app bootstrap it on first boot by setting env vars **before** running `make migrate && make dev`:
 
 ```
 SM_USERS_BOOTSTRAP_EMAIL=admin@example.com
 SM_USERS_BOOTSTRAP_PASSWORD=changeme
 ```
 
-The auto-bootstrap is idempotent — it only creates the user if the `users_user` table is empty.
+The auto-bootstrap is idempotent: it only creates the user if the `users_user` table is empty.
 
 ### Inviting users
 
 1. Log in as admin and navigate to `/admin/users/add`.
 2. Fill in the invitee's email and optionally a full name and role(s). Click **Send invite**.
-3. With the default `console` mailer, the invite link is logged to stdout (`tail -f` the server log). Copy the link and send it to the user. With `smtp`, the email is delivered automatically.
+3. Without SMTP configured, the invite link is logged to stdout (`tail -f` the server log). Copy the link and send it to the user. With SMTP, the email is delivered.
 4. The invitee opens the link (`/users/invite/accept?token=…`), sets a password, and is immediately logged in.
 
 ### Enabling public signup
 
-Set `SM_USERS_ALLOW_SIGNUP=true` and restart the server. The `/users/register` page becomes accessible.
+Turn on **Allow signup** in the Users settings at `/admin/settings/`; the `/users/register` page opens on the next request, no restart needed. (`SM_USERS_ALLOW_SIGNUP=true` also works, and overrides the stored value.)
 
 ### Switching to SMTP
 
@@ -309,13 +330,13 @@ SM_USERS_BASE_URL=https://your-domain.com
 
 ## Architecture
 
-- **Modules**: discovered via Python entry points at boot. Each module subclasses `ModuleBase` and opts into the lifecycle hooks it needs (`register_routes`, `register_menu_items`, `register_permissions`, `register_middleware`, `on_startup`, ...).
-- **Database**: a single shared schema on both Postgres and SQLite. Each module owns its own `MetaData` (so Alembic can attribute tables to it), and `__tablename__` is prefixed with the module name (`orders_order`) to avoid collisions.
-- **Middleware pipeline** (LIFO order of execution): CorrelationId → RequestLogging → SecurityHeaders → Session → InertiaMiddleware → `<module middleware>` → Tenant (opt-in) → Locale → InertiaLayoutData → app.
-- **Diagnostics**: `make doctor` runs a static analyzer over installed modules looking for orphan pages, phantom renders, empty modules, framework/plugin coupling, migration drift, and locale-file consistency. Errors fail the boot in production.
-- **Internationalization**: per-module `locales/<lang>.json` files merged at boot into `I18nRegistry`. Frontend uses `i18next` with type-safe keys; backend uses `Babel` for CLDR plurals. Locale resolved per request via cookie → `Accept-Language` → `SM_I18N_DEFAULT_LOCALE`. See `docs/framework-conventions.md` → Internationalization.
+- **Modules**: discovered via Python entry points at boot and ordered by their declared dependencies. Each module subclasses `ModuleBase` and opts into the lifecycle hooks it needs (`register_routes`, `register_menu_items`, `register_permissions`, `register_middleware`, `on_startup`, …). See [lifecycle](docs/framework/lifecycle.md).
+- **Database**: a single shared schema on both Postgres and SQLite. Each module owns its own `MetaData` (so Alembic can attribute tables to it), and `__tablename__` is prefixed with the module name (`orders_order`). Models with the soft-delete or tenant mixins are filtered on every query.
+- **Middleware**: proxy headers → correlation id → request logging → CORS → body limit → GZip → security headers → session → Inertia → module middleware → tenant → locale → layout data → rate limit → setup gate → maintenance → commit-before-response. Full order and rules in [middleware](docs/framework/middleware.md).
+- **Diagnostics**: `make doctor` runs static checks over installed modules: orphan pages and phantom renders, framework→plugin coupling, migration drift, locale drift, auth-provider exclusivity, unguarded API routes and more ([diagnostic codes](docs/reference/diagnostic-codes.md)). Production runs only the checks that must fail a boot.
+- **Internationalization**: per-module `locales/<lang>.json` files merged at boot. The frontend uses `i18next` with generated, type-safe keys; the backend uses Babel for CLDR plurals. The locale is resolved per request from the cookie, then `Accept-Language`, then the default locale.
 
-Full documentation lives in [`docs/`](docs/index.md) — a VitePress site covering the guide, framework internals, database, frontend, testing, every bundled module, and reference. When conventions are ambiguous, the authoritative single-pagers are the source of truth:
+Full documentation lives in [`docs/`](docs/index.md), a VitePress site covering the guide, framework internals, database, frontend, testing, every bundled module, and reference. When conventions are ambiguous, these single-pagers are the source of truth:
 
 - [Framework conventions](docs/framework-conventions.md)
 - [Module authoring](docs/module-authoring.md)
@@ -326,6 +347,17 @@ Historical, point-in-time design docs live under [`docs/plans/`](docs/plans/) an
 
 ## Contributing
 
-- Write tests with the fixtures from the `simple_module_test` plugin (`db_session`, `authenticated_client`).
-- Lint with `make lint` before pushing; CI runs all four checks in parallel.
-- Stick to the conventions in `docs/framework-conventions.md` — they're what diagnostics enforce.
+- Read [AGENTS.md](AGENTS.md): the conventions, commands and checks for this repo, written for coding agents and useful for humans too. Claude Code loads it through `CLAUDE.md`.
+- Write tests with the fixtures from the `simple_module_test` plugin (`db_session`, `authenticated_client`, …).
+- Run `make lint` and `make test` before pushing; `make lint` runs every CI lint check locally.
+- Add a `## [Unreleased]` entry to `CHANGELOG.md` for user-visible changes.
+
+### For AI agents in your app
+
+Apps built on simple_module can install this framework's agent skills (module authoring, migrations, testing, page performance, …) in the Agent Skills format used by Claude Code, Codex and others:
+
+```bash
+uv run smpy skills add
+```
+
+The skills live in [`skills/`](skills/README.md).
