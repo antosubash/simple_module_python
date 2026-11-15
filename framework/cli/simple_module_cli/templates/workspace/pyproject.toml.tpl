@@ -38,6 +38,9 @@ dev = [
     "{{TY_REQUIREMENT}}",
     # Provides the build_test_app / fake_event_bus fixtures (pytest11 plugin).
     "simple_module_test=={{FRAMEWORK_VERSION}}",
+    # `uv run smpy`: without it here a plain `uv sync` uninstalls the CLI, and
+    # `uv run smpy` falls through to any older smpy on PATH (GH #929).
+    "simple_module_cli=={{FRAMEWORK_VERSION}}",
 ]
 
 [tool.pytest.ini_options]

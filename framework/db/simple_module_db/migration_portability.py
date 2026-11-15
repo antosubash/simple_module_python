@@ -20,6 +20,8 @@ or never sees, and neither ``alembic check`` nor the boot check notices:
 from __future__ import annotations
 
 import logging
+import re
+import warnings
 from collections.abc import Iterator
 from typing import Any
 
@@ -30,6 +32,7 @@ from simple_module_core.diagnostics._expression_index import (
     find_expression_indexes,
 )
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import SAWarning
 from sqlalchemy.schema import DefaultClause
 from sqlalchemy.sql.elements import ColumnElement, False_, TextClause, True_
 
@@ -118,6 +121,32 @@ def rewrite_boolean_defaults(upgrade_ops: Any) -> None:
             replacement = boolean_default_for(column.server_default)
             if replacement is not None:
                 column.server_default = DefaultClause(replacement)
+
+
+def silence_expression_index_reflection_warnings(metadata: sa.MetaData) -> None:
+    """Ignore the library warnings about expression indexes the models declare (GH #933).
+
+    On SQLite, SQLAlchemy warns that it skipped reflecting each expression index
+    and Alembic that it skipped comparing it, on every autogenerate. For an
+    index in ``metadata`` the revision hook already covers both cases: it
+    re-emits the index for a new table and :func:`warn_unverifiable_expression_indexes`
+    names one the database lacks. Indexes the models do not declare still warn.
+    """
+    names = [index for _, index in find_expression_indexes(metadata.tables.values())]
+    if not names:
+        return
+    alternatives = "|".join(re.escape(name) for name in names)
+    warnings.filterwarnings(
+        "ignore",
+        message=rf"Skipped unsupported reflection of expression-based index ({alternatives})$",
+        category=SAWarning,
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=rf"autogenerate skipping metadata-specified expression-based index "
+        rf"'({alternatives})';",
+        category=UserWarning,
+    )
 
 
 def warn_unverifiable_expression_indexes(

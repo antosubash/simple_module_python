@@ -77,7 +77,7 @@ make migration msg="add orders tables"   # review the generated revision
 make migrate
 ```
 
-That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test, wires it into the host and creates its table; the dev server picks it up when it reloads. The full walkthrough is in [Your first module](/guide/first-module).
+That generates `modules/orders/` with a `ModuleMeta`, a SQLModel table, contracts, a service, REST + Inertia endpoints, three React pages, locales, and a smoke test, wires it into the host and creates its table; restart `make dev` to serve it, since modules are discovered at start-up. The full walkthrough is in [Your first module](/guide/first-module).
 
 ## Where to start
 

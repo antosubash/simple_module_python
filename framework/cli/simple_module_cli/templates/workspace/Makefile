@@ -18,10 +18,11 @@ dev: gen-pages
 	$(MAKE) -j2 dev-api dev-ui
 
 # --reload-dir keeps the reloader watching in-repo module packages under
-# modules/* as well as the host, so edits to a module's routes/endpoints/
-# locales hot-reload too (uvicorn otherwise watches only the launch cwd).
+# modules/* as well as the host (uvicorn otherwise watches only the launch cwd).
+# The reloader watches only *.py unless told otherwise, so --reload-include adds
+# the locale catalogs: a reload re-reads them and regenerates the i18n keys.
 dev-api:
-	cd host && uv run uvicorn main:app --reload --reload-dir . --reload-dir ../modules --port $(API_PORT)
+	cd host && uv run uvicorn main:app --reload --reload-dir . --reload-dir ../modules --reload-include '*locales/*.json' --port $(API_PORT)
 
 dev-ui:
 	npm run dev

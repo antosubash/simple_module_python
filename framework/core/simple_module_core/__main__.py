@@ -33,6 +33,7 @@ from simple_module_core.diagnostics import (
     run_diagnostics,
 )
 from simple_module_core.diagnostics._dependencies import CODE as MISSING_DEPENDENCY_CODE
+from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
 from simple_module_core.diagnostics._i18n import unknown_overrides_for
 from simple_module_core.discovery import (
     discover_modules,
@@ -194,6 +195,7 @@ def main() -> int:
         i18n_extra_sources=extra,
         i18n_unknown_overrides=unknown_overrides,
         database_dialect=_database_dialect(),
+        existing_index_names=sqlite_file_index_names(_database_url()),
     )
     diagnostics.extend(override_findings)
     diagnostics.extend(migration_diagnostics(modules, _database_url(), find_env_file().parent))

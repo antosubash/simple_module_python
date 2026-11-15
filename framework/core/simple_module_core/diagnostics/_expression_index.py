@@ -4,7 +4,8 @@ SQLAlchemy cannot reflect expression indexes (``lower(email)``) on SQLite, so
 autogenerate and ``alembic check`` silently skip them there and report a clean
 diff. That is "unverified", not "clean": on Postgres the same index is either
 missing from the history or drifted. SM026 says so whenever the configured
-database is SQLite and any module model declares such an index.
+database is SQLite and a module model declares such an index the database
+does not have by name.
 
 Duck-typed on SQLAlchemy ``Table``/``Index`` objects (core does not depend on
 SQLAlchemy).
@@ -15,7 +16,9 @@ from __future__ import annotations
 import importlib
 import logging
 import re
+import sqlite3
 from collections.abc import Iterable
+from contextlib import closing
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -122,13 +125,48 @@ def expression_index_advice(root: Path | None = None) -> str:
     )
 
 
+def sqlite_file_index_names(database_url: str) -> frozenset[str] | None:
+    """Every index name in the SQLite file ``database_url`` names, or ``None``.
+
+    SQLite records an expression index's name even though SQLAlchemy cannot
+    reflect its definition. ``None`` when that cannot be read: another
+    database, an in-memory or URI-mode path, or a file that is missing (it is
+    opened read-only, so it is never created) or unreadable.
+    """
+    if not database_url.startswith("sqlite"):
+        return None
+    _, sep, rest = database_url.partition(":///")
+    path = rest.partition("?")[0]
+    if not sep or not path or path.startswith((":memory:", "file:")) or not Path(path).is_file():
+        return None
+    try:
+        uri = f"{Path(path).resolve().as_uri()}?mode=ro"
+        with closing(sqlite3.connect(uri, uri=True)) as conn:
+            rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'").fetchall()
+    except sqlite3.Error:
+        return None
+    return frozenset(row[0] for row in rows)
+
+
 def check_expression_indexes_unverifiable(
-    tables: Iterable[Any], dialect: str | None, module_name: str
+    tables: Iterable[Any],
+    dialect: str | None,
+    module_name: str,
+    *,
+    existing_index_names: frozenset[str] | None = None,
 ) -> list[Diagnostic]:
-    """SM026: INFO on SQLite when the models declare indexes it cannot verify."""
+    """SM026: INFO on SQLite when the models declare indexes it cannot verify.
+
+    ``existing_index_names`` (from :func:`sqlite_file_index_names`) drops the
+    indexes the database already has by name, as the revision hook does, so a
+    migrated app hears only about the ones it lacks (GH #933). ``None`` reports
+    them all.
+    """
     if dialect != "sqlite":
         return []
     found = find_expression_indexes(tables)
+    if existing_index_names is not None:
+        found = [(table, index) for table, index in found if index not in existing_index_names]
     if not found:
         return []
     names = ", ".join(f"{idx} ({tbl})" for tbl, idx in found)
@@ -153,5 +191,6 @@ __all__ = [
     "find_expression_indexes",
     "index_is_expression_based",
     "module_all_tables",
+    "sqlite_file_index_names",
     "unwrap_ordering",
 ]
