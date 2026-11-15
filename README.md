@@ -210,7 +210,7 @@ Configuration lives in the database and is edited in the admin UI at `/admin/set
 | Variable | Default | Notes |
 |---|---|---|
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Async URL. Postgres: `postgresql+asyncpg://...` |
-| `SM_ENVIRONMENT` | `development` | Any value other than `development`, `test`, `testing` turns on strict discovery and the placeholder-secret checks |
+| `SM_ENVIRONMENT` | `development` | Any value other than `development` turns on strict discovery; any other than `development`/`testing` also refuses the placeholder secret |
 | `SM_SECRET_KEY` | unset: generated once and stored in the DB | Set it to pin the key yourself; a placeholder value is refused in production |
 | `SM_REDIS_URL` | unset | Seeds the Celery broker and result backend, and the shared rate-limit store |
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only: Vite HMR origin |
@@ -265,8 +265,8 @@ This repo ships three authentication providers, and **exactly one can be active 
 | `oidc` | Delegates authentication to any OIDC provider (Entra preset; Keycloak via the generic preset); see [docs/modules/oidc.md](docs/modules/oidc.md) |
 
 They all claim the same slot, so running two together is a misconfiguration, not a
-supported combination. Installing several and activating none is reported as `SM020`
-(error, fails boot); installing none is `SM021`.
+supported combination. More than one active provider is reported as `SM020`
+(error, fails boot); none installed is `SM021` (warning).
 
 `uv sync --all-packages` installs *every* workspace member, so a dev clone has every
 provider on disk. The host therefore activates one and skips the others, and **`users`
@@ -318,15 +318,11 @@ The auto-bootstrap is idempotent: it only creates the user if the `users_user` t
 
 ### Enabling public signup
 
-Turn on **Allow signup** in the Users settings at `/admin/settings/`; the `/users/register` page opens on the next request, no restart needed. (`SM_USERS_ALLOW_SIGNUP=true` also works, and overrides the stored value.)
+Turn on **Allow signup** in the Users settings at `/admin/settings/`; the `/users/register` page opens on the next request, no restart needed. (The users module no longer reads `SM_USERS_ALLOW_SIGNUP`; `smpy settings import-from-env` copies an old value into the store once.)
 
 ### Switching to SMTP
 
-Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Users only needs its public link base:
-
-```
-SM_USERS_BASE_URL=https://your-domain.com
-```
+Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Users only needs its public link base: set `base_url` (default `http://localhost:8000`) in the Users settings at `/admin/settings/`. The users module no longer reads `SM_USERS_BASE_URL`.
 
 ## Architecture
 

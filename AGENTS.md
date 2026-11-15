@@ -189,8 +189,9 @@ Rules that go with them:
   `docs/framework/public-routes.md`.
 - `register_invalidations` handlers may only *forget* (no delivery guarantee),
   so every cache keeps its TTL as a floor. Publish from a `db.on_commit`
-  callback. Cross-process delivery needs the Redis transport `background_tasks`
-  installs. `docs/framework/invalidation.md`.
+  callback: `await request.app.state.sm.invalidation.publish(channel, key=...)`.
+  Cross-process delivery needs the Redis transport `background_tasks` installs
+  (`SM_BG_TASKS_BROADCAST_INVALIDATIONS`). `docs/framework/invalidation.md`.
 - `register_csp_sources(registry)` takes fetch directives only, validated at
   boot; an origin from DB settings uses `registry.add_provider(fn)`.
 - `register_setup_steps`: while a required step is pending, `SetupMiddleware`
@@ -289,7 +290,8 @@ development and testing.
   `tenant_context(id)` (both in `simple_module_db.tenancy`). Off, rows are
   stamped `default_tenant` when set, else `DEFAULT_TENANT_ID` (`"default"`).
   Unique keys on tenant tables must include `tenant_id` (`SM024`). Tenant-level
-  routes act on the *active* tenant, never a tenant id from the URL. Map tenant
+  routes act on the *active* tenant, never a tenant id from the URL. The `tenants`
+  module owns memberships and `app.state.tenant_resolver` (`SM025` if missing). Map tenant
   roles with `tenant_role(TenantRole.MEMBER)` from `simple_module_core.tenancy`,
   never by importing `tenants`. `docs/framework/multi-tenancy.md`.
 - **Migrations** live in `host/migrations/versions/`, never in module packages.

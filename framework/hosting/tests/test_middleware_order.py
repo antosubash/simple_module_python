@@ -3,6 +3,7 @@
 AGENTS.md spells out the pipeline:
 
     (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
+    (SentryContext, only when Sentry is enabled)
     CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session
                   → InertiaMiddleware → <module> → Tenant (opt-in) → Locale
                   → InertiaLayoutData → RateLimit → Setup → Maintenance

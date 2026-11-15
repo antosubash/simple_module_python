@@ -184,8 +184,8 @@ Two attributes are intentionally kept outside `Services`:
 ### Module settings
 
 Module settings should:
-- Use a per-module prefix: `SM_<MODULE>_*` (e.g. `SM_USERS_ALLOW_SIGNUP`).
-- Be stored inside a module-owned dataclass at `app.state.<module_lower>` during `register_settings(app)`.
+- Be a `DbBackedSettings` subclass: values come from the constructor and the DB settings store, never from the environment (`SM_<MODULE>_*` is read only by `smpy settings import-from-env`, once).
+- Be registered in `register_settings(app)` through `register_module_settings`, which mounts the module's services object at `app.state.<module_lower>`.
 - `SM012` diagnostic fires if `register_settings` is overridden but no `app.state.<module_lower>` entry is added.
 
 ```python
@@ -194,8 +194,10 @@ class UsersModule(ModuleBase):
         from users.core.settings import UsersSettings
         from users.core.state import UsersState
 
-        app.state.users = UsersState(settings=UsersSettings())
+        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
 ```
+
+Details: [settings](framework/settings.md).
 
 ## Database
 
