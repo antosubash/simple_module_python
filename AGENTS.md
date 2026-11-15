@@ -188,7 +188,7 @@ Rules that go with them:
   (`registry.add_regex(r"…/tilejson$", methods={"GET"})`):
   `docs/framework/public-routes.md`.
 - `register_invalidations` handlers may only *forget* (no delivery guarantee),
-  so every cache keeps its TTL as a floor. Publish from a `db.on_commit`
+  so every cache keeps its TTL as a floor. Publish from a `session.on_commit`
   callback: `await request.app.state.sm.invalidation.publish(channel, key=...)`.
   Cross-process delivery needs the Redis transport `background_tasks` installs
   (`SM_BG_TASKS_BROADCAST_INVALIDATIONS`). `docs/framework/invalidation.md`.

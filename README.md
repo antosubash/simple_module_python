@@ -356,4 +356,4 @@ Apps built on simple_module can install this framework's agent skills (module au
 uv run smpy skills add
 ```
 
-The skills live in [`skills/`](skills/README.md).
+They go to `./.claude/skills` by default; `--dest <dir>` installs them where another agent looks, and `-g` installs them for your user. The skills live in [`skills/`](skills/README.md).

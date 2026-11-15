@@ -191,6 +191,7 @@ Module settings should:
 ```python
 class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
+        from simple_module_core.module_settings import register_module_settings
         from users.core.settings import UsersSettings
         from users.core.state import UsersState
 
