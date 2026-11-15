@@ -33,10 +33,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
-from playwright.sync_api import Page, ViewportSize, sync_playwright
+from playwright.sync_api import Locator, Page, ViewportSize, sync_playwright
 
 VIEWPORT: ViewportSize = {"width": 1280, "height": 800}
 PAUSE_MS = 1000
@@ -67,8 +66,9 @@ def _goto(page: Page, base_url: str, path: str) -> None:
 def step_sign_in(page: Page, base_url: str, email: str, password: str) -> None:
     page.goto(base_url + PATH_LOGIN, wait_until="networkidle")
     _pause(page, 800)
-    page.get_by_label(re.compile("email", re.I)).fill("")
-    page.get_by_label(re.compile("email", re.I)).press_sequentially(email, delay=TYPE_DELAY_MS)
+    email_box = page.get_by_label(re.compile("email", re.I))
+    email_box.fill("")
+    email_box.press_sequentially(email, delay=TYPE_DELAY_MS)
     password_box = page.get_by_label(re.compile("password", re.I)).first
     password_box.press_sequentially(password, delay=TYPE_DELAY_MS)
     _pause(page, 500)
@@ -113,17 +113,18 @@ def step_flags(page: Page, base_url: str) -> None:
     _pause(page, 1800)
 
 
+def _retype(box: Locator, text: str) -> None:
+    box.click()
+    box.press("Control+a")
+    box.press_sequentially(text, delay=TYPE_DELAY_MS)
+
+
 def step_branding(page: Page, base_url: str) -> None:
     _nav(page, "Branding", PATH_BRANDING, base_url)
-    name_box = page.locator("#app_name")
-    name_box.click()
-    name_box.press("Control+a")
-    name_box.press_sequentially(APP_NAME, delay=TYPE_DELAY_MS)
+    _retype(page.locator("#app_name"), APP_NAME)
     color_box = page.locator("#primary_color")
     color = ALT_COLOR if color_box.input_value().lower() == NEW_COLOR else NEW_COLOR
-    color_box.click()
-    color_box.press("Control+a")
-    color_box.press_sequentially(color, delay=TYPE_DELAY_MS)
+    _retype(color_box, color)
     color_box.blur()
     _pause(page, 1600)
     page.get_by_role("button", name=re.compile("publish", re.I)).first.click()
@@ -138,14 +139,6 @@ def step_doctor(page: Page, base_url: str) -> None:
 
 def record(base_url: str, email: str, password: str, video_dir: Path) -> Path:
     """Drive the flow and return the path of the recorded video."""
-    steps: list[Callable[[Page], None]] = [
-        lambda p: step_sign_in(p, base_url, email, password),
-        lambda p: step_dashboard(p, base_url),
-        lambda p: step_users(p, base_url),
-        lambda p: step_flags(p, base_url),
-        lambda p: step_branding(p, base_url),
-        lambda p: step_doctor(p, base_url),
-    ]
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         context = browser.new_context(
@@ -155,8 +148,12 @@ def record(base_url: str, email: str, password: str, video_dir: Path) -> Path:
             color_scheme="light",
         )
         page = context.new_page()
-        for step in steps:
-            step(page)
+        step_sign_in(page, base_url, email, password)
+        step_dashboard(page, base_url)
+        step_users(page, base_url)
+        step_flags(page, base_url)
+        step_branding(page, base_url)
+        step_doctor(page, base_url)
         video = page.video
         context.close()  # flushes the video file
         browser.close()
