@@ -2,7 +2,7 @@
 """Fail when a backticked repo-relative path in the user docs does not exist (#519).
 
 Scans ``docs/**/*.md`` (minus the historical ``docs/superpowers``, ``docs/plans``,
-``docs/archive`` and ``docs/release-notes``), ``CLAUDE.md``, ``README.md`` and
+``docs/archive`` and ``docs/release-notes``), ``AGENTS.md``, ``CLAUDE.md``, ``README.md`` and
 ``skills/**/SKILL.md``. A backticked token counts as a path when it has a ``/`` and
 either ends with ``/`` or has a file extension, and contains no space or
 glob/brace/placeholder characters. A token resolves if it exists relative to the repo
@@ -46,7 +46,7 @@ ROOTS = (
 
 
 def sources() -> list[Path]:
-    files = [ROOT / "CLAUDE.md", ROOT / "README.md"]
+    files = [ROOT / "AGENTS.md", ROOT / "CLAUDE.md", ROOT / "README.md"]
     for p in sorted((ROOT / "docs").rglob("*.md")):
         rel = p.relative_to(ROOT / "docs").parts
         if rel[0] in EXCLUDED_DOC_DIRS:

@@ -4,7 +4,7 @@
 The existing tests cover ``discover_modules`` directly with strict=True, but
 nothing pins the wiring — a regression that hard-coded ``strict=False`` would
 silently restore the old "drop a broken module and keep booting" behaviour in
-production, which is exactly what CLAUDE.md says must not happen.
+production, which is exactly what AGENTS.md says must not happen.
 
 Reuses the ``_FakeEntryPoint`` and ``_patch_entry_points`` helpers from
 ``framework/core/tests/test_discovery.py`` (the canonical location for the

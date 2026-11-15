@@ -1,6 +1,6 @@
 """Verify ``create_app``'s lifespan walks modules forward and backward.
 
-CLAUDE.md says ``on_startup`` runs in topological order and ``on_shutdown``
+AGENTS.md says ``on_startup`` runs in topological order and ``on_shutdown``
 in reverse — a regression here means a dependent module's startup hook runs
 before its dependency's hook is ready (or, on shutdown, the dependency tears
 down resources while the dependent is still using them).

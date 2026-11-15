@@ -48,7 +48,7 @@ class DoctorCheck:
 
 
 #: The catalogue. Labels live in the locale catalogue keyed by ``id`` — this is
-#: the framework's own diagnostic surface (see CLAUDE.md § Diagnostic codes),
+#: the framework's own diagnostic surface (see AGENTS.md § Diagnostics),
 #: grouped into the questions an operator actually asks.
 CHECKS: tuple[DoctorCheck, ...] = (
     DoctorCheck("pages", frozenset({"SM003", "SM004"}), "make gen-pages"),

@@ -53,7 +53,7 @@ def test_host_settings_reads_its_own_prefixed_env(monkeypatch):
     notice. The contract it claimed ("HostSettings must NOT read env") is not
     the one the codebase has: precedence is env → DB → default, and env has to
     keep winning or an upgrade silently changes a deployment's behaviour
-    (CLAUDE.md § Conventions). ``HostSettings`` declares ``env_prefix="SM_"``
+    (AGENTS.md § Conventions). ``HostSettings`` declares ``env_prefix="SM_"``
     for exactly that reason.
     """
     monkeypatch.setenv("SM_MULTI_TENANT", "true")

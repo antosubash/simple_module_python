@@ -1,8 +1,9 @@
 """Pin the documented middleware execution order.
 
-CLAUDE.md spells out the pipeline:
+AGENTS.md spells out the pipeline:
 
     (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
+    (SentryContext, only when Sentry is enabled)
     CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session
                   → InertiaMiddleware → <module> → Tenant (opt-in) → Locale
                   → InertiaLayoutData → RateLimit → Setup → Maintenance
@@ -127,7 +128,7 @@ def test_middleware_pipeline_order(multi_tenant: bool, expected: tuple[str, ...]
     )
     app = create_app(settings)
     assert _names(app) == expected, (
-        "Middleware pipeline order drifted from CLAUDE.md. "
+        "Middleware pipeline order drifted from AGENTS.md. "
         f"Got {_names(app)!r}, expected {expected!r}."
     )
 
