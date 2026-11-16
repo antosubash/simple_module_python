@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.47] — 2026-11-16
+
 ### Changed
 
 - Docs: the repository's agent guide is now `AGENTS.md`, read by Codex, Cursor and other agents; `CLAUDE.md` imports it and keeps only the Claude Code rules. Both, and the README, were corrected against the code (lint and CI checks, the `/setup` first run, `make migration LABEL=…`, DB-backed settings and the generated `SM_SECRET_KEY`, which modules need `users` under Keycloak, signup as a setting). The README gains a demo GIF, recorded with `scripts/record_readme_demo.py`, and a table of the bundled modules. `make ci-doc-paths` also checks `AGENTS.md`.
@@ -1951,7 +1953,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.46...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.47...HEAD
+[0.0.47]: https://github.com/antosubash/simple_module_python/compare/v0.0.46...v0.0.47
 [0.0.46]: https://github.com/antosubash/simple_module_python/compare/v0.0.45...v0.0.46
 [0.0.45]: https://github.com/antosubash/simple_module_python/compare/v0.0.44...v0.0.45
 [0.0.44]: https://github.com/antosubash/simple_module_python/compare/v0.0.43...v0.0.44
