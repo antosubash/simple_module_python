@@ -35,6 +35,10 @@ def test_host_normalizes_blank_login_destination(value):
     assert HostSettings(login_redirect_url=value).login_redirect_url == "/dashboard/"
 
 
+def test_host_preserves_valid_login_destination():
+    assert HostSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
+
+
 @pytest.mark.parametrize(
     "package,removed",
     [

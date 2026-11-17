@@ -14,7 +14,6 @@ from users.core.bootstrap import (
     create_admin,
 )
 from users.core.constants import ADMIN_ROLE_ID
-from users.core.settings import UsersSettings
 from users.models import Role, User, UserRole
 
 # ---------------------------------------------------------------------------
@@ -28,18 +27,10 @@ def _make_fake_app(
     """Build a minimal app-like namespace for bootstrap_admin_from_env."""
     monkeypatch.setenv("SM_USERS_BOOTSTRAP_EMAIL", bootstrap_email)
     monkeypatch.setenv("SM_USERS_BOOTSTRAP_PASSWORD", bootstrap_password)
-    settings = UsersSettings(
-        # Avoid reading .env by overriding all required fields
-        reset_password_token_secret="test-secret",
-        verification_token_secret="test-secret",
-    )
-
     db = SimpleNamespace(session_factory=session_factory)
-    users_state = SimpleNamespace(settings=settings)
     sm_state = SimpleNamespace(db=db)
     return SimpleNamespace(
         state=SimpleNamespace(
-            users=users_state,
             sm=sm_state,
         )
     )
@@ -187,7 +178,6 @@ async def test_bootstrap_from_env_noop_when_unset(users_app_empty, monkeypatch) 
         bootstrap_email="",
         bootstrap_password="",
     )
-    # Patch fake_app.state onto a real app-like object
     await bootstrap_admin_from_env(fake_app)
 
     # No users should have been created

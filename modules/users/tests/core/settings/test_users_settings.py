@@ -136,22 +136,3 @@ class TestTokenSecretProductionGuard:
         )
         assert s.reset_password_token_secret == "real-reset-secret"
         assert s.verification_token_secret == "real-verify-secret"
-
-
-class TestLoginRedirectUrl:
-    """The host normalizes the destination used by local sign-in and OAuth."""
-
-    def test_blank_falls_back_to_the_default(self):
-        from simple_module_hosting.host_settings import HostSettings
-
-        assert HostSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
-
-    def test_whitespace_only_falls_back_to_the_default(self):
-        from simple_module_hosting.host_settings import HostSettings
-
-        assert HostSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
-
-    def test_a_real_value_is_left_alone(self):
-        from simple_module_hosting.host_settings import HostSettings
-
-        assert HostSettings(login_redirect_url="/home/").login_redirect_url == "/home/"

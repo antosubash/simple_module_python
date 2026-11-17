@@ -189,7 +189,5 @@ async def detail(
         "BackgroundTasks/Detail",
         {
             "execution": row.model_dump(mode="json"),
-            # The subline reads "attempt {n} of {max}"; without the ceiling the
-            # attempt count cannot say whether another one is coming.
         },
     )

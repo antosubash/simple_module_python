@@ -101,7 +101,6 @@ async def test_callback_without_pkce_verifier_is_419():
         state=SimpleNamespace(
             host=SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/dashboard/")),
             sm=SimpleNamespace(modules=[SimpleNamespace(meta=SimpleNamespace(name="Dashboard"))]),
-            keycloak=SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/d/")),
         )
     )
     request = Request(

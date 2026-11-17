@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import secrets
 import time
-from typing import TYPE_CHECKING
 
 from auth.oidc_common.session import sign_in, stale_callback
 from fastapi import APIRouter, HTTPException, Request
@@ -27,21 +26,14 @@ from keycloak.core.constants import (
 )
 from keycloak.identity.tokens import store_refresh_token
 
-if TYPE_CHECKING:
-    from keycloak.core.settings import KeycloakSettings
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["keycloak-auth"])
-
-
-def _get_settings(request: Request) -> KeycloakSettings:
-    return request.app.state.keycloak.settings
 
 
 def _get_oidc_client(request: Request):
     from keycloak.identity.oidc import OIDCClient
 
-    s = _get_settings(request)
+    s = request.app.state.keycloak.settings
     return OIDCClient(
         server_url=s.server_url,
         realm=s.realm,

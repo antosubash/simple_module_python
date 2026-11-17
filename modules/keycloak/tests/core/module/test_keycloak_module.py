@@ -23,25 +23,6 @@ def test_keycloak_provider_satisfies_protocol():
     assert provider.name == "keycloak"
 
 
-class TestKeycloakLoginRedirectUrl:
-    """Keycloak uses the host destination with the same blank-value normalization."""
-
-    def test_blank_falls_back_to_the_default(self):
-        from simple_module_hosting.host_settings import HostSettings
-
-        assert HostSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
-
-    def test_whitespace_only_falls_back_to_the_default(self):
-        from simple_module_hosting.host_settings import HostSettings
-
-        assert HostSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
-
-    def test_a_real_value_is_left_alone(self):
-        from simple_module_hosting.host_settings import HostSettings
-
-        assert HostSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
-
-
 def test_keycloak_registers_no_setup_steps():
     """Opt-out: a Keycloak install's local users table is empty forever, so any
     required step (e.g. "create a superuser") would lock it out of the app."""

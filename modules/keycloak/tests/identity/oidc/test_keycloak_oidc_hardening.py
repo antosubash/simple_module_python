@@ -30,7 +30,6 @@ async def test_stale_callback_preserves_pending_transaction(signed_in):
         state=SimpleNamespace(
             host=SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/dashboard/")),
             sm=SimpleNamespace(modules=[SimpleNamespace(meta=SimpleNamespace(name="Dashboard"))]),
-            keycloak=SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/dashboard/")),
         )
     )
     request = Request(
