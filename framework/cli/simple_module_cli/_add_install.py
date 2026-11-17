@@ -14,6 +14,9 @@ from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_mem
 ExecRunner = Callable[[list[str], Path], int]
 
 _DIST_PREFIX = re.compile(r"^simple[-_]module[-_]", re.IGNORECASE)
+_SKIP_IF_MISSING = "--skip-if-missing"
+#: Click's exit code for an unknown option.
+_USAGE_ERROR = 2
 
 
 _ENTRYPOINT_CHECK = (
@@ -71,10 +74,14 @@ def post_install(
     if has_frontend:
         commands.extend(
             (["uv", "run", "smpy", "host", *step], project_dir)
-            for step in (("gen-pages",), ("sync-js-deps",), ("gen-i18n", "--skip-if-missing"))
+            for step in (("gen-pages",), ("sync-js-deps",), ("gen-i18n", _SKIP_IF_MISSING))
         )
     for cmd, cwd in commands:
-        if exec_runner(cmd, cwd) != 0:
+        code = exec_runner(cmd, cwd)
+        if code == _USAGE_ERROR and _SKIP_IF_MISSING in cmd:
+            # A hosting plugin older than the global smpy has no --skip-if-missing.
+            code = exec_runner([part for part in cmd if part != _SKIP_IF_MISSING], cwd)
+        if code != 0:
             if not updating:
                 recovery = "rerun the original `smpy add` command"
             elif has_frontend:

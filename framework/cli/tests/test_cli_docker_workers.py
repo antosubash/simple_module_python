@@ -163,7 +163,7 @@ def test_worker_refuses_unsupported_environment_before_writing(project, entries)
     )
     compose.write_text(original)
 
-    result = invoke("geo", "--queues", "geo")
+    result = invoke("geo", "--queues", "geo", "--modules", "geo")
 
     assert result.exit_code == 2, result.output
     assert "environment" in plain(result.output)
@@ -254,3 +254,16 @@ def test_unmanaged_include_refused_before_writing(project):
     assert result.exit_code != 0 and "block list" in result.output
     assert compose.read_text() == original
     assert not (project / "docker").exists()
+
+
+@pytest.mark.parametrize("key", ["SM_BG_TASKS_WORKER_QUEUES", "SM_BG_TASKS_INCLUDE_MODULES"])
+def test_bare_inherited_environment_keys_are_accepted(project, key):
+    compose = project / "compose.yml"
+    compose.write_text(
+        compose.read_text().replace("    environment:\n", f"    environment:\n      {key}:\n", 1)
+    )
+    result = invoke("geo", "--queues", "geo")
+    assert result.exit_code == 0, plain(result.output)
+    service = yaml.safe_load((project / "compose.worker-geo.yml").read_text())
+    env = next(iter(service["services"].values()))["environment"]
+    assert env["SM_BG_TASKS_WORKER_QUEUES"] == "geo"

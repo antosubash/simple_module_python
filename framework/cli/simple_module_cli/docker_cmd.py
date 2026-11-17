@@ -120,24 +120,24 @@ def _replace_worker_environment(body: str, queues: str, modules: str) -> str:
     for key, value in entries:
         if not isinstance(key, ScalarNode) or key.tag == "tag:yaml.org,2002:merge":
             raise typer.BadParameter(mapping_error)
-        if key.value not in (_QUEUES_ENV, _INCLUDE_MODULES_ENV):
+        if key.value not in overrides:
             continue
         start, end = key.start_mark, value.end_mark
         separator = body[key.end_mark.index : value.start_mark.index]
+        bare = isinstance(value, ScalarNode) and value.value == "" and value.style is None
         if (
             not isinstance(value, ScalarNode)
             or value.style in ("|", ">")
             or start.column != indent
             or start.line != end.line
-            or not re.fullmatch(r"[ \t]*:[ \t]+", separator)
+            or not re.fullmatch(r"[ \t]*:[ \t]*" if bare else r"[ \t]*:[ \t]+", separator)
             or body[start.index] in "&!"
             or body[value.start_mark.index] in "&!"
         ):
             raise typer.BadParameter(
                 f"Worker environment entry {key.value} must be a simple KEY: value line."
             )
-        if key.value in overrides:
-            lines[start.line] = _EMPTY
+        lines[start.line] = _EMPTY
     insert_at = mark.line + 1
     lines[insert_at:insert_at] = [
         f'{" " * indent}{key}: "{value}"\n' for key, value in overrides.items()

@@ -143,3 +143,18 @@ def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path:
     (app_dir / "pyproject.toml").write_text(HOST, encoding="utf-8")
 
     assert _sync_command(app_dir) == (["uv", "sync"], app_dir)
+
+
+def test_add_falls_back_when_the_hosting_plugin_predates_skip_if_missing(workspace: Path) -> None:
+    host = workspace / "host"
+    (host / "client_app").mkdir()
+    _write_module(workspace / "modules" / "forest_plots")
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str], cwd: Path) -> int:
+        calls.append(cmd)
+        return 2 if "--skip-if-missing" in cmd else 0
+
+    run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
+
+    assert ["uv", "run", "smpy", "host", "gen-i18n"] in calls
