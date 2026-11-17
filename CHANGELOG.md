@@ -20,7 +20,7 @@ All notable changes to this project are documented in this file. The format is b
 - `smpy doctor` and `make doctor` print a success line with the number of modules checked when there are no findings (#947).
 - `smpy openapi export` and `gen-types` use defaults quietly when the host settings table is empty and explain whether a fallback was caused by a missing table or an unreachable database (#948).
 - `smpy docker add-worker --modules` accepts top-level Python package names such as `geo` and writes `SM_BG_TASKS_INCLUDE_MODULES`. The command replaces simple worker environment entries and rejects unsupported overrides before writing files. For existing workers, rename `SM_BG_TASKS_WORKER_INCLUDE_MODULES` in the Compose file, replace task paths such as `geo.tasks` with package names, and recreate the worker (#972).
-- Boot, Doctor, the setup wizard, and the CLI share Alembic config discovery for flat and workspace hosts. An unavailable history prevents boot outside development. The wizard applies migrations only after verifying first-run eligibility (#949).
+- Boot, Doctor, the setup wizard, and the CLI share Alembic config discovery for flat and workspace hosts. An unavailable history prevents boot outside development. **Behaviour change:** this includes `SM_ENVIRONMENT=testing`, so an app test that points `SM_PROJECT_ROOT` at an empty directory must also provide the Alembic config. The wizard applies migrations only after verifying first-run eligibility (#949).
 - Data compatibility findings can give module-specific remediation. `smpy migrations prepare` discovers installed upgrade recipes, validates the generated source, and writes beside the selected head in a scanned revision directory (#950).
 
 ## [0.0.47] — 2026-11-16
