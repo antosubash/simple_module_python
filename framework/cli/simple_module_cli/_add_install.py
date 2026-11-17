@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 from collections.abc import Callable
@@ -57,40 +56,35 @@ def _fail(message: str) -> typer.Exit:
     return typer.Exit(code=1)
 
 
-def _has_i18n_package(project_dir: Path) -> bool:
-    # Mirror hosting's i18n target lookup so this also works from a standalone CLI.
-    root = (project_dir / os.environ.get("SM_PROJECT_ROOT", "")).resolve()
-    package = Path("node_modules/@simple-module-py/i18n/src")
-    return (root / "packages/i18n/src").is_dir() or any(
-        (base / package).is_dir() for base in (root, root / "client_app", *root.parents)
-    )
-
-
 def post_install(
     project_dir: Path,
     dists: list[str],
     models_dists: list[str],
     exec_runner: ExecRunner,
+    *,
+    updating: bool = False,
 ) -> None:
     """Sync dependencies, regenerate frontend files, and check entry points."""
     sync_cmd, sync_dir = _sync_command(project_dir)
-    if exec_runner(sync_cmd, sync_dir) != 0:
-        shown = " ".join(sync_cmd)
-        raise _fail(
-            f"`{shown}` failed — pyproject was written; fix and re-run `{shown}` from {sync_dir}."
-        )
     has_frontend = (project_dir / "client_app").is_dir()
+    commands = [(sync_cmd, sync_dir)]
     if has_frontend:
-        for step in ("gen-pages", "sync-js-deps", "gen-i18n"):
-            if step == "gen-i18n" and not _has_i18n_package(project_dir):
-                continue
-            cmd = ["uv", "run", "smpy", "host", step]
-            if exec_runner(cmd, project_dir) != 0:
-                shown = " ".join(cmd)
-                raise _fail(
-                    f"`{shown}` failed — dependencies are already recorded in pyproject.toml; "
-                    f"fix and re-run `{shown}` from {project_dir}."
-                )
+        commands.extend(
+            (["uv", "run", "smpy", "host", *step], project_dir)
+            for step in (("gen-pages",), ("sync-js-deps",), ("gen-i18n", "--skip-if-missing"))
+        )
+    for cmd, cwd in commands:
+        if exec_runner(cmd, cwd) != 0:
+            if not updating:
+                recovery = "rerun the original `smpy add` command"
+            elif has_frontend:
+                recovery = "run `make install gen-pages` from the app root"
+            else:
+                recovery = f"run `{' '.join(sync_cmd)}` from {sync_dir}"
+            raise _fail(
+                f"`{' '.join(cmd)}` failed — dependencies are already recorded in pyproject.toml. "
+                f"Fix the error, then {recovery}."
+            )
     for dist in dists:
         code = exec_runner(["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir)
         if code != 0:

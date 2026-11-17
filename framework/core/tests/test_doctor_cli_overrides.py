@@ -36,6 +36,7 @@ def _run_doctor(tmp_path, monkeypatch, overrides: dict | str) -> int:
     monkeypatch.setattr(doctor, "parse_dotenv", dict)
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'app.db'}")
+    monkeypatch.setenv("SM_I18N_DEFAULT_LOCALE", "en")
     monkeypatch.delenv("SM_I18N_SUPPORTED_LOCALES", raising=False)
     return doctor.main()
 

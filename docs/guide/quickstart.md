@@ -68,7 +68,7 @@ This generates a publishable module at `modules/orders/` with a working CRUD sam
 
 The [first-module guide](/guide/first-module) shows how to grow it: your own fields, validation, a migration and tests.
 
-`smpy add ../modules/orders --path host` adds the package to `host/pyproject.toml` as a uv workspace source and syncs the whole workspace from the app root (`uv sync --all-packages`), which registers the entry point. For a host with a `client_app`, it also regenerates the page manifest, syncs JS dependency declarations and regenerates i18n keys if the package is installed. Run `make install` from the app root to link the pages and generate the keys before restarting `make dev`.
+`smpy add ../modules/orders --path host` adds the package to `host/pyproject.toml` as a uv workspace source and syncs the whole workspace from the app root (`uv sync --all-packages`), which registers the entry point. For a host with a `client_app`, it also regenerates the page manifest and runs `sync-js-deps` to install the JS dependencies declared by modules with `--save=false`. It skips `gen-i18n` if the i18n package is absent. Run `make install` from the app root to link the pages and generate the keys before restarting `make dev`.
 
 Running `uv sync` inside `modules/orders` would sync the module alone and uninstall the rest of the app from the shared venv. In a `smpy new --flat` app, wire the module with `smpy add ./modules/orders`.
 

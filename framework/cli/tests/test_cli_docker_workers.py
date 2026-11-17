@@ -39,6 +39,7 @@ def test_generated_worker(project, monkeypatch):
         compose.read_text().replace(
             "    environment:\n",
             "    environment:\n"
+            "    # Worker queue override\n"
             '      SM_BG_TASKS_WORKER_QUEUES: "old"\n'
             '      "SM_BG_TASKS_INCLUDE_MODULES": "old"\n',
             1,
@@ -73,6 +74,7 @@ def test_generated_worker(project, monkeypatch):
     assert service.count("SM_BG_TASKS_INCLUDE_MODULES") == 1
     assert 'SM_BG_TASKS_WORKER_QUEUES: "geo,heavy"' in service
     assert 'SM_BG_TASKS_INCLUDE_MODULES: "geo,other"' in service
+    assert "    # Worker queue override\n" in service
     env = yaml.safe_load(service)["services"]["worker-geo"]["environment"]
     for key in ("SM_BG_TASKS_WORKER_QUEUES", "SM_BG_TASKS_INCLUDE_MODULES"):
         monkeypatch.setenv(key, env[key])
@@ -117,6 +119,57 @@ def test_omitting_modules_preserves_base_worker_include(project):
     service = (project / "compose.worker-geo.yml").read_text()
     assert service.count("SM_BG_TASKS_INCLUDE_MODULES") == 1
     assert entry in service
+
+
+def test_worker_preserves_multiline_environment_value_with_blank_line(project):
+    compose = project / "compose.yml"
+    compose.write_text(
+        compose.read_text().replace(
+            "    environment:\n",
+            "    environment:\n"
+            "      MESSAGE: |\n"
+            "        first\n  \n        last\n"
+            "      SM_BG_TASKS_WORKER_QUEUES: old\n",
+            1,
+        )
+    )
+    result = invoke("geo", "--queues", "geo")
+    assert result.exit_code == 0, result.output
+    service = (project / "compose.worker-geo.yml").read_text()
+    env = yaml.safe_load(service)["services"]["worker-geo"]["environment"]
+    assert env["MESSAGE"] == "first\n\nlast\n"
+    assert env["SM_BG_TASKS_WORKER_QUEUES"] == "geo"
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        "      - SM_BG_TASKS_WORKER_QUEUES=old\n",
+        "      SM_BG_TASKS_WORKER_QUEUES: |\n        old\n\n        other\n",
+        "      SM_BG_TASKS_WORKER_QUEUES: old,\n        other\n",
+        "      SM_BG_TASKS_WORKER_QUEUES: &queues old\n",
+        "      OTHER: &queues old\n      SM_BG_TASKS_WORKER_QUEUES: *queues\n",
+        "      SM_BG_TASKS_INCLUDE_MODULES: &modules old\n",
+        "      &env\n      SM_BG_TASKS_WORKER_QUEUES: old\n",
+    ],
+)
+def test_worker_refuses_unsupported_environment_before_writing(project, entries):
+    compose = project / "compose.yml"
+    original = re.sub(
+        r"    environment:\n(?:      [^\n]*\n)+",
+        "    environment:\n" + entries,
+        compose.read_text(),
+        count=1,
+    )
+    compose.write_text(original)
+
+    result = invoke("geo", "--queues", "geo")
+
+    assert result.exit_code == 2, result.output
+    assert "environment" in plain(result.output)
+    assert compose.read_text() == original
+    assert not (project / "docker").exists()
+    assert not (project / "compose.worker-geo.yml").exists()
 
 
 def test_modules_rejects_task_module_paths(project):

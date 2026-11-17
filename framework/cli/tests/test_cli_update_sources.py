@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import typer
 from simple_module_cli.update_cmd import run_sources_update
 
 
@@ -63,6 +64,23 @@ def test_group_update_moves_all_siblings(tmp_path: Path) -> None:
     # dep floors bumped to the new version
     assert "simple_module_blog>=0.3.0,<1.0" in text
     assert ["uv", "sync"] in calls
+
+
+def test_tag_update_reports_how_to_finish_installing(tmp_path: Path, capsys) -> None:
+    p = _host(tmp_path, "https://github.com/x/mods")
+    (p.parent / "client_app").mkdir()
+
+    with pytest.raises(typer.Exit):
+        run_sources_update(
+            p,
+            only=None,
+            dry_run=False,
+            git_runner=_git_stub(["v0.3.0"]),
+            exec_runner=lambda cmd, _cwd: int(cmd[-1] == "gen-pages"),
+        )
+
+    assert 'tag = "v0.3.0"' in p.read_text()
+    assert "`make install gen-pages` from the app root" in capsys.readouterr().err
 
 
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:

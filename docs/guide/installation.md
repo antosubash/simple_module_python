@@ -138,7 +138,7 @@ make migrate
 make dev
 ```
 
-For a host with a `client_app`, `smpy add` regenerates the page manifest, syncs JS dependency declarations and regenerates i18n keys if the package is installed. Run `make install` from the app root to link the pages and generate the keys before restarting `make dev`. In a `smpy new --flat` app, wire the module with `smpy add ./modules/orders`.
+For a host with a `client_app`, `smpy add` regenerates the page manifest and runs `sync-js-deps` to install the JS dependencies declared by modules with `--save=false`. It skips `gen-i18n` if the i18n package is absent. Run `make install` from the app root to link the pages and generate the keys before restarting `make dev`. In a `smpy new --flat` app, wire the module with `smpy add ./modules/orders`.
 
 The full walkthrough is in [Your first module](/guide/first-module).
 

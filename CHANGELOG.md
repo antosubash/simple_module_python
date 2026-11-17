@@ -16,10 +16,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- `make dev` generates i18n keys before starting Vite and the API in both scaffold layouts and the framework repo. `smpy add` also regenerates the keys after syncing JS dependencies and prompts users to run `make install` before restarting (#946).
+- `make dev` generates i18n keys before starting Vite and the API in both scaffold layouts and the framework repo. `smpy add` installs declared JS dependencies and regenerates keys when the i18n package is present. After a failed install step, `smpy add` and `smpy update` print how to finish the install (#946).
 - `smpy doctor` and `make doctor` print a success line with the number of modules checked when there are no findings (#947).
 - `smpy openapi export` and `gen-types` use defaults quietly when the host settings table is empty and explain whether a fallback was caused by a missing table or an unreachable database (#948).
-- `smpy docker add-worker --modules` accepts top-level Python package names such as `geo` and writes `SM_BG_TASKS_INCLUDE_MODULES`. For existing workers, rename `SM_BG_TASKS_WORKER_INCLUDE_MODULES` in the Compose file, replace task paths such as `geo.tasks` with package names, and recreate the worker (#972).
+- `smpy docker add-worker --modules` accepts top-level Python package names such as `geo` and writes `SM_BG_TASKS_INCLUDE_MODULES`. The command replaces simple worker environment entries and rejects unsupported overrides before writing files. For existing workers, rename `SM_BG_TASKS_WORKER_INCLUDE_MODULES` in the Compose file, replace task paths such as `geo.tasks` with package names, and recreate the worker (#972).
 
 ## [0.0.47] — 2026-11-16
 

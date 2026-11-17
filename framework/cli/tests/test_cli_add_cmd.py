@@ -159,20 +159,22 @@ def test_add_reports_frontend_failure_after_writing_dependency(
     make_git_module_repo, host_pyproject, capsys, step
 ) -> None:
     repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)])
-    (host_pyproject.parent / "client_app/node_modules/@simple-module-py/i18n/src").mkdir(
-        parents=True
-    )
+    (host_pyproject.parent / "client_app").mkdir()
 
     def runner(cmd: list[str], cwd: Path) -> int:
-        return int(cmd[-1] == step)
+        return int(cmd[:5] == ["uv", "run", "smpy", "host", step])
 
     with pytest.raises(typer.Exit):
         run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
 
     assert "simple_module_blog" in host_pyproject.read_text()
     err = capsys.readouterr().err
-    assert f"`uv run smpy host {step}` failed" in err
+    command = f"uv run smpy host {step}"
+    if step == "gen-i18n":
+        command += " --skip-if-missing"
+    assert f"`{command}` failed" in err
     assert "dependencies are already recorded in pyproject.toml" in err
+    assert "rerun the original `smpy add` command" in err
 
 
 def test_no_sync_writes_but_skips_pipeline(make_git_module_repo, host_pyproject) -> None:

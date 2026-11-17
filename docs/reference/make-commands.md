@@ -25,7 +25,7 @@ smpy --help
 
 | Command | What |
 |---|---|
-| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` and, if the host has a `client_app`, `gen-pages`, `sync-js-deps` and `gen-i18n`. Use `--no-sync` to skip these steps. Workspace apps sync from the app root with `uv sync --all-packages`. |
+| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync`. If the host has a `client_app`, it runs `gen-pages`, installs JS dependencies declared by modules via `sync-js-deps` with `--save=false`, and skips `gen-i18n` when the i18n package is absent. Use `--no-sync` to skip these steps. Workspace apps sync from the app root with `uv sync --all-packages`. |
 | `smpy update [name]` | Update git-sourced modules to their newest release tag. Omit the name to update every git-sourced module; `--dry-run` previews. |
 
 `smpy add` handles a repo containing several modules: `--module a,b` picks specific dist names and `--all` takes every module it finds.
@@ -64,7 +64,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 | Command | From | What |
 |---|---|---|
 | `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
-| `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists. |
+| `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists unless `--skip-if-missing` is set. |
 | `smpy host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
 | `smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 

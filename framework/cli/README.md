@@ -12,7 +12,7 @@ pipx install simple_module_cli
 uvx --from simple_module_cli@latest smpy new my-app
 ```
 
-The package depends only on `typer`, `tomlkit` and `packaging` — installing it does **not** pull in FastAPI, SQLModel, or any other framework runtime.
+The standalone CLI depends on `typer`, `tomlkit`, `packaging`, and `PyYAML`. The Docker worker command uses PyYAML to validate Compose environment entries while preserving the original formatting.
 
 ## Usage
 

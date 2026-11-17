@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
+from yaml.nodes import MappingNode, ScalarNode
 
 from simple_module_cli.docker_assets import _read, _template_root
 
@@ -23,10 +25,12 @@ _BASE = (
     r"(?::[A-Za-z0-9_][A-Za-z0-9_.-]*)?(?:@sha256:[a-f0-9]{64})?"
 )
 _COMPOSE_FILES = ("compose.yml", "docker-compose.yml")
-_WORKER = re.compile(r"^  worker:\n(?P<body>(?: {4}[^\n]*\n|\n)*)", re.MULTILINE)
+_WORKER = re.compile(
+    r"^  worker:\n(?P<body>(?:(?: {4}[^\n]*|[ \t]*(?:#[^\n]*)?)\n)*)", re.MULTILINE
+)
 _COMMAND_BLOCK = re.compile(r"^    command:\n(?:      [^\n]*\n)*", re.MULTILINE)
 _BUILD_BLOCK = re.compile(r"^    build:\n(?:      [^\n]*\n)*", re.MULTILINE)
-_ENV_BLOCK = re.compile(r"^    environment:\n((?: {5}[^\n]*\n|\n)*)", re.MULTILINE)
+_ENV_HEADER = re.compile(r"^    environment:[ \t]*(?:#[^\n]*)?\n", re.MULTILINE)
 _INCLUDE = re.compile(r"^include:[ \t]*(?:#[^\n]*)?$", re.MULTILINE)
 _INCLUDE_ANY = re.compile(r"^include:", re.MULTILINE)
 _MARKER = "  # smpy worker-{name}"
@@ -72,6 +76,73 @@ def _include_worker(content: str, name: str) -> str:
             "Existing include must use a block list (include: on its own line)."
         )
     return "include:\n" + entry + _NEWLINE + content
+
+
+def _replace_worker_environment(body: str, queues: str, modules: str) -> str:
+    mapping_error = "Existing worker environment must use a block mapping (KEY: value)."
+    try:
+        worker = yaml.compose(body, Loader=yaml.SafeLoader)
+    except yaml.YAMLError as exc:
+        raise typer.BadParameter(
+            "Cannot copy worker environment: the worker must be valid YAML with local anchors."
+        ) from exc
+    if not isinstance(worker, MappingNode):
+        raise typer.BadParameter(mapping_error)
+    environments = [
+        (key, value)
+        for key, value in worker.value
+        if isinstance(key, ScalarNode) and key.value == "environment"
+    ]
+    if len(environments) != 1:
+        raise typer.BadParameter(mapping_error)
+    env_key, env = environments[0]
+    mark = env_key.start_mark
+    header = _ENV_HEADER.match(body, mark.index - mark.column)
+    if header is None:
+        raise typer.BadParameter(mapping_error)
+    if (
+        isinstance(env, MappingNode)
+        and not env.flow_style
+        and body[env.start_mark.index] not in "&!"
+    ):
+        entries = env.value
+        indent = env.start_mark.column
+    elif isinstance(env, ScalarNode) and env.value == "" and env.start_mark.index < header.end():
+        entries, indent = [], 6
+    else:
+        raise typer.BadParameter(mapping_error)
+
+    overrides = {_QUEUES_ENV: queues}
+    if modules:
+        overrides[_INCLUDE_MODULES_ENV] = modules
+    # Edit only whole entry lines so unrelated YAML and comments keep their original syntax.
+    lines = body.splitlines(keepends=True)
+    for key, value in entries:
+        if not isinstance(key, ScalarNode) or key.tag == "tag:yaml.org,2002:merge":
+            raise typer.BadParameter(mapping_error)
+        if key.value not in (_QUEUES_ENV, _INCLUDE_MODULES_ENV):
+            continue
+        start, end = key.start_mark, value.end_mark
+        separator = body[key.end_mark.index : value.start_mark.index]
+        if (
+            not isinstance(value, ScalarNode)
+            or value.style in ("|", ">")
+            or start.column != indent
+            or start.line != end.line
+            or not re.fullmatch(r"[ \t]*:[ \t]+", separator)
+            or body[start.index] in "&!"
+            or body[value.start_mark.index] in "&!"
+        ):
+            raise typer.BadParameter(
+                f"Worker environment entry {key.value} must be a simple KEY: value line."
+            )
+        if key.value in overrides:
+            lines[start.line] = _EMPTY
+    insert_at = mark.line + 1
+    lines[insert_at:insert_at] = [
+        f'{" " * indent}{key}: "{value}"\n' for key, value in overrides.items()
+    ]
+    return _EMPTY.join(lines)
 
 
 @docker_app.command(_COMMAND)
@@ -129,26 +200,9 @@ def add_worker(
             "Compose must contain an existing worker service to copy its wiring."
         )
     body = worker.group("body")
-    env = _ENV_BLOCK.search(body)
-    if not _BUILD_BLOCK.search(body) or env is None:
-        raise typer.BadParameter(
-            "Existing worker must have block-style build and environment mappings."
-        )
-    entries = env.group(1)
-    first_indent = re.search(r"^ +(?=[^ #\n])", entries, re.MULTILINE)
-    indent = first_indent[0] if first_indent else "      "
-    overrides = {_QUEUES_ENV: queues}
-    if modules:
-        overrides[_INCLUDE_MODULES_ENV] = modules
-    for key, value in overrides.items():
-        entries = re.sub(
-            rf"""^{indent}(?:{key}|"{key}"|'{key}')[ \t]*:[^\n]*\n(?:^{indent} [^\n]*\n)*""",
-            _EMPTY,
-            entries,
-            flags=re.MULTILINE,
-        )
-        entries = f'{indent}{key}: "{value}"\n' + entries
-    body = body[: env.start(1)] + entries + body[env.end(1) :]
+    if not _BUILD_BLOCK.search(body):
+        raise typer.BadParameter("Existing worker must have a block-style build mapping.")
+    body = _replace_worker_environment(body, queues, modules)
     body = _COMMAND_BLOCK.sub(_EMPTY, body)
     body = _BUILD_BLOCK.sub(_BUILD_VALUES.format(dockerfile=dockerfile), body)
     updated = _include_worker(content, name)
