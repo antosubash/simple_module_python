@@ -34,6 +34,10 @@
       "types": "./src/components/*.tsx",
       "default": "./src/components/*.tsx"
     },
+    "./layouts/useDrawerA11y": {
+      "types": "./src/layouts/useDrawerA11y.ts",
+      "default": "./src/layouts/useDrawerA11y.ts"
+    },
     "./layouts/*": {
       "types": "./src/layouts/*.tsx",
       "default": "./src/layouts/*.tsx"

@@ -406,22 +406,44 @@ Async client built on `aioboto3`. `aioboto3` is an **optional** dependency — i
 
 ### Writing your own backend
 
-Implement the `StorageBackend` protocol:
+Implement the `StorageBackend` protocol and decorate a factory with
+`register_backend`. Fill in the methods with calls to your storage provider.
 
 ```python
-from file_storage.contracts import StorageBackend, StoredFile
+from collections.abc import AsyncIterator
+
+from file_storage.backends import register_backend
+from file_storage.contracts import NotSupportedError, StorageBackend
 
 
 class GcsBackend(StorageBackend):
     backend_id = "gcs"
-    supports_presigned_url = True
+    supports_presigned_url = False
 
-    async def put(self, key, stream, content_type, size): ...
-    async def get(self, key): ...  # awaited; returns an AsyncIterator[bytes]
-    async def get_range(self, key, start, end): ...  # end inclusive
-    async def delete(self, key): ...
-    async def exists(self, key) -> bool: ...
-    async def presigned_get_url(self, key, ttl_seconds: int) -> str: ...
+    async def put(
+        self, key: str, stream: AsyncIterator[bytes], *, content_type: str, size: int
+    ) -> None: ...
+
+    async def get(self, key: str) -> AsyncIterator[bytes]: ...
+    async def get_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]: ...
+    async def delete(self, key: str) -> None: ...
+    async def exists(self, key: str) -> bool: ...
+
+    async def presigned_get_url(
+        self,
+        key: str,
+        ttl_seconds: int,
+        *,
+        content_disposition: str | None = None,
+        content_type: str | None = None,
+    ) -> str:
+        raise NotSupportedError
+
+
+@register_backend(GcsBackend.backend_id)
+def build_gcs_backend(settings) -> StorageBackend:
+    # Read any provider configuration here. settings is a FileStorageSettings instance.
+    return GcsBackend()
 ```
 
 `get` and `get_range` must stream in bounded chunks (never buffer the whole
@@ -430,7 +452,11 @@ first byte. `get_range(key, start, end)` uses HTTP semantics — `end` is
 inclusive — and receives an already-validated `0 <= start <= end < size`. A
 backend without `get_range` still works: the endpoints then ignore `Range`.
 
-Register it in your module's `register_settings` so the file_storage service can pick it up. (The shipped two backends are wired into a private `BACKEND_REGISTRY`; see `backends/__init__.py` for the pattern.)
+Import the module containing the decorated factory before file storage starts,
+for example from your extension module's `register_settings` hook. Set
+`file_storage.backend` to `gcs` in `/admin/settings/` and restart the app and
+any workers that use this backend. Import the factory module in those worker
+processes too. Each process resolves the configured backend from its registry.
 
 ## Permissions
 

@@ -8,16 +8,20 @@ import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { NavIcon } from '../components/NavIcon';
 import { usePageProps } from '../hooks/usePageProps';
 import { LOGIN_PATH } from '../lib/auth-routes';
-import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME, BRAND_REPO_URL } from '../lib/brand';
+import { BRAND_ACCENT, BRAND_DEFAULT_APP_NAME } from '../lib/brand';
 import { useHomeUrl } from '../lib/home-url';
+import { isPostMenuItem } from '../types';
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { t } = useT();
-  const { auth, branding } = usePageProps();
+  const { auth, branding, menus } = usePageProps();
   const homeUrl = useHomeUrl();
   const [menuOpen, setMenuOpen] = useState(false);
+  const navbar = menus?.navbar ?? [];
+  const closeMenu = () => setMenuOpen(false);
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
   const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
@@ -28,6 +32,34 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const entry = auth?.isAuthenticated
     ? { href: homeUrl, labelKey: keys.ui.public_nav.open_dashboard }
     : { href: LOGIN_PATH, labelKey: keys.ui.public_nav.sign_in };
+
+  const renderNavbar = (mobile: boolean) =>
+    navbar.map((item) => {
+      const className = `inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground ${mobile ? 'min-h-11' : ''}`;
+      const onClick = mobile ? closeMenu : undefined;
+      const content = (
+        <>
+          {item.icon && <NavIcon name={item.icon} className="size-4" />}
+          {item.label}
+        </>
+      );
+      return isPostMenuItem(item) ? (
+        <Link
+          key={item.url}
+          href={item.url}
+          method="post"
+          as="button"
+          className={className}
+          onClick={onClick}
+        >
+          {content}
+        </Link>
+      ) : (
+        <a key={item.url} href={item.url} className={className} onClick={onClick}>
+          {content}
+        </a>
+      );
+    });
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -54,25 +86,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             </Link>
 
             <div className="hidden items-center gap-4 sm:flex">
-              <a
-                href={`${BRAND_REPO_URL}#readme`}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t(keys.ui.public_nav.docs)}
-              </a>
-              <a
-                href={`${BRAND_REPO_URL}/tree/main/modules`}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t(keys.ui.public_nav.modules)}
-              </a>
-              <a
-                href={BRAND_REPO_URL}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t(keys.ui.public_nav.github)}
-              </a>
-              <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+              {renderNavbar(false)}
+              {navbar.length > 0 && <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />}
               <LocaleSwitcher />
               <Button asChild variant="outline" size="sm">
                 <a href={entry.href}>{t(entry.labelKey)}</a>
@@ -82,6 +97,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
+              aria-expanded={menuOpen}
               className="flex min-h-11 min-w-11 -mr-2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:hidden"
               aria-label={
                 menuOpen ? t(keys.ui.public_nav.close_menu) : t(keys.ui.public_nav.open_menu)
@@ -93,8 +109,11 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
           {menuOpen && (
             <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:hidden">
+              {renderNavbar(true)}
               <Button asChild variant="outline" className="w-full min-h-11">
-                <a href={entry.href}>{t(entry.labelKey)}</a>
+                <a href={entry.href} onClick={closeMenu}>
+                  {t(entry.labelKey)}
+                </a>
               </Button>
             </div>
           )}

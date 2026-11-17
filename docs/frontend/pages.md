@@ -141,6 +141,12 @@ The second form re-uses the layout instance across navigations — good for layo
 | `AuthenticatedLayout` | Signed-in application screens. |
 | `AdminLayout` | Screens in the admin section under `/admin`. |
 
+`PublicLayout` renders `menus.navbar` on desktop and in its mobile menu. Add
+items via `register_menu_items` with `section=MenuSection.NAVBAR` and set
+`requires_auth=False` for links that visitors should see before signing in.
+The demo host registers its Docs, Modules and GitHub links explicitly. Apps
+with no navbar items visible to a visitor show only the built-in layout controls.
+
 `AdminLayout` renders the admin sidebar (`MenuSection.ADMIN_SIDEBAR`) with its own darker theme and a badge linking back to `/admin`. Pick it for a page whose URL is under `/admin` and whose menu entry registers into `ADMIN_SIDEBAR` — those three move together, and changing one leaves a page whose sidebar no longer lists it.
 
 ### The app chrome
