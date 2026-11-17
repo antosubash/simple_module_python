@@ -87,6 +87,8 @@ async def cookie_login_response(
     user,
     settings: UsersSettings,
     window_seconds: int,
+    *,
+    cookie_secure: bool,
 ) -> Response:
     """Mint an access-token row for ``window_seconds`` and set it as the cookie.
 
@@ -100,7 +102,7 @@ async def cookie_login_response(
     transport = build_cookie_transport(
         cookie_name=settings.cookie_name,
         cookie_max_age_seconds=window_seconds,
-        cookie_secure=settings.cookie_secure,
+        cookie_secure=cookie_secure,
         cookie_samesite=settings.cookie_samesite,
     )
     token = await build_strategy(access_token_db, window_seconds).write_token(user)
@@ -136,6 +138,8 @@ def build_auth_backend(
 def reconfigure_cookie_transport(
     backend: AuthenticationBackend,
     settings: UsersSettings,
+    *,
+    cookie_secure: bool,
 ) -> None:
     """Apply production cookie config to an already-constructed backend.
 
@@ -150,5 +154,5 @@ def reconfigure_cookie_transport(
     )
     transport.cookie_name = settings.cookie_name
     transport.cookie_max_age = settings.cookie_max_age_seconds
-    transport.cookie_secure = settings.cookie_secure
+    transport.cookie_secure = cookie_secure
     transport.cookie_samesite = settings.cookie_samesite

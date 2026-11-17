@@ -50,6 +50,7 @@ from simple_module_hosting._settings_registration import (
 )
 from simple_module_hosting.admin_overview import mount_admin_overview
 from simple_module_hosting.health import router as health_router
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
 from simple_module_hosting.settings import Settings
@@ -149,6 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_settings(app)
 
     register_host_settings(app)
+    app.state.host.settings = HostSettings.model_validate(settings.model_dump())
 
     if settings.is_development:
         settings_diagnostics = check_settings_registration(app, modules)

@@ -18,7 +18,6 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
-from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
 from simple_module_core.stored_settings import field_error
 
@@ -31,8 +30,6 @@ _PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
 _PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
 DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS = 90
-
-DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 
 # Groups the demo fields together in the module-settings editor.
 DEMO_SETTINGS_GROUP = "Demo account"
@@ -49,24 +46,6 @@ class _UsersCoreSettings(DbBackedSettings):
     # Self-service signup
     allow_signup: bool = False
     require_verification: bool = True
-
-    # Where the login page sends a successful sign-in. Sites without the
-    # bundled ``dashboard`` module (``smpy new --preset minimal``) override
-    # this to wherever their post-login landing lives.
-    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
-
-    @field_validator("login_redirect_url")
-    @classmethod
-    def _non_empty_redirect(cls, value: str) -> str:
-        """Blank is never a usable navigation target.
-
-        Covers this module's consumers — the login view (which hands it to
-        Inertia, where ``router.visit("")`` silently reloads the current page)
-        and the generic OAuth callback (which puts it in a ``Location``
-        header). Keycloak has its own settings class with its own copy of this
-        field and normalises it the same way.
-        """
-        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
 
     # Token secrets — MUST be set in production. Dev default is a deterministic
     # placeholder that's obvious in logs so it can't be mistaken for a real key.
@@ -102,7 +81,6 @@ class _UsersCoreSettings(DbBackedSettings):
     # indexed read per request instead. See ``users.accounts.session_version_cache``.
     session_version_cache_ttl_seconds: int = SESSION_VERSION_TTL_SECONDS
 
-    cookie_secure: bool = True  # flipped False in dev by the module at startup
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     @field_validator("cookie_samesite", mode="before")
@@ -112,7 +90,9 @@ class _UsersCoreSettings(DbBackedSettings):
         return value.lower() if isinstance(value, str) else value
 
     # Mail transport (SMTP, console) lives in the ``mail`` module.
-    base_url: str = "http://localhost:8000"
+    base_url: str = Field(
+        default="", description="Account link origin; blank inherits host.public_base_url."
+    )
     mail_template_dirs: list[str] = Field(
         default_factory=list,
         description=(
@@ -170,14 +150,6 @@ class _UsersCoreSettings(DbBackedSettings):
     # a demo account is a published credential, so the safe posture is the one
     # you get without reading the docs.
     demo_read_only: bool = Field(default=True, json_schema_extra={"group": DEMO_SETTINGS_GROUP})
-
-    # Bootstrap (env-var auto-create users on first boot)
-    bootstrap_email: str = ""
-    bootstrap_password: str = ""
-    # Optional second seed user with the "user" role — handy in dev for
-    # testing non-admin flows without logging out/in repeatedly.
-    bootstrap_user_email: str = ""
-    bootstrap_user_password: str = ""
 
     @model_validator(mode="after")
     def _warn_on_writable_admin_demo(self) -> _UsersCoreSettings:

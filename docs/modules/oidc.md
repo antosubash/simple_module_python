@@ -138,7 +138,6 @@ ignored. Host selection `SM_AUTH_PROVIDER=oidc` is a separate host setting.
 | `email_claim` | — | `email` | Display email. Generic literal `email_verified=true` alone supplies verification proof. |
 | `name_claim` | — | `name` | Fallback display name. |
 | `roles_claim_path` | `SM_OIDC_ROLES_CLAIM_PATH` | preset | Generic empty; Entra `roles`; dotted path to a list. |
-| `login_redirect_url` | — | `/dashboard/` | Local destination after login when no safe saved deep link exists; blanks normalize to default. |
 | `jwks_cache_ttl_seconds` | — | `3600` | Nonnegative signing-key cache TTL. Restart required. Last-good keys survive outages; unknown keys share a 30-second fetch cooldown. |
 | `role_mapping` | — | `{"admin":"admin","user":"user"}` | External roles to application roles. Unmapped roles and mapped `tenant:*` roles are discarded. |
 
@@ -248,3 +247,7 @@ directories (#741). OIDC retains discovery, ID-token-based browser identity,
 per-purpose audiences and its API client allowlist. Its issuer/subject identity,
 `oidc_user_cache` table, session keys and encryption key derivation are unchanged;
 no migration or session conversion is needed.
+
+Post-login destinations use `host.login_redirect_url` for every provider. The
+default `/dashboard/` falls back to the first other view when Dashboard is absent,
+then `/`. Old per-provider redirect rows are ignored quietly.

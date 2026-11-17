@@ -10,9 +10,14 @@ registration hook.
 | Body size (`BodyLimitMiddleware`) | `413` | 10 MiB | `register_body_limits` |
 | Rate limit (`RateLimitMiddleware`) | `429` + `Retry-After` | `120/minute` per IP, anonymous public routes only | `rate=` on a public rule |
 
-Both settings are read when the middleware stack is built, so editing them in
-the admin UI needs a restart (the pre-app settings read picks the DB value up
-on the next boot; an env var still wins).
+Body limits and both rate tiers use an immutable host policy snapshot per
+request. A committed admin save refreshes that snapshot through the existing
+settings reload, without restarting or querying the DB on each request.
+Environment values still win over DB overrides. Module body-limit overrides,
+public-route rate overrides and registered rate-limit rules keep applying.
+Changing a global rate period starts a separate window; the previous period
+cannot keep blocking requests. Proxy trust and forwarded-host settings still
+require a restart.
 
 ## Body-size guard
 

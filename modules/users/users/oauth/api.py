@@ -27,6 +27,7 @@ from fastapi_users import exceptions as fu_exceptions
 from httpx import HTTPError
 from httpx_oauth.exceptions import HTTPXOAuthError
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
+from simple_module_hosting.auth_policy import login_redirect_url
 from starlette.responses import RedirectResponse
 
 from users.core.constants import OAUTH_REGISTRATION_REQUEST_FLAG
@@ -233,10 +234,9 @@ def register_oauth_routes(api_router: APIRouter) -> None:
         # Popped, not read: leaving it would send some later, unrelated visit
         # to /users/login off to a stale destination. Re-sanitised on the way
         # out because the value lands in a Location header.
-        redirect_url = (
-            safe_next_or_none(request.session.pop(SESSION_NEXT_KEY, None))
-            or request.app.state.users.settings.login_redirect_url
-        )
+        redirect_url = safe_next_or_none(
+            request.session.pop(SESSION_NEXT_KEY, None)
+        ) or login_redirect_url(request.app, "Users")
         redirect = RedirectResponse(redirect_url, status_code=303)
         for key, value in login_response.headers.items():
             if key.lower() == "set-cookie":

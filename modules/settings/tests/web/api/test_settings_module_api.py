@@ -42,13 +42,13 @@ async def test_put_rejects_and_does_not_persist_unbounded_background_task_values
     original = app.state.background_tasks.settings
     resp = await authenticated_client.put(
         "/api/settings/modules/background_tasks",
-        json={"retention_days": -5, "max_retries": 999_999_999},
+        json={"retention_days": -5, "outbox_lease_seconds": -1},
     )
 
     assert resp.status_code == 422
     assert {error["loc"][-1] for error in resp.json()["detail"]} == {
         "retention_days",
-        "max_retries",
+        "outbox_lease_seconds",
     }
     assert app.state.background_tasks.settings is original
     # The app's own DB: ``db_session`` is a separate engine and reads ``{}``
@@ -79,3 +79,30 @@ async def test_put_secret_mask_sentinel_is_noop(authenticated_client, app):
     )
     assert resp.status_code == 200
     assert app.state.users.settings.reset_password_token_secret == original
+
+
+async def test_host_body_guard_save_and_clear_apply_without_restart(authenticated_client, app):
+    response = await authenticated_client.put(
+        "/api/settings/modules/host", json={"max_request_body_bytes": 32}
+    )
+    assert response.status_code == 200
+    response = await authenticated_client.post("/api/guard-probe", content=b"x" * 33)
+    assert response.status_code == 413
+    assert app.state.host.request_guards.max_bytes == 32
+    response = await authenticated_client.delete(
+        "/api/settings/modules/host/max_request_body_bytes"
+    )
+    assert response.status_code == 204
+    response = await authenticated_client.post("/api/guard-probe", content=b"x" * 33)
+    assert response.status_code != 413
+    assert app.state.host.request_guards.max_bytes == 10 * 1024 * 1024
+
+
+async def test_invalid_guard_save_keeps_the_previous_snapshot(authenticated_client, app):
+    previous = app.state.host.request_guards
+    response = await authenticated_client.put(
+        "/api/settings/modules/host",
+        json={"cors_allow_origins": ["*"], "cors_allow_credentials": True},
+    )
+    assert response.status_code == 422
+    assert app.state.host.request_guards is previous

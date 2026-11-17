@@ -24,28 +24,22 @@ def test_keycloak_provider_satisfies_protocol():
 
 
 class TestKeycloakLoginRedirectUrl:
-    """A blanked ``login_redirect_url`` must never reach the OIDC callback.
-
-    ``endpoints/api.py`` puts this value straight into a ``Location`` header,
-    and an admin can clear it in the generic module-settings editor. This is a
-    second copy of the field — ``users`` has its own — so it needs its own
-    guard; the two provider modules must not import each other.
-    """
+    """Keycloak uses the host destination with the same blank-value normalization."""
 
     def test_blank_falls_back_to_the_default(self):
-        from keycloak.core.settings import KeycloakSettings
+        from simple_module_hosting.host_settings import HostSettings
 
-        assert KeycloakSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
+        assert HostSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
 
     def test_whitespace_only_falls_back_to_the_default(self):
-        from keycloak.core.settings import KeycloakSettings
+        from simple_module_hosting.host_settings import HostSettings
 
-        assert KeycloakSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
+        assert HostSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
 
     def test_a_real_value_is_left_alone(self):
-        from keycloak.core.settings import KeycloakSettings
+        from simple_module_hosting.host_settings import HostSettings
 
-        assert KeycloakSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
+        assert HostSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
 
 
 def test_keycloak_registers_no_setup_steps():

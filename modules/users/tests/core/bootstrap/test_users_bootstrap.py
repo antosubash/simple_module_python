@@ -23,12 +23,12 @@ from users.models import Role, User, UserRole
 
 
 def _make_fake_app(
-    session_factory, *, bootstrap_email: str = "", bootstrap_password: str = ""
+    session_factory, monkeypatch, *, bootstrap_email: str = "", bootstrap_password: str = ""
 ) -> SimpleNamespace:
     """Build a minimal app-like namespace for bootstrap_admin_from_env."""
+    monkeypatch.setenv("SM_USERS_BOOTSTRAP_EMAIL", bootstrap_email)
+    monkeypatch.setenv("SM_USERS_BOOTSTRAP_PASSWORD", bootstrap_password)
     settings = UsersSettings(
-        bootstrap_email=bootstrap_email,
-        bootstrap_password=bootstrap_password,
         # Avoid reading .env by overriding all required fields
         reset_password_token_secret="test-secret",
         verification_token_secret="test-secret",
@@ -177,12 +177,13 @@ async def test_create_admin_creates_role_if_missing(users_db: AsyncSession) -> N
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_from_env_noop_when_unset(users_app_empty) -> None:
+async def test_bootstrap_from_env_noop_when_unset(users_app_empty, monkeypatch) -> None:
     """bootstrap_admin_from_env does nothing when bootstrap_email is empty."""
     from sqlalchemy import select
 
     fake_app = _make_fake_app(
         users_app_empty.state.sm.db.session_factory,
+        monkeypatch,
         bootstrap_email="",
         bootstrap_password="",
     )
@@ -196,7 +197,7 @@ async def test_bootstrap_from_env_noop_when_unset(users_app_empty) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_from_env_noop_when_table_nonempty(users_app_empty) -> None:
+async def test_bootstrap_from_env_noop_when_table_nonempty(users_app_empty, monkeypatch) -> None:
     """bootstrap_admin_from_env skips creation when the users table has rows."""
     from sqlalchemy import select
 
@@ -214,6 +215,7 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app_empty) -> N
 
     fake_app = _make_fake_app(
         users_app_empty.state.sm.db.session_factory,
+        monkeypatch,
         bootstrap_email="admin@test.example",
         bootstrap_password="AdminPass1!",
     )
@@ -227,12 +229,15 @@ async def test_bootstrap_from_env_noop_when_table_nonempty(users_app_empty) -> N
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(users_app_empty) -> None:
+async def test_bootstrap_from_env_creates_admin_when_empty_and_configured(
+    users_app_empty, monkeypatch
+) -> None:
     """bootstrap_admin_from_env creates an admin when table is empty and env vars are set."""
     from sqlalchemy import select
 
     fake_app = _make_fake_app(
         users_app_empty.state.sm.db.session_factory,
+        monkeypatch,
         bootstrap_email="bootstrap@test.example",
         bootstrap_password="BootPass1!",
     )
@@ -257,6 +262,7 @@ async def test_bootstrap_logs_generated_password_only_once(
         monkeypatch.setenv("SM_USERS_BOOTSTRAP_PASSWORD_GENERATED", "1")
     fake_app = _make_fake_app(
         users_app_empty.state.sm.db.session_factory,
+        monkeypatch,
         bootstrap_email="first@test.example",
         bootstrap_password="GeneratedPass1!",
     )
@@ -265,7 +271,7 @@ async def test_bootstrap_logs_generated_password_only_once(
         first_messages = list(caplog.messages)
         caplog.clear()
         # A restart generates a different unused password for an existing install.
-        fake_app.state.users.settings.bootstrap_password = "UnusedPass2!"
+        monkeypatch.setenv("SM_USERS_BOOTSTRAP_PASSWORD", "UnusedPass2!")
         await bootstrap_admin_from_env(fake_app)
     assert caplog.messages == []
     if generated:

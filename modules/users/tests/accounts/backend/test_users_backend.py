@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 
 
@@ -62,3 +63,32 @@ def test_build_auth_backend_strategy_is_database_strategy():
 
     # The backend's get_strategy callable should be get_database_strategy
     assert backend.get_strategy is get_database_strategy
+
+
+@pytest.mark.parametrize(
+    "explicit,environment,expected",
+    [
+        (None, "development", False),
+        (None, "testing", False),
+        (None, "production", True),
+        (False, "production", False),
+        (True, "development", True),
+    ],
+)
+async def test_auth_cookie_uses_the_host_session_policy(explicit, environment, expected):
+    from simple_module_hosting.auth_policy import session_cookie_is_secure
+    from simple_module_hosting.settings import Settings
+    from users.accounts.backend import (
+        build_auth_backend,
+        build_cookie_transport,
+        reconfigure_cookie_transport,
+    )
+    from users.core.settings import UsersSettings
+
+    host = Settings.model_construct(environment=environment, session_cookie_secure=explicit)
+    backend = build_auth_backend(build_cookie_transport("old", 60, not expected, "lax"))
+    reconfigure_cookie_transport(
+        backend, UsersSettings(), cookie_secure=session_cookie_is_secure(host)
+    )
+    response = await backend.transport.get_login_response("token")
+    assert ("; Secure" in response.headers["set-cookie"]) is expected

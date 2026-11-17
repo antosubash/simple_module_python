@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -28,12 +28,12 @@ logger = logging.getLogger(__name__)
 class TemplatedMailer:
     def __init__(
         self,
-        base_url: str,
+        base_url: str | Callable[[], str],
         app_name_provider: AppNameProvider | None = None,
         *,
         template_dirs: Sequence[str | Path] = (),
     ) -> None:
-        self._base = base_url.rstrip("/")
+        self._base_url = base_url
         from users.mailer import default_app_name
 
         self._app_name = app_name_provider or default_app_name
@@ -57,6 +57,15 @@ class TemplatedMailer:
             ),
             autoescape=jinja2.select_autoescape(enabled_extensions=("html",), default=False),
         )
+
+    @property
+    def _base(self) -> str:
+        origin = self._base_url() if callable(self._base_url) else self._base_url
+        if not origin:
+            raise ValueError(
+                "Configure host.public_base_url or users.base_url before sending account emails"
+            )
+        return origin.rstrip("/")
 
     @property
     def delivers_email(self) -> bool:

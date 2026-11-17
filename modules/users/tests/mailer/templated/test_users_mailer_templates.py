@@ -49,7 +49,11 @@ async def test_directory_order_and_independent_file_fallback(tmp_path, captured_
     (first / "verify_email.txt").write_text("first {{ app_name }}")
     (second / "verify_email.txt").write_text("second")
     (second / "verify_email.html").write_text("<b>second {{ app_name }}</b>")
-    mailer = build_mailer(UsersSettings(), lambda: "<Acme>", template_dirs=[str(first), second])
+    mailer = build_mailer(
+        UsersSettings(base_url="https://app.example"),
+        lambda: "<Acme>",
+        template_dirs=[str(first), second],
+    )
     await mailer.send_verification("a@example.com", "tok")
     await mailer.send_password_reset("a@example.com", "reset")
     verify, reset = captured_mail.messages
@@ -113,7 +117,11 @@ def test_invalid_template_directory_is_skipped_with_warning(tmp_path, kind, capl
 async def test_startup_forwards_db_setting_and_keeps_branding_live(tmp_path, captured_mail):
     (tmp_path / "verify_email.html").write_text("<p>{{ app_name }}</p>")
     settings = build_settings(
-        UsersSettings, {"mail_template_dirs": (json.dumps([str(tmp_path)]), "json")}
+        UsersSettings,
+        {
+            "mail_template_dirs": (json.dumps([str(tmp_path)]), "json"),
+            "base_url": ("https://app.example", "string"),
+        },
     )
     app = FastAPI()
     app.state.branding = SimpleNamespace(settings=SimpleNamespace(app_name="First"))
@@ -146,3 +154,32 @@ async def test_host_templates_render_sandboxed(tmp_path, captured_mail):
     with pytest.raises(SecurityError):
         await mailer.send_verification("a@example.com", "tok")
     assert captured_mail.messages == []
+
+
+async def test_startup_mailer_follows_live_host_origin(captured_mail):
+    from simple_module_hosting.host_settings import HostSettings
+
+    app = FastAPI()
+    app.state.host = SimpleNamespace(settings=HostSettings(public_base_url="https://host.example"))
+    app.state.users = SimpleNamespace(settings=UsersSettings())
+    _build_mailer(app, app.state.users, app.state.users.settings)
+    await app.state.users.mailer.send_verification("a@example.com", "one")
+    assert "https://host.example/users/verify?token=one" in captured_mail.messages[-1].text
+    app.state.host.settings = HostSettings(public_base_url="https://changed.example")
+    await app.state.users.mailer.send_password_reset("a@example.com", "two")
+    assert (
+        "https://changed.example/users/reset-password?token=two" in captured_mail.messages[-1].text
+    )
+    app.state.users.settings = UsersSettings(base_url="https://accounts.example/")
+    await app.state.users.mailer.send_invite("a@example.com", "three", "Admin")
+    assert (
+        "https://accounts.example/users/invite/accept?token=three"
+        in captured_mail.messages[-1].text
+    )
+
+
+async def test_missing_origin_refuses_to_send_relative_account_links(captured_mail):
+    mailer = build_mailer(UsersSettings())
+    with pytest.raises(ValueError, match=r"host\.public_base_url"):
+        await mailer.send_verification("a@example.com", "tok")
+    assert not captured_mail.messages

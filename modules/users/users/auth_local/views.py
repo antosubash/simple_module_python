@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
 from simple_module_db.deps import get_db
+from simple_module_hosting.auth_policy import login_redirect_url
 from simple_module_hosting.csrf import get_csrf_token
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
@@ -63,7 +64,7 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
     # admin would actually be created.
     dev_accounts: list[dict[str, str]] = []
     if request.app.state.sm.settings.is_development:
-        resolved = resolve_bootstrap_credentials(users_settings)
+        resolved = resolve_bootstrap_credentials()
         for label, email_key, password_key in _DEV_ACCOUNT_SPECS:
             if resolved[email_key] and resolved[password_key]:
                 dev_accounts.append(
@@ -102,10 +103,8 @@ async def login_page(request: Request, inertia: InertiaDep) -> InertiaResponse:
             # handler clears it once login actually succeeds.
             "login_redirect_url": (
                 safe_next_or_none(request.session.get(SESSION_NEXT_KEY))
-                # Never "" — UsersSettings normalises a blanked value back to
-                # the default, so every consumer (here, Keycloak, OAuth) gets
-                # a usable target rather than each guarding for itself.
-                or users_settings.login_redirect_url
+                # The host owns the default for every auth provider.
+                or login_redirect_url(request.app, "Users")
             ),
             "oauth_providers": users_state.oauth_providers,
             "oauth_error": oauth_error if oauth_error in OAUTH_ERROR_CODES else None,

@@ -17,7 +17,7 @@ class TenantsSettings(DbBackedSettings):
         default="",
         description=(
             "Origin invitation links are built on, e.g. https://app.example.com. "
-            "Empty: links are root-relative and never taken from the request's Host header."
+            "Empty: inherit host.public_base_url; if both are blank, links are root-relative."
         ),
     )
     subdomain_base: str = Field(

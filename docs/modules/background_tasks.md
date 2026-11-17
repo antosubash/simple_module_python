@@ -582,7 +582,6 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `stuck_sweep_interval_seconds` | `60` | beat cadence for the stuck sweep |
 | `purge_interval_seconds` | `86_400` | beat cadence for old-row purge |
 | `retention_days` | `14` | how long to keep terminal rows; range 1-3650 |
-| `max_retries` | `3` | informational; tasks define their own policies; range 0-100 |
 | `outbox_max_attempts` | `8` | durable-event delivery attempts before `dead`; range 1-100 |
 | `outbox_mode` | `"celery"` | restart required; `celery` or `inprocess`; eager forces `inprocess` |
 | `outbox_sweep_interval_seconds` | `5` | restart required; sweep cadence in either mode; minimum 1 |
@@ -697,3 +696,7 @@ overflow 3 and recycling after 1800 seconds. Set `SM_BG_TASKS_DB_POOL_SIZE`,
 `SM_BG_TASKS_DB_STATEMENT_TIMEOUT_MS` to tune them; restart workers afterward.
 Each outbox thread owns a separate pool. PgBouncer transaction pooling rejects
 timeout startup parameters; see [database tuning](../database/tuning.md).
+
+Retry limits belong to each task. The detail page shows the actual attempt
+number; the removed module `max_retries` setting never controlled retry policy.
+Old stored rows are ignored quietly.

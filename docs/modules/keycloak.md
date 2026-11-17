@@ -71,7 +71,6 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 | `GET /keycloak/login` | Inertia `Keycloak/Login` page (auto-redirects to the IdP). |
 | `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout with `client_id` and `post_logout_redirect_uri` back to `/keycloak/logged-out`. |
 | `GET /api/keycloak/auth/login` | Builds the authorization URL (random `state`, `nonce` and S256 PKCE verifier stored in session) and 302s to Keycloak. |
-| `GET /api/keycloak/auth/callback` | Verifies `state` before consuming the transaction, exchanges the `code` with its PKCE verifier for tokens, validates both tokens and checks the ID token nonce and matching subject. Upserts the user cache, replaces the session (preserving registered browser gate keys), writes `UserContext`, the refresh token (if returned) and access-token expiry, then redirects to the safe `next` (or `login_redirect_url`). |
 
 A stale or replayed callback redirects an already signed-in browser with 303;
 an anonymous browser receives 419 and must start sign-in again. An unmatched
@@ -107,8 +106,6 @@ DB-backed via `register_module_settings("keycloak", KeycloakSettings, ...)`; boo
 | `client_secret` | `SM_KEYCLOAK_CLIENT_SECRET` | `""` | confidential-client secret |
 | `trust_tenant_claim` | `SM_KEYCLOAK_TRUST_TENANT_CLAIM` | `false` | see [Tenant claim](#tenant-claim) |
 | `roles_claim_path` | — | `"realm_access.roles"` | dotted path to the roles array in the token |
-| `admin_role` | — | `"admin"` | |
-| `login_redirect_url` | — | `"/dashboard/"` | post-login landing |
 | `jwks_cache_ttl_seconds` | — | `3600` | signing-key cache TTL |
 | `role_mapping` | — | `{"admin": "admin", "user": "user"}` | Keycloak realm role → framework permission/role |
 
@@ -186,3 +183,7 @@ dependencies = [
 ```
 
 Then `uv sync --all-packages`. The entry point (`keycloak = "keycloak.module:KeycloakModule"`) is discovered automatically; set the four `SM_KEYCLOAK_*` env vars (or configure them via the settings admin UI after first boot). It depends on the [`auth`](/modules/auth) and [`settings`](/modules/settings) modules.
+
+Post-login destinations use `host.login_redirect_url` for every provider. The
+default `/dashboard/` falls back to the first other view when Dashboard is absent,
+then `/`. Old per-provider redirect rows are ignored quietly.

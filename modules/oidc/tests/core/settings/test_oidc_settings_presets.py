@@ -76,8 +76,7 @@ def test_bare_environment_cannot_override_db_policy(monkeypatch):
 
 
 def test_redirect_and_bearer_defaults():
-    settings = OidcSettings(client_id="app", login_redirect_url="  ")
-    assert settings.login_redirect_url == "/dashboard/"
+    settings = OidcSettings(client_id="app")
     assert settings.api_audience == ""
     assert settings.trust_tenant_claim is False
 

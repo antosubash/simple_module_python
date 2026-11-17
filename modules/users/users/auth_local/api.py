@@ -19,6 +19,7 @@ from fastapi_users import exceptions as fu_exceptions
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from simple_module_db.deps import get_db
 from simple_module_db.transaction import rollback_session
+from simple_module_hosting.auth_policy import session_cookie_is_secure
 from simple_module_hosting.session import SESSION_REMEMBER_KEY, stamp_session_expiry
 from simple_module_hosting.token_guard import Authenticated
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,7 +90,11 @@ async def _remembered_login_response(request: Request, user, access_token_db) ->
     """
     settings = request.app.state.users.settings
     return await cookie_login_response(
-        access_token_db, user, settings, settings.remember_me_max_age_seconds
+        access_token_db,
+        user,
+        settings,
+        settings.remember_me_max_age_seconds,
+        cookie_secure=session_cookie_is_secure(request.app.state.sm.settings),
     )
 
 
