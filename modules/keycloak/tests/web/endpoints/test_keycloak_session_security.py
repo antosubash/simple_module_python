@@ -17,6 +17,7 @@ from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak.identity.tokens import open_refresh_token
 from keycloak.web.endpoints import api
 from simple_module_hosting.csrf import get_csrf_token
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.session import preserve_across_sign_in
 from starlette.requests import Request
 
@@ -67,12 +68,16 @@ def callback(monkeypatch):
     monkeypatch.setattr(provider, "_upsert_user_cache", AsyncMock(return_value="new-user"))
     app = SimpleNamespace(
         state=SimpleNamespace(
+            host=SimpleNamespace(settings=HostSettings()),
             keycloak=SimpleNamespace(
                 settings=KeycloakSettings(),
                 jwks_cache=SimpleNamespace(validate_jwt=validate),
             ),
             auth=SimpleNamespace(auth_provider=provider),
-            sm=SimpleNamespace(settings=SimpleNamespace(secret_key="test-secret-key")),
+            sm=SimpleNamespace(
+                settings=SimpleNamespace(secret_key="test-secret-key"),
+                modules=[SimpleNamespace(meta=SimpleNamespace(name="Dashboard"))],
+            ),
         )
     )
     preserve_across_sign_in(app, "gate")
