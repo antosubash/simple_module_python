@@ -42,7 +42,9 @@ def _run_doctor(tmp_path, monkeypatch, overrides: dict | str) -> int:
 
 def test_doctor_cli_reports_success_with_module_count(tmp_path, monkeypatch, capsys):
     assert _run_doctor(tmp_path, monkeypatch, {}) == 0
-    assert capsys.readouterr().err == "✓ No issues found: 1 module checked\n"
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == "✓ No issues found: 1 module checked\n"
 
 
 def test_doctor_cli_reports_unknown_override_key(tmp_path, monkeypatch, capsys):

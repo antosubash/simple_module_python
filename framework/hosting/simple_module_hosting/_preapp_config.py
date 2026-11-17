@@ -91,11 +91,9 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]] | None:
             try:
                 conn = await stack.enter_async_context(engine.connect())
             except Exception as exc:
-                raise ConnectionError(f"database is unreachable ({exc})") from exc
-            # Checked rather than inferred from the select's error: "no such
-            # table" is a fresh install and must stay quiet, while a refused
-            # connection or a failing query is not, and the driver errors for
-            # the two are not reliably distinguishable across backends.
+                raise ConnectionError(f"database connection failed ({exc})") from exc
+            # Check explicitly: drivers do not reliably distinguish a missing
+            # table from other query failures across backends.
             if not await settings_table_exists_on(conn):
                 return None
             rows = (await conn.execute(stmt)).tuples().all()
@@ -112,17 +110,12 @@ def load_host_overrides(
 ) -> dict[str, tuple[str, str]]:
     """Return ``{field: (raw_value, value_type)}`` for host settings in the DB.
 
-    Returns ``{}`` quietly when the database is reachable but not yet
-    migrated or holds no rows. Those are the ordinary states of a fresh
-    install, and what the setup wizard repairs.
+    An empty result returns ``{}`` silently. An absent settings table also
+    returns ``{}``, calling ``warn_unavailable`` when supplied.
 
-    A failure to connect or to query is different: the stored overrides may
-    exist and simply be unreadable right now. That logs a WARNING and, with
-    ``strict``, raises :class:`HostSettingsUnavailableError` instead of letting
-    the caller build with defaults (#494). ``merge_host_settings`` is strict
-    outside development; one-shot tooling (``smpy openapi``) is not.
-    ``warn_unavailable`` lets a CLI report missing tables and read failures
-    on its own output stream.
+    Connection and query failures raise :class:`HostSettingsUnavailableError`
+    in strict mode (#494). In non-strict mode they invoke ``warn_unavailable``
+    if supplied or log a warning, then return ``{}``.
 
     Runs the async read on a private event loop in a worker thread. ``asyncio.run``
     refuses to nest inside a running loop, and ``create_app`` is called both
@@ -153,7 +146,7 @@ def load_host_overrides(
 
     if overrides is None:
         if warn_unavailable is not None:
-            warn_unavailable("database is not migrated (host settings table is missing)")
+            warn_unavailable("host settings table is missing")
         return {}
     return overrides
 

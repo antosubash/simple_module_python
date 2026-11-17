@@ -40,8 +40,8 @@ def test_module_filter(tmp_path: Path, monkeypatch) -> None:
     ("state", "warning"),
     [
         ("empty", None),
-        ("unmigrated", "database is not migrated"),
-        ("unreachable", "database is unreachable"),
+        ("unmigrated", "host settings table is missing"),
+        ("unreachable", "database connection failed"),
     ],
 )
 def test_openapi_host_settings_warning(
@@ -61,6 +61,9 @@ def test_openapi_host_settings_warning(
     monkeypatch.setenv("SM_DATABASE_URL", url)
     monkeypatch.setenv("SM_ENVIRONMENT", "testing")
     monkeypatch.setenv("SM_SECRET_KEY", "k" * 64)
+    monkeypatch.setattr(
+        "simple_module_cli.openapi_types.tool_command", lambda _: (["openapi-typescript"], None)
+    )
 
     result = CliRunner().invoke(app, ["openapi", command])
 

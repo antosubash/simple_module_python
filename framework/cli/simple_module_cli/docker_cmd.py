@@ -14,9 +14,7 @@ _ENCODING = "utf-8"
 _DEFAULT_BASE = "python:3.12-slim-bookworm"
 _NAME = r"[a-z][a-z0-9-]{0,40}"
 _IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]*"
-_QUEUES = rf"{_IDENTIFIER}(?:,{_IDENTIFIER})*"
-_MODULE = rf"{_IDENTIFIER}(?:\.{_IDENTIFIER})*"
-_MODULES = rf"{_MODULE}(?:,{_MODULE})*"
+_IDENTIFIERS = rf"{_IDENTIFIER}(?:,{_IDENTIFIER})*"
 _APT = r"[a-z0-9][a-z0-9+.-]*"
 _EXTRA = r"[A-Za-z_][A-Za-z0-9_-]*"
 _BASE = (
@@ -28,7 +26,7 @@ _COMPOSE_FILES = ("compose.yml", "docker-compose.yml")
 _WORKER = re.compile(r"^  worker:\n(?P<body>(?: {4}[^\n]*\n|\n)*)", re.MULTILINE)
 _COMMAND_BLOCK = re.compile(r"^    command:\n(?:      [^\n]*\n)*", re.MULTILINE)
 _BUILD_BLOCK = re.compile(r"^    build:\n(?:      [^\n]*\n)*", re.MULTILINE)
-_ENV_HEADER = "    environment:\n"
+_ENV_BLOCK = re.compile(r"^    environment:\n((?: {5}[^\n]*\n|\n)*)", re.MULTILINE)
 _INCLUDE = re.compile(r"^include:[ \t]*(?:#[^\n]*)?$", re.MULTILINE)
 _INCLUDE_ANY = re.compile(r"^include:", re.MULTILINE)
 _MARKER = "  # smpy worker-{name}"
@@ -41,9 +39,8 @@ _APT_FLAG = " \\\n    && apt-get install -y --no-install-recommends "
 _EXTRA_FLAG = " --extra "
 _EMPTY = ""
 _NEWLINE = "\n"
-_ENV_VALUES = (
-    '      SM_BG_TASKS_WORKER_QUEUES: "{queues}"\n      SM_BG_TASKS_INCLUDE_MODULES: "{modules}"\n'
-)
+_QUEUES_ENV = "SM_BG_TASKS_WORKER_QUEUES"
+_INCLUDE_MODULES_ENV = "SM_BG_TASKS_INCLUDE_MODULES"
 _BUILD_VALUES = "    build:\n      context: .\n      dockerfile: {dockerfile}\n"
 
 docker_app = typer.Typer(help="Manage Docker worker images.", no_args_is_help=True)
@@ -91,7 +88,7 @@ def add_worker(
         list[str] | None, typer.Option("--extras", help="Repeat for each uv extra.")
     ] = None,
     modules: Annotated[
-        str, typer.Option("--modules", help="Comma-separated Python module paths.")
+        str, typer.Option("--modules", help="Comma-separated top-level Python package names.")
     ] = _EMPTY,
     force: Annotated[
         bool, typer.Option("--force", help="Replace an existing worker image.")
@@ -99,10 +96,13 @@ def add_worker(
 ) -> None:
     """Generate a worker image and include its service in the project Compose file."""
     _validate(name, _NAME, "name")
-    _validate(queues, _QUEUES, "queues")
+    _validate(queues, _IDENTIFIERS, "queues")
     _validate(base, _BASE, "base image")
-    if modules:
-        _validate(modules, _MODULES, "modules")
+    if modules and re.fullmatch(_IDENTIFIERS, modules) is None:
+        raise typer.BadParameter(
+            "Invalid --modules: use top-level Python package names (e.g. geo,other).",
+            param_hint="--modules",
+        )
     for package in apt or []:
         _validate(package, _APT, "apt package")
     for extra in extras or []:
@@ -129,15 +129,28 @@ def add_worker(
             "Compose must contain an existing worker service to copy its wiring."
         )
     body = worker.group("body")
-    if not _BUILD_BLOCK.search(body) or _ENV_HEADER not in body:
+    env = _ENV_BLOCK.search(body)
+    if not _BUILD_BLOCK.search(body) or env is None:
         raise typer.BadParameter(
             "Existing worker must have block-style build and environment mappings."
         )
+    entries = env.group(1)
+    first_indent = re.search(r"^ +(?=[^ #\n])", entries, re.MULTILINE)
+    indent = first_indent[0] if first_indent else "      "
+    overrides = {_QUEUES_ENV: queues}
+    if modules:
+        overrides[_INCLUDE_MODULES_ENV] = modules
+    for key, value in overrides.items():
+        entries = re.sub(
+            rf"""^{indent}(?:{key}|"{key}"|'{key}')[ \t]*:[^\n]*\n(?:^{indent} [^\n]*\n)*""",
+            _EMPTY,
+            entries,
+            flags=re.MULTILINE,
+        )
+        entries = f'{indent}{key}: "{value}"\n' + entries
+    body = body[: env.start(1)] + entries + body[env.end(1) :]
     body = _COMMAND_BLOCK.sub(_EMPTY, body)
     body = _BUILD_BLOCK.sub(_BUILD_VALUES.format(dockerfile=dockerfile), body)
-    body = body.replace(
-        _ENV_HEADER, _ENV_HEADER + _ENV_VALUES.format(queues=queues, modules=modules)
-    )
     updated = _include_worker(content, name)
     values = {
         "NAME": name,

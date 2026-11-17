@@ -132,12 +132,13 @@ That generates a publishable module package at `modules/orders/` with the starte
 
 ```bash
 smpy add ../modules/orders --path host
+make install
 make migration msg="add orders tables"
 make migrate
 make dev
 ```
 
-In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead.
+For a host with a `client_app`, `smpy add` regenerates the page manifest, syncs JS dependency declarations and regenerates i18n keys if the package is installed. Run `make install` from the app root to link the pages and generate the keys before restarting `make dev`. In a `smpy new --flat` app, wire the module with `smpy add ./modules/orders`.
 
 The full walkthrough is in [Your first module](/guide/first-module).
 

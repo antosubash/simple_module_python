@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from collections.abc import Callable
@@ -56,6 +57,15 @@ def _fail(message: str) -> typer.Exit:
     return typer.Exit(code=1)
 
 
+def _has_i18n_package(project_dir: Path) -> bool:
+    # Mirror hosting's i18n target lookup so this also works from a standalone CLI.
+    root = (project_dir / os.environ.get("SM_PROJECT_ROOT", "")).resolve()
+    package = Path("node_modules/@simple-module-py/i18n/src")
+    return (root / "packages/i18n/src").is_dir() or any(
+        (base / package).is_dir() for base in (root, root / "client_app", *root.parents)
+    )
+
+
 def post_install(
     project_dir: Path,
     dists: list[str],
@@ -69,10 +79,18 @@ def post_install(
         raise _fail(
             f"`{shown}` failed — pyproject was written; fix and re-run `{shown}` from {sync_dir}."
         )
-    if (project_dir / "client_app").is_dir():
-        exec_runner(["uv", "run", "smpy", "host", "gen-pages"], project_dir)
-        exec_runner(["uv", "run", "smpy", "host", "sync-js-deps"], project_dir)
-        exec_runner(["uv", "run", "smpy", "host", "gen-i18n"], project_dir)
+    has_frontend = (project_dir / "client_app").is_dir()
+    if has_frontend:
+        for step in ("gen-pages", "sync-js-deps", "gen-i18n"):
+            if step == "gen-i18n" and not _has_i18n_package(project_dir):
+                continue
+            cmd = ["uv", "run", "smpy", "host", step]
+            if exec_runner(cmd, project_dir) != 0:
+                shown = " ".join(cmd)
+                raise _fail(
+                    f"`{shown}` failed — dependencies are already recorded in pyproject.toml; "
+                    f"fix and re-run `{shown}` from {project_dir}."
+                )
     for dist in dists:
         code = exec_runner(["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir)
         if code != 0:
@@ -90,5 +108,6 @@ def post_install(
     # Only `pyproject.toml` changed, which the dev reloader does not watch; and a
     # reload still logs the new module as not importable in that process (GH #915,
     # #931), so only a restart serves it.
-    typer.echo("Run `make install` from the app root to link pages and generate i18n keys.")
-    typer.echo("Then restart `make dev`: modules are discovered at start-up.")
+    if has_frontend:
+        typer.echo("Run `make install` from the app root to link pages and generate i18n keys.")
+    typer.echo("If `make dev` is running, restart it to discover the installed modules.")

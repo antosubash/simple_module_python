@@ -86,11 +86,13 @@ class TestPrintDiagnostics:
         assert "SM001" in captured.err
         assert "Results: 1 error(s)" in captured.err
 
-    async def test_empty_reports_success_on_stderr(self, capsys):
+    async def test_empty_logs_success_without_printing(self, capsys, caplog):
+        caplog.set_level("INFO", logger="simple_module_core.diagnostics._runner")
         print_diagnostics([])
         captured = capsys.readouterr()
         assert captured.out == ""
-        assert captured.err == "✓ No issues found\n"
+        assert captured.err == ""
+        assert "✓ No module diagnostics issues found" in caplog.messages
 
 
 class TestAuthProviderDiagnostics:

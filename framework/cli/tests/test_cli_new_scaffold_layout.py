@@ -158,16 +158,29 @@ def test_sm_new_makefile_kill_is_port_scoped(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("flat", [False, True])
 def test_sm_new_makefile_generates_i18n_before_dev(tmp_path: Path, flat: bool) -> None:
-    """Regression #449: scaffolded apps regenerate the typed i18n keys on demand."""
+    """GH #946: wait for i18n generation, then start dev even if it fails."""
     from simple_module_cli.app_project import create_app_project
 
+    if shutil.which("make") is None:
+        pytest.skip("make is not installed")
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[], flat=flat)
-    makefile = (target / "Makefile").read_text()
-    assert "gen-i18n:" in makefile
-    assert "simple_module_hosting gen-i18n" in makefile
-    dev_target = next(line for line in makefile.splitlines() if line.startswith("dev:"))
-    assert {"gen-pages", "gen-i18n"} <= set(dev_target.split()[1:])
+    makefile = target / "Makefile"
+    assert "simple_module_hosting gen-i18n" in makefile.read_text()
+    makefile.rename(target / "Scaffold.mk")
+    makefile.write_text(
+        "include Scaffold.mk\n"
+        "gen-pages:\n\t@echo generated-pages\n"
+        "gen-i18n:\n\t@echo attempted-i18n\n\t@false\n"
+        "dev-api:\n\t@echo started-api\n"
+        "dev-ui:\n\t@echo started-ui\n"
+    )
+    result = subprocess.run(["make", "-j2", "dev"], cwd=target, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "warning: gen-i18n failed" in result.stderr
+    for server in ("started-api", "started-ui"):
+        assert result.stdout.index("generated-pages") < result.stdout.index(server)
+        assert result.stdout.index("attempted-i18n") < result.stdout.index(server)
 
 
 def test_host_template_makefile_has_no_pkill() -> None:

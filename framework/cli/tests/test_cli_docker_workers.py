@@ -3,6 +3,9 @@
 import re
 
 import pytest
+import yaml
+from background_tasks.core.settings import BackgroundTasksSettings
+from background_tasks.worker.task_routing import ModuleTaskConfig, select_packages
 from simple_module_cli.cli import app
 from simple_module_cli.docker_assets import _read, _template_root
 from typer.testing import CliRunner
@@ -30,13 +33,23 @@ def plain(output: str) -> str:
     return " ".join(_ANSI.sub("", output).split())
 
 
-def test_generated_worker(project):
+def test_generated_worker(project, monkeypatch):
+    compose = project / "compose.yml"
+    compose.write_text(
+        compose.read_text().replace(
+            "    environment:\n",
+            "    environment:\n"
+            '      SM_BG_TASKS_WORKER_QUEUES: "old"\n'
+            '      "SM_BG_TASKS_INCLUDE_MODULES": "old"\n',
+            1,
+        )
+    )
     result = invoke(
         "geo",
         "--queues",
         "geo,heavy",
         "--modules",
-        "geo.tasks,other.tasks",
+        "geo,other",
         "--apt",
         "libgdal-dev",
         "--extras",
@@ -56,8 +69,16 @@ def test_generated_worker(project):
     assert "node" not in docker.lower() and "npm" not in docker and "{{" not in docker
     service = (project / "compose.worker-geo.yml").read_text()
     assert "  worker-geo:" in service
+    assert service.count("SM_BG_TASKS_WORKER_QUEUES") == 1
+    assert service.count("SM_BG_TASKS_INCLUDE_MODULES") == 1
     assert 'SM_BG_TASKS_WORKER_QUEUES: "geo,heavy"' in service
-    assert 'SM_BG_TASKS_INCLUDE_MODULES: "geo.tasks,other.tasks"' in service
+    assert 'SM_BG_TASKS_INCLUDE_MODULES: "geo,other"' in service
+    env = yaml.safe_load(service)["services"]["worker-geo"]["environment"]
+    for key in ("SM_BG_TASKS_WORKER_QUEUES", "SM_BG_TASKS_INCLUDE_MODULES"):
+        monkeypatch.setenv(key, env[key])
+    monkeypatch.delenv("SM_BG_TASKS_EXCLUDE_MODULES", raising=False)
+    configs = {"other": ModuleTaskConfig(package="other", queues=frozenset({"other"}))}
+    assert select_packages(["other"], configs, BackgroundTasksSettings()) == ["other"]
     assert '      - "-Q"\n      - "geo,heavy"' in service
     assert "dockerfile: docker/worker-geo.Dockerfile" in service
     assert "postgres:\n        condition: service_healthy" in service
@@ -69,6 +90,7 @@ def test_generated_worker(project):
 
 def test_rerun_force_and_multiple_workers(project):
     assert invoke("geo", "--queues", "geo").exit_code == 0
+    assert "SM_BG_TASKS_INCLUDE_MODULES" not in (project / "compose.worker-geo.yml").read_text()
     before = (project / "compose.yml").read_text()
     docker = project / "docker/worker-geo.Dockerfile"
     docker.write_text("custom")
@@ -83,6 +105,25 @@ def test_rerun_force_and_multiple_workers(project):
     assert content.count("include:") == 1
     assert content.count("  - compose.worker-geo.yml") == 1
     assert content.count("  - compose.worker-other.yml") == 1
+
+
+def test_omitting_modules_preserves_base_worker_include(project):
+    compose = project / "compose.yml"
+    entry = '      SM_BG_TASKS_INCLUDE_MODULES: "other"\n'
+    compose.write_text(
+        compose.read_text().replace("    environment:\n", "    environment:\n" + entry, 1)
+    )
+    assert invoke("geo", "--queues", "geo").exit_code == 0
+    service = (project / "compose.worker-geo.yml").read_text()
+    assert service.count("SM_BG_TASKS_INCLUDE_MODULES") == 1
+    assert entry in service
+
+
+def test_modules_rejects_task_module_paths(project):
+    result = invoke("geo", "--queues", "geo", "--modules", "geo.tasks")
+    assert result.exit_code != 0
+    assert "top-level Python package names" in plain(result.output)
+    assert not (project / "compose.worker-geo.yml").exists()
 
 
 @pytest.mark.parametrize("option", ["--queues", "--modules", "--apt", "--extras", "--base"])

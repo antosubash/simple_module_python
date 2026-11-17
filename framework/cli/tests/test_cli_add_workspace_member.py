@@ -114,27 +114,15 @@ def test_workspace_hint_inside_host_dir_prints_a_path_spec(
     assert parse_add_spec(spec).kind == "path"
 
 
-def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) -> None:
+@pytest.mark.parametrize("has_i18n", [True, False])
+def test_add_inside_an_app_workspace_syncs_the_whole_workspace(
+    workspace: Path, has_i18n: bool
+) -> None:
     """GH #916: `uv sync` from host/ would uninstall the root's dev tools and other members."""
-    _write_module(workspace / "modules" / "forest_plots")
-    calls: list[tuple[list[str], Path]] = []
-
-    def runner(cmd: list[str], cwd: Path) -> int:
-        calls.append((cmd, cwd))
-        return 0
-
-    run_add(
-        "../modules/forest_plots",
-        pyproject=workspace / "host" / "pyproject.toml",
-        exec_runner=runner,
-    )
-
-    assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
-
-
-def test_add_regenerates_i18n_after_syncing_js_deps(workspace: Path) -> None:
     host = workspace / "host"
     (host / "client_app").mkdir()
+    if has_i18n:
+        (workspace / "node_modules/@simple-module-py/i18n/src").mkdir(parents=True)
     _write_module(workspace / "modules" / "forest_plots")
     calls: list[tuple[list[str], Path]] = []
 
@@ -144,10 +132,11 @@ def test_add_regenerates_i18n_after_syncing_js_deps(workspace: Path) -> None:
 
     run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
 
-    assert calls[1:4] == [
-        (["uv", "run", "smpy", "host", command], host)
-        for command in ("gen-pages", "sync-js-deps", "gen-i18n")
-    ]
+    assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
+    steps = ["gen-pages", "sync-js-deps"]
+    if has_i18n:
+        steps.append("gen-i18n")
+    assert calls[1:-1] == [(["uv", "run", "smpy", "host", command], host) for command in steps]
 
 
 def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:

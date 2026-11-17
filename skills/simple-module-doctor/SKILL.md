@@ -5,7 +5,7 @@ description: Use when interpreting a simple_module_python diagnostic code (SM001
 
 # simple_module_python: diagnostics
 
-`make doctor` runs `python -m simple_module_core`: it discovers modules **strictly**, runs the diagnostics, prints findings to stderr (`✓ No module diagnostics issues found` when clean), and exits `1` if any ERROR-level finding was reported.
+`make doctor` runs `python -m simple_module_core`: it discovers modules **strictly**, runs the diagnostics, prints findings to stderr (`✓ No issues found: N modules checked` when clean), and exits `1` if any ERROR-level finding was reported.
 
 The same diagnostics also run at host boot, but **only in development** (`SM_ENVIRONMENT == development`) — they print to the boot logs and `raise SystemExit` if there's any ERROR. **In production the diagnostics pass is skipped**; what protects prod is that module *discovery* runs strictly (any bad entry point — broken import, missing `meta`, non-`ModuleBase` class — or a missing `depends_on` target raises and fails the boot). So "errors fail prod boot" is true for discovery-level breakage (surfaced as **SM001**), not for the per-finding checks below, which you'll catch via `make doctor` / dev boot before you ever deploy.
 

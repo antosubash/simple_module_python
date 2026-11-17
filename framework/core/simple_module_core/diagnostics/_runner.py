@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,6 +18,8 @@ from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
+
+logger = logging.getLogger(__name__)
 
 
 def run_diagnostics(
@@ -90,14 +93,10 @@ def run_diagnostics(
     return diagnostics
 
 
-def print_diagnostics(diagnostics: list[Diagnostic], *, module_count: int | None = None) -> None:
+def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
     """Pretty-print diagnostics to stderr."""
     if not diagnostics:
-        message = "✓ No issues found"
-        if module_count is not None:
-            noun = "module" if module_count == 1 else "modules"
-            message += f": {module_count} {noun} checked"
-        print(message, file=sys.stderr)
+        logger.info("\u2713 No module diagnostics issues found")
         return
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

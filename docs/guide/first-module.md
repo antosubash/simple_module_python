@@ -9,9 +9,12 @@ Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on 
 ```bash
 smpy create-module orders --dest modules/orders
 smpy add ../modules/orders --path host
+make install
 ```
 
-This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. `smpy add` wires it into the host: it adds `simple_module_orders` to `host/pyproject.toml` as a uv workspace source (`{ workspace = true }`), syncs the whole workspace from the app root (`uv sync --all-packages`) and regenerates the page manifest. `create-module` prints this same command. In a `smpy new --flat` app the module is not a workspace member, so wire it with `smpy add ./modules/orders` instead. Open the generated files in your editor — you'll see the full file layout described in [project structure](/guide/project-structure).
+This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. `smpy add` adds `simple_module_orders` to `host/pyproject.toml` as a uv workspace source (`{ workspace = true }`) and syncs the whole workspace from the app root (`uv sync --all-packages`). If the host has a `client_app`, it runs `uv run smpy host gen-pages` and `uv run smpy host sync-js-deps`, followed by `uv run smpy host gen-i18n` when the i18n package is installed. Run `make install` from the app root to link the module's pages and generate its i18n keys before restarting `make dev`.
+
+`create-module` prints the appropriate `smpy add` command. In a `smpy new --flat` app, wire the module with `smpy add ./modules/orders`. See [project structure](/guide/project-structure) for the generated file layout.
 
 New modules put shared settings and constants in `core/`, HTTP code in `web/`,
 and reusable frontend code in `ui/`. Root lookup paths (`models.py`, `contracts/`,
