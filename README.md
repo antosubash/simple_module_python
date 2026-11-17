@@ -322,7 +322,7 @@ Turn on **Allow signup** in the Users settings at `/admin/settings/`; the `/user
 
 ### Switching to SMTP
 
-Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Users only needs its public link base: set `base_url` (default `http://localhost:8000`) in the Users settings at `/admin/settings/`. The users module no longer reads `SM_USERS_BASE_URL`.
+Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Blank `users.base_url` (the default) inherits `host.public_base_url`; an explicit Users origin overrides it. Set the host origin in Settings or through `SM_PUBLIC_BASE_URL`. When both origins are blank, copied links remain relative and account emails are skipped with an ERROR log naming the setting to configure. Public reset and verification responses stay the same for existing and unknown addresses. The users module no longer reads `SM_USERS_BASE_URL`.
 
 ## Architecture
 

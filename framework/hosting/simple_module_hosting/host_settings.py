@@ -19,7 +19,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, DotEnvSettingsSource, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.dotenv import find_env_file
-from simple_module_core.redirect_safety import non_empty_redirect
+from simple_module_core.redirect_safety import non_empty_redirect, safe_next_or_none
 
 from simple_module_hosting import _host_settings_support as v
 from simple_module_hosting._api_version import default_api_version as _default_api_version
@@ -121,7 +121,10 @@ class HostSettings(BaseSettings):
     @field_validator("login_redirect_url")
     @classmethod
     def _check_login_redirect(cls, value: str) -> str:
-        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
+        value = non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
+        if safe_next_or_none(value) is None:
+            raise ValueError("login_redirect_url must be a same-site absolute path")
+        return value
 
     auth_provider: str = Field(default=DEFAULT_AUTH_PROVIDER, json_schema_extra=_RESTART_AUTH)
     """Which auth provider module to activate.

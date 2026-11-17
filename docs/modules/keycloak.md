@@ -71,6 +71,7 @@ On a valid bearer token the provider upserts a `KeycloakUserCache` row keyed by 
 | `GET /keycloak/login` | Inertia `Keycloak/Login` page (auto-redirects to the IdP). |
 | `POST /keycloak/logout` | Clears the session, redirects to Keycloak's RP-initiated logout with `client_id` and `post_logout_redirect_uri` back to `/keycloak/logged-out`. |
 | `GET /api/keycloak/auth/login` | Builds the authorization URL (random `state`, `nonce` and S256 PKCE verifier stored in session) and 302s to Keycloak. |
+| `GET /api/keycloak/auth/callback` | Completes sign-in, stores the principal in the session and redirects with 303 to the saved safe deep link or `host.login_redirect_url`. |
 
 A stale or replayed callback redirects an already signed-in browser with 303;
 an anonymous browser receives 419 and must start sign-in again. An unmatched

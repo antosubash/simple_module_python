@@ -58,7 +58,7 @@ Only the first-boot **bootstrap seed** is read from the env (prefix `SM_USERS_*`
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second, non-admin seed user. |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
 
-DB-backed users settings (defaults): `allow_signup=false` and `base_url=http://localhost:8000`. Outgoing mail (SMTP host, credentials, sender address) is configured in the [`mail` module](/modules/mail), not under Users.
+DB-backed users settings (defaults): `allow_signup=false` and blank `base_url`, which inherits `host.public_base_url`. An explicit Users origin overrides it. When both origins are blank, copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Outgoing mail (SMTP host, credentials, sender address) is configured in the [`mail` module](/modules/mail), not under Users.
 
 ## Background tasks (Celery)
 

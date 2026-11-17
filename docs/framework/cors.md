@@ -24,6 +24,10 @@ snapshot is read per request; adding or removing the first/last allowed origin
 also takes effect live. Module policies keep most-specific precedence, including
 winning a tie with the host `/api/` prefix. Env-pinned values still win.
 
+After a CORS save, browsers may keep using a cached preflight until the
+previously advertised `cors_max_age` expires. Lowering that setting does not
+shorten the lifetime of preflight responses already cached by a browser.
+
 ## Module policies
 
 A module with a public, cross-origin surface declares it in

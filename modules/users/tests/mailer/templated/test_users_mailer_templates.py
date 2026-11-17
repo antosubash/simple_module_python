@@ -178,8 +178,21 @@ async def test_startup_mailer_follows_live_host_origin(captured_mail):
     )
 
 
-async def test_missing_origin_refuses_to_send_relative_account_links(captured_mail):
+@pytest.mark.parametrize(
+    ("method", "args"),
+    [
+        ("send_verification", ()),
+        ("send_password_reset", ()),
+        ("send_invite", ("Admin",)),
+    ],
+)
+async def test_missing_origin_skips_relative_account_links(captured_mail, caplog, method, args):
     mailer = build_mailer(UsersSettings())
-    with pytest.raises(ValueError, match=r"host\.public_base_url"):
-        await mailer.send_verification("a@example.com", "tok")
+    await getattr(mailer, method)("a@example.com", "tok", *args)
     assert not captured_mail.messages
+    errors = [record for record in caplog.records if record.levelname == "ERROR"]
+    assert len(errors) == 1
+    assert "host.public_base_url" in errors[0].message
+    assert "SM_PUBLIC_BASE_URL" in errors[0].message
+    assert "a@example.com" not in errors[0].message
+    assert not mailer.delivers_email

@@ -61,27 +61,23 @@ class TemplatedMailer:
     @property
     def _base(self) -> str:
         origin = self._base_url() if callable(self._base_url) else self._base_url
-        if not origin:
-            raise ValueError(
-                "Configure host.public_base_url or users.base_url before sending account emails"
-            )
         return origin.rstrip("/")
 
     @property
     def delivers_email(self) -> bool:
         """Whether the installed sender puts mail in front of a person."""
-        return current_mail_sender().delivers_email
+        return bool(self._base) and current_mail_sender().delivers_email
 
     async def send_verification(self, email: str, token: str) -> None:
         app = self._app_name()
-        link = f"{self._base}/users/verify?token={token}"
+        link = f"/users/verify?token={token}"
         await self._send(
             email, f"Verify your email for {app}", MAIL_TEMPLATE_VERIFY, app_name=app, link=link
         )
 
     async def send_password_reset(self, email: str, token: str) -> None:
         app = self._app_name()
-        link = f"{self._base}/users/reset-password?token={token}"
+        link = f"/users/reset-password?token={token}"
         await self._send(
             email, f"Reset your {app} password", MAIL_TEMPLATE_RESET, app_name=app, link=link
         )
@@ -94,7 +90,7 @@ class TemplatedMailer:
         message: str | None = None,
     ) -> None:
         app = self._app_name()
-        link = f"{self._base}/users/invite/accept?token={token}"
+        link = f"/users/invite/accept?token={token}"
         await self._send(
             email,
             f"{invited_by_name} invited you to {app}",
@@ -107,7 +103,17 @@ class TemplatedMailer:
             message=(message or "").strip() or None,
         )
 
-    async def _send(self, to: str, subject: str, template_name: str, **context: Any) -> None:
+    async def _send(
+        self, to: str, subject: str, template_name: str, *, link: str, **context: Any
+    ) -> None:
+        base = self._base
+        if not base:
+            logger.error(
+                "Account email skipped: configure host.public_base_url / SM_PUBLIC_BASE_URL "
+                "(or users.base_url) for absolute links"
+            )
+            return
+        context["link"] = f"{base}{link}"
         body = self._template_env.get_template(template_name).render(**context)
         html_name = str(Path(template_name).with_suffix(".html"))
         try:

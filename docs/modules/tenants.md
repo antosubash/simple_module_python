@@ -78,10 +78,11 @@ DB-backed (Settings screen):
   resolves to the tenant whose slug is `acme`. Members get their role there;
   anonymous visitors and signed-in non-members get the tenant on **public
   routes only**; an unknown or suspended subdomain resolves to nothing.
-- `public_base_url` (default empty) — inherit `host.public_base_url` for invitation links; an explicit module origin wins. Both blank leaves relative links. The request Host header is never used.
-  Empty makes them root-relative: they are never built from the request's
-  `Host` header, because the same link travels in `InvitationCreated` for a
-  mailer to send.
+- `public_base_url` (default empty) — inherit `host.public_base_url` for invitation
+  links; an explicit module origin wins. Only when both are blank do links remain
+  root-relative; invitation emails are then skipped with an ERROR log naming
+  `host.public_base_url` / `SM_PUBLIC_BASE_URL` as the setting to configure.
+  The request `Host` header is never used.
 
 Management routes need both the permission and an owner/admin role *in the
 active tenant*: a platform-wide grant does not make a plain member of a tenant

@@ -45,6 +45,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 | `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked atomically; reuse of a revoked token revokes its family) |
 | `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
+| `GET /api/users/auth/{provider}/callback` | — | OAuth: completes sign-in, sets the auth cookie and redirects with 303 to the saved safe deep link or `host.login_redirect_url` |
 
 ### Self-service endpoints
 
@@ -204,7 +205,7 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
 | `cookie_samesite` | `"lax"` |
-| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Both blank: account email sends raise a configuration error. |
+| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Both blank: copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Public reset and verification responses remain unchanged. |
 | `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
