@@ -38,8 +38,8 @@ export function StatsRow({ stats, available }: Props) {
       <StatCard label={t(keys.dashboard.doctor.stat_modules_loaded)} value={stats.modules_loaded} />
       <StatCard
         label={t(keys.dashboard.doctor.stat_pending_migrations)}
-        value={stats.pending_migrations}
-        tone={stats.pending_migrations > 0 ? 'warning' : 'default'}
+        value={stats.pending_migrations ?? NO_VALUE}
+        tone={(stats.pending_migrations ?? 0) > 0 ? 'warning' : 'default'}
       />
       <StatCard
         label={t(keys.dashboard.doctor.stat_python)}

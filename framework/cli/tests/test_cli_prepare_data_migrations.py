@@ -1,6 +1,10 @@
 """Prepared revisions belong to the host and execute without module imports (#711)."""
 
 import importlib.util
+import sys
+from dataclasses import replace
+from os import pathsep
+from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
@@ -9,6 +13,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from simple_module_cli.cli import app
+from simple_module_core.data_compatibility import DataCompatibilityIssue
 from typer.testing import CliRunner
 
 
@@ -127,6 +132,53 @@ def test_cli_prepare_flat_host_reuses_label_and_attaches_explicit_head(alembic_h
     assert not list(host.rglob("*.db"))
 
 
+def test_cli_prepare_writes_next_to_the_selected_head(alembic_host):
+    host, versions = alembic_host
+    other = host / "other"
+    other.mkdir()
+    (other / "second.py").write_text(
+        "revision = 'second'\ndown_revision = None\nbranch_labels = ('separate',)\n"
+    )
+    ini = host / "alembic.ini"
+    with ini.open("a") as output:
+        output.write(f"path_separator = os\nversion_locations = {versions}{pathsep}{other}\n")
+
+    result = CliRunner().invoke(
+        app, ["migrations", "prepare", "mail.settings_namespace_v1", "--head", "separate@head"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert list(versions.glob("*.py")) == [versions / "local.py"]
+    head = ScriptDirectory.from_config(Config(str(ini))).get_revision("separate@head")
+    assert head.down_revision == "second"
+    assert Path(head.path).parent == other
+
+
+def test_installed_recipe_supplies_remediation_and_prepares_a_revision(alembic_host, monkeypatch):
+    host, versions = alembic_host
+    distribution = host / "example_upgrade-1.0.dist-info"
+    distribution.mkdir()
+    (distribution / "entry_points.txt").write_text(
+        "[simple_module.data_upgrades]\nexample.v1 = example_upgrade:recipe\n"
+    )
+    (host / "example_upgrade.py").write_text(
+        "def recipe():\n    return 'example', 'def upgrade(): pass\\ndef downgrade(): pass\\n'\n"
+    )
+    monkeypatch.syspath_prepend(str(host))
+    issue = DataCompatibilityIssue(upgrade_id="example.v1", message="Upgrade", severity="error")
+    assert (
+        issue.remediation() == "smpy migrations prepare example.v1 --head <host-head-or-label@head>"
+    )
+    assert replace(issue, remediation_text="See the guide.").remediation() == "See the guide."
+    assert "example_upgrade" not in sys.modules
+    try:
+        revision = _prepare(alembic_host, issue.upgrade_id)
+    finally:
+        sys.modules.pop("example_upgrade", None)
+    assert revision.branch_labels == ("example",)
+    assert len(list(versions.glob("*_example_v1.py"))) == 1
+
+
 def test_cli_prepare_rejects_ambiguous_heads_and_non_heads(alembic_host):
     _, versions = alembic_host
     (versions / "second.py").write_text(
@@ -179,7 +231,11 @@ with sa.create_engine('sqlite://').begin() as conn:
 
 def test_cli_recipe_ids_match_the_module_constants():
     from mail.core.constants import UPGRADE_SETTINGS_NAMESPACE
-    from simple_module_cli.migrations_cmd import _RECIPES
     from users.core.constants import UPGRADE_HASHED_BEARER_TOKENS
 
-    assert set(_RECIPES) == {UPGRADE_SETTINGS_NAMESPACE, UPGRADE_HASHED_BEARER_TOKENS}
+    for upgrade_id in (UPGRADE_SETTINGS_NAMESPACE, UPGRADE_HASHED_BEARER_TOKENS):
+        issue = DataCompatibilityIssue(upgrade_id=upgrade_id, message="Upgrade", severity="error")
+        assert (
+            issue.remediation()
+            == f"smpy migrations prepare {upgrade_id} --head <host-head-or-label@head>"
+        )

@@ -18,6 +18,7 @@ def test_bootstrap_initial_migration_runs_autogenerate_when_versions_empty(
 
     host = tmp_path / "host"
     (host / "migrations" / "versions").mkdir(parents=True)
+    (host / "alembic.ini").touch()
     (host / "migrations" / "versions" / ".gitkeep").touch()
 
     calls: list[tuple[list[str], Path]] = []
@@ -63,6 +64,7 @@ def test_bootstrap_initial_migration_skips_when_revision_exists(
 
     host = tmp_path / "host"
     (host / "migrations" / "versions").mkdir(parents=True)
+    (host / "alembic.ini").touch()
     (host / "migrations" / "versions" / "0001_initial.py").write_text("# revision\n")
 
     def fake_run(*_a, **_kw):  # pragma: no cover - must not be called
@@ -77,6 +79,7 @@ def test_alembic_argv_collapses_for_the_flat_host_layout(tmp_path: Path) -> None
     `host/` segment to point the ini path at."""
     from simple_module_cli import new as new_mod
 
+    (tmp_path / "alembic.ini").touch()
     assert new_mod._alembic_argv(tmp_path, tmp_path) == [
         "uv",
         "run",

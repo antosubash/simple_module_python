@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import HTTPException
 from simple_module_hosting.setup_wizard import migrate
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -54,8 +55,7 @@ async def test_migration_target(tmp_path, monkeypatch, env_path, wizard) -> None
 
     monkeypatch.setattr(migrate, "migration_lock", lock)
     monkeypatch.setattr(migrate, "run_deferred_startup", AsyncMock())
-    monkeypatch.setattr("simple_module_hosting.migrations.default_alembic_ini", lambda: str(ini))
-    monkeypatch.setattr("simple_module_hosting.migrations.migration_status", AsyncMock())
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     engine = create_async_engine(f"sqlite+aiosqlite:///{app_db}")
     request = SimpleNamespace(
         app=SimpleNamespace(
@@ -65,7 +65,8 @@ async def test_migration_target(tmp_path, monkeypatch, env_path, wizard) -> None
     )
     try:
         if wizard:
-            await migrate.apply_migrations(request, {})
+            result = await migrate.apply_migrations(request, {})
+            assert result["migration"]["is_current"] is True
             assert locked == [engine.url]
         else:
             await asyncio.to_thread(command.upgrade, Config(str(ini)), "heads")
@@ -76,3 +77,11 @@ async def test_migration_target(tmp_path, monkeypatch, env_path, wizard) -> None
             assert ("marker" in tables) is migrated
     finally:
         await engine.dispose()
+
+
+async def test_wizard_reports_missing_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    request = SimpleNamespace()
+    with pytest.raises(HTTPException, match="No Alembic config") as error:
+        await migrate.apply_migrations(request, {})
+    assert error.value.status_code == 503

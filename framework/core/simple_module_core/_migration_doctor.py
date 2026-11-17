@@ -7,15 +7,8 @@ from pathlib import Path
 
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
 from simple_module_core.diagnostics._migration import MigrationDiagnostics, module_table_names
+from simple_module_core.migration_support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 from simple_module_core.module import ModuleBase
-
-
-def _alembic_ini(project_root: Path) -> Path | None:
-    """``alembic.ini`` at the project root, else ``host/alembic.ini``, as the CLI resolves it."""
-    for candidate in (project_root / "alembic.ini", project_root / "host" / "alembic.ini"):
-        if candidate.is_file():
-            return candidate
-    return None
 
 
 def migration_diagnostics(
@@ -24,9 +17,16 @@ def migration_diagnostics(
     # Core-only installations have neither Alembic nor a database runtime.
     if importlib.util.find_spec("simple_module_db") is None:
         return []
-    ini = _alembic_ini(project_root)
+    ini = resolve_alembic_ini(project_root)
     if ini is None:
-        return []
+        return [
+            Diagnostic(
+                level=DiagnosticLevel.WARNING,
+                code="SM010",
+                message=NO_ALEMBIC_CONFIG,
+                module_name="migrations",
+            )
+        ]
     from simple_module_db.migration_state import read_migration_state
 
     try:

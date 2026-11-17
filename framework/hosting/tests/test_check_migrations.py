@@ -7,7 +7,7 @@ column errors at runtime. This file pins:
 
 * DB at head → returns the status dict.
 * DB behind head → raises ``RuntimeError`` with a helpful message.
-* No alembic config available → returns the "no migrations" sentinel.
+* No Alembic config available → report an unknown migration state.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from __future__ import annotations
 import pytest
 from simple_module_hosting.migrations import (
     check_migrations,
+    list_migrations,
+    migration_status,
     resolve_head_revision,
     resolve_head_revisions,
 )
@@ -23,16 +25,48 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 
 @pytest.mark.anyio
-async def test_returns_no_migrations_sentinel_when_alembic_ini_absent(tmp_path):
-    """Pointing at a missing alembic.ini → status dict, no exception."""
+async def test_migration_status_is_unknown_when_config_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     try:
-        result = await check_migrations(engine, alembic_ini_path=str(tmp_path / "missing.ini"))
+        result = await migration_status(engine)
+        with pytest.raises(RuntimeError, match="No Alembic config"):
+            await check_migrations(engine)
     finally:
         await engine.dispose()
     assert result["current_revision"] is None
     assert result["head_revision"] is None
-    assert result["is_current"] is True
+    assert result["is_current"] is None
+    assert result["pending_count"] is None
+
+
+@pytest.mark.parametrize("layout", ["flat", "host", "both"])
+async def test_migration_status_and_listing_resolve_the_project_config(
+    tmp_path, monkeypatch, layout
+):
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    for folder, revision in [(tmp_path, "flat"), (tmp_path / "host", "host")]:
+        if layout not in (revision, "both"):
+            continue
+        versions = folder / "migrations/versions"
+        versions.mkdir(parents=True)
+        (folder / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s/migrations\n")
+        (versions / "initial.py").write_text(f"revision = {revision!r}\ndown_revision = None\n")
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        result = await migration_status(engine)
+        assert result["is_current"] is False
+        expected = "host" if layout == "host" else "flat"
+        assert result["head_revision"] == expected
+        assert [row["id"] for row in list_migrations(tmp_path)] == [expected]
+        if layout == "both":
+            explicit = await migration_status(engine, str(tmp_path / "host/alembic.ini"))
+            assert explicit["head_revision"] == "host"
+            missing = await migration_status(engine, str(tmp_path / "missing.ini"))
+            assert missing["is_current"] is None
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.anyio

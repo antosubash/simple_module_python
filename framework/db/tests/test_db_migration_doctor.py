@@ -90,11 +90,12 @@ def test_db_doctor_warns_on_an_unreadable_database(tmp_path, run_doctor):
     assert "could not read the migration state" in err.lower()
 
 
-def test_db_doctor_skips_without_an_alembic_project(tmp_path, run_doctor):
+def test_db_doctor_warns_without_an_alembic_project(tmp_path, run_doctor):
     code, err = run_doctor(f"sqlite+aiosqlite:///{tmp_path / 'app.db'}")
 
     assert code == 0
-    assert "SM010" not in err
+    assert "SM010" in err
+    assert "No Alembic config" in err
     assert "SM011" not in err
 
 

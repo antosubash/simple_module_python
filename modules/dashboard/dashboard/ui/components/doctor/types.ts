@@ -46,7 +46,7 @@ export interface DoctorStats {
   checks_passing: number;
   checks_total: number;
   modules_loaded: number;
-  pending_migrations: number;
+  pending_migrations: number | null;
   python_version: string;
 }
 

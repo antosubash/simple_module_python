@@ -56,17 +56,16 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     """Run every module's migrations to head and refresh the boot snapshot."""
     from alembic import command
     from alembic.config import Config as AlembicConfig
+    from simple_module_core.migration_support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 
     from simple_module_hosting.migrations import (
         ALEMBIC_DATABASE_URL_ATTRIBUTE,
-        default_alembic_ini,
         migration_status,
     )
 
-    # Resolved through the hosting helper rather than hardcoded: this runs
-    # inside a request, and a literal "host/alembic.ini" is only correct while
-    # the process cwd happens to be the project root.
-    ini_path = default_alembic_ini()
+    ini_path = resolve_alembic_ini()
+    if ini_path is None:
+        raise HTTPException(status_code=503, detail=NO_ALEMBIC_CONFIG)
 
     def _upgrade() -> None:
         # "heads", not "head": each module's first migration sets its own
@@ -74,7 +73,7 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
         url = request.app.state.sm.db.engine.url
-        config = AlembicConfig(ini_path)
+        config = AlembicConfig(str(ini_path))
         config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE] = url.render_as_string(
             hide_password=False
         )
@@ -95,7 +94,10 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
             detail += f" (correlation id {correlation_id})"
         raise HTTPException(status_code=500, detail=detail + ".") from exc
 
-    request.app.state.migration = await migration_status(request.app.state.sm.db.engine)
+    status = await migration_status(request.app.state.sm.db.engine, ini_path)
+    request.app.state.migration = status
+    if not status["is_current"]:
+        raise HTTPException(status_code=503, detail="Could not verify that migrations are at head.")
     # Modules whose on_startup could not run before the tables existed.
     try:
         await run_deferred_startup(request.app)

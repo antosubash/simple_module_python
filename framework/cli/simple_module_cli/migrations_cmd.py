@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import os
-from importlib.resources import files
+import re
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
 import typer
 
+from simple_module_cli._migration_support import (
+    NO_ALEMBIC_CONFIG,
+    data_upgrade_entry_points,
+    resolve_alembic_ini,
+)
+
 migrations_app = typer.Typer(help="Prepare host-owned framework upgrade revisions.")
-_RECIPES = {
-    "mail.settings_namespace_v1": ("mail", "mail_settings.py"),
-    "users.hashed_bearer_tokens_v1": ("users", "users_tokens.py"),
-}
 
 
 @migrations_app.command("prepare")
@@ -24,8 +25,13 @@ def prepare(
     config: Annotated[Path | None, typer.Option("--config", help="Host alembic.ini.")] = None,
 ) -> None:
     """Write a self-contained revision; never connect to or migrate the database."""
-    if upgrade_id not in _RECIPES:
-        raise typer.BadParameter(f"Unknown upgrade {upgrade_id!r}; choose {', '.join(_RECIPES)}")
+    entries = data_upgrade_entry_points()
+    recipes = entries.select(name=upgrade_id)
+    if not recipes:
+        available = ", ".join(sorted(entries.names)) or "none"
+        raise typer.BadParameter(f"Unknown upgrade {upgrade_id!r}. Available upgrades: {available}")
+    if len(recipes) > 1:
+        raise typer.BadParameter(f"Multiple installed recipes for upgrade {upgrade_id!r}")
     try:
         from alembic.config import Config
         from alembic.script import ScriptDirectory
@@ -35,32 +41,35 @@ def prepare(
             "Run this command in the host environment with Alembic installed"
         ) from exc
 
-    root = Path(os.environ.get("SM_PROJECT_ROOT", Path.cwd()))
-    if config is None:
-        config = root / "alembic.ini"
-        if not config.is_file():
-            config = root / "host/alembic.ini"
-    if not config.is_file():
-        raise typer.BadParameter(f"Host Alembic config not found: {config}")
+    ini = resolve_alembic_ini(override=config)
+    if ini is None:
+        raise typer.BadParameter(
+            f"Alembic config not found: {config}" if config else NO_ALEMBIC_CONFIG
+        )
     try:
-        script = ScriptDirectory.from_config(Config(str(config)))
+        script = ScriptDirectory.from_config(Config(str(ini)))
         parent = script.get_revision(head)
         if parent is None or not parent.is_head:
             raise typer.BadParameter("--head must resolve to one existing host head")
-        label, recipe = _RECIPES[upgrade_id]
         existing = {name for rev in script.walk_revisions() for name in rev.branch_labels}
     except CommandError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     # Frozen source is copied, so future package changes cannot change this revision.
-    source = files("simple_module_cli").joinpath("migration_recipes", recipe).read_text()
+    try:
+        label, source = next(iter(recipes)).load()()
+        if not label or not isinstance(label, str) or not isinstance(source, str):
+            raise ValueError("expected a (branch label, Python source) pair")
+    except Exception as exc:
+        raise typer.BadParameter(f"Could not load recipe for {upgrade_id!r}: {exc}") from exc
     revision = uuid4().hex[:12]
     branch_labels = None if label in existing else (label,)
     identifiers = (
         f"\nrevision = {revision!r}\ndown_revision = {parent.revision!r}\n"
         f"branch_labels = {branch_labels!r}\ndepends_on = None\n"
     )
-    path = Path(script.versions) / f"{revision}_{upgrade_id.replace('.', '_')}.py"
-    with path.open("x") as output:
+    slug = re.sub(r"[^\w-]", "_", upgrade_id)
+    path = Path(parent.path).with_name(f"{revision}_{slug}.py")
+    with path.open("x", encoding="utf-8") as output:
         output.write(source + identifiers)
     typer.echo(f"Prepared {upgrade_id}: {path}. Review it, then run alembic upgrade heads.")

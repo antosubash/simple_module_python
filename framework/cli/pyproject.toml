@@ -30,6 +30,10 @@ dependencies = [
 smpy = "simple_module_cli.cli:main"
 simple-module = "simple_module_cli.cli:main"
 
+[project.entry-points."simple_module.data_upgrades"]
+"mail.settings_namespace_v1" = "simple_module_cli.migration_recipes:mail_settings"
+"users.hashed_bearer_tokens_v1" = "simple_module_cli.migration_recipes:users_tokens"
+
 [project.urls]
 Homepage = "https://github.com/antosubash/simple_module_python"
 Repository = "https://github.com/antosubash/simple_module_python"

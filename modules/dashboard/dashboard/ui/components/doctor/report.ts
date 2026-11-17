@@ -39,7 +39,7 @@ export function buildDoctorReport(props: DoctorProps, labels: ReportLabels): str
   const lines: string[] = [
     labels.title,
     `${labels.checks}: ${tally} · ` +
-      `modules ${stats.modules_loaded} · pending migrations ${stats.pending_migrations} · ` +
+      `modules ${stats.modules_loaded} · pending migrations ${stats.pending_migrations ?? '—'} · ` +
       `python ${stats.python_version}`,
     '',
   ];

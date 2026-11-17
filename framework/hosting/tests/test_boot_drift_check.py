@@ -16,11 +16,13 @@ distinction ``_is_first_run`` draws instead.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import FastAPI
 from simple_module_core.setup_steps import SetupRegistry, SetupStep
-from simple_module_hosting._lifespan import _is_first_run
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting._lifespan import _is_first_run, build_lifespan
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS, _database_migrated
 
 pytestmark = pytest.mark.anyio
 
@@ -122,6 +124,30 @@ async def test_missing_migration_snapshot_is_not_first_run() -> None:
     app = _app(registry)
     del app.state.migration
     assert await _is_first_run(app) is False
+
+
+@pytest.mark.parametrize("environment", ["development", "production"])
+async def test_boot_with_missing_config(tmp_path, monkeypatch, caplog, environment) -> None:
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        setup_registry=registry,
+        settings=SimpleNamespace(environment=environment),
+        db=SimpleNamespace(engine=SimpleNamespace(dispose=AsyncMock())),
+    )
+
+    lifespan = build_lifespan([])
+    if environment == "development":
+        async with lifespan(app):
+            assert await _database_migrated(app) is False
+        assert "SM010" in caplog.text
+        assert "No Alembic config" in caplog.text
+    else:
+        with pytest.raises(RuntimeError, match="No Alembic config"):
+            async with lifespan(app):
+                pytest.fail("Boot accepted an unknown migration state")
 
 
 async def test_never_migrated_database_with_data_is_not_first_run() -> None:
