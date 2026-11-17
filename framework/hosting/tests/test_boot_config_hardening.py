@@ -21,12 +21,11 @@ from simple_module_core.setup_steps import SetupRegistry, SetupStep
 from simple_module_core.stored_settings import parse_stored_value
 from simple_module_hosting import _secret_key
 from simple_module_hosting._hydrate_step import hydrate_all
-from simple_module_hosting._lifespan import _is_first_run
 from simple_module_hosting._preapp_config import (
     apply_host_overrides,
 )
 from simple_module_hosting._secret_key import SecretKeyUnavailableError, ensure_secret_key
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS, is_first_run
 
 
 @pytest.fixture(autouse=True)
@@ -142,9 +141,7 @@ async def test_raising_step_counts_as_first_run_only_without_history(
     current_revision: str | None, first_run: bool
 ) -> None:
     app = SimpleNamespace(
-        state=SimpleNamespace(
-            sm=SimpleNamespace(setup_registry=_raising_registry()),
-            migration={"current_revision": current_revision},
-        )
+        state=SimpleNamespace(sm=SimpleNamespace(setup_registry=_raising_registry()))
     )
-    assert await _is_first_run(app) is first_run
+    status = {"is_current": False, "current_revision": current_revision}
+    assert await is_first_run(app, status) is first_run

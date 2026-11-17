@@ -16,7 +16,52 @@ from simple_module_hosting.migrations import (
     resolve_head_revisions,
 )
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import create_async_engine
+
+
+@pytest.mark.parametrize("problem", ["missing_location", "empty_graph", "bad_ini", "bad_revision"])
+async def test_unreadable_history_is_unknown(tmp_path, caplog, problem):
+    versions = tmp_path / "versions"
+    versions.mkdir()
+    ini = tmp_path / "alembic.ini"
+    config = "[alembic]\nscript_location = %(here)s\n"
+    if problem == "bad_ini":
+        config = "invalid ini"
+    elif problem == "bad_revision":
+        (versions / "bad.py").write_text("raise ImportError('broken revision import')\n")
+    elif problem == "missing_location":
+        config += (
+            "path_separator = newline\n"
+            "version_locations = %(here)s/versions\n"
+            "    %(here)s/missing\n"
+        )
+        (versions / "initial.py").write_text("revision = 'initial'\ndown_revision = None\n")
+    ini.write_text(config)
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
+            await conn.execute(text("INSERT INTO alembic_version VALUES ('initial')"))
+        status = await migration_status(engine, ini)
+    finally:
+        await engine.dispose()
+    assert status["is_current"] is None
+    assert status["pending_count"] is None
+    if problem == "bad_revision":
+        assert "broken revision import" in caplog.text
+
+
+async def test_database_error_propagates_with_an_empty_history(tmp_path):
+    ini = tmp_path / "alembic.ini"
+    ini.write_text("[alembic]\nscript_location = %(here)s\n")
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}")
+    try:
+        with pytest.raises(OperationalError):
+            await migration_status(engine, ini)
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.anyio
@@ -56,6 +101,9 @@ async def test_migration_status_and_listing_resolve_the_project_config(
         assert result["head_revision"] == expected
         assert [row["id"] for row in list_migrations(tmp_path)] == [expected]
         if layout == "both":
+            monkeypatch.delenv("SM_PROJECT_ROOT")
+            monkeypatch.chdir(tmp_path / "host")
+            assert (await migration_status(engine))["head_revision"] == "flat"
             explicit = await migration_status(engine, str(tmp_path / "host/alembic.ini"))
             assert explicit["head_revision"] == "host"
             missing = await migration_status(engine, str(tmp_path / "missing.ini"))

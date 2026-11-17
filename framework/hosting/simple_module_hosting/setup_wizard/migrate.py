@@ -1,9 +1,8 @@
 """The ``host.migrations`` step's wizard action: ``alembic upgrade heads``.
 
-Reachable only while that step is pending — the wizard refuses a completed
-step's action — which is what bounds an endpoint that runs migrations over
-HTTP. An unmigrated database otherwise means dropping the operator to a shell,
-the sharpest edge in the whole onboarding path.
+The wizard allows the action only for a verified first run. The check runs
+under the same lock as the upgrade so a waiting worker sees any newly
+applied revisions.
 """
 
 from __future__ import annotations
@@ -17,6 +16,7 @@ from fastapi import HTTPException, Request
 
 from simple_module_hosting._deferred_startup import run_deferred_startup
 from simple_module_hosting.data_compatibility import DataCompatibilityError
+from simple_module_hosting.setup_gate import is_first_run
 from simple_module_hosting.setup_wizard._migration_lock import migration_lock
 
 logger = logging.getLogger(__name__)
@@ -67,22 +67,36 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     if ini_path is None:
         raise HTTPException(status_code=503, detail=NO_ALEMBIC_CONFIG)
 
-    def _upgrade() -> None:
+    engine = request.app.state.sm.db.engine
+    loop = asyncio.get_running_loop()
+
+    async def _can_upgrade() -> bool | None:
+        status = await migration_status(engine, ini_path)
+        if status["is_current"] is None:
+            return None
+        return await is_first_run(request.app, status)
+
+    def _upgrade() -> bool | None:
         # "heads", not "head": each module's first migration sets its own
         # branch_labels, so the history legitimately has several heads and
         # "head" raises CommandError("Multiple head revisions are present").
         # This is what `make migrate` runs.
-        url = request.app.state.sm.db.engine.url
+        url = engine.url
         config = AlembicConfig(str(ini_path))
         config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE] = url.render_as_string(
             hide_password=False
         )
-        with migration_lock(url), _preserve_logging():
-            command.upgrade(config, "heads")
+        with migration_lock(url):
+            # Use the app's event loop for the async DB engine and setup checks.
+            allowed = asyncio.run_coroutine_threadsafe(_can_upgrade(), loop).result()
+            if allowed:
+                with _preserve_logging():
+                    command.upgrade(config, "heads")
+            return allowed
 
     try:
         async with _MIGRATION_LOCK:
-            await asyncio.to_thread(_upgrade)
+            applied = await asyncio.to_thread(_upgrade)
     except Exception as exc:
         # The caller is anonymous, and a migration error routinely carries the
         # database URL, SQL or filesystem paths — so the detail goes to the
@@ -94,7 +108,14 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
             detail += f" (correlation id {correlation_id})"
         raise HTTPException(status_code=500, detail=detail + ".") from exc
 
-    status = await migration_status(request.app.state.sm.db.engine, ini_path)
+    if applied is None:
+        raise HTTPException(status_code=503, detail="Could not verify the migration history.")
+    if not applied:
+        raise HTTPException(
+            status_code=409,
+            detail="Setup can apply migrations only on first run. Run migrations from the CLI.",
+        )
+    status = await migration_status(engine, ini_path)
     request.app.state.migration = status
     if not status["is_current"]:
         raise HTTPException(status_code=503, detail="Could not verify that migrations are at head.")

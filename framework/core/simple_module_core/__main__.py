@@ -198,7 +198,7 @@ def main() -> int:
         existing_index_names=sqlite_file_index_names(_database_url()),
     )
     diagnostics.extend(override_findings)
-    diagnostics.extend(migration_diagnostics(modules, _database_url(), find_env_file().parent))
+    diagnostics.extend(migration_diagnostics(modules, _database_url()))
     diagnostics.extend(data_compatibility_diagnostics(modules, _database_url()))
     # A missing dependency only warns at a dev boot, but production refuses
     # to start with it (GH #501), so doctor reports it as what it will be.

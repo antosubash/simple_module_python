@@ -20,9 +20,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
+from simple_module_core.app_state import get_migration_status
 from simple_module_core.setup_steps import SetupRegistry, SetupStep
-from simple_module_hosting._lifespan import _is_first_run, build_lifespan
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS, _database_migrated
+from simple_module_hosting._lifespan import build_lifespan
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS, _database_migrated, is_first_run
 
 pytestmark = pytest.mark.anyio
 
@@ -38,9 +39,13 @@ def _app(registry, revision=None) -> SimpleNamespace:
     return SimpleNamespace(
         state=SimpleNamespace(
             sm=SimpleNamespace(setup_registry=registry),
-            migration={"current_revision": revision},
+            migration={"is_current": False, "current_revision": revision},
         )
     )
+
+
+async def _is_first_run(app) -> bool:
+    return await is_first_run(app, get_migration_status(app))
 
 
 async def test_fresh_install_is_first_run() -> None:

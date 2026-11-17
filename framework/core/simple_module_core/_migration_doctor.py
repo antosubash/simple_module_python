@@ -3,28 +3,30 @@
 import asyncio
 import importlib.util
 from collections.abc import Sequence
-from pathlib import Path
 
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-from simple_module_core.diagnostics._migration import MigrationDiagnostics, module_table_names
+from simple_module_core.diagnostics._migration import (
+    MIGRATION_DRIFT_CODE,
+    MIGRATION_OWNER,
+    MigrationDiagnostics,
+    module_table_names,
+)
 from simple_module_core.migration_support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 from simple_module_core.module import ModuleBase
 
 
-def migration_diagnostics(
-    modules: Sequence[ModuleBase], database_url: str, project_root: Path
-) -> list[Diagnostic]:
+def migration_diagnostics(modules: Sequence[ModuleBase], database_url: str) -> list[Diagnostic]:
     # Core-only installations have neither Alembic nor a database runtime.
     if importlib.util.find_spec("simple_module_db") is None:
         return []
-    ini = resolve_alembic_ini(project_root)
+    ini = resolve_alembic_ini()
     if ini is None:
         return [
             Diagnostic(
                 level=DiagnosticLevel.WARNING,
-                code="SM010",
+                code=MIGRATION_DRIFT_CODE,
                 message=NO_ALEMBIC_CONFIG,
-                module_name="migrations",
+                module_name=MIGRATION_OWNER,
             )
         ]
     from simple_module_db.migration_state import read_migration_state
@@ -38,10 +40,10 @@ def migration_diagnostics(
         return [
             Diagnostic(
                 level=DiagnosticLevel.WARNING,
-                code="SM010",
+                code=MIGRATION_DRIFT_CODE,
                 message="Could not read the migration state (database or Alembic revisions); "
-                "SM010 and SM011 were not checked",
-                module_name="migrations",
+                f"{MIGRATION_DRIFT_CODE} and SM011 were not checked",
+                module_name=MIGRATION_OWNER,
                 suggestion="Check SM_DATABASE_URL and that the database is running, and that "
                 "the revisions load (`make migration-history`).",
             )

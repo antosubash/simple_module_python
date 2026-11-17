@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Annotated
@@ -31,10 +32,15 @@ def prepare(
         available = ", ".join(sorted(entries.names)) or "none"
         raise typer.BadParameter(f"Unknown upgrade {upgrade_id!r}. Available upgrades: {available}")
     if len(recipes) > 1:
-        raise typer.BadParameter(f"Multiple installed recipes for upgrade {upgrade_id!r}")
+        providers = ", ".join(
+            f"{entry.dist.name} ({entry.value})" if entry.dist else entry.value for entry in recipes
+        )
+        raise typer.BadParameter(
+            f"Multiple installed recipes for upgrade {upgrade_id!r}: {providers}"
+        )
     try:
         from alembic.config import Config
-        from alembic.script import ScriptDirectory
+        from alembic.script import Script, ScriptDirectory
         from alembic.util.exc import CommandError
     except ImportError as exc:
         raise typer.BadParameter(
@@ -55,11 +61,23 @@ def prepare(
     except CommandError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
+    parent_path = Path(parent.path)
+    # Alembic resolves file symlinks before exposing parent.path.
+    if parent_path.suffix != ".py" or not any(
+        Path(candidate).resolve() == parent_path and not Path(candidate).is_symlink()
+        for location in script._version_locations
+        for candidate in Script._list_py_dir(script, Path(location))
+    ):
+        raise typer.BadParameter("--head must be a source revision in a scanned version directory")
+
     # Frozen source is copied, so future package changes cannot change this revision.
     try:
-        label, source = next(iter(recipes)).load()()
-        if not label or not isinstance(label, str) or not isinstance(source, str):
-            raise ValueError("expected a (branch label, Python source) pair")
+        recipe = next(iter(recipes)).load()()
+        if not isinstance(recipe, tuple) or len(recipe) != 2:
+            raise ValueError("expected a (branch label, Python source) tuple")
+        label, source = recipe
+        if not isinstance(label, str) or not label.strip() or not isinstance(source, str):
+            raise ValueError("expected a nonempty branch label and Python source")
     except Exception as exc:
         raise typer.BadParameter(f"Could not load recipe for {upgrade_id!r}: {exc}") from exc
     revision = uuid4().hex[:12]
@@ -69,7 +87,25 @@ def prepare(
         f"branch_labels = {branch_labels!r}\ndepends_on = None\n"
     )
     slug = re.sub(r"[^\w-]", "_", upgrade_id)
-    path = Path(parent.path).with_name(f"{revision}_{slug}.py")
+    path = parent_path.with_name(f"{revision}_{slug}.py")
+    source += identifiers
+    try:
+        tree = ast.parse(source.encode("utf-8"), filename=str(path))
+        compile(tree, str(path), "exec")
+    except (SyntaxError, ValueError) as exc:
+        raise typer.BadParameter(f"Invalid revision from recipe {upgrade_id!r}: {exc}") from exc
+    functions = set()
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            args = node.args
+            if len(args.defaults) == len(args.posonlyargs) + len(args.args) and all(
+                default is not None for default in args.kw_defaults
+            ):
+                functions.add(node.name)
+    if not {"upgrade", "downgrade"} <= functions:
+        raise typer.BadParameter(
+            f"Recipe {upgrade_id!r} needs upgrade() and downgrade() with no required arguments"
+        )
     with path.open("x", encoding="utf-8") as output:
-        output.write(source + identifiers)
+        output.write(source)
     typer.echo(f"Prepared {upgrade_id}: {path}. Review it, then run alembic upgrade heads.")

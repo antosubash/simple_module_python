@@ -1,9 +1,7 @@
 import { keys, useT } from '@simple-module-py/i18n';
 import { StatCard } from '@simple-module-py/ui/components/StatCard';
+import { NO_VALUE } from './report';
 import type { DoctorStats } from './types';
-
-/** Stands in for a figure that has no value, matching `doctor.py`'s NO_VALUE. */
-const NO_VALUE = '—';
 
 interface Props {
   stats: DoctorStats;
@@ -11,14 +9,7 @@ interface Props {
   available: boolean;
 }
 
-/**
- * The four figures across the top of Doctor.
- *
- * "Checks passing" is the one that cannot simply render its number: on a
- * deployment the checks never ran, and `0 / 8` there reads as every check
- * failing — the precise opposite of the truth. It shows a dash instead, and
- * says why.
- */
+/** Unavailable checks and unknown migration counts display a dash. */
 export function StatsRow({ stats, available }: Props) {
   const { t } = useT();
 

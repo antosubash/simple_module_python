@@ -374,18 +374,18 @@ reports the same issues as `SM033`, through the same filtered sessions
 Checks must never clear credentials or apply migrations.
 
 Set `remediation_text` to give operators module-specific instructions. When
-it is omitted and the upgrade ID has a registered recipe, the framework
+it is omitted and exactly one installed entry point registers the upgrade ID, the framework
 suggests `smpy migrations prepare <upgrade-id> --head <host-head-or-label@head>`.
 
-To ship a recipe, declare the upgrade ID as an entry point in the module's
-`pyproject.toml`.
+To ship a recipe, declare the upgrade ID in the `simple_module.data_upgrades`
+entry-point group in the provider package's `pyproject.toml`.
 
 ```toml
 [project.entry-points."simple_module.data_upgrades"]
 "notes.upgrade_v1" = "notes.upgrades:upgrade_v1"
 ```
 
-The target is a no-argument callable returning `(branch_label, python_source)`.
+The target is a no-argument callable returning a `(branch_label, python_source)` tuple.
 The UTF-8 Python source must be self-contained, define Alembic `upgrade()` and
 `downgrade()` functions, and leave revision metadata for the CLI to append.
 Keep upgrade IDs unique across installed packages. The CLI writes a host-owned

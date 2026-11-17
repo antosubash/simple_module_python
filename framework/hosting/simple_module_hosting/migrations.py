@@ -59,11 +59,16 @@ def script_directory(alembic_ini_path: str | Path | None = None) -> ScriptDirect
     """
     from alembic.config import Config as AlembicConfig
     from alembic.script import ScriptDirectory
+    from alembic.util.exc import CommandError
 
     ini_path = resolve_alembic_ini(override=alembic_ini_path)
     if ini_path is None:
         raise FileNotFoundError(NO_ALEMBIC_CONFIG)
     script = ScriptDirectory.from_config(AlembicConfig(str(ini_path)))
+    if script.version_locations:
+        for location in script._version_locations:
+            if not Path(location).is_dir():
+                raise CommandError(f"Alembic version location is not a directory: {location}")
     files = _revision_files(script)
     key = str(ini_path.resolve())
     cached = _SCRIPTS.get(key)
@@ -149,15 +154,13 @@ def list_migrations(
     Returns ``[]`` when Alembic isn't configured here — a deployment that
     ships no ``host/`` renders an empty panel instead of erroring.
     """
-    from alembic.util.exc import CommandError
-
-    ini_path = resolve_alembic_ini(project_root)
-    if ini_path is None:
-        return []
     try:
+        ini_path = resolve_alembic_ini(project_root)
+        if ini_path is None:
+            return []
         script = script_directory(ini_path)
         revisions = list(script.walk_revisions())
-    except (CommandError, FileNotFoundError) as exc:
+    except Exception as exc:
         logger.debug("Alembic script directory unavailable: %s", exc)
         return []
 
@@ -178,49 +181,41 @@ def list_migrations(
 async def migration_status(engine, alembic_ini_path: str | Path | None = None) -> dict:
     """Report whether the DB is at head, or unknown if the history cannot be loaded."""
     from alembic.runtime.migration import MigrationContext
-    from alembic.util.exc import CommandError
 
-    no_revisions = {
+    unknown = {
         "current_revision": None,
         "head_revision": None,
-        "is_current": True,
-        "pending_count": 0,
+        "is_current": None,
+        "pending_count": None,
     }
     try:
         script = script_directory(alembic_ini_path)
         heads = script.get_heads()
-    except (CommandError, FileNotFoundError) as exc:
-        reason = (
-            NO_ALEMBIC_CONFIG
-            if isinstance(exc, FileNotFoundError)
-            else "Could not load Alembic revisions. Check the config and migration history."
-        )
-        logger.debug("Alembic history unavailable: %s", exc)
-        return {**no_revisions, "is_current": None, "pending_count": None, "reason": reason}
-    if not heads:
-        return no_revisions
+    except Exception as exc:
+        if isinstance(exc, FileNotFoundError) and exc.args == (NO_ALEMBIC_CONFIG,):
+            return {**unknown, "reason": NO_ALEMBIC_CONFIG}
+        logger.warning("Alembic history unavailable: %s", exc)
+        return {
+            **unknown,
+            "reason": "Could not load Alembic revisions. Check the config and migration history.",
+        }
 
     async with engine.connect() as conn:
-
-        def _get_current(sync_conn):
-            # Plural, to match the heads above: a database upgraded across a
-            # branching history carries one alembic_version row per branch,
-            # and the singular call returns only one of them.
-            ctx = MigrationContext.configure(sync_conn)
-            return tuple(ctx.get_current_heads())
-
-        current = await conn.run_sync(_get_current)
+        current = await conn.run_sync(
+            lambda sync: MigrationContext.configure(sync).get_current_heads()
+        )
+    current_revision = ", ".join(sorted(current)) if current else None
+    if not heads and current:
+        return {
+            **unknown,
+            "current_revision": current_revision,
+            "reason": "Database has Alembic stamps, but the migration history has no heads.",
+        }
 
     missing = set(heads) - set(current)
 
     def _pending_on_branch(head: str) -> int:
-        # Walk from the head towards the base, stopping at the first revision
-        # already recorded in `current` — everything below it is, by
-        # construction, already applied. `iterate_revisions(head, None)` walks
-        # all the way to the base, so without this break a branch that is
-        # merely one release behind counts its *entire* history as pending.
-        # A branch never migrated at all (no ancestor in `current`) falls
-        # through the loop and correctly counts its whole chain.
+        # Revisions at or below a recorded stamp are already applied.
         count = 0
         for rev in script.iterate_revisions(head, None):
             if rev.revision in current:
@@ -232,8 +227,8 @@ async def migration_status(engine, alembic_ini_path: str | Path | None = None) -
     # than the number of behind branches.
     pending = sum(_pending_on_branch(h) for h in missing) if missing else 0
     return {
-        "current_revision": ", ".join(sorted(current)) if current else None,
-        "head_revision": ", ".join(sorted(heads)),
+        "current_revision": current_revision,
+        "head_revision": ", ".join(sorted(heads)) if heads else None,
         "is_current": not missing,
         "pending_count": pending,
     }

@@ -18,8 +18,9 @@ class _Module(ModuleBase):
 def run_doctor(tmp_path, monkeypatch, capsys):
     """Run ``main()`` over one module declaring ``orders_order`` and ``orders_line``."""
     monkeypatch.setattr(doctor, "discover_modules", lambda strict: [_Module()])
-    monkeypatch.setattr(doctor, "find_env_file", lambda: tmp_path / ".env")
-    monkeypatch.setattr(doctor, "parse_dotenv", dict)
+    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env.example").touch()
     monkeypatch.setattr(doctor, "run_diagnostics", lambda *a, **kw: [])
     monkeypatch.setattr(
         _migration_doctor, "module_table_names", lambda modules: {"orders_order", "orders_line"}
@@ -51,12 +52,16 @@ def test_db_doctor_reports_a_table_no_migration_creates(tmp_path, run_doctor):
     assert "SM010" not in err
 
 
-def test_db_doctor_fails_on_a_database_behind_head(tmp_path, run_doctor):
+def test_db_doctor_fails_on_a_database_behind_head(tmp_path, monkeypatch, run_doctor):
     # The CLI's fallback location: host/alembic.ini under the project root.
     write_alembic_project(tmp_path / "host", ["a:", "a2:a", "b:"])
     url = sqlite_database(
         tmp_path / "app.db", _STAMP, "INSERT INTO alembic_version VALUES ('a'), ('b')"
     )
+    nested = tmp_path / "packages" / "example"
+    nested.mkdir(parents=True)
+    (nested / "pyproject.toml").touch()
+    monkeypatch.chdir(nested)
 
     code, err = run_doctor(url)
 

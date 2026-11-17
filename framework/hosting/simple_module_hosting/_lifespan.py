@@ -18,53 +18,16 @@ from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_migration_status
+from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting._table_coverage import add_table_coverage
 from simple_module_hosting.data_compatibility import check_data_compatibility
 from simple_module_hosting.migrations import migration_problem, migration_status
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.setup_gate import is_first_run
 
 logger = logging.getLogger(__name__)
-
-
-async def _is_first_run(app: FastAPI) -> bool:
-    """Whether this install has never been set up, so boot serves ``/setup``.
-
-    Needs positive evidence on both counts. The database must never have been
-    migrated (no ``alembic_version``): a pending step on a database with
-    migration history is a configured install whose schema drifted, and serving
-    the unauthenticated migration endpoint there would run Alembic on a live
-    system. And no other required step may already report complete: a
-    never-migrated database that holds accounts (built with ``create_all``) is
-    not empty either. A step that raises counts as pending, since on a fresh
-    database its tables do not exist yet. An install whose only required step
-    is the migrations step (Keycloak) qualifies (#784).
-    """
-    registry = getattr(app.state.sm, "setup_registry", None)
-    migration = get_migration_status(app)
-    if (
-        not registry
-        or migration is None
-        or migration.get("is_current", False) is None
-        or migration.get("current_revision", "") is not None
-    ):
-        return False
-    for step in registry.required_steps:
-        if step.id == STEP_MIGRATIONS:
-            continue
-        try:
-            if await step.is_complete(app):
-                return False
-        except Exception:
-            logger.warning(
-                "Setup step %s raised on a never-migrated database; counting it as pending",
-                step.id,
-                exc_info=True,
-            )
-    return True
 
 
 def build_lifespan(modules: Sequence) -> Callable:
@@ -79,19 +42,17 @@ def build_lifespan(modules: Sequence) -> Callable:
             # running the migrations is one of the things that wizard does, and
             # check_migrations' RuntimeError would make it unreachable. Anywhere
             # else the original behaviour stands: a schema the code does not match
-            # fails the boot. See _is_first_run for how the two are told apart.
+            # fails the boot. See is_first_run for how the two are told apart.
             settings = getattr(app.state.sm, "settings", None)
             environment = getattr(settings, "environment", None)
             migration = app.state.migration = await migration_status(app.state.sm.db.engine)
             if migration["is_current"] is None and environment == "development":
-                logger.warning("SM010: %s", migration_problem(migration))
-            elif not migration["is_current"] and not await _is_first_run(app):
+                logger.warning("%s: %s", MIGRATION_DRIFT_CODE, migration_problem(migration))
+            elif not migration["is_current"] and not await is_first_run(app, migration):
                 raise RuntimeError(migration_problem(migration))
 
-            # Only a schema at head can be judged: a first run that stopped part-way
-            # still has pre-upgrade columns, and refusing it would hide the wizard
-            # that finishes the migration. The setup gate runs deferred checks
-            # once the schema is current.
+            # Compatibility checks need the current schema. The setup gate
+            # runs deferred checks once the schema is current.
             if migration["is_current"] and migration.get("current_revision") is not None:
                 await check_data_compatibility(app, modules)
                 await add_table_coverage(app, modules)

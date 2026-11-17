@@ -191,6 +191,15 @@ class TestCreateApp:
 
 
 class TestResolveProjectRoot:
+    async def test_standalone_host_named_directory_is_its_own_root(self, monkeypatch, tmp_path):
+        path = tmp_path / "host"
+        path.mkdir()
+        (path / "alembic.ini").touch()
+        monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+        monkeypatch.chdir(path)
+
+        assert _resolve_project_root() == path
+
     async def test_honours_env_override(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
         assert _resolve_project_root() == tmp_path
