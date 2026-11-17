@@ -59,9 +59,9 @@ This generates a publishable module at `modules/orders/` with a working CRUD sam
 
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
 - `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages.
-- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`: settings, routes, a sidebar menu item and permissions.
+- `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`: routes, a sidebar menu item and permissions.
 - `orders/models.py` — the `Order` table; `orders/contracts/schemas.py` — its DTOs.
-- `orders/core/` — `constants.py` (permissions, page keys, menu), `settings.py` (a `DbBackedSettings` class) and `services.py` (stored on `app.state.orders`).
+- `orders/core/` — `constants.py` (permissions, page keys, menu). Pass `--with-settings` to also get `settings.py` (a `DbBackedSettings` class), `services.py` (stored on `app.state.orders`) and the `register_settings` hook.
 - `orders/web/` — the service plus REST endpoints at `/api/orders` and Inertia views at `/orders/`.
 - `orders/pages/` — `Browse`, `Create` and `Edit` pages; `orders/locales/en.json` — their strings.
 - `tests/` — pytest tests mirroring the areas (`tests/core/…`, `tests/web/crud/…`), with module-prefixed basenames such as `test_orders_crud.py`.
