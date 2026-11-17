@@ -6,6 +6,7 @@ and the manifest helpers; they're not part of the standalone scaffolder.
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import subprocess
@@ -20,6 +21,15 @@ from simple_module_hosting.manifest import (
     repo_root_from_client_app,
     write_module_pages_manifest,
 )
+
+
+def _declares_workspaces(root: Path) -> bool:
+    """True when ``root/package.json`` is an npm workspace root."""
+    try:
+        return "workspaces" in json.loads((root / "package.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+
 
 app = typer.Typer(
     help="Project-time helpers (frontend pages manifest, module JS dep sync).",
@@ -66,12 +76,15 @@ def gen_i18n(
             help="Permit dropping key namespaces of modules not installed here.",
         ),
     ] = False,
+    skip_if_missing: Annotated[
+        bool, typer.Option("--skip-if-missing", help="Skip if the i18n target package is absent.")
+    ] = False,
 ) -> None:
     """Regenerate the typed i18n key files (keys.generated.ts) without booting the app.
 
     Writes into packages/i18n/src in the monorepo, else into the installed
     @simple-module-py/i18n package under node_modules. Fails loudly if neither
-    exists.
+    exists, unless --skip-if-missing is set.
     """
     from simple_module_hosting._project_root import resolve_project_root
     from simple_module_hosting.i18n_manifest import (
@@ -80,6 +93,14 @@ def gen_i18n(
     )
     from simple_module_hosting.settings import Settings
 
+    project_root = resolve_project_root()
+    if skip_if_missing:
+        from simple_module_hosting._i18n_target import resolve_i18n_types_dir
+
+        target, _ = resolve_i18n_types_dir(project_root)
+        if target is None:
+            typer.echo("Skipping gen-i18n: @simple-module-py/i18n not found.")
+            return
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
     logging.getLogger("simple_module_hosting.i18n_manifest").setLevel(logging.INFO)
     settings = Settings()
@@ -88,7 +109,7 @@ def gen_i18n(
         emit_frontend_types_for_modules(
             settings,
             modules,
-            resolve_project_root(),
+            project_root,
             strict=True,
             allow_removals=allow_removals,
         )
@@ -140,16 +161,17 @@ def sync_js_deps(
         raise typer.Exit(code=1)
 
     repo_root = repo_root_from_client_app(host_client_app)
-    try:
-        workspace = str(host_client_app.resolve().relative_to(repo_root))
-    except ValueError:
-        workspace = str(host_client_app.resolve())
+    client_app = host_client_app.resolve()
+    if _declares_workspaces(repo_root) and client_app.is_relative_to(repo_root):
+        cwd, target = repo_root, ["--workspace", str(client_app.relative_to(repo_root))]
+    else:
+        # A flat app's client_app is its own npm project, with no workspace root above it.
+        cwd, target = client_app, []
 
     cmd = [
         npm,
         "install",
-        "--workspace",
-        workspace,
+        *target,
         "--save=false",
         "--no-audit",
         "--no-fund",
@@ -161,7 +183,7 @@ def sync_js_deps(
     if dry_run:
         typer.echo("(dry-run) " + " ".join(cmd))
         return
-    result = subprocess.run(cmd, cwd=repo_root, check=False)
+    result = subprocess.run(cmd, cwd=cwd, check=False)
     raise typer.Exit(code=result.returncode)
 
 

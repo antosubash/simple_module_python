@@ -45,8 +45,6 @@ def _build_app(project_root: Path) -> Any:
     try:
         from simple_module_core.dotenv import load_dotenv_into_environ
         from simple_module_hosting import create_app, merge_host_settings
-        from simple_module_hosting._preapp_config import load_host_overrides
-        from simple_module_hosting.bootstrap_settings import BootstrapSettings
     except ImportError:
         typer.echo(
             "error: simple_module_hosting is not installed — run this from a host "
@@ -55,15 +53,15 @@ def _build_app(project_root: Path) -> Any:
         )
         raise typer.Exit(code=1) from None
 
-    load_dotenv_into_environ(project_root / ".env")
-    if not load_host_overrides(BootstrapSettings().database_url):
+    def warn(reason: str) -> None:
         typer.echo(
-            "warning: no host settings found in the database (unreachable, not migrated or "
-            "empty); using environment and defaults for api_title / api_version.",
+            f"warning: {reason}; using environment and defaults for api_title / api_version.",
             err=True,
         )
+
+    load_dotenv_into_environ(project_root / ".env")
     # Never serves requests: an unreachable database must not fail the export.
-    return create_app(merge_host_settings(strict=False))
+    return create_app(merge_host_settings(strict=False, warn_unavailable=warn))
 
 
 @openapi_app.command("export")

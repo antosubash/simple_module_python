@@ -116,6 +116,8 @@ def test_workspace_hint_inside_host_dir_prints_a_path_spec(
 
 def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) -> None:
     """GH #916: `uv sync` from host/ would uninstall the root's dev tools and other members."""
+    host = workspace / "host"
+    (host / "client_app").mkdir()
     _write_module(workspace / "modules" / "forest_plots")
     calls: list[tuple[list[str], Path]] = []
 
@@ -123,13 +125,14 @@ def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) 
         calls.append((cmd, cwd))
         return 0
 
-    run_add(
-        "../modules/forest_plots",
-        pyproject=workspace / "host" / "pyproject.toml",
-        exec_runner=runner,
-    )
+    run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
 
     assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
+    assert calls[1:-1] == [
+        (["uv", "run", "smpy", "host", "gen-pages"], host),
+        (["uv", "run", "smpy", "host", "sync-js-deps"], host),
+        (["uv", "run", "smpy", "host", "gen-i18n", "--skip-if-missing"], host),
+    ]
 
 
 def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:
@@ -140,3 +143,18 @@ def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path:
     (app_dir / "pyproject.toml").write_text(HOST, encoding="utf-8")
 
     assert _sync_command(app_dir) == (["uv", "sync"], app_dir)
+
+
+def test_add_falls_back_when_the_hosting_plugin_predates_skip_if_missing(workspace: Path) -> None:
+    host = workspace / "host"
+    (host / "client_app").mkdir()
+    _write_module(workspace / "modules" / "forest_plots")
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str], cwd: Path) -> int:
+        calls.append(cmd)
+        return 2 if "--skip-if-missing" in cmd else 0
+
+    run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
+
+    assert ["uv", "run", "smpy", "host", "gen-i18n"] in calls

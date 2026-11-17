@@ -5,8 +5,10 @@ is resolved first (ls-remote + shallow clone + entry-point scan); the host
 pyproject is written only after resolution succeeds. A git spec without
 ``#subdirectory`` is scanned for module packages — one match is added
 directly, several go through ``--module``/``--all`` or an interactive
-picker. Then: ``uv sync`` → ``smpy host gen-pages`` → ``smpy host
-sync-js-deps`` → entry-point verification, unless ``--no-sync``.
+picker. Unless ``--no-sync`` is set, run ``uv sync`` and verify entry points.
+Before verification, a host with a ``client_app`` runs ``smpy host gen-pages``
+and ``smpy host sync-js-deps``, followed by ``smpy host gen-i18n`` if the
+i18n package is installed.
 """
 
 from __future__ import annotations
@@ -168,7 +170,7 @@ def add_module(
     ] = Path(),
     no_sync: Annotated[
         bool,
-        typer.Option("--no-sync", help="Write pyproject only; skip uv sync / gen-pages."),
+        typer.Option("--no-sync", help="Write pyproject only; skip post-install steps."),
     ] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Never prompt (fail instead).")] = False,
 ) -> None:

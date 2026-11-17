@@ -81,7 +81,7 @@ Put heavy Python dependencies in a module's optional extra (for example,
 only in a dedicated worker image so the web image stays small:
 
 ```bash
-smpy docker add-worker geo --queues geo --modules geo.tasks \
+smpy docker add-worker geo --queues geo --modules geo \
   --apt libgdal-dev --extras gdal
 ```
 
@@ -90,9 +90,12 @@ Run this in the project root with an existing `worker` service. It writes
 `include:` entry to `compose.yml` (or the scaffold's `docker-compose.yml`). The
 Python-only image installs apt packages in both build and runtime stages and
 inherits the existing worker's database, broker, volumes, and dependencies.
-Repeat `--apt` and `--extras` for additional packages and extras; `--queues`
-and `--modules` take comma-separated lists. `--base` selects a compatible
-Debian-based Python image (default `python:3.12-slim-bookworm`). The healthcheck
+Repeat `--apt` and `--extras` for additional packages and extras. `--queues`
+takes comma-separated queue identifiers. `--modules` takes comma-separated
+top-level Python package names such as `geo` and includes them even when
+their queues do not match. The option rejects dotted paths such as `geo.tasks`.
+`--base` selects a compatible Debian-based Python image
+(default `python:3.12-slim-bookworm`). The healthcheck
 pings this worker through Celery. Use `--force` to regenerate an existing
 worker's files; repeated runs never duplicate its include entry.
 

@@ -205,6 +205,10 @@ def main() -> int:
     for finding in diagnostics:
         if finding.code == MISSING_DEPENDENCY_CODE:
             finding.level = DiagnosticLevel.ERROR
+    if not diagnostics:
+        noun = "module" if len(modules) == 1 else "modules"
+        print(f"✓ No issues found: {len(modules)} {noun} checked", file=sys.stderr)
+        return 0
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

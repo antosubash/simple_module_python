@@ -66,7 +66,7 @@ def run_sources_update(
             typer.echo(f"Would run: uv lock --upgrade-package {only}")
             return
         exec_runner(["uv", "lock", "--upgrade-package", only], pyproject.parent)
-        post_install(pyproject.parent, [], [], exec_runner)
+        post_install(pyproject.parent, [], [], exec_runner, updating=True)
         return
 
     changed: list[str] = []
@@ -117,7 +117,7 @@ def run_sources_update(
         save_pyproject(pyproject, doc)
     for name in relock:
         exec_runner(["uv", "lock", "--upgrade-package", name], pyproject.parent)
-    post_install(pyproject.parent, changed, [], exec_runner)
+    post_install(pyproject.parent, changed, [], exec_runner, updating=True)
 
 
 def update_modules(

@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -3199,6 +3199,7 @@ version = "0.0.47"
 source = { editable = "framework/cli" }
 dependencies = [
     { name = "packaging" },
+    { name = "pyyaml" },
     { name = "tomlkit" },
     { name = "typer" },
 ]
@@ -3206,6 +3207,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "packaging", specifier = ">=23.0,<27" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "tomlkit", specifier = ">=0.13,<0.16" },
     { name = "typer", specifier = ">=0.12,<0.28" },
 ]

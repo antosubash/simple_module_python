@@ -17,6 +17,7 @@ install-js:
 
 # Development
 dev: docker-up gen-pages
+	$(MAKE) gen-i18n || echo "warning: gen-i18n failed; continuing with dev startup" >&2
 	@echo "Starting API and UI dev servers..."
 	$(MAKE) -j2 dev-api dev-ui
 
