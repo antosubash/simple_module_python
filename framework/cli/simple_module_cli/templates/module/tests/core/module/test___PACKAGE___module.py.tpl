@@ -24,4 +24,4 @@ class TestBoot:
         # effective_route_paths reads the OpenAPI schema: FastAPI >= 0.137
         # includes routers lazily, so ``app.routes`` no longer lists them.
         paths = effective_route_paths(app)
-        assert any(p.startswith("/api/{{MODULE_SLUG}}") for p in paths)
+        assert any(p.startswith("/api/{{PACKAGE_NAME}}") for p in paths)

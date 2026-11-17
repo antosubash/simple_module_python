@@ -1,6 +1,8 @@
 # Lifecycle hooks
 
-`ModuleBase` defines a set of lifecycle hooks. All are no-ops by default — override the ones you need.
+`ModuleBase` defines a set of lifecycle hooks. Most are no-ops by default;
+routes and locale files are discovered by package convention. Override only
+what differs from those defaults.
 
 At boot, the framework calls hooks in this sequence. Each phase visits modules
 in topological order: settings first for all modules, then registrations per
@@ -277,21 +279,35 @@ When two modules at the same dependency tier both add middleware, the module tha
 
 ## `register_routes(api_router, view_router)`
 
-Mount your API and Inertia view routers onto the two framework-provided routers.
+By default this includes `<package>.web.endpoints.api.router` and
+`<package>.web.endpoints.views.router` on the framework-provided routers.
+Each endpoint module is optional. Discovery checks its exact module spec before
+importing it: an absent module is skipped, but an import error inside an existing
+module (or its parents) propagates and fails boot. An override replaces discovery.
+For extra routers or custom ordering, override the hook:
 
 ```python
 def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-    from orders.endpoints.api import router as api
-    from orders.endpoints.views import router as views
+    from orders.web.endpoints.api import router as api
+    from orders.web.endpoints.extra import router as extra
+    from orders.web.endpoints.views import router as views
 
     api_router.include_router(api)
+    api_router.include_router(extra)
     view_router.include_router(views)
 ```
 
-- `api_router` is pre-built with `prefix=ModuleMeta.route_prefix`.
-- `view_router` is pre-built with `prefix=ModuleMeta.view_prefix`.
+The host supplies tags and applies `ModuleMeta.route_prefix` / `view_prefix`
+when mounting these routers. Do not repeat the prefixes in the hook. Omitted
+prefixes derive from the package: `order_items` gives `/api/order_items` and
+`/order-items`; explicit values, including `""`, win.
 
-The framework **auto-applies** `ModuleMeta.route_prefix` / `view_prefix` — `create_app` constructs each router already prefixed (`APIRouter(prefix=module.meta.route_prefix)`), so your `include_router` calls usually pass no further prefix (add one only for a sub-grouping *inside* the module's own prefix).
+## `locale_dirs()`
+
+The default discovers `<package>/locales` when it is a directory and returns
+`{package_name: directory}`. The namespace uses the lowercase Python package,
+not the PascalCase `ModuleMeta.name`. A missing directory contributes nothing.
+Override for a custom namespace/directory or return `{}` to opt out.
 
 ## `register_admin_routes(admin_router)`
 
@@ -421,10 +437,7 @@ Typical uses:
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
         name="Orders",
-        route_prefix="/api/orders",
-        view_prefix="/orders",
         depends_on=["Users", "Products"],
-        version="1.0.0",
     )
 
     def register_settings(self, app): ...
@@ -445,11 +458,15 @@ class OrdersModule(ModuleBase):
     def register_resource_types(self, registry): ...
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
-    def register_routes(self, api_router, view_router): ...
     def register_admin_routes(self, admin_router): ...
 
     async def on_startup(self, app): ...
     async def on_shutdown(self, app): ...
 ```
 
-If your module overrides zero hooks, diagnostic `SM007` (INFO) asks whether the module is still doing anything useful. Empty modules are typically deletable.
+An omitted `ModuleMeta.version` resolves from the owning distribution's metadata
+(entry point ownership first, then the package-to-distribution mapping); explicit
+versions win. Without installed metadata it falls back to `"1.0.0"`.
+
+If your module overrides zero hooks and contributes no conventional routes or
+locales, diagnostic `SM007` (INFO) asks whether it is still doing anything useful.

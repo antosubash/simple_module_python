@@ -15,7 +15,7 @@ export default function Browse({ items }: { items: Item[] }) {
   async function remove(item: Item) {
     setError(null);
     const result = await apiResult(
-      api.DELETE('/api/{{MODULE_SLUG}}/{item_id}', { params: { path: { item_id: item.id } } }),
+      api.DELETE('/api/{{PACKAGE_NAME}}/{item_id}', { params: { path: { item_id: item.id } } }),
     );
     if (!result.ok) {
       setError(result.detail ?? 'Could not delete');

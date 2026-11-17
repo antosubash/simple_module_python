@@ -7,7 +7,8 @@ description: Use when adding or debugging i18n in a simple_module_python module 
 
 ## File layout
 
-Each module ships JSON files under its `locales/` directory and points the framework at it from `ModuleBase.locale_dirs()`:
+Each module ships JSON files under its package-root `locales/` directory.
+`ModuleBase.locale_dirs()` discovers it automatically when present:
 
 ```
 modules/orders/orders/
@@ -17,19 +18,11 @@ modules/orders/orders/
     └── es.json
 ```
 
-```python
-# orders/module.py
-import importlib.resources
-from pathlib import Path
-
-
-class OrdersModule(ModuleBase):
-    def locale_dirs(self) -> dict[str, Path]:
-        # key = namespace, value = directory holding <lang>.json files
-        return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
-```
-
-The map's **key** is the i18n namespace (use the lowercase module package name); the **value** is the directory containing one JSON file per supported locale.
+The default map's **key** is the lowercase Python package name (`orders`, not
+`ModuleMeta.name`); the **value** is the directory containing one JSON file per
+supported locale. No override is needed. Override `locale_dirs()` only for
+custom directories/namespaces, or return `{}` to opt out. An override replaces
+the default discovery.
 
 ## Key-flattening + namespace prefix
 
@@ -123,7 +116,7 @@ SM016 is an ERROR that fails **dev boot** and `make doctor` (exit 1) — in prod
 ## Pitfalls
 
 - **Used a non-string leaf** (`"count": 5`, an array, or an object instead of a string with placeholders). SM016. Only string leaves; interpolate via `{name}` placeholders.
-- **Skipped `locale_dirs()` even though `locales/` exists.** The framework only loads what's declared. The directory alone does nothing.
+- **Custom `locale_dirs()` hides the conventional directory.** Overrides replace discovery; include every directory you intend to contribute, or remove the redundant override.
 - **Used the module's PascalCase `meta.name` as the namespace key.** It must be the lowercase package name (typically the directory under `modules/`). Mixing cases breaks `keys.<namespace>.…` autocompletion in TS.
 - **Constructed a translated Zod schema at module scope.** First-render-locale freeze — see the rule above. Always rebuild inside a hook.
 - **Hand-edited the flattened key in JS instead of going through `keys.<namespace>.…`.** The `keys` proxy is type-safe; raw string keys silently rot when the JSON renames.

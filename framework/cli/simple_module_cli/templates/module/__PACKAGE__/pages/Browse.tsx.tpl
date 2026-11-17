@@ -17,7 +17,7 @@ export default function Browse({ items }: { items: Item[] }) {
 
   async function remove(item: Item) {
     const result = await apiResult(
-      api.DELETE('/api/{{MODULE_SLUG}}/{item_id}', { params: { path: { item_id: item.id } } }),
+      api.DELETE('/api/{{PACKAGE_NAME}}/{item_id}', { params: { path: { item_id: item.id } } }),
     );
     showError(result);
     if (result.ok) router.reload({ only: ['items'] });

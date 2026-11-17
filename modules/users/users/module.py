@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
@@ -48,8 +46,6 @@ _ICON_LOG_OUT = "log-out"
 class UsersModule(ModuleBase):
     meta = ModuleMeta(
         name="Users",
-        route_prefix="/api/users",
-        view_prefix="/users",
         # Sign-in and self-service stay on /users; the management CRUD
         # belongs with the other admin screens. One view_prefix cannot
         # express both, hence the second router.
@@ -210,10 +206,6 @@ class UsersModule(ModuleBase):
                 method="post",
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {"users": base}
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from users.admin.api import admin_router

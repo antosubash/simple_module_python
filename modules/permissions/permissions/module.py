@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import ast
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -45,7 +42,6 @@ async def _resolve_role_permission_labels(_db: AsyncSession, ids: list[str]) -> 
 class PermissionsModule(ModuleBase):
     meta = ModuleMeta(
         name="Permissions",
-        route_prefix="/api/permissions",
         view_prefix="/admin/permissions",
         depends_on=[_MODULE_AUTH, _MODULE_USERS],
         i18n_audience="admin",
@@ -57,13 +53,6 @@ class PermissionsModule(ModuleBase):
         from permissions.grants.user_cleanup import purge_user_grants
 
         bus.subscribe_durable(UserDeleted, purge_user_grants, name=USER_CLEANUP_HANDLER)
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from permissions.web.endpoints.api import router as api
-        from permissions.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         """Name role-grant rows, and tag them with their table.
@@ -105,10 +94,6 @@ class PermissionsModule(ModuleBase):
         from permissions.grants.role_invalidation import subscribe as subscribe_roles
 
         self._refresh = subscribe_roles(bus, app)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {"permissions": base}
 
     async def on_startup(self, app: FastAPI) -> None:
         """Replay persisted role→permission rows into the live registry."""

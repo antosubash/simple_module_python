@@ -104,7 +104,7 @@ The typed client (#504):
 
 - **Translated strings in props built at module scope.** `const labels = { title: t("orders.title") }` freezes against the first render's locale — build per-request translations inside the handler or via shared props.
 - **Imported a page TSX from another page.** Manifest-wired pages break if you import them directly; production builds drop the side-effect imports.
-- **Pages exist but are unreachable in the UI (`SM019`).** A module with a non-empty `view_prefix` that overrides `register_routes` but neither `register_menu_items` nor `register_permissions` ships pages with no sidebar entry and no role-editor visibility. Add a menu item, register permissions, or clear `view_prefix` if it's API-only.
+- **Pages exist but are unreachable in the UI (`SM019`).** A module with a non-empty `view_prefix` and conventional views or a `register_routes` override, but neither `register_menu_items` nor `register_permissions`, ships pages with no sidebar entry and no role-editor visibility. Add a menu item, register permissions, or clear `view_prefix` if it's API-only.
 
 ## Related skills
 

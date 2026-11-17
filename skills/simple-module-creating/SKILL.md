@@ -103,20 +103,30 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
         name="Orders",  # PascalCase, must be unique
-        route_prefix="/api/orders",
-        view_prefix="/orders",
         depends_on=[],  # modules this one needs (PascalCase); missing → prod boot fails
         optional_depends_on=[],  # ordering only: sort after these when loaded
     )
 ```
 
-`ModuleMeta.name` is load-bearing in two places: the `__tablename__` prefix you author and the PascalCase Inertia component namespace. So directory `blog_posts` → `name="BlogPosts"` → `inertia.render("BlogPosts/Index", ...)` → `pages/Index.tsx`. Mismatches fire diagnostic codes `SM003` (orphan page) / `SM004` (phantom render).
+`ModuleMeta.name` is the PascalCase Inertia component and dependency identity.
+The Python package name owns table prefixes and the default i18n namespace.
+So directory `blog_posts` → `name="BlogPosts"` →
+`inertia.render("BlogPosts/Index", ...)` → `pages/Index.tsx`. Mismatches fire
+diagnostic codes `SM003` (orphan page) / `SM004` (phantom render).
 
-`ModuleMeta` also accepts `version=` (defaults to `"1.0.0"`) and `requires_framework=` (a PEP 440 spec for the framework API range, e.g. `">=1.0,<2.0"`) so the host can reject incompatible installs at boot — set these on modules you intend to publish.
+Omitted prefixes derive from the package: `blog_posts` gives
+`route_prefix="/api/blog_posts"` and `view_prefix="/blog-posts"`. Explicit
+prefixes, including `""`, win; preserve custom URLs when adopting defaults.
+The version defaults to the owning distribution's installed metadata (entry
+point ownership or package-to-distribution mapping), falling back to `"1.0.0"`
+for uninstalled packages; explicit `version=` wins. Set `requires_framework=`
+to a PEP 440 framework API range (e.g. `">=1.0,<2.0"`) for published modules.
+`locale_dirs()` discovers `<package>/locales` using the package-name namespace;
+override only for custom directories/namespaces or to opt out.
 
 ## Lifecycle hooks (override only what you need)
 
-In execution order — all no-op by default:
+In execution order — no-op by default except conventional router discovery:
 
 | Hook | Use it for |
 |---|---|
@@ -131,7 +141,7 @@ In execution order — all no-op by default:
 | `register_csp_sources(registry)` | Whitelist external asset origins in the CSP (`registry.add("style-src", "https://rsms.me")`) — fetch directives only, validated at boot |
 | `register_exception_handlers(app)` | Module-specific error mapping |
 | `register_middleware(app)` | LIFO — module middleware sorted last wraps outermost |
-| `register_routes(api_router, view_router)` | `include_router(...)` your two routers |
+| `register_routes(api_router, view_router)` | Default includes `<package>.web.endpoints.api.router` and `.views.router` when present; override for custom layouts or ordering. Existing module import errors propagate. The host applies prefixes and tags once. |
 | `on_startup(app)` / `on_shutdown(app)` | Async; shutdown runs in reverse order |
 
 ## Verify after scaffolding

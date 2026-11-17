@@ -7,8 +7,6 @@ page through a registered Inertia shared-props provider.
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
@@ -27,7 +25,6 @@ if TYPE_CHECKING:
 class BrandingModule(ModuleBase):
     meta = ModuleMeta(
         name="Branding",
-        route_prefix=constants.ROUTE_PREFIX,
         view_prefix=constants.VIEW_PREFIX,
         depends_on=[constants._MODULE_SETTINGS, constants._MODULE_FILE_STORAGE],
         # Branding's public contribution (site name, colors, design pack) rides
@@ -116,7 +113,3 @@ class BrandingModule(ModuleBase):
         from branding.web.shared_props import branding_shared_props
 
         register_inertia_shared_provider(app, branding_shared_props)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {constants.PACKAGE: base}

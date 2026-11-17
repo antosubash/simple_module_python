@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.resources
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
@@ -36,7 +34,6 @@ class FileStorageModule(ModuleBase):
     meta = ModuleMeta(
         name=constants.MODULE_PASCAL,
         route_prefix=constants.ROUTE_PREFIX_API,
-        view_prefix=constants.ROUTE_PREFIX_VIEW,
         # Kept after Settings so the module order is unchanged; registering
         # settings no longer needs it (the framework owns the registry, #500).
         # Task/checksum integration also needs BackgroundTasks loaded first when present.
@@ -189,10 +186,6 @@ class FileStorageModule(ModuleBase):
                 default_enabled=False,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {constants.LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the storage backend and probe its backing resource.

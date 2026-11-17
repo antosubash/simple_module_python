@@ -8,10 +8,7 @@ when the host runs with ``multi_tenant`` on, which also turns on strict
 
 from __future__ import annotations
 
-import importlib
-import importlib.resources
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -69,8 +66,6 @@ class TenantsModule(ModuleBase):
 
     meta = ModuleMeta(
         name=c.DISPLAY_NAME,
-        route_prefix="/api/tenants",
-        view_prefix="/tenants",
         admin_view_prefix="/admin/tenants",
         # Auth: its middleware must have set request.state.user before the
         # resolver runs. Settings: ordering only, since registering settings
@@ -211,6 +206,3 @@ class TenantsModule(ModuleBase):
                 "tenants module is installed but multi_tenant is off: organisations can be "
                 "managed, but requests are not scoped to them until it is enabled"
             )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        return {c.MODULE_PACKAGE: Path(str(importlib.resources.files(__package__) / "locales"))}

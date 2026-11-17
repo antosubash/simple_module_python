@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
@@ -14,7 +12,6 @@ from simple_module_core.permissions import PermissionRegistry
 
 from settings.core.constants import (
     ALL_PERMISSIONS,
-    API_PREFIX,
     LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
@@ -56,7 +53,6 @@ async def _resolve_setting_labels(db: AsyncSession, ids: list[str]) -> dict[str,
 class SettingsModule(ModuleBase):
     meta = ModuleMeta(
         name=MODULE_NAME,
-        route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )
@@ -154,7 +150,3 @@ class SettingsModule(ModuleBase):
                 label_resolver=_resolve_setting_labels,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}

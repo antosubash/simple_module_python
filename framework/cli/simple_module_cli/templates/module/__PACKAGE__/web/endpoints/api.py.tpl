@@ -1,4 +1,4 @@
-"""REST API endpoints for {{MODULE_NAME}} — mounted under ``/api/{{MODULE_SLUG}}``."""
+"""REST API endpoints for {{MODULE_NAME}} — mounted under ``/api/{{PACKAGE_NAME}}``."""
 
 from __future__ import annotations
 

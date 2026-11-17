@@ -156,13 +156,29 @@ from simple_module_core import ModuleBase, ModuleMeta
 class MyModule(ModuleBase):
     meta = ModuleMeta(
         name="MyModule",
-        route_prefix="/api/my-module",
-        view_prefix="/my-module",
         depends_on=[],  # other module names
-        version="0.1.0",  # your module's semver
         requires_framework=">=1.0,<2.0",  # framework API range
     )
 ```
+
+For the Python package `my_module`, omitted prefixes resolve to
+`route_prefix="/api/my_module"` and `view_prefix="/my-module"`. Explicit values,
+including an empty string for a root mount or an API-only module, always win.
+`name="MyModule"` remains the render-key and dependency identity; table names
+are unchanged and remain the model author's responsibility.
+
+The omitted version comes from the distribution owning the package, using its
+`simple_module` entry point or `importlib.metadata.packages_distributions()`;
+the distribution name need not match the package. Uninstalled packages without
+metadata retain the `"1.0.0"` fallback. An explicit `version=` wins.
+
+The default `register_routes(api_router, view_router)` includes the `router`
+objects in `<package>.web.endpoints.api` and `<package>.web.endpoints.views`
+when those modules exist. The host applies the metadata prefixes and tags once.
+Absent endpoints are skipped; errors importing an existing endpoint fail boot.
+Override the hook for extra routers, custom ordering or a different layout.
+The default `locale_dirs()` discovers `<package>/locales` under the package-name
+namespace; override only for custom directories/namespaces or to opt out.
 
 ### Administrative screens
 

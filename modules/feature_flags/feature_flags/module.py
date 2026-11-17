@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.resources
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -16,7 +14,6 @@ from simple_module_core.permissions import PermissionRegistry
 from feature_flags.core.constants import (
     AUDIT_LINK_LABEL,
     AUDIT_LINK_LABEL_KEY,
-    LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
     MENU_ORDER,
@@ -65,7 +62,6 @@ async def _resolve_override_labels(db: AsyncSession, ids: list[str]) -> dict[str
 class FeatureFlagsModule(ModuleBase):
     meta = ModuleMeta(
         name="FeatureFlags",
-        route_prefix="/api/feature_flags",
         view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )
@@ -87,13 +83,6 @@ class FeatureFlagsModule(ModuleBase):
         from feature_flags.core.invalidation import subscribe
 
         self._refresh = subscribe(bus, app)
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from feature_flags.web.endpoints.api import router as api
-        from feature_flags.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -142,10 +131,6 @@ class FeatureFlagsModule(ModuleBase):
             ],
             label_key="feature_flags.permission_group",
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
         """Load every persisted override into the in-memory registry.

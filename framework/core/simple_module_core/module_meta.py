@@ -11,7 +11,16 @@ Re-exported from ``module.py``, so every existing import still works.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from importlib import metadata
+
+
+class _Default(str):
+    """Distinguish an omitted value from an explicit empty prefix."""
+
+
+_PREFIX = _Default("")
+_VERSION = _Default("1.0.0")
 
 
 @dataclass(frozen=True)
@@ -19,8 +28,8 @@ class ModuleMeta:
     """Metadata describing a module."""
 
     name: str
-    route_prefix: str = ""
-    view_prefix: str = ""
+    route_prefix: str = _PREFIX
+    view_prefix: str = _PREFIX
     admin_view_prefix: str = ""
     """Mount point for admin-only view routes, e.g. ``"/admin/users"``.
 
@@ -44,7 +53,7 @@ class ModuleMeta:
     works without the other one. Sorted exactly like ``depends_on`` when
     present, so moving an entry here does not change the boot order.
     """
-    version: str = "1.0.0"
+    version: str = _VERSION
     requires_framework: str | None = None
     """PEP 440 specifier for the framework API version this module supports.
 
@@ -63,3 +72,25 @@ class ModuleMeta:
     anonymous visitors don't download admin form labels on every public page.
     The catalog is always available server-side (``Translator``) either way.
     """
+
+    def _with_package_defaults(self, package: str) -> ModuleMeta:
+        """Resolve omitted fields once the declaring class supplies its package."""
+        return replace(
+            self,
+            route_prefix=f"/api/{package}" if self.route_prefix is _PREFIX else self.route_prefix,
+            view_prefix=f"/{package.replace('_', '-')}"
+            if self.view_prefix is _PREFIX
+            else self.view_prefix,
+            version=_package_version(package) if self.version is _VERSION else self.version,
+        )
+
+
+def _package_version(package: str) -> str:
+    # Entry-point ownership also works for editable installs without top_level.txt.
+    for ep in metadata.entry_points(group="simple_module"):
+        if ep.module.split(".")[0] == package and ep.dist is not None:
+            return metadata.version(ep.dist.metadata["Name"])
+    distributions = metadata.packages_distributions().get(package, [])
+    if distributions:
+        return metadata.version(distributions[0])
+    return "1.0.0"

@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 class MailModule(ModuleBase):
     meta = ModuleMeta(
+        route_prefix="",
+        view_prefix="",
         name=c.MODULE_NAME,
         # ``Settings``: the runtime re-reads overrides through its SettingsStore.
         depends_on=[c.MODULE_SETTINGS],
