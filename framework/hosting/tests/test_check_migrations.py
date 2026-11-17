@@ -1,9 +1,4 @@
-"""Boot-time migration-drift check.
-
-``check_migrations`` is called from inside the app's lifespan in
-``app_builder.py``. If it loses its teeth — e.g. someone refactors and forgets
-to raise — a behind-head DB would silently boot and produce confusing missing-
-column errors at runtime. This file pins:
+"""Boot-time migration-drift check. This file pins:
 
 * DB at head → returns the status dict.
 * DB behind head → raises ``RuntimeError`` with a helpful message.

@@ -200,7 +200,6 @@ def test_cli_prepare_rejects_ambiguous_heads_and_non_heads(alembic_host):
 )
 def test_cli_prepared_recipe_runs_with_framework_imports_blocked(alembic_host, upgrade_id):
     import subprocess
-    import sys
 
     _prepare(alembic_host, upgrade_id)
     generated = next(alembic_host[1].glob(f"*_{upgrade_id.replace('.', '_')}.py"))
