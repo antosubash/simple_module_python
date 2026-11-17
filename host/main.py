@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from simple_module_core.dotenv import load_dotenv_into_environ
+from simple_module_core.menu import MenuItem, MenuSection
 
 # Publish ``SM_PROJECT_ROOT`` and merge ``.env`` into ``os.environ`` *before*
 # any settings import so framework code reading ``os.environ.get("SM_…")``
@@ -32,6 +33,23 @@ setup_logging(
 )
 
 app = create_app(settings)
+repo_url = "https://github.com/antosubash/simple_module_python"
+app.state.sm.menu_registry.add_many(
+    [
+        MenuItem(
+            label=label,
+            label_key=f"ui.public_nav.{label_key}",
+            url=url,
+            section=MenuSection.NAVBAR,
+            requires_auth=False,
+        )
+        for label, label_key, url in (
+            ("Docs", "docs", f"{repo_url}#readme"),
+            ("Modules", "modules", f"{repo_url}/tree/main/modules"),
+            ("GitHub", "github", repo_url),
+        )
+    ]
+)
 app.include_router(host_router)
 # Fixture pages for tests/e2e/inertia/; development only.
 mount_e2e_inertia_if_development(app, settings)

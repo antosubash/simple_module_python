@@ -1,169 +1,250 @@
 # Environment variables
 
-All env vars use the `SM_` prefix. Settings are loaded at boot — anything that must be **known before the DB is open** lives here. Runtime-tunable settings (SMTP creds, feature flags, storage backends) live in the DB-backed settings store and are edited from `/admin/settings/`.
+Most deployments only set a few variables.
 
-This is the full reference. See [Configuration](/guide/configuration) for a narrative overview.
+- `SM_DATABASE_URL` selects the database. SQLite is the default.
+- `SM_REDIS_URL` connects shared rate limiting and background tasks to Redis when used.
+- `SM_USERS_BOOTSTRAP_*` seeds the first local accounts. See [Users module](#users-module) for the specific variables.
+- `SM_ENVIRONMENT`, `SM_DEBUG` and `SM_VITE_DEV_URL` describe how the process runs.
+
+Edit deployment settings such as mail credentials, feature flags and storage
+backends in the admin UI. The tables below cover the framework, bundled modules
+and repository tools. See [Configuration](/guide/configuration) for an overview.
 
 ## Framework
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL: `postgresql+asyncpg://user:pw@host:5432/db` or `sqlite+aiosqlite:///./app.db`. Relative sqlite paths resolve against the project root (the `.env` location), not the process cwd — CLI tools run from `host/` hit the same file as the app. |
-| `SM_ENVIRONMENT` | `development` | `development` and `testing` are the only non-prod values (placeholder-secret check is skipped for both). Any value other than `development` triggers strict module discovery. Unlike that default, `users` honours `oauth_microsoft_discovery_url` only when the variable is explicitly `development` or `testing` (unset does not count). |
-| `SM_SECRET_KEY` | `change-me-in-production` | **Must** be overridden in production — session cookie signing key. |
-| `SM_DEBUG` | `false` | Enables debug mode (tracebacks in HTTP responses). |
-| `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR`. |
-| `SM_LOG_FORMAT` | `json` | `text` for readable dev logs, `json` for structured logs in prod. |
-| `SM_MODULES_ENABLED` | unset | Comma-separated allow-list to disable modules without uninstalling them. |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. Freshly scaffolded apps also derive the Vite dev server's port and origin from this one value (via `client_app/vite.dev-url.ts`), so changing it here is the whole move. |
-| `SM_VITE_PORT` | `5050` | Dev only — port this repo's own host `vite.config.ts` binds to. If you change it, set `SM_VITE_DEV_URL` to match so the backend points the HMR client at the right origin. New scaffolds don't need it — they read `SM_VITE_DEV_URL` directly. |
-| `SM_PROJECT_ROOT` | unset | Overrides project-root discovery: where the `.env` is looked up and what relative sqlite paths resolve against. Normally unnecessary — settings walk up from the cwd (stopping at repo boundaries and `$HOME`) to find the `.env` on their own. |
-| `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of host-level anonymous-access path prefixes. Escape hatch for exposing a route without a session when no module owns it; modules should prefer the method-aware `register_public_routes` hook. |
-| `SM_TRUSTED_PROXY` | unset | Comma-separated proxy IPs / CIDRs whose `X-Forwarded-*` headers are trusted, or `*` to trust any peer (correct when the container is only reachable through one proxy). Setting it installs uvicorn's `ProxyHeadersMiddleware` outermost, so request logs record the real client IP and `request.url.scheme` reflects `X-Forwarded-Proto`. **Recommended behind a TLS-terminating proxy**, where otherwise every request in the logs is attributed to the proxy's own address rather than the visitor's. It is no longer needed for Inertia: the page url is root-relative, so `pushState` can't see a cross-scheme url whatever the proxy sends (it used to throw a `SecurityError` on every page — GH #223). It is still needed for anything that builds an absolute url from `request.url.scheme`/`request.url_for(...)` — notably OAuth/OIDC's callback url and the locale cookie's `secure` flag — left unset behind such a proxy, an OAuth `redirect_uri` ships as `http://…` and most providers reject it. Forwarded headers are never trusted by default. |
-| `SM_SESSION_COOKIE_SECURE` | unset | Mark the session cookie `Secure`. Unset means on everywhere except `SM_ENVIRONMENT=development`/`testing`. Set `false` only for an install that serves browsers plain HTTP on purpose; behind a TLS terminator leave it unset and set `SM_TRUSTED_PROXY`. Restart to apply. |
+| `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | Async database URL. For PostgreSQL, use `postgresql+asyncpg://user:pw@host:5432/db`. Relative SQLite paths resolve against the project root. |
+| `SM_REDIS_URL` | unset | Enables shared Redis rate limits and leases and seeds both the Celery broker and result backend. Without it the host uses in-process rate limits and database-backed leases. |
+| `SM_ENVIRONMENT` | `development` | `development` and `testing` bypass production secret checks. Any value other than `development` enables strict module discovery. |
+| `SM_DEBUG` | `false` | Enables debug mode, including tracebacks in HTTP responses. |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Vite HMR origin for development. Scaffolded apps also derive the Vite dev server port and origin from this URL. |
+| `SM_VITE_PORT` | `5050` | Vite dev server port in this repository's own host. Set `SM_VITE_DEV_URL` to match when changing it. |
+| `SM_SECRET_KEY` | generated when unset | Session signing key. If unset, the framework reuses the stored key or generates and saves one. A fresh DB without the settings table uses a temporary key until persistence is possible. An explicit key wins and stays out of the DB. Production rejects the literal placeholder `change-me-in-production`. |
+| `SM_MODULES_ENABLED` | unset | JSON array of module names. Unset loads all installed modules. An empty array loads none. |
+| `SM_PROJECT_ROOT` | discovered | Overrides project-root discovery for `.env` and relative SQLite paths. Otherwise discovery walks up from the working directory and stops at repository or home-directory boundaries. |
 
-## Sentry (optional)
+The repository's Docker entrypoint generates and exports a process-local
+signing key when absent. This bypasses the framework's DB-backed key, so set a
+stable key when using that entrypoint and sharing sessions across restarts or replicas.
 
-Install `simple_module_hosting[sentry]`. All three are env only (the DSN is a secret and the SDK starts before the DB opens). See [Sentry](/framework/sentry).
+### Module-enabled allow-list
+
+```bash
+export SM_MODULES_ENABLED='["Users","Dashboard"]'
+```
+
+Use the module's `ModuleMeta.name`. Matching is case-insensitive. Include any
+required dependencies and restart after changing the allow-list. A
+comma-separated string fails settings validation.
+
+## Host settings (`HostSettings`)
+
+Host settings resolve **env → DB → default**. The fields appear under Host in
+the admin settings editor. A boot setting takes effect after restart. Runtime
+settings can change live unless pinned by the environment. See [Settings](/framework/settings).
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_SENTRY_DSN` | unset | Enables error reporting in the web and Celery worker processes. Unset: `sentry_sdk` is never imported. Never logged. |
-| `SM_SENTRY_ENVIRONMENT` | `SM_ENVIRONMENT` | Sentry `environment` tag. |
-| `SM_SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Performance trace sampling, `0.0`-`1.0`. |
+| `SM_MULTI_TENANT` | `false` | Enable tenant isolation. Restart required. |
+| `SM_DEFAULT_TENANT` | `""` | Fixed tenant in single-tenant mode. Blank uses the default tenant ID for new rows. Restart required. |
+| `SM_TENANT_HEADER` | `""` | Tenant lookup header in multi-tenant mode. Blank disables header lookup. Restart required. |
+| `SM_AUTH_PROVIDER` | `users` | Auth provider to activate when both Users and Keycloak are installed. Restart required. |
+| `SM_AUTH_PUBLIC_PATHS` | `[]` | JSON array of anonymous-access path prefixes. Modules can declare method-aware public routes with `register_public_routes`. Restart required. |
+| `SM_I18N_DEFAULT_LOCALE` | `en` | Default locale. Must be in the supported locales. Restart required. |
+| `SM_I18N_SUPPORTED_LOCALES` | `["en"]` | JSON array of enabled locales. Restart required. |
+| `SM_I18N_COOKIE_NAME` | `locale` | Locale preference cookie name. Restart required. |
+| `SM_MAINTENANCE_MODE` | `false` | Serve a 503 to everyone except admins. Runtime. |
+| `SM_MAINTENANCE_MESSAGE` | `""` | Optional maintenance notice. Runtime. |
+| `SM_PUBLIC_BASE_URL` | `""` | Public origin for canonical and `og:url` links. Runtime. |
+| `SM_NATIVE_LINK_PREFIXES` | `[]` | JSON array of path prefixes whose links use full browser navigation. Runtime. |
+| `SM_LOG_LEVEL` | `INFO` | Application logging threshold. Restart required. |
+| `SM_LOG_FORMAT` | `json` | Structured `json` or readable `text`. Restart required. |
+| `SM_TRUSTED_PROXY` | unset | Comma-separated trusted proxy IPs or CIDRs. `*` trusts any peer. A trusted TLS terminator can supply the client IP and original request scheme for logs and auth callbacks. Restart required. |
+| `SM_FORWARDED_HOST_ALLOWLIST` | `[]` | JSON array of allowed forwarded hosts, such as `["app.example.com","*.example.org"]`. Entries may include ports. Requires `SM_TRUSTED_PROXY`. Restart required. |
+| `SM_SESSION_COOKIE_SECURE` | unset | Session cookie `Secure` flag. Unset enables it outside development and testing. Restart required. |
+| `SM_MAX_REQUEST_BODY_BYTES` | `10485760` | Global request body limit in bytes. `0` disables the guard. Restart required. |
+| `SM_RATE_LIMIT_PUBLIC` | `120/minute` | Per-IP budget for anonymous requests to public routes. Blank or `off` disables it. Restart required. |
+| `SM_RATE_LIMIT_AUTHENTICATED` | `""` | Per-IP budget for signed-in traffic, using the same syntax. Blank disables it. Restart required. |
+| `SM_API_TITLE` | `SimpleModule` | OpenAPI title. Restart required. |
+| `SM_API_VERSION` | host version, or `0.0.0` | OpenAPI version. Restart required. |
+| `SM_API_DESCRIPTION` | `""` | OpenAPI description. Restart required. |
+| `SM_OPENAPI_PUBLIC` | `false` | Expose `/api/openapi.json` anonymously outside development. Restart required. |
+
+### CORS
+
+These apply to the host's `/api/` policy and require restart. See [CORS](/framework/cors) for module policies and precedence.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SM_CORS_ALLOW_ORIGINS` | `[]` | JSON array of allowed origins. Empty leaves the host API policy disabled. A wildcard requires credentials to be disabled. |
+| `SM_CORS_ALLOW_CREDENTIALS` | `true` | Permit credentialed requests. |
+| `SM_CORS_ALLOW_METHODS` | `["GET","POST","PUT","PATCH","DELETE"]` | JSON array of allowed methods. |
+| `SM_CORS_ALLOW_HEADERS` | `["Authorization","Content-Type","X-CSRF-Token"]` | JSON array of allowed request headers. |
+| `SM_CORS_EXPOSE_HEADERS` | `[]` | JSON array of response headers available to browser scripts. |
+| `SM_CORS_MAX_AGE` | `600` | Preflight cache time in seconds. |
 
 ## DB connection pool
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_DB_POOL_SIZE` | `10` | SQLAlchemy `pool_size` (per process). |
-| `SM_DB_MAX_OVERFLOW` | `20` | SQLAlchemy `max_overflow` (per process). |
+| `SM_DB_POOL_SIZE` | `10` | SQLAlchemy pool size per process. |
+| `SM_DB_MAX_OVERFLOW` | `20` | Extra connections per process beyond the pool size. |
 | `SM_DB_POOL_PRE_PING` | `true` | Test connections before use. |
-| `SM_DB_POOL_RECYCLE` | `1800` | Recycle connections after N seconds (helps with LB idle drops). |
+| `SM_DB_POOL_RECYCLE` | `1800` | Connection recycling interval in seconds. |
 | `SM_DB_POOL_TIMEOUT` | `30` | Seconds waiting for a pooled connection. |
 | `SM_DB_CONNECT_TIMEOUT` | `10` | Driver connection timeout in seconds. |
-| `SM_DB_STATEMENT_TIMEOUT_MS` | `0` | PostgreSQL statement timeout; zero omits the startup parameter. |
-| `SM_DB_IDLE_IN_TX_TIMEOUT_MS` | `0` | PostgreSQL idle-in-transaction timeout; zero omits the startup parameter. |
+| `SM_DB_STATEMENT_TIMEOUT_MS` | `0` | PostgreSQL statement timeout. Zero omits the startup parameter. |
+| `SM_DB_IDLE_IN_TX_TIMEOUT_MS` | `0` | PostgreSQL idle-in-transaction timeout. Zero omits the startup parameter. |
 
-Pools are **per process**. With multiple `uvicorn --workers`, total connections =
-`workers × (SM_DB_POOL_SIZE + SM_DB_MAX_OVERFLOW)`; keep it under the database's
-`max_connections` (Postgres default 100) or workers raise
-`asyncpg.TooManyConnectionsError` under load. See
-[deployment](deployment.md#build) for sizing examples.
+Total possible web connections are
+`workers × (SM_DB_POOL_SIZE + SM_DB_MAX_OVERFLOW)`. See
+[database tuning](../database/tuning.md) for worker pools and PgBouncer.
 
-## Host settings (`HostSettings`)
+## Sentry (optional)
 
-These are declared on `HostSettings` and registered under `package="host"`, so
-they appear in the admin UI at `/admin/settings/`. Both boot `Settings` and
-runtime `HostSettings` resolve **env → DB → default**, where env includes the
-discovered project `.env` and process variables take precedence over that file.
+Install `simple_module_hosting[sentry]`. These settings are read at startup
+before the DB opens. See [Sentry](/framework/sentry).
 
-| Setting | Env var | Default | Applied |
-|---|---|---|---|
-| `multi_tenant` | `SM_MULTI_TENANT` | `false` | At boot; restart required. |
-| `tenant_header` | `SM_TENANT_HEADER` | `""` | At boot; restart required. |
-| `i18n_default_locale` | `SM_I18N_DEFAULT_LOCALE` | `en` | At boot; must be in supported locales. Restart required. |
-| `i18n_supported_locales` | `SM_I18N_SUPPORTED_LOCALES` | `["en"]` | At boot; restart required. |
-| `i18n_cookie_name` | `SM_I18N_COOKIE_NAME` | `locale` | At boot; restart required. |
-| `maintenance_mode` | `SM_MAINTENANCE_MODE` | `false` | Runtime; serve everyone but admins a 503. |
-| `maintenance_message` | `SM_MAINTENANCE_MESSAGE` | `""` | Runtime; optional operator note. |
-| `public_base_url` | `SM_PUBLIC_BASE_URL` | `""` | Runtime; public origin for canonical / `og:url`. Never derived from request `Host`. |
-
-`merge_host_settings()` reads stored values before constructing middleware and
-registries on `app.state.sm.settings`. Runtime hydration populates
-`app.state.host.settings` with the same source precedence. Editing a boot-only
-field in the DB takes effect after restart; runtime fields can change live
-unless env pins them. See [Settings](/framework/settings).
+| Variable | Default | Notes |
+|---|---|---|
+| `SM_SENTRY_DSN` | unset | Enables error reporting in the web and Celery worker processes. |
+| `SM_SENTRY_ENVIRONMENT` | `SM_ENVIRONMENT` | Sentry environment tag. |
+| `SM_SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Performance trace sampling, from `0.0` to `1.0`. |
 
 ## Users module
 
-Most users settings (signup, OAuth/OIDC credentials, rate limits; SMTP lives in the [`mail` module](/modules/mail)) are now **DB-backed** — edit them in the admin UI at `/admin/settings/` under Users, not via env vars. The env vars below are the genuine bootstrap-time exceptions read at process start.
+Edit signup, OAuth/OIDC sign-in and other Users configuration in the admin
+settings editor. The variables below seed accounts or supply signing secrets.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_USERS_BOOTSTRAP_EMAIL` | unset | Auto-creates an admin if set **and** the users table is empty. |
-| `SM_USERS_BOOTSTRAP_PASSWORD` | unset | Paired with the email above. |
-| `SM_USERS_BOOTSTRAP_PASSWORD_GENERATED` | unset | Internal entrypoint marker (`1`): log generated credentials at WARNING only when the bootstrap admin is created. |
-| `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optional second non-admin seed user (handy in dev). |
-| `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Paired with the user email above. |
-| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | dev placeholder | HMAC key for password-reset tokens. **Must** be overridden in production (boot fails otherwise). |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | dev placeholder | HMAC key for email-verification tokens. **Must** be overridden in production (boot fails otherwise). |
+| `SM_USERS_BOOTSTRAP_EMAIL` | unset | Creates the first admin if the users table is empty. |
+| `SM_USERS_BOOTSTRAP_PASSWORD` | unset | Password paired with the admin email. |
+| `SM_USERS_BOOTSTRAP_PASSWORD_GENERATED` | unset | Internal entrypoint marker. `1` logs generated credentials when the bootstrap admin is created. |
+| `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optionally seeds a second account without admin privileges. |
+| `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Password paired with the second account's email. |
+| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | dev placeholder | HMAC key for password-reset tokens. Supply a non-placeholder value in production. |
+| `SM_USERS_VERIFICATION_TOKEN_SECRET` | dev placeholder | HMAC key for email-verification tokens. Supply a non-placeholder value in production. |
+
+The Users setting `oauth_microsoft_discovery_url` is honored only when
+`SM_ENVIRONMENT` is explicitly `development` or `testing`.
+
+## Keycloak and OIDC modules
+
+These variables seed defaults when each module's settings class is imported.
+Stored settings take precedence. See [Keycloak](/modules/keycloak) and
+[OIDC](/modules/oidc).
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SM_KEYCLOAK_SERVER_URL` | `""` | Keycloak server base URL. |
+| `SM_KEYCLOAK_REALM` | `""` | Realm name. |
+| `SM_KEYCLOAK_CLIENT_ID` | `""` | OAuth client ID. |
+| `SM_KEYCLOAK_CLIENT_SECRET` | `""` | OAuth client secret. |
+| `SM_KEYCLOAK_TRUST_TENANT_CLAIM` | `false` | Allow a verified token's tenant claim to supply tenant context. |
+| `SM_OIDC_PROVIDER` | `generic` | Provider preset used for discovery and claims defaults. |
+| `SM_OIDC_DISCOVERY_URL` | `""` | OpenID Connect discovery document URL. An explicit URL wins over the preset-derived URL. |
+| `SM_OIDC_TENANT_ID` | `""` | Identity provider tenant ID used by presets such as Entra to derive discovery. |
+| `SM_OIDC_CLIENT_ID` | `""` | OIDC client ID. |
+| `SM_OIDC_CLIENT_SECRET` | `""` | OIDC client secret. |
+| `SM_OIDC_ROLES_CLAIM_PATH` | provider preset | Claim path used to extract roles. |
 
 ## Background tasks (Celery)
 
-Celery config (`broker_url`, `result_backend`, queue, retention, etc.) is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under BackgroundTasks. Defaults are `redis://localhost:6379/0` (broker) and `/1` (result backend). Because workers read the broker/backend once at process start, changing those values requires a worker restart.
+The settings fields below resolve **env → DB → default**. Prefer
+`SM_REDIS_URL` for Redis connectivity and the BackgroundTasks admin editor
+for tuning. Restart affected web, worker and beat processes for changes to
+their startup configuration. See [Background tasks](/modules/background_tasks).
 
-Three fields are still read from the environment, because they have to work *before* any DB row exists. When one of these variables is set it wins over a stored DB value for that field (env → DB → default), and so does `SM_REDIS_URL` for both the broker and the result backend. The admin UI refuses to save a field the environment sets.
+### Connection, routing and worker settings
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Read at construction. Needed in a container: the production validator rejects a `localhost` broker, so without this an app with the module installed can't boot far enough to hydrate settings — and a worker process, which never sees `app.state`, has no other source at all. |
-| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Same reasoning as the broker. |
-| `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Read at module-import time, so test suites that never run the FastAPI lifespan can still flip it. Runs tasks synchronously in the calling process. |
+| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Explicit broker URL takes precedence over `SM_REDIS_URL`. Production rejects a localhost broker. |
+| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Explicit result backend URL takes precedence over `SM_REDIS_URL`. Production rejects a localhost result backend. |
+| `SM_BG_TASKS_TASK_DEFAULT_QUEUE` | `default` | Queue for tasks without an explicit route. |
+| `SM_BG_TASKS_TASK_ROUTES_OVERRIDE` | `{}` | JSON object mapping task patterns to queues or supported route options. |
+| `SM_BG_TASKS_VISIBILITY_TIMEOUT_SECONDS` | unset | Override the Redis visibility timeout. |
+| `SM_BG_TASKS_WORKER_MAX_TASKS_PER_CHILD` | unset | Recycle a child after this many tasks. |
+| `SM_BG_TASKS_WORKER_MAX_MEMORY_PER_CHILD_KB` | unset | Child memory threshold for recycling, in KiB. |
+| `SM_BG_TASKS_TASK_REJECT_ON_WORKER_LOST` | unset | Requeue tasks when the executing worker child is lost. |
+| `SM_BG_TASKS_TASK_SOFT_TIME_LIMIT` | unset | Soft task limit in seconds. |
+| `SM_BG_TASKS_TASK_TIME_LIMIT` | unset | Hard task limit in seconds. Must exceed the soft limit when both are set. |
+| `SM_BG_TASKS_WORKER_CONCURRENCY` | unset | Override worker concurrency. |
+| `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Execute tasks synchronously in the calling process. |
+| `SM_BG_TASKS_TASK_EAGER_PROPAGATES` | `true` | Reraise task exceptions in eager mode. |
+| `SM_BG_TASKS_BROADCAST_INVALIDATIONS` | `true` | Broadcast cache invalidations across processes when the broker uses Redis. |
+| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation` | Redis Pub/Sub channel for invalidation messages. |
+| `SM_BG_TASKS_DB_POOL_SIZE` | `2` | Pool size for each worker engine. |
+| `SM_BG_TASKS_DB_MAX_OVERFLOW` | `3` | Overflow connections per worker engine. |
+| `SM_BG_TASKS_DB_RECYCLE` | `1800` | Worker connection recycling interval in seconds. |
+| `SM_BG_TASKS_DB_STATEMENT_TIMEOUT_MS` | unset | Override the host PostgreSQL statement timeout for workers. Zero omits it. |
 
-For a Redis broker and result backend, set `SM_REDIS_URL` instead: the two per-field variables log a deprecation warning when they hold a Redis URL (`redis://` or `rediss://`). They stay the way to set any other transport, such as `memory://` + `cache+memory://` for a production host that runs tasks in-process with no Redis, or an AMQP broker, and those values log no warning.
+The per-field broker and result backend variables remain supported for other
+transports. They log a deprecation warning when set to Redis URLs.
+
+### Tracking, retained logs and durable events
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SM_BG_TASKS_STUCK_AFTER_SECONDS` | `300` | Mark running tasks stuck after this long without a heartbeat. |
+| `SM_BG_TASKS_STUCK_SWEEP_INTERVAL_SECONDS` | `60` | Interval between stuck-task sweeps. |
+| `SM_BG_TASKS_PURGE_INTERVAL_SECONDS` | `86400` | Interval between retention sweeps. |
+| `SM_BG_TASKS_RETENTION_DAYS` | `14` | Days to keep terminal task execution records. |
+| `SM_BG_TASKS_MAX_RETRIES` | `3` | Maximum manual retries per execution chain. |
+| `SM_BG_TASKS_LOG_SINK_ENABLED` | `false` | Persist application and task log lines in the database. |
+| `SM_BG_TASKS_LOG_SINK_LEVEL` | `INFO` | Minimum level for retained logs. |
+| `SM_BG_TASKS_LOG_RETENTION_DAYS` | `7` | Days to keep retained logs. |
+| `SM_BG_TASKS_OUTBOX_MODE` | `celery` | Durable delivery runner, either `celery` or `inprocess`. |
+| `SM_BG_TASKS_OUTBOX_MAX_ATTEMPTS` | `8` | Delivery attempts before an outbox row is marked dead. |
+| `SM_BG_TASKS_OUTBOX_SWEEP_INTERVAL_SECONDS` | `5` | Interval between outbox polls. |
+| `SM_BG_TASKS_OUTBOX_LEASE_SECONDS` | `300` | How long a worker owns its claimed delivery before another can reclaim it. |
+| `SM_BG_TASKS_OUTBOX_HANDLER_TIMEOUT_SECONDS` | unset | Handler deadline per attempt. Unset uses the lease duration minus a safety margin. |
+
+Execution tracking mode and publish tracking are configured in the admin editor.
+
+### Per-process environment settings
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SM_BG_TASKS_CELERY_OVERRIDES` | `{}` | JSON object of supported raw Celery configuration overrides. Serializer, import and code-loading keys are rejected. |
+| `SM_BG_TASKS_WORKER_QUEUES` | unset | Comma-separated queues for this worker. Also scopes the modules it loads. |
+| `SM_BG_TASKS_INCLUDE_MODULES` | unset | Comma-separated Python package names to include even without a queue match. |
+| `SM_BG_TASKS_EXCLUDE_MODULES` | unset | Comma-separated Python package names to exclude. Exclusion takes precedence over inclusion. |
 
 ## File storage module
 
-File storage config is now **DB-backed** — edit it in the admin UI at `/admin/settings/` under Files. The key fields and defaults:
-
-| Setting | Default | Notes |
-|---|---|---|
-| `backend` | `filesystem` | `filesystem` or `s3` (S3-compatible: AWS S3, MinIO, R2). |
-| `fs_root_path` | `./uploads` | Filesystem backend root directory. |
-| `s3_bucket` | `""` | S3 bucket name (required when backend is `s3`). |
-| `s3_region` | `""` | S3 region (required when backend is `s3`). |
-| `s3_endpoint_url` | `""` | Custom endpoint for MinIO / R2; blank uses AWS default. |
+File storage settings are DB-backed. Edit them under Files in the admin
+settings editor. The defaults use the filesystem backend and `./uploads`.
+See [File storage](/modules/file_storage) for S3 and custom backends.
 
 ## Patterns
 
-### Per-module prefix
+### Formats and precedence
 
-Every module-owned env var uses `SM_<MODULE_UPPER>_*`. Keeps settings self-describing and avoids collisions.
+Use JSON for Pydantic list and object settings. The trusted proxy and
+per-worker queue and module filters explicitly use comma-separated strings.
+Pydantic booleans are case-insensitive and accept `true`, `1`, `yes` or
+`on` for true and `false`, `0`, `no` or `off` for false. Unrecognized
+values fail validation.
 
-### Comma-separated lists
+For env-readable host settings, process variables take precedence over the
+project `.env`, then stored overrides, then defaults. Module settings that
+use `DbBackedSettings` resolve from stored values and defaults. The
+`smpy settings import-from-env` migration command can import legacy
+`SM_<MODULE>_<FIELD>` values into the DB.
 
-Pydantic parses comma-separated strings into `list[str]` — `SM_MODULES_ENABLED=users,dashboard` becomes `["users", "dashboard"]`. (`SM_AUTH_PUBLIC_PATHS` is the exception — it takes a JSON array, e.g. `["/status", "/api/webhook"]`.)
+### Repository tools and tests
 
-### Booleans
-
-`true`, `1`, `yes`, `on` → `True`. Everything else → `False`. Pydantic is strict — `SM_DEBUG=True` works, `SM_DEBUG=TRUE` works, but watch for whitespace.
-
-### Placeholder-secret check
-
-In production (`SM_ENVIRONMENT` not in `{development, testing}`), boot fails if `SM_SECRET_KEY == "change-me-in-production"`. Override before deploying.
-
-### `.env` files
-
-The app loads `.env` via pydantic's `BaseSettings`. Order of precedence:
-
-1. Actual environment variables.
-2. The project `.env` discovered by walking up from the current directory (or under `SM_PROJECT_ROOT`).
-3. Stored DB overrides for host settings, when merged or hydrated.
-4. Defaults from the settings class.
-
-Keep secrets out of `.env.example` — check in only non-secret defaults.
-
-### Module-enabled allow-list
-
-```bash
-SM_MODULES_ENABLED=users,orders,dashboard
-```
-
-Loads only the listed modules. Useful for:
-
-- **Tests** — `SM_MODULES_ENABLED=users,orders` for a minimal app.
-- **Worker processes** — if you run a Celery worker as a separate container, it only needs `background_tasks` and whatever modules define tasks it processes.
-- **Emergency disable** — hide a broken module without rebuilding the image. Remove it from the list, restart.
-
-
-Worker database settings (restart required; env → DB → default):
-
-| Variable | Default | Purpose |
+| Variable | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_DB_POOL_SIZE` | `2` | Pool size for each worker engine. |
-| `SM_BG_TASKS_DB_MAX_OVERFLOW` | `3` | Overflow connections per worker engine. |
-| `SM_BG_TASKS_DB_RECYCLE` | `1800` | Connection recycling interval in seconds. |
-| `SM_BG_TASKS_DB_STATEMENT_TIMEOUT_MS` | unset | Override host statement timeout; zero omits it. |
-
-See [database tuning](../database/tuning.md) for timeout and PgBouncer details.
+| `SM_APP_PORT` | `8000` | Published host port for the repository Docker run targets. |
+| `SM_TEST_DATABASE_URL` | in-memory SQLite | Database used by the pytest fixtures. |
+| `SM_TEST_PG_URL` | local PostgreSQL `sm_test` | Database URL passed to the pytest fixtures by `make test-py-pg`. |
+| `SM_MIGRATIONS_PG_URL` | local PostgreSQL `sm_migrations_check` | Disposable database used by `make migrations-roundtrip-pg`. |
+| `SM_TEST_REDIS_URL` | unset | External Redis URL for tests that need Redis. |
+| `SM_TEST_REAL_PASSWORD_HASHING` | unset | Any nonempty value keeps real password hashing costs in tests. |
+| `SM_TEST_SEPARATE_COMPILE_CACHES` | unset | Any nonempty value disables sharing of compiled SQL between in-memory SQLite test engines. |
+| `SM_LOADTEST_COOKIE` | unset | Session cookie supplied to the Locust load test. |
