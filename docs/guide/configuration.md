@@ -62,7 +62,7 @@ DB-backed users settings (defaults): `allow_signup=false` and blank `base_url`, 
 
 ## Background tasks (Celery)
 
-The broker/result settings are DB-backed (under `background_tasks` in `/admin/settings/`) with the defaults below. The generated `docker-compose.yml` sets `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` on the `worker` and `beat` containers so they reach the in-container `redis` service.
+The broker/result settings are DB-backed (under `background_tasks` in `/admin/settings/`) with the defaults below. The generated `docker-compose.yml` sets one `SM_REDIS_URL` on the app, `worker` and `beat` containers; it seeds the broker and result backend so they reach the in-container `redis` service. `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` stay available as explicit overrides, for example for a non-Redis broker.
 
 | Setting | Default | Notes |
 |---|---|---|

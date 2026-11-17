@@ -18,7 +18,7 @@ uv sync --extra dev
 uv run pytest
 ```
 
-## Frontend assets (optional)
+## Inertia pages
 
 The pages read their text from `{{PACKAGE_NAME}}/locales/en.json`. Inside an
 app they use `t(keys.{{PACKAGE_NAME}}.…)`; the host's `make gen-i18n` (also run
@@ -27,24 +27,9 @@ A standalone module repo has no host to generate them, so its scaffolded pages
 use literal English: once the module is installed in an app, switch a string
 to `t(keys.{{PACKAGE_NAME}}.browse.title)` and the like.
 
-If this module ships TSX pages:
-
-1. Drop them in `{{PACKAGE_NAME}}/pages/` (the scaffold created the
-   directory). One file per Inertia page — e.g. `Browse.tsx`,
-   `Detail.tsx`.
-2. Build them with your bundler of choice (Vite/esbuild/etc.) into
-   `{{PACKAGE_NAME}}/static/dist/`. This directory is **gitignored** —
-   only the wheel carries it.
-3. Before releasing (`uv build`), rebuild the assets. Your
-   `publish.yml` CI should run the bundler before `uv build`; add
-   a step after "Install project + dev deps" such as
-   `npm ci && npm run build`.
-
-Hosts mount the bundle automatically at
-`/modules/{{MODULE_SLUG}}/static` — the generated
-`{{MODULE_NAME}}Module.static_mounts()` method returns the directory
-when it exists, an empty dict otherwise (so dev without a build step
-doesn't fail).
+Place TSX pages in `{{PACKAGE_NAME}}/pages/`, one file per Inertia page.
+The host discovers and bundles these sources in its own frontend build.
+Module releases need no prebundling or `static/dist/` output for Inertia pages.
 
 ## Styling (optional)
 
@@ -108,7 +93,9 @@ bump after verifying compatibility.
 
 ## Source layout
 
-`core/` holds constants, DB-backed settings and the app-state container.
+`core/` holds constants. With `--with-settings`, it also holds DB-backed
+settings and the app-state container; otherwise these files and the
+`register_settings` hook are omitted.
 `web/` holds dependencies, the CRUD service and `endpoints/{api,views}.py`.
 Keep models, contracts, pages and locales at the package root; reusable
 frontend code belongs in `ui/{components,hooks,utils}/` when needed.

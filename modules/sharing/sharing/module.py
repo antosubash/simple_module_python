@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.audit_links import AuditLink
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module_settings import register_module_settings
 from simple_module_core.tenancy import TenantRole, tenant_role
 
 from sharing.core import constants as c
@@ -40,14 +39,6 @@ class SharingModule(ModuleBase):
         from sharing.core.user_cleanup import purge_user_shares
 
         bus.subscribe_durable(UserDeleted, purge_user_shares, name=c.USER_CLEANUP_HANDLER)
-
-    def register_settings(self, app: FastAPI) -> None:
-        from sharing.core.services import SharingServices
-        from sharing.core.settings import SharingSettings
-
-        register_module_settings(
-            app, c.MODULE_PACKAGE, SharingSettings, lambda s: SharingServices(settings=s)
-        )
 
     def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from sharing.web.endpoints.api import router as api
