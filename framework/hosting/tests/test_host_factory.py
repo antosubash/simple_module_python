@@ -1,6 +1,7 @@
 """Host boot order must also hold in a fresh interpreter (#158, #194, #978)."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,17 +10,28 @@ import pytest
 from _hosting_settings_db import seed_settings_db
 
 
+@pytest.fixture(autouse=True)
+def _isolate_factory_environment(monkeypatch):
+    # Boot writes directly to os.environ, including previously absent dotenv keys.
+    monkeypatch.setattr(os, "environ", os.environ.copy())
+
+
 @pytest.mark.parametrize("layout", ["flat", "workspace"])
 def test_factory_loads_environment_before_imports_and_merges_settings(tmp_path, layout):
     root = tmp_path / "project"
     host = root / "host" if layout == "workspace" else root
     host.mkdir(parents=True)
+    templates = (
+        Path(__file__).resolve().parents[2] / "cli/simple_module_cli/templates/host/templates"
+    )
+    shutil.copytree(templates, host / "templates")
     url = seed_settings_db(
         root / "settings.db",
         [("host.tenant_header", "X-Database", "string"), ("host.log_level", "ERROR", "string")],
     )
     (root / ".env").write_text(
-        f"SM_DATABASE_URL={url}\nSM_MODULES_ENABLED=[]\nSM_SECRET_KEY={'k' * 64}\n"
+        f'SM_DATABASE_URL={url}\nSM_MODULES_ENABLED=["Auth", "Users"]\n'
+        f"SM_SECRET_KEY={'k' * 64}\n"
         "HOST_FACTORY_MARKER=loaded\nSM_LOG_FORMAT=text\nSM_DEBUG=false\n"
     )
     (host / "factory_routes.py").write_text(
@@ -71,7 +83,8 @@ assert '/api/direct-router' in app.openapi()['paths']
 
 
 @pytest.mark.parametrize(
-    "override", ["inferred", "argument", "environment", "relative_environment"]
+    "override",
+    ["inferred", "argument", "environment", "environment_dot", "relative_environment"],
 )
 def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override):
     from fastapi import APIRouter, FastAPI
@@ -81,10 +94,12 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
     root = tmp_path / "host"
     root.mkdir()
     (root / ".env.example").touch()
+    (root / ".env").write_text("HOST_FACTORY_MARKER=loaded\n")
     (root / "main.py").touch()
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "path", sys.path.copy())
     monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+    monkeypatch.delenv("HOST_FACTORY_MARKER", raising=False)
     events = []
     monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda: settings)
     monkeypatch.setattr(
@@ -109,16 +124,22 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
         return 2
 
     kwargs = {}
+    expected_root_env = str(root)
     if override == "argument":
         kwargs["project_root"] = root
-    elif override in {"environment", "relative_environment"}:
-        monkeypatch.setenv("SM_PROJECT_ROOT", str(root) if override == "environment" else "host")
+    elif override in {"environment", "environment_dot", "relative_environment"}:
+        if override == "environment_dot":
+            expected_root_env += "/."
+        monkeypatch.setenv(
+            "SM_PROJECT_ROOT", "host" if override == "relative_environment" else expected_root_env
+        )
         kwargs["project_root"] = tmp_path / "ignored"
     result = build_host_app(root / "main.py", routers=(first, second), **kwargs)
     assert result is app
     assert events == ["logging", "app"]
     assert Path.cwd() == root
-    assert os.environ["SM_PROJECT_ROOT"] == str(root)
+    assert os.environ["SM_PROJECT_ROOT"] == expected_root_env
+    assert os.environ["HOST_FACTORY_MARKER"] == "loaded"
     assert list(app.openapi()["paths"]) == ["/first", "/second"]
 
 

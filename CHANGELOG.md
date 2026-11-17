@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Host factory boot preserves explicit absolute `SM_PROJECT_ROOT` values while resolving relative overrides before changing directory (#978).
 - `make dev` generates i18n keys before starting Vite and the API in both scaffold layouts and the framework repo. `smpy add` installs declared JS dependencies and regenerates keys when the i18n package is present. After a failed install step, `smpy add` and `smpy update` print how to finish the install (#946).
 - `smpy doctor` and `make doctor` print a success line with the number of modules checked when there are no findings (#947).
 - `smpy openapi export` and `gen-types` use defaults quietly when the host settings table is empty and explain whether a fallback was caused by a missing table or an unreachable database (#948).

@@ -24,8 +24,9 @@ def build_host_app(
     Pass ``__file__`` from the host entry point. Project-root discovery starts
     in its directory, using the same markers as the CLI and migration checks.
     ``project_root`` overrides that discovery; an existing ``SM_PROJECT_ROOT``
-    takes precedence. The process changes to that root, with the entry file's
-    directory pinned on sys.path so sibling imports survive the cwd change.
+    takes precedence and absolute values are preserved. Relative overrides are
+    made absolute before changing cwd. The entry file's directory is pinned on
+    sys.path so sibling imports survive the cwd change.
 
     Routers can be APIRouter instances or ``module:attribute`` import strings.
     Use strings when a router imports settings: dotenv must populate os.environ
@@ -41,12 +42,14 @@ def build_host_app(
     from simple_module_core.dotenv import load_dotenv_into_environ
     from simple_module_core.migration_support import resolve_project_root
 
-    root = os.environ.get("SM_PROJECT_ROOT") or project_root
+    root_env = os.environ.get("SM_PROJECT_ROOT")
+    root = root_env or project_root
     if root is None:
         os.chdir(host_dir)
         root = resolve_project_root(fallback=host_dir)
     root = Path(root).resolve()
-    os.environ["SM_PROJECT_ROOT"] = str(root)
+    if not root_env or not Path(root_env).is_absolute():
+        os.environ["SM_PROJECT_ROOT"] = str(root)
     os.chdir(root)
     load_dotenv_into_environ(root / ".env")
 
