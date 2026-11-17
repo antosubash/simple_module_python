@@ -171,6 +171,21 @@ describe('PublicLayout', () => {
     },
   );
 
+  it('closes the mobile menu on Escape and returns focus to the toggle', async () => {
+    navbar.push({ label: 'Help center', url: '/help', icon: '' });
+    const user = userEvent.setup();
+    render(<PublicLayout>body</PublicLayout>);
+    const nav = within(screen.getByRole('navigation'));
+    await user.click(nav.getByRole('button', { name: 'Open menu' }));
+    nav.getAllByRole('link', { name: 'Help center' })[1].focus();
+
+    await user.keyboard('{Escape}');
+
+    const toggle = nav.getByRole('button', { name: 'Open menu' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
+  });
+
   it('keeps framework links out of an empty navbar', () => {
     render(<PublicLayout>body</PublicLayout>);
     const nav = within(screen.getByRole('navigation'));
