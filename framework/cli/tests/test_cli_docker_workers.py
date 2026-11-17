@@ -20,6 +20,7 @@ def project(tmp_path, monkeypatch):
 
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
+_BOX = re.compile(r"[│╭╮╰╯─]")
 
 
 def invoke(*args):
@@ -30,7 +31,8 @@ def invoke(*args):
 
 
 def plain(output: str) -> str:
-    return " ".join(_ANSI.sub("", output).split())
+    # Drop colour codes and Rich's box borders, which split wrapped messages.
+    return " ".join(_BOX.sub(" ", _ANSI.sub("", output)).split())
 
 
 def test_generated_worker(project, monkeypatch):
