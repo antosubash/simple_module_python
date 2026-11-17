@@ -329,7 +329,8 @@ development and testing.
   `SM_DATABASE_URL`, `SM_REDIS_URL` and `SM_USERS_BOOTSTRAP_*`;
   `SM_ENVIRONMENT`/`SM_DEBUG`/`SM_VITE_DEV_URL` describe the process. Do not
   add new configuration as env vars. Host settings: precedence
-  **env → DB → default**, and env must keep winning. `host/main.py` must call
+  **env → DB → default**, and env must keep winning. `host/main.py` uses
+  `build_host_app()` from `simple_module_hosting.host`, which calls
   `merge_host_settings()`, not `Settings()`: `create_app` reads some fields
   before the lifespan opens the DB, and every such field is marked
   restart-required (`test_build_time_settings_marked.py`). `SM_SECRET_KEY` is

@@ -29,9 +29,7 @@ async def test_scaffold_carries_no_setup_code_and_resolves_the_wizard(tmp_path) 
     # Nothing host-side: no route module, no page.
     assert not (dest / "routes_setup.py").exists()
     assert not list((client_app / "pages").rglob("Setup*"))
-    assert "setup" not in (dest / "main.py").read_text(encoding="utf-8").replace(
-        "setup_logging", ""
-    )
+    assert "setup" not in (dest / "main.py").read_text(encoding="utf-8")
 
     # What `smpy gen-pages` writes for this host, with no modules installed.
     write_module_pages_manifest([], client_app, repo_root=dest)

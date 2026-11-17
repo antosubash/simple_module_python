@@ -12,7 +12,7 @@ myapp/
 ├── README.md
 │
 ├── host/                      # the runnable application
-│   ├── main.py                # FastAPI entry point — create_app + lifespan
+│   ├── main.py                # FastAPI entry point — build_host_app
 │   ├── routes.py
 │   ├── pyproject.toml          # host deps (uv-managed): hosting + selected modules
 │   ├── alembic.ini             # Alembic config — points at migrations/
@@ -28,7 +28,7 @@ myapp/
 │   │   ├── tsconfig.json
 │   │   └── vite.config.ts
 │   └── migrations/             # Alembic migrations for ALL modules
-│       ├── env.py              # calls build_module_metadata() to union every module's MetaData
+│       ├── env.py              # calls the framework run_migrations(context) runner
 │       └── versions/
 │
 └── modules/                    # your workspace modules (smpy create-module --dest modules/<name>)
@@ -100,7 +100,7 @@ Never hand-edit the `.generated.*` files — they are overwritten on the next `m
 
 ## Where things intentionally *don't* live
 
-- **No per-module `migrations/` folder.** All migrations live in `host/migrations/versions/`. Autogenerate discovers every installed module's metadata via `build_module_metadata()` in `host/migrations/env.py`. Each module's first migration sets a `branch_labels` marker, a named target for that revision (it does not make `alembic downgrade <module>@base` a per-module rollback; see [Migrations](/database/migrations)).
+- **No per-module `migrations/` folder.** All migrations live in `host/migrations/versions/`. Autogenerate discovers every installed module's metadata through the framework runner in `host/migrations/env.py`. Each module's first migration sets a `branch_labels` marker, a named target for that revision (it does not make `alembic downgrade <module>@base` a per-module rollback; see [Migrations](/database/migrations)).
 - **No host-level `api/` folder.** REST endpoints are attached by each module via `register_routes(api_router, view_router)`. `/api/*` is the union of every module's API router.
 - **No `schemas/` top-level folder.** DTOs live inside the owning module's `contracts/` so other modules import them by name — the reverse of a monolith's "shared schemas" directory.
 
@@ -112,3 +112,22 @@ Never hand-edit the `.generated.*` files — they are overwritten on the next `m
 | `client_app/biome.json` | JS/TS linting + formatting |
 | `client_app/vitest.config.ts` | JS unit-test setup |
 | `Makefile` | Inner dev loop. If it's not `make <target>`, run the underlying `uv` / `npm` / `alembic` command directly. |
+
+## Host entry points
+
+Both flat and workspace scaffolds use the same framework-owned boot sequence:
+
+```python
+from simple_module_hosting.host import build_host_app
+
+app = build_host_app(__file__, routers=("routes:router",))
+```
+
+Use router import strings so dotenv is loaded before application imports.
+For packaged routes, use their dotted module path (for example `my_app.routes:router`).
+Pass `project_root=` for a custom layout; `SM_PROJECT_ROOT` takes precedence.
+Keep application-specific mounts after the call, using `app.state.sm.settings`
+for development-only conditions. Existing copied entry points remain supported;
+replace their common boot code with this call to receive framework upgrades.
+See [Settings](/framework/settings) for boot ordering and
+[Migrations](/database/migrations) for the matching Alembic entry point.

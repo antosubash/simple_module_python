@@ -157,56 +157,8 @@ class TestCreateHost:
         dest = tmp_path / "demo"
         create_host(dest, name="demo", modules=[])
         env_py = (dest / "migrations" / "env.py").read_text(encoding="utf-8")
-        assert "build_module_metadata" in env_py
-        assert "make_include_object" in env_py
-        assert "for mod in modules:" not in env_py
-        # Parity with host/migrations/env.py: extensions are created before revisions.
-        assert env_py.count("ensure_db_extensions(") == 2
-
-    async def test_main_py_loads_dotenv_before_settings(self, tmp_path):
-        """Regression for #158: scaffolded main.py must populate ``os.environ``
-        from ``.env`` *before* ``Settings`` is imported, otherwise framework
-        code reading ``os.environ`` directly (e.g. users.core.bootstrap's dotenv
-        fallback under uvicorn launched from ``host/``) silently misses values
-        that pydantic-settings would have picked up.
-        """
-        from simple_module_cli.scaffolding import create_host
-
-        dest = tmp_path / "demo"
-        create_host(dest, name="demo", modules=[])
-        main_py = (dest / "main.py").read_text(encoding="utf-8")
-
-        assert "load_dotenv_into_environ" in main_py
-        assert "os.chdir" in main_py
-        # The load_dotenv call must precede the first ``Settings`` import so
-        # ``BootstrapSettings``' ``env_file=".env"`` lookup and any direct
-        # ``os.environ.get(...)`` reads see the same view of the environment.
-        dotenv_idx = main_py.index("load_dotenv_into_environ(")
-        settings_import_idx = main_py.index("from simple_module_hosting import")
-        assert dotenv_idx < settings_import_idx
-
-    async def test_main_py_pins_host_dir_on_syspath_before_chdir(self, tmp_path):
-        """Regression for #194: scaffolded main.py must pin the host dir on
-        ``sys.path`` (absolute) *before* ``os.chdir``, so ``from routes import``
-        still resolves after the chdir. uvicorn launches the app as ``main:app``
-        with ``sys.path[0] == ''`` (the cwd, resolved lazily); once main.py
-        chdirs to the repo root that entry points at the wrong dir and the
-        sibling ``routes`` module is no longer importable.
-        """
-        from simple_module_cli.scaffolding import create_host
-
-        dest = tmp_path / "demo"
-        create_host(dest, name="demo", modules=[])
-        main_py = (dest / "main.py").read_text(encoding="utf-8")
-
-        assert "sys.path.insert(0, str(_HOST_DIR))" in main_py
-        syspath_idx = main_py.index("sys.path.insert(0, str(_HOST_DIR))")
-        chdir_idx = main_py.index("os.chdir(")
-        # The real import statement (the comment uses "from routes import ...").
-        routes_idx = main_py.index("from routes import router")
-        assert syspath_idx < chdir_idx < routes_idx, (
-            "sys.path pin must precede os.chdir, which must precede the routes import"
-        )
+        assert "from simple_module_hosting.migrations_env import run_migrations" in env_py
+        assert "run_migrations(context)" in env_py
 
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):
         """The Click `smpy create-host` command produces a working scaffold."""

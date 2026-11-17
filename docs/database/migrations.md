@@ -22,7 +22,7 @@ in the revision. Existing revisions are not rewritten (#813).
 ## Why centralized?
 
 - **Dependency ordering is global.** If `invoices` depends on `orders_order.id`, their migrations must order correctly. One shared Alembic history, with `down_revision` links between modules, enforces this.
-- **Autogenerate sees everything.** `host/migrations/env.py` calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
+- **Autogenerate sees everything.** `host/migrations/env.py` delegates to `run_migrations(context)`, which calls `build_module_metadata()` to union every installed module's `MetaData`. Autogenerate diffs the DB against that union and writes one migration covering all changes.
 - **Operators run one command.** `make migrate` is the only target. No "did you also run `orders/migrate`?" footgun.
 
 ## Module data upgrades in consuming hosts (#711)
@@ -181,32 +181,37 @@ The marker names the revision so you can target it (for example `alembic upgrade
 
 ## Alembic environment setup
 
-`host/migrations/env.py` looks roughly like:
+`host/migrations/env.py` delegates to the public framework runner:
 
 ```python
-from simple_module_db import (
-    build_module_metadata,
-    make_include_object,
-    make_process_revision_directives,
-    render_item,
-)
+from alembic import context
+from simple_module_hosting.migrations_env import run_migrations
 
-target_metadata = build_module_metadata()
-include_object = make_include_object(target_metadata)
-process_revision_directives = make_process_revision_directives(target_metadata)
-
-context.configure(
-    target_metadata=target_metadata,
-    include_object=include_object,
-    render_item=render_item,
-    process_revision_directives=process_revision_directives,
-)
+run_migrations(context)
 ```
 
-- `target_metadata` — union of every module's `MetaData`.
-- `include_object` — accepts only tables present in `target_metadata`, so autogenerate never diffs system tables (`alembic_version`) or any host-owned tables outside the module system.
-- `render_item` — collapses SQLModel's `AutoString` to `sa.String` and renders `StrEnum` columns with their configured labels and storage options (no application imports in revisions, #813).
-- `process_revision_directives` — re-emits expression-based (functional) indexes that autogenerate silently drops under SQLite.
+The runner discovers metadata from **every installed module**, regardless of the
+web app's enabled-module subset. Both offline SQL generation and online migration
+runs use the same hooks:
+
+- `build_module_metadata()` unions module metadata.
+- `make_include_object()` restricts autogenerate to those tables, preserving
+  host-owned tables outside the module system.
+- `render_item` renders SQLModel strings and enums without application imports.
+- `make_process_revision_directives()` preserves SQLite expression indexes and
+  rewrites Boolean defaults portably, with the existing SQLite check warnings.
+
+The runner reads `Settings().database_url`, converts async drivers to sync drivers,
+and logs the target with its password masked. A URL supplied in
+`config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE]` (from
+`simple_module_hosting.migrations`) takes precedence, so the setup wizard migrates
+its locked database. Relative SQLite URLs retain settings' project-root anchoring.
+Module extensions are emitted offline or committed before online revisions.
+Alembic logging keeps existing application loggers enabled for in-process runs.
+
+Existing copied environments continue working. To receive future fixes, replace
+the copied environment with the snippet above, retaining application-specific
+customizations separately. Revision files and Alembic configuration stay in the host.
 
 ## Boot-time migration check
 

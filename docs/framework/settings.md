@@ -29,7 +29,8 @@ class BootstrapSettings(BaseSettings):
 
 The `SM_` prefix means every field is set via `SM_<FIELD>` (e.g. `SM_DATABASE_URL`, `SM_LOG_FORMAT`). `multi_tenant` / `tenant_header` and the other tunables live on the DB-backed `HostSettings` half.
 
-Hosts call `merge_host_settings()` before `create_app` to apply stored host
+The public `build_host_app()` factory calls `merge_host_settings()` before
+`create_app` to apply stored host
 settings before middleware and module discovery are built. Precedence is
 **env → DB → default**. Here, env includes the discovered project `.env`;
 process environment variables take precedence over that file. Both the boot
@@ -37,6 +38,29 @@ process environment variables take precedence over that file. Both the boot
 `find_env_file()`, including from a project subdirectory, without requiring
 `load_dotenv_into_environ()` first. Direct settings construction supports an
 explicit `_env_file` path or `_env_file=None` to disable dotenv loading.
+
+A host entry point can delegate the complete boot sequence:
+
+```python
+from simple_module_hosting.host import build_host_app
+
+app = build_host_app(__file__, routers=("routes:router",))
+```
+
+The factory pins the entry directory on `sys.path`, publishes `SM_PROJECT_ROOT`,
+changes to the project root and loads dotenv into `os.environ` **before importing
+settings or application code**. This order also covers code reading environment
+variables directly. Router import strings defer their imports until after dotenv;
+pre-built `APIRouter` instances are supported when no deferred import is needed.
+The existing package exports remain available, loaded lazily to preserve this order.
+
+Project-root discovery starts at the entry directory and uses the same markers
+as the CLI and migration checks. Pass `project_root=` for a custom layout. An existing
+`SM_PROJECT_ROOT` wins over either. This is process startup code: configure one host
+per process. Keep app-specific additions after the call and read boot settings from
+`app.state.sm.settings`. `create_app` retains its development-only extras.
+Restart-required fields are still merged before middleware and module discovery;
+calling `Settings()` instead would bypass DB overrides at that stage.
 
 The set of env-supplied fields is cached once per settings class per process,
 including custom sources and `env_seeded_fields`. Configure process variables,
