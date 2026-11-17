@@ -65,7 +65,7 @@ def forbid_localhost_broker_in_production(broker_url: str, result_backend: str) 
     bad = [
         name
         for name, url in (("broker_url", broker_url), ("result_backend", result_backend))
-        if "localhost" in url or "127.0.0.1" in url
+        if "localhost" in url or "127.0.0.1" in url or "[::1]" in url
     ]
     if bad:
         names = ", ".join(bad)

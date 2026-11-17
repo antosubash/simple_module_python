@@ -11,6 +11,20 @@ Celery + Redis task queue with persistent history, an admin UI for monitoring + 
 | `view_prefix` | `/admin/background-tasks` |
 | `depends_on` | `[]` (optional: `["Settings"]`) |
 
+## Redis connection
+
+Set `SM_REDIS_URL` on the web, worker and beat processes. One URL seeds the
+Celery broker and result backend, Redis leases and shared rate limiting.
+Generated Compose files use `SM_REDIS_URL=redis://redis:6379/0` for all three;
+`smpy docker add-worker` copies it from the existing worker. Celery's result
+keys are namespaced, so the broker and backend can share a Redis database.
+Production rejects localhost URLs even when supplied only through `SM_REDIS_URL`.
+
+`SM_BG_TASKS_BROKER_URL` and `SM_BG_TASKS_RESULT_BACKEND` remain explicit
+per-field overrides for non-Redis transports (for example AMQP and a SQL result
+backend) or separate connections. They take precedence over `SM_REDIS_URL`;
+Redis deployments using them receive a deprecation warning.
+
 ## Writing a task
 
 ```python

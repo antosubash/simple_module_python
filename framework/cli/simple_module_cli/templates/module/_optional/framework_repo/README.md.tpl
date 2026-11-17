@@ -29,9 +29,10 @@ Document the real routes, settings and any events the module emits here.
 
 ## Configuration
 
-Settings are a `DbBackedSettings` subclass (`{{PACKAGE_NAME}}/core/settings.py`) read
-from the settings table and exposed on `app.state.{{PACKAGE_NAME}}`; nothing is
-read from environment variables.
+By default the module has no settings. Scaffold with `--with-settings` to add
+a `DbBackedSettings` subclass in `{{PACKAGE_NAME}}/core/settings.py` and its
+services container. The host hydrates it from the settings table and mounts
+the container on `app.state.{{PACKAGE_NAME}}`; no environment variables are read.
 
 ## Source layout
 

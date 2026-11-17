@@ -26,7 +26,9 @@ ROOT = Path(__file__).resolve().parent.parent
 def main() -> int:
     parser = argparse.ArgumentParser(description="Scaffold a new module in this repository")
     parser.add_argument("name", help="Module name in snake_case (e.g. 'orders', 'blog_posts')")
-    name = parser.parse_args().name
+    parser.add_argument("--with-settings", action="store_true", help="Include DB-backed settings")
+    args = parser.parse_args()
+    name = args.name
 
     try:
         validate_scaffold_name(name)
@@ -37,6 +39,7 @@ def main() -> int:
             name=name,
             framework_version=resolve_framework_version(),
             framework_repo=True,
+            with_settings=args.with_settings,
         )
     except (InvalidScaffoldNameError, FileExistsError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

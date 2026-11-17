@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -107,12 +109,27 @@ def _load_script():
 
 
 class TestScript:
-    def test_scaffolds_and_wires(self, repo: Path, monkeypatch: pytest.MonkeyPatch):
+    @pytest.mark.skipif(shutil.which("make") is None, reason="needs make")
+    def test_make_keeps_scaffold_flags_out_of_i18n(self):
+        result = subprocess.run(
+            ["make", "-n", "new-module", "name=orders", "ARGS=--with-settings"],
+            cwd=Path(__file__).resolve().parents[3],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "scripts/new_module.py orders --with-settings" in result.stdout
+        assert "scripts/gen_i18n.py --with-settings" not in result.stdout
+
+    @pytest.mark.parametrize("flags", [[], ["--with-settings"]])
+    def test_scaffolds_and_wires(self, repo: Path, monkeypatch: pytest.MonkeyPatch, flags):
         script = _load_script()
         monkeypatch.setattr(script, "ROOT", repo)
-        monkeypatch.setattr(sys, "argv", ["new_module.py", "orders"])
+        monkeypatch.setattr(sys, "argv", ["new_module.py", "orders", *flags])
         assert script.main() == 0
         assert (repo / "modules" / "orders" / "orders" / "module.py").is_file()
+        assert (repo / "modules/orders/orders/core/settings.py").exists() is bool(flags)
         assert '"simple_module_orders"' in (repo / "host" / "pyproject.toml").read_text()
         assert '"modules/orders/tests"' in (repo / "pyproject.toml").read_text()
 

@@ -198,11 +198,9 @@ def create_module(
     framework_version: str | None = None,
     standalone: bool = True,
     framework_repo: bool = False,
+    with_settings: bool = False,
 ) -> Path:
     """Scaffold a module package at ``dest``.
-
-    Implementation lives in ``core/`` and ``web/``; nested tests mirror those
-    areas without test-package initializers. Root lookup paths stay stable.
 
     When ``framework_version`` is a concrete version, the template's
     forward-looking ``simple_module_*`` ranges are rewritten to an exact pin so
@@ -210,18 +208,12 @@ def create_module(
     workspace that created it). Left as ``None`` (or the ``"*"`` sentinel), the
     template's ranges are kept verbatim. See GH #195.
 
-    When ``standalone`` is False, the scaffolded ``.github/`` (CI + PyPI publish
-    workflows) is omitted. Those nested workflows never run inside an existing
-    host repo (GitHub only reads the repo-root ``.github/``) and ``publish.yml``
-    is a footgun there, so callers creating an *in-repo* module pass
-    ``standalone=False``. See GH #210.
+    ``standalone=False`` omits nested ``.github/`` workflows (GH #210).
+    ``with_settings=True`` adds DB-backed settings and an app-state container.
 
-    ``framework_repo=True`` is the variant for a module that lives in the
-    simple_module_python monorepo itself (``make new-module``): it overlays
-    ``_optional/framework_repo/`` (a workspace-sourced ``pyproject.toml`` with
-    the metadata ``scripts/check_metadata.py`` requires, a LICENSE and README
-    that pass ``check_readmes.py``) and implies no ``.github/``. Wiring into
-    the repo's own pyproject files is :mod:`simple_module_cli.framework_repo`'s job.
+    ``framework_repo=True`` overlays workspace metadata, LICENSE and README
+    for ``make new-module`` and implies no ``.github/``. Wiring the repo's
+    pyproject files is :mod:`simple_module_cli.framework_repo`'s job.
 
     ``standalone=True`` additionally overlays ``_optional/standalone/`` (npm
     devDependencies + a tsconfig that resolves ``@simple-module-py/ui`` from the
@@ -238,52 +230,61 @@ def create_module(
     singular = to_singular(package_name)
     if framework_repo:
         standalone = False
-    substitutions = {
-        "{{MODULE_NAME}}": display_name,
-        "{{MODULE_SLUG}}": slug,
-        "{{PACKAGE_NAME}}": package_name,
-        "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
-        # The sample CRUD entity the module ships ("orders" -> Order).
-        "{{SINGULAR}}": singular,
-        "{{SINGULAR_UPPER}}": singular.upper(),
-        "{{SINGULAR_CLASS}}": to_pascal_case(singular),
-        "{{CONSTANTS_IMPORTS}}": module_constants_import(package_name.upper()),
-        "{{MODEL_CONFIG_TY_IGNORE}}": MODEL_CONFIG_TY_IGNORE if framework_repo else "",
-        # npm-side pin for @simple-module-py/* devDependencies; "*" when the
-        # caller skips pinning (mirrors _should_pin_framework_version).
-        "{{FRAMEWORK_VERSION}}": (
-            framework_version
-            if framework_version is not None and _should_pin_framework_version(framework_version)
-            else "*"
-        ),
-    }
     try:
         base_root = _resolve_template_root("module", template_root)
+        # Insert the hook first so its package/name tokens are rendered below.
+        substitutions = {
+            "{{SETTINGS_HOOK}}": (
+                (base_root / "_optional" / "settings-hook.py.tpl").read_text(encoding="utf-8")
+                if with_settings
+                else ""
+            ),
+            "{{SETTINGS_FASTAPI_IMPORT}}": ", FastAPI" if with_settings else "",
+            "{{SETTINGS_IMPORT}}": (
+                "from simple_module_core.module_settings import register_module_settings\n"
+                if with_settings
+                else ""
+            ),
+            "{{MODULE_NAME}}": display_name,
+            "{{MODULE_SLUG}}": slug,
+            "{{PACKAGE_NAME}}": package_name,
+            "{{PACKAGE_NAME_UPPER}}": package_name.upper(),
+            # The sample CRUD entity the module ships ("orders" -> Order).
+            "{{SINGULAR}}": singular,
+            "{{SINGULAR_UPPER}}": singular.upper(),
+            "{{SINGULAR_CLASS}}": to_pascal_case(singular),
+            "{{CONSTANTS_IMPORTS}}": module_constants_import(package_name.upper()),
+            "{{MODEL_CONFIG_TY_IGNORE}}": MODEL_CONFIG_TY_IGNORE if framework_repo else "",
+            # npm-side pin for @simple-module-py/* devDependencies; "*" when the
+            # caller skips pinning (mirrors _should_pin_framework_version).
+            "{{FRAMEWORK_VERSION}}": (
+                framework_version
+                if framework_version is not None
+                and _should_pin_framework_version(framework_version)
+                else "*"
+            ),
+        }
         _apply_template_files(
             base_root,
             dest,
             substitutions=substitutions,
             path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
         )
-        if standalone:
-            # Overlay standalone-only JS configs over the workspace defaults
-            # (the base pass skips _optional/; an explicit root iterates it —
-            # same pattern as recipes.py).
-            _apply_template_files(
-                base_root / "_optional" / "standalone",
-                dest,
-                substitutions=substitutions,
-                path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
-            )
-        else:
+        # Explicit roots render optional overlays skipped by the base pass.
+        for overlay, enabled in (
+            ("settings", with_settings),
+            ("standalone", standalone),
+            ("framework_repo", framework_repo),
+        ):
+            if enabled:
+                _apply_template_files(
+                    base_root / "_optional" / overlay,
+                    dest,
+                    substitutions=substitutions,
+                    path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
+                )
+        if not standalone:
             shutil.rmtree(dest / ".github", ignore_errors=True)
-        if framework_repo:
-            _apply_template_files(
-                base_root / "_optional" / "framework_repo",
-                dest,
-                substitutions=substitutions,
-                path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
-            )
         if _should_pin_framework_version(framework_version):
             pin_framework_deps(dest / "pyproject.toml", framework_version)
     except Exception:

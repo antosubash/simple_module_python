@@ -61,7 +61,7 @@ smpy new my_app --no-install
 
 `--with` accepts a comma-separated list of catalog keys (`auth, users, permissions, dashboard, settings, feature_flags, file_storage, background_tasks`). Transitive `requires` are auto-added; the wizard prints `Added X (required by Y)` so you can see what got pulled in. An unknown key fails fast with the available list (so `--with=does_not_exist` is self-correcting). Note the catalog is a curated subset — repo modules like `products`, `keycloak`, and `audit_log` are **not** catalog keys; add those to an existing host by installing the package (see the pitfall below).
 
-Selecting `background_tasks` also runs its post-scaffold **recipe**: it drops `docker-compose.yml`, `scripts/run_worker.py`, host/worker Dockerfiles, a `SM_BG_TASKS_BROKER_URL` entry in `.env.example`, and Celery `make` targets. The closing "Next steps" then reminds you to run `docker compose up -d redis worker beat` for the worker/beat processes.
+Selecting `background_tasks` also runs its post-scaffold **recipe**: it drops `docker-compose.yml`, `scripts/run_worker.py`, a shared app/worker Dockerfile, an `SM_REDIS_URL` entry in `.env.example`, and Celery `make` targets. App, worker and beat share that one Redis URL; `smpy docker add-worker` copies it. Keep `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` for per-field overrides such as non-Redis transports. The closing "Next steps" then reminds you to run `docker compose up -d redis worker beat` for the worker/beat processes.
 
 **Options summary:**
 
@@ -99,7 +99,12 @@ smpy create-module orders                         # writes ./simple_module_order
 
 Inside a workspace app, `uv run smpy add ../modules/orders --path host` syncs the whole workspace. If the host has a `client_app`, it also runs `uv run smpy host gen-pages` and `uv run smpy host sync-js-deps`, followed by `uv run smpy host gen-i18n` if the i18n package is installed. Follow the frontend hint to run `make install` from the app root, which links the module's pages and generates its keys. Run `make migration msg="add orders"`, `make migrate` and `make test`, then restart `make dev`. Running `uv sync` inside the module directory would uninstall the rest of the app from the shared venv. Outside an app, the scaffolder prints the standalone flow (`uv sync --extra dev`, `uv run pytest`, `smpy module verify`).
 
-The result is a complete package: `pyproject.toml` with the entry point declared, `module.py` with `ModuleBase`/`ModuleMeta` skeleton, `models.py`, `contracts/`, `web/endpoints/{api,views}.py`, `pages/`, `locales/en.json`, `core/{constants,settings,services}.py`, `web/{deps,service}.py`, plus nested `tests/<area>/<feature>/test_<module>_*.py` wired up with `simple_module_test` fixtures.
+Settings are opt-in: pass `--with-settings` to add `core/settings.py`,
+`core/services.py` and the DB-backed `register_settings` hook. Without it,
+none of that plumbing is generated. In this repo use
+`make new-module name=orders ARGS=--with-settings`.
+
+The result is a complete package: `pyproject.toml` with the entry point declared, `module.py` with `ModuleBase`/`ModuleMeta` skeleton, `models.py`, `contracts/`, `web/endpoints/{api,views}.py`, `pages/`, `locales/en.json`, `core/constants.py`, `web/{deps,service}.py`, plus nested `tests/<area>/<feature>/test_<module>_*.py` wired up with `simple_module_test` fixtures.
 
 `<name>` accepts any case — `orders`, `Orders`, `ORDERS`, `blog_posts` all work. The CLI lowercases it for the directory and PascalCases it for `ModuleMeta.name`.
 

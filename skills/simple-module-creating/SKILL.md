@@ -39,6 +39,12 @@ host. Inside a `smpy new` app, `smpy create-module orders --dest modules/orders`
 makes a workspace member and prints the app's steps (`smpy add … --path host`,
 `make install`, `make migration`); don't run `uv sync` inside the module there.
 
+Settings are omitted by default. Add `--with-settings` to `smpy create-module`
+or `ARGS=--with-settings` to `make new-module` only when the module needs
+DB-backed configuration. This adds the settings class, services container and
+`register_settings` hook. Inertia pages are bundled by the host; module releases
+need no page prebundling.
+
 ## What scaffolding produces
 
 ```text
@@ -48,7 +54,7 @@ modules/orders/
 │   ├── __init__.py, py.typed, module.py
 │   ├── models.py                 # or models/; discovered by name
 │   ├── contracts/                # public SQLModel DTOs and extension contracts
-│   ├── core/                     # constants.py, settings.py, services.py, errors.py
+│   ├── core/                     # constants.py; settings/services only with --with-settings
 │   ├── web/                      # deps.py, service.py (or services/), private schemas
 │   │   └── endpoints/            # api.py, views.py
 │   ├── pages/                    # Inertia pages, api.ts, api.generated.ts

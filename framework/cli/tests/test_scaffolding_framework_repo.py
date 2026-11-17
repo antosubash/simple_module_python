@@ -56,7 +56,7 @@ class TestRichModuleContent:
             ast.parse(py.read_text(), filename=str(py))
         for rel in [
             "core/constants.py", "models.py", "web/service.py", "web/deps.py", "py.typed",
-            "core/__init__.py", "core/settings.py", "core/services.py", "web/__init__.py",
+            "core/__init__.py", "web/__init__.py",
             "contracts/schemas.py", "locales/en.json", "pages/Browse.tsx", "pages/Edit.tsx",
         ]:  # fmt: skip
             assert (pkg / rel).is_file(), rel
@@ -86,7 +86,7 @@ class TestRichModuleContent:
         module_py = (pkg / "module.py").read_text()
         views = (pkg / "web" / "endpoints" / "views.py").read_text()
         assert "label_key=MENU_LABEL_KEY" in module_py
-        assert "register_module_settings(" in module_py
+        assert "register_settings" not in module_py
         assert "app.state.orders =" not in module_py
         assert "PAGE_BROWSE," in views
         assert 'render("Orders/' not in views

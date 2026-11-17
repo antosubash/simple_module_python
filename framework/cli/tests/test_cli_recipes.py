@@ -81,7 +81,9 @@ def test_recipe_sets_broker_url_env_var(tmp_path: Path) -> None:
     _scaffold_minimal_host(tmp_path)
     BackgroundTasksRecipe().apply(tmp_path, _ctx())
     env_text = (tmp_path / ".env.example").read_text()
-    assert "SM_BG_TASKS_BROKER_URL=redis://redis:6379/0" in env_text
+    assert "SM_REDIS_URL=redis://redis:6379/0" in env_text
+    assert "SM_BG_TASKS_BROKER_URL" not in env_text
+    assert "SM_BG_TASKS_RESULT_BACKEND" not in env_text
 
 
 def test_recipe_makefile_snippet_idempotent(tmp_path: Path) -> None:

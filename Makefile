@@ -304,10 +304,10 @@ migration-history:          ## Show migration history
 # Scaffolding
 new-module:                 ## Scaffold a new module (usage: make new-module name=orders)
 	@test -n "$(name)" || (echo "Error: Please provide a module name, e.g. make new-module name=orders" && exit 1)
-	uv run python scripts/new_module.py $(name)
+	uv run python scripts/new_module.py $(name) $(ARGS)
 	uv sync --all-packages
 	npm install
-	$(MAKE) gen-i18n
+	$(MAKE) gen-i18n ARGS=
 	@# Replace the scaffold's sample types with what the module's routes emit.
 	-uv run --project host smpy openapi gen-types --module $(name)
 
