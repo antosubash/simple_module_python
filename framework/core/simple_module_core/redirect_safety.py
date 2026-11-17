@@ -30,14 +30,16 @@ def safe_next(raw: str | None, *, fallback: str = DEFAULT_FALLBACK) -> str:
     """Return ``raw`` if it is a same-site absolute path, else ``fallback``.
 
     Rejects protocol-relative (``//host``) and backslash-prefixed (``/\\host``)
-    targets — browsers resolve both off-site — plus anything carrying CR/LF,
-    which could otherwise be smuggled into the redirect header.
+    targets — browsers resolve both off-site — plus anything carrying a control
+    character. CR/LF could be smuggled into the redirect header, and browsers
+    strip tabs and newlines before parsing, so ``/\\t/host`` would become
+    ``//host``.
     """
     if not raw or not raw.startswith("/"):
         return fallback
     if raw.startswith(("//", "/\\")):
         return fallback
-    if "\r" in raw or "\n" in raw:
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in raw):
         return fallback
     return raw
 

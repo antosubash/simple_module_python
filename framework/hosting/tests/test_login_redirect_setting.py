@@ -7,7 +7,12 @@ from pydantic import ValidationError
 from simple_module_core.stored_settings import construct_leniently
 from simple_module_hosting.host_settings import HostSettings
 
-UNSAFE_DESTINATIONS = ["https://evil.example/", "//evil.example/", "/\\evil.example/"]
+UNSAFE_DESTINATIONS = [
+    "https://evil.example/",
+    "//evil.example/",
+    "/\\evil.example/",
+    "/\t/evil.example/",
+]
 
 
 @pytest.mark.parametrize("value", UNSAFE_DESTINATIONS)

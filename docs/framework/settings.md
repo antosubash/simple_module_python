@@ -62,8 +62,10 @@ account links and tenant invitations. Blank `users.base_url` (the new default)
 and blank `tenants.public_base_url` inherit it; explicit module origins still
 win. The shared `simple_module_hosting.public_urls.public_origin` helper never
 uses the inbound Host header. With both values blank, copied and invitation links stay relative for
-fresh development installs. Sending an account email raises a clear configuration
-error until an absolute origin is configured; startup still succeeds.
+fresh development installs. Account emails (password reset, verification,
+invitations) are skipped with an ERROR log naming `host.public_base_url` until an
+absolute origin is configured; the public responses stay the same, and startup
+still succeeds.
 An explicitly stored users origin, including the old localhost default, keeps
 winning: clear it to inherit the host.
 
