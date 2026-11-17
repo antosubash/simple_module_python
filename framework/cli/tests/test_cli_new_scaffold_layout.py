@@ -156,15 +156,18 @@ def test_sm_new_makefile_kill_is_port_scoped(tmp_path: Path) -> None:
     assert "SM_VITE_DEV_URL" in makefile
 
 
-def test_sm_new_makefile_has_gen_i18n_target(tmp_path: Path) -> None:
+@pytest.mark.parametrize("flat", [False, True])
+def test_sm_new_makefile_generates_i18n_before_dev(tmp_path: Path, flat: bool) -> None:
     """Regression #449: scaffolded apps regenerate the typed i18n keys on demand."""
     from simple_module_cli.app_project import create_app_project
 
     target = tmp_path / "demo"
-    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
+    create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[], flat=flat)
     makefile = (target / "Makefile").read_text()
     assert "gen-i18n:" in makefile
     assert "simple_module_hosting gen-i18n" in makefile
+    dev_target = next(line for line in makefile.splitlines() if line.startswith("dev:"))
+    assert {"gen-pages", "gen-i18n"} <= set(dev_target.split()[1:])
 
 
 def test_host_template_makefile_has_no_pkill() -> None:

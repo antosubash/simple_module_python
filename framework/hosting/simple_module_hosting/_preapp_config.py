@@ -24,7 +24,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import AsyncExitStack
 from typing import Any
 
 from pydantic_settings import BaseSettings
@@ -68,12 +70,12 @@ class HostSettingsUnavailableError(RuntimeError):
     """
 
 
-async def _read(database_url: str) -> dict[str, tuple[str, str]]:
+async def _read(database_url: str) -> dict[str, tuple[str, str]] | None:
     """Select the ``host.*`` system-scoped overrides.
 
-    Returns ``{}`` when the settings table does not exist yet (a fresh
-    install). Anything else — the connect, the existence check, the select —
-    raises, so the caller can tell an expected empty result from a failure.
+    Returns ``None`` when the settings table does not exist yet (a fresh
+    install), and ``{}`` when there are no host overrides. Connection and
+    query errors raise.
 
     The table belongs to the framework (``simple_module_db.stored_settings``,
     #500), so this read no longer depends on the ``settings`` plugin.
@@ -85,20 +87,29 @@ async def _read(database_url: str) -> dict[str, tuple[str, str]]:
 
     engine = create_async_engine(database_url, poolclass=NullPool)
     try:
-        async with engine.connect() as conn:
+        async with AsyncExitStack() as stack:
+            try:
+                conn = await stack.enter_async_context(engine.connect())
+            except Exception as exc:
+                raise ConnectionError(f"database is unreachable ({exc})") from exc
             # Checked rather than inferred from the select's error: "no such
             # table" is a fresh install and must stay quiet, while a refused
             # connection or a failing query is not, and the driver errors for
             # the two are not reliably distinguishable across backends.
             if not await settings_table_exists_on(conn):
-                return {}
+                return None
             rows = (await conn.execute(stmt)).tuples().all()
     finally:
         await engine.dispose()
     return package_overrides(rows, HOST_PACKAGE)
 
 
-def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str, tuple[str, str]]:
+def load_host_overrides(
+    database_url: str,
+    *,
+    strict: bool = False,
+    warn_unavailable: Callable[[str], None] | None = None,
+) -> dict[str, tuple[str, str]]:
     """Return ``{field: (raw_value, value_type)}`` for host settings in the DB.
 
     Returns ``{}`` quietly when the database is reachable but not yet
@@ -110,6 +121,8 @@ def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str,
     ``strict``, raises :class:`HostSettingsUnavailableError` instead of letting
     the caller build with defaults (#494). ``merge_host_settings`` is strict
     outside development; one-shot tooling (``smpy openapi``) is not.
+    ``warn_unavailable`` lets a CLI report missing tables and read failures
+    on its own output stream.
 
     Runs the async read on a private event loop in a worker thread. ``asyncio.run``
     refuses to nest inside a running loop, and ``create_app`` is called both
@@ -118,7 +131,7 @@ def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str,
     """
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(lambda: asyncio.run(_read(database_url))).result()
+            overrides = pool.submit(lambda: asyncio.run(_read(database_url))).result()
     except Exception as exc:
         if strict:
             raise HostSettingsUnavailableError(
@@ -128,12 +141,21 @@ def load_host_overrides(database_url: str, *, strict: bool = False) -> dict[str,
                 "would silently be off on this worker. Check SM_DATABASE_URL and "
                 "that the database is reachable, then restart."
             ) from exc
-        logger.warning(
-            "Pre-app host settings read failed; building with env/defaults: %s: %s",
-            type(exc).__name__,
-            exc,
-        )
+        if warn_unavailable is None:
+            logger.warning(
+                "Pre-app host settings read failed; building with env/defaults: %s: %s",
+                type(exc).__name__,
+                exc,
+            )
+        else:
+            warn_unavailable(f"could not read host settings: {exc}")
         return {}
+
+    if overrides is None:
+        if warn_unavailable is not None:
+            warn_unavailable("database is not migrated (host settings table is missing)")
+        return {}
+    return overrides
 
 
 def _env_var_for(field: str) -> str:
@@ -193,7 +215,10 @@ def apply_host_overrides(
 
 
 def merge_host_settings(
-    bootstrap: BootstrapSettings | None = None, *, strict: bool | None = None
+    bootstrap: BootstrapSettings | None = None,
+    *,
+    strict: bool | None = None,
+    warn_unavailable: Callable[[str], None] | None = None,
 ) -> Settings:
     """Build the ``Settings`` create_app runs on, with DB overrides applied.
 
@@ -203,14 +228,17 @@ def merge_host_settings(
     ``strict`` (default: on outside development and testing) refuses to build
     on defaults / an ephemeral key when the stored settings cannot be read.
     One-shot tooling that never serves requests (``smpy openapi export``)
-    passes ``strict=False``.
+    passes ``strict=False``. It can pass ``warn_unavailable`` to report why
+    the DB settings could not be loaded.
     """
     from simple_module_hosting._secret_key import SECRET_KEY_FIELD, ensure_secret_key
 
     bootstrap = bootstrap or BootstrapSettings()
     if strict is None:
         strict = bootstrap.environment not in NON_PROD_ENVIRONMENTS
-    overrides = load_host_overrides(bootstrap.database_url, strict=strict)
+    overrides = load_host_overrides(
+        bootstrap.database_url, strict=strict, warn_unavailable=warn_unavailable
+    )
     stored = apply_host_overrides(overrides)
     # Resolved here rather than left to the field default so an install with
     # no SM_SECRET_KEY gets a generated, persisted key instead of the shipped

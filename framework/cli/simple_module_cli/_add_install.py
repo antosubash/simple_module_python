@@ -62,7 +62,7 @@ def post_install(
     models_dists: list[str],
     exec_runner: ExecRunner,
 ) -> None:
-    """uv sync → gen-pages → sync-js-deps → entry-point check → reminders."""
+    """Sync dependencies, regenerate frontend files, and check entry points."""
     sync_cmd, sync_dir = _sync_command(project_dir)
     if exec_runner(sync_cmd, sync_dir) != 0:
         shown = " ".join(sync_cmd)
@@ -72,6 +72,7 @@ def post_install(
     if (project_dir / "client_app").is_dir():
         exec_runner(["uv", "run", "smpy", "host", "gen-pages"], project_dir)
         exec_runner(["uv", "run", "smpy", "host", "sync-js-deps"], project_dir)
+        exec_runner(["uv", "run", "smpy", "host", "gen-i18n"], project_dir)
     for dist in dists:
         code = exec_runner(["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir)
         if code != 0:
@@ -89,4 +90,5 @@ def post_install(
     # Only `pyproject.toml` changed, which the dev reloader does not watch; and a
     # reload still logs the new module as not importable in that process (GH #915,
     # #931), so only a restart serves it.
-    typer.echo("If `make dev` is running, restart it: modules are discovered at start-up.")
+    typer.echo("Run `make install` from the app root to link pages and generate i18n keys.")
+    typer.echo("Then restart `make dev`: modules are discovered at start-up.")

@@ -86,11 +86,11 @@ class TestPrintDiagnostics:
         assert "SM001" in captured.err
         assert "Results: 1 error(s)" in captured.err
 
-    async def test_empty_is_quiet(self, capsys):
+    async def test_empty_reports_success_on_stderr(self, capsys):
         print_diagnostics([])
         captured = capsys.readouterr()
         assert captured.out == ""
-        assert captured.err == ""
+        assert captured.err == "✓ No issues found\n"
 
 
 class TestAuthProviderDiagnostics:

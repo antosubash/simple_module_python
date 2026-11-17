@@ -132,6 +132,24 @@ def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) 
     assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
 
 
+def test_add_regenerates_i18n_after_syncing_js_deps(workspace: Path) -> None:
+    host = workspace / "host"
+    (host / "client_app").mkdir()
+    _write_module(workspace / "modules" / "forest_plots")
+    calls: list[tuple[list[str], Path]] = []
+
+    def runner(cmd: list[str], cwd: Path) -> int:
+        calls.append((cmd, cwd))
+        return 0
+
+    run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
+
+    assert calls[1:4] == [
+        (["uv", "run", "smpy", "host", command], host)
+        for command in ("gen-pages", "sync-js-deps", "gen-i18n")
+    ]
+
+
 def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:
     """A flat app nested under an unrelated workspace must not sync that workspace."""
     (tmp_path / "pyproject.toml").write_text(WORKSPACE, encoding="utf-8")

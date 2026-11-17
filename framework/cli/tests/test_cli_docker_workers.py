@@ -57,7 +57,7 @@ def test_generated_worker(project):
     service = (project / "compose.worker-geo.yml").read_text()
     assert "  worker-geo:" in service
     assert 'SM_BG_TASKS_WORKER_QUEUES: "geo,heavy"' in service
-    assert 'SM_BG_TASKS_WORKER_INCLUDE_MODULES: "geo.tasks,other.tasks"' in service
+    assert 'SM_BG_TASKS_INCLUDE_MODULES: "geo.tasks,other.tasks"' in service
     assert '      - "-Q"\n      - "geo,heavy"' in service
     assert "dockerfile: docker/worker-geo.Dockerfile" in service
     assert "postgres:\n        condition: service_healthy" in service

@@ -6,7 +6,8 @@ pyproject is written only after resolution succeeds. A git spec without
 ``#subdirectory`` is scanned for module packages — one match is added
 directly, several go through ``--module``/``--all`` or an interactive
 picker. Then: ``uv sync`` → ``smpy host gen-pages`` → ``smpy host
-sync-js-deps`` → entry-point verification, unless ``--no-sync``.
+sync-js-deps`` → ``smpy host gen-i18n`` → entry-point verification, unless
+``--no-sync``.
 """
 
 from __future__ import annotations
@@ -168,7 +169,7 @@ def add_module(
     ] = Path(),
     no_sync: Annotated[
         bool,
-        typer.Option("--no-sync", help="Write pyproject only; skip uv sync / gen-pages."),
+        typer.Option("--no-sync", help="Write pyproject only; skip post-install steps."),
     ] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Never prompt (fail instead).")] = False,
 ) -> None:

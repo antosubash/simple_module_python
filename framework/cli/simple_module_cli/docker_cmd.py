@@ -42,8 +42,7 @@ _EXTRA_FLAG = " --extra "
 _EMPTY = ""
 _NEWLINE = "\n"
 _ENV_VALUES = (
-    '      SM_BG_TASKS_WORKER_QUEUES: "{queues}"\n'
-    '      SM_BG_TASKS_WORKER_INCLUDE_MODULES: "{modules}"\n'
+    '      SM_BG_TASKS_WORKER_QUEUES: "{queues}"\n      SM_BG_TASKS_INCLUDE_MODULES: "{modules}"\n'
 )
 _BUILD_VALUES = "    build:\n      context: .\n      dockerfile: {dockerfile}\n"
 

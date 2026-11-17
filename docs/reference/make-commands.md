@@ -25,7 +25,7 @@ smpy --help
 
 | Command | What |
 |---|---|
-| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` + `gen-pages` unless `--no-sync` (inside a workspace app the sync runs from the app root as `uv sync --all-packages`). |
+| `smpy add <spec>` | Add a module dependency and wire it up. `<spec>` is a PyPI requirement, a `git+URL[@ref][#subdirectory=dir]`, or a local path. Writes `pyproject.toml`, then runs `uv sync` and, if the host has a `client_app`, `gen-pages`, `sync-js-deps` and `gen-i18n`. Use `--no-sync` to skip these steps. Workspace apps sync from the app root with `uv sync --all-packages`. |
 | `smpy update [name]` | Update git-sourced modules to their newest release tag. Omit the name to update every git-sourced module; `--dry-run` previews. |
 
 `smpy add` handles a repo containing several modules: `--module a,b` picks specific dist names and `--all` takes every module it finds.
@@ -81,7 +81,7 @@ uv run smpy users create-admin --email admin@example.com
 | Command | What |
 |---|---|
 | `make install` | `uv sync` + `cd client_app && npm install` + `make sync-js-deps`. Re-runs are safe. |
-| `make dev` | `make gen-pages`, then `uvicorn main:app --reload` on `:8000` and `vite` on `:5050` in parallel. |
+| `make dev` | Runs `gen-pages` and `gen-i18n` before starting `uvicorn main:app --reload` on `:8000` and `vite` on `:5050` in parallel. |
 | `make migrate` | `uv run alembic upgrade head`. Idempotent. |
 | `make build` | `cd client_app && npm run build`. Produces the production frontend bundle. |
 | `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `smpy host gen-pages`. |

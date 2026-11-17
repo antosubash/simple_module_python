@@ -10,6 +10,7 @@ from simple_module_core import __main__ as doctor
 
 class _Mod(ModuleBase):
     meta = ModuleMeta(name="users")
+    _is_auth_provider = True
 
     def __init__(self, locales):
         self._locales = locales
@@ -33,8 +34,15 @@ def _run_doctor(tmp_path, monkeypatch, overrides: dict | str) -> int:
     monkeypatch.setattr(doctor, "discover_modules", lambda strict=True: [mod])
     monkeypatch.setattr(doctor, "find_env_file", lambda: tmp_path / ".env")
     monkeypatch.setattr(doctor, "parse_dotenv", dict)
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'app.db'}")
     monkeypatch.delenv("SM_I18N_SUPPORTED_LOCALES", raising=False)
     return doctor.main()
+
+
+def test_doctor_cli_reports_success_with_module_count(tmp_path, monkeypatch, capsys):
+    assert _run_doctor(tmp_path, monkeypatch, {}) == 0
+    assert capsys.readouterr().err == "✓ No issues found: 1 module checked\n"
 
 
 def test_doctor_cli_reports_unknown_override_key(tmp_path, monkeypatch, capsys):

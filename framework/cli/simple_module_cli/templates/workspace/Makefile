@@ -13,7 +13,7 @@ install:
 	$(MAKE) sync-module-deps
 	$(MAKE) gen-i18n
 
-dev: gen-pages
+dev: gen-pages gen-i18n
 	@echo "Starting API and UI dev servers..."
 	$(MAKE) -j2 dev-api dev-ui
 

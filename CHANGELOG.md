@@ -14,6 +14,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `make dev` generates i18n keys before starting Vite and the API in both scaffold layouts and the framework repo. `smpy add` also regenerates the keys after syncing JS dependencies and prompts users to run `make install` before restarting (#946).
+- `smpy doctor` and `make doctor` print a success line with the number of modules checked when there are no findings (#947).
+- `smpy openapi export` and `gen-types` use defaults quietly when the host settings table is empty and explain whether a fallback was caused by a missing table or an unreachable database (#948).
+- `smpy docker add-worker` writes `SM_BG_TASKS_INCLUDE_MODULES`. Workers generated earlier start honouring the module list after the variable is renamed in their Compose file and the worker is recreated (#972).
+
 ## [0.0.47] — 2026-11-16
 
 ### Changed

@@ -137,13 +137,14 @@ def test_models_module_prints_migration_reminder(
     assert 'make migration msg="add blog"' in out
 
 
-def test_add_says_to_restart_a_running_dev_server(
+def test_add_says_to_install_before_restarting_dev_server(
     make_git_module_repo, host_pyproject, capsys
 ) -> None:
     repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)])
     _, runner = _recorder()
     run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
-    assert "If `make dev` is running, restart it" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert out.index("make install") < out.index("restart")
 
 
 def test_no_sync_writes_but_skips_pipeline(make_git_module_repo, host_pyproject) -> None:
