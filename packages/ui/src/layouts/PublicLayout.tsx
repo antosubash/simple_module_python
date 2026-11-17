@@ -40,7 +40,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!menuOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu();
+      // An overlay (dialog, dropdown) that handled Escape first keeps the menu open.
+      if (event.key === 'Escape' && !event.defaultPrevented) closeMenu();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);

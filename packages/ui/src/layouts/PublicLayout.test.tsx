@@ -186,6 +186,23 @@ describe('PublicLayout', () => {
     expect(toggle).toHaveFocus();
   });
 
+  it('keeps the mobile menu open when an overlay already handled Escape', async () => {
+    const user = userEvent.setup();
+    render(<PublicLayout>body</PublicLayout>);
+    const nav = within(screen.getByRole('navigation'));
+    await user.click(nav.getByRole('button', { name: 'Open menu' }));
+    const consume = (event: KeyboardEvent) => event.preventDefault();
+    document.addEventListener('keydown', consume, { capture: true });
+
+    await user.keyboard('{Escape}');
+    document.removeEventListener('keydown', consume, { capture: true });
+
+    expect(nav.getByRole('button', { name: 'Close menu' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
   it('keeps framework links out of an empty navbar', () => {
     render(<PublicLayout>body</PublicLayout>);
     const nav = within(screen.getByRole('navigation'));
