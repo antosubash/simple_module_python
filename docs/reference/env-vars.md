@@ -57,16 +57,17 @@ settings can change live unless pinned by the environment. See [Settings](/frame
 | `SM_I18N_COOKIE_NAME` | `locale` | Locale preference cookie name. Restart required. |
 | `SM_MAINTENANCE_MODE` | `false` | Serve a 503 to everyone except admins. Runtime. |
 | `SM_MAINTENANCE_MESSAGE` | `""` | Optional maintenance notice. Runtime. |
-| `SM_PUBLIC_BASE_URL` | `""` | Public origin for canonical and `og:url` links. Runtime. |
+| `SM_PUBLIC_BASE_URL` | `""` | Shared public origin for canonical and `og:url` links, account emails and invitation links. `users.base_url` and `tenants.public_base_url` inherit it when blank. Never derived from the request `Host`. Runtime. |
+| `SM_LOGIN_REDIRECT_URL` | `/dashboard/` | Where every auth provider sends a user after sign-in; falls back to another view when the Dashboard module is absent. Runtime. |
 | `SM_NATIVE_LINK_PREFIXES` | `[]` | JSON array of path prefixes whose links use full browser navigation. Runtime. |
 | `SM_LOG_LEVEL` | `INFO` | Application logging threshold. Restart required. |
 | `SM_LOG_FORMAT` | `json` | Structured `json` or readable `text`. Restart required. |
 | `SM_TRUSTED_PROXY` | unset | Comma-separated trusted proxy IPs or CIDRs. `*` trusts any peer. A trusted TLS terminator can supply the client IP and original request scheme for logs and auth callbacks. Restart required. |
 | `SM_FORWARDED_HOST_ALLOWLIST` | `[]` | JSON array of allowed forwarded hosts, such as `["app.example.com","*.example.org"]`. Entries may include ports. Requires `SM_TRUSTED_PROXY`. Restart required. |
-| `SM_SESSION_COOKIE_SECURE` | unset | Session cookie `Secure` flag. Unset enables it outside development and testing. Restart required. |
-| `SM_MAX_REQUEST_BODY_BYTES` | `10485760` | Global request body limit in bytes. `0` disables the guard. Restart required. |
-| `SM_RATE_LIMIT_PUBLIC` | `120/minute` | Per-IP budget for anonymous requests to public routes. Blank or `off` disables it. Restart required. |
-| `SM_RATE_LIMIT_AUTHENTICATED` | `""` | Per-IP budget for signed-in traffic, using the same syntax. Blank disables it. Restart required. |
+| `SM_SESSION_COOKIE_SECURE` | unset | `Secure` flag for both the session cookie and the users auth cookie. Unset enables it outside development and testing. Restart required. |
+| `SM_MAX_REQUEST_BODY_BYTES` | `10485760` | Global request body limit in bytes. `0` disables the guard. Applies live after a settings save. |
+| `SM_RATE_LIMIT_PUBLIC` | `120/minute` | Per-IP budget for anonymous requests to public routes. Blank or `off` disables it. Applies live after a settings save. |
+| `SM_RATE_LIMIT_AUTHENTICATED` | `""` | Per-IP budget for signed-in traffic, using the same syntax. Blank disables it. Applies live after a settings save. |
 | `SM_API_TITLE` | `SimpleModule` | OpenAPI title. Restart required. |
 | `SM_API_VERSION` | host version, or `0.0.0` | OpenAPI version. Restart required. |
 | `SM_API_DESCRIPTION` | `""` | OpenAPI description. Restart required. |
@@ -74,7 +75,7 @@ settings can change live unless pinned by the environment. See [Settings](/frame
 
 ### CORS
 
-These apply to the host's `/api/` policy and require restart. See [CORS](/framework/cors) for module policies and precedence.
+These apply to the host's `/api/` policy and take effect live after a settings save. See [CORS](/framework/cors) for module policies and precedence.
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -193,7 +194,6 @@ transports. They log a deprecation warning when set to Redis URLs.
 | `SM_BG_TASKS_STUCK_SWEEP_INTERVAL_SECONDS` | `60` | Interval between stuck-task sweeps. |
 | `SM_BG_TASKS_PURGE_INTERVAL_SECONDS` | `86400` | Interval between retention sweeps. |
 | `SM_BG_TASKS_RETENTION_DAYS` | `14` | Days to keep terminal task execution records. |
-| `SM_BG_TASKS_MAX_RETRIES` | `3` | Maximum manual retries per execution chain. |
 | `SM_BG_TASKS_LOG_SINK_ENABLED` | `false` | Persist application and task log lines in the database. |
 | `SM_BG_TASKS_LOG_SINK_LEVEL` | `INFO` | Minimum level for retained logs. |
 | `SM_BG_TASKS_LOG_RETENTION_DAYS` | `7` | Days to keep retained logs. |

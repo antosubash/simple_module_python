@@ -4,6 +4,7 @@ import logging
 
 from auth.oidc_common.renewal_outcomes import forget_outcomes
 from fastapi import APIRouter, Request
+from simple_module_hosting.auth_policy import login_redirect_url
 from simple_module_hosting.inertia_deps import InertiaDep, is_inertia_request
 from simple_module_inertia.response import location
 from starlette.responses import RedirectResponse
@@ -32,7 +33,7 @@ async def logged_out_page(request: Request, inertia: InertiaDep):
     # Only meaningful once the session is gone; a signed-in visitor is not
     # told they were signed out.
     if is_signed_in(request.session):
-        return RedirectResponse(request.app.state.oidc.settings.login_redirect_url, 303)
+        return RedirectResponse(login_redirect_url(request.app, "Oidc"), 303)
     return await inertia.render(_PAGE_LOGGED_OUT)
 
 

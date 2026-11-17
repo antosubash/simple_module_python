@@ -150,3 +150,15 @@ async def test_concurrent_accepts_of_one_invitation_give_200_and_409(user_client
             new.post("/api/tenants/invitations/accept", json={"token": token}),
         )
         assert sorted(r.status_code for r in results) == [200, 409]
+
+
+async def test_invite_inherits_host_origin_without_using_request_host(app, user_client):
+    app.state.host.settings.public_base_url = "https://host.example/"
+    async with user_client("o@x.io") as (owner, _):
+        await _org(owner, "Acme")
+        response = await owner.post(
+            "/api/tenants/current/invitations",
+            json={"email": "n@x.io"},
+            headers={"Host": "evil.example"},
+        )
+    assert response.json()["accept_url"].startswith("https://host.example/tenants/")

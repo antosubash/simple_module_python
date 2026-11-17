@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import Depends, Request
-from simple_module_core.deprecation import deprecated
+from simple_module_core.deprecation import deprecate, deprecated
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
@@ -48,6 +48,11 @@ def invalidate_grants_on_commit(request: Request, service: PermissionService, us
     service.db.on_commit(lambda: publish_grants_changed(request.app, user_id))
 
 
+deprecate(
+    "permissions.web.deps.RequiresPermission",
+    remove_in="0.1.0",
+    use="simple_module_hosting.permissions.RequiresPermission",
+)
 RequiresPermission = _HostingRequiresPermission
 """Kept for existing imports: the framework's class now honours direct grants.
 

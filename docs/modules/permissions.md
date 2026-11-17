@@ -6,7 +6,7 @@ The permissions module decouples role-based and per-user permission grants from 
 - An admin UI to edit them.
 - A grant source that feeds direct user grants into the framework's permission resolution.
 
-There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. `permissions.web.deps.RequiresPermission` is the same class, kept so existing imports still work. Before GH #337 they were separate classes, and a direct grant took effect only on routes that imported the `permissions.web.deps` one.
+There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. `permissions.web.deps.RequiresPermission` is the same class, deprecated for removal in 0.1.0; import from hosting. Before GH #337 they were separate classes, and a direct grant took effect only on routes that imported the `permissions.web.deps` one.
 
 ## ModuleMeta
 

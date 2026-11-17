@@ -4,7 +4,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-configureI18n({ locale: 'en', messages: {} });
+import catalog from '../background_tasks/locales/en.json';
+
+configureI18n({
+  locale: 'en',
+  messages: {
+    [keys.background_tasks.detail.attempt]: catalog.detail.attempt,
+    [keys.background_tasks.detail.description]: catalog.detail.description,
+  },
+});
 
 const state = vi.hoisted(() => ({ props: {} as Record<string, unknown> }));
 const visit = vi.hoisted(() => vi.fn());
@@ -56,7 +64,7 @@ function execution(over: Partial<TaskDetail> = {}): TaskDetail {
 }
 
 function setProps(over: Partial<TaskDetail> = {}, permissions = ['background_tasks.manage']) {
-  state.props = { execution: execution(over), max_retries: 3, auth: { permissions } };
+  state.props = { execution: execution(over), auth: { permissions } };
 }
 
 describe('background_tasks Detail page', () => {
@@ -70,6 +78,12 @@ describe('background_tasks Detail page', () => {
     render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
     expect(screen.getAllByText('demo.task').length).toBeGreaterThan(0);
     expect(screen.getByText('Traceback (most recent call last)')).toBeInTheDocument();
+  });
+
+  it('shows the actual attempt without an unrelated retry ceiling', () => {
+    render(<Detail {...(state.props as unknown as ComponentProps<typeof Detail>)} />);
+    expect(screen.getByText('attempt 3')).toBeInTheDocument();
+    expect(screen.getByText('execution e1 · attempt 3')).toBeInTheDocument();
   });
 
   it('shows a progress bar only when the task reported progress', () => {

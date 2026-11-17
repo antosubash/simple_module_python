@@ -10,12 +10,6 @@ The split is not cosmetic. Everything here has to run after
 ``hydrate_settings_from_db``, because each piece reads a value an operator may
 have changed in the admin UI; nothing in ``module.py`` may. Keeping the two apart
 makes that ordering visible instead of a comment.
-
-``apply_login_redirect_fallback`` is public rather than underscored: it is a
-self-contained *decision* rather than boot sequencing, and it was split out
-separately (#331) before the whole body moved here. It keeps its name and
-signature so the seam stays where that change put it. The mailer health check
-(``mail.mailer``) now belongs to the ``mail`` module.
 """
 
 from __future__ import annotations
@@ -28,18 +22,13 @@ from sqlalchemy.exc import IntegrityError
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from users.core.settings import UsersSettings
     from users.module import UsersModule
 
 __all__ = [
-    "apply_login_redirect_fallback",
     "run_startup",
 ]
 
 logger = logging.getLogger(__name__)
-
-_FALLBACK_REDIRECT = "/"
-_DASHBOARD_MODULE = "Dashboard"
 
 
 async def run_startup(module: UsersModule, app: FastAPI) -> None:
@@ -49,7 +38,6 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     from users.admin.summary_cache import register_writes
     from users.core.bootstrap import bootstrap_admin_from_env, ensure_user_role
     from users.core.roles_cache import refresh_roles_cache
-    from users.core.settings import DEFAULT_LOGIN_REDIRECT_URL
     from users.demo import ensure_demo_users
     from users.web.deps import auth_backend
 
@@ -60,9 +48,12 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     _build_mailer(app, state, s)
     _build_limiters(state, s)
     _build_oauth_clients(state, s)
-    apply_login_redirect_fallback(app, s, module.meta.name, DEFAULT_LOGIN_REDIRECT_URL)
 
-    reconfigure_cookie_transport(auth_backend, s)
+    from simple_module_hosting.auth_policy import session_cookie_is_secure
+
+    reconfigure_cookie_transport(
+        auth_backend, s, cookie_secure=session_cookie_is_secure(app.state.sm.settings)
+    )
     # The revocation cache's staleness window is an operator choice: the default
     # trades one indexed read per request for a bounded window in which another
     # worker's revocation is not yet seen here. ``users.accounts.session_revocation``
@@ -98,7 +89,16 @@ def _build_mailer(app: FastAPI, state, s) -> None:
         name = getattr(getattr(branding, "settings", None), "app_name", None)
         return name or default_app_name()
 
-    state.mailer = build_mailer(s, _app_name, template_dirs=s.mail_template_dirs)
+    from simple_module_hosting.public_urls import public_origin
+
+    def origin() -> str:
+        host = getattr(getattr(app.state, "host", None), "settings", None)
+        current = getattr(getattr(app.state, "users", None), "settings", s)
+        return public_origin(host, current.base_url)
+
+    state.mailer = build_mailer(
+        s, _app_name, template_dirs=s.mail_template_dirs, base_url_provider=origin
+    )
 
 
 def _build_limiters(state, s) -> None:
@@ -115,24 +115,3 @@ def _build_oauth_clients(state, s) -> None:
 
     state.oauth_clients = build_client_map(s)
     state.oauth_providers = provider_buttons(state.oauth_clients)
-
-
-def apply_login_redirect_fallback(
-    app: FastAPI, settings: UsersSettings, module_name: str, default_url: str
-) -> None:
-    """Retarget the default post-login URL when Dashboard isn't installed.
-
-    ``/dashboard/`` is unreachable under ``smpy new --preset minimal`` and in
-    apps like ``smpy_gis`` that omit the module. Picks the first sibling that
-    exposes view routes rather than hard-coding ``/``, which may itself 404
-    (#173). An operator-set override is never touched.
-    """
-    if settings.login_redirect_url != default_url:
-        return
-    if any(m.meta.name == _DASHBOARD_MODULE for m in app.state.sm.modules):
-        return
-    first_view = next(
-        (prefix for name, prefix in app.state.sm.view_prefixes.items() if name != module_name),
-        None,
-    )
-    settings.login_redirect_url = _FALLBACK_REDIRECT if first_view is None else f"{first_view}/"

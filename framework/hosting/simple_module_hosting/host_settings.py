@@ -19,19 +19,20 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, DotEnvSettingsSource, SettingsConfigDict
 from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_core.dotenv import find_env_file
+from simple_module_core.redirect_safety import non_empty_redirect, safe_next_or_none
 
 from simple_module_hosting import _host_settings_support as v
 from simple_module_hosting._api_version import default_api_version as _default_api_version
 from simple_module_hosting._host_settings_support import (
     _RESTART_API,
     _RESTART_AUTH,
-    _RESTART_CORS,
     _RESTART_DB,
     _RESTART_GUARD,
     _RESTART_I18N,
     _RESTART_LOGGING,
     _RESTART_SECURITY,
     _RESTART_TENANCY,
+    DEFAULT_LOGIN_REDIRECT_URL,
 )
 
 
@@ -104,7 +105,7 @@ class HostSettings(BaseSettings):
     trusted_proxy: str | None = Field(default=None, json_schema_extra=_RESTART_GUARD)
 
     session_cookie_secure: bool | None = Field(default=None, json_schema_extra=_RESTART_SECURITY)
-    """Mark the session cookie ``Secure`` (sent over HTTPS only).
+    """Mark session and users auth cookies ``Secure`` (sent over HTTPS only).
 
     Unset (the default) means on outside development and testing, off in
     them, so ``make dev`` keeps working over plain ``http://localhost``. Behind
@@ -113,6 +114,17 @@ class HostSettings(BaseSettings):
     should turn it off — otherwise the cookie is never sent back and sign-in
     silently fails. See ``session_cookie_is_secure``.
     """
+
+    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
+    """Post-login destination for all providers; an absent Dashboard falls back to a view."""
+
+    @field_validator("login_redirect_url")
+    @classmethod
+    def _check_login_redirect(cls, value: str) -> str:
+        value = non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
+        if safe_next_or_none(value) is None:
+            raise ValueError("login_redirect_url must be a same-site absolute path")
+        return value
 
     auth_provider: str = Field(default=DEFAULT_AUTH_PROVIDER, json_schema_extra=_RESTART_AUTH)
     """Which auth provider module to activate.
@@ -140,17 +152,21 @@ class HostSettings(BaseSettings):
     (a full navigation), e.g. ``["/docs/"]``. Added to the prefixes of mounted
     legacy SPAs and sent as the ``nativePrefixes`` shared prop. Read per request."""
 
-    max_request_body_bytes: int = Field(default=10 * 1024 * 1024, json_schema_extra=_RESTART_GUARD)
+    max_request_body_bytes: int = Field(
+        default=10 * 1024 * 1024, json_schema_extra={"group": "Request guards"}
+    )
     """Global request-body ceiling in bytes; larger bodies get a 413 before any
     route runs. ``0`` disables the guard. Modules override it per path with
     ``register_body_limits``."""
 
-    rate_limit_public: str = Field(default="120/minute", json_schema_extra=_RESTART_GUARD)
+    rate_limit_public: str = Field(
+        default="120/minute", json_schema_extra={"group": "Request guards"}
+    )
     """Per-client-IP limit for *anonymous* requests to routes the public-route
     registry exempts from auth, e.g. ``"120/minute"``. Blank / ``off``
     disables. A public rule may override it with its own ``rate=``."""
 
-    rate_limit_authenticated: str = Field(default="", json_schema_extra=_RESTART_GUARD)
+    rate_limit_authenticated: str = Field(default="", json_schema_extra={"group": "Request guards"})
     """Opt-in per-IP limit for signed-in traffic, same syntax. Blank (default)
     leaves authenticated requests unlimited."""
 
@@ -159,18 +175,19 @@ class HostSettings(BaseSettings):
     host or ``*.example.com``, each with an optional port. Empty (default) ignores
     the header. Only honoured together with ``trusted_proxy``."""
 
-    cors_allow_origins: list[str] = Field(default=[], json_schema_extra=_RESTART_CORS)
+    cors_allow_origins: list[str] = Field(default=[], json_schema_extra={"group": "CORS"})
     """Origins allowed to call ``/api/`` cross-origin. Empty (default) installs no
     host API policy. ``*`` is refused while ``cors_allow_credentials`` is on."""
-    cors_allow_credentials: bool = Field(default=True, json_schema_extra=_RESTART_CORS)
+    cors_allow_credentials: bool = Field(default=True, json_schema_extra={"group": "CORS"})
     cors_allow_methods: list[str] = Field(
-        default=["GET", "POST", "PUT", "PATCH", "DELETE"], json_schema_extra=_RESTART_CORS
+        default=["GET", "POST", "PUT", "PATCH", "DELETE"], json_schema_extra={"group": "CORS"}
     )
     cors_allow_headers: list[str] = Field(
-        default=["Authorization", "Content-Type", "X-CSRF-Token"], json_schema_extra=_RESTART_CORS
+        default=["Authorization", "Content-Type", "X-CSRF-Token"],
+        json_schema_extra={"group": "CORS"},
     )
-    cors_expose_headers: list[str] = Field(default=[], json_schema_extra=_RESTART_CORS)
-    cors_max_age: int = Field(default=600, ge=0, json_schema_extra=_RESTART_CORS)
+    cors_expose_headers: list[str] = Field(default=[], json_schema_extra={"group": "CORS"})
+    cors_max_age: int = Field(default=600, ge=0, json_schema_extra={"group": "CORS"})
 
     api_title: str = Field(default="SimpleModule", json_schema_extra=_RESTART_API)
     """``info.title`` of the OpenAPI document (built once at boot)."""

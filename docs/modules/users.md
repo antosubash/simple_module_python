@@ -45,7 +45,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 | `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked atomically; reuse of a revoked token revokes its family) |
 | `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
-| `GET /api/users/auth/{provider}/callback` | `?code=&state=` | OAuth: find-or-create user, set cookie, 303 to `login_redirect_url` |
+| `GET /api/users/auth/{provider}/callback` | — | OAuth: completes sign-in, sets the auth cookie and redirects with 303 to the saved safe deep link or `host.login_redirect_url` |
 
 ### Self-service endpoints
 
@@ -197,7 +197,6 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 |---|---|
 | `allow_signup` | `False` |
 | `require_verification` | `True` |
-| `login_redirect_url` | `"/dashboard/"` (if the Dashboard module isn't installed, auto-falls back to the first other module that exposes view routes, or `/` only as a last resort) |
 | `reset_password_token_lifetime_seconds` | `3600` |
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
 | `bearer_token_lifetime_seconds` | `900` (15 min) |
@@ -205,9 +204,8 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `refresh_token_family_max_age_days` | `90` (≥ 1) — absolute age from the first token; requires a new login after expiry |
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
-| `cookie_secure` | `True` (flipped to `False` in dev at startup) |
 | `cookie_samesite` | `"lax"` |
-| `base_url` | `"http://localhost:8000"` |
+| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Both blank: copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Public reset and verification responses remain unchanged. |
 | `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
@@ -215,7 +213,6 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `login_lockout_account_failures` | `10` (≥ 1) — failures for one account, from anywhere, before it locks |
 | `auth_rate_limit_attempts` | `10` |
 | `auth_rate_limit_window_seconds` | `300` |
-| `bootstrap_email`, `bootstrap_password`, `bootstrap_user_email`, `bootstrap_user_password` | `""` — see [Bootstrap](#bootstrap-the-first-admin) |
 | `demo_mode` | `False` — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
 | `demo_admin_email` | `"demo-admin@example.com"` — blank to stop offering the admin demo |
 | `demo_user_email` | `"demo-user@example.com"` — blank to stop offering the standard-user demo |
@@ -706,6 +703,10 @@ Components (under `pages/Users/components/`):
 
 ## Notes
 
-- `cookie_secure` is automatically flipped to `False` in dev (`SM_ENVIRONMENT=development`) so login works over plain HTTP. Don't override it in non-dev environments.
+- `host.session_cookie_secure` governs session and users auth cookies together. Unset permits HTTP in development/testing and enables Secure elsewhere; restart after changing it.
 - `ThroughputLimiter` (register, forgot-password, accept-invite, verify-token, `/me/password`) counts in-process, so with N workers its budget is up to N times the configured one. Password-login lockout does not have that limit — see [Login lockout](#login-lockout).
 - The unique functional `lower(email)` index serves case-insensitive lookups on Postgres and enforces one account per address regardless of letter case; on SQLite the lookup uses `LOWER(email) = ?`.
+
+Post-login destinations use `host.login_redirect_url` for every provider. The
+default `/dashboard/` falls back to the first other view when Dashboard is absent,
+then `/`. Old per-provider redirect rows are ignored quietly.

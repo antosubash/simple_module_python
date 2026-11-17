@@ -56,7 +56,7 @@ there is one permission for the one surface.
 
 Invitations are emailed through the [mail module](/modules/mail). With
 `background_tasks` installed, delivery uses the outbox and retries failures;
-otherwise it runs after the request commits. Set `public_base_url` for absolute
+otherwise it runs after the request commits. Set `host.public_base_url` (or a tenant-module override) for absolute
 accept links: relative links are not emailed. Nothing is queued unless the
 `mail` module is installed with a delivering backend (SMTP); with the console
 backend the invite form hands the link back instead. The UI shows the link and copy button either way,
@@ -78,10 +78,11 @@ DB-backed (Settings screen):
   resolves to the tenant whose slug is `acme`. Members get their role there;
   anonymous visitors and signed-in non-members get the tenant on **public
   routes only**; an unknown or suspended subdomain resolves to nothing.
-- `public_base_url` (default empty) — origin invitation links are built on.
-  Empty makes them root-relative: they are never built from the request's
-  `Host` header, because the same link travels in `InvitationCreated` for a
-  mailer to send.
+- `public_base_url` (default empty) — inherit `host.public_base_url` for invitation
+  links; an explicit module origin wins. Only when both are blank do links remain
+  root-relative; invitation emails are then skipped with an ERROR log naming
+  `host.public_base_url` / `SM_PUBLIC_BASE_URL` as the setting to configure.
+  The request `Host` header is never used.
 
 Management routes need both the permission and an owner/admin role *in the
 active tenant*: a platform-wide grant does not make a plain member of a tenant

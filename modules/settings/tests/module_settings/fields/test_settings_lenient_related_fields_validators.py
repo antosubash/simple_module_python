@@ -34,19 +34,19 @@ def test_bg_handler_timeout_over_lease_drops_only_the_timeout() -> None:
     stored = {
         "outbox_lease_seconds": _int(100),
         "outbox_handler_timeout_seconds": _int(500),
-        "max_retries": _int(7),
+        "retention_days": _int(7),
     }
     cfg = build_settings(BackgroundTasksSettings, stored, lenient=True)
     assert cfg.outbox_handler_timeout_seconds is None
-    assert (cfg.outbox_lease_seconds, cfg.max_retries) == (100, 7)
+    assert (cfg.outbox_lease_seconds, cfg.retention_days) == (100, 7)
 
 
 def test_bg_handler_timeout_pinned_by_env_drops_the_stored_lease(monkeypatch) -> None:
     monkeypatch.setenv(f"{ENV_PREFIX}OUTBOX_HANDLER_TIMEOUT_SECONDS", "200")
-    stored = {"outbox_lease_seconds": _int(100), "max_retries": _int(7)}
+    stored = {"outbox_lease_seconds": _int(100), "retention_days": _int(7)}
     cfg = build_settings(BackgroundTasksSettings, stored, lenient=True)
     assert cfg.outbox_handler_timeout_seconds == 200
-    assert cfg.max_retries == 7
+    assert cfg.retention_days == 7
     assert cfg.outbox_lease_seconds != 100
 
 

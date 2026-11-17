@@ -12,6 +12,7 @@ from simple_module_hosting.inertia_utils import (
     redirect_back_with_errors,
     validation_errors_to_dict,
 )
+from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
@@ -20,7 +21,6 @@ from permissions.core.constants import PERM_MANAGE
 from permissions.core.service import PermissionService
 from permissions.core.write_safety import PermissionWriteRefused
 from permissions.web.deps import (
-    RequiresPermission,
     assigned_by,
     get_permission_service,
 )

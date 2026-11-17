@@ -16,6 +16,7 @@ from simple_module_core.permissions import grants
 from simple_module_core.user_directory import get_user_directory
 from simple_module_hosting.pagination import PageParamsDep
 from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.public_urls import public_origin
 from simple_module_hosting.token_guard import Authenticated
 
 from tenants.contracts.schemas import (
@@ -172,7 +173,9 @@ async def invite(
         # also travels in InvitationCreated for a mailer to send.
         ctx.tenant_id,
         data,
-        base_url=request.app.state.tenants.settings.public_base_url,
+        base_url=public_origin(
+            request.app.state.host.settings, request.app.state.tenants.settings.public_base_url
+        ),
     )
     return InvitationIssued(
         **invitation.model_dump(), token=token, accept_url=url, emailed=invitation_emailed(url)

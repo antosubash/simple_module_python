@@ -52,6 +52,50 @@ key and database URL are preserved too. Fields the bootstrap did not supply
 still use env → DB → default.
 
 Construct once at boot, put on `app.state.sm.settings`, never mutated.
+Runtime readers use `app.state.host.settings`, replaced after a committed admin
+save and by the existing cross-process settings invalidation/reload.
+
+### Shared host policy
+
+Set `host.public_base_url` once for canonical URLs, account emails, copied
+account links and tenant invitations. Blank `users.base_url` (the new default)
+and blank `tenants.public_base_url` inherit it; explicit module origins still
+win. The shared `simple_module_hosting.public_urls.public_origin` helper never
+uses the inbound Host header. With both values blank, copied and invitation links stay relative for
+fresh development installs. Account emails (password reset, verification,
+invitations) are skipped with an ERROR log naming `host.public_base_url` until an
+absolute origin is configured; the public responses stay the same, and startup
+still succeeds.
+An explicitly stored users origin, including the old localhost default, keeps
+winning: clear it to inherit the host.
+
+`host.session_cookie_secure` controls both session and users auth cookies.
+Unset means Secure outside development/testing and HTTP-compatible within them;
+changing it needs a restart. `host.login_redirect_url` is the live post-login
+destination for Users, Keycloak and OIDC. It defaults to `/dashboard/`; without
+Dashboard each provider chooses the first other module with view routes, then
+`/`. Safe saved deep links still take precedence.
+
+The old provider `login_redirect_url` and `users.cookie_secure` fields are no
+longer read; move any overrides to the corresponding host field. The unused
+`keycloak.admin_role` and `background_tasks.max_retries` fields are also removed;
+use Keycloak role mapping and each task's retry policy. User provisioning reads
+only the documented `SM_USERS_BOOTSTRAP_*` environment/dotenv keys, never DB
+bootstrap fields. Unknown stored module keys are ignored quietly, including all
+these removed fields; no schema migration or cleanup is needed.
+
+### Live request guards
+
+`max_request_body_bytes`, `rate_limit_public`, `rate_limit_authenticated` and
+all six `cors_*` host fields apply after a committed settings reload, without a
+restart. Hydration validates and compiles one immutable policy snapshot; every
+request retains one snapshot across its guards, with no per-request DB lookup
+or rate parsing. Runtime guard values follow hydration, so configure them in
+the DB or process environment rather than only passing an unpersisted boot
+`Settings` object to `create_app`. Module-registered body, rate and CORS rules keep their existing
+precedence. Invalid admin writes are rejected before persistence; invalid old
+rows follow the existing lenient parsing rules. Env-pinned values still win.
+
 
 ### Placeholder-secret check
 

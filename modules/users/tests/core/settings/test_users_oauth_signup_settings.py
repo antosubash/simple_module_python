@@ -53,6 +53,6 @@ def test_oauth_fields_follow_the_core_fields():
     """The settings editor groups by first appearance; the split keeps the old order."""
     fields = list(UsersSettings.model_fields)
     assert fields[0] == "allow_signup"
-    assert fields.index("bootstrap_user_password") < fields.index("oauth_google_client_id")
+    assert fields.index("demo_read_only") < fields.index("oauth_google_client_id")
     first_oauth = fields.index("oauth_google_client_id")
     assert all(name.startswith("oauth_") for name in fields[first_oauth:])

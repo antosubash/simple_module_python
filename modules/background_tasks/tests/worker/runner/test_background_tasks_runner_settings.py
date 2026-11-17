@@ -45,11 +45,11 @@ def test_worker_boots_on_its_db_config(db_url: str, monkeypatch) -> None:
     the stored soft limit is dropped instead of the worker refusing to start."""
     monkeypatch.setenv("SM_BG_TASKS_TASK_TIME_LIMIT", "50")
     _put(db_url, "background_tasks.task_soft_time_limit", "100", "int")
-    _put(db_url, "background_tasks.max_retries", "7", "int")
+    _put(db_url, "background_tasks.retention_days", "7", "int")
 
     cfg = load_runner_settings()
 
-    assert (cfg.task_time_limit, cfg.task_soft_time_limit, cfg.max_retries) == (50, None, 7)
+    assert (cfg.task_time_limit, cfg.task_soft_time_limit, cfg.retention_days) == (50, None, 7)
 
 
 @pytest.mark.parametrize(

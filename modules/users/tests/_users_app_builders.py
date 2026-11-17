@@ -21,7 +21,6 @@ def _users_overrides(allow_signup: bool = False) -> dict[str, tuple[str, str]]:
     return {
         "allow_signup": (str(allow_signup).lower(), "bool"),
         "base_url": ("http://testserver", "string"),
-        "cookie_secure": ("false", "bool"),
         # 32+ bytes to clear pyjwt's InsecureKeyLengthWarning for HMAC-SHA256.
         "reset_password_token_secret": ("test-reset-secret-32-bytes-xxxxx", "string"),
         "verification_token_secret": ("test-verify-secret-32-bytes-xxxxx", "string"),

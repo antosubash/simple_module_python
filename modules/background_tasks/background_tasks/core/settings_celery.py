@@ -19,7 +19,6 @@ from background_tasks.core.config_guards import parse_task_routes
 from background_tasks.core.constants import (
     DEFAULT_BROKER_URL,
     DEFAULT_INVALIDATION_CHANNEL,
-    DEFAULT_MAX_RETRIES,
     DEFAULT_PURGE_INTERVAL_SECONDS,
     DEFAULT_QUEUE,
     DEFAULT_RESULT_BACKEND,
@@ -172,12 +171,6 @@ class CelerySettingsFields(LogSinkFields, WorkerDatabaseSettings):
         ge=1,
         le=3650,
         description="Days to keep terminal task execution records (1-3650).",
-    )
-    max_retries: int = Field(
-        default=DEFAULT_MAX_RETRIES,
-        ge=0,
-        le=100,
-        description="Configured retry ceiling; individual tasks define their own policies (0-100).",
     )
 
     @field_validator("task_time_limit")

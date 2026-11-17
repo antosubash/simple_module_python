@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from simple_module_hosting.permissions import RequiresPermission
 
 from permissions.contracts.schemas import (
     PermissionGroupOut,
@@ -16,7 +17,6 @@ from permissions.contracts.schemas import (
 from permissions.core.constants import PERM_MANAGE, PERM_VIEW
 from permissions.core.service import PermissionService
 from permissions.web.deps import (
-    RequiresPermission,
     assigned_by,
     get_permission_service,
 )

@@ -18,8 +18,15 @@ Empty (the default) registers nothing.
 | `cors_expose_headers` | `[]` |
 | `cors_max_age` | `600` |
 
-`*` is refused while `cors_allow_credentials` is on. All of these are
-restart-required: the middleware is built at boot.
+`*` is refused while `cors_allow_credentials` is on. All six fields apply on
+settings reload after an admin save, without a restart. A validated immutable
+snapshot is read per request; adding or removing the first/last allowed origin
+also takes effect live. Module policies keep most-specific precedence, including
+winning a tie with the host `/api/` prefix. Env-pinned values still win.
+
+After a CORS save, browsers may keep using a cached preflight until the
+previously advertised `cors_max_age` expires. Lowering that setting does not
+shorten the lifetime of preflight responses already cached by a browser.
 
 ## Module policies
 

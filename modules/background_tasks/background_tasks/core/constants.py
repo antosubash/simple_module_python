@@ -97,7 +97,6 @@ HEARTBEAT_MIN_INTERVAL_SECONDS = 30
 TASK_STUCK_AFTER_ATTR = "stuck_after"
 DEFAULT_PURGE_INTERVAL_SECONDS = 60 * 60 * 24
 DEFAULT_RETENTION_DAYS = 14
-DEFAULT_MAX_RETRIES = 3
 # Redis pub/sub channel carrying the framework's cache invalidations. Namespaced
 # so that two apps on one Redis *server* do not each act on the other's messages.
 # The server, not the database: pub/sub ignores the logical DB index, so DBs 4 and

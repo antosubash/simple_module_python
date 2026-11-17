@@ -77,7 +77,9 @@ INVITATION_MAIL_SUBJECT = "You're invited to join {tenant_name}"
 INVITATION_TEMPLATE = "invitations/templates/invitation.txt"
 MAIL_URL_SCHEMES = frozenset({"http", "https"})
 MAIL_RELATIVE_WARNING = (
-    "Invitation email skipped: configure tenants.public_base_url for absolute links"
+    "Invitation email skipped: configure host.public_base_url / SM_PUBLIC_BASE_URL "
+    "(or tenants.public_base_url) "
+    "for absolute links"
 )
 MAIL_FAILURE_WARNING = "Invitation email failed after commit"
 MAIL_NO_TRANSPORT_ERROR = (
