@@ -23,8 +23,8 @@ All notable changes to this project are documented in this file. The format is b
 - Boot, Doctor, the setup wizard, and the CLI share Alembic config discovery for flat and workspace hosts. An unavailable history prevents boot outside development. **Behaviour change:** this includes `SM_ENVIRONMENT=testing`, so an app test that points `SM_PROJECT_ROOT` at an empty directory must also provide the Alembic config. The wizard applies migrations only after verifying first-run eligibility (#949).
 - Data compatibility findings can give module-specific remediation. `smpy migrations prepare` discovers installed upgrade recipes, validates the generated source, and writes beside the selected head in a scanned revision directory (#950).
 - Document the public APIs for registering DB-backed module settings and custom file storage backends (#951).
-- **Behaviour change:** `PublicLayout` uses registered navbar items on desktop and mobile. The demo host opts into the framework links. The UI package exports `useDrawerA11y` (#952).
-- Refresh the environment reference with generated session keys, JSON module allow-lists and the supported host and module variables. Add a settings-to-docs coverage check (#973).
+- **Behaviour change:** `PublicLayout` uses registered navbar items on desktop and mobile. Mobile item activation restores toggle focus when needed; internal GET entries show the active page. The demo host opts into the framework links. The UI package exports `useDrawerA11y` (#952).
+- Refresh the environment reference with generated session keys, JSON module allow-lists and the supported host and module variables. Add settings and direct environment-read coverage checks (#973).
 
 ## [0.0.47] — 2026-11-16
 

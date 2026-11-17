@@ -1,9 +1,10 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { activeSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
@@ -19,9 +20,21 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { t } = useT();
   const { auth, branding, menus } = usePageProps();
   const homeUrl = useHomeUrl();
+  const { url } = usePage();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const navbar = menus?.navbar ?? [];
-  const closeMenu = () => setMenuOpen(false);
+  const active = activeSection(
+    navbar.filter((item) => !isPostMenuItem(item) && /^\/(?!\/)/.test(item.url)),
+    url,
+  );
+  const closeMenu = () => {
+    if (mobileMenuRef.current?.contains(document.activeElement)) {
+      toggleRef.current?.focus();
+    }
+    setMenuOpen(false);
+  };
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const logoUrl = branding?.logoUrl ?? null;
   const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
@@ -35,7 +48,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
 
   const renderNavbar = (mobile: boolean) =>
     navbar.map((item) => {
-      const className = `inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground ${mobile ? 'min-h-11' : ''}`;
+      const isActive = item === active;
+      const className = `inline-flex items-center gap-2 text-sm transition-colors hover:text-foreground ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'} ${mobile ? 'min-h-11' : ''}`;
       const onClick = mobile ? closeMenu : undefined;
       const content = (
         <>
@@ -55,7 +69,13 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           {content}
         </Link>
       ) : (
-        <a key={item.url} href={item.url} className={className} onClick={onClick}>
+        <a
+          key={item.url}
+          href={item.url}
+          className={className}
+          aria-current={isActive ? 'page' : undefined}
+          onClick={onClick}
+        >
           {content}
         </a>
       );
@@ -95,6 +115,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <button
+              ref={toggleRef}
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
               aria-expanded={menuOpen}
@@ -108,7 +129,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {menuOpen && (
-            <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:hidden">
+            <div
+              ref={mobileMenuRef}
+              className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:hidden"
+            >
               {renderNavbar(true)}
               <Button asChild variant="outline" className="w-full min-h-11">
                 <a href={entry.href} onClick={closeMenu}>
