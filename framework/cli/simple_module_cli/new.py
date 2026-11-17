@@ -11,6 +11,7 @@ from typing import Annotated
 
 import typer
 
+from simple_module_cli._migration_support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 from simple_module_cli._version_check import warn_if_outdated
 from simple_module_cli.add_cmd import run_add
 from simple_module_cli.app_project import create_app_project
@@ -37,9 +38,11 @@ def _alembic_argv(target: Path, host_dir: Path) -> list[str]:
     In the flat ``create-host`` layout the host *is* the project root, so the
     ini path collapses to ``alembic.ini``.
     """
-    if host_dir == target:
-        return [*_ALEMBIC, "-c", "alembic.ini"]
-    return ["uv", "run", "--project", "host", "alembic", "-c", "host/alembic.ini"]
+    ini = resolve_alembic_ini(target)
+    if ini is None:
+        raise typer.BadParameter(NO_ALEMBIC_CONFIG)
+    alembic = _ALEMBIC if host_dir == target else ("uv", "run", "--project", "host", "alembic")
+    return [*alembic, "-c", str(ini.relative_to(target))]
 
 
 class Db(StrEnum):

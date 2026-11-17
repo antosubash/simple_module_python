@@ -328,6 +328,12 @@ alembic revision --autogenerate -m "add my-module"
 alembic upgrade heads
 ```
 
+For data changes that autogenerate cannot capture, register a recipe in the
+`simple_module.data_upgrades` entry-point group. The
+[lifecycle recipe contract](./framework/lifecycle.md#check-data-compatibility-db)
+describes the callable and the single-registration requirement for automatic
+remediation hints.
+
 The host's `env.py` (scaffolded from the framework's template) calls:
 
 ```python
@@ -732,10 +738,10 @@ would hold it behind the wizard forever.
 
 **An action runs only while its own step is pending.** The wizard answers 404
 once setup is complete, and 409 for a step that is already done even while
-other steps keep the wizard open. "Setup mode" alone is not a safe gate: the
-host always registers `host.migrations`, so an install whose schema falls
-behind head re-enters setup mode with its administrators intact. Every
-`/setup` mutation also carries the session's CSRF token
+other steps keep the wizard open. The host migration action rechecks the
+database under its migration lock and requires a verified first run. A
+configured install behind head must be migrated by its operator before boot.
+Every `/setup` mutation also carries the session's CSRF token
 (`simple_module_hosting.csrf`); the wizard page sends it for you.
 
 **An action that creates something unique must re-check under a lock.** The

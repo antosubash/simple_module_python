@@ -2,17 +2,22 @@
 
 import asyncio
 import importlib.util
+import sqlite3
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from alembic import command
+from fastapi import HTTPException
+from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard import migrate
 from simple_module_hosting.setup_wizard._migration_lock import migration_lock
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 def test_independent_workers_serialize_migrations(monkeypatch, tmp_path):
@@ -20,49 +25,56 @@ def test_independent_workers_serialize_migrations(monkeypatch, tmp_path):
     spec = importlib.util.spec_from_file_location("other_worker", migrate.__file__)
     other = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(other)
-    active = maximum = 0
-    guard = threading.Lock()
+    applied = []
     ready = threading.Barrier(2)
+    database = tmp_path / "fresh.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    (tmp_path / "versions").mkdir()
+    (tmp_path / "versions/initial.py").write_text("revision = 'initial'\ndown_revision = None\n")
+    (tmp_path / "alembic.ini").write_text("[alembic]\nscript_location = %(here)s\n")
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
 
     def upgrade(config, target):
-        nonlocal active, maximum
         assert target == "heads"
-        with guard:
-            active += 1
-            maximum = max(maximum, active)
-        time.sleep(0.1)  # intentional-sleep: hold the lock so an overlap would show
-        with guard:
-            active -= 1
+        applied.append(target)
+        with closing(sqlite3.connect(database)) as conn, conn:
+            conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32))")
+            conn.execute("INSERT INTO alembic_version VALUES ('initial')")
 
-    async def inline_thread(func):
-        ready.wait(timeout=5)
-        return func()
-
-    monkeypatch.setattr(asyncio, "to_thread", inline_thread)
     monkeypatch.setattr(command, "upgrade", upgrade)
-    monkeypatch.setattr("simple_module_hosting.migrations.migration_status", AsyncMock())
     monkeypatch.setattr(migrate, "run_deferred_startup", AsyncMock())
     monkeypatch.setattr(other, "run_deferred_startup", AsyncMock())
-    url = make_url(f"sqlite+aiosqlite:///{tmp_path / 'fresh.db'}")
 
-    def request():
-        return SimpleNamespace(
+    async def run(worker):
+        engine = create_async_engine(url)
+        registry = SetupRegistry()
+        registry.add(
+            SetupStep(
+                id=STEP_MIGRATIONS, title="Migrations", is_complete=AsyncMock(return_value=False)
+            )
+        )
+        request = SimpleNamespace(
             app=SimpleNamespace(
                 state=SimpleNamespace(
-                    sm=SimpleNamespace(db=SimpleNamespace(engine=SimpleNamespace(url=url)))
+                    sm=SimpleNamespace(db=SimpleNamespace(engine=engine), setup_registry=registry)
                 )
             ),
             state=SimpleNamespace(),
         )
+        try:
+            await asyncio.to_thread(ready.wait, 5)
+            result = await worker.apply_migrations(request, {})
+            assert result["migration"]["is_current"] is True
+            return 200
+        except HTTPException as exc:
+            return exc.status_code
+        finally:
+            await engine.dispose()
 
     with ThreadPoolExecutor(max_workers=2) as workers:
-        futures = [
-            workers.submit(asyncio.run, worker.apply_migrations(request(), {}))
-            for worker in [migrate, other]
-        ]
-        for future in futures:
-            future.result(timeout=5)
-    assert maximum == 1
+        futures = [workers.submit(asyncio.run, run(worker)) for worker in [migrate, other]]
+        assert sorted(future.result(timeout=5) for future in futures) == [200, 409]
+    assert applied == ["heads"]
 
 
 def test_sqlite_migration_lock_released_on_failure(tmp_path):

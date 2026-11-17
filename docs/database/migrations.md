@@ -34,8 +34,12 @@ Semantic module checks (`SM033`) recognize equivalent/manual ports independently
 of upstream revision ids.
 
 `uv run smpy migrations prepare <upgrade-id> --head <host-head-or-label@head>`
-copies a frozen, self-contained recipe into the host's own `migrations/versions`;
-it never applies it. An explicit current head is required. The bundled ids are
+copies a frozen, self-contained recipe beside the selected host revision.
+Apply the generated revision separately. An explicit current head is required.
+Automatic remediation requires exactly one matching installed recipe registration
+when the issue omits explicit instructions. See the
+[lifecycle recipe contract](../framework/lifecycle.md#check-data-compatibility-db).
+The bundled ids are
 `mail.settings_namespace_v1` (system settings move, target wins, matching
 `d7b3a9e5c1f2`) and `users.hashed_bearer_tokens_v1` (invalidate credentials before
 altering both token columns, matching `a626b1c8d023`). The first recipe for an
@@ -206,10 +210,13 @@ context.configure(
 
 ## Boot-time migration check
 
-On startup, the framework compares `alembic_version` to **every** head (`resolve_head_revisions` in `simple_module_hosting.migrations`; the history has several, so it never asks for a single head):
+On startup, `migration_status()` in `simple_module_hosting.migrations`
+compares the stamps in `alembic_version` to **every** head.
 
 - **Every environment:** a database behind head fails the boot (`Database is N revision(s) behind … Run: make migrate`), except a never-migrated first run, which boots far enough to serve the `/setup` wizard. The result is stored on `app.state.migration`.
-- `make doctor` reports the same state as `SM010` before you boot. Don't ship a web process that's pointed at an unmigrated DB.
+- Boot, setup, Doctor, and `prepare` share project-root discovery. They check `alembic.ini` before `host/alembic.ini`. `SM_PROJECT_ROOT` overrides the root search. `smpy migrations prepare --config` selects an explicit cwd-relative path.
+- An unavailable migration history leaves the state unknown. Development logs an `SM010` warning and leaves the migration step pending. Other environments refuse boot. The wizard rechecks the history and only applies migrations on a verified first run.
+- `make doctor` reports migration problems as `SM010` before you boot.
 
 Fix locally with `make migrate`. In production, run migrations before rolling over the web tier.
 

@@ -363,7 +363,8 @@ def register_resource_types(self, registry: ResourceTypeRegistry) -> None:
 ## `check_data_compatibility(db)`
 
 This async read-only hook returns a sequence of `DataCompatibilityIssue` frozen
-dataclasses (`upgrade_id`, `message`, `severity="warning"|"error"`), empty by default.
+dataclasses (`upgrade_id`, `message`, `severity="warning"|"error"`, optional
+`remediation_text`), empty by default.
 Use stable semantic ids and inspect actual schema/data state so hosts with
 independently ported revisions pass. Checks run before module DB-settings
 hydration and `on_startup`; errors refuse boot outside development. A never-
@@ -371,6 +372,25 @@ migrated first run defers checks until migrations have been applied. Doctor
 reports the same issues as `SM033`, through the same filtered sessions
 (tenant and soft-delete rules in [Migrations](../database/migrations.md)).
 Checks must never clear credentials or apply migrations.
+
+Set `remediation_text` to give operators module-specific instructions. When
+it is omitted and exactly one installed entry point registers the upgrade ID, the framework
+suggests `smpy migrations prepare <upgrade-id> --head <host-head-or-label@head>`.
+
+To ship a recipe, declare the upgrade ID in the `simple_module.data_upgrades`
+entry-point group in the provider package's `pyproject.toml`.
+
+```toml
+[project.entry-points."simple_module.data_upgrades"]
+"notes.upgrade_v1" = "notes.upgrades:upgrade_v1"
+```
+
+The target is a no-argument callable returning a `(branch_label, python_source)` tuple.
+The UTF-8 Python source must be self-contained, define Alembic `upgrade()` and
+`downgrade()` functions, and leave revision metadata for the CLI to append.
+Keep upgrade IDs unique across installed packages. The CLI writes a host-owned
+revision next to the selected `--head` revision, including when Alembic has
+multiple `version_locations`. Review the generated revision before applying it.
 
 ## `on_startup()` / `on_shutdown()`
 

@@ -105,5 +105,10 @@ def _incompatible() -> list[DataCompatibilityIssue]:
             "Stop all old workers and apply the token invalidation/column upgrade; "
             "clients must sign in again.",
             severity="error",
+            remediation_text=(
+                "From the host's development environment, run "
+                f"`uv run smpy migrations prepare {UPGRADE_HASHED_BEARER_TOKENS} "
+                "--head <host-head-or-label@head>`."
+            ),
         )
     ]

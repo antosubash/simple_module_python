@@ -21,9 +21,12 @@ host/                          # the host project (in the repo root)
 └── pyproject.toml             # depends on each installed module
 ```
 
-Alembic always runs from the repo root with `-c host/alembic.ini`, so it shares
-the app's `.env` / `SM_DATABASE_URL`. `host/migrations/env.py` resolves the URL
-from `Settings()` (converting the async driver to a sync one for migrations).
+In the framework workspace, run Alembic from the repo root with
+`-c host/alembic.ini` so it shares the app's `.env` / `SM_DATABASE_URL`.
+Scaffolded hosts use a root-level `alembic.ini`. Boot, Doctor, and
+`smpy migrations prepare` look for `alembic.ini` before `host/alembic.ini`
+at the discovered project root. Set `SM_PROJECT_ROOT` to override discovery,
+or pass a cwd-relative `--config` to `prepare`.
 
 ## How autogenerate sees every module
 
@@ -99,14 +102,27 @@ make migrate
 
 No branch label on subsequent revisions. The diff covers every installed module — review the generated file to confirm only the intended module's tables changed.
 
+For a data upgrade, register its ID in the `simple_module.data_upgrades`
+entry-point group. The target is a no-argument callable returning a
+`(branch_label, python_source)` tuple with self-contained `upgrade()` and
+`downgrade()` functions. With exactly one matching installed registration and
+no explicit remediation text, the compatibility check suggests preparing a
+revision. Run `uv run smpy migrations prepare <upgrade-id> --head <host-head-or-label@head>`
+in the host's development environment, then review and apply the revision.
+
 ## Diagnostics
 
 | Code | When |
 |---|---|
-| **SM010** (error) | DB revision is behind migration head |
+| **SM010** (error or warning) | DB is behind a head or migration state cannot be verified |
 | **SM011** (warning) | Module declares a table that has no entry in migration history — usually means you added a model and forgot to autogenerate |
 
-SM010/SM011 are **not** emitted at boot or by `make doctor`. They only surface when a caller passes `migration_state=` / `module_tables=` / `migrated_tables=` to `run_diagnostics(...)` — e.g. a CI job asserting migration health. The boot-time guard is separate: `check_migrations()` (in the lifespan) raises a plain `RuntimeError` — not an SM code — in **both dev and prod** if the DB is behind head. Operationally the rule is unchanged: deploy the migration before the code that depends on it.
+`make doctor` checks migration state and reports missing module tables once the
+database is at head. Boot also checks table coverage at head. A behind-head
+database refuses boot unless the install qualifies for first-run setup.
+An unknown state produces an `SM010` warning in development and refuses boot in
+other environments. Only verified first runs can apply migrations through
+`/setup`. Apply upgrade migrations before deploying the code that needs them.
 
 ## Pitfalls
 

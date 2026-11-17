@@ -34,5 +34,8 @@ async def test_mail_obsolete_system_keys(scope, scope_id, key, expected):
             if expected:
                 assert issues[0].upgrade_id == "mail.settings_namespace_v1"
                 assert issues[0].severity == "warning"
+                assert "uv run smpy migrations prepare mail.settings_namespace_v1 --head" in (
+                    issues[0].remediation_text or ""
+                )
     finally:
         await engine.dispose()

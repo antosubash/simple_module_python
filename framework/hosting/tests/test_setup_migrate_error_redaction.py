@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from alembic import command
 from fastapi import HTTPException
+from simple_module_hosting.setup_wizard import migrate
 from simple_module_hosting.setup_wizard.migrate import apply_migrations
 from sqlalchemy.engine import make_url
 
@@ -22,6 +23,23 @@ def _request(correlation_id):
 
 
 _SECRET = "postgresql://admin:hunter2@db.internal/prod"
+
+
+@pytest.fixture(autouse=True)
+def _verified_first_run(monkeypatch):
+    async def status(*args):
+        return {
+            "head_revision": "head",
+            "current_revision": None,
+            "is_current": False,
+            "pending_count": 1,
+        }
+
+    async def eligible(*args):
+        return True
+
+    monkeypatch.setattr("simple_module_hosting.migrations.migration_status", status)
+    monkeypatch.setattr(migrate, "is_first_run", eligible)
 
 
 async def test_migration_failure_detail_is_redacted(monkeypatch, caplog) -> None:

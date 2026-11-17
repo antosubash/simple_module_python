@@ -77,11 +77,17 @@ describe('StatsRow', () => {
     expect(card.getByText('not available')).toBeInTheDocument();
   });
 
-  test('the other three figures are real either way', () => {
+  test('shows the module count and Python version when checks are unavailable', () => {
     render(<StatsRow stats={STATS} available={false} />);
 
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('3.12.4')).toBeInTheDocument();
+  });
+
+  test('shows a dash when the pending migration count is unknown', () => {
+    render(<StatsRow stats={{ ...STATS, pending_migrations: null }} available={true} />);
+
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 });
 
@@ -108,5 +114,14 @@ describe('buildDoctorReport', () => {
 
     expect(report).toContain('a3f1beef [users] add invite table — applied');
     expect(report).toContain('vite :5050');
+  });
+
+  test('shows a dash when the pending migration count is unknown', () => {
+    const report = buildDoctorReport(
+      { ...PROPS, stats: { ...STATS, pending_migrations: null } },
+      LABELS,
+    );
+
+    expect(report).toContain('pending migrations —');
   });
 });
