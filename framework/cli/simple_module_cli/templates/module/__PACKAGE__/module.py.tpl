@@ -5,11 +5,10 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter{{SETTINGS_FASTAPI_IMPORT}}
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
+{{SETTINGS_IMPORT}}from simple_module_core.permissions import PermissionRegistry
 
 from {{PACKAGE_NAME}}.core.constants import (
 {{CONSTANTS_IMPORTS}}
@@ -26,20 +25,7 @@ class {{MODULE_NAME}}Module(ModuleBase):
         requires_framework=">=1.0,<2.0",
     )
 
-    def register_settings(self, app: FastAPI) -> None:
-        from {{PACKAGE_NAME}}.core.services import {{MODULE_NAME}}Services
-        from {{PACKAGE_NAME}}.core.settings import {{MODULE_NAME}}Settings
-
-        # Records the class so the host hydrates it from the settings table
-        # (DB → default) and mounts the services on app.state.{{PACKAGE_NAME}}.
-        register_module_settings(
-            app,
-            "{{PACKAGE_NAME}}",
-            {{MODULE_NAME}}Settings,
-            lambda s: {{MODULE_NAME}}Services(settings=s),
-        )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
+{{SETTINGS_HOOK}}    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
         from {{PACKAGE_NAME}}.web.endpoints.api import router as api
         from {{PACKAGE_NAME}}.web.endpoints.views import router as views
 
@@ -77,7 +63,7 @@ class {{MODULE_NAME}}Module(ModuleBase):
         return {LOCALE_NAMESPACE: base}
 
     def static_mounts(self) -> dict[str, Path]:
-        """Expose pre-built frontend assets when they exist.
+        """Expose optional pre-built static assets, separate from Inertia pages.
 
         Returns an empty dict when ``static/dist/`` hasn't been built yet,
         so ``uv run pytest`` works during development. In production, the

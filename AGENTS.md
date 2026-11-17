@@ -409,6 +409,10 @@ There is **one scaffolder**: `make new-module name=<name>` runs
 templates `smpy create-module` / `smpy new` use
 (`framework/cli/simple_module_cli/templates/module/`). Change a convention there, once.
 
+Settings plumbing is opt-in: `smpy create-module --with-settings` or
+`make new-module name=<name> ARGS=--with-settings` adds DB-backed settings,
+a services container and `register_settings`; the default omits them.
+
 It generates a CRUD sample (model, DTOs, service, REST + Inertia endpoints,
 Browse/Create/Edit pages, `locales/en.json`, tests) that passes `make lint`,
 wires the module into `host/pyproject.toml`, the root `testpaths`/`extra-paths`

@@ -305,12 +305,18 @@ tenant explicitly: `registry.is_enabled(FLAG_BULK_IMPORT.name, tenant_id=tenant)
 
 ## Settings
 
-Each module's settings are loaded via its `register_settings(app)` hook.
-Convention: read environment variables under the prefix `SM_<MODULE>_`
-(e.g. `SM_AUTH_CLIENT_ID`) and store the result on a module-owned object at
-`app.state.<module_package_lower>` (e.g. `app.state.auth`, `app.state.users`).
-The `SM012` diagnostic looks for exactly that attribute, so the `_settings`
-suffix some older modules used is not recognised. Hosts can declare
+Modules without configuration need no settings class or `register_settings` hook.
+The scaffold omits both by default; use `smpy create-module <name> --with-settings`
+(or `make new-module name=<name> ARGS=--with-settings` in this repo) to include them.
+
+For configurable modules, subclass `simple_module_core.settings_base.DbBackedSettings`
+and call `register_module_settings(app, package, SettingsCls, services_factory)`
+from `register_settings(app)`. The host hydrates settings from the database before
+`on_startup` and mounts the services on `app.state.<module_package_lower>`.
+Edit configuration in the admin settings editor; new module configuration must
+not read environment variables. Secrets and process wiring are the exceptions.
+`SM012` warns only when a module overrides the hook without mounting its state.
+Hosts can declare
 `SM_MODULES_ENABLED='["Auth","MyModule"]'` to load only a subset of
 installed modules.
 

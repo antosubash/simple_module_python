@@ -192,6 +192,9 @@ def create_module(
             "existing repo/host (nested workflows never run there).",
         ),
     ] = False,
+    with_settings: Annotated[
+        bool, typer.Option("--with-settings", help="Include DB-backed settings and services.")
+    ] = False,
 ) -> None:
     """Scaffold a publishable SimpleModule module package."""
     slug = to_kebab_case(name)
@@ -211,6 +214,7 @@ def create_module(
             name=name,
             framework_version=resolve_framework_version(),
             standalone=standalone_mode,
+            with_settings=with_settings,
         )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)

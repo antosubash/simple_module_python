@@ -48,7 +48,7 @@ That image carries no Celery: the build passes
 entry point to discover and the web process needs no broker at all. Background
 jobs are the `worker` / `beat` services in `docker-compose.yml`
 (`docker/worker.Dockerfile`), which is where a second process and a Redis
-belong. Drop that flag and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` to
+belong. Drop that flag and set `SM_REDIS_URL` to the Redis service URL to
 put tasks back in the web image.
 
 ### Scaffolded apps
@@ -65,6 +65,14 @@ put tasks back in the web image.
 ```bash
 make docker-up   # builds the image, applies migrations, serves on :8000
 ```
+
+With background tasks selected, app, worker and beat each receive only
+`SM_REDIS_URL=redis://redis:6379/0` for Redis connectivity. It seeds the Celery
+broker and result backend, leases and shared rate limiting. `smpy docker add-worker`
+copies this wiring from the existing worker. Use `SM_BG_TASKS_BROKER_URL` and
+`SM_BG_TASKS_RESULT_BACKEND` only when per-field overrides are needed, such as
+an AMQP broker with a non-Redis result backend. Production still refuses
+localhost broker or result-backend URLs.
 
 The compose file pins `SM_ENVIRONMENT=production` for the app service — a container has no Vite dev server, so development mode would emit asset tags pointing at nothing.
 

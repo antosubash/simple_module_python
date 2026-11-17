@@ -155,7 +155,8 @@ Stored settings take precedence. See [Keycloak](/modules/keycloak) and
 ## Background tasks (Celery)
 
 The settings fields below resolve **env → DB → default**. Prefer
-`SM_REDIS_URL` for Redis connectivity and the BackgroundTasks admin editor
+`SM_REDIS_URL` for Redis connectivity (generated app, worker and beat files
+use only this connection variable) and the BackgroundTasks admin editor
 for tuning. Restart affected web, worker and beat processes for changes to
 their startup configuration. See [Background tasks](/modules/background_tasks).
 
@@ -163,8 +164,8 @@ their startup configuration. See [Background tasks](/modules/background_tasks).
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Explicit broker URL takes precedence over `SM_REDIS_URL`. Production rejects a localhost broker. |
-| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Explicit result backend URL takes precedence over `SM_REDIS_URL`. Production rejects a localhost result backend. |
+| `SM_BG_TASKS_BROKER_URL` | `redis://localhost:6379/0` | Per-field override for non-Redis transports or separate connections; takes precedence over `SM_REDIS_URL`. Production rejects a localhost broker. |
+| `SM_BG_TASKS_RESULT_BACKEND` | `redis://localhost:6379/1` | Per-field override for non-Redis backends or separate connections; takes precedence over `SM_REDIS_URL`. Production rejects a localhost result backend. |
 | `SM_BG_TASKS_TASK_DEFAULT_QUEUE` | `default` | Queue for tasks without an explicit route. |
 | `SM_BG_TASKS_TASK_ROUTES_OVERRIDE` | `{}` | JSON object mapping task patterns to queues or supported route options. |
 | `SM_BG_TASKS_VISIBILITY_TIMEOUT_SECONDS` | unset | Override the Redis visibility timeout. |
