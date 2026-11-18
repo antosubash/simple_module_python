@@ -20,6 +20,12 @@ PATH = "/api/sharing"
 
 
 @pytest.fixture
+def settings(settings):
+    settings.i18n_supported_locales = ["en", "de"]
+    return settings
+
+
+@pytest.fixture
 async def subjects_app(app):
     register_note_type(app.state.sm.resource_types)
     async with app.state.sm.db.engine.begin() as conn:
@@ -40,6 +46,28 @@ async def seed(app, owner):
         db.add(note)
         await db.commit()
         return {"resource_type": NOTE_TYPE, "resource_id": str(note.id)}
+
+
+async def test_role_candidates_match_request_locale_labels(subjects_app, tenant_client):
+    async with tenant_client(TenantRole.OWNER) as owner:
+        resource = await seed(subjects_app, owner.user_id)
+        for locale, query, expected in (
+            ("en", "Members", ["member"]),
+            ("en", "Owners", ["owner"]),
+            ("en", "Administrators", ["admin"]),
+            ("de", "Mitglieder", ["member"]),
+            ("de", "Eigentümer", ["owner"]),
+            ("de", "Administratoren", ["admin"]),
+            ("en", "Mitglieder", []),
+            ("de", "Owners", []),
+        ):
+            response = await owner.client.get(
+                f"{PATH}/candidates",
+                params={**resource, "subject_type": "tenant_role", "q": query},
+                headers={"Accept-Language": locale},
+            )
+            assert response.status_code == 200, response.text
+            assert [candidate["id"] for candidate in response.json()] == expected
 
 
 async def test_role_grant_candidates_labels_and_access(subjects_app, tenant_client):

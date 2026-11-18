@@ -80,12 +80,17 @@ async def _valid_role(ctx: SubjectContext, subject_id: str) -> str | None:
 async def _role_candidates(ctx: SubjectContext, term: str, owner_id: str) -> list[ShareCandidate]:
     if not await _role_visible(ctx):
         return []
+    term = term.casefold()
     return [
         ShareCandidate(
             id=role.value, display_name=tenant_role(role), subject_type=SUBJECT_TENANT_ROLE
         )
         for role in TenantRole
-        if term.casefold() in role.value
+        if term in role.value
+        or (
+            ctx.translate is not None
+            and term in ctx.translate(f"sharing.subjects.{role.value}").casefold()
+        )
     ]
 
 

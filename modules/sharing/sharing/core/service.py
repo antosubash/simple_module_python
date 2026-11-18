@@ -9,6 +9,7 @@ subject is validated by its registered provider. Rows are tenant-scoped by
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from simple_module_core.datetimes import aware as _aware
@@ -64,15 +65,18 @@ class SharingService:
         directory: UserDirectory,
         audience: Audience | OpenAudience | None = None,
         subjects: SubjectRegistry | None = None,
+        *,
+        translate: Callable[[str], str] | None = None,
     ) -> None:
         self.db = db
         self.registry = registry
         self.directory = directory
         self.audience = audience or OpenAudience()
         self.subjects = subjects
+        self.translate = translate
 
     def context(self, principal: ResourcePrincipal) -> SubjectContext:
-        return SubjectContext(self.db, self.directory, self.audience, principal)
+        return SubjectContext(self.db, self.directory, self.audience, principal, self.translate)
 
     def subject_registry(self, principal: ResourcePrincipal) -> SubjectRegistry:
         return self.subjects if self.subjects is not None else subjects_for(principal)

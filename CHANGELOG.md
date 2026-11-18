@@ -35,6 +35,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - SM019 includes admin-only routes declared through `AdminSurface` or the legacy admin hook, while permission catalogues still make modules discoverable. Admin layout defaults also match URL-encoded Unicode and spaces in surface prefixes (#988).
+- Sharing tenant-role recipient searches match display labels in the request locale as well as role IDs (#963).
 
 - The combined first-run setup card shows the administrator title and description, with a translated note that the database is set up first (#987).
 

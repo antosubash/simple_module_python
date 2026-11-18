@@ -24,6 +24,7 @@ class SubjectContext:
     directory: UserDirectory
     audience: Audience | OpenAudience
     principal: ResourcePrincipal
+    translate: Callable[[str], str] | None = None
 
 
 @dataclass(frozen=True)
