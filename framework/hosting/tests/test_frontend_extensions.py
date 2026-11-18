@@ -2,6 +2,8 @@
 
 import json
 import os
+import sys
+from pathlib import Path
 
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
@@ -25,7 +27,7 @@ def test_registration_entries_without_pages(tmp_path, monkeypatch, suffix):
     output = tmp_path / "host" / "client_app"
     paths = write_module_pages_manifest([Example()], output, repo_root=tmp_path)
     ts = paths["generated"].read_text()
-    relative = os.path.relpath(entry.with_suffix(""), output)
+    relative = os.path.relpath(entry, output)
     assert json.dumps(relative) in ts
     assert "registerModuleExtensions" in ts
     assert 'runOnce("Example"' in ts
@@ -75,3 +77,59 @@ def test_registration_keeps_discovery_order_and_skips_missing_entries(tmp_path, 
     ts = write_module_pages_manifest(modules, tmp_path / "out")["generated"].read_text()
     assert ts.index('runOnce("ZDependency"') < ts.index('runOnce("ADependent"')
     assert 'runOnce("NoEntry"' not in ts
+
+
+@pytest.mark.parametrize("suffix", ["ts", "tsx"])
+def test_external_registration_passes_host_typecheck_and_checks_source(
+    tmp_path, monkeypatch, capfd, suffix
+):
+    from simple_module_hosting import assets, manifest
+    from simple_module_hosting.module_tsconfig import run_typecheck
+
+    class External(ModuleBase):
+        __module__ = "external_extension"
+        meta = ModuleMeta(name="External")
+
+    repo = Path(__file__).resolve().parents[3]
+    package = tmp_path / "external" / "site-packages" / "external_extension"
+    (package / "ui").mkdir(parents=True)
+    (package / "__init__.py").touch()
+    entry = package / "ui" / f"extensions.{suffix}"
+    entry.write_text(
+        "import type { ExtensionRegistry } from '@simple-module-py/ui/extensions';\n"
+        "export function register(registry: ExtensionRegistry): void {\n"
+        "  registry.registerIcon('external.icon', () => null);\n"
+        "}\n"
+    )
+    monkeypatch.syspath_prepend(str(package.parent))
+    monkeypatch.delitem(sys.modules, "external_extension", raising=False)
+    monkeypatch.setattr(manifest, "framework_assets", list)
+    output = tmp_path / "host" / "client_app"
+    output.mkdir(parents=True)
+    (output / "node_modules").symlink_to(repo / "node_modules", target_is_directory=True)
+    (output / "tsconfig.json").write_text(
+        json.dumps(
+            {
+                "compilerOptions": {
+                    "target": "ES2022",
+                    "lib": ["ES2022", "DOM"],
+                    "module": "ESNext",
+                    "moduleResolution": "bundler",
+                    "jsx": "react-jsx",
+                    "strict": True,
+                    "skipLibCheck": True,
+                    "noEmit": True,
+                    "types": ["vite/client"],
+                },
+                "include": ["*.ts"],
+            }
+        )
+    )
+    manifest.write_module_pages_manifest([External()], output, repo_root=tmp_path)
+    module_assets = assets.compute_module_assets([External()])
+    assert run_typecheck(module_assets, output, tmp_path) == 0
+    capfd.readouterr()
+
+    entry.write_text(entry.read_text().replace("'external.icon'", "42"))
+    assert run_typecheck(module_assets, output, tmp_path) != 0
+    assert f"extensions.{suffix}(3,25): error TS2345" in capfd.readouterr().out

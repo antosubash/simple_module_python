@@ -1,4 +1,4 @@
-"""Generate optional frontend registration imports in module discovery order."""
+"""Generate eager frontend registration globs in module discovery order."""
 
 from __future__ import annotations
 
@@ -23,13 +23,19 @@ def render_frontend_extensions(assets: Sequence[ModuleAssets], output_dir: Path)
             raise ValueError(f"{asset.name}: ship only one ui/extensions.ts or ui/extensions.tsx")
         if not entries:
             continue
-        # Extensionless imports work with existing hosts' TypeScript configs too.
-        path = Path(os.path.relpath(entries[0].with_suffix(""), output_dir.resolve())).as_posix()
+        # Module projects check sources; host tsc must not follow real wheel paths.
+        path = Path(os.path.relpath(entries[0], output_dir.resolve())).as_posix()
         if not path.startswith(("./", "../")):
             path = "./" + path
-        symbol = f"registerExtension{len(calls)}"
-        imports.append(f"import {{ register as {symbol} }} from {json.dumps(path)};")
-        calls.append(f"  registry.runOnce({json.dumps(asset.name)}, () => {symbol}(registry));")
+        symbol = f"moduleExtensions{len(calls)}"
+        imports.append(
+            f"const {symbol} = import.meta.glob<(registry: ExtensionRegistry) => void>("
+            f"{json.dumps(path)}, {{ eager: true, import: 'register' }});"
+        )
+        calls.append(
+            f"  registry.runOnce({json.dumps(asset.name)}, () => "
+            f"Object.values({symbol}).forEach(register => register(registry)));"
+        )
     return [
         *imports,
         "",
