@@ -9,7 +9,7 @@ import sys
 import time
 from html import unescape
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, build_opener, urlopen
 from uuid import uuid4
 
 
@@ -23,12 +23,29 @@ def first_asset(html: str) -> str:
     return unescape(match[1])
 
 
-def get(url: str) -> str:
-    # urlopen follows the anonymous root page's redirects (login or setup).
-    with urlopen(url, timeout=5) as response:
+class _NoRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def get(url: str, *, follow_redirects: bool = False, asset: bool = False) -> str:
+    open_url = urlopen if follow_redirects else build_opener(_NoRedirects()).open
+    with open_url(url, timeout=5) as response:
         if response.status != 200:
             raise RuntimeError(f"{url} returned {response.status}, expected 200")
-        return response.read().decode("utf-8")
+        body = response.read()
+        if asset:
+            content_type = response.headers.get_content_type()
+            if content_type not in {
+                "text/css",
+                "text/javascript",
+                "application/javascript",
+                "application/x-javascript",
+            }:
+                raise RuntimeError(f"{url} returned unexpected asset Content-Type: {content_type}")
+            if not body:
+                raise RuntimeError(f"{url} returned an empty asset")
+        return body.decode("utf-8")
 
 
 def main() -> int:
@@ -72,8 +89,8 @@ def main() -> int:
                 if time.monotonic() >= deadline:
                     raise RuntimeError("/health did not return 200 within 120 seconds") from exc
                 time.sleep(1)
-        asset = first_asset(get(f"{base}/"))
-        get(f"{base}{asset}")
+        asset = first_asset(get(f"{base}/", follow_redirects=True))
+        get(f"{base}{asset}", asset=True)
         passed = True
         print(f"Docker smoke passed: /health and {asset} returned 200")
         return 0
