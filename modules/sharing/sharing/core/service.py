@@ -25,9 +25,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from sharing.contracts.schemas import ShareGrant
+from sharing.contracts.schemas import ShareCandidate, ShareGrant
 from sharing.core.audience import Audience, OpenAudience
 from sharing.core.constants import (
+    CANDIDATES_MAX,
+    CANDIDATES_MIN_QUERY,
+    CANDIDATES_SCAN,
     ERR_BAD_ROLE,
     ERR_EXPIRED,
     ERR_FORBIDDEN,
@@ -96,7 +99,11 @@ class SharingService:
         row = await self._authorize(principal, resource_type, data.resource_id)
         grantee = (await self.directory.get_many(self.db, [data.subject_id])).get(data.subject_id)
         # One error for "no such user" and "not in your tenant": no enumeration.
-        if grantee is None or grantee.id not in await self.audience.visible([grantee.id]):
+        if (
+            grantee is None
+            or not grantee.is_active
+            or grantee.id not in await self.audience.visible([grantee.id])
+        ):
             raise SharingError(422, ERR_UNKNOWN_GRANTEE)
         if grantee.id == principal.user_id:
             raise SharingError(422, ERR_SELF)
@@ -167,6 +174,27 @@ class SharingService:
             .order_by(ResourceShare.created_at)
         )
         return list((await self.db.execute(stmt)).scalars())
+
+    async def candidates(
+        self, principal: ResourcePrincipal, rtype: str, resource_id: str, query: str
+    ) -> list[ShareCandidate]:
+        resource_type = self._type(rtype)
+        row = await self._authorize(principal, resource_type, resource_id)
+        term = query.strip()
+        if len(term) < CANDIDATES_MIN_QUERY:
+            return []
+        owner_col = getattr(resource_type.policy, "owner_col", None)
+        owner_id = str(getattr(row, getattr(owner_col, "key", "owner_id"), ""))
+        # shortcut: bounded directory scan can underfill after tenant filtering; add
+        # directory-side membership search if large directories need exhaustive matches.
+        found = await self.directory.search(self.db, term, limit=CANDIDATES_SCAN)
+        users = [u for u in found if u.is_active and u.id not in {owner_id, principal.user_id}]
+        visible = await self.audience.visible([u.id for u in users])
+        return [
+            ShareCandidate(id=u.id, display_name=u.label, email=u.email)
+            for u in users
+            if u.id in visible
+        ][:CANDIDATES_MAX]
 
 
 __all__ = ["SharingError", "SharingService"]

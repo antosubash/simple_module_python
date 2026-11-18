@@ -8,22 +8,22 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.resources import ResourcePrincipal
 from simple_module_core.user_directory import get_user_directory
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_hosting.resource_deps import resource_principal
 
-from sharing.contracts.schemas import ShareGrant, ShareOut
+from sharing.contracts.schemas import ShareCandidate, ShareGrant, ShareOut
 from sharing.core.constants import PERM_SHARE
 from sharing.core.service import SharingError
 from sharing.web.deps import SharingServiceDep, http_error
 from sharing.web.present import present_shares
 
-router = APIRouter(prefix="/shares", dependencies=[Depends(RequiresPermission(PERM_SHARE))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_SHARE))])
 
 
-@router.get("", response_model=list[ShareOut])
+@router.get("/shares", response_model=list[ShareOut])
 async def list_shares(
     request: Request,
     resource_type: str,
@@ -40,7 +40,7 @@ async def list_shares(
     )
 
 
-@router.post("", response_model=ShareOut, status_code=201)
+@router.post("/shares", response_model=ShareOut, status_code=201)
 async def grant_share(
     request: Request,
     data: ShareGrant,
@@ -57,7 +57,7 @@ async def grant_share(
     return out
 
 
-@router.delete("/{share_id}", status_code=204)
+@router.delete("/shares/{share_id}", status_code=204)
 async def revoke_share(
     share_id: uuid.UUID,
     service: SharingServiceDep,
@@ -65,5 +65,19 @@ async def revoke_share(
 ) -> None:
     try:
         await service.revoke(who, share_id)
+    except SharingError as exc:
+        raise http_error(exc) from None
+
+
+@router.get("/candidates", response_model=list[ShareCandidate])
+async def share_candidates(
+    resource_type: str,
+    resource_id: str,
+    service: SharingServiceDep,
+    q: str = Query("", max_length=100),
+    who: ResourcePrincipal = Depends(resource_principal),
+) -> list[ShareCandidate]:
+    try:
+        return await service.candidates(who, resource_type, resource_id, q)
     except SharingError as exc:
         raise http_error(exc) from None

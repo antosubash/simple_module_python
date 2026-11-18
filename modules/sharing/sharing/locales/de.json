@@ -30,5 +30,25 @@
     "confirm": "Widerrufen",
     "cancel": "Abbrechen",
     "failed": "Die Freigabe konnte nicht widerrufen werden"
+  },
+  "dialog": {
+    "button": "Freigeben",
+    "title": "Ressource freigeben",
+    "description": "Geben Sie anderen Personen Zugriff auf diese Ressource.",
+    "current": "Personen mit Zugriff",
+    "none": "Noch keine Freigaben. Suchen Sie nach einer Person.",
+    "loading": "Wird geladen…",
+    "search_label": "Personen finden",
+    "search_placeholder": "Nach Name oder E-Mail suchen",
+    "search_min": "Geben Sie mindestens {{min}} Zeichen ein.",
+    "role": "Zugriffsstufe",
+    "role_view": "Darf ansehen",
+    "role_edit": "Darf bearbeiten",
+    "grant": "Hinzufügen",
+    "revoke": "Entfernen",
+    "revoke_for": "Zugriff für {{name}} entfernen",
+    "no_candidates": "Keine passenden Personen verfügbar.",
+    "failed": "Freigaben konnten nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
+    "close": "Schließen"
   }
 }

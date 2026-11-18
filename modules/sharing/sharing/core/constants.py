@@ -22,6 +22,11 @@ USER_ROLE: Final = "user"
 PAGE_ADMIN: Final = "Sharing/Admin"
 
 API_PREFIX: Final = "/api/sharing"
+CANDIDATES_URL: Final = f"{API_PREFIX}/candidates"
+CANDIDATES_RATE: Final = "60/minute"
+CANDIDATES_MIN_QUERY: Final = 3
+CANDIDATES_SCAN: Final = 200
+CANDIDATES_MAX: Final = 20
 VIEW_PREFIX: Final = "/admin/sharing"
 # Trailing slash: the index route is registered at "/" under the prefix.
 ADMIN_URL: Final = f"{VIEW_PREFIX}/"

@@ -30,5 +30,25 @@
     "confirm": "Revoke",
     "cancel": "Cancel",
     "failed": "Failed to revoke the share"
+  },
+  "dialog": {
+    "button": "Share",
+    "title": "Share resource",
+    "description": "Give other people access to this resource.",
+    "current": "People with access",
+    "none": "No shares yet. Search for someone to add.",
+    "loading": "Loading…",
+    "search_label": "Find people",
+    "search_placeholder": "Search by name or email",
+    "search_min": "Type at least {{min}} characters to search.",
+    "role": "Access level",
+    "role_view": "Can view",
+    "role_edit": "Can edit",
+    "grant": "Add",
+    "revoke": "Remove",
+    "revoke_for": "Remove access for {{name}}",
+    "no_candidates": "No matching people available.",
+    "failed": "Could not update sharing. Please try again.",
+    "close": "Close"
   }
 }
