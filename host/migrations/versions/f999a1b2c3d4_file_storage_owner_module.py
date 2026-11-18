@@ -13,6 +13,7 @@ branch_labels = None
 depends_on = None
 
 _TABLE = "file_storage_stored_file"
+_INDEX = "ix_file_storage_stored_file_tenant_browse"
 
 
 def upgrade() -> None:
@@ -21,4 +22,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     with op.batch_alter_table(_TABLE) as batch:
+        # SQLite batch reflection loses the index's descending sort order.
+        batch.drop_index(_INDEX)
         batch.drop_column("owner_module")
+    op.create_index(
+        _INDEX, _TABLE, ["tenant_id", "is_deleted", sa.desc(sa.column("created_at")), "id"]
+    )
