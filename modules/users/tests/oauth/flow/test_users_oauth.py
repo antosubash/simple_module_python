@@ -163,7 +163,9 @@ async def _build_user_manager(app):
     session = app.state.sm.db.session_factory()
     s = await session.__aenter__()
     user_db = UserDatabaseWithRoles(s, User, OAuthAccount)
-    manager = UserManager(user_db, app.state.users.mailer, app.state.users.settings)
+    manager = UserManager(
+        user_db, app.state.users.mailer, app.state.users.settings, app.state.users.token_secrets
+    )
     return manager, session, s
 
 
@@ -224,6 +226,9 @@ async def test_oauth_callback_links_to_existing_email(users_app, users_db):
 
 def test_users_state_defaults_empty_oauth_clients():
     from users.core.state import UsersState
+    from users.core.token_secrets import resolve_token_secrets
 
-    state = UsersState(settings=UsersSettings())
+    state = UsersState(
+        settings=UsersSettings(), token_secrets=resolve_token_secrets("test-secret-key")
+    )
     assert state.oauth_clients == {}

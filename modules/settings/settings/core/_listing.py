@@ -100,8 +100,8 @@ class SettingListing:
         screen: ``SettingsStore`` feeds these values back into the live module
         settings objects at boot, so a masked read writes a row of dots over the
         real secret — a mailer that cannot authenticate, and a
-        ``reset_password_token_secret`` that no longer verifies the tokens it
-        signed. This is the one read that must see through the mask, and it is
+        ``oauth_google_client_secret`` that no longer authenticates with Google.
+        This is the one read that must see through the mask, and it is
         spelled out rather than reached by passing a flag so that every caller
         of it is one grep away.
         """

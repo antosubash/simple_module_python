@@ -24,11 +24,7 @@ from users.models import Role, User, UserRole
 
 
 def _settings(**overrides) -> UsersSettings:
-    base = {
-        "reset_password_token_secret": "test-reset-secret-32-bytes-xxxxx",
-        "verification_token_secret": "test-verify-secret-32-bytes-xxxxx",
-    }
-    return UsersSettings(**base, **overrides)
+    return UsersSettings(**overrides)
 
 
 # ── resolve_demo_accounts ───────────────────────────────────────────────────

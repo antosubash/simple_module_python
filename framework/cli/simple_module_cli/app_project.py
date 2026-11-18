@@ -123,14 +123,6 @@ def create_app_project(
     # Generated secrets go to the gitignored .env, never the committed
     # .env.example (GH #441) — see write_local_env below.
     secret_keys = ["SM_SECRET_KEY"]
-    if "users" in resolved:
-        # UsersSettings refuses its placeholder token secrets when
-        # SM_ENVIRONMENT=production — the mode the compose containers run
-        # in — so generate real ones, same as SM_SECRET_KEY.
-        secret_keys += [
-            "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
-            "SM_USERS_VERIFICATION_TOKEN_SECRET",
-        ]
     db_name = to_snake_case(name)
     env_path = target / ".env.example"
     env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""

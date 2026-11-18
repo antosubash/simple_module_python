@@ -182,16 +182,16 @@ Two pre-seeded roles get fixed UUIDs so other modules can reference them safely:
 
 ## Settings
 
-DB-backed via `register_module_settings`. Two values are read **only** from the env at module import time because they bootstrap token signing before the DB is reachable:
+DB-backed via `register_module_settings`. Password-reset and email-verification
+signing keys are derived from the resolved host root key with HKDF-SHA256 and
+distinct purpose labels. No separate secret configuration is required. The keys
+live in runtime state rather than editable DB settings.
 
-| Env var | Default | Purpose |
-|---|---|---|
-| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | `dev-reset-token-secret-change-me` | password-reset token signing |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | `dev-verify-token-secret-change-me` | email-verify token signing |
+Explicit non-placeholder legacy token-secret environment overrides remain supported
+with a deprecation warning until 0.0.50. Without them, outstanding links signed
+with an earlier key stop working on upgrade; request a new link.
 
-Both **must** be replaced with non-placeholder values in production — the boot-time check refuses to start otherwise.
-
-Everything else is DB-backed (initial values are pydantic defaults; edit under Users at `/admin/settings/`):
+Edit the remaining settings under Users at `/admin/settings/`:
 
 | Field | Default |
 |---|---|

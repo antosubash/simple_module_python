@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi_users import exceptions
 from fastapi_users.jwt import decode_jwt
+from users.core.token_secrets import resolve_token_secrets
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -20,8 +21,6 @@ def fake_settings():
     from users.core.settings import UsersSettings
 
     return UsersSettings(
-        verification_token_secret="test-verify-secret-at-least-32-bytes-long",
-        reset_password_token_secret="test-reset-secret-at-least-32-bytes-long",
         verification_token_lifetime_seconds=3600,
         reset_password_token_lifetime_seconds=1800,
     )
@@ -60,7 +59,9 @@ def fake_user_db():
 def manager(fake_settings, fake_mailer, fake_user_db):
     from users.accounts.manager import UserManager
 
-    return UserManager(fake_user_db, fake_mailer, fake_settings)
+    return UserManager(
+        fake_user_db, fake_mailer, fake_settings, resolve_token_secrets("test-secret-key")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +199,7 @@ class TestMintInviteToken:
 
         data = decode_jwt(
             token,
-            fake_settings.verification_token_secret,
+            manager.verification_token_secret,
             [manager.verification_token_audience],
         )
         assert data["aud"] == manager.verification_token_audience
@@ -209,7 +210,7 @@ class TestMintInviteToken:
 
         data = decode_jwt(
             token,
-            fake_settings.verification_token_secret,
+            manager.verification_token_secret,
             [manager.verification_token_audience],
         )
         assert data["sub"] == str(fake_user.id)
@@ -220,7 +221,7 @@ class TestMintInviteToken:
 
         data = decode_jwt(
             token,
-            fake_settings.verification_token_secret,
+            manager.verification_token_secret,
             [manager.verification_token_audience],
         )
         assert data["email"] == fake_user.email
@@ -245,7 +246,7 @@ class TestMintInviteToken:
         would be a lie."""
         data = decode_jwt(
             manager.mint_invite_token(fake_user),
-            fake_settings.verification_token_secret,
+            manager.verification_token_secret,
             [manager.verification_token_audience],
         )
         assert "invited_by" not in data
@@ -256,7 +257,7 @@ class TestMintInviteToken:
     ):
         data = decode_jwt(
             manager.mint_invite_token(fake_user, "Dana Rivera"),
-            fake_settings.verification_token_secret,
+            manager.verification_token_secret,
             [manager.verification_token_audience],
         )
         assert data["invited_by"] == "Dana Rivera"

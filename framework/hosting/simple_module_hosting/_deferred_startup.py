@@ -11,6 +11,7 @@ from simple_module_core.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
 from simple_module_hosting._hydrate_step import hydrate_all
+from simple_module_hosting._secret_key import persist_pending_secret_key
 from simple_module_hosting._table_coverage import add_table_coverage
 from simple_module_hosting.data_compatibility import check_data_compatibility
 
@@ -50,6 +51,7 @@ async def run_deferred_startup(app: FastAPI) -> None:
     committed. Compatibility checks run first and still raise: an incompatible
     security state must keep the setup gate closed.
     """
+    await persist_pending_secret_key(app)
     pending_checks = getattr(app.state, "deferred_data_compatibility", None)
     if pending_checks:
         await check_data_compatibility(app, pending_checks)

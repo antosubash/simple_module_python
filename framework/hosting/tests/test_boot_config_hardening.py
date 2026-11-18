@@ -71,14 +71,15 @@ def test_fresh_install_may_use_an_ephemeral_key_when_strict(tmp_path: Path) -> N
     assert ensure_secret_key(url, strict=True)
 
 
-def test_blank_stored_key_is_repaired_once(tmp_path: Path) -> None:
+@pytest.mark.parametrize("blank", ["", " \t\n"])
+def test_blank_stored_key_is_repaired_once(tmp_path: Path, blank: str) -> None:
     """A blank row used to defeat the insert forever: an ephemeral key per boot."""
     db = tmp_path / "blank.db"
-    url = seed_settings_db(db, [("host.secret_key", "")], value_type="string")
+    url = seed_settings_db(db, [("host.secret_key", blank)], value_type="string")
 
-    key = ensure_secret_key(url, stored="", strict=True)
+    key = ensure_secret_key(url, stored=blank, strict=True)
 
-    assert key
+    assert len(key.strip()) >= 40
     stored = sqlite3.connect(db).execute(
         "SELECT value FROM settings_setting WHERE key = 'host.secret_key'"
     )

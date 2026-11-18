@@ -21,7 +21,10 @@ from users.models import Role, User, UserRole
 
 def service(db, app):
     manager = UserManager(
-        UserDatabaseWithRoles(db, User), app.state.users.mailer, app.state.users.settings
+        UserDatabaseWithRoles(db, User),
+        app.state.users.mailer,
+        app.state.users.settings,
+        app.state.users.token_secrets,
     )
     return UserService(db, manager, app)
 

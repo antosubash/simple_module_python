@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve whitespace stripping for legacy Users token keys, and adopt a persisted root after first-run setup migrations so derived reset and verification links survive restarts and agree across workers (#969).
+- Treat blank environment roots as unset, reject blank resolved production roots, and make session signing follow the adopted setup root so post-setup cookies work across workers (#969).
+
 ### Removed
 
 - **Breaking** / **Behaviour change** (#989): removed the deprecated settings root imports: `settings.registration` and `settings.module_registry` → `simple_module_core.module_settings`; `settings.hydrate` → `simple_module_core.settings_hydrate` (its `hydrate_settings_sync` → `simple_module_db.stored_settings`); `settings.constants` → `settings.core.constants`; `settings.store` → `settings.module_settings.store`; `settings._secrets` → `settings.core._secrets`.
@@ -28,6 +33,8 @@ All notable changes to this project are documented in this file. The format is b
 - Sharing ships a reusable `ShareDialog` and `useShares` hook, with a policy-authorized, tenant-filtered and rate-limited user picker (#990).
 
 ### Changed
+
+- **Behaviour change:** one root secret signs sessions and derives purpose-separated Users password-reset and email-verification keys with HKDF-SHA256 (#969). No secret env variable is required: an unset root is generated and stored, an explicit `SM_SECRET_KEY` wins and is never copied to the DB, and Docker no longer replaces a stored root at each start. Scaffolds generate only the root. Explicit non-placeholder `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` / `SM_USERS_VERIFICATION_TOKEN_SECRET` overrides keep existing links valid with a deprecation warning until removal in 0.0.50. Without those overrides, outstanding reset/verification links signed with earlier ephemeral or placeholder keys stop working at upgrade; request new links. Old DB users token-secret settings are ignored. Rotating the root invalidates derived links as well as sessions. External identity-provider, SMTP, S3 and Sentry credentials remain separate.
 
 - **Behaviour change:** `smpy openapi gen-types` generates the `api` client alongside types in `pages/api.generated.ts`; import it directly instead of writing a plain `pages/api.ts` wrapper. Custom wrappers are preserved. API token pages now rely on automatic shared CSRF handling. Authenticated partial reloads always include the current `csrfToken`, so rotated tokens reach the client even with `only`/`except` (#982).
 - **Behaviour change:** `smpy gen` incrementally prepares pages, i18n keys, module JS dependencies and local API types for install/dev/build and module verify; unchanged runs leave files untouched. Individual generators and unconditional CI freshness checks remain. `smpy dev` generates first, selects a free Vite port and shares its URL with the API, with `--port` / `--vite-port` overrides and cleanup of only its own process groups on exit. Supervised Vite development uses Python’s resolved environment; standalone Vite launches and builds still load mode-specific dotenv files and `VITE_*` variables. `SM_VITE_PORT` remains a deprecated fallback when `SM_VITE_DEV_URL` is absent (removal in 0.0.49). Shared i18n keys and dependency installation cover all installed modules regardless of the runtime allowlist. Shutdown registers spawned children before acting on signals and stops owned process trees on Windows as well as POSIX. `make kill` prints supervisor stop guidance instead of killing processes by name or port. i18n output stays at the current package location pending its export/type integration redesign (#977, #983).

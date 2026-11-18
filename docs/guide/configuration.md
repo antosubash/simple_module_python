@@ -5,7 +5,7 @@ Runtime configuration has **two** sources, in order of precedence:
 1. **Environment variables** (`SM_*`) — read at boot, before the DB connection is open. Use for bootstrap plumbing (DB URL, secret key, feature-flag overrides for tests).
 2. **DB-backed settings** — edited from `/admin/settings/` at runtime. Use for everything else: SMTP creds, storage backends, module-specific toggles.
 
-Most deployments only need `SM_DATABASE_URL` and `SM_SECRET_KEY` in the environment — everything else is configurable from the admin UI.
+Most deployments only need `SM_DATABASE_URL` in the environment — everything else is configurable from the admin UI.
 
 ## Framework env vars (bootstrap)
 
@@ -15,7 +15,7 @@ Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hostin
 |---|---|---|
 | `SM_DATABASE_URL` | `sqlite+aiosqlite:///./app.db` | **Required in production.** Async URL. Postgres: `postgresql+asyncpg://…` Relative sqlite paths resolve against the project root (the `.env` location), not the cwd. |
 | `SM_ENVIRONMENT` | `development` | Any value other than `development`, `test`, `testing` triggers strict discovery + placeholder-secret checks. |
-| `SM_SECRET_KEY` | `change-me-in-production` | **Must** be overridden in production — session cookie signing key. |
+| `SM_SECRET_KEY` | generated and stored | Optional root for sessions and derived users token keys; an explicit value wins and is never copied into the DB. |
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Dev only — where the Vite HMR client connects. `smpy dev` chooses a free port and overrides this value for both children; pin it with `--vite-port`. Direct/manual launches may still supply the URL explicitly. |
 | `SM_DEBUG` | `false` | Enables debug mode (shows tracebacks in HTTP responses). |
 | `SM_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
@@ -125,4 +125,4 @@ If you override `register_settings` but don't write to `app.state.<module_lower>
 
 ## Placeholder-secret check
 
-In production (`SM_ENVIRONMENT != development`), boot fails if `SM_SECRET_KEY` is still the default `change-me-in-production`. Override it before deploying.
+Outside development and testing, boot refuses the shipped root placeholder. Leave `SM_SECRET_KEY` unset to generate and store a strong root key, or set it explicitly.

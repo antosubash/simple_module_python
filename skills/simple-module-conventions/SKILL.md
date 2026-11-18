@@ -52,15 +52,17 @@ root lookup files in place and put non-page frontend code in `ui/`. See
 from simple_module_core.module_settings import register_module_settings
 
 
-class UsersModule(ModuleBase):
+class SiteLockModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.core.settings import UsersSettings  # a DbBackedSettings subclass
-        from users.core.state import UsersState
+        from site_lock.core.settings import SiteLockSettings  # a DbBackedSettings subclass
+        from site_lock.core.state import SiteLockState
 
-        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
+        register_module_settings(
+            app, "site_lock", SiteLockSettings, lambda s: SiteLockState(settings=s)
+        )
 ```
 
-- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env.
+- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env. The optional host root secret is resolved before module registration; Users derives purpose-specific token keys from it, outside editable DB settings.
 - Import from the framework, not the plugin: `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
 - Shared account/invitation origins use `simple_module_hosting.public_urls.public_origin`: blank module origins inherit `host.public_base_url`; never derive emailed links from request Host. All auth providers use host cookie-security and post-login policy. Body/rate/CORS host guards reload live through immutable policy snapshots; module rules still apply.
 - Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.

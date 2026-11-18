@@ -195,13 +195,15 @@ Module settings should:
 - `SM012` diagnostic fires if `register_settings` is overridden but no `app.state.<module_lower>` entry is added.
 
 ```python
-class UsersModule(ModuleBase):
+class SiteLockModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_core.module_settings import register_module_settings
-        from users.core.settings import UsersSettings
-        from users.core.state import UsersState
+        from site_lock.core.settings import SiteLockSettings
+        from site_lock.core.state import SiteLockState
 
-        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
+        register_module_settings(
+            app, "site_lock", SiteLockSettings, lambda s: SiteLockState(settings=s)
+        )
 ```
 
 Details: [settings](framework/settings.md).

@@ -420,8 +420,6 @@ jobs:
           # manifest instead of pointing at the Vite dev server.
           SM_ENVIRONMENT: production
           SM_SECRET_KEY: ci-perf-secret-key-not-a-real-secret-000000000000
-          SM_USERS_RESET_PASSWORD_TOKEN_SECRET: ci-perf-reset-secret-000000000000000000
-          SM_USERS_VERIFICATION_TOKEN_SECRET: ci-perf-verify-secret-00000000000000000
           SM_USERS_BOOTSTRAP_EMAIL: admin@example.com
           SM_USERS_BOOTSTRAP_PASSWORD: admin
           # Keycloak excluded (SM020: one auth provider). BackgroundTasks

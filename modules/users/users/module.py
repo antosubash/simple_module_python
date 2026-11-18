@@ -60,8 +60,21 @@ class UsersModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from users.core.settings import UsersSettings
         from users.core.state import UsersState
+        from users.core.token_secrets import RuntimeTokenSecrets
 
-        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
+        token_secrets = RuntimeTokenSecrets(
+            lambda: (
+                getattr(app.state, "sm", None).settings.secret_key
+                if getattr(app.state, "sm", None) is not None
+                else app.state.boot_settings.secret_key
+            )
+        )
+        register_module_settings(
+            app,
+            "users",
+            UsersSettings,
+            lambda s: UsersState(settings=s, token_secrets=token_secrets),
+        )
 
         from users.accounts.provider import UsersAuthProvider
 
