@@ -18,6 +18,7 @@ from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
+from simple_module_core.diagnostics import print_diagnostics
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
@@ -46,6 +47,9 @@ def build_lifespan(modules: Sequence) -> Callable:
             # fails the boot. See is_first_run for how the two are told apart.
             settings = getattr(app.state.sm, "settings", None)
             environment = getattr(settings, "environment", None)
+            diagnostics = getattr(app.state.sm, "diagnostics", None)
+            if environment == "development" and diagnostics is not None and diagnostics.results:
+                print_diagnostics(diagnostics.results)
             migration = app.state.migration = await migration_status(app.state.sm.db.engine)
             if migration["is_current"] is None and environment == "development":
                 logger.warning("%s: %s", MIGRATION_DRIFT_CODE, migration_problem(migration))

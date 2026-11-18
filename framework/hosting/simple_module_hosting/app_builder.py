@@ -9,7 +9,6 @@ from fastapi import APIRouter, FastAPI
 from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
-from simple_module_core.diagnostics import print_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -162,9 +161,13 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
     app.state.host.settings = HostSettings.model_validate(settings.model_dump())
 
     if settings.is_development:
-        settings_diagnostics = check_settings_registration(app, modules)
-        if settings_diagnostics:
-            print_diagnostics(settings_diagnostics)
+        diagnostics_runner = diagnostics_state.runner
+        if diagnostics_runner is not None:
+            diagnostics_state.runner = lambda: [
+                *diagnostics_runner(),
+                *check_settings_registration(app, modules),
+            ]
+        diagnostics_state.results.extend(check_settings_registration(app, modules))
 
     # ── Phase 5: Module registrations ──────────────────────
     csp_registry = CspSourceRegistry()

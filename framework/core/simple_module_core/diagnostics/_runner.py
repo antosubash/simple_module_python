@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
+import time
+from collections import Counter
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -20,6 +24,7 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 logger = logging.getLogger(__name__)
+_printed_diagnostics: set[tuple[int, str, str, str, str | None]] = set()
 
 
 def run_diagnostics(
@@ -94,20 +99,58 @@ def run_diagnostics(
 
 
 def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
-    """Pretty-print diagnostics to stderr."""
+    """Print each (code, message, module/file location) once per process.
+
+    Output is best-effort: a slow or closed stderr must never prevent boot.
+    The PID in the key keeps forked serving processes independent of parents.
+    """
     if not diagnostics:
-        logger.info("\u2713 No module diagnostics issues found")
+        with suppress(OSError):
+            logger.info("\u2713 No module diagnostics issues found")
         return
 
-    errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
-    warnings = [d for d in diagnostics if d.level == DiagnosticLevel.WARNING]
-    infos = [d for d in diagnostics if d.level == DiagnosticLevel.INFO]
-
+    unique = []
     for d in diagnostics:
-        print(str(d), file=sys.stderr)
-        print(file=sys.stderr)
+        key = (os.getpid(), d.code, d.message, d.module_name, d.file)
+        if key not in _printed_diagnostics:
+            _printed_diagnostics.add(key)
+            unique.append(d)
+    if not unique:
+        return
 
-    print(
-        f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info",
-        file=sys.stderr,
+    levels = Counter(d.level for d in unique)
+    codes = Counter(d.code for d in unique)
+    summary = (
+        f"Results: {levels[DiagnosticLevel.ERROR]} error(s), "
+        f"{levels[DiagnosticLevel.WARNING]} warning(s), {levels[DiagnosticLevel.INFO]} info; "
+        + ", ".join(f"{code}={count}" for code, count in sorted(codes.items()))
     )
+    report = "".join(f"{d}\n\n" for d in unique) + summary + "\n"
+    try:
+        _write_report(report)
+    except OSError as exc:
+        # A logging handler may itself target the same broken stderr pipe.
+        with suppress(OSError):
+            logger.warning("Could not write module diagnostics (%s); %s", exc, summary)
+
+
+def _write_report(report: str) -> None:
+    """Retry partial writes and flushes for at most 100 ms per report."""
+    stream = sys.stderr
+    deadline = time.monotonic() + 0.1
+    position = 0
+    while True:
+        try:
+            while position < len(report):
+                written = stream.write(report[position:])
+                if written == 0:
+                    raise BlockingIOError("stderr made no progress")
+                position += written
+            stream.flush()
+            return
+        except BlockingIOError as exc:
+            position += getattr(exc, "characters_written", 0)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(0.01, remaining))

@@ -62,10 +62,11 @@ def run_dev_boot(
     )
     diagnostics = diagnostics_state.rerun()
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
-    if diagnostics:
-        print_diagnostics(diagnostics)
     if errors:
+        print_diagnostics(diagnostics)
         raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
+
+    # Nonfatal findings print in lifespan, never in a generator/reloader supervisor.
 
     _write_pages_manifest(modules, project_root)
     emit_frontend_types_for_modules(settings, installed_modules, project_root)

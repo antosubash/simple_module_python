@@ -22,6 +22,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Development diagnostic output tolerates non-blocking or broken stderr pipes with bounded retries and one fallback log line. Identical findings print once per process with severity/code counts; nonfatal boot findings print only when the app enters its serving lifespan, avoiding generation/reloader-supervisor duplicates (#1024).
+
 - **Security:** ordinary public-subdomain nonmembers receive anonymous resource visibility, including after membership removal; an authenticated account can no longer read its private owned resources in that tenant. This also closes the membership-check gap present on `main`. Platform admins holding the uncapped wildcard retain resource-policy bypass access without membership in an active tenant, on both HTTP and `principal_for`; suspended or missing tenants remain denied. Service credentials retain their separately validated tenant access. Fixed single-tenant request grant sources receive the effective tenant, matching worker principal lookups (#1005).
 
 - ID-only Keycloak/OIDC principal lookups use known membership and grant sources, without guessing token-only roles or claims. HTTP authentication and membership freshness retain their existing cache invalidation/TTL semantics: losing membership preserves account authentication and tenant switching; unauthorized tenant operations return 403 (#1005).
