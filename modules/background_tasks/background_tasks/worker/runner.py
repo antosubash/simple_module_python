@@ -51,9 +51,11 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Imported after ``.env`` is in the environment, so nothing below can
     # resolve a setting before it is.
     from simple_module_hosting import merge_host_settings
+    from simple_module_hosting.installation import load_installation_id
     from simple_module_hosting.leases import configure_process_leases
 
     from background_tasks.core.db_settings import worker_database_options
+    from background_tasks.core.invalidation_channel import installation_channel
     from background_tasks.core.settings import BackgroundTasksSettings
     from background_tasks.core.sync_db import configure_database, set_database_url
     from background_tasks.executions.tenant_context import set_default_tenant
@@ -78,6 +80,10 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Hydrated from the DB like the web process, so an admin-edited setting
     # reaches the worker at boot, not only the web app.
     settings = load_runner_settings()
+    if settings.broadcast_invalidations and settings.invalidation_channel is None:
+        settings.invalidation_channel = installation_channel(
+            load_installation_id(host.database_url)
+        )
     # Re-apply the engine options now the worker's DB-stored overrides are known.
     configure_database(worker_database_options(host, settings))
     celery = build_celery(settings)

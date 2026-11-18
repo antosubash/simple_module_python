@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID, VALUE_TYPE_STRING, Setting
+from simple_module_db.stored_settings import (
+    INTERNAL_SETTING_KEYS,
+    SYSTEM_SCOPE_ID,
+    VALUE_TYPE_STRING,
+    Setting,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -22,6 +27,7 @@ from settings.core._managed_keys import ModuleKeyError, TenantIsLive, ensure_del
 from settings.core._row_masking import drop_placeholder_write, is_placeholder_write, out
 from settings.core._unique_write import DuplicateSettingError, insert_if_free
 from settings.core.constants import VIEW_PREFIX
+from settings.core.exceptions import InternalKeyError
 
 if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
@@ -64,6 +70,8 @@ class SettingService(SettingListing):
         Tenant (and user) rows stay writable here: a ``tenant_overridable``
         module key's per-tenant override has no other platform route (#690).
         """
+        if key in INTERNAL_SETTING_KEYS:
+            raise InternalKeyError
         if SettingScope(scope) is not SettingScope.SYSTEM:
             return
         package, sep, field = key.partition(".")
@@ -78,7 +86,7 @@ class SettingService(SettingListing):
 
     async def get_by_id(self, setting_id: int) -> SettingOut | None:
         entity = await self.db.get(Setting, setting_id)
-        if entity is None:
+        if entity is None or entity.key in INTERNAL_SETTING_KEYS:
             return None
         return out(entity)
 
@@ -208,6 +216,8 @@ class SettingService(SettingListing):
         self, scope: SettingScope, scope_id: str, key: str, *, as_owner: bool = False
     ) -> bool:
         """Delete one row; ``as_owner`` is for the module that reaps a ``clear_via`` key's file."""
+        if key in INTERNAL_SETTING_KEYS:
+            raise InternalKeyError
         entity = await self._find(scope, scope_id, key)
         if entity is None:
             return False
@@ -228,6 +238,8 @@ class SettingService(SettingListing):
     # ── Internals ───────────────────────────────────────────────────
 
     async def _find(self, scope: SettingScope, scope_id: str, key: str) -> Setting | None:
+        if key in INTERNAL_SETTING_KEYS:
+            return None
         stmt = select(Setting).where(
             col(Setting.scope) == scope.value,
             col(Setting.scope_id) == scope_id,
