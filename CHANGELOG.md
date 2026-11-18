@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Mail transport providers register named factories through `mail.contracts`, with built-in console/SMTP transports and provider-owned DB settings shared by web startup, settings reloads and durable worker resolution. The admin backend selector lists registered transports. **Behaviour change:** unknown transports fail outside development; explicit `install_mail_sender` overrides survive settings reloads (#962).
+
 - Auth-provider modules declare the public `ModuleMeta.provides_auth` capability for selection and SM020/SM021 diagnostics. Users, Keycloak and OIDC use it. SM020 warns when a module object exposes the provider protocol shape without declaring it; provider objects created inside hooks cannot be detected statically (#960).
 - `create_app` and `build_host_app` accept a prebuilt `DatabaseState` or a synchronous settings-to-state factory for custom engines and session routing. Supplied states and factory results remain caller-owned; lifespan cleanup only disposes the default engine (#967).
 

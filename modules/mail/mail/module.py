@@ -60,7 +60,13 @@ class MailModule(ModuleBase):
         from mail.delivery.runtime import install_app_sender
 
         async def _reinstall(event: SettingsReloaded) -> None:
-            if event.package != c.MODULE_PACKAGE:
+            from mail.core.transports import get_mail_transport
+
+            transport = get_mail_transport(
+                app.state.mail.settings.backend,
+                development=app.state.sm.settings.environment == "development",
+            )
+            if event.package not in {c.MODULE_PACKAGE, transport.package}:
                 return
             install_app_sender(app)
 
