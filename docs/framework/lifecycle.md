@@ -298,9 +298,10 @@ def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None
 ```
 
 The host supplies tags and applies `ModuleMeta.route_prefix` / `view_prefix`
-when mounting these routers. Do not repeat the prefixes in the hook. Omitted
-prefixes derive from the package: `order_items` gives `/api/order_items` and
-`/order-items`; explicit values, including `""`, win.
+when mounting these routers. Do not repeat the prefixes in the hook. Both
+prefixes default to `""`, preserving absolute paths registered by existing
+modules. Declare prefixes explicitly in metadata, and retain existing values
+when adopting conventional routers so URLs do not change.
 
 ## `locale_dirs()`
 

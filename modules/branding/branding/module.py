@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 class BrandingModule(ModuleBase):
     meta = ModuleMeta(
         name="Branding",
+        route_prefix=constants.ROUTE_PREFIX,
         view_prefix=constants.VIEW_PREFIX,
         depends_on=[constants._MODULE_SETTINGS, constants._MODULE_FILE_STORAGE],
         # Branding's public contribution (site name, colors, design pack) rides

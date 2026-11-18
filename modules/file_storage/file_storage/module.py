@@ -34,6 +34,7 @@ class FileStorageModule(ModuleBase):
     meta = ModuleMeta(
         name=constants.MODULE_PASCAL,
         route_prefix=constants.ROUTE_PREFIX_API,
+        view_prefix=constants.ROUTE_PREFIX_VIEW,
         # Kept after Settings so the module order is unchanged; registering
         # settings no longer needs it (the framework owns the registry, #500).
         # Task/checksum integration also needs BackgroundTasks loaded first when present.

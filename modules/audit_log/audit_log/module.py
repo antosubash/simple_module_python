@@ -10,6 +10,7 @@ from simple_module_core.permissions import PermissionRegistry
 
 from audit_log.core.constants import (
     ALL_PERMISSIONS,
+    API_PREFIX,
     LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
@@ -26,6 +27,7 @@ from audit_log.core.constants import (
 class AuditLogModule(ModuleBase):
     meta = ModuleMeta(
         name=MODULE_NAME,
+        route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )

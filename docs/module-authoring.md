@@ -156,14 +156,17 @@ from simple_module_core import ModuleBase, ModuleMeta
 class MyModule(ModuleBase):
     meta = ModuleMeta(
         name="MyModule",
+        route_prefix="/api/my-module",
+        view_prefix="/my-module",
         depends_on=[],  # other module names
         requires_framework=">=1.0,<2.0",  # framework API range
     )
 ```
 
-For the Python package `my_module`, omitted prefixes resolve to
-`route_prefix="/api/my_module"` and `view_prefix="/my-module"`. Explicit values,
-including an empty string for a root mount or an API-only module, always win.
+Both prefixes default to `""`, so existing modules that register absolute paths
+keep their URLs. Declare prefixes explicitly as above; retain existing values
+when adopting conventional routers. Scaffolds declare dash-separated prefixes
+for both API and view routes.
 `name="MyModule"` remains the render-key and dependency identity; table names
 are unchanged and remain the model author's responsibility.
 

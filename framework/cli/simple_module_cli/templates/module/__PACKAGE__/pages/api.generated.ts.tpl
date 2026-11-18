@@ -7,7 +7,7 @@
  */
 
 export interface paths {
-    "/api/{{PACKAGE_NAME}}/": {
+    "/api/{{MODULE_SLUG}}/": {
         parameters: {
             query?: never;
             header?: never;
@@ -25,7 +25,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/{{PACKAGE_NAME}}/{item_id}": {
+    "/api/{{MODULE_SLUG}}/{item_id}": {
         parameters: {
             query?: never;
             header?: never;

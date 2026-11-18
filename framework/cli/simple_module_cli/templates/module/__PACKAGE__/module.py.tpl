@@ -17,6 +17,8 @@ from {{PACKAGE_NAME}}.core.constants import (
 class {{MODULE_NAME}}Module(ModuleBase):
     meta = ModuleMeta(
         name="{{MODULE_NAME}}",
+        route_prefix=API_PREFIX,
+        view_prefix=VIEW_PREFIX,
         depends_on=[],
         requires_framework=">=1.0,<2.0",
     )

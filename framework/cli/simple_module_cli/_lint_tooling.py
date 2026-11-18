@@ -13,12 +13,14 @@ TY_REQUIREMENT = "ty>=0.0.100,<0.0.101"
 MODEL_CONFIG_TY_IGNORE = "  # ty: ignore[invalid-assignment]"
 
 _MODULE_CONSTANTS = (
+    "API_PREFIX",
     "MENU_ICON",
     "MENU_LABEL",
     "MENU_LABEL_KEY",
     "MENU_ORDER",
     "MENU_URL",
     "PERM_GROUP",
+    "VIEW_PREFIX",
 )
 _MODULE_PERMISSIONS = ("CREATE", "DELETE", "EDIT", "VIEW")
 

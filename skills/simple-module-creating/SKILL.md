@@ -103,6 +103,8 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 class OrdersModule(ModuleBase):
     meta = ModuleMeta(
         name="Orders",  # PascalCase, must be unique
+        route_prefix="/api/orders",
+        view_prefix="/orders",
         depends_on=[],  # modules this one needs (PascalCase); missing → prod boot fails
         optional_depends_on=[],  # ordering only: sort after these when loaded
     )
@@ -114,9 +116,10 @@ So directory `blog_posts` → `name="BlogPosts"` →
 `inertia.render("BlogPosts/Index", ...)` → `pages/Index.tsx`. Mismatches fire
 diagnostic codes `SM003` (orphan page) / `SM004` (phantom render).
 
-Omitted prefixes derive from the package: `blog_posts` gives
-`route_prefix="/api/blog_posts"` and `view_prefix="/blog-posts"`. Explicit
-prefixes, including `""`, win; preserve custom URLs when adopting defaults.
+`route_prefix` and `view_prefix` both default to `""`, preserving existing
+absolute route paths. Declare prefixes explicitly; scaffolds use dash-separated
+URLs such as `/api/blog-posts` and `/blog-posts`. Keep existing prefix values
+when adopting conventional routers so URLs do not change.
 The version defaults to the owning distribution's installed metadata (entry
 point ownership or package-to-distribution mapping), falling back to `"1.0.0"`
 for uninstalled packages; explicit `version=` wins. Set `requires_framework=`

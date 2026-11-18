@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 class SharingModule(ModuleBase):
     meta = ModuleMeta(
         name=c.MODULE_NAME,
+        route_prefix=c.API_PREFIX,
         view_prefix=c.VIEW_PREFIX,
     )
 

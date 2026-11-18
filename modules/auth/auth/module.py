@@ -36,7 +36,6 @@ class AuthModule(ModuleBase):
     meta = ModuleMeta(
         name="Auth",
         route_prefix="/auth",
-        view_prefix="",
     )
 
     def register_settings(self, app: FastAPI) -> None:

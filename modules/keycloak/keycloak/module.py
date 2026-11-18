@@ -21,6 +21,8 @@ _MODULE_DEPENDENCY_SETTINGS = "Settings"
 class KeycloakModule(ModuleBase):
     meta = ModuleMeta(
         name="Keycloak",
+        route_prefix="/api/keycloak",
+        view_prefix="/keycloak",
         depends_on=[_MODULE_DEPENDENCY_AUTH],
         # Ordering only: settings registration is the framework's (#500).
         optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],

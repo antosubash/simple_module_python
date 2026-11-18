@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from {{PACKAGE_NAME}}.contracts.schemas import {{SINGULAR_CLASS}}Create, {{SINGULAR_CLASS}}Update
 from {{PACKAGE_NAME}}.web.service import {{SINGULAR_CLASS}}Service
 
-API = "/api/{{PACKAGE_NAME}}/"
+API = "/api/{{MODULE_SLUG}}/"
 
 
 class TestService:

@@ -26,6 +26,8 @@ if TYPE_CHECKING:
 class OidcModule(ModuleBase):
     meta = ModuleMeta(
         name="Oidc",
+        route_prefix="/api/oidc",
+        view_prefix="/oidc",
         depends_on=[_MODULE_AUTH],
         optional_depends_on=[_MODULE_SETTINGS],
     )

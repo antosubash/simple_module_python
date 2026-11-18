@@ -2,7 +2,11 @@
 
 from pathlib import Path
 
+from fastapi import FastAPI
+from simple_module_core import ModuleBase
 from simple_module_core.discovery import discover_modules, get_module_package_name
+from simple_module_hosting._module_routes import wire_module_routes
+from simple_module_hosting._route_paths import app_route_paths
 
 # Captured before replacing built-in overrides with the package defaults.
 EXPECTED = {
@@ -25,6 +29,17 @@ EXPECTED = {
     "users": ("Users", "/api/users", "/users", "/admin/users"),
 }
 
+# Paths served by the conventional routers before their overrides were removed.
+CONVENTIONAL_PATHS = {
+    "audit_log": ("/api/audit_log/", "/admin/audit-log/"),
+    "dashboard": ("/api/dashboard/stats", "/dashboard/"),
+    "feature_flags": ("/api/feature_flags/", "/admin/feature-flags/"),
+    "keycloak": ("/api/keycloak/auth/login", "/keycloak/login"),
+    "oidc": ("/api/oidc/auth/login", "/oidc/login"),
+    "permissions": ("/api/permissions/", "/admin/permissions/"),
+    "sharing": ("/api/sharing/shares", "/admin/sharing/"),
+}
+
 
 def test_all_builtin_identities_and_namespaces_are_unchanged():
     modules = {get_module_package_name(m): m for m in discover_modules(strict=True)}
@@ -35,9 +50,17 @@ def test_all_builtin_identities_and_namespaces_are_unchanged():
         mod = modules[package]
         meta = mod.meta
         assert (meta.name, meta.route_prefix, meta.view_prefix, meta.admin_view_prefix) == expected
+        assert type(meta.version) is str
         locales = (
             {}
             if package in {"mail", "site_lock"}
             else {package: root / "modules" / package / package / "locales"}
         )
         assert mod.locale_dirs() == locales
+        if package in CONVENTIONAL_PATHS:
+            assert type(mod).register_routes is ModuleBase.register_routes
+            app = FastAPI()
+            wire_module_routes(app, mod)
+            paths = app_route_paths(app)
+            for path in CONVENTIONAL_PATHS[package]:
+                assert path in paths

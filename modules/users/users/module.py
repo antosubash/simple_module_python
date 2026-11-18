@@ -46,6 +46,8 @@ _ICON_LOG_OUT = "log-out"
 class UsersModule(ModuleBase):
     meta = ModuleMeta(
         name="Users",
+        route_prefix="/api/users",
+        view_prefix="/users",
         # Sign-in and self-service stay on /users; the management CRUD
         # belongs with the other admin screens. One view_prefix cannot
         # express both, hence the second router.

@@ -66,6 +66,8 @@ class TenantsModule(ModuleBase):
 
     meta = ModuleMeta(
         name=c.DISPLAY_NAME,
+        route_prefix="/api/tenants",
+        view_prefix="/tenants",
         admin_view_prefix="/admin/tenants",
         # Auth: its middleware must have set request.state.user before the
         # resolver runs. Settings: ordering only, since registering settings

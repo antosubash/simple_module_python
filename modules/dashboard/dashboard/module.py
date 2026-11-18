@@ -18,6 +18,8 @@ _ICON_DOCTOR = "stethoscope"
 class DashboardModule(ModuleBase):
     meta = ModuleMeta(
         name="Dashboard",
+        route_prefix="/api/dashboard",
+        view_prefix="/dashboard",
         # The dashboard itself is an app screen; Doctor is an admin one.
         admin_view_prefix="/admin/doctor",
         i18n_audience="admin",

@@ -62,6 +62,7 @@ async def _resolve_override_labels(db: AsyncSession, ids: list[str]) -> dict[str
 class FeatureFlagsModule(ModuleBase):
     meta = ModuleMeta(
         name="FeatureFlags",
+        route_prefix="/api/feature_flags",
         view_prefix=VIEW_PREFIX,
         i18n_audience="admin",
     )

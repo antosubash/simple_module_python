@@ -15,12 +15,11 @@ from dataclasses import dataclass, field, replace
 from importlib import metadata
 
 
-class _Default(str):
-    """Distinguish an omitted value from an explicit empty prefix."""
+class _DefaultVersion(str):
+    """Distinguish an omitted version from an explicit fallback value."""
 
 
-_PREFIX = _Default("")
-_VERSION = _Default("1.0.0")
+_VERSION = _DefaultVersion("1.0.0")
 
 
 @dataclass(frozen=True)
@@ -28,8 +27,8 @@ class ModuleMeta:
     """Metadata describing a module."""
 
     name: str
-    route_prefix: str = _PREFIX
-    view_prefix: str = _PREFIX
+    route_prefix: str = ""
+    view_prefix: str = ""
     admin_view_prefix: str = ""
     """Mount point for admin-only view routes, e.g. ``"/admin/users"``.
 
@@ -74,13 +73,9 @@ class ModuleMeta:
     """
 
     def _with_package_defaults(self, package: str) -> ModuleMeta:
-        """Resolve omitted fields once the declaring class supplies its package."""
+        """Resolve an omitted version once the declaring class supplies its package."""
         return replace(
             self,
-            route_prefix=f"/api/{package}" if self.route_prefix is _PREFIX else self.route_prefix,
-            view_prefix=f"/{package.replace('_', '-')}"
-            if self.view_prefix is _PREFIX
-            else self.view_prefix,
             version=_package_version(package) if self.version is _VERSION else self.version,
         )
 

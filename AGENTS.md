@@ -181,10 +181,10 @@ settings hydration; an `error` refuses boot outside development), then async
 By default, `register_routes` includes `<package>.web.endpoints.{api,views}.router`
 when present; import failures inside existing endpoints still fail boot.
 `locale_dirs()` discovers `<package>/locales` using the package name as namespace.
-Omitted `route_prefix` and `view_prefix` derive as `/api/<package>` and
-`/<package-with-hyphens>`; omitted `version` comes from the owning distribution
-(fallback `1.0.0` without metadata). Explicit values, including empty prefixes,
-and hook overrides win. Keep custom prefixes when preserving existing URLs.
+`route_prefix` and `view_prefix` default to `""`; declare them explicitly to
+mount under a prefix. Omitted `version` comes from the owning distribution
+(fallback `1.0.0` without metadata). Explicit versions and hook overrides win.
+Keep existing prefixes when adopting conventional routes so URLs do not change.
 
 Rules that go with them:
 

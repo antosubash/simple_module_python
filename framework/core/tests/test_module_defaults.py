@@ -55,10 +55,10 @@ def test_absent_locales(package):
     assert module_class(package)().locale_dirs() == {}
 
 
-def test_package_prefix_defaults(package):
+def test_omitted_prefixes_remain_empty(package):
     meta = module_class(package).meta
-    assert meta.route_prefix == "/api/convention_sample"
-    assert meta.view_prefix == "/convention-sample"
+    assert meta.route_prefix == ""
+    assert meta.view_prefix == ""
     assert meta.name == "DifferentName"
 
 
@@ -70,26 +70,30 @@ def test_explicit_prefixes_and_version_win(package, prefix):
     assert meta.version == "2.3.4"
 
 
+@pytest.mark.parametrize(
+    "prefixes", [{}, {"route_prefix": "/api/custom", "view_prefix": "/custom"}]
+)
 @pytest.mark.parametrize("endpoints", [("api",), ("views",), ("api", "views")])
-async def test_conventional_router_mounted_once_with_host_tags(package, endpoints):
+async def test_conventional_router_mounted_once_with_host_tags(package, endpoints, prefixes):
     for endpoint in endpoints:
         write_endpoint(
             package,
             endpoint,
             "from fastapi import APIRouter\nrouter = APIRouter()\n"
-            '@router.get("/hello")\nasync def hello(): return {"hello": "world"}\n',
+            f'@router.get("/{endpoint}/hello")\nasync def hello(): return {{"hello": "world"}}\n',
         )
     app = FastAPI()
-    wire_module_routes(app, module_class(package)())
+    wire_module_routes(app, module_class(package, **prefixes)())
     async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
         for endpoint in endpoints:
-            prefix = "/api/convention_sample" if endpoint == "api" else "/convention-sample"
-            assert (await client.get(f"{prefix}/hello")).json() == {"hello": "world"}
+            prefix = prefixes.get("route_prefix" if endpoint == "api" else "view_prefix", "")
+            path = f"{prefix}/{endpoint}/hello"
+            assert (await client.get(path)).json() == {"hello": "world"}
             paths = app.openapi()["paths"]
             if endpoint == "api":
-                assert paths[f"{prefix}/hello"]["get"]["tags"] == ["DifferentName"]
+                assert paths[path]["get"]["tags"] == ["DifferentName"]
             else:
-                assert f"{prefix}/hello" not in paths
+                assert path not in paths
 
 
 @pytest.mark.parametrize("layout", ["none", "web", "endpoints"])
@@ -151,6 +155,8 @@ def test_version_from_owning_distribution(package, with_entry_point):
     else:
         (dist / "top_level.txt").write_text(f"{package.name}\n")
     assert module_class(package).meta.version == "9.8.7"
+    assert type(module_class(package).meta.version) is str
+    assert module_class(package, version="1.0.0").meta.version == "1.0.0"
     assert module_class(package, version="3.2.1").meta.version == "3.2.1"
 
 
@@ -162,7 +168,7 @@ def test_diagnostics_recognize_conventional_views(package):
     from simple_module_core.diagnostics import ModuleDiagnostics
 
     write_endpoint(package, "views", "")
-    mod = module_class(package)()
+    mod = module_class(package, view_prefix="/sample")()
     diagnostics = ModuleDiagnostics()
     assert diagnostics._check_empty_modules([mod]) == []
     assert [d.code for d in diagnostics._check_views_without_menu([mod])] == ["SM019"]

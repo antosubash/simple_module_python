@@ -16,8 +16,6 @@ if TYPE_CHECKING:
 
 class SiteLockModule(ModuleBase):
     meta = ModuleMeta(
-        route_prefix="",
-        view_prefix="",
         name=c.MODULE_NAME,
         # ``Settings`` keeps the module order unchanged (registering settings
         # no longer needs it, #500); ``Auth`` so this module sorts *after* auth and its

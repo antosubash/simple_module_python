@@ -17,7 +17,7 @@ def test_scaffold_defaults_match_its_menu_locales_and_api(tmp_path, monkeypatch,
     try:
         cls = importlib.import_module("parcel_registry.module").ParcelRegistryModule
         mod = cls()
-        assert mod.meta.route_prefix == "/api/parcel_registry"
+        assert mod.meta.route_prefix == "/api/parcel-registry"
         assert mod.meta.view_prefix == "/parcel-registry"
         assert mod.locale_dirs() == {"parcel_registry": dest / "parcel_registry" / "locales"}
         menu = MenuRegistry()
@@ -25,7 +25,7 @@ def test_scaffold_defaults_match_its_menu_locales_and_api(tmp_path, monkeypatch,
         assert menu.all_items[0].url == "/parcel-registry/"
         assert cls.meta.requires_framework == ">=1.0,<2.0"
         assert (
-            '"/api/parcel_registry/"'
+            '"/api/parcel-registry/"'
             in (dest / "parcel_registry" / "pages" / "api.generated.ts").read_text()
         )
     finally:

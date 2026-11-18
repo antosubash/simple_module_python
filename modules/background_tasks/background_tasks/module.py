@@ -15,6 +15,7 @@ from simple_module_core.permissions import PermissionRegistry
 
 from background_tasks.core.constants import (
     _MODULE_SETTINGS,
+    API_PREFIX,
     LOGS_MENU_ICON,
     LOGS_MENU_LABEL,
     MENU_ICON,
@@ -69,6 +70,7 @@ class BackgroundTasksModule(ModuleBase):
 
     meta = ModuleMeta(
         name=MODULE_DISPLAY_NAME,
+        route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         optional_depends_on=[_MODULE_SETTINGS],
         i18n_audience="admin",

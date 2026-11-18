@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 class ApiTokensModule(ModuleBase):
     meta = ModuleMeta(
         name=c.MODULE_NAME,
+        route_prefix=c.API_PREFIX,
+        view_prefix=c.VIEW_PREFIX,
         admin_view_prefix=c.ADMIN_VIEW_PREFIX,
         # Auth owns the resolver chain this module appends to. Owners are read
         # through the app's user directory, so Users is ordering only: under
