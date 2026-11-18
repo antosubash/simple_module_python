@@ -38,6 +38,28 @@ def test_reply_to_rejects_invalid_addresses_and_header_injection(address) -> Non
         mail.MailMessage("visitor@example.com", "Booking", "Confirmed", reply_to=address)
 
 
+@pytest.mark.parametrize("field", ["to", "reply_to"])
+@pytest.mark.parametrize("domain", ["é" * 64 + ".de", "a.\u200b.de"])
+@pytest.mark.parametrize("display_name", [False, True])
+def test_message_rejects_unencodable_idna_domains(field, domain, display_name) -> None:
+    address = f"guide@{domain}"
+    if display_name:
+        address = f"Guide <{address}>"
+    values = {"to": "visitor@example.com", "subject": "Booking", "text": "Confirmed"}
+    values[field] = address
+    with pytest.raises(ValueError, match="IDNA"):
+        mail.MailMessage(**values)
+
+
+@pytest.mark.parametrize("field", ["to", "reply_to"])
+@pytest.mark.parametrize("domain", ["é" * 64 + ".de", "a.\u200b.de"])
+def test_durable_payload_rejects_unencodable_idna_domains(field, domain) -> None:
+    values = {"to": "visitor@example.com", "subject": "Booking", "text": "Confirmed"}
+    values[field] = f"guide@{domain}"
+    with pytest.raises(ValueError, match="IDNA"):
+        deserialize_event(BookingConfirmed, {"message": values})
+
+
 @pytest.mark.parametrize(
     "reply_to",
     [
@@ -48,6 +70,7 @@ def test_reply_to_rejects_invalid_addresses_and_header_injection(address) -> Non
         '"Doe, Jane" <guide@example.com>',
         r'"Jane \"JJ\", Doe" <guide@example.com>',
         "Guide <guide@bücher.de>",
+        "guide@" + "é" * 57 + ".de",
     ],
 )
 def test_reply_to_survives_durable_json_round_trip(reply_to) -> None:

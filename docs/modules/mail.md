@@ -65,8 +65,13 @@ with a display name (for example, `Guide <guide@example.com>` or
 control characters, including CR/LF header injection, raise `ValueError` at
 construction. SMTP adds the `Reply-To` header and keeps the configured `From`
 address. Internationalized domains in SMTP address headers are IDNA-encoded
-(for example, `guide@bücher.de` becomes `guide@xn--bcher-kva.de`). Console and
-fallback senders log the reply address alongside the recipient and subject.
+(for example, `guide@bücher.de` becomes `guide@xn--bcher-kva.de`). Domains that
+cannot be IDNA-encoded in `to` or `reply_to` raise `ValueError` during message
+construction and durable deserialization, before entering delivery retries.
+Non-ASCII local parts (before `@`) are rejected in `reply_to`; in `to` and the
+configured `From` address they require an SMTP server advertising `SMTPUTF8`.
+IDN domains and non-ASCII display names alone do not require `SMTPUTF8`.
+Console and fallback senders log the reply address alongside the recipient and subject.
 Durable outbox events preserve it; existing queued payloads without `reply_to`
 default to `None` and still send.
 
