@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from httpx_oauth.clients.github import GitHubOAuth2
 from settings.contracts.events import SettingsReloaded
 from simple_module_core.events import EventBus
+from simple_module_test import inertia_page
 from starlette.requests import Request
 from users.core.settings import UsersSettings
 from users.oauth import OAuthProvider
@@ -165,7 +166,7 @@ async def test_custom_provider_survives_reload_and_appears_on_login(users_app, a
     assert clients["custom"].client is not old_client
     assert clients["custom"].client.client_id == "updated-id"
     response = await anon_client.get("/users/login")
-    buttons = response.json()["props"]["oauth_providers"]
+    buttons = inertia_page(response).props["oauth_providers"]
     assert buttons == [
         {"name": "google", "display_name": "Google"},
         {
@@ -200,5 +201,5 @@ async def test_disabled_or_incomplete_provider_removed_on_reload(users_app, anon
     assert users_app.state.users.oauth_clients == {}
     assert users_app.state.users.oauth_providers == []
     response = await anon_client.get("/users/login")
-    assert response.json()["props"]["oauth_providers"] == []
+    assert inertia_page(response).props["oauth_providers"] == []
     assert (await anon_client.get("/api/users/auth/custom/login")).status_code == 404
