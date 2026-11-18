@@ -179,7 +179,7 @@ their startup configuration. See [Background tasks](/modules/background_tasks).
 | `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Execute tasks synchronously in the calling process. |
 | `SM_BG_TASKS_TASK_EAGER_PROPAGATES` | `true` | Reraise task exceptions in eager mode. |
 | `SM_BG_TASKS_BROADCAST_INVALIDATIONS` | `true` | Broadcast cache invalidations across processes when the broker uses Redis. |
-| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation` | Redis Pub/Sub channel for invalidation messages. |
+| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation.<installation_id>` | Optional explicit channel; env wins over a DB override. Otherwise derived from the stable system-scoped `host.installation_id` row. The default also publishes/listens on the legacy global channel until 0.1.0 for rolling upgrades; see [invalidation](../framework/invalidation.md). |
 | `SM_BG_TASKS_DB_POOL_SIZE` | `2` | Pool size for each worker engine. |
 | `SM_BG_TASKS_DB_MAX_OVERFLOW` | `3` | Overflow connections per worker engine. |
 | `SM_BG_TASKS_DB_RECYCLE` | `1800` | Worker connection recycling interval in seconds. |

@@ -78,17 +78,46 @@ A transport failure never propagates. The caller has already committed; turning 
 | Setting | Default | What it does |
 |---|---|---|
 | `SM_BG_TASKS_BROADCAST_INVALIDATIONS` | `true` | Off means every per-process cache stays stale in the other workers for its own TTL. |
-| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation` | **Rename it for every app on a shared Redis server.** See the warning below — the database index does not isolate this. |
+| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation.<installation_id>` | Optional explicit channel. Environment → DB override → derived default. |
 
 Every framework channel shares that one Redis channel; `Invalidation.channel` routes inside the receiving process.
 
-> **A stored override beats the environment.** `simple_module_core.settings_hydrate.hydrate_settings` passes DB values to the settings class as *init args*, and pydantic-settings ranks init args above its env source — so once `background_tasks.broadcast_invalidations` has a row in the settings store (written from the admin UI, or by `smpy settings import-from-env`), the env var above stops having any effect after boot hydration. This inverts the precedence AGENTS.md states (`env → DB → default`) and is not specific to these two fields: it applies to every env-readable module setting, `broker_url` included. Check the settings screen, not just the container's environment, when a knob appears not to work.
+The installation ID is generated once as a UUID and stored in the existing system
+settings table under `host.installation_id`. Provisioning reuses the root-secret
+mechanism: concurrent processes insert, then re-read the winning stored value.
+It needs no schema migration and works without the settings plugin. A dedicated
+ID keeps secret rotation from changing the channel. It is internal metadata, not
+an editable host setting or a new environment variable. Separate databases get
+separate IDs; a database clone retains its source's ID, so reset that metadata
+when deliberately turning a clone into a separate installation.
 
-> **Redis pub/sub ignores the database index.** A publisher on `redis://host/0` and a subscriber on `redis://host//1` with the same channel name *do* reach each other — pub/sub is server-global, not per-database. So the `dev-services` convention of giving each repo its own logical DB (this one owns 4 and 5) isolates keys but **not** invalidations: two installs left on the default channel name will clear each other's caches, and each will see the other's user ids on the wire. Verified by experiment. Rename the channel per app; do not rely on the DB number.
+Before migrations create the settings table, no ID can be shared: broadcasting
+stays off (local invalidation and TTLs still work). Deferred module startup retries
+after setup migrations. Database errors propagate rather than silently minting
+per-process IDs. Explicit channels work independently of identity provisioning.
+
+### Rolling upgrades (bridge removed in 0.1.0)
+
+The current framework version is 0.0.47; the next minor release is **0.1.0**.
+Until that release, derived-default processes **publish and subscribe on both**
+the derived channel and the legacy global `simple_module.invalidation` channel.
+This preserves old → new and new → old invalidations. The bridge registers a
+`simple_module_core.deprecation` warning with `remove_in="0.1.0"`, enforced by
+`host/tests/test_deprecation_expiry.py`. Duplicate deliveries are possible;
+handlers must remain forget-only and tolerate them.
+
+Redis Pub/Sub ignores logical database indices. While the bridge exists,
+**legacy traffic can still cross installations**, including between new processes
+via the global channel. Automatic per-installation names need no operator setup,
+but complete isolation arrives when the bridge is removed. For immediate isolation,
+set an explicit unique channel on all replicas of an app. Explicit env or stored
+channels use only that channel and do not enable the global bridge; keep existing
+custom channel overrides through an upgrade. After the bridge's removal, finish
+upgrading old replicas before expecting invalidations between versions.
 
 > **Anyone who can `PUBLISH` to the channel can clear these caches.** The wire format is unauthenticated and unsigned by design — it carries no secrets, and its only direct effect is to make a worker re-read a row. A single well-formed message with `"key": null` empties a whole channel's cache in every worker, so the blast radius of a stray `redis-cli publish`, or of a co-tenant app left on the default channel name, is extra database reads until the caches warm again. The primary shape is denial of service, not an authentication bypass.
 >
-> One caveat, because it is not obvious and it is not only an attacker's to trigger: an empty cache is also what exposes `UsersAuthProvider._version_still_current`'s fail-open branch. A cache **hit** is an in-memory comparison that cannot fail open; only a **miss** reaches the DB read, whose `except Exception` deliberately returns `True` so a database blip does not sign everyone out. So a flushed cache plus a simultaneously failing database admits sessions that a warm cache would have refused. This composition predates the bus — a 30-second TTL expiry, or a cold cache after a deploy, reaches the same branch — and the bus adds one more route to it, including a whole-channel clear that reaches every user at once rather than one at a time. Treat the Redis instance as trusted infrastructure and give each app its own channel.
+> One caveat, because it is not obvious and it is not only an attacker's to trigger: an empty cache is also what exposes `UsersAuthProvider._version_still_current`'s fail-open branch. A cache **hit** is an in-memory comparison that cannot fail open; only a **miss** reaches the DB read, whose `except Exception` deliberately returns `True` so a database blip does not sign everyone out. So a flushed cache plus a simultaneously failing database admits sessions that a warm cache would have refused. This composition predates the bus — a 30-second TTL expiry, or a cold cache after a deploy, reaches the same branch — and the bus adds one more route to it, including a whole-channel clear that reaches every user at once rather than one at a time. Treat the Redis instance as trusted infrastructure; the temporary global bridge has the cross-installation limits described above.
 
 Failure behaviour, all deliberate:
 
@@ -100,6 +129,10 @@ Failure behaviour, all deliberate:
 - **One slow handler delays every channel** — the listener awaits each `deliver` inline, so a handler that blocks for three seconds holds up the next messages on *all* channels, not just its own. Handlers are meant to be a `pop`; anything slower belongs in a task.
 
 ### Celery worker processes
+
+The Celery runner resolves host settings with `merge_host_settings`, then reads
+or provisions the same installation ID from that host database and resolves the
+same default channel as the web app. An explicit channel still wins.
 
 A standalone worker never builds the FastAPI app, so it installs no transport: it publishes nothing and hears nothing. Same documented limit as `bind_event_bus`. A task that invalidates a cache should go through the API or accept the TTL.
 

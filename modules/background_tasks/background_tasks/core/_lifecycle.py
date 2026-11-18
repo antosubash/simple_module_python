@@ -128,7 +128,14 @@ async def start_invalidation_transport(app: FastAPI) -> None:
     documented cross-process limit as ``bind_event_bus`` above: a task that
     invalidates a cache should do it through an API call or accept the TTL.
     """
+    from simple_module_hosting.installation import ensure_installation_id
+
+    from background_tasks.core.constants import DEFAULT_INVALIDATION_CHANNEL
     from background_tasks.core.invalidation import RedisInvalidationTransport
+    from background_tasks.core.invalidation_channel import (
+        LEGACY_CHANNEL_BRIDGE,
+        installation_channel,
+    )
 
     services = app.state.background_tasks
     s = services.settings
@@ -140,13 +147,26 @@ async def start_invalidation_transport(app: FastAPI) -> None:
         return
 
     bus = app.state.sm.invalidation
-    transport = RedisInvalidationTransport(bus, s.broker_url, s.invalidation_channel)
+    channel = s.invalidation_channel
+    legacy_channel = None
+    if channel is None:
+        identity = await ensure_installation_id(app.state.sm.settings.database_url)
+        channel = installation_channel(identity)
+        if channel is None:
+            # The host defers failed startup hooks on a fresh database and replays
+            # them after setup migrations. Returning here would never retry.
+            raise RuntimeError("Invalidation broadcasting awaits settings table migrations")
+        legacy_channel = DEFAULT_INVALIDATION_CHANNEL
+        LEGACY_CHANNEL_BRIDGE.warn()
+    transport = RedisInvalidationTransport(
+        bus, s.broker_url, channel, legacy_channel=legacy_channel
+    )
     await transport.start()
     bus.set_transport(transport)
     services.invalidation_transport = transport
     logger.info(
         "BackgroundTasks: invalidation transport on %r for channel(s) %s",
-        s.invalidation_channel,
+        channel,
         ", ".join(bus.channels) or "(none subscribed)",
     )
 
