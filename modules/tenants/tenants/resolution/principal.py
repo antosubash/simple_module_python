@@ -1,4 +1,4 @@
-"""The active membership role, usable without a request or an application."""
+"""Active tenant and membership lookups without a request or an application."""
 
 from typing import Any
 
@@ -6,6 +6,11 @@ from sqlalchemy import select
 
 from tenants.core.constants import TenantStatus
 from tenants.models import Membership, Tenant
+
+
+async def tenant_active(db: Any, tenant_id: str) -> bool:
+    status = await db.scalar(select(Tenant.status).where(Tenant.id == tenant_id))
+    return status == TenantStatus.ACTIVE
 
 
 async def membership_role(db: Any, user_id: str, tenant_id: str) -> str | None:

@@ -41,7 +41,9 @@ the DB should register an app-free `session_source=async (db, user) -> keys` wit
 `add_grant_source`; session-owned lookups use this counterpart. HTTP resolution
 keeps the request source and its caches; both loaders share pure composition.
 Bind `tenant_context(tenant_id)` around subsequent resource queries. Unknown IdP
-roles are not guessed outside a request; see `docs/framework/permissions.md`.
+roles are not guessed outside a request. A platform wildcard bypasses membership
+only in an active tenant, validated by the builder's session-owned `tenant_active`
+provider; see `docs/framework/permissions.md`.
 
 ```python
 from simple_module_core.permissions import PermissionRegistry

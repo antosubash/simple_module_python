@@ -80,9 +80,11 @@ def _resource_principal_for(request: Request, principal: ResourcePrincipal) -> R
         user = getattr(request.state, "user", None)
         # Public subdomains bind a tenant even for nonmembers. Service keys have
         # no account membership; their pinned tenant is validated by the resolver.
+        # Only an uncapped platform wildcard may bypass account membership.
         if not getattr(request.state, "tenant_id", None) or (
             getattr(request.state, "tenant_role", None) is None
             and getattr(user, "auth_kind", None) != "service"
+            and WILDCARD not in principal.permissions
         ):
             return ResourcePrincipal(None)
     return principal

@@ -12,6 +12,7 @@ from simple_module_core.user_directory import NullUserDirectory, UserDirectory
 PRINCIPALS_KEY = "sm_principals"
 
 MembershipRole = Callable[[Any, str, str], Awaitable[str | None]]
+TenantActive = Callable[[Any, str], Awaitable[bool]]
 RoleOverlays = Callable[[Any, list[str] | None], Awaitable[dict[str, list[str]]]]
 
 
@@ -26,6 +27,7 @@ class PrincipalRegistry:
     permissions: PermissionRegistry = field(default_factory=PermissionRegistry)
     directory: UserDirectory = field(default_factory=NullUserDirectory)
     membership_role: MembershipRole | None = None
+    tenant_active: TenantActive | None = None
     role_overlays: RoleOverlays | None = None
     multi_tenant: bool = False
     default_tenant: str | None = None

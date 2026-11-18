@@ -83,7 +83,7 @@ from simple_module_db import principal_for
 
 who = await principal_for(db, user_id, tenant_id)
 if who is None:
-    return  # missing/inactive/disabled user, or no active membership
+    return  # unusable user/tenant, or nonmember without a platform wildcard
 ```
 
 The result is a `ResourcePrincipal` (user id and resolved permission set), suitable
@@ -91,8 +91,12 @@ for `ResourcePolicy.filter`, `ResourcePolicy.can`, and `who.has(permission)`.
 It checks the user directory with roles, validates membership in an active tenant,
 adds only that membership's `tenant_role`, and merges code role mappings, persisted
 role grants and direct grants. In multi-tenant mode a missing membership provider,
-missing tenant, non-member or suspended tenant returns `None`, including for a
-platform admin. With multi-tenancy off there is no membership check, and the host's
+missing tenant, ordinary non-member or suspended tenant returns `None`. A platform
+admin holding the wildcard may act without membership in an active tenant, matching
+HTTP resource access on a public tenant subdomain; the registered `tenant_active`
+provider validates that tenant through the caller's session (missing provider denies
+this exception). Scoped credentials without the wildcard get no HTTP membership
+bypass. With multi-tenancy off there is no membership check, and the host's
 fixed `default_tenant` replaces the caller's tenant argument (unset stays unbound).
 Missing users return `None`; missing registry configuration raises `RuntimeError`.
 Directory/membership/role-store errors propagate rather than yielding a principal.
@@ -102,7 +106,7 @@ lookup changes tenant context; nothing commits the session.
 
 **Shared implementation.** `ModuleBase.register_principal_builder(registry)` is an
 app-free registration hook. Users, Keycloak and OIDC supply a directory; Tenants
-supplies the active membership-role lookup; Permissions supplies persisted role
+supplies active tenant and membership-role lookups; Permissions supplies persisted role
 overlays and the session counterpart of its direct-grant source. The framework
 imports no provider tables. The web host uses `get_user_directory(app)` and binds
 the registry to its async session factory.

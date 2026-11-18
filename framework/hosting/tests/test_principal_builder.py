@@ -136,6 +136,28 @@ async def test_bound_tenant_without_membership_only_identifies_service_credentia
     assert await resource_principal(request) == expected
 
 
+@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("tenant", [None, "public"])
+@pytest.mark.parametrize("scopes", [None, ["test.direct", "*"]])
+async def test_nonmember_admin_bypass_requires_a_bound_tenant_and_uncapped_wildcard(
+    cached, tenant, scopes
+):
+    registry = registry_for()
+    request = request_for(registry, tenant=tenant, scopes=scopes)
+    request.state.user.roles = ["admin"]
+    permissions = {"*"} if scopes is None else {"test.direct"}
+    assert await resolve_request_permissions(request, registry.permissions) == permissions
+    expected = (
+        ResourcePrincipal("u1", frozenset({"*"}))
+        if tenant is not None and scopes is None
+        else ResourcePrincipal(None)
+    )
+    assert request.state.resource_principal == expected
+    if not cached:
+        del request.state.resource_principal
+    assert await resource_principal(request) == expected
+
+
 async def test_fixed_tenant_grant_sources_receive_effective_tenant_without_mutating_user():
     registry = registry_for(multi=False)
     registry.default_tenant = "single"

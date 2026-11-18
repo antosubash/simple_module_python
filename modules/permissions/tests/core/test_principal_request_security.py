@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 from simple_module_core.resources import ACTION_VIEW, ResourcePrincipal
 from simple_module_db import MultiTenantMixin, create_module_base, tenant_context
 from simple_module_db.deps import get_db
+from simple_module_db.principals import principal_for
 from simple_module_db.resource_policy import OwnedResourcePolicy
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_hosting.resource_deps import RequiresResource, resource_principal
@@ -15,7 +16,7 @@ from sqlmodel import Field, select
 from tenants.models import Membership, Tenant
 from tenants.resolution.host_resolver import forget_hosts
 from tenants.resolution.resolver import forget
-from users.models import User
+from users.models import Role, User, UserRole
 
 _Base = create_module_base("principal_http_test")
 
@@ -29,7 +30,7 @@ class Document(_Base, MultiTenantMixin, table=True):  # ty: ignore[unsupported-b
 
 
 POLICY = OwnedResourcePolicy(
-    Document.owner_id, bypass_perm=None, visibility_col=Document.visibility
+    Document.owner_id, bypass_perm="test.manage", visibility_col=Document.visibility
 )
 
 
@@ -158,3 +159,57 @@ async def test_public_subdomain_removed_member_can_only_see_public_resources(
         )
         assert public_response.status_code == 200
         assert public_response.json() == {"title": "public"}
+
+
+@pytest.mark.parametrize("superuser", [False, True])
+async def test_public_subdomain_nonmember_admin_retains_resource_bypass(
+    security_app, tenant_client, superuser
+):
+    app = security_app
+    app.state.tenants.settings.subdomain_base = "example.com"
+    forget_hosts()
+    async with tenant_client("member") as (client, tenant_id, user_id):
+        async with app.state.sm.db.session_factory() as db:
+            tenant = await db.get(Tenant, tenant_id)
+            host = f"{tenant.slug}.example.com"
+            user = await db.get(User, uuid.UUID(user_id))
+            user.is_superuser = superuser
+            role = (await db.execute(select(Role).where(Role.name == "admin"))).scalar_one()
+            db.add(UserRole(user_id=user.id, role_id=role.id))
+            await db.execute(delete(Membership).where(Membership.user_id == user_id))
+            private = Document(owner_id="another-user", title="private")
+            with tenant_context(tenant_id):
+                db.add(private)
+                await db.commit()
+        forget(user_id)
+        headers = {"Host": host}
+        response = await client.get("/public/principal-security", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        held = frozenset(data.pop("permissions"))
+        assert "*" in held
+        assert data == {
+            "authenticated": True,
+            "user_id": user_id,
+            "cached_user_id": user_id,
+            "tenant_id": tenant_id,
+            "titles": ["private"],
+        }
+        response = await client.get(f"/public/principal-security/{private.id}", headers=headers)
+        assert response.status_code == 200
+        assert response.json() == {"title": "private"}
+        async with app.state.sm.db.session_factory() as db:
+            who = await principal_for(db, user_id, tenant_id)
+        assert who == ResourcePrincipal(user_id, held)
+        async with app.state.sm.db.session_factory() as db:
+            tenant = await db.get(Tenant, tenant_id)
+            tenant.status = "suspended"
+            await db.commit()
+        forget_hosts()
+        response = await client.get("/public/principal-security", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["user_id"] is None
+        assert response.json()["titles"] == []
+        async with app.state.sm.db.session_factory() as db:
+            assert await principal_for(db, user_id, tenant_id) is None
+            assert await principal_for(db, user_id, "missing") is None

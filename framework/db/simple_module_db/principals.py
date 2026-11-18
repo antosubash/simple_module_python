@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
+from simple_module_core.permissions import WILDCARD
 from simple_module_core.principal_permissions import load_principal
 from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
 from simple_module_core.resources import ResourcePrincipal
@@ -23,10 +24,11 @@ def bind_principal_registry(factory: Any, registry: PrincipalRegistry) -> None:
 async def principal_for(
     session: Any, user_id: str, tenant_id: str | None
 ) -> ResourcePrincipal | None:
-    """The live account principal, or None for an unusable account/membership.
+    """The live account principal, or None for an unusable account/tenant.
 
     Requires a web/worker-configured async session. Does not commit, change the
     ambient tenant, authenticate a token, or leave resource queries tenant-bound.
+    A platform wildcard bypasses membership, but still requires an active tenant.
     """
     registry: PrincipalRegistry | None = session.info.get(PRINCIPALS_KEY)
     if registry is None:
@@ -51,13 +53,13 @@ async def principal_for(
             return None
         # IdP claims exist only on authenticated requests, never an ID lookup.
         roles = [r for r in account.roles or () if not is_tenant_role(r)]
+        role = None
         if registry.multi_tenant and tenant_id is not None:
             if registry.membership_role is None:
                 return None
             role = await registry.membership_role(session, user_id, tenant_id)
-            if role is None:
-                return None
-            roles.append(tenant_role(role))
+            if role is not None:
+                roles.append(tenant_role(role))
         user = SimpleNamespace(
             id=user_id, email=account.email, name=account.label, roles=roles, tenant_id=tenant_id
         )
@@ -66,4 +68,14 @@ async def principal_for(
             # Never publish an uncommitted transaction's overlay to other sessions.
             permissions = copy(permissions)
             permissions.replace_role_overlays(await registry.role_overlays(session, roles))
-        return await load_principal(None, user, permissions, db=session)
+        principal = await load_principal(None, user, permissions, db=session)
+        if registry.multi_tenant and role is None:
+            if principal is None or WILDCARD not in principal.permissions:
+                return None
+            if (
+                tenant_id is None
+                or registry.tenant_active is None
+                or not await registry.tenant_active(session, tenant_id)
+            ):
+                return None
+        return principal

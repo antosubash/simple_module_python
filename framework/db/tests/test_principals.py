@@ -36,7 +36,12 @@ def setup(*, multi=True, active=True, roles=("reader",)):
         assert not is_all_tenants()
         return "member" if tenant == "own" else None
 
+    async def tenant_active(db, tenant):
+        assert current_tenant_id.get() == tenant
+        return tenant in {"own", "other"}
+
     registry.membership_role = membership
+    registry.tenant_active = tenant_active
     return SimpleNamespace(info={PRINCIPALS_KEY: registry}, flush=AsyncMock()), registry
 
 
@@ -89,8 +94,24 @@ async def test_single_tenant_ignores_memberships_and_caller_tenant():
     assert who.permissions == {"test.read"}
 
 
-async def test_platform_admin_still_needs_an_active_membership():
+async def test_platform_admin_without_membership_keeps_wildcard():
     db, _ = setup(roles=("admin",))
+    who = await principal_for(db, USER_ID, "other")
+    assert who is not None
+    assert who.user_id == USER_ID
+    assert who.permissions == {"*"}
+
+
+@pytest.mark.parametrize("tenant", [None, "platform", "suspended", "missing"])
+async def test_platform_admin_cannot_use_an_unbound_or_inactive_tenant(tenant):
+    db, _ = setup(roles=("admin",))
+    assert await principal_for(db, USER_ID, tenant) is None
+
+
+@pytest.mark.parametrize("provider", ["membership_role", "tenant_active"])
+async def test_nonmember_admin_needs_tenant_validation_provider(provider):
+    db, registry = setup(roles=("admin",))
+    setattr(registry, provider, None)
     assert await principal_for(db, USER_ID, "other") is None
 
 
