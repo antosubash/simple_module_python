@@ -54,6 +54,7 @@ from simple_module_core.invalidation import (
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.principals import PrincipalRegistry
 from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
 from simple_module_core.resources import (
     ResourcePolicy,
@@ -111,6 +112,7 @@ __all__ = [
     "ModuleMeta",
     "NotFoundError",
     "PermissionRegistry",
+    "PrincipalRegistry",
     "PublicRoute",
     "PublicRouteRegistry",
     "ResourcePolicy",

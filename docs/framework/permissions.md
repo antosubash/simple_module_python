@@ -73,6 +73,148 @@ Host apps customize this by:
 
 The framework ships only `admin: ["*"]`. The wildcard grants every declared permission.
 
+## Principals outside requests
+
+Use the caller's **async** database session to build a user's current account
+principal, without constructing a request or a FastAPI app:
+
+```python
+from simple_module_db import principal_for
+
+who = await principal_for(db, user_id, tenant_id)
+if who is None:
+    return  # unusable user/tenant, or nonmember without a platform wildcard
+```
+
+The result is a `ResourcePrincipal` (user id and resolved permission set), suitable
+for `ResourcePolicy.filter`, `ResourcePolicy.can`, and `who.has(permission)`.
+It checks the user directory with roles, validates membership in an active tenant,
+adds only that membership's `tenant_role`, and merges code role mappings, persisted
+role grants and direct grants. In multi-tenant mode a missing membership provider,
+missing tenant, ordinary non-member or suspended tenant returns `None`. A platform
+admin holding the wildcard may act without membership in an active tenant, matching
+HTTP resource access on a public tenant subdomain; the registered `tenant_active`
+provider validates that tenant through the caller's session (missing provider denies
+this exception). Scoped credentials without the wildcard get no HTTP membership
+bypass. With multi-tenancy off there is no membership check, and the host's
+fixed `default_tenant` replaces the caller's tenant argument (unset stays unbound).
+Missing users return `None`; missing registry configuration raises `RuntimeError`.
+Directory/membership/role-store errors propagate rather than yielding a principal.
+Grant-source failures retain the existing fail-closed behavior: log and contribute
+no keys. Pending writes are flushed under the caller's original tenant before
+lookup changes tenant context; nothing commits the session.
+
+**Shared implementation.** `ModuleBase.register_principal_builder(registry)` is an
+app-free registration hook. Users, Keycloak and OIDC supply a directory; Tenants
+supplies active tenant and membership-role lookups; Permissions supplies persisted role
+overlays and the session counterpart of its direct-grant source. The framework
+imports no provider tables. The web host uses `get_user_directory(app)` and binds
+the registry to its async session factory.
+
+Requests and workers use separate loaders and the same pure `compose_principal`
+function for the loaded account (including its membership role), role map and direct
+grants. This preserves HTTP query counts: requests reuse the authenticated account,
+Tenants' membership cache, Permissions' direct-grant TTL cache with singleflight,
+and the role-overlay registry refreshed by invalidation (with periodic fallback).
+They do not re-read those stores through the worker builder. Credential scope caps
+and required permissions share the same composition. Workers read the caller's
+session without these HTTP caches, so transaction-local changes are visible.
+
+Request account and membership freshness follows the existing authentication and
+membership cache invalidation/TTL rules. Losing a membership does not make a valid
+account anonymous: global authenticated operations and tenant switching remain
+available, while operations without an authorized tenant return 403. Unscoped
+platform requests retain global permissions; a resource principal without an active
+tenant on a multi-tenant host is anonymous.
+
+The worker runner uses its merged host settings (env → DB → defaults), discovers
+the same enabled modules and auth provider, and binds an independent registry to
+each worker async session factory. It calls permission/principal registration
+hooks, **not** settings/startup hooks, and builds no app. Persisted role overlays
+and direct grants are read through the caller's session on each resolution, so
+workers need no permission invalidation listener. Transaction-local role overlays
+never mutate another session's registry. Custom factories can use
+`build_principal_registry(modules, settings)` from `simple_module_core.principals`
+and `bind_principal_registry(factory, registry)` from `simple_module_db.principals`;
+pass the same selected, dependency-ordered modules as the host.
+
+Eager tasks in the web process reuse the app's existing principal registry,
+including its effective tenancy and provider selection. Reconfiguring or resetting
+worker state replaces the registry on newly obtained worker session factories.
+
+For a custom grant source, register
+`registry.add_grant_source(request_source, session_source=session_source)` where the
+counterpart is `async (db, user) -> keys`. HTTP resolution uses `request_source`;
+worker resolution uses the session counterpart. Legacy sources without one receive
+`request=None` in headless calls; they must handle it to contribute there. Neither source can grant `*`.
+
+**External identity providers.** `DirectoryUser.roles is None` means unknown.
+Keycloak/OIDC ID-only lookups cannot recover JWT/session roles, permissions or
+current upstream account revocation from the local sign-in cache. They grant only
+known tenant-role mappings and registered grant sources; never infer an admin role
+or reuse an old token. Authenticated requests still honor their verified IdP claims,
+so an ID-only lookup can intentionally have fewer permissions. Use an authoritative
+directory provider if upstream activity/role parity is required without a token.
+
+**Worker example** (multi-tenant host): use the existing worker loop and factory,
+then bind the tenant around the resource query too. Principal construction restores
+the previous tenant context; it does not scope queries made afterwards.
+
+```python
+from celery import shared_task
+from background_tasks.outbox.loop import run_on_worker_loop
+from background_tasks.outbox.worker import worker_session_factory
+from simple_module_core.resources import ACTION_VIEW
+from simple_module_db import principal_for, tenant_context
+from sqlmodel import select
+
+
+@shared_task(name="calendar.send_reminder")
+def send_reminder(user_id: str, tenant_id: str, event_id: str):
+    return run_on_worker_loop(lambda: _send_reminder(user_id, tenant_id, event_id))
+
+
+async def _send_reminder(user_id, tenant_id, event_id):
+    with tenant_context(tenant_id):
+        async with worker_session_factory()() as db:
+            who = await principal_for(db, user_id, tenant_id)
+            if who is None:
+                return
+            stmt = CALENDAR_POLICY.filter(
+                who, ACTION_VIEW, select(CalendarEvent).where(CalendarEvent.id == event_id)
+            )
+            event = (await db.execute(stmt)).scalar_one_or_none()
+            if event is not None:
+                await deliver_reminder(event, user_id)
+```
+
+**Token-feed example** (multi-tenant host): the module declares the GET path public
+with `register_public_routes`. Its own token lookup must validate the token hash,
+expiry and revocation, and return the stored owner and tenant. `principal_for` is an
+authorization lookup, not a token authenticator; a user id supplied by a visitor
+is never proof of identity. Keep the feed's scope limited to its calendar policy.
+
+```python
+from fastapi import Depends, HTTPException
+from simple_module_core.resources import ACTION_VIEW
+from simple_module_db import get_db, principal_for, tenant_context
+from sqlmodel import select
+
+
+@router.get("/calendar/feed")
+async def token_feed(token: str, db=Depends(get_db)):
+    credential = await lookup_valid_feed_token(db, token)
+    if credential is None:
+        raise HTTPException(404)
+    with tenant_context(credential.tenant_id):
+        who = await principal_for(db, credential.user_id, credential.tenant_id)
+        if who is None or not who.has(PERM_CALENDAR_VIEW):
+            raise HTTPException(404)
+        stmt = CALENDAR_POLICY.filter(who, ACTION_VIEW, select(CalendarEvent))
+        events = (await db.execute(stmt)).scalars().all()
+        return render_calendar_feed(events)
+```
+
 ## Delegated permission editing
 
 User and role permission assignments are global. Delegated edits require
@@ -117,7 +259,7 @@ class UserContext:
     permissions: list[str] = field(default_factory=list)
 ```
 
-The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. They are written into the session cookie with `roles` and frozen there until the next sign-in, so anything an admin must be able to revoke belongs in a grant source, not here. `UserContext.has_permission(key)` is an exact-match check against that list alone.
+The active auth provider (`users`, `keycloak` or `oidc`) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. Claim permissions stay in the signed session until the next sign-in, so revocable permissions belong in a grant source. HTTP resolution reuses the account validated by the authentication provider and its existing caches; worker lookups read local account roles and activity from the directory. Verified IdP claims remain request-only when directory roles are unknown. `UserContext.has_permission(key)` is an exact-match check against that list alone.
 
 ## Scoped principals (API tokens) and ungated routes
 

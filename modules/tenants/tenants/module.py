@@ -56,6 +56,12 @@ def _tenant_members() -> TenantMembers:
 
 
 class TenantsModule(ModuleBase):
+    def register_principal_builder(self, registry) -> None:
+        from tenants.resolution.principal import membership_role, tenant_active
+
+        registry.membership_role = membership_role
+        registry.tenant_active = tenant_active
+
     # ModuleBase instances are built per app. register_settings runs before
     # register_routes/register_menu_items, so _app is set when those hooks read it.
     _app: FastAPI | None = None

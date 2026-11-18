@@ -14,7 +14,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Workers read registered directory, membership and grants through the caller's session; pending writes flush under the original tenant before lookup changes context. Requests share pure principal composition while retaining their existing membership, direct-grant and role-overlay caches (#1005).
+
 ### Fixed
+
+- **Security:** ordinary public-subdomain nonmembers receive anonymous resource visibility, including after membership removal; an authenticated account can no longer read its private owned resources in that tenant. This also closes the membership-check gap present on `main`. Platform admins holding the uncapped wildcard retain resource-policy bypass access without membership in an active tenant, on both HTTP and `principal_for`; suspended or missing tenants remain denied. Service credentials retain their separately validated tenant access. Fixed single-tenant request grant sources receive the effective tenant, matching worker principal lookups (#1005).
+
+- ID-only Keycloak/OIDC principal lookups use known membership and grant sources, without guessing token-only roles or claims. HTTP authentication and membership freshness retain their existing cache invalidation/TTL semantics: losing membership preserves account authentication and tenant switching; unauthorized tenant operations return 403 (#1005).
 
 - Mail attachment deserialization checks the combined base64 size before decoding and decodes each file once; structured `message/*` and `multipart/*` MIME types are rejected. Outbox list queries and API/Inertia responses omit payloads and attachment content (#1006).
 

@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING, Any
+from copy import copy
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 from simple_module_core.app_state import get_services
 from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
-from simple_module_core.tenancy import is_tenant_role
+from simple_module_core.principal_permissions import (
+    _role_and_claimed,
+    apply_scope_cap,
+    lacks_required_permission,
+    load_principal,
+    resolve_permissions,
+    resolve_principal_permissions,
+)
+from simple_module_core.principals import PRINCIPALS_KEY
+from simple_module_core.resources import ResourcePrincipal
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
@@ -17,7 +26,6 @@ from simple_module_hosting.token_guard import GATE_PERMISSION
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
 
-logger = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_ROLE_PERMISSIONS",
@@ -36,135 +44,6 @@ __all__ = [
 ]
 
 
-def resolve_permissions(
-    roles: list[str],
-    role_map: dict[str, list[str]] | None = None,
-) -> set[str]:
-    """Resolve a set of roles into a flat set of permission strings."""
-    if role_map is None:
-        role_map = DEFAULT_ROLE_PERMISSIONS
-    permissions: set[str] = set()
-    for role in roles:
-        permissions.update(role_map.get(role, []))
-    return permissions
-
-
-def _role_and_claimed(
-    user: Any,
-    role_map: dict[str, list[str]] | None,
-    *,
-    include_tenant_roles: bool = True,
-) -> set[str]:
-    """The role-derived set plus the principal's own ``permissions`` (GH #436).
-
-    Read duck-typed (``UserContext.permissions`` lives in the auth module, which
-    framework code must not import). The claimed keys never include the
-    wildcard: like a grant source, a token or IdP claim cannot make an admin.
-    """
-    roles = getattr(user, "roles", None) or []
-    if not include_tenant_roles:
-        roles = [r for r in roles if not is_tenant_role(r)]
-    permissions = resolve_permissions(roles, role_map=role_map)
-    permissions.update(p for p in getattr(user, "permissions", None) or () if p != WILDCARD)
-    return permissions
-
-
-def apply_scope_cap(permissions: set[str], user: Any) -> set[str]:
-    """Cap *permissions* at the principal's token scopes, if it carries any.
-
-    ``scopes`` is ``None`` for an ordinary session: nothing to cap. A list —
-    an API token's — is a ceiling: the result is what the principal holds
-    *and* the token names. Holding the wildcard (an admin) expands it to the
-    scope list, so an admin's token is worth exactly its scopes rather than
-    everything. Applied on every request on top of the owner's *live* grants,
-    so demoting the owner shrinks every token they hold at once.
-
-    A ``*`` inside the scope list is ignored: a token can never carry the
-    wildcard, whatever row it was built from. Read duck-typed — the
-    ``UserContext`` field lives in the auth module (SM009).
-    """
-    scopes = getattr(user, "scopes", None)
-    if scopes is None:
-        return permissions
-    allowed = {s for s in scopes if s and s != WILDCARD}
-    if WILDCARD in permissions:
-        return allowed
-    return permissions & allowed
-
-
-async def resolve_principal_permissions(
-    request: Request,
-    user: Any,
-    registry: PermissionRegistry | None,
-    *,
-    include_tenant_roles: bool = True,
-) -> set[str]:
-    """Everything *user* holds: its roles' permissions plus every grant source.
-
-    The one resolution both ``InertiaLayoutDataMiddleware`` and
-    ``RequiresPermission`` use, so the door, the menu and the frontend cannot
-    disagree about what a principal may do (GH #337).
-
-    A source that raises contributes nothing — failing closed, a denied page
-    rather than an unauthorised one — and is logged rather than turned into a
-    500 on every request. A principal already holding the wildcard skips the
-    sources: nothing they return could widen it, and a source may cost a read.
-    A token principal's set is then capped at its scopes (:func:`apply_scope_cap`),
-    and is empty when its account no longer holds the permission the
-    credential requires (:func:`lacks_required_permission`).
-
-    Global delegation checks exclude synthetic tenant roles with
-    ``include_tenant_roles=False``. Credential validity remains tenant-aware;
-    scope caps still apply, and the request's cached set is left untouched.
-    """
-    held = await _held_permissions(
-        request, user, registry, include_tenant_roles=include_tenant_roles
-    )
-    credential_held = held
-    # Credential validity stays tenant-aware; only resolve the rest when needed.
-    if not include_tenant_roles and getattr(user, "required_permission", None):
-        role_map = registry.role_map if registry is not None else None
-        credential_held = held | resolve_permissions(getattr(user, "roles", None) or [], role_map)
-    if lacks_required_permission(user, credential_held):
-        return set()
-    return apply_scope_cap(held, user)
-
-
-async def _held_permissions(
-    request: Request,
-    user: Any,
-    registry: PermissionRegistry | None,
-    *,
-    include_tenant_roles: bool = True,
-) -> set[str]:
-    """What *user*'s account holds right now, before any scope cap."""
-    role_map = registry.role_map if registry is not None else None
-    permissions = _role_and_claimed(user, role_map, include_tenant_roles=include_tenant_roles)
-    if registry is None or WILDCARD in permissions:
-        return permissions
-    for source in registry.grant_sources:
-        try:
-            # Grants are additive keys only: the wildcard (admin) comes from
-            # roles, never from a source, so a stray ``*`` row can't escalate.
-            permissions.update(k for k in await source(request, user) if k != WILDCARD)
-        except Exception:
-            logger.exception("Grant source %r raised; contributing nothing", source)
-    return permissions
-
-
-def lacks_required_permission(user: Any, held: set[str]) -> bool:
-    """Whether *user*'s credential requires a permission its account lacks.
-
-    A credential may name a permission its account must *currently* hold for
-    it to authenticate at all (``required_permission``, read duck-typed — an
-    ``api_tokens`` personal token requires ``api_tokens.use``). Checked
-    against the uncapped, tenant-aware set, so revoking the permission from a
-    role, a tenant role or a direct grant retires every such credential at once.
-    """
-    required = getattr(user, "required_permission", None)
-    return bool(required) and not grants(held, required)
-
-
 async def resolve_request_permissions(
     request: Request, registry: PermissionRegistry | None
 ) -> set[str]:
@@ -178,13 +57,37 @@ async def resolve_request_permissions(
     if user is None:
         request.state.resolved_permissions = set()
         return set()
-    held = await _held_permissions(request, user, registry)
-    if lacks_required_permission(user, held):
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if getattr(user, "tenant_id", None) != tenant_id:
+        # Grant sources see the effective tenant without changing the auth context.
+        user = copy(user)
+        user.tenant_id = tenant_id
+    principal = await load_principal(request, user, registry)
+    if principal is None:
         await demote_to_anonymous(request)
         return set()
-    permissions = apply_scope_cap(held, user)
+    permissions = set(principal.permissions)
+    request.state.resource_principal = _resource_principal_for(request, principal)
     request.state.resolved_permissions = permissions
     return permissions
+
+
+def _resource_principal_for(request: Request, principal: ResourcePrincipal) -> ResourcePrincipal:
+    """Keep account authentication separate from authorization in this tenant."""
+    factory = getattr(getattr(get_services(request.app), "db", None), "session_factory", None)
+    builder = factory.kw.get("info", {}).get(PRINCIPALS_KEY) if factory is not None else None
+    if builder is not None and builder.multi_tenant:
+        user = getattr(request.state, "user", None)
+        # Public subdomains bind a tenant even for nonmembers. Service keys have
+        # no account membership; their pinned tenant is validated by the resolver.
+        # Only an uncapped platform wildcard may bypass account membership.
+        if not getattr(request.state, "tenant_id", None) or (
+            getattr(request.state, "tenant_role", None) is None
+            and getattr(user, "auth_kind", None) != "service"
+            and WILDCARD not in principal.permissions
+        ):
+            return ResourcePrincipal(None)
+    return principal
 
 
 def _registry_for(request: Request) -> PermissionRegistry | None:
