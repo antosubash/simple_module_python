@@ -117,7 +117,7 @@ class UserContext:
     permissions: list[str] = field(default_factory=list)
 ```
 
-The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission`, `require_permission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. They are written into the session cookie with `roles` and frozen there until the next sign-in, so anything an admin must be able to revoke belongs in a grant source, not here. `UserContext.has_permission(key)` is an exact-match check against that list alone.
+The active auth provider (the `users` or `keycloak` module) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. They are written into the session cookie with `roles` and frozen there until the next sign-in, so anything an admin must be able to revoke belongs in a grant source, not here. `UserContext.has_permission(key)` is an exact-match check against that list alone.
 
 ## Scoped principals (API tokens) and ungated routes
 
@@ -127,8 +127,8 @@ scopes. Because the cap can only constrain a route that asks for a permission,
 `simple_module_hosting.token_guard` (installed by `create_app` as an app-wide
 dependency) applies a fail-closed rule to every route:
 
-- a route whose dependency tree contains `RequiresPermission(...)` or
-  `auth.web.deps.require_permission(...)` admits tokens — the gate decides;
+- a route whose dependency tree contains `RequiresPermission(...)` admits
+  tokens — the gate decides;
 - a page (a module view router, or any route depending on `InertiaDep`)
   refuses tokens with 403, gated or not;
 - `Depends(TokenAllowed())` from `simple_module_hosting.token_guard` admits

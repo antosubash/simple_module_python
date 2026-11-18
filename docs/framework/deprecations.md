@@ -20,19 +20,37 @@ All three register in one registry. `host/tests/test_deprecation_expiry.py`
 imports every shim and **fails once the installed `simple_module_core` version
 reaches any registered `remove_in`**, so a shim cannot silently outlive its date:
 that release either deletes it or moves the date on purpose. A new shim must be
-added to that test's import list. `simple_module_inertia` has no dependency on
-core, so `props.lazy()` exposes `LAZY_REMOVE_IN` and the test registers it.
+added to that test's import list. Module-layout aliases are discovered automatically.
+Non-Python fallbacks are registered explicitly by the test.
 
-## Currently scheduled (remove in 0.1.0)
+## Currently scheduled (remove in 0.0.49)
 
 | Shim | Use instead |
 |---|---|
-| `host/routes_legacy.py` (301s from the pre-`/admin` view URLs) | the `/admin/*` URLs |
-| `settings.registration`, `settings.module_registry`, `settings.hydrate` | `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` |
-| `simple_module_inertia.props.lazy()` | `optional()` |
-| one-argument `register_event_handlers(self, bus)` | `register_event_handlers(self, bus, app=None)` |
-| `ResourceType.shareable_actions` | `ResourceType.share_roles` |
-| `AuthProvider.get_public_paths()` (still honoured by `AuthMiddleware` and the maintenance gate) | `register_public_routes` |
+| Makefile `SM_TEST_PG_URL` fallback | `SM_TEST_DATABASE_URL` |
+| `SM_VITE_PORT` dev-server fallback | `smpy dev --vite-port` or `SM_VITE_DEV_URL` |
 
-`simple_module_hosting.settings.Settings` is **not** a shim: it is the combined
-`HostSettings` + `BootstrapSettings` type used across the host.
+## Removed early (#989)
+
+The shims previously scheduled for 0.1.0 have been removed. Old imports fail;
+the pre-admin view URL redirects are gone. See the Unreleased **Removed** section
+in [the changelog](https://github.com/antosubash/simple_module_python/blob/main/CHANGELOG.md)
+for every removed name and its replacement.
+
+- Use framework settings registration/hydration and the settings module's area paths.
+- Use `simple_module_hosting.permissions.RequiresPermission`: multiple keys have
+  **any-of** semantics. `PermissionService.set_user_permissions` owns invalidation.
+- Declare anonymous routes through `register_public_routes`; providers no longer
+  contribute `get_public_paths`.
+- Define `register_event_handlers(self, bus, app)` and pass `app` explicitly.
+  Workers pass `None`; subscribe durable handlers before an `app is None` return.
+- Use `optional()` for Inertia props, `ResourceType.share_roles` for share roles,
+  and `simple_module_core.redirect_safety.safe_next` for safe redirects.
+
+`ModuleMeta.requires_framework=None` permanently means **no version constraint**;
+only its deprecation was removed. A declared range is still checked at boot.
+
+`simple_module_hosting.settings.Settings`, `simple_module_hosting._registrations`,
+`simple_module_core.public_routes`, `simple_module_core.versioning` and
+`simple_module_core.resources` are live implementations, not import-path shims.
+They remain; only their deprecated compatibility paths were removed.

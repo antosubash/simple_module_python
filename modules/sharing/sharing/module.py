@@ -25,7 +25,7 @@ class SharingModule(ModuleBase):
         view_prefix=c.VIEW_PREFIX,
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
         from sharing.core.tenant_cleanup import purge_tenant_data

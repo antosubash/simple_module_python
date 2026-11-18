@@ -100,9 +100,9 @@ async def bulk_import(request: Request, ...): ...
 
 Every helper accepts either the raw flag name or the `FeatureFlagDefinition` you registered, and reads `request.app.state.sm.feature_flags` + `request.state.tenant_id`, so the per-tenant override Just Works. `flag_enabled(flag)` is a dep factory yielding a `bool` when you need the value rather than a 404 gate.
 
-## Events — `register_event_handlers(bus: EventBus, app: FastAPI | None = None)`
+## Events — `register_event_handlers(bus: EventBus, app: FastAPI | None)`
 
-The event bus is async and in-process (backed by `pyee`'s `AsyncIOEventEmitter`). Modules emit + consume domain events without importing each other. The `app` parameter is optional and back-compat: override `register_event_handlers(self, bus, app=None)` when a handler needs `app.state.sm.db.session_factory` to persist on the framework engine (or `app.state.<module>` state) — the host passes `app` when your signature accepts it, otherwise calls the two-arg form.
+The event bus is async and in-process (backed by `pyee`'s `AsyncIOEventEmitter`). Modules emit + consume domain events without importing each other. The `app` argument is required. The host passes its app; workers pass `None`. Use `app.state.sm.db.session_factory` when a handler needs the framework engine (or `app.state.<module>` state). Subscribe durable handlers before returning early when `app is None`.
 
 ```python
 # orders/contracts/events.py
@@ -124,7 +124,7 @@ from orders.contracts.events import OrderPlaced
 
 
 class NotificationsModule(ModuleBase):
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         bus.subscribe(OrderPlaced, self._send_receipt)
 
     async def _send_receipt(self, event: OrderPlaced) -> None: ...

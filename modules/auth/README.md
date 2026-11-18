@@ -49,11 +49,9 @@ from .constants import PERM_PRODUCTS_CREATE
 async def create_product(): ...
 ```
 
-`auth.web.deps.require_permission` is deprecated and will be removed in **0.1.0**
-(#698). It retains its legacy any-of semantics, role-based admin bypass and cached
-permission check. Migrate to `RequiresPermission(PERM_KEY)`; for several required
-permissions, declare a dependency for each. Unlike the legacy helper,
-`RequiresPermission` rechecks administrators demoted during the request.
+`RequiresPermission(PERM_VIEW, PERM_EDIT)` admits a user holding **any** supplied
+key. Declare separate dependencies when every permission is required. The gate
+honours direct grants, token scope caps and administrators demoted during a request.
 
 ## Depends on
 

@@ -6,7 +6,7 @@ The permissions module decouples role-based and per-user permission grants from 
 - An admin UI to edit them.
 - A grant source that feeds direct user grants into the framework's permission resolution.
 
-There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. `permissions.web.deps.RequiresPermission` is the same class, deprecated for removal in 0.1.0; import from hosting. Before GH #337 they were separate classes, and a direct grant took effect only on routes that imported the `permissions.web.deps` one.
+There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. Import the dependency directly from hosting.
 
 ## ModuleMeta
 
@@ -74,13 +74,13 @@ router = APIRouter()
 async def delete_order(order_id: int) -> None: ...
 ```
 
-`RequiresPermission(permission)` takes a **single** permission key and 403s unless the request's user holds it, considering:
+`RequiresPermission(permission, *alternatives)` accepts one or more keys and 403s unless the request's user holds **any** of them, considering:
 
 1. The keys assigned to any of the user's roles.
 2. The keys assigned directly to the user (`permissions_user_permission`), contributed by `permissions.grants.source.direct_grant_source` via `PermissionRegistry.add_grant_source`.
 3. The implicit `WILDCARD` grant. The `admin` role is synced to hold every permission key at startup, so admins pass any check.
 
-All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`. `auth.web.deps.require_permission(*keys)` reads the same set, with any-of semantics.
+All three are resolved once per request by `InertiaLayoutDataMiddleware` and cached on `request.state.resolved_permissions`.
 
 Workers that start together (a fresh install, or a release that adds keys) all see the same admin grants missing. Each inserts them through the ORM in a savepoint and, if another worker got there first, reads again and inserts only what is still missing, so every startup succeeds (#732).
 
@@ -89,9 +89,7 @@ Workers that start together (a fresh install, or a release that adds keys) all s
 The grant source runs on every authenticated request, so each application caches a user's direct grants for 30 seconds (`permissions.grants.source.GRANTS_TTL_SECONDS`). Co-hosted applications keep separate caches, and a bus invalidation clears only the cache of the app it was subscribed for, even for the same user UUID (#736). Maintenance paths with no app (`clear_grants_cache()`, account cleanup) still clear every app's cache, which only forgets. Saving a user's grants publishes `permissions.user_grants` on the `InvalidationBus` once the transaction commits. `PermissionService.set_user_permissions` owns this callback, so service callers
 receive the same invalidation as endpoints (#687, #621); rollback publishes nothing.
 Pass `app` to the service for cross-worker delivery. Without an app, commit clears
-the local grant cache. The endpoint helper
-`permissions.web.deps.invalidate_grants_on_commit` is deprecated until 0.1.0; callers
-no longer need it. A service constructed without a `request` is a trusted
+the local grant cache. Callers need no separate invalidation helper. A service constructed without a `request` is a trusted
 in-process caller; pass the actor's request for delegated writes.
 The worker that made the change sees it on the next request. Other workers see it immediately when `background_tasks` provides a Redis transport, and otherwise within the TTL.
 

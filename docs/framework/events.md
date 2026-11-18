@@ -45,7 +45,7 @@ class InvoicesModule(ModuleBase):
         ...
     )
 
-    def register_event_handlers(self, bus: EventBus) -> None:
+    def register_event_handlers(self, bus: EventBus, app) -> None:
         bus.subscribe(OrderPlaced, self._on_order_placed)
 
     async def _on_order_placed(self, event: OrderPlaced) -> None:
@@ -128,7 +128,7 @@ If you want a handler to see several event types, subscribe it to each one expli
 If you need durable delivery across processes, use [durable delivery](#durable-delivery) below. The older pattern — a handler that enqueues a Celery task — still works, but loses the event if the process dies between the commit and the enqueue:
 
 ```python
-def register_event_handlers(self, bus: EventBus) -> None:
+def register_event_handlers(self, bus: EventBus, app) -> None:
     bus.subscribe(OrderPlaced, self._enqueue_invoice)
 
 
@@ -144,7 +144,7 @@ async def _enqueue_invoice(self, event: OrderPlaced) -> None:
 from simple_module_core import DurableContext
 
 
-def register_event_handlers(self, bus: EventBus, app=None) -> None:
+def register_event_handlers(self, bus: EventBus, app) -> None:
     bus.subscribe_durable(OrderPlaced, create_invoice, name=INVOICE_HANDLER)
 
 

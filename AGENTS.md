@@ -250,8 +250,8 @@ Detail: `docs/framework/middleware.md`, `docs/framework/request-guards.md`.
 `SidebarLayout` renders the menu its `menuKey` names, so a page left on
 `AuthenticatedLayout` after its item moved shows a sidebar without it.
 `group=` sub-clusters inside a sidebar (`Access`, `Appearance`, `System`).
-`/admin` itself ships with `simple_module_hosting`; old URLs 301 from
-`host/routes_legacy.py`. `/api/*` paths never move.
+`/admin` itself ships with `simple_module_hosting`; use `/admin/*` view URLs.
+`/api/*` paths never move.
 
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
 `modules/<pkg>/<pkg>/pages/<Page>.tsx`; host pages under

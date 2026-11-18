@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_inertia import InertiaMiddleware
 from starlette.applications import Starlette
@@ -16,24 +17,11 @@ class _User:
         self.roles = roles
 
 
-class _Provider:
-    """Mirrors the AuthProvider surface MaintenanceMiddleware actually uses."""
-
-    def __init__(self, *, explode: bool = False) -> None:
-        self._explode = explode
-
-    def get_public_paths(self):
-        if self._explode:
-            raise RuntimeError("provider is down")
-        return (("/users/login",), ("/exact-public",))
-
-
 def _build_app(
     *,
     enabled: bool,
     message: str = "",
     user: _User | None = None,
-    provider: _Provider | None = _Provider(),
     public_routes=None,
     with_inertia_middleware: bool = False,
 ) -> Starlette:
@@ -60,10 +48,6 @@ def _build_app(
 
     app.state.host = _HostState()
 
-    class _AuthState:
-        auth_provider = provider
-
-    app.state.auth = _AuthState()
     app.state.public_routes = public_routes
 
     app.add_middleware(MaintenanceMiddleware)
@@ -135,11 +119,15 @@ class TestAlwaysReachable:
 
     async def test_login_prefix_stays_open(self) -> None:
         """An admin signed out when the switch flipped must still get in."""
-        resp = await _get(_build_app(enabled=True), "/users/login")
+        registry = PublicRouteRegistry()
+        registry.add_prefix("/users/login", methods={"GET"})
+        resp = await _get(_build_app(enabled=True, public_routes=registry), "/users/login")
         assert resp.status_code == 200
 
     async def test_exact_public_path_stays_open(self) -> None:
-        resp = await _get(_build_app(enabled=True), "/exact-public")
+        registry = PublicRouteRegistry()
+        registry.add_exact("/exact-public", methods={"GET"})
+        resp = await _get(_build_app(enabled=True, public_routes=registry), "/exact-public")
         assert resp.status_code == 200
 
 
@@ -166,14 +154,8 @@ class TestDegradedDependencies:
         resp = await _get(app, "/protected")
         assert resp.status_code == 200
 
-    async def test_broken_provider_still_gates(self) -> None:
-        """A provider that raises must not accidentally open the gate."""
-        app = _build_app(enabled=True, provider=_Provider(explode=True))
-        resp = await _get(app, "/protected")
-        assert resp.status_code == 503
-
-    async def test_no_auth_provider_still_gates(self) -> None:
-        app = _build_app(enabled=True, provider=None)
+    async def test_missing_registry_still_gates(self) -> None:
+        app = _build_app(enabled=True)
         resp = await _get(app, "/protected")
         assert resp.status_code == 503
 

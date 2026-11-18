@@ -33,7 +33,7 @@ class ApiTokensModule(ModuleBase):
         optional_depends_on=[c.MODULE_USERS, c.MODULE_SETTINGS],
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
         from simple_module_core.user_events import UserDeleted
 

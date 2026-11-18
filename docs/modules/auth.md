@@ -1,6 +1,6 @@
 # auth
 
-A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`, `require_permission`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, [`oidc`](/modules/oidc) for generic OIDC, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
+A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, [`oidc`](/modules/oidc) for generic OIDC, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
 
 Auth is **pluggable**: exactly one installed module registers an `AuthProvider` implementation on `app.state.auth.auth_provider`, and `AuthMiddleware` delegates to it on every request. The split exists so you can swap authentication backends without churning every consumer's import paths. Diagnostics enforce the invariant — `SM020` errors if two auth-provider modules are installed, `SM021` warns if none is.
 
@@ -42,14 +42,15 @@ from auth.contracts import UserContext, AuthProvider
 | `tenant_id` | `str \| None` | only set when multi-tenant |
 | `permissions` | `list[str]` | keys the principal carries itself (token scope / IdP claim), merged into the role-derived set by the resolver with `*` dropped; empty from `from_user`. Frozen in the session cookie like `roles` — revocable grants belong in a [grant source](/framework/permissions) |
 
-Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `has_permission(key)` (exact match against `permissions` only — gate routes with `require_permission`, which also folds in roles and grant sources); `from_user(user)` builds a context from a duck-typed user object (`.id`, `.email`, `.full_name`, `.roles[*].name`, `.tenant_id`); `to_session_dict()` / `from_session_dict()` (de)serialise it into the signed session cookie (a cookie without `permissions` decodes to `[]`).
+Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `has_permission(key)` (exact match against `permissions` only — gate routes with `RequiresPermission`, which also folds in roles and grant sources); `from_user(user)` builds a context from a duck-typed user object (`.id`, `.email`, `.full_name`, `.roles[*].name`, `.tenant_id`); `to_session_dict()` / `from_session_dict()` (de)serialise it into the signed session cookie (a cookie without `permissions` decodes to `[]`).
 
 `AuthProvider` is the `Protocol` an auth-provider module implements (`resolve_user`, `get_login_url`, `get_logout_url`, `is_bearer_request`) — see [Pluggable auth](#pluggable-auth) below.
 
 ## Dependencies for endpoints
 
 ```python
-from auth.web.deps import CurrentUser, get_current_user, require_permission
+from auth.web.deps import CurrentUser, get_current_user
+from simple_module_hosting.permissions import RequiresPermission
 ```
 
 The old `auth.deps`, `auth.constants`, `auth.state` and `auth.middleware` import paths were removed in 0.0.46; import from `auth.web.deps`, `auth.core.*` and `auth.web.middleware`.
@@ -58,13 +59,14 @@ The old `auth.deps`, `auth.constants`, `auth.state` and `auth.middleware` import
 |---|---|
 | `CurrentUser` (`Annotated` alias) | FastAPI dependency that returns the active `UserContext`. Raises 401 if `request.state.user` isn't set. |
 | `get_current_user(request, t)` | The underlying callable. Use this when you need to compose it manually. |
-| `require_permission("orders.view", "orders.edit")` | Returns a dependency that passes if the user has **any** of the listed permissions, and 403s only if they have **none**. The `admin` role bypasses the check. |
+| `RequiresPermission("orders.view", "orders.edit")` | Returns a dependency that passes if the user has **any** of the listed permissions, and 403s only if they have **none**. The `admin` role holds every key; token scope caps still apply. |
 
 ## Example: protecting a route
 
 ```python
 from fastapi import APIRouter, Depends
-from auth.web.deps import CurrentUser, require_permission
+from auth.web.deps import CurrentUser
+from simple_module_hosting.permissions import RequiresPermission
 
 router = APIRouter()
 
@@ -76,20 +78,20 @@ async def me(user: CurrentUser) -> dict:
 
 @router.delete(
     "/orders/{order_id}",
-    dependencies=[Depends(require_permission("orders.delete"))],
+    dependencies=[Depends(RequiresPermission("orders.delete"))],
 )
 async def delete_order(order_id: int, user: CurrentUser) -> None:
     # `user` is guaranteed authenticated here
     ...
 ```
 
-`require_permission` passes when the user holds *any* of the listed keys. It reads the same per-request permission set as `simple_module_hosting.permissions.RequiresPermission`, which covers roles from the registry's role map plus every grant source (direct user grants, when the [permissions module](/modules/permissions#using-requirespermission) is installed).
+`RequiresPermission` passes when the user holds *any* of the listed keys. It reads the per-request permission set, which covers roles from the registry's role map plus every grant source (direct user grants, when the [permissions module](/modules/permissions#using-requirespermission) is installed).
 
 ## Pluggable auth
 
 `AuthModule.register_settings` puts an empty `AuthState` on `app.state.auth` (holding `auth_provider` and `principal_resolvers`), and `register_middleware` installs `AuthMiddleware`. On each HTTP request the middleware:
 
-1. Skips authentication for public paths — framework defaults: the exact paths `/`, `/health`, `/api/docs`, `/api/redoc` and `/api/openapi.json` (only when served), and everything under `/health/`, `/static/`, `/api/docs/`, `/api/redoc/` and `/i18n/` (a module route such as `/healthcare` is *not* public), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch), and, until 0.1.0, a third-party provider's deprecated `get_public_paths()` (prefix-only).
+1. Skips authentication for public paths — framework defaults: the exact paths `/`, `/health`, `/api/docs`, `/api/redoc` and `/api/openapi.json` (only when served), and everything under `/health/`, `/static/`, `/api/docs/`, `/api/redoc/` and `/i18n/` (a module route such as `/healthcare` is *not* public), method-aware rules contributed via the [`register_public_routes`](/framework/lifecycle) hook (plus the `SM_AUTH_PUBLIC_PATHS` host escape hatch).
 2. Calls `provider.resolve_user(request)` (the `AuthProvider` registered by `users`, `keycloak` or `oidc`).
 3. On a miss, walks the **principal-resolver chain** (`app.state.auth.principal_resolvers`) in order — async callables `(Request) -> UserContext | None` for extra credential sources (PAT bearer tokens, API keys). The first non-`None` wins; each is wrapped in `try/except` so a raising resolver is treated as no-match.
 4. If still unauthenticated and the path isn't public: returns `401` JSON for `/api/*` or bearer requests, otherwise stashes `next` in the session and redirects to `provider.get_login_url(request)`.

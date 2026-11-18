@@ -112,12 +112,12 @@ if flags.is_enabled("orders.new_checkout", tenant_id=request.state.tenant_id):
     ...
 ```
 
-## `register_event_handlers(bus, app=None)`
+## `register_event_handlers(bus, app)`
 
-Subscribe to events on the in-process `EventBus`. Handlers can be sync or async; the bus awaits async ones.
+Subscribe to events on the in-process `EventBus`. Handlers can be sync or async; the bus awaits async ones. The `app` argument is required: the host passes its app and workers pass `None`.
 
 ```python
-def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
     from orders.contracts.events import OrderPlaced
 
     bus.subscribe(OrderPlaced, self._on_order_placed)
@@ -128,7 +128,7 @@ async def _on_order_placed(self, event: OrderPlaced) -> None: ...
 
 Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
 
-`app` is optional. Take it when a handler needs `app.state.sm.db.session_factory` to persist on the framework's engine rather than building its own. The framework inspects your signature and calls the one-argument form `(self, bus)` when that is what you declared, so modules written before `app` existed keep working unchanged.
+Use `app.state.sm.db.session_factory` when a handler needs to persist on the framework's engine. Subscribe durable handlers before returning early for `app is None`, so workers can deliver them.
 
 ## `register_invalidations(bus, app)`
 
@@ -446,7 +446,7 @@ class OrdersModule(ModuleBase):
     def register_menu_items(self, registry): ...
     def register_permissions(self, registry): ...
     def register_feature_flags(self, registry): ...
-    def register_event_handlers(self, bus, app=None): ...
+    def register_event_handlers(self, bus, app): ...
     def register_invalidations(self, bus, app): ...
     def register_health_checks(self, registry): ...
     def register_public_routes(self, registry): ...

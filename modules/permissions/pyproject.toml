@@ -1,7 +1,7 @@
 [project]
 name = "simple_module_permissions"
 version = "0.0.47"
-description = "RBAC primitives — roles, permissions, @require_permission decorator, admin UI for simple_module"
+description = "RBAC primitives — roles, permissions, permission dependencies, admin UI for simple_module"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

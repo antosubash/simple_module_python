@@ -135,7 +135,7 @@ from branding.contracts import BrandingOut, BrandingUpdate
 
 ## Settings
 
-DB-backed via `register_module_settings`; pydantic defaults seed at boot. Edited from the dedicated **Branding** admin page (`/branding`) rather than the generic settings UI.
+DB-backed via `register_module_settings`; pydantic defaults seed at boot. Edited from the dedicated **Branding** admin page (`/admin/branding`) rather than the generic settings UI.
 
 | Field | Default | Purpose |
 |---|---|---|
@@ -285,7 +285,7 @@ edits show at once, in every worker once a transport is installed.
 
 | Code | Granted to | Purpose |
 |---|---|---|
-| `branding.view` | `admin` | open the Branding admin page (`/branding`) |
+| `branding.view` | `admin` | open the Branding admin page (`/admin/branding`) |
 | `branding.manage` | `admin` | read + write branding via the API (name, colour, design pack, banner, image upload/clear) |
 
 ## Menu

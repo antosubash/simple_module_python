@@ -176,13 +176,9 @@ reload and the generic key/value API on top.
 | Secret-field masking (`conceals_secret`, `mask`, ...) | `simple_module_core.secret_fields` |
 | `Setting` model, scope/table constants, `get_overrides_sync`, `hydrate_settings_sync` | `simple_module_db.stored_settings` |
 
-The old plugin paths (`settings.registration`, `settings.module_registry`,
-`settings.hydrate`) still re-export these and emit a `DeprecationWarning`;
-`settings.models` and the moved names in `settings.module_settings.store` /
-`settings.core.constants` / `settings.core._secrets` re-export them silently.
-The old module paths `settings.store`, `settings.constants` and
-`settings._secrets` are aliases of those modules that warn on import. All of
-these go no earlier than 0.1.0.
+Import directly from the framework locations above. The settings plugin keeps
+its `settings.models` model identity and its area-level store, constants and
+secret helpers; the deprecated root import paths were removed in #989.
 
 A Celery worker or CLI script never runs the lifespan, so it hydrates
 synchronously:

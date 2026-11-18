@@ -21,7 +21,6 @@ both.
 
 from __future__ import annotations
 
-import inspect
 import logging
 import threading
 from typing import Any
@@ -102,18 +101,6 @@ def use_bus(bus: EventBus | None) -> None:
     _bus_override = bus
 
 
-def _register(module: Any, bus: EventBus) -> None:
-    hook = module.register_event_handlers
-    params = inspect.signature(hook).parameters
-    accepts_app = "app" in params or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
-    )
-    if accepts_app:
-        hook(bus, app=None)
-    else:
-        hook(bus)
-
-
 def build_worker_bus() -> EventBus:
     """An ``EventBus`` carrying every installed module's subscriptions."""
     from simple_module_core.discovery import discover_modules, topological_sort
@@ -125,7 +112,7 @@ def build_worker_bus() -> EventBus:
     # module set the web process refuses is reported there, not here.
     for module in topological_sort(discover_modules()):
         try:
-            _register(module, bus)
+            module.register_event_handlers(bus, app=None)
         except Exception:
             # One module's handler wiring needing the app must not stop every
             # other module's durable events from being delivered. Logged once

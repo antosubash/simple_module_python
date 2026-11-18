@@ -1,4 +1,4 @@
-"""Tests for simple_module_core.deprecation and the legacy public-paths bridge."""
+"""Tests for simple_module_core.deprecation."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from simple_module_core.deprecation import (
     expired_deprecations,
     registered_deprecations,
 )
-from simple_module_core.public_routes import legacy_provider_public_paths
 
 
 def test_function_warns_and_registers() -> None:
@@ -44,16 +43,3 @@ def test_expiry_compares_against_remove_in() -> None:
 def test_invalid_remove_in_fails_at_registration() -> None:
     with pytest.raises(ValueError, match=r"[Ii]nvalid"):
         deprecate("tests.bad", remove_in="soon")
-
-
-def test_legacy_public_paths_warns_once_per_provider_class() -> None:
-    class Legacy:
-        def get_public_paths(self):
-            return (("/x",), ("/y",))
-
-    with pytest.warns(DeprecationWarning, match="get_public_paths"):
-        assert legacy_provider_public_paths(Legacy()) == (("/x",), ("/y",))
-
-
-def test_provider_without_the_method_yields_nothing() -> None:
-    assert legacy_provider_public_paths(object()) == ((), ())
