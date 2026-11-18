@@ -74,13 +74,23 @@ def build_registered_providers(
     for name, entry in _registry(app).items():
         try:
             provider = entry.factory(app)
-        except Exception:
-            logger.exception("OAuth factory for %s failed; provider disabled", name)
+        except Exception as exc:
+            # Never log the message or traceback: factory errors can quote credentials.
+            logger.error(
+                "OAuth factory for %s failed (%s); provider disabled", name, type(exc).__name__
+            )
             continue
         if provider is None:
             continue
         if provider.name != name:
-            raise ValueError(f"OAuth factory for {name!r} returned name {provider.name!r}")
+            # A mismatched name is a programming error, but one broken provider must
+            # not keep the previous (possibly disabled) clients alive or block the rest.
+            logger.error(
+                "OAuth factory for %s returned provider name %r; provider disabled",
+                name,
+                provider.name,
+            )
+            continue
         clients[name] = provider
         button = {"name": name, "display_name": provider.display_name}
         if entry.label_key:

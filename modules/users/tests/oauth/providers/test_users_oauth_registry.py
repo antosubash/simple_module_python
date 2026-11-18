@@ -143,16 +143,27 @@ def test_provider_name_must_be_a_safe_url_segment(name):
         register_oauth_provider(FastAPI(), name, _factory)
 
 
-def test_factory_cannot_change_registered_provider_name():
+def test_factory_cannot_change_registered_provider_name(caplog):
     from users.contracts import register_oauth_provider
     from users.core.startup import _build_oauth_clients
 
     app = FastAPI()
-    app.state.users = SimpleNamespace(settings=UsersSettings())
+    app.state.users = SimpleNamespace(
+        settings=UsersSettings(oauth_google_client_id="g-id", oauth_google_client_secret="g-secret")
+    )
     _configure(app)
     register_oauth_provider(app, "another", _factory)
-    with pytest.raises(ValueError, match="name"):
-        _build_oauth_clients(app)
+    _build_oauth_clients(app)
+    # The mismatched provider is dropped; healthy providers are still published.
+    assert set(app.state.users.oauth_clients) == {"google"}
+    assert [b["name"] for b in app.state.users.oauth_providers] == ["google"]
+    assert any("another" in r.message and r.levelname == "ERROR" for r in caplog.records)
+
+    # Clearing Google with the broken provider still registered publishes an empty map.
+    app.state.users.settings = UsersSettings()
+    _build_oauth_clients(app)
+    assert app.state.users.oauth_clients == {}
+    assert app.state.users.oauth_providers == []
 
 
 @pytest.mark.anyio
