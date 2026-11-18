@@ -157,8 +157,12 @@ export default defineConfig(({ command }) => ({
       'react-dom/client',
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
-      ...moduleDecls,
+      'i18next',
+      'react-i18next',
+      ...moduleDecls.filter((name) => name !== '@simple-module-py/i18n'),
     ],
+    // gen-i18n rewrites this source package without changing the lockfile.
+    exclude: ['@simple-module-py/i18n'],
     // Add the hoisted workspace node_modules to Rolldown's resolve search
     // so the dev-mode scan resolves bare specifiers from module pages
     // whose importer paths sit outside host/client_app (e.g.

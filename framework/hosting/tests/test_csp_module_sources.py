@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.csp import CspSourceRegistry
 from simple_module_hosting._phase_helpers import build_csp
@@ -46,6 +47,25 @@ def _filled_registry() -> CspSourceRegistry:
 
 
 class TestBuildCsp:
+    @pytest.mark.parametrize("environment", ["development", "production"])
+    @pytest.mark.parametrize("vite_url", ["http://localhost:5201", "https://dev.example:5201"])
+    def test_vite_assets_allowed_only_in_development(self, environment, vite_url) -> None:
+        settings = Settings(
+            database_url="sqlite+aiosqlite:///:memory:",
+            environment=environment,
+            vite_dev_url=vite_url,
+            secret_key="not-the-placeholder-secret-key-value",
+        )
+        csp = build_csp(settings, _filled_registry())
+        assert csp is not None
+        directives = dict(part.strip().split(" ", 1) for part in csp.split(";") if part.strip())
+        for directive in ("font-src", "img-src"):
+            assert (vite_url in directives[directive].split()) == (environment == "development")
+            assert "'self'" in directives[directive]
+            assert "data:" in directives[directive]
+        assert "blob:" in directives["img-src"]
+        assert "https://rsms.me" in directives["font-src"]
+
     def test_dev_csp_carries_module_sources_and_vite(self) -> None:
         dev = Settings(database_url="sqlite+aiosqlite:///:memory:", environment="development")
         csp = build_csp(dev, _filled_registry())
