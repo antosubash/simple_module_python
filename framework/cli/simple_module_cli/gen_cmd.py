@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import importlib.resources
-import logging
 from pathlib import Path
 
 import typer
@@ -186,8 +185,6 @@ def run_generation(project_root: Path | None = None) -> list[str]:
 
 def gen_command() -> None:
     """Generate pages, i18n keys, module JS dependencies and API types as needed."""
-    logging.basicConfig(level=logging.WARNING, format="%(message)s")
-    logging.getLogger("simple_module_hosting.i18n_manifest").setLevel(logging.INFO)
     try:
         changed = run_generation()
     except (ImportError, OSError, ValueError, RuntimeError) as exc:

@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 import { loadModuleAssets } from './module-assets.ts';
 import { viteDevServer } from './vite.dev-url.ts';
+import { i18nGenerated } from './vite.i18n.ts';
 
 // Force every importer (host, workspace module, wheel-installed module)
 // to resolve to one React copy + a single Inertia hook context. Without
@@ -174,7 +175,7 @@ function moduleBareImportResolver(): Plugin {
 }
 
 export default defineConfig(({ command }) => ({
-  plugins: [moduleBareImportResolver(), react(), tailwindcss()],
+  plugins: [i18nGenerated(), moduleBareImportResolver(), react(), tailwindcss()],
   root: import.meta.dirname,
   // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
   envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,

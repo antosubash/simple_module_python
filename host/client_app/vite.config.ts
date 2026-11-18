@@ -7,6 +7,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { compressAssets } from './compress-assets.ts';
 import { loadModuleAssets } from './module-assets.ts';
 import { viteDevServer } from './vite.dev-url.ts';
+import { i18nGenerated } from './vite.i18n.ts';
 
 const projectRoot = path.resolve(import.meta.dirname, '../..');
 // Package managers may hoist the install above client_app, so walk up to find it.
@@ -129,6 +130,7 @@ export default defineConfig(({ command }) => ({
   // served paths out from under it.
   base: command === 'build' ? '/static/dist/' : '/',
   plugins: [
+    i18nGenerated(),
     moduleBareImportResolver(),
     react(),
     tailwindcss(),

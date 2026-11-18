@@ -69,7 +69,7 @@ for (const [name, config] of [
   ['host', hostConfig],
   ['scaffold', scaffoldConfig],
 ] as const) {
-  it(`${name} pre-bundles generated i18n and refreshes its hash after cache removal`, async () => {
+  it(`${name} refreshes pre-bundled generated i18n without removing its cache`, async () => {
     const options =
       typeof config === 'function'
         ? await config({ command: 'serve', mode: 'development' })
@@ -92,6 +92,11 @@ for (const [name, config] of [
       configFile: false as const,
       envDir: false as const,
       cacheDir,
+      plugins: options.plugins
+        ?.flat()
+        .filter(
+          (plugin) => plugin && 'name' in plugin && plugin.name === 'simple-module:i18n-generated',
+        ),
       server: { middlewareMode: true, ws: false as const, watch: null },
       optimizeDeps: {
         ...options.optimizeDeps,
@@ -102,25 +107,25 @@ for (const [name, config] of [
       },
     };
     const hashes: string[] = [];
-    for (const key of ['before', 'after']) {
-      fs.writeFileSync(
-        path.join(pkg, 'src/keys.generated.ts'),
-        `export const keys = { ${key}: '${key}' };`,
-      );
-      // The Python generator removes this directory on a rewrite (#1003).
-      fs.rmSync(cacheDir, { recursive: true, force: true });
-      const server = await createServer(runtimeConfig);
-      try {
+    let server: Awaited<ReturnType<typeof createServer>> | undefined;
+    try {
+      for (const key of ['before', 'after']) {
+        fs.writeFileSync(
+          path.join(pkg, 'src/keys.generated.ts'),
+          `export const keys = { ${key}: '${key}' };`,
+        );
+        if (server) await server.restart(true);
+        else server = await createServer(runtimeConfig);
         const entry = await server.transformRequest('/main.ts');
         const url = entry?.code.match(/"([^"]*\/.vite\/deps\/@simple-module-py_i18n[^"]*)"/)?.[1];
         if (!url) throw new Error('i18n was not pre-bundled');
         const optimized = await server.transformRequest(url);
         expect(optimized?.code).toContain(`${key}:`);
         hashes.push(url);
-      } finally {
-        await server.close();
       }
+      expect(hashes[0]).not.toBe(hashes[1]);
+    } finally {
+      await server?.close();
     }
-    expect(hashes[0]).not.toBe(hashes[1]);
   });
 }

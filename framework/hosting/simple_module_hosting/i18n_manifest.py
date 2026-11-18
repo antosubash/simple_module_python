@@ -23,11 +23,7 @@ from simple_module_core import ModuleBase
 from simple_module_core.i18n import PLURAL_CATEGORIES, I18nRegistry
 
 from simple_module_hosting._i18n_build import build_i18n_registry
-from simple_module_hosting._i18n_target import (
-    clear_vite_deps_cache,
-    read_resource_keys,
-    resolve_i18n_types_dir,
-)
+from simple_module_hosting._i18n_target import read_resource_keys, resolve_i18n_types_dir
 from simple_module_hosting.manifest import _write_if_changed
 from simple_module_hosting.settings import Settings
 
@@ -109,9 +105,7 @@ def emit_frontend_types(
             logger.warning("%s Not writing the generated i18n files.", error)
             return
     try:
-        write_generated_resources(
-            registry, pkg_src, extra_keys=extra_keys, project_root=project_root
-        )
+        write_generated_resources(registry, pkg_src, extra_keys=extra_keys)
     except Exception:
         if strict:
             raise
@@ -154,11 +148,7 @@ _PLURAL_SUFFIXES: tuple[str, ...] = tuple(f"_{c}" for c in PLURAL_CATEGORIES)
 
 
 def write_generated_resources(
-    registry: I18nRegistry,
-    output_dir: Path,
-    *,
-    extra_keys: Iterable[str] = (),
-    project_root: Path | None = None,
+    registry: I18nRegistry, output_dir: Path, *, extra_keys: Iterable[str] = ()
 ) -> Path:
     """Write both ``generated-resources.ts`` and ``keys.generated.ts``.
 
@@ -174,19 +164,12 @@ def write_generated_resources(
     keys = sorted({*messages.keys(), *extra_keys})
 
     resources_path = output_dir / "generated-resources.ts"
-    wrote_resources = _write_if_changed(resources_path, _render_resources(keys))
-    if wrote_resources:
+    if _write_if_changed(resources_path, _render_resources(keys)):
         logger.info("Wrote %s (%d keys)", resources_path.name, len(keys))
 
     keys_path = output_dir / "keys.generated.ts"
-    wrote_keys = _write_if_changed(keys_path, _render_keys(keys))
-    if wrote_keys:
+    if _write_if_changed(keys_path, _render_keys(keys)):
         logger.info("Wrote %s", keys_path.name)
-
-    if project_root is not None and (wrote_resources or wrote_keys):
-        removed = clear_vite_deps_cache(project_root)
-        if removed:
-            logger.info("Cleared Vite deps cache: %s", ", ".join(map(str, removed)))
 
     return resources_path
 
