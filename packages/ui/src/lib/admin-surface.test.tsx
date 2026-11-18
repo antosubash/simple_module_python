@@ -45,3 +45,28 @@ it.each([[], null, [surface.layout], (page: ReactNode) => page])(
     expect(loaded.default.layout).toBe(layout);
   },
 );
+
+it('matches encoded URLs against a Unicode and space-containing prefix', async () => {
+  const UnicodePage = Object.assign(() => null, { layout: undefined as unknown });
+  const load = withAdminSurface(
+    { page: async () => ({ default: UnicodePage }) },
+    { ...surface, prefix: '/admin/café orders' },
+  ).page;
+  await load();
+  const layout = UnicodePage.layout as (page: ReactNode) => ReactNode;
+  destination = '/admin/caf%C3%A9%20orders/';
+  const view = render(layout(<div>Content</div>));
+  expect(screen.getByRole('region', { name: 'admin' })).toBeTruthy();
+  for (const url of [
+    'https://example.test/admin/caf%C3%A9%20orders',
+    '/admin/caf%C3%A9%20orders/1?tab=a#details',
+  ]) {
+    destination = url;
+    view.rerender(layout(<div>Content</div>));
+    expect(screen.getByRole('region', { name: 'admin' })).toBeTruthy();
+  }
+  destination = '/admin/caf%C3%A9%20orders-extra';
+  view.rerender(layout(<div>Content</div>));
+  expect(screen.queryByRole('region', { name: 'admin' })).toBeNull();
+  expect(screen.getByText('Content')).toBeTruthy();
+});

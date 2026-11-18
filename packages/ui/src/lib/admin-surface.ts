@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { type ComponentType, createElement, type ReactNode } from 'react';
+import { isUnder } from './current-path';
 
 interface AdminSurface {
   prefix: string;
@@ -12,9 +13,9 @@ type PageModule = {
 
 function SurfaceLayout({ children, surface }: { children?: ReactNode; surface: AdminSurface }) {
   const page = usePage();
-  const path = new URL(page.url, 'http://inertia.local').pathname;
-  const admin = path === surface.prefix || path.startsWith(`${surface.prefix}/`);
-  return admin ? createElement(surface.layout, null, children) : children;
+  return isUnder(page.url, surface.prefix)
+    ? createElement(surface.layout, null, children)
+    : children;
 }
 
 /** Generated loaders supply defaults even in hosts with an older page resolver. */
