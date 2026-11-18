@@ -32,7 +32,9 @@ _ADMIN_URL = "/admin/permissions/"
 _REFUSAL_FIELD = "permissions"
 
 
-@router.get("/", response_model=None, dependencies=[Depends(RequiresPermission(PERM_MANAGE))])
+@router.get(
+    "/", response_model=None, dependencies=[Depends(RequiresPermission(Permissions.MANAGE))]
+)
 async def browse(
     inertia: InertiaDep,
     q: str | None = None,

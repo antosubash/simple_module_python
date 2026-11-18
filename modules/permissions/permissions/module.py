@@ -63,7 +63,7 @@ class PermissionsModule(ModuleBase):
     )
 
     def register_menu_items(self, registry) -> None:
-        from permissions.core.constants import PERM_MANAGE
+        from permissions.core.constants import Permissions
 
         registry.add(
             MenuItem(
@@ -74,7 +74,7 @@ class PermissionsModule(ModuleBase):
                 section=MenuSection.ADMIN_SIDEBAR,
                 group="Access",
                 group_key="ui.nav_groups.access",
-                permissions=[PERM_MANAGE],
+                permissions=[Permissions.MANAGE],
             )
         )
 
