@@ -1,4 +1,5 @@
 import { configureI18n, keys } from '@simple-module-py/i18n';
+import { setCsrfToken } from '@simple-module-py/ui/lib/api';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,7 +32,6 @@ function setProps(over: Partial<ComponentProps<typeof Index>> = {}) {
     max_lifetime_days: 365,
     expiry_presets: [7, 30, 90],
     pagination: { limit: 100, offset: 0, has_more: false },
-    csrf_token: 'csrf-abc',
     ...over,
   };
 }
@@ -48,8 +48,12 @@ async function createToken() {
 }
 
 describe('api_tokens Index', () => {
-  beforeEach(() => setProps());
+  beforeEach(() => {
+    setProps();
+    setCsrfToken('csrf-abc');
+  });
   afterEach(() => {
+    setCsrfToken(undefined);
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });

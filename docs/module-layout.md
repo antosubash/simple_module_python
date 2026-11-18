@@ -44,7 +44,7 @@ checkers, not a framework runtime lookup.
 | `task_config.py` | `modules/background_tasks/background_tasks/worker/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
 | `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
-| `pages/api.ts`, `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py:130` selects the root pages directory for generation; `framework/cli/simple_module_cli/templates/module/__PACKAGE__/pages/api.ts.tpl:8` consumes the generated types. |
+| `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
 | `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
 | `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
 | `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/plugins.py:41` loads CLI plugins. |
@@ -86,7 +86,7 @@ Declare a new multi-feature domain area in its `DOMAIN_AREAS` map when needed.
 
 | Path | Holds |
 | --- | --- |
-| `pages/` | Real Inertia pages, plus `api.ts` and `api.generated.ts`. Keep page names and render keys stable. |
+| `pages/` | Real Inertia pages, plus the generated client and types in `api.generated.ts` (`api.ts` only for custom client logic). Keep page names and render keys stable. |
 | `ui/components/<feature>/` | Reusable components grouped by feature. Shared components may sit directly in `ui/components/`. |
 | `ui/hooks/`, `ui/utils/` | Hooks and plain TypeScript helpers. |
 | `modules/<name>/tests-js/` | All new JS tests and their support; Vitest collects here. |

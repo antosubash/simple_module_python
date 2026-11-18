@@ -1,15 +1,13 @@
 """Inertia pages: ``/api-tokens/`` (your own tokens), ``/admin/api-tokens/`` (all).
 
-Both pages only render; every change goes through the JSON API with the CSRF
-token handed out here, because the one response carrying a new token's
-secret has to reach the page as data, not as a redirect.
+Both pages only render; changes use the JSON API so a new token's secret
+reaches the page as data, not as a redirect. The shared client handles CSRF.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
 from simple_module_db import TenantIsolationError
-from simple_module_hosting.csrf import get_csrf_token
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.permissions import RequiresPermission
@@ -40,11 +38,10 @@ admin_router = APIRouter(
 )
 
 
-def _form_props(request: Request, max_days: int) -> dict:
+def _form_props(max_days: int) -> dict:
     return {
         "max_lifetime_days": max_days,
         "expiry_presets": [d for d in EXPIRY_PRESETS_DAYS if d <= max_days] or [max_days],
-        "csrf_token": get_csrf_token(request),
     }
 
 
@@ -66,7 +63,7 @@ async def index(
             "tokens": [service.to_view(tok).model_dump(mode="json") for tok in tokens[:limit]],
             "pagination": {"limit": limit, "offset": offset, "has_more": len(tokens) > limit},
             "scopes": await assignable_scopes(request),
-            **_form_props(request, settings.max_lifetime_days),
+            **_form_props(settings.max_lifetime_days),
         },
     )
 
@@ -95,6 +92,6 @@ async def admin_index(
             "scopes": await assignable_scopes(request),
             "roles": assignable_roles(request),
             "tenant_required": tenant_required,
-            **_form_props(request, settings.max_lifetime_days),
+            **_form_props(settings.max_lifetime_days),
         },
     )

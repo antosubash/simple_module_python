@@ -8,7 +8,7 @@ import { CheckCircle2, CircleAlert, Loader2, TimerOff, Unlink } from 'lucide-rea
 import { useEffect, useState } from 'react';
 import { AuthStateCard, type AuthStateTone } from '../auth_local/components/AuthStateCard';
 import { ResendVerification } from '../auth_local/components/ResendVerification';
-import { api } from './api';
+import { api } from './api.generated';
 
 interface Props {
   token: string;

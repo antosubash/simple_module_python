@@ -6,7 +6,7 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { TimerOff } from 'lucide-react';
 import { useState } from 'react';
 import { useTenantErrors } from '../ui/hooks/useTenantErrors';
-import { api } from './api';
+import { api } from './api.generated';
 
 interface InvitationPreview {
   tenant_name: string;

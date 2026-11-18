@@ -97,12 +97,12 @@ export function useProductSchema() {
 Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated — plain Inertia forms need nothing extra. A module that wants a real token check on its JSON mutations uses the framework primitive instead of rolling its own:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+from simple_module_hosting.csrf import RequiresCsrf
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
 ```
 
-Signed-in sessions receive the token as the `csrfToken` shared prop, and the module's typed client (`pages/api.ts`: `createApi<paths>()` from `@simple-module-py/ui/lib/api`) echoes it as `X-CSRF-Token` on unsafe same-origin calls — page code adds nothing. Call `/api/*` from pages through that client (types from `smpy openapi gen-types`), not raw `fetch()`; `apiFetch` covers routes outside the module's schema.
+Signed-in sessions receive the token as the `csrfToken` shared prop, and the module's typed client (`api` exported by `pages/api.generated.ts`) echoes it as `X-CSRF-Token` on unsafe same-origin calls — page code adds nothing. The shared token is included even in `only`/`except` partial reloads, and the client reads its current value on every call after login/logout. Anonymous authentication forms must expose their session token explicitly. Call `/api/*` from pages through that client (types from `smpy openapi gen-types`), not raw `fetch()`; `apiFetch` covers routes outside the module's schema.
 
 Safe methods are never checked, and bare test apps without `SessionMiddleware` are exempt.
 

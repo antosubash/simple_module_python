@@ -62,7 +62,7 @@ modules/orders/
 │   ├── core/                     # constants.py; settings/services only with --with-settings
 │   ├── web/                      # deps.py, service.py (or services/), private schemas
 │   │   └── endpoints/            # api.py, views.py
-│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── pages/                    # Inertia pages, generated API client + types
 │   ├── locales/                  # <lang>.json
 │   ├── ui/                       # components/, hooks/, utils/ (when needed)
 │   └── tasks.py, theme.css, styles.css  # optional root lookup files

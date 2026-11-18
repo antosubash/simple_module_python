@@ -18,7 +18,7 @@ modules/<name>/
 │   ├── core/                     # constants.py, settings.py, services.py, errors.py
 │   ├── web/                      # deps.py, service.py (or services/), private schemas
 │   │   └── endpoints/            # api.py, views.py
-│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── pages/                    # Inertia pages, generated API client + types
 │   ├── locales/                  # <lang>.json
 │   ├── ui/                       # components/, hooks/, utils/ (when needed)
 │   └── tasks.py, theme.css, styles.css  # optional root lookup files
@@ -803,17 +803,24 @@ module's JSON mutation surface, opt into the framework's session-bound token
 check instead of rolling your own:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+from simple_module_hosting.csrf import RequiresCsrf
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
-
-# expose the token to your pages as a view prop:
-await inertia.render("MyModule/Page", {"csrf_token": get_csrf_token(request)})
 ```
 
-Frontend callers echo the token back as `X-CSRF-Token` on
-`POST`/`PUT`/`PATCH`/`DELETE`. Safe methods are never checked, and bare test
-apps without `SessionMiddleware` are exempt, so unit tests need no ceremony.
+That dependency is the module's only CSRF wiring. Signed-in Inertia pages
+receive the session's `csrfToken` shared prop, including partial reloads with
+`only` or `except`. The generated `api` client reads the current token on every
+same-origin `POST`/`PUT`/`PATCH`/`DELETE`, including after login/logout, and sends
+`X-CSRF-Token`. Do not add a per-page token prop or manual headers.
+
+Import `{ api }` from `./api.generated`; `smpy openapi gen-types --module <pkg>`
+(`make gen-api-types` in this repo) generates both the client and its types in
+one file. Keep a separate `api.ts` only for custom client logic; regeneration
+leaves it alone. Anonymous pages do not receive the authenticated shared token;
+anonymous authentication forms explicitly expose their session token instead.
+Safe methods are never checked, and bare test apps without `SessionMiddleware`
+are exempt, so unit tests need no ceremony.
 
 ## Prop types (Inertia v3)
 

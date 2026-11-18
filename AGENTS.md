@@ -262,10 +262,12 @@ by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 `simple-module-page-perf` skill.
 
 **CSRF.** Baseline is `SameSite=Lax` on the session cookie, so a same-site
-request needs no token. Defence in depth: `RequiresCsrf` router dependency +
-`get_csrf_token(request)` as a view prop, echoed as `X-CSRF-Token`
-(`simple_module_hosting.csrf`). The session cookie is `Secure` outside
-development and testing.
+request needs no token. For defence in depth, declare the `RequiresCsrf` router
+dependency (`simple_module_hosting.csrf`). Signed-in Inertia pages share the
+current `csrfToken`, including partial reloads; the generated `api` client
+echoes it as `X-CSRF-Token` on same-origin mutations. No per-page token props or
+manual headers are needed. Anonymous auth forms explicitly expose their token.
+The session cookie is `Secure` outside development and testing.
 
 ## Database
 

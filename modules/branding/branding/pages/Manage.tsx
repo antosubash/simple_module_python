@@ -19,7 +19,7 @@ import { isValidColor, normalizeHex } from '../ui/components/hex';
 import { ImageDropzones, type ImageKind } from '../ui/components/ImageDropzones';
 import { PresetField, type PresetOption } from '../ui/components/PresetField';
 import { PreviewTabs } from '../ui/components/PreviewTabs';
-import { api } from './api';
+import { api } from './api.generated';
 
 /** Matches `BUILTIN_PRESETS[0]` in `branding/presets.py`. */
 const DEFAULT_SWATCH = '#0f766e';
