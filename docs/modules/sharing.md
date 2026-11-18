@@ -89,6 +89,7 @@ For a view-only subset use `{"view": (ACTION_VIEW,)}`; edit implies view through
 |---|---|---|---|
 | `POST` | `/api/sharing/shares` | `sharing.share` | Grant or update. 422 for an unknown type, role or grantee, or a past `expires_at`; 404 when the granter cannot see the row; 403 when they can see it but may not share it. |
 | `GET` | `/api/sharing/shares?resource_type=&resource_id=` | `sharing.share` | Every share on one row (expired included, flagged), for whoever may share it. |
+| `GET` | `/api/sharing/candidates?resource_type=&resource_id=&q=` | `sharing.share` | Requires `ACTION_SHARE` on the resource. Active users only, excluding the owner and caller; tenant members only in multi-tenant mode. |
 | `DELETE` | `/api/sharing/shares/{id}` | `sharing.share` | Hard delete. Allowed for whoever may share the row, the grantee (leaving the share), or `sharing.manage`. |
 | `GET` | `/admin/sharing/` | `sharing.view` | Admin page: every share in the active tenant, paginated, with user labels. |
 | `POST` | `/admin/sharing/{id}/revoke` | `sharing.manage` | Revoke from the admin page. |
@@ -96,6 +97,61 @@ For a view-only subset use `{"view": (ACTION_VIEW,)}`; edit implies view through
 `sharing.share` is mapped to the `user` role and every tenant role; the row's
 policy still decides each request. API tokens need `sharing.share` in their
 scopes.
+
+## Shared dialog and hook
+
+Consumers that depend on `Sharing` can import its frontend UI through the host's
+module alias (#990):
+
+```tsx
+import { ShareDialog } from '@simple-module-py/sharing/ui';
+
+<ShareDialog resourceType="notes.note" resourceId={note.id} />;
+```
+
+Render the trigger only when the caller may share the resource. Every list,
+search, grant and revoke request is checked again on the server. The dialog
+loads only when opened, searches after a 250 ms debounce, and uses the generated
+typed API client (including shared CSRF handling). All built-in text is translated.
+
+The default roles are `view` and `edit`. For a resource with custom
+`share_roles`, pass `roles={[{ value: 'reviewer', label: t(keys.notes.reviewer) }]}`
+with labels translated by the consumer. Pass only roles declared on that
+resource type; the server remains the authority. An empty list disables grants.
+Expired shares remain visible and can be renewed by adding the person again.
+
+For a custom presentation, import `useShares` from the same UI entry point and
+call `useShares(resourceType, resourceId, open)`. It exposes `shares`, `query`,
+`setQuery`, `candidates`, `tooShort`, `loading`, `searching`, `pending`, `error`,
+`grant(candidate, role)` and `revoke(share)`. Mutations update the list on success;
+failures leave it unchanged and set a translated error. Duplicate mutations are
+blocked while a request is pending. Close, Escape and outside dismissal are disabled
+during mutations. If a custom consumer closes and reopens while a write is
+pending, the hook refreshes after that write settles.
+
+Candidate queries under three trimmed characters return an empty list without
+searching the directory, after resource authorization. Searches are limited to
+60 per minute and 500 per day per signed-in user, using the host's shared rate
+limit store (Redis across workers, otherwise per process). At most 20 eligible
+people are returned. Activity, owner/caller exclusions and tenant membership
+are filtered inside directory search **before** the limit.
+
+In multi-tenant mode, substring/name searches are restricted to members of the
+caller's active tenant, even for directory administrators. In single-tenant
+mode, substring/name searches require `sharing.directory_search`; ordinary
+sharers must enter an exact email address (case insensitive). This permission
+is registered but is not granted to ordinary user or tenant roles.
+
+Every candidate email is masked, for example `a•••@example.com`. Labels that
+fall back to an email, or contain an email, use the masked form too. No raw email
+is returned by the candidates route.
+
+Ownership comes from `OwnedResourcePolicy.owner_col`, or `owner_id` on rows using a custom policy. Missing membership information fails closed on a
+multi-tenant host. Custom policies with a different ownership shape must expose
+an `owner_col` with its mapped column key to exclude their owner.
+
+`POST /api/sharing/shares` accepts only `subject_type: "user"` (also the default
+when omitted). Unsupported subject types and inactive users return 422 (#991).
 
 ## Tenancy
 

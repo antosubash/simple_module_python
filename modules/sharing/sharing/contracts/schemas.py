@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from simple_module_core.resources import ACTION_VIEW
 from sqlmodel import Field, SQLModel
 
-from sharing.core.constants import RESOURCE_ID_MAX, RESOURCE_TYPE_MAX, ROLE_MAX, SUBJECT_ID_MAX
+from sharing.core.constants import (
+    RESOURCE_ID_MAX,
+    RESOURCE_TYPE_MAX,
+    ROLE_MAX,
+    SUBJECT_ID_MAX,
+    SUBJECT_USER,
+)
 
 
 class ShareGrant(SQLModel):
@@ -17,8 +24,15 @@ class ShareGrant(SQLModel):
     resource_type: str = Field(min_length=1, max_length=RESOURCE_TYPE_MAX)
     resource_id: str = Field(min_length=1, max_length=RESOURCE_ID_MAX)
     subject_id: str = Field(min_length=1, max_length=SUBJECT_ID_MAX)
+    subject_type: Literal["user"] = SUBJECT_USER
     role: str = Field(default=ACTION_VIEW, max_length=ROLE_MAX)
     expires_at: datetime | None = None
+
+
+class ShareCandidate(SQLModel):
+    id: str
+    display_name: str
+    email: str
 
 
 class ShareOut(SQLModel):

@@ -15,6 +15,8 @@ PERM_SHARE: Final = "sharing.share"
 """Use the grant/revoke API at all; the resource's own policy still decides."""
 PERM_VIEW: Final = "sharing.view"
 """See every share in the tenant (the admin page)."""
+PERM_DIRECTORY_SEARCH: Final = "sharing.directory_search"
+"""Discover directory users by name or email substring outside multi-tenant mode."""
 PERM_MANAGE: Final = "sharing.manage"
 """Revoke any share in the tenant."""
 USER_ROLE: Final = "user"
@@ -22,6 +24,11 @@ USER_ROLE: Final = "user"
 PAGE_ADMIN: Final = "Sharing/Admin"
 
 API_PREFIX: Final = "/api/sharing"
+CANDIDATES_URL: Final = f"{API_PREFIX}/candidates"
+CANDIDATES_RATE: Final = "60/minute"
+CANDIDATES_DAILY_RATE: Final = "500/day"
+CANDIDATES_MIN_QUERY: Final = 3
+CANDIDATES_MAX: Final = 20
 VIEW_PREFIX: Final = "/admin/sharing"
 # Trailing slash: the index route is registered at "/" under the prefix.
 ADMIN_URL: Final = f"{VIEW_PREFIX}/"

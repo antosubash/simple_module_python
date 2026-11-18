@@ -20,7 +20,7 @@ found = await directory.get_many(db, ["3f0c…", "celery-worker"])  # {id: Direc
 | Member | Returns |
 |---|---|
 | `get_many(db, ids, *, with_roles=False)` | `{id: DirectoryUser}` keyed by **your** id strings. Ids that are not uuids or name nobody are absent, never an error. Implementations chunk (`GET_MANY_CHUNK`, 500 ids per query). |
-| `search(db, term, *, limit)` | Users whose name or email contains `term`, ordered by email; everyone up to `limit` when `term` is empty. |
+| `search(db, term, *, limit, include_ids=None, exclude_ids=(), active_only=False, exact_email=False)` | Users ordered by email. Filters apply before the limit: optional allowed ids, excluded ids, usable accounts only, or exact case-insensitive email instead of name/email substring. Defaults keep the unrestricted search. |
 | `match_ids(term)` | An **unexecuted** `SELECT` of the matching text ids, for use as an unbounded subquery (the audit log's Actor filter). `None` when the provider cannot express it. |
 | `stats(db, *, active_window)` | `DirectoryStats(total, active_since, created_this_month)`; a `None` field means "cannot say", not zero. |
 | `entity_type` | The audit-link key user rows are recorded under (`"User"`), or `None` when they have no audited model to link to. |

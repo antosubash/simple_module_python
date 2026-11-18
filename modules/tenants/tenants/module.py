@@ -46,11 +46,10 @@ def _tenant_members() -> TenantMembers:
 
     from tenants.models import Membership
 
-    async def members(db: Any, tenant_id: str, user_ids: Collection[str]) -> set[str]:
-        wanted = list(dict.fromkeys(user_ids))
-        stmt = select(Membership.user_id).where(
-            Membership.tenant_id == tenant_id, col(Membership.user_id).in_(wanted)
-        )
+    async def members(db: Any, tenant_id: str, user_ids: Collection[str] | None) -> set[str]:
+        stmt = select(Membership.user_id).where(Membership.tenant_id == tenant_id)
+        if user_ids is not None:
+            stmt = stmt.where(col(Membership.user_id).in_(list(dict.fromkeys(user_ids))))
         return set((await db.execute(stmt)).scalars())
 
     return members

@@ -10,6 +10,7 @@ from sharing.core.constants import PERM_SHARE
 from sharing.core.policy import share_exists_for
 from simple_module_core.resources import ACTION_SHARE, ACTION_VIEW, ResourceType
 from simple_module_core.tenancy import TenantRole
+from simple_module_core.user_directory import DirectoryUser, set_user_directory
 from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from simple_module_test.tenant_client import session_client
 
@@ -67,6 +68,42 @@ async def test_grant_refusals(note_app, tenant_client):
         assert (await owner.client.post(SHARES, json=unknown_type)).status_code == 422
         ghost = _body(note_id, str(uuid.uuid4()))
         assert (await owner.client.post(SHARES, json=ghost)).status_code == 422
+
+
+@pytest.mark.parametrize("subject_type", ["group", "tenant", ""])
+async def test_grant_rejects_unsupported_subject_type(note_app, tenant_client, subject_type):
+    async with (
+        tenant_client() as owner,
+        tenant_client(tenant_id=owner.tenant_id) as friend,
+    ):
+        note_id = await _note(note_app, owner.user_id)
+        response = await owner.client.post(
+            SHARES, json=_body(note_id, friend.user_id, subject_type=subject_type)
+        )
+        assert response.status_code == 422, response.text
+        query = {"resource_type": NOTE_TYPE, "resource_id": note_id}
+        assert (await owner.client.get(SHARES, params=query)).json() == []
+
+
+async def test_grant_rejects_inactive_subject(note_app, tenant_client):
+    from _sharing_support import FakeDirectory
+
+    async with (
+        tenant_client() as owner,
+        tenant_client(tenant_id=owner.tenant_id) as friend,
+    ):
+        directory = FakeDirectory(friend.user_id)
+        directory.users[friend.user_id] = DirectoryUser(
+            id=friend.user_id, email="disabled@example.com", is_active=False
+        )
+        set_user_directory(note_app, directory)
+        note_id = await _note(note_app, owner.user_id)
+        response = await owner.client.post(
+            SHARES, json=_body(note_id, friend.user_id, subject_type="user")
+        )
+        assert response.status_code == 422, response.text
+        query = {"resource_type": NOTE_TYPE, "resource_id": note_id}
+        assert (await owner.client.get(SHARES, params=query)).json() == []
 
 
 async def test_admin_page_lists_tenant_shares(note_app, tenant_client):

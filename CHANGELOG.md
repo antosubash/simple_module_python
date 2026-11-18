@@ -23,6 +23,9 @@ All notable changes to this project are documented in this file. The format is b
 - **Breaking** (#989): removed `simple_module_inertia.props.lazy` and the package-root `simple_module_inertia.lazy` export → `optional()`. Removed `ResourceType.shareable_actions` → `ResourceType.share_roles` (for example, `{"edit": (ACTION_VIEW, ACTION_EDIT)}`), and `site_lock.web.page.safe_next` → `simple_module_core.redirect_safety.safe_next`.
 - **Breaking** / **Behaviour change** (#989): removed `host.routes_legacy` and its seven redirect prefixes: `/users/admin` → `/admin/users`, `/settings` → `/admin/settings`, `/audit_log` → `/admin/audit-log`, `/feature_flags` → `/admin/feature-flags`, `/branding` → `/admin/branding`, `/permissions` → `/admin/permissions`, `/dashboard/doctor` → `/admin/doctor`. Old bookmarks now return **404**; update saved links. API URLs are unchanged.
 - Removed only the deprecation of `ModuleMeta.requires_framework=None`: `None` permanently means **no version constraint**. The live hosting registration and core public-routes, versioning and resources modules remain. The Makefile's 0.0.49 `SM_TEST_PG_URL` fallback and `SM_VITE_PORT` support are unchanged.
+### Added
+
+- Sharing ships a reusable `ShareDialog` and `useShares` hook, with a policy-authorized, tenant-filtered and rate-limited user picker (#990).
 
 ### Changed
 
@@ -41,6 +44,11 @@ All notable changes to this project are documented in this file. The format is b
 - **Behaviour change:** body-size, public/authenticated rate limits and all six host CORS fields now apply on committed settings reload through an immutable request policy snapshot, without restarting. Module rules and env → DB → default precedence are preserved. Persist custom boot-only `Settings` guard overrides in the host DB settings or environment so they survive hydration (#976).
 
 ### Fixed
+
+- Sharing candidate searches accept complete emails up to 320 characters and query large tenant member lists in bounded chunks, preserving email order and the final result limit (#990, #991).
+- Sharing candidates mask emails and email-derived labels, restrict directory discovery to the active tenant or `sharing.directory_search`, enforce minute/day budgets, and filter eligibility before limiting results. Pending grants survive dialog reopening; bundled dialogs prevent dismissal during mutations. Correct translated search guidance and recipient labels (#990, #991).
+
+- **Behaviour change:** sharing grants reject inactive users and unsupported `subject_type` values with 422; omitted `subject_type` still defaults to `user` (#991).
 
 - Correct scaffold command documentation for flat and workspace layouts, generated frontend files, Doctor checks, and worker queue selection and settings precedence (#992).
 - Make the clean-target repo-detection test independent of repository markers above its temporary directory, including `/tmp/.git`; production detection behavior is unchanged (#1001).

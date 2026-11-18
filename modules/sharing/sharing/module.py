@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from simple_module_core.audit_links import AuditLinkRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.rate_limit import RateLimitRegistry
 
 
 class SharingModule(ModuleBase):
@@ -56,7 +57,7 @@ class SharingModule(ModuleBase):
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
             c.PERM_GROUP,
-            [c.PERM_SHARE, c.PERM_VIEW, c.PERM_MANAGE],
+            [c.PERM_SHARE, c.PERM_VIEW, c.PERM_MANAGE, c.PERM_DIRECTORY_SEARCH],
             label_key=f"{c.LOCALE_NAMESPACE}.permission_group",
         )
         # Sharing what you own is an ordinary user action; the resource's
@@ -64,6 +65,14 @@ class SharingModule(ModuleBase):
         registry.map_role(c.USER_ROLE, [c.PERM_SHARE])
         for role in TenantRole:
             registry.map_role(tenant_role(role), [c.PERM_SHARE])
+
+    def register_rate_limits(self, registry: RateLimitRegistry) -> None:
+        from simple_module_core.rate_limit import RateLimitRule
+
+        registry.add_exact(
+            c.CANDIDATES_URL,
+            RateLimitRule(c.CANDIDATES_RATE, key="user", methods=frozenset({"GET"})),
+        )
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from sharing.models import ResourceShare
