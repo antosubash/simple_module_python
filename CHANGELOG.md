@@ -43,6 +43,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- **Behaviour change:** Permissions works with Users, OIDC and Keycloak through a provider-neutral role directory. External role mappings and direct user grants have their own admin entry point; cached claim roles remain explicitly unknown. Users is now only an optional ordering dependency of Permissions (#953).
+
 - Failed mail transport reloads block delivery until construction succeeds, with retries on settings refreshes even when values are unchanged. Admin settings saves check choices after field normalization, preserving inputs such as `cookie_samesite="Strict"` (#962).
 - OAuth factory failures disable only the failing provider, so settings reloads still remove disabled providers and refresh login buttons. Custom login labels fall back to the provider display name when their translation is missing (#964).
 

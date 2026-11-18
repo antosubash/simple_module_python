@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
+from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
 from simple_module_core.user_directory import set_user_directory
 
 from oidc.core.constants import (
@@ -52,6 +53,7 @@ class OidcModule(ModuleBase):
         )
 
         set_user_directory(app, OidcDirectory())
+        set_role_directory(app, MappedRoleDirectory(lambda: app.state.oidc.settings.role_mapping))
         app.state.auth.auth_provider = OidcAuthProvider(
             app.state.oidc.settings, state=app.state.oidc
         )

@@ -89,11 +89,14 @@ class UsersModule(ModuleBase):
 
         # Other modules read accounts through the directory, never
         # ``users.models`` (GH #501).
+        from simple_module_core.role_directory import set_role_directory
         from simple_module_core.user_directory import set_user_directory
 
         from users.core.directory import UsersDirectory
 
-        set_user_directory(app, UsersDirectory())
+        directory = UsersDirectory()
+        set_user_directory(app, directory)
+        set_role_directory(app, directory)
 
         # The public shell renders a "Sign up" link only when signup is open —
         # /users/register 404s otherwise. Registered here (not in the view

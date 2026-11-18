@@ -27,14 +27,30 @@ from permissions.web.deps import (
 
 router = APIRouter()
 
-_ADMIN_URL = "/admin/users/"
+_ADMIN_URL = "/admin/permissions/"
 # Form-error key the edit pages read to show why a save was refused (#687).
 _REFUSAL_FIELD = "permissions"
 
 
-@router.get("/", response_model=None)
-async def browse() -> RedirectResponse:
-    return RedirectResponse(_ADMIN_URL, status_code=307)
+@router.get(
+    "/", response_model=None, dependencies=[Depends(RequiresPermission(Permissions.MANAGE))]
+)
+async def browse(
+    inertia: InertiaDep,
+    q: str | None = None,
+    service: PermissionService = Depends(get_permission_service),
+) -> InertiaResponse:
+    roles = await service.list_roles_with_counts()
+    users = await service.list_users_with_counts(search=q)
+    return await inertia.render(
+        "Permissions/Browse",
+        {
+            "roles": [{**r.model_dump(mode="json"), "count": n} for r, n in roles],
+            "users": [{**u.model_dump(mode="json"), "count": n} for u, n in users],
+            "query": q or "",
+            "roles_editable": service.role_directory.editable,
+        },
+    )
 
 
 # ── Role edit ──────────────────────────────────────────────────
@@ -110,6 +126,7 @@ async def edit_user(
         {
             "user": assignment.user.model_dump(mode="json"),
             "roles": assignment.roles,
+            "roles_known": assignment.roles_known,
             "direct": assignment.direct,
             "inherited": assignment.inherited,
             "inherited_by": assignment.inherited_by,

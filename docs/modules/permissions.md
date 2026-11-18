@@ -15,12 +15,13 @@ There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With 
 | `name` | `Permissions` |
 | `route_prefix` | `/api/permissions` |
 | `view_prefix` | `/admin/permissions` |
-| `depends_on` | `["Auth", "Users"]` |
+| `depends_on` | `["Auth"]` |
 
-The user side of the screens (looking a user up, searching, their roles) goes
-through the [user directory](/framework/user-directory). The role pages read
-the `users` module's `Role` table (`users.contracts.roles`), which is why the
-module still depends on `Users`.
+Accounts come from the [user directory](/framework/user-directory), and roles
+come from the [role directory](/framework/user-directory#role-directory).
+`Users` is an optional ordering dependency. OIDC/Keycloak mappings expose
+application role names to the editor without local role assignment controls.
+No Users package or role table is required (#953).
 
 ## Routes
 
@@ -52,7 +53,7 @@ for unavailable modules are preserved. See [delegated permission editing](/frame
 
 | Method + path | Inertia component / behaviour | Permission |
 |---|---|---|
-| `GET /admin/permissions/` | _redirect to_ `/admin/users/` | _login_ |
+| `GET /admin/permissions/` | `Permissions/Browse` (role mappings and user grants) | `permissions.manage` |
 | `GET /admin/permissions/roles/{role_id}/edit` | `Permissions/RoleEdit` | `permissions.manage` |
 | `PUT /admin/permissions/roles/{role_id}` | form action; redirects | `permissions.manage` |
 | `GET /admin/permissions/users/{user_id}/edit` | `Permissions/UserEdit` | `permissions.manage` |
@@ -110,11 +111,11 @@ from permissions.contracts.schemas import (
 | Class | Purpose |
 |---|---|
 | `PermissionGroupOut` | A named group (e.g. `Orders`) with the list of permission keys it owns. Built from the framework's `PermissionRegistry`. |
-| `RoleOut` | `id`, `name`, `description`. |
+| `RoleOut` | `id`, `name`, `label`, `description`. |
 | `RolePermissionsOut` | A role plus its assigned permission keys. |
 | `RolePermissionsUpdate` | `{ "permissions": ["orders.view", ...] }` — replaces the full set. |
 | `UserOut` | `id`, `email`, `full_name`. |
-| `UserPermissionsOut` | A user, the keys granted directly, and the keys inherited from roles. |
+| `UserPermissionsOut` | A user, `roles_known`, direct grants, and known role-inherited grants. |
 | `UserPermissionsUpdate` | `{ "permissions": [...] }` — replaces the user's *direct* grants only. |
 
 ## Models
@@ -132,7 +133,7 @@ from permissions.contracts.schemas import (
 
 | Column | Type | Notes |
 |---|---|---|
-| `user_id` | `UUID` | composite PK; references `users_user.id` |
+| `user_id` | `UUID` | composite PK; provider-neutral account UUID |
 | `permission_key` | `str` | composite PK |
 | `assigned_at` | `datetime` | |
 | `assigned_by` | `str \| None` | actor email |
@@ -148,10 +149,11 @@ The schema deliberately keys by **string permission key**, not a normalised `per
 
 ## Menu
 
-_(none)_ — the editor is reachable from the [`users`](/modules/users) admin pages (each user/role row links to its permissions edit page).
+The Access admin sidebar includes Permissions (`permissions.manage`). Local Users pages also link to the editor.
 
 ## Inertia pages
 
+- `Permissions/Browse.tsx` — provider roles, user search and grant counts; external roles stay managed in the IdP.
 - `Permissions/RoleEdit.tsx` — checkbox grid grouped by `PermissionGroup`; submits the full set on save.
 - `Permissions/UserEdit.tsx` — same grid, with badges showing which permissions are inherited from roles vs granted directly.
 

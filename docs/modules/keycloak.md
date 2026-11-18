@@ -144,9 +144,8 @@ The cache backs this module's [user directory](/framework/user-directory)
 the audit log, dashboard, file storage and the permissions grants screen name
 and count Keycloak users. It knows only users who have signed in at least once;
 roles are `None` (they live in the IdP) and `created_this_month` is `None`.
-`permissions` (role pages) still needs the `users` tables and declares
-`depends_on=["Users"]`, so leave it out of a Keycloak install
-(`SM_MODULES_ENABLED`). `api_tokens` only orders after `Users`: under Keycloak
+`permissions` reads roles through the role directory and no longer needs
+`Users` (#953; see below). `api_tokens` only orders after `Users`: under Keycloak
 its service keys work and personal tokens are refused (the owner's roles live
 in the IdP).
 
@@ -189,3 +188,14 @@ Then `uv sync --all-packages`. The entry point (`keycloak = "keycloak.module:Key
 Post-login destinations use `host.login_redirect_url` for every provider. The
 default `/dashboard/` falls back to the first other view when Dashboard is absent,
 then `/`. Old per-provider redirect rows are ignored quietly.
+
+## Permission editor and role directory
+
+The Permissions module works with this provider without Users (#953). Its
+[role directory](/framework/user-directory#role-directory) lists distinct
+application role names from the live `role_mapping` values, excluding synthetic
+`tenant:*` roles. The editor maps those names to permissions, which apply to
+verified claim roles through the shared principal builder. Roles are defined and
+assigned in the identity provider, not locally. Cached user accounts do not
+record role membership: arbitrary user role lookups return `None` (unknown),
+while direct per-user grants remain available to platform admins.

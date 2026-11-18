@@ -6,6 +6,7 @@ import ast
 from typing import TYPE_CHECKING
 
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.menu import MenuItem, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db import independent_session
@@ -56,9 +57,26 @@ class PermissionsModule(ModuleBase):
         name="Permissions",
         route_prefix="/api/permissions",
         view_prefix="/admin/permissions",
-        depends_on=[_MODULE_AUTH, _MODULE_USERS],
+        depends_on=[_MODULE_AUTH],
+        optional_depends_on=[_MODULE_USERS],
         i18n_audience="admin",
     )
+
+    def register_menu_items(self, registry) -> None:
+        from permissions.core.constants import Permissions
+
+        registry.add(
+            MenuItem(
+                label="Permissions",
+                label_key="permissions.browse.title",
+                url="/admin/permissions/",
+                icon="shield-check",
+                section=MenuSection.ADMIN_SIDEBAR,
+                group="Access",
+                group_key="ui.nav_groups.access",
+                permissions=[Permissions.MANAGE],
+            )
+        )
 
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.user_events import UserDeleted
