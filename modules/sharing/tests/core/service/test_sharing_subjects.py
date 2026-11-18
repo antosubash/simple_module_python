@@ -42,6 +42,7 @@ async def test_service_refuses_disabled_user_before_writing():
             resource_type=NOTE_TYPE,
             resource_id=note.id.hex,
             subject_id="friend",
+            role="viewer",
             granted_by="owner",
         )
     )
