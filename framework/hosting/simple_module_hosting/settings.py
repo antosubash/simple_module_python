@@ -7,7 +7,10 @@ the process-wiring half or only the DB-backed half may depend on
 
 from __future__ import annotations
 
-from pydantic import PrivateAttr
+import secrets
+
+from pydantic import PrivateAttr, model_validator
+from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 from simple_module_hosting.host_settings import HostSettings
@@ -17,3 +20,11 @@ class Settings(HostSettings, BootstrapSettings):
     """Combined bootstrap + host settings."""
 
     _secret_key_ephemeral: bool = PrivateAttr(default=False)
+
+    @model_validator(mode="after")
+    def _require_resolved_root(self) -> Settings:
+        if not self.secret_key.strip():
+            if self.environment not in NON_PROD_ENVIRONMENTS:
+                raise ValueError("SM_SECRET_KEY resolved to an empty or whitespace-only root")
+            self.secret_key = secrets.token_urlsafe(48)
+        return self

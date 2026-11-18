@@ -64,3 +64,14 @@ async def test_failed_persistence_keeps_setup_closed(monkeypatch):
     ensure.return_value = "stored-root"
     assert await _database_migrated(app)
     assert settings.secret_key == "stored-root"
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_blank_resolved_key_cannot_escape_resolution(monkeypatch, strict):
+    monkeypatch.delenv("SM_SECRET_KEY", raising=False)
+    monkeypatch.setattr(_secret_key, "_ensure", AsyncMock(return_value=" \t\n"))
+    if strict:
+        with pytest.raises(_secret_key.SecretKeyUnavailableError, match="SM_SECRET_KEY"):
+            _secret_key.ensure_secret_key("unused", strict=True)
+    else:
+        assert len(_secret_key.ensure_secret_key("unused").strip()) >= 40

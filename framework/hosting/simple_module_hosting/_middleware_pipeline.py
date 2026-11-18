@@ -126,6 +126,7 @@ def install_middleware(
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
+        secret_key_provider=lambda: app.state.sm.settings.secret_key,
         https_only=session_cookie_is_secure(settings),
     )
     # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
