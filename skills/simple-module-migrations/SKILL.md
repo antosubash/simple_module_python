@@ -121,11 +121,14 @@ in the host's development environment, then review and apply the revision.
 | Code | When |
 |---|---|
 | **SM010** (error or warning) | DB is behind a head or migration state cannot be verified |
-| **SM011** (warning) | Module declares a table that has no entry in migration history — usually means you added a model and forgot to autogenerate |
+| **SM011** (warning) | Database is at every migration head but lacks a table declared by a module — usually means you added a model and forgot to autogenerate |
 
-`make doctor` checks migration state and reports missing module tables once the
-database is at head. Boot also checks table coverage at head. A behind-head
-database refuses boot unless the install qualifies for first-run setup.
+`make doctor` runs migration diagnostics: SM010 checks the database against all
+migration heads; SM011 checks table coverage only once the database is at every
+head. If the database or revision history cannot be read, Doctor reports an
+SM010 warning rather than checking table coverage. Development boot also checks
+table coverage at head. A behind-head database refuses boot unless the install
+qualifies for first-run setup.
 An unknown state produces an `SM010` warning in development and refuses boot in
 other environments. Only verified first runs can apply migrations through
 `/setup`. Apply upgrade migrations before deploying the code that needs them.

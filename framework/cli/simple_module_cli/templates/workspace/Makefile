@@ -42,8 +42,8 @@ lint:
 	uv run ruff check .
 	uv run ty check
 
-# Module diagnostics — the same checks that run at prod boot (orphan pages,
-# coupling violations, migration drift, locale issues).
+# Module diagnostics: structural checks also run at development boot, not production.
+# Doctor additionally checks migration state and table coverage (SM010/SM011).
 doctor:
 	uv run python -m simple_module_core
 

@@ -32,6 +32,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Correct scaffold command documentation for flat and workspace layouts, generated frontend files, Doctor checks, and worker queue selection and settings precedence (#992).
 - Make the clean-target repo-detection test independent of repository markers above its temporary directory, including `/tmp/.git`; production detection behavior is unchanged (#1001).
 - Generated frontend manifests and module TypeScript projects are replaced atomically and only when their content changes, so concurrent readers never see a truncated file (#979).
 - Production Docker images serve frontend assets again: derive the host project root from the entry file even without Git or env markers, and mount flat scaffolds' `static/` directory (regression since #978, introduced by #1002).
