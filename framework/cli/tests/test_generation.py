@@ -75,6 +75,56 @@ def test_noop_touches_no_files(project):
     assert calls == ["deps", "api"]
 
 
+@pytest.mark.parametrize("command", ["gen", "host-gen-i18n"])
+@pytest.mark.parametrize("workspace_cache", [False, True])
+def test_i18n_rewrite_clears_only_vite_cache(
+    project, monkeypatch, caplog, command, workspace_cache
+):
+    from simple_module_cli import gen_cmd
+    from simple_module_hosting import host_cli
+    from typer.testing import CliRunner
+
+    root, client, pkg, _ = project
+    gen_cmd.run_generation(root)
+    if workspace_cache:
+        (client / "package.json").unlink()
+    settings, modules = gen_cmd._settings_and_modules()
+    monkeypatch.setattr(host_cli, "discover_modules", lambda **kw: modules)
+    monkeypatch.setattr("simple_module_hosting.settings.Settings", lambda: settings)
+
+    def generate():
+        if command == "gen":
+            gen_cmd.run_generation(root)
+        else:
+            result = CliRunner().invoke(host_cli.app, ["gen-i18n"])
+            assert result.exit_code == 0, result.output
+
+    caches = [client / "node_modules/.vite", root / "node_modules/.vite"]
+    for cache in caches:
+        cache.mkdir(parents=True)
+        (cache / "deps.js").write_text("cached")
+    keep = client / "node_modules/keep.txt"
+    keep.write_text("keep")
+    # Changed translations rerun the stage but do not rewrite the generated key set.
+    (pkg / "locales/en.json").write_text('{"hello": "Updated"}')
+    generate()
+    assert all((cache / "deps.js").read_text() == "cached" for cache in caches)
+
+    (pkg / "locales/en.json").write_text('{"hello": "Updated", "new": "New"}')
+    caplog.clear()
+    with caplog.at_level("INFO", logger="simple_module_hosting.i18n_manifest"):
+        generate()
+    assert not caches[0].exists()
+    assert caches[1].exists() is not workspace_cache
+    assert keep.read_text() == "keep"
+    assert sum("Vite deps cache" in r.message for r in caplog.records) == 1
+
+    caches[0].mkdir()
+    (caches[0] / "deps.js").write_text("rebuilt")
+    generate()
+    assert (caches[0] / "deps.js").read_text() == "rebuilt"
+
+
 @pytest.mark.parametrize("stage", ["pages", "i18n", "deps", "api"])
 def test_changed_input_runs_its_generator(project, stage):
     from simple_module_cli.gen_cmd import run_generation

@@ -2,12 +2,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createServer, optimizeDeps, resolveConfig } from 'vite';
+import { createServer } from 'vite';
 import { afterEach, describe, expect, it } from 'vitest';
 import scaffoldConfig, {
   findNodeModulesRoot,
 } from '../../framework/cli/simple_module_cli/templates/host/client_app/vite.config.ts';
-import hostConfig from './vite.config.ts';
+import hostConfig, { findNodeModulesRoot as findHostNodeModulesRoot } from './vite.config.ts';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -20,44 +20,61 @@ function tempDir(): string {
   return dir;
 }
 
-describe('npm install root', () => {
-  it.each(['host/client_app', 'client_app'])('skips Vite-only caches in %s', (layout) => {
-    const workspace = tempDir();
-    const client = path.join(workspace, layout);
-    fs.mkdirSync(path.join(client, 'node_modules/.vite'), { recursive: true });
-    fs.mkdirSync(path.join(workspace, 'node_modules'));
-    fs.writeFileSync(path.join(workspace, 'node_modules/.package-lock.json'), '{}');
-    expect(findNodeModulesRoot(client)).toBe(workspace);
-  });
+describe('package-manager install root', () => {
+  function install(root: string, manager: string) {
+    const pkg = path.join(root, 'node_modules/vite');
+    fs.mkdirSync(pkg, { recursive: true });
+    fs.writeFileSync(path.join(pkg, 'package.json'), '{}');
+    fs.writeFileSync(path.join(root, manager), '');
+  }
 
-  it('uses a real flat install in client_app', () => {
-    const client = tempDir();
-    fs.mkdirSync(path.join(client, 'node_modules'));
-    fs.writeFileSync(path.join(client, 'node_modules/.package-lock.json'), '{}');
-    expect(findNodeModulesRoot(client)).toBe(client);
-  });
+  for (const [name, findRoot] of [
+    ['host', findHostNodeModulesRoot],
+    ['scaffold', findNodeModulesRoot],
+  ] as const) {
+    describe(name, () => {
+      it.each(['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'package-lock.json'])(
+        'finds a hoisted install with %s past a cache-only directory',
+        (lockfile) => {
+          const workspace = tempDir();
+          const client = path.join(workspace, 'host/client_app');
+          fs.mkdirSync(path.join(client, 'node_modules/.vite'), { recursive: true });
+          install(workspace, lockfile);
+          expect(findRoot(client)).toBe(workspace);
+        },
+      );
 
-  it('keeps the starting directory when no install is found', () => {
-    const client = tempDir();
-    fs.mkdirSync(path.join(client, 'node_modules/.vite'), { recursive: true });
-    expect(findNodeModulesRoot(client)).toBe(client);
-  });
+      it.each(['pnpm-lock.yaml', 'yarn.lock', 'bun.lock'])(
+        'prefers the nearest %s install over a competing npm ancestor',
+        (lockfile) => {
+          const workspace = tempDir();
+          install(workspace, 'package-lock.json');
+          fs.writeFileSync(path.join(workspace, 'node_modules/.package-lock.json'), '{}');
+          const client = path.join(workspace, 'client_app');
+          install(client, lockfile);
+          expect(findRoot(client)).toBe(client);
+        },
+      );
+
+      it('keeps the starting directory when no install is found', () => {
+        const client = tempDir();
+        fs.mkdirSync(path.join(client, 'node_modules/.vite'), { recursive: true });
+        expect(findRoot(client)).toBe(client);
+      });
+    });
+  }
 });
 
 for (const [name, config] of [
   ['host', hostConfig],
   ['scaffold', scaffoldConfig],
 ] as const) {
-  it(`${name} serves generated i18n as source and optimizes its dependencies`, async () => {
+  it(`${name} pre-bundles generated i18n and refreshes its hash after cache removal`, async () => {
     const options =
       typeof config === 'function'
         ? await config({ command: 'serve', mode: 'development' })
         : await config;
-    expect(options.optimizeDeps?.exclude).toContain('@simple-module-py/i18n');
-    expect(options.optimizeDeps?.include).not.toContain('@simple-module-py/i18n');
-    expect(options.optimizeDeps?.include).toEqual(
-      expect.arrayContaining(['i18next', 'react-i18next']),
-    );
+    expect(options.optimizeDeps?.exclude ?? []).not.toContain('@simple-module-py/i18n');
 
     const root = tempDir();
     const repo = path.resolve(import.meta.dirname, '../..');
@@ -69,13 +86,13 @@ for (const [name, config] of [
       fs.symlinkSync(path.join(repo, 'node_modules', dep), path.join(root, 'node_modules', dep));
     }
     fs.writeFileSync(path.join(root, 'main.ts'), "export { keys } from '@simple-module-py/i18n';");
-    const generated = path.join(pkg, 'src/keys.generated.ts');
-    fs.writeFileSync(generated, "export const keys = { before: 'before' };");
+    const cacheDir = path.join(root, 'node_modules/.vite');
     const runtimeConfig = {
       root,
       configFile: false as const,
       envDir: false as const,
-      cacheDir: path.join(root, 'node_modules/.vite'),
+      cacheDir,
+      server: { middlewareMode: true, ws: false as const, watch: null },
       optimizeDeps: {
         ...options.optimizeDeps,
         entries: ['main.ts'],
@@ -83,32 +100,27 @@ for (const [name, config] of [
           ['react', 'i18next', 'react-i18next', '@simple-module-py/i18n'].includes(dep),
         ),
       },
-      server: { middlewareMode: true, ws: false as const, watch: null },
     };
-    const metadata = await optimizeDeps(await resolveConfig(runtimeConfig, 'serve'));
-    expect(metadata.optimized).not.toHaveProperty('@simple-module-py/i18n');
-    expect(Object.keys(metadata.optimized)).toEqual(
-      expect.arrayContaining(['i18next', 'react-i18next']),
-    );
-    // Reuse the same optimizer cache across a generated-key rewrite and restart (#1003).
+    const hashes: string[] = [];
     for (const key of ['before', 'after']) {
-      fs.writeFileSync(generated, `export const keys = { ${key}: '${key}' };`);
+      fs.writeFileSync(
+        path.join(pkg, 'src/keys.generated.ts'),
+        `export const keys = { ${key}: '${key}' };`,
+      );
+      // The Python generator removes this directory on a rewrite (#1003).
+      fs.rmSync(cacheDir, { recursive: true, force: true });
       const server = await createServer(runtimeConfig);
       try {
         const entry = await server.transformRequest('/main.ts');
-        expect(entry?.code).toContain('/node_modules/@simple-module-py/i18n/src/index.ts');
-        const source = await server.transformRequest(
-          '/node_modules/@simple-module-py/i18n/src/index.ts',
-        );
-        expect(source?.code).toContain('/.vite/deps/i18next.js');
-        expect(source?.code).toContain('/.vite/deps/react-i18next.js');
-        const keys = await server.transformRequest(
-          '/node_modules/@simple-module-py/i18n/src/keys.generated.ts',
-        );
-        expect(keys?.code).toContain(`${key}:`);
+        const url = entry?.code.match(/"([^"]*\/.vite\/deps\/@simple-module-py_i18n[^"]*)"/)?.[1];
+        if (!url) throw new Error('i18n was not pre-bundled');
+        const optimized = await server.transformRequest(url);
+        expect(optimized?.code).toContain(`${key}:`);
+        hashes.push(url);
       } finally {
         await server.close();
       }
     }
+    expect(hashes[0]).not.toBe(hashes[1]);
   });
 }

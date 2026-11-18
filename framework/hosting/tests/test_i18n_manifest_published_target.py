@@ -72,3 +72,21 @@ def test_published_target_merges_published_keys_with_app_keys(tmp_path: Path) ->
     mtime = (src / "keys.generated.ts").stat().st_mtime_ns
     emit_frontend_types(_registry("ui.save", "myapp.title"), tmp_path, strict=True)
     assert (src / "keys.generated.ts").stat().st_mtime_ns == mtime
+
+
+@pytest.mark.parametrize("filename", ["keys.generated.ts", "generated-resources.ts"])
+def test_repairing_either_generated_file_invalidates_vite(tmp_path: Path, filename: str) -> None:
+    src = _published(tmp_path)
+    client = tmp_path / "client_app"
+    client.mkdir()
+    (client / "package.json").write_text("{}")
+    emit_frontend_types(_registry("app.k"), tmp_path, strict=True)
+    cache = client / "node_modules/.vite"
+    cache.mkdir(parents=True)
+    (cache / "deps.js").write_text("cached")
+    (src / filename).write_text("// stale")
+
+    emit_frontend_types(_registry("app.k"), tmp_path, strict=True)
+
+    assert not cache.exists()
+    assert "app" in (src / filename).read_text()

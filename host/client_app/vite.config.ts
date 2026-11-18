@@ -9,6 +9,17 @@ import { loadModuleAssets } from './module-assets.ts';
 import { viteDevServer } from './vite.dev-url.ts';
 
 const projectRoot = path.resolve(import.meta.dirname, '../..');
+// Package managers may hoist the install above client_app, so walk up to find it.
+export function findNodeModulesRoot(start: string): string {
+  let dir = start;
+  while (dir !== path.dirname(dir)) {
+    // Vite creates node_modules/.vite even where npm hasn't installed anything.
+    if (fs.existsSync(path.join(dir, 'node_modules', 'vite', 'package.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return start;
+}
+const fsRoot = findNodeModulesRoot(import.meta.dirname);
 const { origin: devUrl, port: devPort } = viteDevServer();
 
 // ANALYZE=1 npm run build emits host/static/dist/stats.html — a sunburst of
@@ -99,7 +110,7 @@ function moduleBareImportResolver(): Plugin {
 }
 
 const moduleDecls = collectModuleDecls();
-const fakeWorkspaceImporter = path.join(projectRoot, 'package.json');
+const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // Chunks smaller than this get merged into their importer. See build.rollupOptions.
 const MIN_CHUNK_BYTES = 20_000;
@@ -157,12 +168,8 @@ export default defineConfig(({ command }) => ({
       'react-dom/client',
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
-      'i18next',
-      'react-i18next',
-      ...moduleDecls.filter((name) => name !== '@simple-module-py/i18n'),
+      ...moduleDecls,
     ],
-    // gen-i18n rewrites this source package without changing the lockfile.
-    exclude: ['@simple-module-py/i18n'],
     // Add the hoisted workspace node_modules to Rolldown's resolve search
     // so the dev-mode scan resolves bare specifiers from module pages
     // whose importer paths sit outside host/client_app (e.g.
@@ -172,7 +179,7 @@ export default defineConfig(({ command }) => ({
     // path provides a NODE_PATH-style fallback. See GitHub issue #152.
     rolldownOptions: {
       resolve: {
-        modules: ['node_modules', path.join(projectRoot, 'node_modules')],
+        modules: ['node_modules', path.join(fsRoot, 'node_modules')],
       },
     },
   },
@@ -230,7 +237,7 @@ export default defineConfig(({ command }) => ({
     strictPort: true,
     origin: devUrl,
     fs: {
-      allow: [projectRoot, ...moduleFsAllow],
+      allow: [projectRoot, fsRoot, ...moduleFsAllow],
     },
   },
 }));

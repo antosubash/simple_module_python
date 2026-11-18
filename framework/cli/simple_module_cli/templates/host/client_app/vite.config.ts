@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { type Plugin, defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { loadModuleAssets } from './module-assets.ts';
 import { viteDevServer } from './vite.dev-url.ts';
 
@@ -18,12 +18,12 @@ const REACT_CORE_DEPS = [
   '@inertiajs/react',
 ] as const;
 
-// npm may hoist the install above client_app in a workspace, so walk up to find it.
+// Package managers may hoist the install above client_app, so walk up to find it.
 export function findNodeModulesRoot(start: string): string {
   let dir = start;
   while (dir !== path.dirname(dir)) {
     // Vite creates node_modules/.vite even where npm hasn't installed anything.
-    if (fs.existsSync(path.join(dir, 'node_modules', '.package-lock.json'))) return dir;
+    if (fs.existsSync(path.join(dir, 'node_modules', 'vite', 'package.json'))) return dir;
     dir = path.dirname(dir);
   }
   return start;
@@ -92,8 +92,6 @@ function collectOptimizeIncludes(): string[] {
   const includes = new Set<string>([
     ...REACT_CORE_DEPS,
     'react-dom/client',
-    'i18next',
-    'react-i18next',
     'use-sync-external-store',
     'use-sync-external-store/shim',
     'use-sync-external-store/shim/with-selector',
@@ -131,7 +129,7 @@ function collectOptimizeIncludes(): string[] {
       }
     }
   }
-  return [...includes].filter((name) => name !== '@simple-module-py/i18n');
+  return [...includes];
 }
 
 // Cross-package bare imports from module pages (`maplibre-gl`, `pmtiles`,
@@ -189,8 +187,6 @@ export default defineConfig(({ command }) => ({
   optimizeDeps: {
     entries: ['main.tsx', 'pages/**/*.tsx', ...moduleOptimizeEntries],
     include: collectOptimizeIncludes(),
-    // gen-i18n rewrites this source package without changing the lockfile.
-    exclude: ['@simple-module-py/i18n'],
     // Vite's dep scanner runs Rolldown against every entry above. When the
     // entry sits outside the workspace (a wheel-installed module's
     // pages/, or sometimes even a workspace module's pages/), the upward

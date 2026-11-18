@@ -20,7 +20,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - Limit the `smpy update` PyPI cohort to distributions published with the framework; independently released packages such as `simple_module_images` update individually and cannot block framework updates (#984).
 - Named `smpy update` requests keep sibling framework PyPI pins together and refuse partial updates before writes. npm updates respect the host's effective core source, including local overrides of root git sources. First module migration roots explicitly select a configured revision directory when Alembic scans multiple locations (#984).
-- Allow Vite-served fonts and images in the development CSP (#997). Scaffold Vite configs ignore cache-only `node_modules` directories when finding the npm install root (#998), and scaffold/repo configs serve generated i18n keys as source while retaining dependency pre-bundling (#1003).
+- Allow Vite-served fonts and images in the development CSP (#997). Scaffold Vite configs ignore cache-only `node_modules` directories when finding the package-manager install root (#998). i18n generation clears the host Vite deps cache only when generated keys change, refreshing the browser hash on restart while keeping i18n pre-bundled (#1003).
 - Preserve whitespace stripping for legacy Users token keys, and adopt a persisted root after first-run setup migrations so derived reset and verification links survive restarts and agree across workers (#969).
 - Treat blank environment roots as unset, reject blank resolved production roots, and make session signing follow the adopted setup root so post-setup cookies work across workers (#969).
 

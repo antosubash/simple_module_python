@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 
 RESOURCE_KEY_RE = re.compile(r"^\s+'([^']+)': '',$", re.MULTILINE)
@@ -38,3 +39,27 @@ def read_resource_keys(resources_path: Path) -> frozenset[str]:
         return frozenset(RESOURCE_KEY_RE.findall(resources_path.read_text(encoding="utf-8")))
     except OSError:
         return frozenset()
+
+
+def clear_vite_deps_cache(project_root: Path) -> list[Path]:
+    """Clear only the host cache and Vite's nearest-package default cache.
+
+    Both shipped configs use client_app as root and leave cacheDir unset.
+    Vite places its cache beside the nearest package.json, not necessarily
+    beside the hoisted install.
+    """
+    root = project_root.resolve()
+    client = next((p for p in (root / "host/client_app", root / "client_app") if p.is_dir()), None)
+    if client is None:
+        return []
+    caches = {client / "node_modules/.vite"}
+    for parent in (client, *client.parents):
+        if (parent / "package.json").is_file():
+            caches.add(parent / "node_modules/.vite")
+            break
+    removed = []
+    for cache in sorted(caches):
+        if cache.is_dir() and not cache.is_symlink():
+            shutil.rmtree(cache)
+            removed.append(cache)
+    return removed
