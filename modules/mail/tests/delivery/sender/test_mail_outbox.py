@@ -1,4 +1,4 @@
-"""Attachment mail travels through the persisted durable outbox (#1006)."""
+"""Mail metadata travels through the persisted durable outbox (#1006, #1025)."""
 
 from dataclasses import dataclass
 
@@ -19,8 +19,9 @@ class RegistrationConfirmed(Event):
 
 
 @pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("legacy_reply_to", [False, True])
 async def test_outbox_delivers_attachments_and_legacy_payload(
-    db_session, db_state, captured_mail, monkeypatch, legacy
+    db_session, db_state, captured_mail, monkeypatch, legacy, legacy_reply_to
 ) -> None:
     bus = EventBus()
 
@@ -44,11 +45,22 @@ async def test_outbox_delivers_attachments_and_legacy_payload(
     )
     await bus.publish_durable(
         RegistrationConfirmed(
-            MailMessage("a@test", "Confirmation", "Body", attachments=attachments)
+            MailMessage(
+                "a@test",
+                "Confirmation",
+                "Body",
+                attachments=attachments,
+                reply_to="guide@example.com",
+            )
         ),
         db_session,
     )
     row = (await db_session.execute(select(OutboxMessage))).scalar_one()
+    assert row.payload["message"]["reply_to"] == "guide@example.com"
+    if legacy_reply_to:
+        payload = {**row.payload, "message": dict(row.payload["message"])}
+        del payload["message"]["reply_to"]
+        row.payload = payload
     if legacy:
         payload = {**row.payload, "message": dict(row.payload["message"])}
         del payload["message"]["attachments"]
@@ -63,6 +75,7 @@ async def test_outbox_delivers_attachments_and_legacy_payload(
     assert result.delivered == 1
     message = captured_mail.to("a@test")[0]
     assert message.subject == "Confirmation"
+    assert message.reply_to == (None if legacy_reply_to else "guide@example.com")
     if legacy:
         assert message.attachments == ()
     else:

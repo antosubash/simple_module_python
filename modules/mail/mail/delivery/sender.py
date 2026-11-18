@@ -37,6 +37,8 @@ class SmtpMailSender:
         email = EmailMessage()
         email["From"] = self._from
         email["To"] = message.to
+        if message.reply_to is not None:
+            email["Reply-To"] = message.reply_to
         email["Subject"] = message.subject
         email.set_content(message.text)
         if message.html:
