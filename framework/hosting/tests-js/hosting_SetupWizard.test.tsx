@@ -39,6 +39,29 @@ const action = {
 describe('StepForm', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('visits the remaining step when migration succeeded but its follow-up failed', async () => {
+    const location = { href: '' };
+    vi.stubGlobal('window', new Proxy(window, {
+      get: (target, key) => key === 'location' ? location : Reflect.get(target, key),
+    }));
+    stub(200, { redirect: '/setup' });
+    render(<StepForm stepId="host.migrations" action={action} csrfToken="t" />);
+    fireEvent.submit(screen.getByRole('button', { name: 'Create admin' }).closest('form')!);
+    await waitFor(() => expect(location.href).toBe('/setup'));
+  });
+
+  it('shows the recovery error on the remaining form', () => {
+    render(
+      <StepForm
+        stepId="users.administrator"
+        action={action}
+        csrfToken="t"
+        initialError="Migrations applied. Could not complete this step. Please try again."
+      />,
+    );
+    expect(screen.getByText(/Migrations applied/)).toBeInTheDocument();
+  });
+
   it('POSTs the fields as JSON with the page-prop CSRF token', async () => {
     const fetchMock = stub(200, {});
     render(<StepForm stepId="admin user" action={action} csrfToken="page-token" />);

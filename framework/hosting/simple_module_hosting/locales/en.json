@@ -9,7 +9,9 @@
       "testing": "Testing…"
     },
     "migrations": {
-      "apply": "Apply migrations"
+      "apply": "Apply migrations",
+      "combined_submit": "Set up install",
+      "follow_up_failed": "Migrations applied. Could not complete this step. Please try again; see the server log if it keeps failing."
     },
     "steps": {
       "heading": "Setup steps",

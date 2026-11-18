@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- **Behaviour change:** never-migrated installs accept one setup form that validates administrator credentials, applies migrations under the existing lock, and creates the first administrator (#987). A failed creation after migration returns to the administrator form; existing database upgrades and external identity providers retain their migration flow. Module setup actions can opt into this composition with a schema-free validator.
+
 - Mail messages accept an optional validated `reply_to` mailbox, including display names and quoted commas, delivered as SMTP `Reply-To`, included in console/fallback logs, preserved by the durable outbox, and exposed by `captured_mail`. SMTP address headers use IDNA for internationalized domains. Previously queued payloads without the field remain valid (#1025).
 
 - File storage supports module-owned file access policies through `simple_module_core.file_access`, with `ResourcePolicy` SQL filtering and a never-publishable option. Generic metadata, bytes, thumbnails, publication, deletion, list counts and browse facets honor the policy; untagged files keep their existing uploader/manage rules. **Behaviour change:** tagged files with missing policies, and already-public files whose policy forbids publishing, are hidden by generic routes. Apply migration `f999a1b2c3d4` on `file_storage@head` (#999).

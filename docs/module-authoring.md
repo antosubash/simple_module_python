@@ -773,6 +773,26 @@ configured install behind head must be migrated by its operator before boot.
 Every `/setup` mutation also carries the session's CSRF token
 (`simple_module_hosting.csrf`); the wizard page sends it for you.
 
+**A first-run form can combine migrations with the next required step.** Set
+`SetupAction.validate_before_migrations` to an async `(request, data)` validator
+to opt in. It must validate all inputs without reading or writing the schema;
+raise `HTTPException(422, detail=...)` for invalid input. The Users action reuses
+its email validator and password policy here. On a positively verified
+never-migrated database, the wizard displays that action's fields on the
+migration step and validates them before running the existing locked migration
+action. It then invokes the follow-up handler only if its step is still pending.
+The handler must retain its own validation, lock and transactional re-check.
+Neither validation nor selection runs the follow-up handler before migration.
+
+Migration failures retain the migration form and existing error handling. If
+migrations succeed but the follow-up fails, they stay applied: the wizard
+returns to the remaining step's form with a translated recovery error. Exception
+details remain in server logs; submitted credentials are never stored in the
+session. Existing migration history disables composition, keeping the explicit
+migration step (and its CLI-only upgrade guard). With no opted-in next step,
+including Keycloak/OIDC installs, setup remains migrate-only. This composition
+uses the setup registry; the framework never imports the contributing module.
+
 **An action that creates something unique must re-check under a lock.** The
 step check runs before your handler and outside its transaction, so two
 concurrent requests can both pass it. `users.core.setup_action` shows the pattern:

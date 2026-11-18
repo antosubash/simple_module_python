@@ -26,6 +26,7 @@ interface WizardProps {
   checks: CheckResult[];
   steps: SetupStep[];
   csrfToken: string;
+  setupError?: { step: string; message: string } | null;
 }
 
 /**
@@ -40,7 +41,7 @@ function Wizard() {
   const { t } = useT();
   const page = usePage<{ props: WizardProps & SharedProps }>().props as unknown as WizardProps &
     SharedProps;
-  const { checks, steps, csrfToken, branding } = page;
+  const { checks, steps, csrfToken, branding, setupError } = page;
 
   const appName = branding?.appName ?? BRAND_DEFAULT_APP_NAME;
   const brandInitial = appName.trim().charAt(0).toUpperCase() || 'S';
@@ -93,7 +94,12 @@ function Wizard() {
                 {step.description && <CardDescription>{step.description}</CardDescription>}
               </CardHeader>
               <CardContent>
-                <StepForm stepId={step.id} action={step.action} csrfToken={csrfToken} />
+                <StepForm
+                  stepId={step.id}
+                  action={step.action}
+                  csrfToken={csrfToken}
+                  initialError={setupError?.step === step.id ? setupError.message : undefined}
+                />
               </CardContent>
             </Card>
           ) : null,

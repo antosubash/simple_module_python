@@ -9,7 +9,9 @@
       "testing": "Probando…"
     },
     "migrations": {
-      "apply": "Aplicar migraciones"
+      "apply": "Aplicar migraciones",
+      "combined_submit": "Configurar instalación",
+      "follow_up_failed": "Migraciones aplicadas. No se pudo completar este paso. Inténtalo de nuevo; consulta el registro del servidor si sigue fallando."
     },
     "steps": {
       "heading": "Pasos de configuración",

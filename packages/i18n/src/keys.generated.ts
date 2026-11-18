@@ -828,6 +828,8 @@ export const keys = {
       done: 'hosting.setup.done',
       migrations: {
         apply: 'hosting.setup.migrations.apply',
+        combined_submit: 'hosting.setup.migrations.combined_submit',
+        follow_up_failed: 'hosting.setup.migrations.follow_up_failed',
       },
       request_failed: 'hosting.setup.request_failed',
       steps: {

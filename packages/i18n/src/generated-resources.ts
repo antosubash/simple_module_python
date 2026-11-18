@@ -649,6 +649,8 @@ export default {
     'hosting.setup.connections.testing': '',
     'hosting.setup.done': '',
     'hosting.setup.migrations.apply': '',
+    'hosting.setup.migrations.combined_submit': '',
+    'hosting.setup.migrations.follow_up_failed': '',
     'hosting.setup.request_failed': '',
     'hosting.setup.steps.heading': '',
     'hosting.setup.steps.migrations.description': '',

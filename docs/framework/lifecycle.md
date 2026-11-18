@@ -215,7 +215,10 @@ While any required step is incomplete, `SetupMiddleware` redirects to the
 wizard at `/setup`. A step can provide a `SetupAction` to complete it in the
 browser; its action runs only while that step is pending. Without an action,
 the step must be completed out of band. Registering nothing opts out of the
-gate. See [First-run setup steps](../module-authoring.md#first-run-setup-steps)
+gate. An action can supply `validate_before_migrations` to combine its form
+with the preceding migration step on a never-migrated install: inputs are
+validated before migrations, and the handler runs only if still pending
+afterward. See [First-run setup steps](../module-authoring.md#first-run-setup-steps)
 for action fields, translations and concurrency rules.
 
 ## `register_csp_sources(registry)`

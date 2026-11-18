@@ -53,14 +53,16 @@ export function StepForm({
   stepId,
   action,
   csrfToken,
+  initialError,
 }: {
   stepId: string;
   action: StepAction;
   csrfToken: string;
+  initialError?: string;
 }) {
   const { t } = useT();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [done, setDone] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -90,7 +92,8 @@ export function StepForm({
       setError(errorMessage(result.error, t(keys.hosting.setup.request_failed)));
     } else {
       setDone(true);
-      window.location.href = '/';
+      const body = result.data as { redirect?: string } | undefined;
+      window.location.href = body?.redirect === '/setup' ? '/setup' : '/';
     }
     setBusy(false);
   }
