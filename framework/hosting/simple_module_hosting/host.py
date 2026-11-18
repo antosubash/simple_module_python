@@ -13,6 +13,22 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
 
 
+def _is_workspace_member(host_dir: Path) -> bool:
+    """True for ``<root>/host/main.py`` under a uv workspace root (repo and workspace scaffold).
+
+    A flat project keeps ``main.py`` in its own root, even when that directory is named
+    ``host``; only a parent ``pyproject.toml`` declaring ``[tool.uv.workspace]`` makes the
+    parent the project root. Markers such as ``.git`` are not used: images drop them.
+    """
+    if host_dir.name != "host":
+        return False
+    try:
+        text = (host_dir.parent / "pyproject.toml").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "[tool.uv.workspace]" in text
+
+
 def build_host_app(
     entry_file: str | Path,
     *,
@@ -45,7 +61,7 @@ def build_host_app(
     root_env = os.environ.get("SM_PROJECT_ROOT")
     root = root_env or project_root
     if root is None:
-        root = host_dir.parent if host_dir.name == "host" else host_dir
+        root = host_dir.parent if _is_workspace_member(host_dir) else host_dir
     root = Path(root).resolve()
     if not root_env or not Path(root_env).is_absolute():
         os.environ["SM_PROJECT_ROOT"] = str(root)

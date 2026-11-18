@@ -21,6 +21,8 @@ def test_factory_loads_environment_before_imports_and_merges_settings(tmp_path, 
     root = tmp_path / "project"
     host = root / "host" if layout == "workspace" else root
     host.mkdir(parents=True)
+    if layout == "workspace":
+        (root / "pyproject.toml").write_text('[tool.uv.workspace]\nmembers = ["host"]\n')
     templates = (
         Path(__file__).resolve().parents[2] / "cli/simple_module_cli/templates/host/templates"
     )
@@ -144,7 +146,7 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
     assert list(app.openapi()["paths"]) == ["/first", "/second"]
 
 
-@pytest.mark.parametrize("layout", ["repo", "flat", "workspace"])
+@pytest.mark.parametrize("layout", ["repo", "flat", "flat-named-host", "workspace"])
 @pytest.mark.parametrize("cwd_marker", [False, True])
 def test_factory_entry_file_root_mounts_static_without_markers(
     tmp_path, monkeypatch, settings, layout, cwd_marker
@@ -153,8 +155,11 @@ def test_factory_entry_file_root_mounts_static_without_markers(
     from simple_module_hosting._app_boot import mount_host_static
     from simple_module_hosting.host import build_host_app
 
-    root = tmp_path / "app"
-    host = root if layout == "flat" else root / "host"
+    root = tmp_path / ("host" if layout == "flat-named-host" else "app")
+    host = root if layout.startswith("flat") else root / "host"
+    if not layout.startswith("flat"):
+        root.mkdir()
+        (root / "pyproject.toml").write_text('[tool.uv.workspace]\nmembers = ["host"]\n')
     static = host / "static"
     (static / "dist").mkdir(parents=True)
     (static / "dist/x.js").write_text("console.log('ok');")
