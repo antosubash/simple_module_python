@@ -32,13 +32,14 @@ from simple_module_hosting.setup_gate import is_first_run
 logger = logging.getLogger(__name__)
 
 
-def build_lifespan(modules: Sequence) -> Callable:
+def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         async with AsyncExitStack() as cleanup:
-            cleanup.push_async_callback(app.state.sm.db.engine.dispose)
+            if dispose_database:
+                cleanup.push_async_callback(app.state.sm.db.engine.dispose)
             # Report first, decide second. On a genuinely fresh install a
             # behind-head database must still boot far enough to serve the wizard —
             # running the migrations is one of the things that wizard does, and

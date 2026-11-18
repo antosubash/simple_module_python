@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
@@ -41,17 +42,32 @@ class TestCreateModuleBase:
 
 
 class TestDetectProvider:
-    async def test_sqlite(self):
-        assert detect_provider("sqlite+aiosqlite:///:memory:") == DatabaseProvider.SQLITE
+    @pytest.mark.parametrize("dialect", ["sqlite", "sqlite+aiosqlite", "sqlite+pysqlite"])
+    def test_sqlite(self, dialect):
+        assert detect_provider(f"{dialect}:///:memory:") == DatabaseProvider.SQLITE
 
-    async def test_postgresql(self):
-        assert (
-            detect_provider("postgresql+asyncpg://user:pass@localhost/db")
-            == DatabaseProvider.POSTGRESQL
-        )
+    @pytest.mark.parametrize(
+        "dialect",
+        [
+            "postgresql",
+            "postgresql+asyncpg",
+            "postgresql+psycopg",
+            "postgresql+psycopg2",
+            pytest.param("postgres", id="legacy-alias"),
+        ],
+    )
+    def test_postgresql(self, dialect):
+        assert detect_provider(f"{dialect}://user:pass@localhost/db") == DatabaseProvider.POSTGRESQL
 
-    async def test_postgres_prefix(self):
-        assert detect_provider("postgres://user:pass@localhost/db") == DatabaseProvider.POSTGRESQL
+    @pytest.mark.parametrize("dialect", ["mysql", "mysql+aiomysql", "mssql+pyodbc", "postgresish"])
+    def test_unsupported_dialect_does_not_expose_credentials(self, dialect):
+        with pytest.raises(ValueError) as error:
+            detect_provider(f"{dialect}://user:private-password@localhost/db")
+        message = str(error.value)
+        assert dialect.split("+")[0] in message
+        assert "sqlite" in message.lower() and "postgresql" in message.lower()
+        assert "private-password" not in message
+        assert "user" not in message
 
 
 class TestMixins:
