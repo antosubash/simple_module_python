@@ -63,6 +63,8 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 
 | Command | From | What |
 |---|---|---|
+| `smpy gen` | `simple_module_hosting` | Run pages, i18n keys, module JS dep sync and API types. Per-stage content hashes and output checks in the local `.smpy/gen.json` cache skip unchanged work without touching files. API generation covers local modules already carrying `pages/api.generated.ts`; use `smpy openapi gen-types --module <pkg>` to opt in. |
+| `smpy dev` | `simple_module_hosting` | Generate first, then run API and Vite together. API defaults to 8000 (`--port`); Vite uses the first free port from 5050 (`--vite-port` pins it). Python reads dotenv and passes the selected `SM_VITE_DEV_URL` to both children. Ctrl-C, SIGTERM or either child exiting stops both owned process groups. |
 | `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
 | `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists unless `--skip-if-missing` is set. |
 | `smpy host sync-js-deps` | `simple_module_hosting` | Install module-declared JS deps into the host. Module-root npm workspace manifests are installed by npm automatically; dependency-only manifests inside Python packages need this sync even for editable installs. |
@@ -80,14 +82,15 @@ uv run smpy users create-admin --email admin@example.com
 
 | Command | What |
 |---|---|
-| `make install` | `uv sync` + `cd client_app && npm install` + `make sync-js-deps`. Re-runs are safe. |
-| `make dev` | Runs `gen-pages` and `gen-i18n` before starting `uvicorn main:app --reload` on `:8000` and `vite` on `:5050` in parallel. |
-| `make migrate` | `uv run alembic upgrade head`. Idempotent. |
-| `make build` | `cd client_app && npm run build`. Produces the production frontend bundle. |
+| `make install` | `uv sync` + `cd client_app && npm install` + `smpy gen`. Workspace apps use `uv sync --all-packages` and root `npm install`. Re-runs are safe. |
+| `make dev` | Runs `uv run smpy dev`. Pass options with `make dev ARGS="--port 8010 --vite-port 5201"`. Vite auto-selects a free port when omitted. |
+| `make migrate` | `uv run alembic upgrade heads`. Idempotent. |
+| `make build` | `smpy gen`, then `cd client_app && npm run build` (root `npm run build` in a workspace). Produces the production frontend bundle. |
+| `make gen` | Same incremental pipeline as `uv run smpy gen`. Install, dev, build and module verify call it automatically. Generation errors stop startup/build. |
 | `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `smpy host gen-pages`. |
 | `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `smpy host sync-js-deps`. |
 | `make gen-i18n` | Regenerate the typed `t(keys.<ns>...)` union in `node_modules/@simple-module-py/i18n/src`. Dev boot does this too; `make install` runs it once so `tsc` works before the first boot. Same effect as `smpy host gen-i18n`. |
-| `make kill` | Free the dev ports with `lsof`, nothing else: `API_PORT` (default `8000`) and `VITE_PORT` (read from `SM_VITE_DEV_URL` in `.env`, default `5050`). Never pkills by process name, so other apps' servers and test runs survive. Override with `make dev API_PORT=8010`. |
+| `make kill` | Print stop guidance: Ctrl-C in the `smpy dev` terminal, or send SIGTERM to its supervisor PID. No processes are searched for or killed by port/name. |
 
 If you included `background_tasks` in `smpy new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
 
@@ -106,7 +109,7 @@ The scaffolded Makefile intentionally doesn't wrap one-off things. Run them dire
 | Type-check Python | `uv run ty check` |
 | Format + lint JS | `cd client_app && npx biome check .` |
 | Type-check JS | `cd client_app && npx tsc --noEmit` |
-| Free stuck dev ports | `make kill` (frees only `API_PORT`/`VITE_PORT`) |
+| Free stuck dev ports | Ctrl-C / SIGTERM the `smpy dev` supervisor |
 
 ## Working on the framework itself
 
@@ -117,3 +120,5 @@ If you're contributing to `simple_module_python` — not consuming it — the **
 - [Environment variables](/reference/env-vars) — every `SM_*` knob the framework reads.
 - [Diagnostic codes](/reference/diagnostic-codes) — what each `SM0XX` from boot diagnostics means and how to fix it.
 - [Deployment](/reference/deployment) — taking a build to production.
+
+The individual generators remain available for explicit regeneration and CI. In the framework repo, `ci-i18n-fresh` and `ci-api-types-fresh` bypass the incremental cache and compare contents before/after generation, so stale committed files still fail. i18n output stays in the existing package location: its exports and type augmentation depend on those files; app-owned output needs a separate package integration change.

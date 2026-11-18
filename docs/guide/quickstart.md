@@ -112,7 +112,7 @@ The scaffold writes `modules/orders/tests/web/crud/test_orders_crud.py` (REST an
 - **Discovery** — the `simple_module` entry point pointed Python's installer at `orders.module:OrdersModule`. `discover_modules()` loaded it, topologically sorted against every other installed module, and invoked `register_*` hooks in order.
 - **Routes** — `register_routes(api_router, view_router)` attached the `orders` routers at `/api/orders` and `/orders`.
 - **Menu** — `register_menu_items` pushed an entry onto `MenuRegistry`; the Inertia shared-props middleware serialized it into `menus.sidebar` for every authenticated request.
-- **Frontend** — `modules.generated.ts` (rebuilt by `make gen-pages`) maps `"Orders/Browse"` to `modules/orders/orders/pages/Browse.tsx`. Vite resolves and HMR-watches that file.
+- **Frontend** — `modules.generated.ts` (rebuilt by `smpy gen`, automatically during install/dev/build) maps `"Orders/Browse"` to `modules/orders/orders/pages/Browse.tsx`. Vite resolves and HMR-watches that file.
 - **Database** — `create_module_base("orders")` gave the module its own SQLModel `MetaData` so Alembic can attribute the `orders_order` table to it.
 
 ## Next steps

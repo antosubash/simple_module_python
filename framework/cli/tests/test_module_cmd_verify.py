@@ -72,6 +72,23 @@ class TestEnsureVerifyHost:
         ensure_verify_host(info)  # second call must not re-scaffold
         assert marker.read_text(encoding="utf-8") == "keep me"
 
+    async def test_repairs_cli_dependency_in_an_older_cached_host(self, module_root):
+        import tomlkit
+        from simple_module_cli._module_host import ensure_verify_host, read_module_info
+        from simple_module_cli.scaffolding import resolve_framework_version
+
+        info = read_module_info(module_root)
+        host = ensure_verify_host(info)
+        path = host / "pyproject.toml"
+        doc = tomlkit.parse(path.read_text())
+        doc["dependency-groups"]["dev"] = ["ruff>=0.8"]
+        path.write_text(tomlkit.dumps(doc))
+        ensure_verify_host(info)
+        doc = tomlkit.parse(path.read_text())
+        assert (
+            f"simple_module_cli=={resolve_framework_version()}" in doc["dependency-groups"]["dev"]
+        )
+
     async def test_fresh_rebuilds(self, module_root):
         from simple_module_cli._module_host import ensure_verify_host, read_module_info
 
@@ -99,34 +116,26 @@ class TestRunVerify:
         joined = [c for c, _ in calls]
         assert any("sync" in c for c in joined)
         assert any("npm" in c and "install" in c for c in joined)
-        assert any("gen-pages" in c for c in joined)
+        assert any("smpy gen" in c for c in joined)
         assert any("run build" in c for c in joined)
-        # order: sync < install < gen-pages < build
+        # order: sync < install < unified generation < typecheck < build
         idx = {
             key: next(i for i, c in enumerate(joined) if key in c)
-            for key in (
-                "sync",
-                "install",
-                "sync-js-deps",
-                "gen-pages",
-                "gen-i18n",
-                "typecheck",
-                "run build",
-            )
+            for key in ("sync", "install", "smpy gen", "typecheck", "run build")
         }
-        assert (
-            idx["sync"]
-            < idx["install"]
-            < idx["sync-js-deps"]
-            < idx["gen-pages"]
-            < idx["gen-i18n"]
-            < idx["typecheck"]
-            < idx["run build"]
+        assert idx["sync"] < idx["install"] < idx["smpy gen"] < idx["typecheck"] < idx["run build"]
+        assert len(calls) == 5
+        assert sum("smpy gen" in cmd for cmd in joined) == 1
+        assert not any(
+            step in cmd for cmd in joined for step in ("sync-js-deps", "gen-pages", "gen-i18n")
         )
         # npm steps run in client_app, uv steps in the host root
         host = str(module_root / ".smpy" / "verify-host")
         assert calls[idx["sync"]][1] == host
         assert calls[idx["install"]][1] == f"{host}/client_app"
+        assert calls[idx["smpy gen"]][1] == host
+        assert calls[idx["typecheck"]][1] == host
+        assert calls[idx["run build"]][1] == f"{host}/client_app"
 
     async def test_module_npm_install_runs_first_when_package_json_exists(self, module_root):
         """The module's own node_modules must exist before the host build:

@@ -31,9 +31,8 @@ function findNodeModulesRoot(start: string): string {
 }
 const fsRoot = findNodeModulesRoot(import.meta.dirname);
 
-// Walks up from client_app to the directory holding the project .env itself —
-// fsRoot tracks node_modules, which (in flat mode) is NOT where .env lives.
-const { origin: devUrl, port: devPort } = viteDevServer(import.meta.dirname);
+// smpy dev passes the resolved URL through the process environment.
+const { origin: devUrl, port: devPort } = viteDevServer();
 
 const {
   fsAllow: moduleFsAllow,
@@ -178,6 +177,7 @@ function moduleBareImportResolver(): Plugin {
 export default defineConfig({
   plugins: [moduleBareImportResolver(), react(), tailwindcss()],
   root: import.meta.dirname,
+  envDir: false,
   resolve: {
     // `#module/<pkg>` -> that module's package directory. Optional sugar for
     // hand-written imports; modules.generated.css does not rely on it.

@@ -5,10 +5,19 @@ Module-pages manifest tests live in ``test_module_pages_manifest.py``.
 
 from __future__ import annotations
 
+import tomllib
+
 import pytest
 
 
 class TestCreateHost:
+    async def test_host_installs_its_own_cli_for_gen_and_dev(self, tmp_path):
+        from simple_module_cli.scaffolding import create_host
+
+        create_host(tmp_path / "host", name="demo", modules=[], framework_version="0.0.47")
+        data = tomllib.loads((tmp_path / "host/pyproject.toml").read_text())
+        assert "simple_module_cli==0.0.47" in data["dependency-groups"]["dev"]
+
     async def test_creates_expected_backend_files(self, tmp_path):
         """create_host writes the full backend + frontend scaffold."""
         from simple_module_cli.scaffolding import create_host

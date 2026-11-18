@@ -19,3 +19,7 @@ client_app/modules.generated.css
 client_app/modules.assets.json
 
 client_app/.module-tsconfig/
+
+# Incremental generation cache
+.smpy/gen.json
+.smpy/gen.*.tmp

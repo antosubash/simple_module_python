@@ -69,3 +69,7 @@ host/client_app/.playwright-cli/*
 qa-shots/
 
 host/client_app/.module-tsconfig/
+
+# Incremental generation cache
+.smpy/gen.json
+.smpy/gen.*.tmp

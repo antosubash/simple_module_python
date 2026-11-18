@@ -27,7 +27,9 @@ from simple_module_cli._project_cli_check import (
 )
 from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
+from simple_module_cli.dev_cmd import dev_command
 from simple_module_cli.docker_cmd import docker_app
+from simple_module_cli.gen_cmd import gen_command
 from simple_module_cli.migrations_cmd import migrations_app
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
@@ -54,6 +56,8 @@ def _check_project_cli(ctx: typer.Context) -> None:
 
 
 app.command("new")(new_project)
+app.command("gen")(gen_command)
+app.command("dev")(dev_command)
 app.command("add")(add_module)
 app.command("update")(update_modules)
 app.command("package-update")(package_update)
