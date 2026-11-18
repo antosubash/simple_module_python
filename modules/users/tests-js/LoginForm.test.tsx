@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { configureI18n, keys } from '@simple-module-py/i18n';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -19,6 +20,36 @@ const baseProps = {
 };
 
 describe('LoginForm', () => {
+  test('translates custom provider labels and keeps the registered login URL', () => {
+    configureI18n({
+      locale: 'en',
+      messages: {
+        'custom.login.sso': 'Staff SSO',
+        [keys.users.login.continue_with]: 'Continue with {name}',
+      },
+    });
+    const { rerender } = render(
+      <LoginForm
+        {...baseProps}
+        error={null}
+        oauthProviders={[
+          { name: 'custom', display_name: 'Fallback', label_key: 'custom.login.sso', icon: 'key' },
+          { name: 'github', display_name: 'GitHub' },
+        ]}
+      />,
+    );
+    const custom = screen.getByRole('link', { name: 'Continue with Staff SSO' });
+    expect(custom).toHaveAttribute('href', '/api/users/auth/custom/login');
+    expect(custom.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('link', { name: 'Continue with GitHub' })).toHaveAttribute(
+      'href',
+      '/api/users/auth/github/login',
+    );
+    rerender(<LoginForm {...baseProps} error={null} oauthProviders={[]} />);
+    expect(screen.queryByRole('link', { name: 'Continue with Staff SSO' })).toBeNull();
+    configureI18n({ locale: 'en', messages: {} });
+  });
+
   test('announces a sign-in error as an alert', () => {
     render(<LoginForm {...baseProps} error="Invalid credentials" />);
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials');

@@ -532,6 +532,68 @@ Built-in provider keys (the `{provider}` URL segment):
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
 
+### Custom providers
+
+Modules that depend on Users can register a named factory through `users.contracts`.
+Register in the module's `register_settings` hook, after registering its own
+DB-backed settings. Factories run after settings hydration at startup and on
+every Users settings reload. They receive the app, read its current settings,
+and return an `OAuthProvider`, or `None` when disabled or incomplete. The registry
+belongs to the app and survives settings replacement; never patch `oauth_clients`
+or `oauth_providers` directly.
+
+For example, a module wrapping a separate GitHub application can register:
+
+```python
+from httpx_oauth.clients.github import GitHubOAuth2
+from pydantic import SecretStr
+from simple_module_core.settings_base import DbBackedSettings
+from users.contracts import OAuthProvider, register_oauth_provider
+
+
+class StaffSettings(DbBackedSettings):
+    enabled: bool = False
+    client_id: str = ""
+    client_secret: SecretStr = SecretStr("")
+
+
+def staff_provider(app):
+    settings = app.state.staff.settings
+    secret = settings.client_secret.get_secret_value()
+    if not settings.enabled or not settings.client_id or not secret:
+        return None
+    return OAuthProvider("staff", "Staff GitHub", GitHubOAuth2(settings.client_id, secret))
+
+
+# Inside your module's register_settings(app), after its settings registration:
+register_oauth_provider(app, "staff", staff_provider, label_key="staff.login.github", icon="key")
+```
+
+Use your module's normal `register_module_settings` registration to mount
+`app.state.staff.settings`; credentials follow the DB-backed secret-field rules,
+with no new environment variables. Supply `staff.login.github` in the module's
+locales (for example, `{"login": {"github": "Staff GitHub"}}`). `label_key`
+translates the provider name inside the existing “Continue with {name}” button;
+without it, the factory's `display_name` is used. Optional `icon` is a shared
+UI `NavIcon` name.
+
+Names must be lowercase URL segments containing letters, digits, `_` or `-`,
+starting with a letter or digit. Duplicate names, including the four built-ins,
+raise `ValueError`; the returned descriptor must use its registered name.
+The example uses `/api/users/auth/staff/login` and
+`/api/users/auth/staff/callback`. A factory returning `None` removes both its
+client and button at the next rebuild. If your module reloads its own settings,
+publish a Users `SettingsReloaded` event after those settings have been hydrated
+to trigger a rebuild too.
+
+The normal state, PKCE and account-linking checks still apply. A custom name uses
+the generic client's `get_id_email` identity with an unverified email by default;
+this example does not enable GitHub's built-in verified-email policy under a new
+name. A provider needing verified identity claims supplies its own
+`OAuthProvider.get_identity` implementation; never assert email proof solely
+because an email address was returned. Provisioning and trusted-domain settings
+continue to accept only their documented built-in provider names.
+
 ### Microsoft sign-in
 
 Microsoft uses OpenID Connect on the tenant's v2.0 endpoints (`https://login.microsoftonline.com/<tenant>/oauth2/v2.0/…`), built from `oauth_microsoft_tenant` with no discovery fetch at boot. Each login stores a PKCE verifier (S256) and a nonce in the session next to the state; the callback sends the verifier to the token endpoint and validates the returned ID token: RS256 signature against Entra's JWKS, the exact issuer `https://login.microsoftonline.com/<tid>/v2.0`, `aud` (and `azp`) equal to the client id, `exp`/`iat`, and the nonce. A tenant GUID also requires `tid` to equal it; `organizations` refuses personal accounts and `consumers` accepts only them. A failed check refuses the sign-in with `OAUTH_PROVIDER_ERROR`.

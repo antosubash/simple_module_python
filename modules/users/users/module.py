@@ -121,14 +121,12 @@ class UsersModule(ModuleBase):
         import importlib
 
         settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
-        from users.oauth.providers import build_client_map, provider_buttons
+        from users.core.startup import _build_oauth_clients
 
         async def _rebuild_oauth_clients(event: settings_reloaded) -> None:
             if event.package != "users":
                 return
-            state = app.state.users
-            state.oauth_clients = build_client_map(state.settings)
-            state.oauth_providers = provider_buttons(state.oauth_clients)
+            _build_oauth_clients(app)
             # Same reason: turning demo mode on from the settings UI has to
             # seed the accounts and refresh the cached ids, or the buttons
             # appear on a sign-in page that 404s until the next restart.
