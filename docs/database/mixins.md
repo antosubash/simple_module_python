@@ -133,6 +133,116 @@ methods (see [multi-tenancy](../framework/multi-tenancy.md#what-the-filter-can-s
 Without an active tenant, strict mode raises `TenantIsolationError` (`MissingTenantError`) for every insert form, even when the rows name
 their `tenant_id` (#728); non-strict inserts use the install's fallback tenant (`default_tenant` or `"default"`). There is no per-statement `skip_tenant_filter` option; cross-tenant work uses `all_tenants()` (see [multi-tenancy](../framework/multi-tenancy.md)). `no_tenant()` is the opposite: it forces the unscoped state, where strict mode fails closed.
 
+## Custom scopes
+
+A module can register its own row scope with `ScopeFilter` and `register_scope`
+from `simple_module_db`. Tenant and soft-delete filtering use the same registry;
+custom scopes intersect with them, and each bypass disables only its own scope.
+Register once during module import or startup, before serving requests. The
+registry is process-wide: workers and command-line entry points must register
+the same policies. Models mapped before registration are included too. Repeating
+the same registration object is harmless; a different definition with an existing
+name raises `ValueError`.
+
+For example, a module can isolate workspaces within each tenant:
+
+```python
+from contextlib import contextmanager
+from contextvars import ContextVar
+
+from simple_module_db import ScopeFilter, register_scope
+from sqlmodel import Field, SQLModel
+
+current_workspace: ContextVar[str | None] = ContextVar("current_workspace", default=None)
+
+
+class WorkspaceMixin(SQLModel):
+    workspace_id: str | None = Field(default=None, nullable=False, index=True)
+
+
+def stamp_workspace(obj, workspace_id):
+    if obj.workspace_id is None:
+        obj.workspace_id = workspace_id
+
+
+workspace_scope = ScopeFilter(
+    name="workspace",
+    applies_to=WorkspaceMixin,
+    criteria=lambda cls, ctx: cls.workspace_id == ctx,
+    context=current_workspace,
+    bypass_option="all_workspaces",
+    fail_closed=True,
+    column="workspace_id",
+    stamp=stamp_workspace,
+)
+register_scope(workspace_scope)
+
+
+@contextmanager
+def workspace_context(workspace_id: str):
+    token = current_workspace.set(workspace_id)
+    try:
+        yield
+    finally:
+        current_workspace.reset(token)
+```
+
+Add `WorkspaceMixin` to the module's tables alongside `MultiTenantMixin` when
+both scopes apply. The request dependency or middleware must authorize the chosen
+workspace before setting its context. Jobs establish and reset it the same way:
+
+```python
+from simple_module_db import tenant_context
+from sqlmodel import select
+
+with tenant_context("acme"), workspace_context("engineering"):
+    rows = (await session.exec(select(Document))).all()
+    # Deliberate cross-workspace reporting still keeps the tenant filter:
+    report = select(Document).execution_options(all_workspaces=True)
+    all_workspaces = (await session.exec(report)).all()
+```
+
+`applies_to` accepts a mixin class or a synchronous predicate receiving a
+SQLAlchemy `Mapper`. Matching classes/tables are cached at mapping/registration,
+so context resolution scales with registered scopes without inspecting all
+mappers again. `context` accepts a `ContextVar` or a synchronous zero-argument
+callable. It must be cheap and side-effect free. `criteria(cls, context)` returns
+a SQL predicate using column attributes; for Core references, `cls` is the
+table's column collection. Context values are resolved on every execution,
+including relationship loads and reuse of a compiled statement.
+
+`None` means missing context. With `fail_closed=True`, direct reads, counts,
+writes and inserts raise `ScopeIsolationError`; indirect ORM references match
+no rows, just as with tenancy.
+With `fail_closed=False`, missing context disables that scope. `reads_only=True`
+limits a scope to SELECTs and INSERT sources, matching soft-delete semantics.
+
+The shared filter covers ORM selects/counts, aliases, Core joins and nested
+subqueries/CTEs, relationship loaders, UPDATE/DELETE targets and their reads,
+bulk UPDATE by primary key, and INSERT sources/value subqueries. Existing
+[filter limits](../framework/multi-tenancy.md#what-the-filter-can-see) apply:
+use sessions, keep SQL text explicitly scoped, and use one session per execution
+context because identity-map reads do not execute a statement.
+
+For a scalar equality scope, `column` names the scope column for insert stamping
+and ownership checks. A mapped link model matching `applies_to` gets the predicate
+in its relationship's `secondaryjoin` (including scopes without `column`),
+including lazy, joined, select-in and subquery loaders. Map link tables with the
+mixin too; bare unmapped association tables remain unfiltered.
+
+The optional `stamp(obj, context)` hook runs for new ORM objects before flush;
+the resulting object must satisfy the scope predicate. With `column` and `stamp`
+set, direct ORM/Core INSERTs also fill a missing scope column with the context
+value (single/bulk/multi-row values and INSERT FROM SELECT). Explicit values must
+match the context; unverifiable SQL expressions are refused. Without `stamp`,
+direct INSERTs require an explicit matching scope column; without a scalar
+`column`, use ORM objects or a deliberate bypass. UPDATE/DELETE and conflict
+updates keep the scope predicate; changing the scope column requires a bypass.
+Flushes also check persisted ownership before modifying/deleting scoped objects.
+Execution options apply to explicit statements, not unit-of-work flushes.
+Legacy `Session.bulk_*` APIs bypass statement/flush events and are refused while
+a custom write scope is active; use `session.execute()` instead.
+
 ## `VersionedMixin`
 
 Adds:

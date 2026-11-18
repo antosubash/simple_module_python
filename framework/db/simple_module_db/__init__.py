@@ -24,6 +24,7 @@ from simple_module_db.pagination import (
 )
 from simple_module_db.principals import principal_for
 from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.scopes import ScopeFilter, ScopeIsolationError, register_scope
 from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
 from simple_module_db.session import DatabaseState, RequestSession, init_db
 from simple_module_db.tenancy import (
@@ -63,6 +64,8 @@ __all__ = [
     "Page",
     "PageParams",
     "RequestSession",
+    "ScopeFilter",
+    "ScopeIsolationError",
     "SoftDeleteMixin",
     "TSVector",
     "TenantIsolationError",
@@ -93,6 +96,7 @@ __all__ = [
     "paginate",
     "principal_for",
     "record_bulk_audit",
+    "register_scope",
     "render_item",
     "tenant_context",
     "total_pages",
