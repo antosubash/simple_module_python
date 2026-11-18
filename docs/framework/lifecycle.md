@@ -337,18 +337,21 @@ broad public exemptions that would also exempt existing protected routes.
 framework route (including health, setup and admin), static/SPA mount and host
 router. Pass host routers as `create_app(settings, routers=(host_router,))`,
 or use `build_host_app(..., routers=(host_router,))`, which also accepts import
-strings. A router included on the returned app is appended **after** fallback
-routes; supply it to the builder to preserve its precedence. The same applies
-to custom mounts added after the builder returns: the ordering guarantee covers
-mounts declared through the framework's static/SPA contribution mechanisms.
+strings. Routers and mounts added to the returned app before startup or first
+dispatch also stay ahead of fallbacks. The host finalizes ordering at lifespan
+startup and before the first dispatch, including for clients that skip lifespan.
+Finish composing the app before serving requests.
 
 Fallback hooks run in the same topological dependency order as ordinary hooks,
 after all ordinary routes are mounted. The first matching route wins, including
 between fallback modules; use `depends_on` / `optional_depends_on` to express
 ordering rather than relying on names. A handler returning 404 does not retry
 later fallbacks. Static and SPA mounts likewise retain ownership of their
-prefixes, including missing files. No route-priority setting or host import of
-the fallback module is needed.
+prefixes, including missing files. Bare mount prefixes redirect to the trailing
+slash before fallbacks, preserving query strings and deployment `root_path`;
+explicit ordinary routes at the bare prefix still win. Modules with only fallback
+views retain their discovery order when choosing the default login destination.
+No route-priority setting or host import of the fallback module is needed.
 
 ## `locale_dirs()`
 

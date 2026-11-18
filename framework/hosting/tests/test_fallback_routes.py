@@ -20,6 +20,7 @@ from simple_module_test._schema import _create_all_tables
 from simple_module_test.fixtures import _seed_setup_admin
 from simple_module_test.inertia import inertia_headers
 from simple_module_test.session_cookie import forge_session_cookie
+from starlette.staticfiles import StaticFiles
 
 
 class SlugModule(ModuleBase):
@@ -107,6 +108,14 @@ async def fallback_app(request, settings, monkeypatch, tmp_path, fallback_module
         app = build_host_app(tmp_path / "main.py", routers=(host,))
     else:
         app = app_builder.create_app(settings, routers=(host,))
+    late = APIRouter()
+
+    @late.get("/late")
+    async def late_page():
+        return {"handler": "late"}
+
+    app.include_router(late)
+    app.mount("/mounted", StaticFiles(directory=tmp_path / "static"))
     # The disposable host has no migrations; lifespan must use the real config.
     root = Path(__file__).resolve().parents[3]
     monkeypatch.chdir(root)
@@ -143,6 +152,18 @@ async def test_users_login_wins_over_fallbacks(fallback_client):
     login = await client.get("/users/login")
     assert login.status_code == 200
     assert login.json()["component"] == "Users/Login"
+
+
+async def test_post_builder_entries_precede_fallbacks_at_startup(fallback_app):
+    # Inspect before dispatch, so the first-request guard cannot mask a startup bug.
+    paths = [ctx.path for ctx in iter_route_contexts(fallback_app.routes)]
+    assert paths.index("/late") < paths.index("/{slug}")
+    assert paths.index("/mounted") < paths.index("/{slug}")
+
+
+async def test_post_builder_handlers_win_after_startup(fallback_client):
+    assert (await fallback_client.get("/late")).json() == {"handler": "late"}
+    assert (await fallback_client.get("/mounted/probe.txt")).text == "static asset"
 
 
 async def test_framework_module_host_and_asset_handlers_win(fallback_client):

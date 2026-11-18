@@ -83,8 +83,8 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
       9. Routes (register_routes), health endpoints, static files
       10. Host routers, then module fallback routes (dependency order)
 
-    Supply host routers through ``routers`` so they precede fallback routes.
-    Routes added to the returned app are appended after the fallbacks.
+    Host routers and mounts, including those added to the returned app before
+    startup or first dispatch, precede fallback routes.
     """
     # ── Phase 0: Pre-app config read ───────────────────────
     # Phases 1 and 8 below consume settings to build the module list, the
@@ -224,10 +224,10 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
     )
 
     # ── Phase 9: Routes, health, static files ──────────────
-    view_prefixes: dict[str, str] = {}  # discovery order; only modules with view routes
+    view_modules: set[str] = set()
     for mod in modules:
         if wire_module_routes(app, mod):
-            view_prefixes[mod.meta.name] = mod.meta.view_prefix
+            view_modules.add(mod.meta.name)
 
     app.include_router(health_router)
     app.include_router(i18n_router)  # /i18n/set-locale — LocaleSwitcher posts here
@@ -242,7 +242,10 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
         app.include_router(router)
     for mod in modules:
         if wire_fallback_routes(app, mod):
-            view_prefixes[mod.meta.name] = mod.meta.view_prefix
+            view_modules.add(mod.meta.name)
+    view_prefixes = {  # discovery order across ordinary and fallback-only modules
+        mod.meta.name: mod.meta.view_prefix for mod in modules if mod.meta.name in view_modules
+    }
 
     app.state.sm = Services(
         settings=settings,

@@ -194,7 +194,8 @@ mount under a prefix. Omitted `version` comes from the owning distribution
 Keep existing prefixes when adopting conventional routes so URLs do not change.
 Catch-all views belong in `register_fallback_routes`, which defaults to no-op.
 Pass host routers to `create_app(..., routers=...)` or `build_host_app(..., routers=...)`
-so they precede fallbacks; adding routes to the returned app appends them afterward.
+so they precede fallbacks. Routes and mounts added to the returned app before
+startup or first dispatch also stay ahead of fallbacks.
 
 Rules that go with them:
 

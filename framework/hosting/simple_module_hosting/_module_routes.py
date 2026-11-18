@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.routing import APIRoute
 
+from simple_module_hosting._fallback_routes import mark_fallback_routes
 from simple_module_hosting._openapi import make_unique_id_function
 from simple_module_hosting.token_guard import page_route
 
@@ -78,7 +79,9 @@ def wire_fallback_routes(app: FastAPI, module) -> bool:
     if not router.routes:
         return False
     _clone_bare_prefix_route(router, module.meta.view_prefix)
+    start = len(app.routes)
     app.include_router(router, prefix=module.meta.view_prefix, include_in_schema=False)
+    mark_fallback_routes(app, start)
     return True
 
 
