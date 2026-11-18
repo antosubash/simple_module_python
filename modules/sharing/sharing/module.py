@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 
 class SharingModule(ModuleBase):
+    permissions = c.Permissions
+
     meta = ModuleMeta(
         name=c.MODULE_NAME,
         route_prefix=c.API_PREFIX,
@@ -55,21 +57,17 @@ class SharingModule(ModuleBase):
                 section=MenuSection.ADMIN_SIDEBAR,
                 group=c.MENU_GROUP,
                 group_key=c.MENU_GROUP_KEY,
-                permissions=[c.PERM_VIEW],
+                permissions=[c.Permissions.VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            c.PERM_GROUP,
-            [c.PERM_SHARE, c.PERM_VIEW, c.PERM_MANAGE, c.PERM_DIRECTORY_SEARCH],
-            label_key=f"{c.LOCALE_NAMESPACE}.permission_group",
-        )
+        super().register_permissions(registry)
         # Sharing what you own is an ordinary user action; the resource's
         # policy (``can("share")``) is what actually decides.
-        registry.map_role(c.USER_ROLE, [c.PERM_SHARE])
+        registry.map_role(c.USER_ROLE, [c.Permissions.SHARE])
         for role in TenantRole:
-            registry.map_role(tenant_role(role), [c.PERM_SHARE])
+            registry.map_role(tenant_role(role), [c.Permissions.SHARE])
 
     def register_rate_limits(self, registry: RateLimitRegistry) -> None:
         from simple_module_core.rate_limit import RateLimitRule

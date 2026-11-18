@@ -29,13 +29,7 @@ from tenants.contracts.schemas import (
     RoleChange,
     TenantCreate,
 )
-from tenants.core.constants import (
-    PERM_MEMBERS_MANAGE,
-    PERM_MEMBERS_VIEW,
-    PERM_PLATFORM_MANAGE,
-    MembershipRole,
-    TenantStatus,
-)
+from tenants.core.constants import MembershipRole, Permissions, TenantStatus
 from tenants.core.errors import TenantError
 from tenants.invitations.mail import invitation_emailed
 from tenants.models import Membership
@@ -50,8 +44,8 @@ from tenants.web.deps import (
 
 router = APIRouter()
 
-_VIEW = [Depends(RequiresPermission(PERM_MEMBERS_VIEW))]
-_MANAGE = [Depends(RequiresPermission(PERM_MEMBERS_MANAGE))]
+_VIEW = [Depends(RequiresPermission(Permissions.MEMBERS_VIEW))]
+_MANAGE = [Depends(RequiresPermission(Permissions.MEMBERS_MANAGE))]
 
 
 def _email_of(request: Request) -> str | None:
@@ -83,7 +77,7 @@ async def create_tenant(
 ) -> MyTenantView:
     settings = request.app.state.tenants.settings
     if not settings.allow_self_service and not grants(
-        resolved_permissions_for(request), PERM_PLATFORM_MANAGE
+        resolved_permissions_for(request), Permissions.PLATFORM_MANAGE
     ):
         raise TenantError("self_service_disabled", status_code=403)
     tenant = await service.create_tenant(

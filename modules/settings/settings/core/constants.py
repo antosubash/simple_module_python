@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from typing import Final
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
+
 # Re-exported (#500): these now live with the table in the framework.
 from simple_module_db.stored_settings import (  # noqa: F401
     ALL_VALUE_TYPES,
@@ -82,15 +85,30 @@ MENU_ORDER: Final = 200
 
 # ── Permissions ──────────────────────────────────────────────────────
 PERM_GROUP: Final = MODULE_NAME
-PERM_VIEW: Final = "settings.view"
-PERM_CREATE: Final = "settings.create"
-PERM_EDIT: Final = "settings.edit"
-PERM_DELETE: Final = "settings.delete"
-# Edit the *active* tenant's overrides of ``tenant_overridable`` keys — and
-# nothing else. Mapped onto ``tenant:owner`` / ``tenant:admin``; the four
-# above stay platform-operator permissions (system scope, any tenant's scope).
-PERM_TENANT_EDIT: Final = "settings.tenant.edit"
-ALL_PERMISSIONS: Final = (PERM_VIEW, PERM_CREATE, PERM_EDIT, PERM_DELETE, PERM_TENANT_EDIT)
+
+
+class Permissions(PermissionCatalogue, group=PERM_GROUP, label_key="settings.permission_group"):
+    VIEW = "settings.view"
+    CREATE = "settings.create"
+    EDIT = "settings.edit"
+    DELETE = "settings.delete"
+    # Edit only the active tenant's overridable keys; mapped to owner/admin.
+    # The four permissions above remain platform-operator permissions.
+    TENANT_EDIT = "settings.tenant.edit"
+
+
+deprecate(
+    "settings PERM_* constants",
+    remove_in="0.0.50",
+    use="settings.core.constants.Permissions",
+)
+PERM_VIEW: Final = Permissions.VIEW
+PERM_CREATE: Final = Permissions.CREATE
+PERM_EDIT: Final = Permissions.EDIT
+PERM_DELETE: Final = Permissions.DELETE
+PERM_TENANT_EDIT: Final = Permissions.TENANT_EDIT
+
+ALL_PERMISSIONS: Final = tuple(Permissions)
 
 # ── Cache invalidation ───────────────────────────────────────────────
 # Published (after commit) for every SYSTEM / TENANT write, keyed per

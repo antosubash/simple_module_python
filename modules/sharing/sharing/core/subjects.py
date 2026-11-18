@@ -18,12 +18,7 @@ from sharing.contracts.subjects import (
     SubjectProvider,
     SubjectRegistry,
 )
-from sharing.core.constants import (
-    CANDIDATES_MAX,
-    PERM_DIRECTORY_SEARCH,
-    SUBJECT_TENANT_ROLE,
-    SUBJECT_USER,
-)
+from sharing.core.constants import CANDIDATES_MAX, SUBJECT_TENANT_ROLE, SUBJECT_USER, Permissions
 
 
 async def _valid_user(ctx: SubjectContext, subject_id: str) -> str | None:
@@ -42,7 +37,7 @@ async def _user_candidates(ctx: SubjectContext, term: str, owner_id: str) -> lis
         include_ids=audience_ids,
         exclude_ids=[uid for uid in (owner_id, ctx.principal.user_id) if uid],
         active_only=True,
-        exact_email=audience_ids is None and not ctx.principal.has(PERM_DIRECTORY_SEARCH),
+        exact_email=audience_ids is None and not ctx.principal.has(Permissions.DIRECTORY_SEARCH),
     )
     candidates = []
     for user in found:

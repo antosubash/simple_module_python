@@ -57,6 +57,8 @@ def _tenant_members() -> TenantMembers:
 
 
 class TenantsModule(ModuleBase):
+    permissions = c.Permissions
+
     def register_principal_builder(self, registry) -> None:
         from tenants.resolution.principal import membership_role, tenant_active
 
@@ -165,7 +167,7 @@ class TenantsModule(ModuleBase):
                 icon="users",
                 order=91,
                 section=MenuSection.SIDEBAR,
-                permissions=[c.PERM_MEMBERS_VIEW],
+                permissions=[c.Permissions.MEMBERS_VIEW],
             )
         )
         if self._settings_available():
@@ -187,21 +189,12 @@ class TenantsModule(ModuleBase):
                 url="/admin/tenants/",
                 icon="briefcase",
                 order=105,
-                permissions=[c.PERM_PLATFORM_VIEW],
+                permissions=[c.Permissions.PLATFORM_VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            c.DISPLAY_NAME,
-            [
-                c.PERM_MEMBERS_VIEW,
-                c.PERM_MEMBERS_MANAGE,
-                c.PERM_PLATFORM_VIEW,
-                c.PERM_PLATFORM_MANAGE,
-            ],
-            label_key="tenants.permission_group",
-        )
+        super().register_permissions(registry)
         for role, perms in c.ROLE_PERMISSIONS.items():
             registry.map_role(c.tenant_role(role), perms)
 

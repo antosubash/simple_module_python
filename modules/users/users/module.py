@@ -14,13 +14,7 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.setup_steps import SetupRegistry
 
-from users.core.constants import (
-    ADMIN_ROLE_NAME,
-    PERM_USERS_MANAGE,
-    PERM_USERS_SELF_PROFILE,
-    PUBLIC_PATH_PREFIXES,
-    USER_ROLE_NAME,
-)
+from users.core.constants import ADMIN_ROLE_NAME, PUBLIC_PATH_PREFIXES, USER_ROLE_NAME, Permissions
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -45,6 +39,8 @@ _ICON_LOG_OUT = "log-out"
 
 
 class UsersModule(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="Users",
         provides_auth=True,
@@ -172,12 +168,8 @@ class UsersModule(ModuleBase):
             registry.add_prefix(prefix)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Users",
-            [PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE],
-            label_key="users.permission_group",
-        )
-        registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
+        super().register_permissions(registry)
+        registry.map_role(USER_ROLE_NAME, [Permissions.SELF_PROFILE])
 
     def register_setup_steps(self, registry: SetupRegistry) -> None:
         """Gate the app until a local account exists — see ``users.core.setup``."""

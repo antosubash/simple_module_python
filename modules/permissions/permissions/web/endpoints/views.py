@@ -17,7 +17,7 @@ from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
-from permissions.core.constants import PERM_MANAGE
+from permissions.core.constants import Permissions
 from permissions.core.service import PermissionService
 from permissions.core.write_safety import PermissionWriteRefused
 from permissions.web.deps import (
@@ -43,7 +43,7 @@ async def browse() -> RedirectResponse:
 @router.get(
     "/roles/{role_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def edit_role(
     role_id: uuid.UUID,
@@ -68,7 +68,7 @@ async def edit_role(
 @router.put(
     "/roles/{role_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def update_role(
     role_id: uuid.UUID,
@@ -93,7 +93,7 @@ async def update_role(
 @router.get(
     "/users/{user_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def edit_user(
     user_id: uuid.UUID,
@@ -121,7 +121,7 @@ async def edit_user(
 @router.put(
     "/users/{user_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def update_user(
     user_id: uuid.UUID,

@@ -71,7 +71,9 @@ class OrdersModule(ModuleBase):
 Catalogue members are strings used by guards and registration alike. Optional
 member labels appear in the role editor; `label_key` translates the group.
 Existing `PERM_*` constants, `add_group`, `add` and custom hooks stay supported.
-No catalogue declaration grants a role or guards a route.
+No catalogue declaration grants a role or guards a route. Built-in modules use
+`Permissions` from their `core.constants`; file_storage retains `Permission`.
+Imported legacy `PERM_*` aliases are deprecated for removal in 0.0.50 (#1037).
 
 **Convention:** permission names are `<module>.<action>` (lowercase, dot-separated). Group name is human-readable — it surfaces in the admin UI as a section header. The built-in `admin` role gets the wildcard `"*"` and skips per-permission checks.
 

@@ -13,7 +13,7 @@ from simple_module_hosting.permissions import RequiresPermission, resolved_permi
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.contracts.schemas import AuditEntryList
-from audit_log.core.constants import DEFAULT_PAGE_SIZE, PERM_VIEW
+from audit_log.core.constants import DEFAULT_PAGE_SIZE, Permissions
 from audit_log.entries.export import CSV_FILENAME, CSV_MEDIA_TYPE, stream_csv
 from audit_log.entries.filters import EntryFilters
 from audit_log.entries.resolve import actor_filter
@@ -21,7 +21,7 @@ from audit_log.web.deps import AuditLogServiceDep
 
 router = APIRouter()
 
-_VIEW = [Depends(RequiresPermission(PERM_VIEW))]
+_VIEW = [Depends(RequiresPermission(Permissions.VIEW))]
 
 
 @router.get("/", response_model=AuditEntryList, dependencies=_VIEW)

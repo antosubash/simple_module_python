@@ -40,8 +40,8 @@ from sharing.core.constants import (
     ERR_UNKNOWN_GRANTEE,
     ERR_UNKNOWN_SUBJECT,
     ERR_UNKNOWN_TYPE,
-    PERM_MANAGE,
     SUBJECT_USER,
+    Permissions,
 )
 from sharing.core.policy import resolve_roles, row_id
 from sharing.core.subjects import subjects_for
@@ -172,7 +172,7 @@ class SharingService:
         )
         if share is None:
             raise SharingError(404, ERR_NOT_FOUND)
-        if not principal.has(PERM_MANAGE) and not (
+        if not principal.has(Permissions.MANAGE) and not (
             share.subject_type == SUBJECT_USER and share.subject_id == principal.user_id
         ):
             resource_type = self.registry.get(share.resource_type)

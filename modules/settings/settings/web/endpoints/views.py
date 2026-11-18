@@ -26,10 +26,6 @@ from settings.core._managed_keys import ManagedKeyError, ModuleKeyError
 from settings.core.constants import (
     DEFAULT_PER_PAGE,
     ERR_SETTING_NOT_FOUND,
-    PERM_CREATE,
-    PERM_DELETE,
-    PERM_EDIT,
-    PERM_VIEW,
     PROP_COUNTS,
     PROP_ERROR,
     PROP_FILTERS,
@@ -45,6 +41,7 @@ from settings.core.constants import (
     VIEW_MODULES_PATH,
     VIEW_PREFIX,
     VIEW_STORE_PATH,
+    Permissions,
 )
 from settings.core.exceptions import InternalKeyError
 from settings.core.service import SettingService
@@ -76,7 +73,7 @@ _REDIRECT_MODULES = f"{VIEW_PREFIX}/"
 # API (``/api/settings/...``) has always required ``settings.view``, so leaving
 # these unguarded let any signed-in account read the same data by asking for
 # the page instead. Mutating routes add their own stricter guard on top.
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(Permissions.VIEW))])
 
 
 @router.get(VIEW_STORE_PATH, response_model=None)
@@ -156,7 +153,7 @@ async def edit_view(
 @router.post(
     VIEW_STORE_PATH,
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_CREATE))],
+    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
 )
 async def create_action(
     request: Request,
@@ -168,7 +165,7 @@ async def create_action(
 @router.put(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_EDIT))],
+    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
 )
 async def update_action(
     setting_id: int,
@@ -192,7 +189,7 @@ async def update_action(
 @router.delete(
     "/{setting_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_DELETE))],
+    dependencies=[Depends(RequiresPermission(Permissions.DELETE))],
 )
 async def delete_action(
     setting_id: int,
@@ -246,7 +243,7 @@ async def modules_view(
     # server open outbound connections on demand (SMTP AUTH, S3) and hands the
     # raw failure text — hostnames, bucket names, auth errors — back to the
     # caller. Only someone allowed to change these settings should be able to.
-    dependencies=[Depends(RequiresPermission(PERM_EDIT))],
+    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
 )
 async def test_connection(package: str, request: Request) -> dict:
     """Run one module's health checks now and report each result.

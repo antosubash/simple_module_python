@@ -18,8 +18,7 @@ from background_tasks.contracts.schemas import (
 from background_tasks.core.constants import (
     ADMIN_ROUTER_PREFIX,
     MODULE_NAME,
-    PERM_MANAGE,
-    PERM_VIEW,
+    Permissions,
     TaskStatus,
 )
 from background_tasks.executions.service import BackgroundTaskService
@@ -28,7 +27,7 @@ from background_tasks.worker.fleet_state import poll_workers
 
 router = APIRouter(
     prefix=ADMIN_ROUTER_PREFIX,
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
     tags=[f"{MODULE_NAME}-admin"],
 )
 
@@ -75,7 +74,7 @@ async def get_execution(
 @router.post(
     "/executions/retry-failed",
     response_model=RetryFailedResult,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def retry_failed_executions(
     status: TaskStatus | None = Query(default=None),
@@ -98,7 +97,7 @@ async def retry_failed_executions(
 @router.post(
     "/executions/{execution_id}/retry",
     response_model=TaskExecutionDetail,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def retry_execution(
     execution_id: uuid.UUID,

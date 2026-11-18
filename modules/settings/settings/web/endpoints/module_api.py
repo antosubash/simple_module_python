@@ -15,7 +15,7 @@ from simple_module_core.module_settings import module_settings_registry
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
-from settings.core.constants import PERM_DELETE, PERM_EDIT, PERM_VIEW
+from settings.core.constants import Permissions
 from settings.core.invalidation import reload_on_commit
 from settings.core.service import SettingService
 from settings.module_settings.discovery import (
@@ -33,9 +33,9 @@ router = APIRouter(prefix="/modules", tags=["Settings Modules"])
 # Per-module settings UI exposes raw secret values (mailer password, JWT
 # signing keys, etc.) — every endpoint here is gated on the same permissions
 # the scoped API uses so a non-admin can't read or mutate module config.
-_VIEW = [Depends(RequiresPermission(PERM_VIEW))]
-_EDIT = [Depends(RequiresPermission(PERM_EDIT))]
-_DELETE = [Depends(RequiresPermission(PERM_DELETE))]
+_VIEW = [Depends(RequiresPermission(Permissions.VIEW))]
+_EDIT = [Depends(RequiresPermission(Permissions.EDIT))]
+_DELETE = [Depends(RequiresPermission(Permissions.DELETE))]
 
 
 def _masked_fields(app: FastAPI, package: str) -> frozenset[str]:
