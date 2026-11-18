@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file. The format is b
 - Removed only the deprecation of `ModuleMeta.requires_framework=None`: `None` permanently means **no version constraint**. The live hosting registration and core public-routes, versioning and resources modules remain. The Makefile's 0.0.49 `SM_TEST_PG_URL` fallback and `SM_VITE_PORT` support are unchanged.
 ### Added
 
+- Path-filtered production Docker image smoke checks build and boot the root image, then require HTTP 200 from health and a frontend asset found in the rendered page. Failures block `pr-checks` (#1009).
 - Sharing ships a reusable `ShareDialog` and `useShares` hook, with a policy-authorized, tenant-filtered and rate-limited user picker (#990).
 
 ### Changed
