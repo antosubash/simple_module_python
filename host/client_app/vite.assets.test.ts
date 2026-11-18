@@ -127,5 +127,6 @@ for (const [name, config] of [
     } finally {
       await server?.close();
     }
-  });
+    // Starts a real Vite server and re-optimizes twice; 5 s is too tight on loaded machines (#1034).
+  }, 30_000);
 }
