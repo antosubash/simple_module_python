@@ -12,6 +12,7 @@ from users.accounts.db_adapter import get_user_db
 from users.auth_local.rate_limit import ThroughputLimiter
 from users.core.settings import UsersSettings
 from users.core.startup import _build_mailer
+from users.core.token_secrets import resolve_token_secrets
 from users.models import User
 from users.module import UsersModule
 
@@ -35,6 +36,7 @@ async def test_missing_mail_origin_preserves_public_response(captured_mail, capl
             base_url="",
         ),
         auth_throughput_limiter=ThroughputLimiter(),
+        token_secrets=resolve_token_secrets("test-secret-key"),
     )
     _build_mailer(app, app.state.users, app.state.users.settings)
     accounts = _AccountLookup(
@@ -53,7 +55,7 @@ async def test_missing_mail_origin_preserves_public_response(captured_mail, capl
     api = APIRouter(prefix="/api/users")
     UsersModule().register_routes(api, APIRouter())
     app.include_router(api)
-    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         unknown = await client.post(
             f"/api/users/auth/{endpoint}", json={"email": "unknown@example.com"}
