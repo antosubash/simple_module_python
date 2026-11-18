@@ -65,8 +65,8 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 |---|---|---|
 | `smpy gen` | `simple_module_hosting` | Run pages, i18n keys, module JS dep sync and API types. Per-stage content hashes and output checks in the local `.smpy/gen.json` cache skip unchanged work without touching files. API generation covers local modules already carrying `pages/api.generated.ts`; use `smpy openapi gen-types --module <pkg>` to opt in. |
 | `smpy dev` | `simple_module_hosting` | Generate first, then run API and Vite together. API defaults to 8000 (`--port`); Vite uses the first free port from 5050 (`--vite-port` pins it). Python reads dotenv and passes the selected `SM_VITE_DEV_URL` to both children. Ctrl-C, SIGTERM or either child exiting stops both owned process groups. |
-| `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
-| `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists unless `--skip-if-missing` is set. |
+| `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css,assets.json}` from the installed modules. Run when you add or remove pages or assets. |
+| `smpy host gen-i18n` | `simple_module_hosting` | Regenerate `keys.generated.ts` and `generated-resources.ts` into the installed `@simple-module-py/i18n/src` directory (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists unless `--skip-if-missing` is set. |
 | `smpy host sync-js-deps` | `simple_module_hosting` | Install module-declared JS deps into the host. Module-root npm workspace manifests are installed by npm automatically; dependency-only manifests inside Python packages need this sync even for editable installs. |
 | `smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 
@@ -78,18 +78,34 @@ uv run smpy users create-admin --email admin@example.com
 
 ## Scaffolded-app Makefile
 
-`smpy new` writes a slim Makefile to your app. The intent is *zero magic* — every target is one or two lines you could run by hand.
+`smpy new` defaults to a **workspace** layout: the app root owns the uv and npm workspaces and the Makefile; the host lives in `host/`, with its frontend in `host/client_app/` and local modules under `modules/`. `smpy new --flat` and `smpy create-host` use a **flat** layout: the host is at the app root and its frontend is in `client_app/`.
+
+Run `make` from the app root in either layout. The current templates use `smpy gen` for generation and `smpy dev` to run API and Vite together:
+
+| Command | Flat layout | Workspace layout |
+|---|---|---|
+| `make install` | `uv sync`, `cd client_app && npm install`, then `make gen`. | `uv sync --all-packages`, root `npm install`, then `make gen`. |
+| `make dev-api` | `uv run uvicorn main:app --reload --reload-include '*locales/*.json' --port $(API_PORT)`. | Runs uvicorn from `host/`, also watching `.` and `../modules` with `--reload-dir`. |
+| `make dev-ui` | `cd client_app && npm run dev`. | Root `npm run dev`, which delegates to the `host/client_app` npm workspace. |
+| `make migrate` | `uv run alembic upgrade heads`. | `uv run --project host alembic -c host/alembic.ini upgrade heads`. |
+| `make build` | `make gen`, then `cd client_app && npm run build`. | `make gen`, then root `npm run build` (delegates to `host/client_app`). |
+| JS dependency sync | `make sync-js-deps`. | `make sync-module-deps`. |
+
+Both JS dependency sync targets call `smpy host sync-js-deps` through its Python entry point. Root module npm manifests are installed by npm workspaces; manifests inside Python packages need this sync even for editable installs. Both migration targets apply **all** branch heads (`upgrade heads`, plural).
+
+The remaining targets have the same purpose in both layouts:
 
 | Command | What |
 |---|---|
 | `make install` | `uv sync` + `cd client_app && npm install` + `smpy gen`. Workspace apps use `uv sync --all-packages` and root `npm install`. Re-runs are safe. |
 | `make dev` | Runs `uv run smpy dev`. Pass options with `make dev ARGS="--port 8010 --vite-port 5201"`. Vite auto-selects a free port when omitted. |
-| `make migrate` | `uv run alembic upgrade heads`. Idempotent. |
+| `make migrate` | Apply all branch heads using the layout-specific command above. Idempotent. |
 | `make build` | `smpy gen`, then `cd client_app && npm run build` (root `npm run build` in a workspace). Produces the production frontend bundle. |
 | `make gen` | Same incremental pipeline as `uv run smpy gen`. Install, dev, build and module verify call it automatically. Generation errors stop startup/build. |
-| `make gen-pages` | Regenerate the page manifest. Auto-runs before `make dev`. Same effect as `smpy host gen-pages`. |
-| `make sync-js-deps` | Install JS deps from wheel-installed modules. Same effect as `smpy host sync-js-deps`. |
-| `make gen-i18n` | Regenerate the typed `t(keys.<ns>...)` union in `node_modules/@simple-module-py/i18n/src`. Dev boot does this too; `make install` runs it once so `tsc` works before the first boot. Same effect as `smpy host gen-i18n`. |
+| `make gen-pages` | Regenerate `modules.manifest.json`, `modules.generated.ts`, `modules.generated.css` and `modules.assets.json` in the host's frontend directory. Install, dev and build include this stage via `smpy gen`. Same effect as `smpy host gen-pages`. |
+| `make sync-js-deps` (flat) / `make sync-module-deps` (workspace) | Install module-declared JS deps as described above. Same effect as `smpy host sync-js-deps`. |
+| `make gen-i18n` | Regenerate `keys.generated.ts` and `generated-resources.ts` for typed `t(keys.<ns>...)` calls. Writes into the installed `@simple-module-py/i18n/src`: under `client_app/node_modules` in a flat app or root `node_modules` in a workspace. Install, dev and build include this stage via `smpy gen`. Same effect as `smpy host gen-i18n`. |
+| `make doctor` | Run module diagnostics, including migration state and table coverage. Structural checks also run at development boot; production does not run that suite. |
 | `make kill` | Print stop guidance: Ctrl-C in the `smpy dev` terminal, or send SIGTERM to its supervisor PID. No processes are searched for or killed by port/name. |
 
 If you included `background_tasks` in `smpy new`, the scaffold appends `worker`, `beat`, and `worker-docker` targets that wrap the Celery commands — read your `Makefile` to see the exact invocations.
