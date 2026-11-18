@@ -53,6 +53,25 @@ verb matches.
 `registry.add(route_or_pattern, *, methods=, kind=)` is the general form;
 pass a prebuilt `PublicRoute` or a string.
 
+## Removing an exemption
+
+Use the host's [customize callback](lifecycle.md#host-overrides) after module
+registration:
+
+```python
+def customize(app):
+    app.state.sm.public_routes.remove("/news", kind="exact")
+    app.state.sm.public_routes.remove(r"/api/news/[^/]+$", kind="regex", methods={"GET"})
+```
+
+The pattern is the literal registration string, not a request path to match.
+`kind` defaults to `"prefix"`; all four match kinds are supported. Omitting
+`methods` removes every registration with that pattern and kind. Supplying it
+matches the complete, case-insensitive method set. All duplicate registrations
+of that identity are removed; no match raises `KeyError`. Other overlapping
+exemptions still apply, as do the framework defaults listed below. Removing an
+exemption lets auth gate the route; it does not remove the route itself.
+
 ## Rate limiting anonymous callers
 
 Every anonymous request that matches a public rule is rate-limited per client

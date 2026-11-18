@@ -39,6 +39,7 @@ from simple_module_hosting._lifespan import build_lifespan
 from simple_module_hosting._module_routes import wire_fallback_routes
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
+    install_inner_middleware,
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
@@ -73,6 +74,7 @@ def create_app(
     *,
     routers: Iterable[APIRouter] = (),
     database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
+    customize: Callable[[FastAPI], None] | None = None,
 ) -> FastAPI:
     """Build and configure the full FastAPI application.
 
@@ -87,6 +89,11 @@ def create_app(
       8. Middleware pipeline (register_middleware)
       9. Routes (register_routes), health endpoints, static files
       10. Host routers, then module fallback routes (dependency order)
+      11. customize(app), then finish the middleware pipeline
+
+    ``customize`` is synchronous and runs once with app.state.sm available,
+    after every module registration hook and before the outer pipeline consumes
+    registry configuration. Exceptions propagate and abort construction.
 
     Host routers and mounts, including those added to the returned app before
     startup or first dispatch, precede fallback routes.
@@ -232,9 +239,7 @@ def create_app(
     # ── Phase 8: Middleware pipeline ───────────────────────
     # Shared with modules via app.state.sm (the users login lockout counts here).
     rate_limit_store = build_store(settings.redis_url)
-    install_middleware(
-        app, settings, modules, menu_registry, perm_registry, csp_registry, rate_limit_store
-    )
+    install_inner_middleware(app, settings, modules, menu_registry, perm_registry, rate_limit_store)
 
     # ── Phase 9: Routes, health, static files ──────────────
     view_modules: set[str] = set()
@@ -282,6 +287,9 @@ def create_app(
         rate_limit_store=rate_limit_store,
         resource_types=resource_type_registry,
     )
+    if customize is not None:
+        customize(app)
+    install_middleware(app, settings, csp_registry)
     if settings.is_development:
         report_unguarded_routes(app, diagnostics_state)  # SM031
     return app

@@ -191,6 +191,8 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_admin_routes(admin_router)` (with `ModuleMeta.admin` or `admin_view_prefix`),
 then `register_fallback_routes(router)` after framework routes, static/SPA mounts
 and host routers (dependency order, first match wins; uses `view_prefix`),
+then host `customize(app)` (`create_app` / `build_host_app`, with `app.state.sm`
+available, before the outer middleware pipeline is finalized),
 then async `check_data_compatibility(db)` (read-only upgrade checks before
 settings hydration; an `error` refuses boot outside development), then async
 `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,

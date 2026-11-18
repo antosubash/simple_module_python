@@ -130,11 +130,23 @@ class ResourceTypeRegistry:
         self._types: dict[str, ResourceType] = {}
 
     def register(self, resource_type: ResourceType) -> None:
+        if resource_type.name in self._types:
+            raise ResourceTypeError(f"Resource type {resource_type.name!r} is registered twice")
+        self._validate(resource_type)
+        self._types[resource_type.name] = resource_type
+
+    def replace(self, resource_type: ResourceType) -> None:
+        """Replace an existing type by name, validating before changing it."""
+        if resource_type.name not in self._types:
+            raise KeyError(f"Resource type {resource_type.name!r} is not registered")
+        self._validate(resource_type)
+        self._types[resource_type.name] = resource_type
+
+    @staticmethod
+    def _validate(resource_type: ResourceType) -> None:
         name = resource_type.name
         if not _TYPE_NAME.match(name):
             raise ResourceTypeError(f"Resource type name {name!r} must look like 'module.thing'")
-        if name in self._types:
-            raise ResourceTypeError(f"Resource type {name!r} is registered twice")
         if resource_type.share_roles is not None:
             for role, actions in resource_type.share_roles.items():
                 if not isinstance(role, str) or not _ROLE_ID.fullmatch(role):
@@ -146,7 +158,6 @@ class ResourceTypeRegistry:
                     raise ResourceTypeError(
                         f"Resource type {name!r} share role {role!r} must include {ACTION_VIEW!r}"
                     )
-        self._types[name] = resource_type
 
     def get(self, name: str) -> ResourceType | None:
         return self._types.get(name)

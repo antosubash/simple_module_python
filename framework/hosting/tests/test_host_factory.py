@@ -226,7 +226,13 @@ def test_factory_builds_the_same_runtime_as_create_app(tmp_path, monkeypatch, se
     def marker():
         return "ok"
 
-    actual = build_host_app(tmp_path / "main.py", routers=(router,))
+    def customize(app):
+        assert "/api/factory-only" in app.openapi()["paths"]
+        app.state.sm.public_routes.remove("/setup", kind="exact")
+
+    actual = build_host_app(tmp_path / "main.py", routers=(router,), customize=customize)
+    assert expected.state.sm.public_routes.matches("GET", "/setup")
+    assert not actual.state.sm.public_routes.matches("GET", "/setup")
     assert actual.state.sm.settings is settings
     assert [type(m) for m in actual.state.sm.modules] == [
         type(m) for m in expected.state.sm.modules

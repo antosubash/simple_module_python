@@ -75,6 +75,13 @@ class EventBus:
             event_type.__name__,
         )
 
+    def unsubscribe(self, event_type: type[Event], handler: EventHandler) -> None:
+        """Remove an in-process handler; already scheduled calls are unaffected."""
+        key = self._event_key(event_type)
+        if handler not in self._emitter.listeners(key):
+            raise KeyError(f"Handler {handler!r} is not subscribed to {key}")
+        self._emitter.remove_listener(key, handler)
+
     async def publish(self, event: Event) -> None:
         """Dispatch event to all registered handlers (awaited).
 
@@ -123,6 +130,16 @@ class EventBus:
         resolved = self.durable.add(event_type, handler, name)
         logger.debug("Durable subscription %s on %s", resolved, event_type.__name__)
         return resolved
+
+    def unsubscribe_durable(self, event_type: type[Event], *, name: str) -> None:
+        """Remove a durable name; outstanding outbox rows are not deleted."""
+        self.durable.remove(event_type, name=name)
+
+    def replace_durable(
+        self, event_type: type[Event], handler: DurableHandler, *, name: str
+    ) -> None:
+        """Rebind an existing durable name, including its outstanding deliveries."""
+        self.durable.replace(event_type, handler, name=name)
 
     async def publish_durable(self, event: Event, db: Any) -> None:
         """Persist *event* for every durable handler in *db*'s transaction.

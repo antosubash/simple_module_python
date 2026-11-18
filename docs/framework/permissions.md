@@ -89,6 +89,23 @@ Host apps customize this by:
 
 The framework ships only `admin: ["*"]`. The wildcard grants every declared permission.
 
+## Revoking code role grants
+
+In the host's [customize callback](lifecycle.md#host-overrides), call
+`app.state.sm.permissions.revoke_role(role, permission)` to remove one grant
+registered through `map_role`, or `revoke_role(role)` to remove all code grants
+for that role. Derived caches are invalidated. A missing code grant or a role
+with no code grants raises `KeyError`.
+
+This is code revocation, not a permission deny list. DB role overlays remain
+independent grants: reloading an overlay that does not explicitly contain the
+revoked permission cannot restore it, but a DB row explicitly granting that
+permission still grants it. Removing all code grants also leaves DB grants
+intact. Runtime permission catalog sources, per-user grant sources, other roles
+and the default admin wildcard are unchanged. Later `map_role` calls may add
+code grants again. Keep host overrides in `customize`, rather than relying on
+a module's name to sort last.
+
 ## Principals outside requests
 
 Use the caller's **async** database session to build a user's current account
