@@ -12,7 +12,7 @@ from fastapi.routing import APIRoute
 from simple_module_hosting._openapi import make_unique_id_function
 from simple_module_hosting.token_guard import page_route
 
-__all__ = ["wire_module_routes"]
+__all__ = ["wire_fallback_routes", "wire_module_routes"]
 
 
 def wire_module_routes(app: FastAPI, module) -> bool:
@@ -65,6 +65,21 @@ def wire_module_routes(app: FastAPI, module) -> bool:
         _clone_bare_prefix_route(admin_router, admin_prefix)
         app.include_router(admin_router, prefix=admin_prefix, include_in_schema=False)
     return has_views
+
+
+def wire_fallback_routes(app: FastAPI, module) -> bool:
+    """Attach last-resort views after the caller has mounted ordinary routes."""
+    router = APIRouter(
+        tags=[f"{module.meta.name} Fallback Views"],
+        include_in_schema=False,
+        dependencies=[Depends(page_route)],
+    )
+    module.register_fallback_routes(router)
+    if not router.routes:
+        return False
+    _clone_bare_prefix_route(router, module.meta.view_prefix)
+    app.include_router(router, prefix=module.meta.view_prefix, include_in_schema=False)
+    return True
 
 
 def _clone_bare_prefix_route(router: APIRouter, prefix: str) -> None:

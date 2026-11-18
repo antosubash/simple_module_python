@@ -30,6 +30,8 @@ register_exception_handlers
 register_middleware
 register_routes
 register_admin_routes       (only when meta.admin_view_prefix is set)
+-- framework routes, static/SPA mounts, host routers
+register_fallback_routes    (all modules, in dependency order)
 -- check_data_compatibility (async, before module settings hydration)
 -- on_startup (async, after middleware is installed)
 ```
@@ -311,6 +313,43 @@ prefixes default to `""`, preserving absolute paths registered by existing
 modules. Declare prefixes explicitly in metadata, and retain existing values
 when adopting conventional routers so URLs do not change.
 
+## `register_fallback_routes(router)`
+
+Use this opt-in hook for catch-all pages such as `/{slug}` or
+`/{slug}/{page}`. It is a no-op by default: move catch-all routes out of the
+conventional views router and include them here instead.
+
+```python
+def register_fallback_routes(self, router: APIRouter) -> None:
+    from orders.web.endpoints.fallback import router as fallback
+
+    router.include_router(fallback)
+```
+
+The host applies `ModuleMeta.view_prefix` once, just like ordinary views;
+do not repeat it in the hook. Fallback routes are page routes, excluded from
+OpenAPI and subject to the same API-token restrictions as ordinary views.
+Auth and tenant middleware still run; CSRF dependencies remain opt-in.
+Declare anonymous access through `register_public_routes` as usual. Avoid
+broad public exemptions that would also exempt existing protected routes.
+
+`create_app` calls this hook after every ordinary module and admin router,
+framework route (including health, setup and admin), static/SPA mount and host
+router. Pass host routers as `create_app(settings, routers=(host_router,))`,
+or use `build_host_app(..., routers=(host_router,))`, which also accepts import
+strings. A router included on the returned app is appended **after** fallback
+routes; supply it to the builder to preserve its precedence. The same applies
+to custom mounts added after the builder returns: the ordering guarantee covers
+mounts declared through the framework's static/SPA contribution mechanisms.
+
+Fallback hooks run in the same topological dependency order as ordinary hooks,
+after all ordinary routes are mounted. The first matching route wins, including
+between fallback modules; use `depends_on` / `optional_depends_on` to express
+ordering rather than relying on names. A handler returning 404 does not retry
+later fallbacks. Static and SPA mounts likewise retain ownership of their
+prefixes, including missing files. No route-priority setting or host import of
+the fallback module is needed.
+
 ## `locale_dirs()`
 
 The default discovers `<package>/locales` when it is a directory and returns
@@ -469,6 +508,7 @@ class OrdersModule(ModuleBase):
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
     def register_admin_routes(self, admin_router): ...
+    def register_fallback_routes(self, router): ...
 
     async def on_startup(self, app): ...
     async def on_shutdown(self, app): ...

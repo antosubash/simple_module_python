@@ -43,6 +43,7 @@ All notable changes to this project are documented in this file. The format is b
 - Removed only the deprecation of `ModuleMeta.requires_framework=None`: `None` permanently means **no version constraint**. The live hosting registration and core public-routes, versioning and resources modules remain. The Makefile's 0.0.49 `SM_TEST_PG_URL` fallback and `SM_VITE_PORT` support are unchanged.
 ### Added
 
+- Modules can register catch-all views with `register_fallback_routes(router)`, mounted at `view_prefix` in dependency order after ordinary routes, host routers and static/SPA mounts. `create_app(..., routers=...)` and `build_host_app(..., routers=...)` keep host routes ahead of fallbacks (#1022).
 - Mail messages support validated file attachments with a 10 MiB combined size cap, SMTP MIME delivery, metadata-only console/fallback logging, durable base64 JSON round-trips, and attachment inspection through `captured_mail`; existing queued messages without attachments remain valid (#1006).
 - Path-filtered production Docker image smoke checks build and boot the root image, then require HTTP 200 from health and a frontend asset found in the rendered page. Failures block `pr-checks` (#1009).
 - Sharing ships a reusable `ShareDialog` and `useShares` hook, with a policy-authorized, tenant-filtered and rate-limited user picker (#990).

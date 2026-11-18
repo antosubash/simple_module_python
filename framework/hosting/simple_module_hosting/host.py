@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -48,6 +48,7 @@ def build_host_app(
     sys.path so sibling imports survive the cwd change.
 
     Routers can be APIRouter instances or ``module:attribute`` import strings.
+    They are mounted before modules' ``register_fallback_routes`` hooks.
     Use strings when a router imports settings: dotenv must populate os.environ
     before *any* settings or application imports, including direct env readers.
     Real environment values always win over dotenv values. Development extras
@@ -75,10 +76,13 @@ def build_host_app(
 
     settings = merge_host_settings()
     setup_logging(level=settings.log_level, json_format=settings.log_format == "json")
-    app = create_app(settings)
+    return create_app(settings, routers=_resolve_routers(routers))
+
+
+def _resolve_routers(routers: Iterable[APIRouter | str]) -> Iterator[APIRouter]:
+    # Resolve lazily, after environment and module registrations, as before.
     for router in routers:
         if isinstance(router, str):
             module, attribute = router.split(":", 1)
             router = getattr(import_module(module), attribute)
-        app.include_router(router)
-    return app
+        yield router

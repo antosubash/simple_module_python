@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
@@ -35,6 +36,7 @@ from simple_module_hosting._boot_checks import report_tenant_resolution, report_
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
+from simple_module_hosting._module_routes import wire_fallback_routes
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
     install_middleware,
@@ -66,7 +68,7 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = _resolve_project_root()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter] = ()) -> FastAPI:
     """Build and configure the full FastAPI application.
 
     Boot sequence:
@@ -79,6 +81,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
       7. Inertia setup & exception handlers (register_exception_handlers)
       8. Middleware pipeline (register_middleware)
       9. Routes (register_routes), health endpoints, static files
+      10. Host routers, then module fallback routes (dependency order)
+
+    Supply host routers through ``routers`` so they precede fallback routes.
+    Routes added to the returned app are appended after the fallbacks.
     """
     # ── Phase 0: Pre-app config read ───────────────────────
     # Phases 1 and 8 below consume settings to build the module list, the
@@ -231,6 +237,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     mount_host_static(app, _PROJECT_ROOT)
 
     mount_module_static_dirs(app, modules)
+
+    for router in routers:
+        app.include_router(router)
+    for mod in modules:
+        if wire_fallback_routes(app, mod):
+            view_prefixes[mod.meta.name] = mod.meta.view_prefix
 
     app.state.sm = Services(
         settings=settings,

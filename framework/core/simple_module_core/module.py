@@ -81,6 +81,15 @@ class ModuleBase(RequestHooksMixin, ABC):
         the prefix is a URL convention, not a permission.
         """
 
+    def register_fallback_routes(self, router: APIRouter) -> None:
+        """Register last-resort view routes, mounted at ``meta.view_prefix``.
+
+        Called after ordinary module, framework and host routers and static/SPA
+        mounts, in dependency order (first match wins). Auth, tenant middleware
+        and explicitly declared CSRF dependencies apply as usual. Public paths
+        still need ``register_public_routes``. Nothing is discovered by default.
+        """
+
     def register_menu_items(self, registry: MenuRegistry) -> None:
         """Contribute menu items visible in the UI."""
 

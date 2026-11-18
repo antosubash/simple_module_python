@@ -106,6 +106,7 @@ class ModuleDiagnostics:
                 name
                 for name in (
                     "register_routes",
+                    "register_fallback_routes",
                     "register_menu_items",
                     "register_permissions",
                     "register_feature_flags",
