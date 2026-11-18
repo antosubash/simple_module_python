@@ -41,6 +41,14 @@ class SmtpMailSender:
         email.set_content(message.text)
         if message.html:
             email.add_alternative(message.html, subtype="html")
+        for attachment in message.attachments:
+            maintype, subtype = attachment.content_type.split("/")
+            email.add_attachment(
+                attachment.content,
+                maintype=maintype,
+                subtype=subtype,
+                filename=attachment.filename,
+            )
 
         await aiosmtplib.send(
             email,
@@ -80,7 +88,7 @@ def build_sender(settings: MailSettings, *, log_bodies: bool = True) -> MailSend
 
     *log_bodies* is false outside development and testing: a console backend
     left in place in production must not write reset and invite tokens to the
-    log, so there it logs only recipient and subject.
+    log, so there it logs only recipient, subject and attachment metadata.
     """
     if settings.backend == c.BACKEND_SMTP:
         return SmtpMailSender(

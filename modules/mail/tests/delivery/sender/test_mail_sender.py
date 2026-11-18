@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from mail.core.settings import MailSettings
 from mail.delivery.sender import SmtpMailSender, build_sender
-from simple_module_core.mail import ConsoleMailSender, MailMessage
+from simple_module_core.mail import ConsoleMailSender, MailAttachment, MailMessage
 
 
 def test_defaults() -> None:
@@ -81,6 +81,47 @@ async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
 
     _, kwargs = send.call_args
     assert kwargs["username"] is None and kwargs["password"] is None
+
+
+@pytest.mark.parametrize("html", [None, "<b>Body</b>"])
+async def test_smtp_attachment_parts_preserve_filename_type_and_bytes(monkeypatch, html) -> None:
+    from email import policy
+    from email.parser import BytesParser
+
+    send = AsyncMock()
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    await _smtp().send(
+        MailMessage(
+            "to@test",
+            "Hi",
+            "Body",
+            html=html,
+            attachments=[
+                MailAttachment(
+                    filename="invite.ics",
+                    content_type="text/calendar",
+                    content=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n",
+                ),
+                MailAttachment(
+                    filename="r\u00e9sum\u00e9.bin",
+                    content_type="application/octet-stream",
+                    content=b"\x00\xff",
+                ),
+            ],
+        )
+    )
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0].as_bytes())
+    parts = list(email.iter_attachments())
+    assert [
+        (p.get_filename(), p.get_content_type(), p.get_payload(decode=True)) for p in parts
+    ] == [
+        ("invite.ics", "text/calendar", b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"),
+        ("r\u00e9sum\u00e9.bin", "application/octet-stream", b"\x00\xff"),
+    ]
+    assert all(p.get_content_disposition() == "attachment" for p in parts)
+    assert email.get_body(preferencelist=("plain",)).get_content().strip() == "Body"
+    if html:
+        assert email.get_body(preferencelist=("html",)).get_content().strip() == html
 
 
 def test_console_backend_outside_development_does_not_log_bodies() -> None:

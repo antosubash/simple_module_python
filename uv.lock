@@ -3224,6 +3224,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyee" },
+    { name = "sqlmodel" },
 ]
 
 [package.metadata]
@@ -3235,6 +3236,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0,<3" },
     { name = "pydantic-settings", specifier = ">=2.0,<3" },
     { name = "pyee", specifier = ">=12.0,<15" },
+    { name = "sqlmodel", specifier = ">=0.0.22,<0.1" },
 ]
 
 [[package]]

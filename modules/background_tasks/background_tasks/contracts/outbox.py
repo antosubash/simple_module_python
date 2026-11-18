@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from pydantic import ConfigDict
 from sqlmodel import SQLModel
@@ -20,7 +19,6 @@ class OutboxItem(SQLModel):
     id: uuid.UUID
     event_key: str
     handler_name: str
-    payload: dict[str, Any] = {}
     tenant_id: str | None = None
     status: OutboxStatus
     attempts: int

@@ -195,6 +195,10 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 - Events must be `@dataclass` classes serialisable to JSON; `UUID`, `datetime`,
   `Enum`, `Decimal` and nested dataclasses round-trip. This is checked when you
   subscribe.
+- Events containing `simple_module_core.mail.MailMessage` also preserve its
+  attachments: content bytes are stored as base64 in the JSON payload and
+  restored before delivery. Old message payloads without `attachments` remain
+  valid. See [mail attachments](/modules/mail#attachments) for an `.ics` example.
 - The worker builds its own bus by calling every module's
   `register_event_handlers(bus, None)` — subscribe durably *before* any early
   `return` taken when `app is None`.

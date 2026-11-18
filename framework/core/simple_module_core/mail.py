@@ -14,12 +14,86 @@ handler has only its database session to go on (GH #496).
 
 from __future__ import annotations
 
+import base64
 import logging
-from collections.abc import Awaitable, Callable
+import re
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Annotated, Any, Protocol, runtime_checkable
+
+from pydantic import BeforeValidator, ConfigDict, field_serializer, field_validator
+from sqlmodel import SQLModel
 
 logger = logging.getLogger("simple_module.mail")
+
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+_MEDIA_TYPE = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,126}/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,126}"
+)
+
+
+class MailAttachment(SQLModel):
+    """An attached file; content is bytes in Python and base64 in durable JSON."""
+
+    model_config = ConfigDict(frozen=True)  # ty: ignore[invalid-assignment]
+
+    filename: str
+    content_type: str
+    content: bytes
+
+    @field_validator("filename")
+    @classmethod
+    def validate_filename(cls, value: str) -> str:
+        if (
+            not value
+            or value in {".", ".."}
+            or any(c in value for c in "/\\")
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)
+        ):
+            raise ValueError(
+                "attachment filename must be nonempty with no path separators or control characters"
+            )
+        return value
+
+    @field_validator("content_type")
+    @classmethod
+    def validate_content_type(cls, value: str) -> str:
+        if not _MEDIA_TYPE.fullmatch(value):
+            raise ValueError(
+                "attachment content_type must be a valid type/subtype without parameters"
+            )
+        if value.split("/", 1)[0].lower() in {"message", "multipart"}:
+            raise ValueError(
+                "attachment structured MIME types (message/*, multipart/*) are not supported"
+            )
+        return value
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def decode_content(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return base64.b64decode(value, validate=True)
+        return value
+
+    @field_serializer("content", when_used="json")
+    def encode_content(self, value: bytes) -> str:
+        return base64.b64encode(value).decode("ascii")
+
+
+def _check_encoded_attachment_size(value: Any) -> Any:
+    if not isinstance(value, (list, tuple)):
+        return value
+    encoded_length = padding = 0
+    for item in value:
+        if isinstance(item, dict) and isinstance(content := item.get("content"), str):
+            encoded_length += len(content)
+            padding += 2 if content.endswith("==") else int(content.endswith("="))
+    # Four base64 characters encode three bytes, less each file's terminal padding.
+    if encoded_length * 3 > (MAX_ATTACHMENT_BYTES + padding) * 4:
+        raise ValueError(
+            f"attachment total size must not exceed {MAX_ATTACHMENT_BYTES} bytes (10 MiB)"
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -28,6 +102,16 @@ class MailMessage:
     subject: str
     text: str
     html: str | None = None
+    attachments: Annotated[
+        Sequence[MailAttachment], BeforeValidator(_check_encoded_attachment_size)
+    ] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "attachments", tuple(self.attachments))
+        if sum(len(item.content) for item in self.attachments) > MAX_ATTACHMENT_BYTES:
+            raise ValueError(
+                f"attachment total size must not exceed {MAX_ATTACHMENT_BYTES} bytes (10 MiB)"
+            )
 
 
 @runtime_checkable
@@ -43,10 +127,11 @@ class ConsoleMailSender:
     """Logs each message instead of sending it.
 
     With ``include_body`` (the ``mail`` module's explicit ``console`` backend,
-    for development) the whole message is logged, so a developer can follow a
+    for development) the body is logged, so a developer can follow a
     reset or invite link. The fallback used when no transport is installed
     passes ``include_body=False``: those bodies carry one-time tokens and must
     not end up in a production log just because mail was never configured.
+    Attachments are logged only as filenames and byte counts in either mode.
     """
 
     delivers_email = False
@@ -56,6 +141,14 @@ class ConsoleMailSender:
 
     async def send(self, message: MailMessage) -> None:
         extra = {"mail_to": message.to, "mail_subject": message.subject}
+        for attachment in message.attachments:
+            logger.log(
+                logging.INFO if self.include_body else logging.WARNING,
+                "Mail attachment (not sent): %s (%d bytes)",
+                attachment.filename,
+                len(attachment.content),
+                extra=extra,
+            )
         if self.include_body:
             logger.info(
                 "Mail to %s (not sent, console sender): %s\n%s",
