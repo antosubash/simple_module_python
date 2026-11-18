@@ -46,6 +46,8 @@ from file_storage.models import StoredFile
 if TYPE_CHECKING:
     from simple_module_db.session import DatabaseState
 
+    from file_storage.files.access import FileAccess
+
 AGGREGATE_TTL_SECONDS: float = 30.0
 """How long a computed set of bucket totals is reused without re-scanning.
 
@@ -90,7 +92,9 @@ class StorageAggregates:
     used_bytes: int
 
 
-async def compute(db: AsyncSession) -> StorageAggregates:
+async def compute(
+    db: AsyncSession, *, access: FileAccess | None = None, untagged: bool = False
+) -> StorageAggregates:
     """Fold one grouped scan into the three answers the screen asks for.
 
     Deleted rows are excluded by the soft-delete loader criteria, which attach
@@ -103,16 +107,17 @@ async def compute(db: AsyncSession) -> StorageAggregates:
     listing query, so a "no uploader" choice could not be round-tripped through
     the query string honestly.
     """
-    grid = (
-        await db.execute(
-            select(
-                StoredFile.content_type,
-                StoredFile.created_by,
-                func.count(StoredFile.id),  # ty: ignore[invalid-argument-type]
-                func.coalesce(func.sum(StoredFile.size_bytes), 0),
-            ).group_by(StoredFile.content_type, StoredFile.created_by)
-        )
-    ).all()
+    stmt = select(
+        StoredFile.content_type,
+        StoredFile.created_by,
+        func.count(StoredFile.id),  # ty: ignore[invalid-argument-type]
+        func.coalesce(func.sum(StoredFile.size_bytes), 0),
+    ).group_by(StoredFile.content_type, StoredFile.created_by)
+    if untagged:
+        stmt = stmt.where(StoredFile.owner_module.is_(None))
+    if access is not None:
+        stmt = access.apply(stmt)
+    grid = (await db.execute(stmt)).all()
 
     by_type: dict[str, int] = {}
     by_uploader: dict[str, int] = {}
@@ -147,14 +152,17 @@ class AggregateCache:
     Keyed by the bound tenant id — ``None`` for an unscoped read (a
     single-tenant install, or an ``all_tenants()`` block), which counts every
     tenant's rows and so is a slot of its own. Expired slots are pruned on
-    store, so the map holds at most the tenants seen within one TTL.
+    store. The second key component separates full internal totals from legacy
+    untagged-only manager totals; principal-dependent results are never cached.
 
     Deliberately not ``cachetools``: a dict of (value, expiry) pairs is all
     this needs, and ``file_storage`` would otherwise grow a dependency for it.
     """
 
     ttl_seconds: float = AGGREGATE_TTL_SECONDS
-    _slots: dict[str | None, _Slot] = field(default_factory=dict, init=False, repr=False)
+    _slots: dict[tuple[str | None, bool], _Slot] = field(
+        default_factory=dict, init=False, repr=False
+    )
     _wired: bool = field(default=False, init=False, repr=False)
     """Whether :func:`register_invalidation` has already attached this cache."""
 
@@ -163,28 +171,27 @@ class AggregateCache:
         if tenant_ids is None:
             self._slots.clear()
             return
-        for tenant_id in tenant_ids:
-            self._slots.pop(tenant_id, None)
+        self._slots = {k: v for k, v in self._slots.items() if k[0] not in tenant_ids}
 
-    def peek(self) -> StorageAggregates | None:
+    def peek(self, *, untagged: bool = False) -> StorageAggregates | None:
         """The bound tenant's cached totals if still fresh, else ``None``."""
-        slot = self._slots.get(current_tenant_id.get())
+        slot = self._slots.get((current_tenant_id.get(), untagged))
         if slot is None or time.monotonic() >= slot[1]:
             return None
         return slot[0]
 
-    async def get(self, db: AsyncSession) -> StorageAggregates:
+    async def get(self, db: AsyncSession, *, untagged: bool = False) -> StorageAggregates:
         """Cached totals for the bound tenant, computing them on a miss."""
-        cached = self.peek()
+        cached = self.peek(untagged=untagged)
         if cached is not None:
             return cached
         # Read the key before the await: the scan is filtered by the tenant
         # bound *now*, and that is the slot its answer belongs in.
         tenant_id = current_tenant_id.get()
-        value = await compute(db)
+        value = await compute(db, untagged=untagged)
         now = time.monotonic()
         self._slots = {k: v for k, v in self._slots.items() if v[1] > now}
-        self._slots[tenant_id] = (value, now + self.ttl_seconds)
+        self._slots[(tenant_id, untagged)] = (value, now + self.ttl_seconds)
         return value
 
 

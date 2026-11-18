@@ -49,7 +49,7 @@ from file_storage.files.service import (
     StreamDownload,
 )
 from file_storage.multipart.support import QuotaExceededError, StorageBusyError
-from file_storage.web.deps import OwnerScope, get_event_bus, get_file_storage_service
+from file_storage.web.deps import get_authorized_file_storage_service, get_event_bus
 from file_storage.web.endpoints.upload_errors import busy, quota
 from file_storage.web.serving import etag_for, not_found, sandbox_headers, thumbnail_response
 
@@ -66,7 +66,7 @@ async def upload_file(
     t: TranslatorDep,
     file: UploadFile = File(...),
     public: bool = Form(default=False),
-    service: FileStorageService = Depends(get_file_storage_service),
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
     bus: EventBus = Depends(get_event_bus),
 ) -> StoredFileOut:
     try:
@@ -131,13 +131,11 @@ async def list_files(
     sort: Literal["created_at", "-created_at", "name", "-name", "size", "-size"] = Query(
         default=constants.DEFAULT_SORT
     ),
-    service: FileStorageService = Depends(get_file_storage_service),
-    owner: str | None = OwnerScope,
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
 ) -> StoredFileListOut:
     items, total = await service.list_files(
         page=params.page,
         per_page=params.per_page,
-        created_by=owner,
         search=q,
         content_type=content_type,
         sort=sort,
@@ -153,11 +151,10 @@ async def list_files(
 async def get_file(
     file_id: uuid.UUID,
     t: TranslatorDep,
-    service: FileStorageService = Depends(get_file_storage_service),
-    owner: str | None = OwnerScope,
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
 ) -> StoredFileOut:
     try:
-        row = await service.get(file_id, owner=owner)
+        row = await service.get(file_id)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     return StoredFileOut.model_validate(queries.to_out_dict(row))
@@ -172,12 +169,11 @@ async def update_file(
     file_id: uuid.UUID,
     body: StoredFileUpdate,
     t: TranslatorDep,
-    service: FileStorageService = Depends(get_file_storage_service),
-    owner: str | None = OwnerScope,
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
 ) -> StoredFileOut:
     """Publish or unpublish a file the caller uploaded (or any, with manage)."""
     try:
-        row = await service.set_public(file_id, body.public, owner=owner)
+        row = await service.set_public(file_id, body.public)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     return StoredFileOut.model_validate(queries.to_out_dict(row))
@@ -192,11 +188,10 @@ async def file_thumbnail(
     file_id: uuid.UUID,
     t: TranslatorDep,
     w: int | None = Query(default=None, description="Width in px; clamped and snapped."),
-    service: FileStorageService = Depends(get_file_storage_service),
-    owner: str | None = OwnerScope,
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
 ) -> Response:
     try:
-        row = await service.get(file_id, owner=owner)
+        row = await service.get(file_id)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     return await thumbnail_response(
@@ -213,11 +208,10 @@ async def download_file(
     file_id: uuid.UUID,
     request: Request,
     t: TranslatorDep,
-    service: FileStorageService = Depends(get_file_storage_service),
-    owner: str | None = OwnerScope,
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
 ) -> Response:
     try:
-        download = await service.download(file_id, open_body=False, owner=owner)
+        download = await service.download(file_id, open_body=False)
         if isinstance(download, RedirectDownload):
             return RedirectResponse(url=download.url, status_code=status.HTTP_302_FOUND)
 
@@ -246,9 +240,8 @@ async def download_file(
 )
 async def bulk_delete_files(
     body: BulkDeleteRequest,
-    service: FileStorageService = Depends(get_file_storage_service),
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
     bus: EventBus = Depends(get_event_bus),
-    owner: str | None = OwnerScope,
 ) -> BulkDeleteResult:
     """Delete a selection in one request.
 
@@ -259,7 +252,7 @@ async def bulk_delete_files(
     subscriber that mirrors or reindexes files cannot tell a bulk delete from a
     run of single ones.
     """
-    rows = await service.delete_many(body.ids, owner=owner, drop_object=False)
+    rows = await service.delete_many(body.ids, drop_object=False)
     for row in rows:
         register_on_commit(service.db, partial(service.drop_object, row))
         await bus.publish(FileDeleted(file_id=row.id, key=row.key))
@@ -274,12 +267,11 @@ async def bulk_delete_files(
 async def delete_file(
     file_id: uuid.UUID,
     t: TranslatorDep,
-    service: FileStorageService = Depends(get_file_storage_service),
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
     bus: EventBus = Depends(get_event_bus),
-    owner: str | None = OwnerScope,
 ) -> None:
     try:
-        row = await service.delete(file_id, owner=owner, drop_object=False)
+        row = await service.delete(file_id, drop_object=False)
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     register_on_commit(service.db, partial(service.drop_object, row))
