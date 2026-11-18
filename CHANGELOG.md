@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Make the clean-target repo-detection test independent of repository markers above its temporary directory, including `/tmp/.git`; production detection behavior is unchanged (#1001).
+- Generated frontend manifests and module TypeScript projects are replaced atomically and only when their content changes, so concurrent readers never see a truncated file (#979).
 
 - **Behaviour change:** generated app, worker and beat Redis connections use only `SM_REDIS_URL`; per-field Celery variables remain overrides for non-Redis transports. The production localhost guard also rejects IPv6 loopback (#970).
 - **Behaviour change:** module scaffolds omit empty settings and services plumbing unless `--with-settings` is passed (`make new-module name=orders ARGS=--with-settings`). Remove unused Sharing settings, retain the Settings module configuration used by its registry and tests, and correct DB-backed settings and Inertia page release instructions (#981).

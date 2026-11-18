@@ -12,6 +12,7 @@ and JS build jobs install the required Node dependencies.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -20,57 +21,82 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-pytestmark = [
-    # Both tests rewrite the shared tree (generated manifests, host/static/dist, a
-    # probe page under audit_log), so under xdist they must share one worker.
-    pytest.mark.xdist_group("repo-build"),
-]
 
-
-@pytest.fixture(autouse=True)
-def require_build_tools(require_cli_asset):
+@pytest.fixture
+def build_repo(tmp_path, require_cli_asset):
+    """Build private sources/artifacts; share installed dependencies only for reads."""
     require_cli_asset(shutil.which("npm") is not None, "npm not on PATH")
     require_cli_asset(
         (REPO_ROOT / "node_modules").is_dir(),
         "node_modules absent — run `npm ci` to exercise the real build",
     )
+    for directory in ("host/client_app", "modules", "packages"):
+        shutil.copytree(
+            REPO_ROOT / directory,
+            tmp_path / directory,
+            ignore=shutil.ignore_patterns("node_modules", ".module-tsconfig", "__pycache__"),
+        )
+    for name in ("package.json", ".gitignore"):
+        shutil.copy2(REPO_ROOT / name, tmp_path / name)
+    dependencies = tmp_path / "node_modules"
+    dependencies.mkdir()
+    for dependency in (REPO_ROOT / "node_modules").iterdir():
+        # Vite writes .vite-temp here; it must stay inside this test's tree.
+        if dependency.name.startswith(".vite") or dependency.name == ".cache":
+            continue
+        (dependencies / dependency.name).symlink_to(
+            dependency, target_is_directory=dependency.is_dir()
+        )
+    env = os.environ.copy()
+    module_roots = sorted((tmp_path / "modules").iterdir())
+    env["PYTHONPATH"] = os.pathsep.join(
+        [*(str(p) for p in module_roots), env.get("PYTHONPATH", "")]
+    )
+    env["SM_PROJECT_ROOT"] = str(tmp_path)
+    # Reuse the installed Python environment without syncing the copied workspace.
+    env["UV_PROJECT"] = str(REPO_ROOT)
+    subprocess.run(
+        [
+            "uv",
+            "run",
+            "--no-sync",
+            "smpy",
+            "host",
+            "gen-pages",
+            "--host-dir",
+            str(tmp_path / "host/client_app"),
+        ],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+        timeout=60,
+    )
+    return tmp_path, env
 
 
 class TestModuleCssReachesBundle:
-    def test_module_class_is_emitted_by_vite_build(self):
+    def test_module_class_is_emitted_by_vite_build(self, build_repo):
         """A class defined only in a module's styles.css appears in the built CSS.
 
         `.dashboard-stat-grid` is declared in modules/dashboard/dashboard/styles.css
         and referenced by no TSX anywhere, so it can only reach the bundle via the
         generated `@import` of that stylesheet.
         """
-        subprocess.run(
-            [
-                "uv",
-                "run",
-                "--project",
-                "host",
-                "smpy",
-                "host",
-                "gen-pages",
-                "--host-dir=host/client_app",
-            ],
-            cwd=REPO_ROOT,
-            check=True,
-            capture_output=True,
-        )
+        root, env = build_repo
 
-        generated = (REPO_ROOT / "host/client_app/modules.generated.css").read_text(
-            encoding="utf-8"
-        )
-        dashboard_css = REPO_ROOT / "modules/dashboard/dashboard/styles.css"
+        generated = (root / "host/client_app/modules.generated.css").read_text(encoding="utf-8")
+        dashboard_css = root / "modules/dashboard/dashboard/styles.css"
         assert f'@import "{dashboard_css.as_posix()}" layer(components);' in generated, (
             f"gen-pages did not emit the dashboard stylesheet import:\n{generated}"
         )
 
-        subprocess.run(["npm", "run", "build"], cwd=REPO_ROOT, check=True, capture_output=True)
+        result = subprocess.run(
+            ["npm", "run", "build"], cwd=root, env=env, capture_output=True, text=True, timeout=180
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
 
-        built = list((REPO_ROOT / "host/static/dist/assets").glob("*.css"))
+        built = list((root / "host/static/dist/assets").glob("*.css"))
         assert built, "no CSS emitted by the build"
         combined = "\n".join(p.read_text(encoding="utf-8") for p in built)
         assert "dashboard-stat-grid" in combined, (
@@ -79,10 +105,6 @@ class TestModuleCssReachesBundle:
         )
 
 
-# Written into a real module's pages/ so the host build treats it exactly like
-# any other module page. Removed again in the fixture's teardown.
-PROBE_MODULE_PAGES = REPO_ROOT / "modules/audit_log/audit_log/pages"
-PROBE_PAGE = PROBE_MODULE_PAGES / "CrossModuleImportProbe.tsx"
 PROBE_SOURCE = """\
 // Generated by test_module_css_build.py — safe to delete.
 import { ModuleTile } from '@simple-module-py/dashboard/ui/components/ModuleTile';
@@ -103,18 +125,8 @@ export default function CrossModuleImportProbe() {
 """
 
 
-@pytest.fixture
-def cross_module_probe_page():
-    """Add a page importing a sibling module by npm package name, then remove it."""
-    PROBE_PAGE.write_text(PROBE_SOURCE, encoding="utf-8")
-    try:
-        yield PROBE_PAGE
-    finally:
-        PROBE_PAGE.unlink(missing_ok=True)
-
-
 class TestCrossModuleImportResolves:
-    def test_module_can_import_a_sibling_by_npm_package_name(self, cross_module_probe_page):
+    def test_module_can_import_a_sibling_by_npm_package_name(self, build_repo):
         """`@simple-module-py/<slug>/…` resolves to the sibling's package dir.
 
         Nothing in Node's own resolution makes this work. A wheel-installed
@@ -127,31 +139,19 @@ class TestCrossModuleImportResolves:
         This can only be caught by a real build: every unit test around
         `npm_name` stays green while the alias itself is missing or misaimed.
         """
-        subprocess.run(
-            [
-                "uv",
-                "run",
-                "--project",
-                "host",
-                "smpy",
-                "host",
-                "gen-pages",
-                "--host-dir=host/client_app",
-            ],
-            cwd=REPO_ROOT,
-            check=True,
-            capture_output=True,
-        )
+        root, env = build_repo
+        probe = root / "modules/audit_log/audit_log/pages/CrossModuleImportProbe.tsx"
+        probe.write_text(PROBE_SOURCE, encoding="utf-8")
 
         result = subprocess.run(
-            ["npm", "run", "build"], cwd=REPO_ROOT, capture_output=True, text=True
+            ["npm", "run", "build"], cwd=root, env=env, capture_output=True, text=True, timeout=180
         )
         assert result.returncode == 0, (
             "build failed — a module could not import a sibling by npm package "
-            f"name:\n{result.stderr[-2000:]}"
+            f"name:\n{result.stdout}\n{result.stderr}"
         )
 
-        chunks = list((REPO_ROOT / "host/static/dist/assets").glob("CrossModuleImportProbe*.js"))
+        chunks = list((root / "host/static/dist/assets").glob("CrossModuleImportProbe*.js"))
         assert chunks, "probe page produced no chunk"
         # Resolution really happened if the sibling's component was pulled in
         # rather than the import being dropped or stubbed out.

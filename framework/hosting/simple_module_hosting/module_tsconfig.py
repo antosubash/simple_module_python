@@ -11,6 +11,7 @@ import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
+from simple_module_hosting._generated_files import _write_if_changed
 from simple_module_hosting.assets import ModuleAssets
 
 
@@ -109,8 +110,7 @@ def write_module_tsconfigs(assets: Sequence[ModuleAssets], output_dir: Path) -> 
         }
         path = generated / f"{asset.package_name}.json"
         payload = json.dumps(config, indent=2) + "\n"
-        if not path.exists() or path.read_text(encoding="utf-8") != payload:
-            path.write_text(payload, encoding="utf-8")
+        _write_if_changed(path, payload)
         configs.append(path)
     return list(dict.fromkeys(configs))
 

@@ -157,23 +157,20 @@ class TestCreateApp:
         assert gated.status_code == 401
 
     async def test_app_state_has_sm_services(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+        self, monkeypatch: pytest.MonkeyPatch, isolated_host_root
     ) -> None:
         """create_app populates app.state.sm with a Services instance."""
         from simple_module_core.services import Services
 
         monkeypatch.setenv("SM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
         monkeypatch.setenv("SM_SECRET_KEY", "x" * 48)
-        monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
-        (tmp_path / "host" / "templates").mkdir(parents=True)
-        (tmp_path / "host" / "templates" / "index.html").write_text("<html></html>")
 
         # No modules_enabled allowlist: both auth providers are entry points in
         # the dev workspace, and create_app is expected to activate the named
         # one rather than fail the boot on SM020. auth_provider is passed
         # explicitly so an SM_AUTH_PROVIDER in the developer's .env can't
         # decide which provider this asserts on.
-        app = create_app(Settings(auth_provider="users"))
+        app = create_app(Settings(auth_provider="users", environment="development"))
 
         sm = app.state.sm
         assert isinstance(sm, Services)
@@ -188,6 +185,7 @@ class TestCreateApp:
         assert sm.i18n_registry is not None
         assert sm.inertia_config is not None
         assert len(sm.modules) > 0
+        assert (isolated_host_root / "host/client_app/modules.assets.json").is_file()
 
 
 class TestResolveProjectRoot:
