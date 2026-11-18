@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import importlib.resources
-import json
 from pathlib import Path
 
 import typer
@@ -75,7 +74,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
     run(
         "pages",
         lambda: {
-            "assets": json.loads(render_assets_json(assets)),
+            "assets": render_assets_json(assets),
             "sources": sorted(str(p) for p in page_sources),
             "generator": file_hashes(
                 [hosting / "manifest.py", hosting / "assets.py", hosting / "page_globs.py"]

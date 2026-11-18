@@ -50,10 +50,7 @@ def project(tmp_path, monkeypatch, request):
 
     def build(_root):
         calls.append("api")
-        return SimpleNamespace(
-            state=SimpleNamespace(sm=SimpleNamespace(modules=modules)),
-            openapi=lambda: {"paths": {}},
-        )
+        return SimpleNamespace(openapi=lambda: {"paths": {}})
 
     monkeypatch.setattr(gen_cmd, "_sync_deps", sync)
     monkeypatch.setattr("simple_module_cli.openapi_cmd._build_app", build)
