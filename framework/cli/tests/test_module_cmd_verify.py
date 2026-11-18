@@ -104,9 +104,25 @@ class TestRunVerify:
         # order: sync < install < gen-pages < build
         idx = {
             key: next(i for i, c in enumerate(joined) if key in c)
-            for key in ("sync", "install", "gen-pages", "gen-i18n", "run build")
+            for key in (
+                "sync",
+                "install",
+                "sync-js-deps",
+                "gen-pages",
+                "gen-i18n",
+                "typecheck",
+                "run build",
+            )
         }
-        assert idx["sync"] < idx["install"] < idx["gen-pages"] < idx["gen-i18n"] < idx["run build"]
+        assert (
+            idx["sync"]
+            < idx["install"]
+            < idx["sync-js-deps"]
+            < idx["gen-pages"]
+            < idx["gen-i18n"]
+            < idx["typecheck"]
+            < idx["run build"]
+        )
         # npm steps run in client_app, uv steps in the host root
         host = str(module_root / ".smpy" / "verify-host")
         assert calls[idx["sync"]][1] == host

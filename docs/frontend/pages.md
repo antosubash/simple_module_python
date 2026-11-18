@@ -201,7 +201,7 @@ import "./Browse.css";
 
 ## Page-level TypeScript
 
-Each module's `tsconfig.json` extends the host's; page files can import across module boundaries (from `<other_module>/contracts`) freely. Cross-module imports from anything *other than* `contracts` is a code smell — you're reaching into implementation details.
+The host generates module typecheck configs unless a module supplies a `tsconfig.json` override; page files can import across module boundaries (from `<other_module>/contracts`) freely. Cross-module imports from anything *other than* `contracts` is a code smell — you're reaching into implementation details.
 
 ## Testing pages
 

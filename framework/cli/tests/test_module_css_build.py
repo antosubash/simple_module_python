@@ -91,6 +91,7 @@ export default function CrossModuleImportProbe() {
   return (
     <ModuleTile
       name="probe"
+      displayName="probe"
       url=""
       health=""
       reachable={false}

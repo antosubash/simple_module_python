@@ -215,10 +215,8 @@ def create_module(
     for ``make new-module`` and implies no ``.github/``. Wiring the repo's
     pyproject files is :mod:`simple_module_cli.framework_repo`'s job.
 
-    ``standalone=True`` additionally overlays ``_optional/standalone/`` (npm
-    devDependencies + a tsconfig that resolves ``@simple-module-py/ui`` from the
-    repo's own ``node_modules``) so the module type-checks outside a workspace,
-    and pages with literal English: the base pages use ``t(keys.<package>.…)``
+    ``standalone=True`` overlays pages with literal English: the base pages use
+    ``t(keys.<package>.…)``
     (GH #918), and a module repo has no host whose ``gen-i18n`` adds its keys.
     """
     dest = Path(dest)

@@ -34,11 +34,6 @@ build-backend = "hatchling.build"
 packages = ["{{PACKAGE_NAME}}"]
 exclude = ["**/*.test.*", "**/*.spec.*", "**/test-dom.tsx", "**/page-tests/**"]
 
-# Ship the module-root package.json inside the wheel so the host can
-# discover JS deps via importlib.resources after a pip install.
-[tool.hatch.build.targets.wheel.force-include]
-"package.json" = "{{PACKAGE_NAME}}/package.json"
-
 [tool.uv.sources]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }

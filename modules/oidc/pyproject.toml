@@ -43,6 +43,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["oidc"]
 
+# Preserve the published @simple-module/oidc alias.
 [tool.hatch.build.targets.wheel.force-include]
 "package.json" = "oidc/package.json"
 

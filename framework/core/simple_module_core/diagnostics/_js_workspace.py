@@ -1,7 +1,8 @@
-"""SM017: warn modules shipping .tsx pages but missing npm workspace files."""
+"""SM017: report unusable optional frontend dependency manifests."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,31 +13,35 @@ if TYPE_CHECKING:
 
 
 def check_js_workspace_files(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]:
-    """Warn when a module ships .tsx pages but is missing npm workspace files.
-
-    Wheel-installed modules under ``site-packages/`` are skipped — the
-    install location is package-manager-owned, so any file we'd ask the
-    user to create there gets obliterated on the next reinstall.
-    """
-    module_dir = src_dir.parent
-    if "site-packages" in module_dir.parts:
+    """Frontend configs are optional; validate dependency declarations when present."""
+    candidates = [src_dir / "package.json"]
+    if "site-packages" not in src_dir.parts:
+        candidates.append(src_dir.parent / "package.json")
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("expected a JSON object")
+            for block in ("dependencies", "peerDependencies", "devDependencies"):
+                deps = data.get(block, {})
+                if not isinstance(deps, dict) or not all(
+                    isinstance(k, str) and isinstance(v, str) for k, v in deps.items()
+                ):
+                    raise ValueError(f"{block} must map package names to version strings")
+        except (OSError, ValueError) as exc:
+            return [
+                Diagnostic(
+                    level=DiagnosticLevel.WARNING,
+                    code="SM017",
+                    message=f"Invalid frontend dependency manifest: {exc}",
+                    module_name=mod.meta.name,
+                    file=str(path),
+                    suggestion=(
+                        "Fix package.json, or remove it when no extra JS dependencies are needed."
+                    ),
+                )
+            ]
         return []
-    pages_dir = src_dir / "pages"
-    if not pages_dir.exists() or not any(pages_dir.rglob("*.tsx")):
-        return []
-    return [
-        Diagnostic(
-            level=DiagnosticLevel.WARNING,
-            code="SM017",
-            message=f"Module ships pages/*.tsx but has no {fn}",
-            module_name=mod.meta.name,
-            file=str(module_dir / fn),
-            suggestion=(
-                f"Create {module_dir / fn} — without it npm won't treat the "
-                "module as a workspace member and Vite may fail to resolve "
-                "@simple-module-py/ui subpath imports"
-            ),
-        )
-        for fn in ("package.json", "tsconfig.json")
-        if not (module_dir / fn).exists()
-    ]
+    return []

@@ -124,12 +124,6 @@ class TestFrameworkRepoVariant:
             assert "const { t } = useT();" in content
             assert "t(keys.orders." in content
 
-    def test_workspace_tsconfig_resolves_ui_from_root_node_modules(self, orders: Path):
-        assert (
-            "../../node_modules/@simple-module-py/ui/src/*"
-            in (orders / "tsconfig.json").read_text()
-        )
-
     def test_standalone_variant_keeps_literal_pages_and_no_workspace_sources(self, tmp_path: Path):
         dest = create_module(tmp_path / "m", name="orders")
         assert "keys." not in (dest / "orders" / "pages" / "Browse.tsx").read_text()

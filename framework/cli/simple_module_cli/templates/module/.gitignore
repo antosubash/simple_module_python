@@ -8,7 +8,7 @@ build/
 *.sqlite3
 .env
 
-# Built frontend assets — shipped inside the wheel via force-include but
+# Built frontend assets — shipped inside the wheel via artifacts but
 # NOT source-controlled. Re-run `smpy module build` before `uv build` to
 # repopulate.
 */static/dist/

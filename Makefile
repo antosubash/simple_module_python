@@ -155,17 +155,8 @@ ci-js-lint:
 	npx biome ci --error-on-warnings .
 
 ci-js-typecheck: gen-pages
-	npx tsc --noEmit -p host/client_app/tsconfig.json
-	@# Fail if a module ships .tsx files but has no tsconfig.json — otherwise
-	@# the type-check would silently skip the module. See SM017 in `make doctor`.
-	@for dir in modules/*/; do \
-		if [ -n "$$(find "$$dir" -name '*.tsx' -print -quit 2>/dev/null)" ] \
-			&& [ ! -f "$${dir}tsconfig.json" ]; then \
-			echo "error: $$dir has .tsx pages but no tsconfig.json — add one so tsc covers it"; \
-			exit 1; \
-		fi; \
-	done
-	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json framework/*/tsconfig.json; do \
+	uv run --project host smpy host typecheck --host-dir=host/client_app
+	@for cfg in packages/*/tsconfig.json framework/*/tsconfig.json; do \
 		[ -f "$$cfg" ] || continue; \
 		echo "tsc -p $$cfg"; \
 		npx tsc --noEmit -p "$$cfg" || exit 1; \

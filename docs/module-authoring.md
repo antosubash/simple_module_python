@@ -10,7 +10,7 @@ workflow the host developer uses, and the API-version / semver rules.
 
 ```text
 modules/<name>/
-├── pyproject.toml, package.json, tsconfig.json
+├── pyproject.toml
 ├── <name>/
 │   ├── __init__.py, py.typed, module.py
 │   ├── models.py                 # or models/; discovered by name
@@ -73,8 +73,8 @@ modules installed from one repo share one pinned ref, and `smpy update`
 moves them together — tag the repo as a unit.
 
 **What the repo must contain.** The scaffold from `smpy create-module
---standalone` is already correct: the entry point, `package.json` and
-`pages/` force-included into the wheel, and a `v*`-triggered publish
+--standalone` is already correct: the entry point, package sources (including
+`pages/`) shipped in the wheel, and a `v*`-triggered publish
 workflow (optional for git-only distribution). Frontend assets need no npm
 publishing — the host aliases the module's npm name onto its installed
 package directory.
@@ -522,7 +522,8 @@ The host mounts each entry as `StaticFiles` during boot.
 
 ### Importing another module's TS/TSX
 
-Use the sibling's **npm package name** — the `name` in its `package.json`:
+Use the sibling's default alias, derived from its Python package name, or
+the explicit `name` in its optional `package.json`:
 
 ```tsx
 import { BlockRegistry } from '@simple-module-py/pagebuilder/ui/components/blockRegistry';
@@ -542,8 +543,9 @@ the obvious alternative silently half-works:
 | `package.json` | `site-packages/foo/package.json` | `modules/foo/package.json` |
 | module root | **does not exist** | `modules/foo/` |
 
-A wheel ships `site-packages/foo/**` and nothing above it — Hatch force-includes
-the module-root `package.json` *into* the package. The source-tree module root
+A wheel ships `site-packages/foo/**` and nothing above it. A manifest inside
+the Python package ships automatically; existing root manifests use a Hatch
+force-include to land there. The source-tree module root
 therefore does not survive installation, and the Python package directory is the
 only anchor both layouts share.
 
@@ -558,9 +560,9 @@ import x from '@simple-module-py/foo/ui/components/Widget';
 import x from '@simple-module-py/foo/foo/ui/components/Widget';
 ```
 
-Declare the sibling in your `package.json` `peerDependencies` so the dependency
-is explicit. Nothing pre-bundles it — it resolves to source, not to a
-node_modules package.
+Declare the sibling in the Python module dependencies so discovery orders it
+correctly. No npm peer declaration is required. The alias resolves to source
+and is excluded from pre-bundling.
 
 Note this is the one part of module frontend wiring that *does* depend on the
 host's `vite.config.ts`, because the import lives in your source rather than in
@@ -648,10 +650,10 @@ final word from its own `@theme` block below the generated import.
 **No packaging change is required.** The module wheel template already
 declares `[tool.hatch.build.targets.wheel] packages = ["my_module"]`, and
 Hatch includes every file under the package directory — `.css` along with
-`.tsx`. Only two extras need declaring: `package.json` lives *outside* the
-package dir (a `force-include` maps it in), and `static/dist` is gitignored
-(an `artifacts` entry ships it when present without failing the build when
-it isn't).
+`.tsx`. An optional dependency-only `package.json` inside the Python package
+ships automatically too. An existing module-root manifest still needs a
+`force-include` mapping into the package. `static/dist` is gitignored, so an
+`artifacts` entry ships it when present without failing the build when absent.
 
 ## External asset origins (CSP)
 
@@ -867,17 +869,41 @@ commands that close the gap. All of them run from the module repo root.
 
 ### Type-checking
 
-`smpy create-module` scaffolds a `package.json` whose devDependencies pin
-`@simple-module-py/ui`, `@simple-module-py/tsconfig` and
-`@simple-module-py/i18n` to the framework version that created the module
-(all three are published to npm in lockstep with the PyPI packages), and a
-`tsconfig.json` that resolves `@simple-module-py/ui/*` from your own
-`node_modules`. So:
+Ordinary modules need no `package.json` or `tsconfig.json`; the scaffolder
+never emits them. The host's `gen-pages` writes effective module configs under
+its ignored frontend output directory. Source links there keep npm resolution
+anchored in the host (directory junctions on Windows), including export-only
+subpaths. The configs inherit the host compiler options and aliases.
+`smpy host typecheck` checks the host,
+module pages, UI and other shipped TypeScript sources, including installed
+wheel sources outside the host tree. Test files are excluded by default and
+run through Vitest; an authored config can include them.
 
-```bash
-npm install          # once; commit package-lock.json and use `npm ci` in CI
-npm run typecheck    # tsc --noEmit over your pages
+A module-root `tsconfig.json` remains an override (or a config inside the
+Python package for a wheel). The command passes that file directly to `tsc`.
+For a standalone module, use `uv run smpy module verify` to typecheck and build
+against a real host without maintaining a second npm toolchain.
+
+### Extra JavaScript dependencies
+
+When the module imports packages beyond the host-provided React, Inertia and
+SimpleModule UI/i18n packages, create `package.json` **inside the Python
+package directory** with only its extras:
+
+```json
+{"dependencies": {"maplibre-gl": "^5.0.0"}}
 ```
+
+Hatch includes this file automatically; no second name, version, peer list or
+packaging entry is needed. Run `smpy host sync-js-deps` in the consuming host;
+`module verify` does this automatically. Existing root manifests continue to
+work: npm's `modules/*` workspace glob installs those, and their existing wheel
+`force-include` maps remain necessary. Do not declare the same dependency in
+two manifests: the file inside the Python package takes precedence.
+
+The host derives the default alias `@simple-module-py/<python-package-with-hyphens>`
+from the Python package name. An existing manifest's `name` overrides it.
+`#module/<python_package>` also works without an npm name.
 
 ### `smpy module verify` — does my frontend actually build?
 
@@ -886,7 +912,7 @@ survive a real host build (Vite import resolution, Tailwind scanning, the
 `gen-pages` CSS emission). `verify` answers that by scaffolding a
 throwaway host into `.smpy/verify-host/` (cached, gitignored), installing
 your module into it as an editable path dependency, and running the host's
-real `gen-pages`, `gen-i18n` (so pages that read `keys.<module>` type-check)
+real dependency sync, `gen-pages`, `gen-i18n` (so pages that read `keys.<module>` type-check)
 and `npm run build`:
 
 ```bash

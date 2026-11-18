@@ -30,6 +30,7 @@ from simple_module_hosting.assets import (
     render_assets_json,
     render_modules_css,
 )
+from simple_module_hosting.module_tsconfig import write_module_tsconfigs
 from simple_module_hosting.page_globs import glob_patterns_for
 
 logger = logging.getLogger(__name__)
@@ -203,6 +204,7 @@ def write_module_pages_manifest(
     # Rendered from the richer asset record rather than pages_map, so that a
     # module shipping CSS but no pages/ still contributes its stylesheets.
     assets = [*compute_module_assets(modules), *framework]
+    write_module_tsconfigs(assets, output_dir)
     css_path = output_dir / "modules.generated.css"
     css_text = render_modules_css(assets, in_repo=lambda p: _is_in_repo_module(p, repo_root))
 

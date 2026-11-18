@@ -28,7 +28,7 @@ You can also call `run_diagnostics(...)` from `simple_module_core` programmatica
 | **SM014** | WARNING | A non-default locale is missing keys present in the default locale | Add the missing keys, or accept that a fallback to default applies |
 | **SM015** | WARNING | A non-default locale has keys *not* present in the default | Remove dead keys from the non-default file or add them to default |
 | **SM016** | ERROR | A locale JSON file is invalid or contains non-string leaves | Fix the JSON; only string leaves are allowed (interpolation is `{name}` placeholders) |
-| **SM017** | WARNING | A module ships `.tsx` pages but is missing `package.json` / `tsconfig.json` | Add the JS workspace files so the host's frontend toolchain can resolve module imports |
+| **SM017** | WARNING | An optional frontend dependency manifest is invalid | Fix package.json or remove it when no extra JS dependencies are needed |
 | **SM018** | WARNING | An Inertia page calls `router.{post,patch,put,delete}()` targeting `/api/*` | Point the call at a view endpoint that returns `RedirectResponse(..., status_code=303)`, or use plain `fetch()` for the JSON endpoint; Inertia's client expects an Inertia response, not JSON |
 | **SM019** | WARNING | A module has a non-empty `view_prefix` and conventional views or a `register_routes` override, but overrides neither `register_menu_items` nor `register_permissions` | Add `register_menu_items()` (sidebar) or `register_permissions()` (role editor), or clear `view_prefix` if the module is API-only |
 | **SM020** | ERROR | More than one auth provider module is installed | Install exactly one auth provider (e.g. `users` OR `keycloak`, not both) |

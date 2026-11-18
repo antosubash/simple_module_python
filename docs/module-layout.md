@@ -44,8 +44,9 @@ checkers, not a framework runtime lookup.
 
 Other root files and folders are legacy exceptions, tracked explicitly by
 `host/tests/test_module_layout.py:1`. Keep named lookup paths pinned with tests
-that load them as their consumer does. Generated wheel metadata such as
-`package.json` is packaging output, not another source area.
+that load them as their consumer does. An optional dependency-only
+`package.json` may live inside the Python package so it ships automatically; it is
+metadata, not another source area.
 
 ## Areas
 

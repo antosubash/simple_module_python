@@ -36,9 +36,3 @@ exclude = ["**/*.test.*", "**/*.spec.*", "**/test-dom.tsx", "**/page-tests/**"]
 # static/dist/ is gitignored, so it needs an explicit artifacts entry.
 # Unlike force-include, artifacts tolerates the directory not existing yet.
 artifacts = ["{{PACKAGE_NAME}}/static/dist/"]
-
-# package.json lives at the module root so npm workspaces see it; copying it
-# into <pkg>/ lets the host discover JS deps via importlib.resources after a
-# pip install.
-[tool.hatch.build.targets.wheel.force-include]
-"package.json" = "{{PACKAGE_NAME}}/package.json"

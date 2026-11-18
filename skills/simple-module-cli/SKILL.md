@@ -175,9 +175,16 @@ smpy host gen-pages --host-dir=apps/web/client_app
 
 `smpy new` runs this at scaffold time; you only need to call it manually after adding/renaming `.tsx` files mid-session, or after `pip install`-ing a new module that ships pages.
 
+## `smpy host typecheck`
+
+Checks the host and installed module sources using generated defaults; existing
+module tsconfig.json files override the defaults. Test files run through Vitest.
+Run `smpy host typecheck --host-dir=client_app` after gen-pages. Standalone modules
+use `smpy module verify` to install a host toolchain and run typecheck plus Vite.
+
 ## `smpy host sync-js-deps` — install module JS deps
 
-Wheel-installed modules ship `package.json` declarations that need to land in the host's `client_app/node_modules`. This command does that. **In-repo workspace modules don't need it** — npm workspaces resolve them automatically.
+Wheel-installed modules ship `package.json` declarations that need to land in the host's `client_app/node_modules`. This command does that. **Module-root workspace manifests don't need it** — npm workspaces install those automatically. A dependency-only manifest inside the Python package ships in wheels without extra packaging config and needs this sync even for an editable install. Modules with no extra deps need no manifest.
 
 ```bash
 smpy host sync-js-deps                           # uses ./client_app

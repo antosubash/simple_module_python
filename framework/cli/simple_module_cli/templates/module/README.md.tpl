@@ -31,6 +31,12 @@ Place TSX pages in `{{PACKAGE_NAME}}/pages/`, one file per Inertia page.
 The host discovers and bundles these sources in its own frontend build.
 Module releases need no prebundling or `static/dist/` output for Inertia pages.
 
+No frontend config files are needed. Run `uv run smpy module verify` to
+check types and build against a cached host toolchain. If extra JS packages
+are needed, add `{{PACKAGE_NAME}}/package.json` containing only a dependencies
+object; Hatch ships it automatically. Existing module-root package.json and
+tsconfig.json files remain supported as overrides.
+
 ## Styling (optional)
 
 This module can ship CSS that lands in the host's Tailwind build with no
