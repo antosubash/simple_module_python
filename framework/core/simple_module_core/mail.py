@@ -237,13 +237,25 @@ class ConsoleMailSender:
 MailSenderResolver = Callable[[Any], Awaitable[MailSender]]
 
 _sender: MailSender | None = None
+_default_sender: MailSender | None = None
 _resolver: MailSenderResolver | None = None
 
 
 def install_mail_sender(sender: MailSender | None) -> None:
-    """Set (or with ``None`` clear) this process's sender."""
-    global _sender
+    """Install an explicit sender that wins over module settings and reloads.
+
+    ``None`` clears both the explicit sender and the module's default sender.
+    """
+    global _sender, _default_sender
     _sender = sender
+    if sender is None:
+        _default_sender = None
+
+
+def install_default_mail_sender(sender: MailSender) -> None:
+    """Set the configured sender without replacing an explicit installation."""
+    global _default_sender
+    _default_sender = sender
 
 
 def install_mail_resolver(resolver: MailSenderResolver | None) -> None:
@@ -265,16 +277,18 @@ def mail_transport_installed() -> bool:
     it to fail, and be retried, rather than drop mail in a worker that was
     started without the ``mail`` module while the web process has it.
     """
-    return _sender is not None or _resolver is not None
+    return _sender is not None or _default_sender is not None or _resolver is not None
 
 
 def current_mail_sender() -> MailSender:
     """The installed sender, else a console sender. Never raises."""
-    return _sender if _sender is not None else ConsoleMailSender(include_body=False)
+    if _sender is not None:
+        return _sender
+    return _default_sender if _default_sender is not None else ConsoleMailSender(include_body=False)
 
 
 async def resolve_mail_sender(db: Any | None = None) -> MailSender:
     """The installed sender, else one built by the resolver from *db*, else console."""
-    if _sender is None and _resolver is not None and db is not None:
+    if _sender is None and _default_sender is None and _resolver is not None and db is not None:
         return await _resolver(db)
     return current_mail_sender()

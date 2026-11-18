@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import contextlib
 from email.message import EmailMessage
+from typing import Any
 
 import aiosmtplib
 from simple_module_core.mail import (
-    ConsoleMailSender,
     MailMessage,
     MailSender,
     smtp_address_header,
@@ -15,6 +15,7 @@ from simple_module_core.mail import (
 
 from mail.core import constants as c
 from mail.core.settings import MailSettings
+from mail.core.transports import get_mail_transport
 
 
 class SmtpMailSender:
@@ -90,20 +91,18 @@ class SmtpMailSender:
                 await client.quit()
 
 
-def build_sender(settings: MailSettings, *, log_bodies: bool = True) -> MailSender:
-    """``smtp`` -> :class:`SmtpMailSender`; ``console`` -> a logging sender.
+def build_sender(
+    settings: MailSettings,
+    *,
+    log_bodies: bool = True,
+    development: bool = True,
+    options: Any = None,
+) -> MailSender:
+    """Build the selected registered transport with its module-owned options.
 
     *log_bodies* is false outside development and testing: a console backend
     left in place in production must not write reset and invite tokens to the
     log, so there it logs only recipient, subject and attachment metadata.
     """
-    if settings.backend == c.BACKEND_SMTP:
-        return SmtpMailSender(
-            host=settings.smtp_host,
-            port=settings.smtp_port,
-            username=settings.smtp_username,
-            password=settings.smtp_password,
-            from_address=settings.smtp_from,
-            use_tls=settings.smtp_tls,
-        )
-    return ConsoleMailSender(include_body=log_bodies)
+    transport = get_mail_transport(settings.backend, development=development)
+    return transport.factory(settings if options is None else options, log_bodies)

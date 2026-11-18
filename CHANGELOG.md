@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Mail transport providers register named factories through `mail.contracts`, with built-in console/SMTP transports and provider-owned DB settings shared by web startup, settings reloads and durable worker resolution. The admin backend selector lists registered transports. **Behaviour change:** unknown transports fail outside development; explicit `install_mail_sender` overrides survive settings reloads (#962).
+
 - Auth-provider modules declare the public `ModuleMeta.provides_auth` capability for selection and SM020/SM021 diagnostics. Users, Keycloak and OIDC use it. SM020 warns when a module object exposes the provider protocol shape without declaring it; provider objects created inside hooks cannot be detected statically (#960).
 - `create_app` and `build_host_app` accept a prebuilt `DatabaseState` or a synchronous settings-to-state factory for custom engines and session routing. Supplied states and factory results remain caller-owned; lifespan cleanup only disposes the default engine (#967).
 
@@ -38,6 +40,8 @@ All notable changes to this project are documented in this file. The format is b
 - API tokens' `PERM_USE`/`PERM_MANAGE` constants remain aliases until removal in 0.0.50; use `api_tokens.core.constants.Permissions` (#988).
 
 ### Fixed
+
+- Failed mail transport reloads block delivery until construction succeeds, with retries on settings refreshes even when values are unchanged. Admin settings saves check choices after field normalization, preserving inputs such as `cookie_samesite="Strict"` (#962).
 
 - **Behaviour change:** module allowlists accept explicit `ep:<entry_point_name>` selectors. Lists containing only explicit selectors skip disabled plugins before import and construction; unqualified items retain metadata-name matching, including name collisions and mixed lists. Unknown explicit selectors fail strict discovery and warn in development. Duplicate selected `meta.name` values fail strict discovery with both distributions in the error; development warns with SM008 and keeps the first entry sorted by distribution name, entry-point name and target. Direct topological sorting also checks duplicates (#961).
 - **Behaviour change:** database provider detection rejects unsupported dialects with a credential-safe error naming the dialect, rather than treating every non-PostgreSQL URL as SQLite. Worker engines and Alembic validate supported providers too (#967).

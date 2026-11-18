@@ -33,7 +33,7 @@ def test_smtp_backend_builds_an_smtp_sender() -> None:
 
 def test_unknown_backend_is_rejected() -> None:
     with pytest.raises(ValueError):
-        MailSettings(backend="carrier-pigeon")
+        build_sender(MailSettings(backend="carrier-pigeon"), development=False)
 
 
 def _smtp() -> SmtpMailSender:
