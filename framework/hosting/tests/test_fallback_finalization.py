@@ -1,5 +1,8 @@
 """Fallback precedence after host composition and at bare mount prefixes (#1022)."""
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, get_ident
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -8,7 +11,7 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.spa_mount import SpaMount
-from simple_module_hosting import _lifespan, app_builder
+from simple_module_hosting import _fallback_routes, _lifespan, app_builder
 from simple_module_hosting._app_boot import mount_host_static
 from simple_module_hosting._module_routes import wire_fallback_routes
 from simple_module_hosting._phase_helpers import mount_module_static_dirs
@@ -62,6 +65,58 @@ async def test_post_builder_routes_and_mounts_win_without_lifespan():
         assert (await client.get("/mounted/file.txt")).text == "late mounted asset"
         assert (await client.get("/mounted/missing.txt")).status_code == 404
         assert (await client.get("/unknown")).json() == {"handler": "fallback"}
+
+
+def test_concurrent_first_dispatches_preserve_ordinary_routes(monkeypatch):
+    app = build_test_app(FallbackOnly)
+    fallback = app.routes[-1]
+    _add_host_routes(app)
+    # Share one middleware instance, as a running server would.
+    app.middleware_stack = app.build_middleware_stack()
+    first_paused, second_finished = Event(), Event()
+    first_thread = None
+    real_getattr = getattr
+
+    def pause_during_scan(obj, name, default=None):
+        if (
+            obj is fallback
+            and name == "_sm_fallback"
+            and get_ident() == first_thread
+            and not first_paused.is_set()
+        ):
+            first_paused.set()
+            # Let an unprotected second finalizer reorder the list mid-scan.
+            # With serialization it must wait instead, so release after the deadline.
+            second_finished.wait(timeout=1)
+        return real_getattr(obj, name, default)
+
+    monkeypatch.setattr(_fallback_routes, "getattr", pause_during_scan, raising=False)
+
+    async def request():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.get("/late")
+
+    def dispatch(first=False):
+        nonlocal first_thread
+        if first:
+            first_thread = get_ident()
+        try:
+            return asyncio.run(request())
+        finally:
+            if not first:
+                second_finished.set()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(dispatch, True)
+        assert first_paused.wait(timeout=5)
+        second = pool.submit(dispatch)
+        responses = [first.result(timeout=5), second.result(timeout=5)]
+    responses.append(asyncio.run(request()))
+    for response in responses:
+        assert response.status_code == 200
+        assert response.json() == {"handler": "late"}
 
 
 async def test_lifespan_finalizes_after_startup_hooks(monkeypatch):
@@ -121,7 +176,8 @@ async def test_bare_framework_mount_redirect_preserves_url(
         )
 
 
-async def test_explicit_bare_mount_route_wins(framework_mount_app):
+@pytest.mark.parametrize("method", ["GET", "POST", "OPTIONS"])
+async def test_explicit_bare_mount_route_wins(framework_mount_app, method):
     @framework_mount_app.get("/assets")
     async def assets():
         return {"handler": "assets"}
@@ -129,7 +185,14 @@ async def test_explicit_bare_mount_route_wins(framework_mount_app):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=framework_mount_app), base_url="http://testserver"
     ) as client:
-        assert (await client.get("/assets")).json() == {"handler": "assets"}
+        response = await client.request(method, "/assets")
+        if method == "GET":
+            assert response.status_code == 200
+            assert response.json() == {"handler": "assets"}
+        else:
+            assert response.status_code == 405
+            assert response.headers["allow"] == "GET"
+            assert "location" not in response.headers
 
 
 async def test_disabled_slash_redirects_stay_disabled(framework_mount_app):
