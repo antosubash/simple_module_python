@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- **Behaviour change:** never-migrated installs accept one setup form that validates administrator credentials, applies migrations under the existing lock, and creates the first administrator (#987). A failed creation after migration returns to the administrator form; existing database upgrades and external identity providers retain their migration flow. Module setup actions can opt into this composition with a schema-free validator.
+
 - Mail messages accept an optional validated `reply_to` mailbox, including display names and quoted commas, delivered as SMTP `Reply-To`, included in console/fallback logs, preserved by the durable outbox, and exposed by `captured_mail`. SMTP address headers use IDNA for internationalized domains. Previously queued payloads without the field remain valid (#1025).
 
 - File storage supports module-owned file access policies through `simple_module_core.file_access`, with `ResourcePolicy` SQL filtering and a never-publishable option. Generic metadata, bytes, thumbnails, publication, deletion, list counts and browse facets honor the policy; untagged files keep their existing uploader/manage rules. **Behaviour change:** tagged files with missing policies, and already-public files whose policy forbids publishing, are hidden by generic routes. Apply migration `f999a1b2c3d4` on `file_storage@head` (#999).
@@ -23,6 +25,8 @@ All notable changes to this project are documented in this file. The format is b
 - `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Workers read registered directory, membership and grants through the caller's session; pending writes flush under the original tenant before lookup changes context. Requests share pure principal composition while retaining their existing membership, direct-grant and role-overlay caches (#1005).
 
 ### Fixed
+
+- The combined first-run setup card shows the administrator title and description, with a translated note that the database is set up first (#987).
 
 - Development diagnostics write to the current stderr text stream without retries. Backpressure or a closed/unwritable stream truncates the report and triggers one guarded log attempt (documented best-effort behaviour). Serving-lifespan output runs on a daemon thread with a two-second wait limit, so the event loop and the boot keep going even if stderr blocks (a stderr whose reader never drains can still delay interpreter exit; #1031). Identical boot findings are attempted once per process with severity/code counts; nonfatal boot findings print only when the app enters its serving lifespan, avoiding generation/reloader-supervisor duplicates. Doctor continues to report every finding to the current stderr on each invocation, including CliRunner capture and repeated calls after app startup (#1024).
 - Keep installation identity out of generic settings reads, edits and bulk output; disabled background-task broadcasting skips identity provisioning, and new bridge messages are deduplicated before remote handlers run (#986).
