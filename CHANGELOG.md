@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - Modules can declare an `AdminSurface` once for router prefix, admin menu defaults and page layout, without implying permissions. Existing explicit wiring remains supported. `PermissionCatalogue` string enums register through the base permission hook; scaffold variants use one catalogue and verified page literals instead of `PAGE_*` aliases (#988).
+- Sharing subject providers with built-in user and tenant-role recipients, typed
+  discovery and dialog selection, and single-query SQL membership checks (#963).
 
 - **Behaviour change:** never-migrated installs accept one setup form that validates administrator credentials, applies migrations under the existing lock, and creates the first administrator (#987). A failed creation after migration returns to the administrator form; existing database upgrades and external identity providers retain their migration flow. Module setup actions can opt into this composition with a schema-free validator.
 
@@ -33,6 +35,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - SM019 includes admin-only routes declared through `AdminSurface` or the legacy admin hook, while permission catalogues still make modules discoverable. Admin layout defaults also match URL-encoded Unicode and spaces in surface prefixes (#988).
+- Sharing tenant-role recipient searches match display labels in the request locale as well as role IDs (#963).
 
 - The combined first-run setup card shows the administrator title and description, with a translated note that the database is set up first (#987).
 

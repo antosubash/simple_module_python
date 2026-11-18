@@ -51,10 +51,21 @@ class ResourcePrincipal:
     ``permissions`` is the request's resolved set (roles, grant sources, token
     scope cap) — the same set ``RequiresPermission`` reads, so a bypass
     permission is honoured or refused exactly as the door would.
+
+    ``roles`` and ``tenant_id`` are the live identity facts loaded by HTTP or
+    ``principal_for``, separate from permission scopes. ``context`` contains
+    trusted module extensions installed through the principal builder.
     """
 
     user_id: str | None
     permissions: frozenset[str] = frozenset()
+
+    roles: frozenset[str] = field(default=frozenset(), kw_only=True)
+    tenant_id: str | None = field(default=None, kw_only=True)
+    # Trusted extensions installed by module principal-builder hooks, never claims.
+    context: Mapping[str, Any] = field(
+        default_factory=dict, kw_only=True, compare=False, hash=False
+    )
 
     def has(self, permission: str | None) -> bool:
         """Whether this principal holds *permission* (wildcard included).

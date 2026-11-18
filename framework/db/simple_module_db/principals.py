@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import copy
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
@@ -78,4 +79,6 @@ async def principal_for(
                 or not await registry.tenant_active(session, tenant_id)
             ):
                 return None
-        return principal
+        return (
+            replace(principal, context=registry.resource_context) if principal is not None else None
+        )

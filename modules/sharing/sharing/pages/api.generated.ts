@@ -61,6 +61,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sharing/subject-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subject Types */
+        get: operations["sharing_subject_types"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -76,12 +93,20 @@ export interface components {
             id: string;
             /** Display Name */
             display_name: string;
-            /** Email */
+            /**
+             * Email
+             * @default
+             */
             email: string;
+            /**
+             * Subject Type
+             * @default user
+             */
+            subject_type: string;
         };
         /**
          * ShareGrant
-         * @description Grant (or update) one user's access to one resource.
+         * @description Grant (or update) one subject's access to one resource.
          */
         ShareGrant: {
             /** Resource Type */
@@ -93,9 +118,8 @@ export interface components {
             /**
              * Subject Type
              * @default user
-             * @constant
              */
-            subject_type: "user";
+            subject_type: string;
             /**
              * Role
              * @default view
@@ -136,6 +160,13 @@ export interface components {
             expired: boolean;
             /** Created At */
             created_at?: string | null;
+        };
+        /** ShareSubjectType */
+        ShareSubjectType: {
+            /** Subject Type */
+            subject_type: string;
+            /** Label Key */
+            label_key: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -259,6 +290,7 @@ export interface operations {
                 resource_type: string;
                 resource_id: string;
                 q?: string;
+                subject_type?: string;
             };
             header?: never;
             path?: never;
@@ -273,6 +305,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShareCandidate"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sharing_subject_types: {
+        parameters: {
+            query: {
+                resource_type: string;
+                resource_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareSubjectType"][];
                 };
             };
             /** @description Validation Error */

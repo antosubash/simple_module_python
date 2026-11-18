@@ -5,6 +5,7 @@ import { api, type components } from '../../pages/api.generated';
 
 export type Share = components['schemas']['ShareOut'];
 export type ShareCandidate = components['schemas']['ShareCandidate'];
+export type SubjectType = components['schemas']['ShareSubjectType'];
 export const MIN_QUERY = 3;
 const SEARCH_DELAY_MS = 250;
 
@@ -13,8 +14,14 @@ export function useShares(resourceType: string, resourceId: string, open = true)
   const { t } = useT();
   const [refresh, setRefresh] = useState(0);
   const [shares, setShares] = useState<Share[]>([]);
-  const [found, setFound] = useState<{ query: string; rows: ShareCandidate[] } | null>(null);
+  const [found, setFound] = useState<{
+    query: string;
+    subjectType: string;
+    rows: ShareCandidate[];
+  } | null>(null);
   const [query, setQuery] = useState('');
+  const [subjectType, setSubjectType] = useState('user');
+  const [subjectTypes, setSubjectTypes] = useState<SubjectType[]>([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [pending, setPending] = useState(false);
@@ -29,10 +36,21 @@ export function useShares(resourceType: string, resourceId: string, open = true)
     const current = ++generation.current;
     setShares([]);
     setQuery('');
+    setSubjectType('user');
+    setSubjectTypes([]);
     setFound(null);
     setError(null);
     setLoading(open);
     if (open) {
+      void apiResult(
+        api.GET('/api/sharing/subject-types', {
+          params: { query: { resource_type: resourceType, resource_id: resourceId } },
+        }),
+      ).then((result) => {
+        if (generation.current !== current) return;
+        if (result.ok) setSubjectTypes(result.data);
+        else setError(t(keys.sharing.dialog.failed));
+      });
       void apiResult(
         api.GET('/api/sharing/shares', {
           params: { query: { resource_type: resourceType, resource_id: resourceId } },
@@ -57,11 +75,18 @@ export function useShares(resourceType: string, resourceId: string, open = true)
     const timer = window.setTimeout(() => {
       void apiResult(
         api.GET('/api/sharing/candidates', {
-          params: { query: { resource_type: resourceType, resource_id: resourceId, q: term } },
+          params: {
+            query: {
+              resource_type: resourceType,
+              resource_id: resourceId,
+              q: term,
+              subject_type: subjectType,
+            },
+          },
         }),
       ).then((result) => {
         if (!current) return;
-        if (result.ok) setFound({ query: term, rows: result.data });
+        if (result.ok) setFound({ query: term, subjectType, rows: result.data });
         else {
           setFound(null);
           setSearchError(t(keys.sharing.dialog.failed));
@@ -73,7 +98,7 @@ export function useShares(resourceType: string, resourceId: string, open = true)
       current = false;
       window.clearTimeout(timer);
     };
-  }, [resourceType, resourceId, open, term, tooShort, t]);
+  }, [resourceType, resourceId, open, term, tooShort, subjectType, t]);
 
   const grant = useCallback(
     async (candidate: ShareCandidate, role: string) => {
@@ -88,7 +113,7 @@ export function useShares(resourceType: string, resourceId: string, open = true)
             resource_type: resourceType,
             resource_id: resourceId,
             subject_id: candidate.id,
-            subject_type: 'user',
+            subject_type: candidate.subject_type ?? 'user',
             role,
           },
         }),
@@ -132,18 +157,27 @@ export function useShares(resourceType: string, resourceId: string, open = true)
     [open, t],
   );
 
-  const held = new Set(shares.filter((share) => !share.expired).map((share) => share.subject_id));
+  const held = new Set(
+    shares
+      .filter((share) => !share.expired)
+      .map((share) => `${share.subject_type}:${share.subject_id}`),
+  );
   return {
     shares,
     query,
     setQuery,
+    subjectType,
+    setSubjectType,
+    subjectTypes,
     tooShort,
     loading,
     searching,
     pending,
     candidates:
-      open && !tooShort && found?.query === term
-        ? found.rows.filter((candidate) => !held.has(candidate.id))
+      open && !tooShort && found?.query === term && found.subjectType === subjectType
+        ? found.rows.filter(
+            (candidate) => !held.has(`${candidate.subject_type ?? 'user'}:${candidate.id}`),
+          )
         : [],
     error: searchError ?? error,
     grant,

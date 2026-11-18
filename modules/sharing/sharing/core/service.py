@@ -2,13 +2,14 @@
 
 Every grant is checked three ways: the resource type is registered, the
 granter passes the owning module's policy for ``share`` on that row, and the
-grantee is someone the user directory knows. Rows are tenant-scoped by
+subject is validated by its registered provider. Rows are tenant-scoped by
 ``MultiTenantMixin``; revoking hard-deletes.
 """
 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from simple_module_core.datetimes import aware as _aware
@@ -26,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from sharing.contracts.schemas import ShareCandidate, ShareGrant
+from sharing.contracts.subjects import SubjectContext, SubjectRegistry
 from sharing.core.audience import Audience, OpenAudience
 from sharing.core.constants import (
     CANDIDATES_MAX,
@@ -36,12 +38,13 @@ from sharing.core.constants import (
     ERR_NOT_FOUND,
     ERR_SELF,
     ERR_UNKNOWN_GRANTEE,
+    ERR_UNKNOWN_SUBJECT,
     ERR_UNKNOWN_TYPE,
-    PERM_DIRECTORY_SEARCH,
     PERM_MANAGE,
     SUBJECT_USER,
 )
 from sharing.core.policy import resolve_roles, row_id
+from sharing.core.subjects import subjects_for
 from sharing.models import ResourceShare
 
 
@@ -61,11 +64,28 @@ class SharingService:
         registry: ResourceTypeRegistry,
         directory: UserDirectory,
         audience: Audience | OpenAudience | None = None,
+        subjects: SubjectRegistry | None = None,
+        *,
+        translate: Callable[[str], str] | None = None,
     ) -> None:
         self.db = db
         self.registry = registry
         self.directory = directory
         self.audience = audience or OpenAudience()
+        self.subjects = subjects
+        self.translate = translate
+
+    def context(self, principal: ResourcePrincipal) -> SubjectContext:
+        return SubjectContext(self.db, self.directory, self.audience, principal, self.translate)
+
+    def subject_registry(self, principal: ResourcePrincipal) -> SubjectRegistry:
+        return self.subjects if self.subjects is not None else subjects_for(principal)
+
+    def _subject(self, principal: ResourcePrincipal, name: str):
+        provider = self.subject_registry(principal).get(name)
+        if provider is None:
+            raise SharingError(422, ERR_UNKNOWN_SUBJECT)
+        return provider
 
     def _type(self, name: str) -> ResourceType:
         resource_type = self.registry.get(name)
@@ -97,24 +117,20 @@ class SharingService:
         if data.expires_at is not None and _aware(data.expires_at) <= utcnow():
             raise SharingError(422, ERR_EXPIRED)
         row = await self._authorize(principal, resource_type, data.resource_id)
-        grantee = (await self.directory.get_many(self.db, [data.subject_id])).get(data.subject_id)
-        # One error for "no such user" and "not in your tenant": no enumeration.
-        if (
-            grantee is None
-            or not grantee.is_active
-            or grantee.id not in await self.audience.visible([grantee.id])
-        ):
+        provider = self._subject(principal, data.subject_type)
+        subject_id = await provider.validate(self.context(principal), data.subject_id)
+        if subject_id is None:
             raise SharingError(422, ERR_UNKNOWN_GRANTEE)
-        if grantee.id == principal.user_id:
+        if data.subject_type == SUBJECT_USER and subject_id == principal.user_id:
             raise SharingError(422, ERR_SELF)
         resource_id = row_id(row)
-        share = await self._existing(data.resource_type, resource_id, grantee.id)
+        share = await self._existing(data.resource_type, resource_id, subject_id, data.subject_type)
         if share is None:
             share = ResourceShare(
                 resource_type=data.resource_type,
                 resource_id=resource_id,
-                subject_type=SUBJECT_USER,
-                subject_id=grantee.id,
+                subject_type=data.subject_type,
+                subject_id=subject_id,
                 role=data.role,
                 granted_by=principal.user_id or "",
                 expires_at=data.expires_at,
@@ -125,7 +141,9 @@ class SharingService:
                     await self.db.flush()
             except IntegrityError:
                 # Another grant may have won the unique-key race.
-                share = await self._existing(data.resource_type, resource_id, grantee.id)
+                share = await self._existing(
+                    data.resource_type, resource_id, subject_id, data.subject_type
+                )
                 if share is None:
                     raise
         share.role = data.role
@@ -134,11 +152,13 @@ class SharingService:
         await self.db.flush()
         return share
 
-    async def _existing(self, rtype: str, rid: str, subject_id: str) -> ResourceShare | None:
+    async def _existing(
+        self, rtype: str, rid: str, subject_id: str, subject_type: str = SUBJECT_USER
+    ) -> ResourceShare | None:
         stmt = select(ResourceShare).where(
             ResourceShare.resource_type == rtype,
             ResourceShare.resource_id == rid,
-            ResourceShare.subject_type == SUBJECT_USER,
+            ResourceShare.subject_type == subject_type,
             ResourceShare.subject_id == subject_id,
         )
         return (await self.db.execute(stmt)).scalars().first()
@@ -152,7 +172,9 @@ class SharingService:
         )
         if share is None:
             raise SharingError(404, ERR_NOT_FOUND)
-        if not principal.has(PERM_MANAGE) and share.subject_id != principal.user_id:
+        if not principal.has(PERM_MANAGE) and not (
+            share.subject_type == SUBJECT_USER and share.subject_id == principal.user_id
+        ):
             resource_type = self.registry.get(share.resource_type)
             if resource_type is None:
                 raise SharingError(404, ERR_NOT_FOUND)
@@ -176,33 +198,26 @@ class SharingService:
         return list((await self.db.execute(stmt)).scalars())
 
     async def candidates(
-        self, principal: ResourcePrincipal, rtype: str, resource_id: str, query: str
+        self,
+        principal: ResourcePrincipal,
+        rtype: str,
+        resource_id: str,
+        query: str,
+        subject_type: str = SUBJECT_USER,
     ) -> list[ShareCandidate]:
         resource_type = self._type(rtype)
         row = await self._authorize(principal, resource_type, resource_id)
+        provider = self._subject(principal, subject_type)
         term = query.strip()
         if len(term) < CANDIDATES_MIN_QUERY:
             return []
         owner_col = getattr(resource_type.policy, "owner_col", None)
         owner_id = str(getattr(row, getattr(owner_col, "key", "owner_id"), ""))
-        audience_ids = await self.audience.search_ids()
-        found = await self.directory.search(
-            self.db,
-            term,
-            limit=CANDIDATES_MAX,
-            include_ids=audience_ids,
-            exclude_ids=[uid for uid in (owner_id, principal.user_id) if uid],
-            active_only=True,
-            exact_email=audience_ids is None and not principal.has(PERM_DIRECTORY_SEARCH),
-        )
-        candidates = []
-        for user in found:
-            local, separator, domain = user.email.rpartition("@")
-            email = f"{local[:1]}•••@{domain}" if separator else "•••"
-            # Names may themselves contain an email; never echo those verbatim.
-            label = user.label if "@" not in user.label else email
-            candidates.append(ShareCandidate(id=user.id, display_name=label, email=email))
-        return candidates
+        found = await provider.candidates(self.context(principal), term, owner_id)
+        return [
+            candidate.model_copy(update={"subject_type": subject_type})
+            for candidate in found[:CANDIDATES_MAX]
+        ]
 
 
 __all__ = ["SharingError", "SharingService"]

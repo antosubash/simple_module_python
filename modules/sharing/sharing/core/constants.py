@@ -55,7 +55,8 @@ SUBJECT_ID_MAX: Final = 255
 ROLE_MAX: Final = 32
 
 SUBJECT_USER: Final = "user"
-"""The only subject kind so far; the column leaves room for groups or tenants."""
+SUBJECT_TENANT_ROLE: Final = "tenant_role"
+ERR_UNKNOWN_SUBJECT: Final = "Unknown subject type"
 
 # A role is the action it grants plus everything it implies.
 ROLE_IMPLIES: Final[dict[str, tuple[str, ...]]] = {

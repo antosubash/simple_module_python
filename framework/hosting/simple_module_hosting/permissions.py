@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import copy
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
@@ -19,6 +20,7 @@ from simple_module_core.principal_permissions import (
 )
 from simple_module_core.principals import PRINCIPALS_KEY
 from simple_module_core.resources import ResourcePrincipal
+from simple_module_core.tenancy import is_tenant_role, tenant_role
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
@@ -87,7 +89,21 @@ def _resource_principal_for(request: Request, principal: ResourcePrincipal) -> R
             and WILDCARD not in principal.permissions
         ):
             return ResourcePrincipal(None)
-    return principal
+    if builder is None:
+        return principal
+    tenant_id = principal.tenant_id if builder.multi_tenant else builder.default_tenant
+    # Tenant roles are membership facts, never platform/identity-provider claims.
+    roles = frozenset(r for r in principal.roles if not is_tenant_role(r))
+    role = getattr(request.state, "tenant_role", None)
+    if builder.multi_tenant and tenant_id and role is not None:
+        roles |= {tenant_role(role)}
+    if (
+        principal.context is builder.resource_context
+        and principal.tenant_id == tenant_id
+        and principal.roles == roles
+    ):
+        return principal
+    return replace(principal, context=builder.resource_context, tenant_id=tenant_id, roles=roles)
 
 
 def _registry_for(request: Request) -> PermissionRegistry | None:

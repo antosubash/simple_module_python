@@ -200,7 +200,9 @@ async def test_public_subdomain_nonmember_admin_retains_resource_bypass(
         assert response.json() == {"title": "private"}
         async with app.state.sm.db.session_factory() as db:
             who = await principal_for(db, user_id, tenant_id)
-        assert who == ResourcePrincipal(user_id, held)
+        assert who == ResourcePrincipal(
+            user_id, held, roles=frozenset({"admin", "user"}), tenant_id=tenant_id
+        )
         async with app.state.sm.db.session_factory() as db:
             tenant = await db.get(Tenant, tenant_id)
             tenant.status = "suspended"

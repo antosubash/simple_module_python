@@ -1,4 +1,4 @@
-import { keys, useT } from '@simple-module-py/i18n';
+import { keys, type TranslationKey, useT } from '@simple-module-py/i18n';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import {
   Dialog,
@@ -42,6 +42,15 @@ function ResourceShareDialog({ resourceType, resourceId, roles }: ShareDialogPro
   const [selected, setSelected] = useState(options[0]?.value ?? '');
   const role = options.some((option) => option.value === selected) ? selected : options[0]?.value;
   const state = useShares(resourceType, resourceId, open);
+  const subjectLabel = (type: string, subjectId: string, fallback: string) => {
+    if (type !== 'tenant_role') return fallback;
+    const labels: Record<string, string> = {
+      owner: t(keys.sharing.subjects.owner),
+      admin: t(keys.sharing.subjects.admin),
+      member: t(keys.sharing.subjects.member),
+    };
+    return labels[subjectId] ?? fallback;
+  };
 
   return (
     <Dialog
@@ -69,7 +78,11 @@ function ResourceShareDialog({ resourceType, resourceId, roles }: ShareDialogPro
           ) : (
             <ul className="divide-y rounded-md border">
               {state.shares.map((share) => {
-                const name = share.subject_label ?? share.subject_id;
+                const name = subjectLabel(
+                  share.subject_type,
+                  share.subject_id,
+                  share.subject_label ?? share.subject_id,
+                );
                 return (
                   <li
                     key={share.id}
@@ -99,6 +112,23 @@ function ResourceShareDialog({ resourceType, resourceId, roles }: ShareDialogPro
           )}
         </section>
         <section className="space-y-3">
+          {state.subjectTypes.length > 1 && (
+            <div className="grid gap-2">
+              <Label htmlFor={`${id}-subject-type`}>{t(keys.sharing.dialog.subject_type)}</Label>
+              <NativeSelect
+                id={`${id}-subject-type`}
+                value={state.subjectType}
+                disabled={state.pending}
+                onChange={(event) => state.setSubjectType(event.target.value)}
+              >
+                {state.subjectTypes.map((provider) => (
+                  <option key={provider.subject_type} value={provider.subject_type}>
+                    {t(provider.label_key as TranslationKey)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor={`${id}-search`}>{t(keys.sharing.dialog.search_label)}</Label>
             <Input
@@ -143,7 +173,9 @@ function ResourceShareDialog({ resourceType, resourceId, roles }: ShareDialogPro
                     className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                   >
                     <div className="min-w-0 break-words">
-                      <p>{candidate.display_name}</p>
+                      <p>
+                        {subjectLabel(candidate.subject_type, candidate.id, candidate.display_name)}
+                      </p>
                       <p className="text-xs text-muted-foreground">{candidate.email}</p>
                     </div>
                     <Button
