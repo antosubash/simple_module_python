@@ -173,7 +173,8 @@ export default defineConfig(({ command }) => ({
     },
   },
   root: import.meta.dirname,
-  envDir: false,
+  // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
+  envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
   build: {
     outDir: '../static/dist',
     manifest: true,

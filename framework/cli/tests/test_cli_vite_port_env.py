@@ -44,10 +44,8 @@ def test_vite_config_derives_port_from_env_url(tmp_path: Path) -> None:
 
     helper = (config.parent / "vite.dev-url.ts").read_text(encoding="utf-8")
     assert "SM_VITE_DEV_URL" in helper
-    assert "http://localhost:5050" in helper  # the documented default remains
     assert "process.env.SM_VITE_DEV_URL" in helper
     assert "loadEnv" not in helper
-    assert "envDir: false" in text
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is not installed")

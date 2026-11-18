@@ -148,3 +148,114 @@ def test_cleanup_escalates_and_reaps_stubborn_child(monkeypatch):
     stop_children([SimpleNamespace(pid=7123, wait=wait)])
     assert killed[-1] == (7123, signal.SIGKILL)
     assert len(waits) == 2
+
+
+@pytest.mark.parametrize("spawn_number", [1, 2])
+def test_signal_during_spawn_registers_child_before_cleanup(dev_project, monkeypatch, spawn_number):
+    from simple_module_cli import dev_cmd
+
+    p = dev_project
+    handlers = {}
+    monkeypatch.setattr(dev_cmd.signal, "signal", lambda sig, fn: handlers.update({sig: fn}))
+
+    def popen(*args, **kwargs):
+        child = SimpleNamespace(pid=8100 + len(p.children), wait=lambda timeout: 0)
+        p.children.append(child)
+        if len(p.children) == spawn_number:
+            handlers[signal.SIGINT](signal.SIGINT, None)
+        return child
+
+    monkeypatch.setattr(dev_cmd.subprocess, "Popen", popen)
+    assert dev_cmd.run_dev(p.root) == 130
+    assert len(p.children) == spawn_number
+    assert {pid for pid, sig in p.killed if sig == signal.SIGTERM} == {
+        child.pid for child in p.children
+    }
+
+
+@pytest.mark.parametrize("break_fails", [False, True])
+def test_windows_cleanup_stops_each_owned_tree_without_posix_apis(monkeypatch, break_fails):
+    from simple_module_cli import dev_cmd
+
+    sent, killed, terminated = [], [], []
+
+    def send(pid):
+        sent.append(pid)
+        if break_fails:
+            raise OSError("no console")
+
+    def wait(timeout):
+        raise subprocess.TimeoutExpired("child", timeout)
+
+    children = [
+        SimpleNamespace(
+            pid=pid,
+            send_signal=lambda sig, pid=pid: send(pid),
+            wait=wait,
+            terminate=lambda pid=pid: terminated.append(pid),
+        )
+        for pid in (8100, 8101)
+    ]
+    # Isolate os.name so pathlib and pytest still see the actual host platform.
+    monkeypatch.setattr(dev_cmd, "os", SimpleNamespace(name="nt"))
+    monkeypatch.delattr(dev_cmd.signal, "SIGKILL")
+    monkeypatch.setattr(dev_cmd.signal, "CTRL_BREAK_EVENT", 1, raising=False)
+
+    def taskkill(cmd, **kwargs):
+        killed.append(cmd)
+        if cmd[-1] == "8100":
+            raise OSError("taskkill failed")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(dev_cmd.subprocess, "run", taskkill)
+    dev_cmd.stop_children(children)
+    assert sent == [8100, 8101]
+    assert killed == [
+        ["taskkill", "/T", "/F", "/PID", "8100"],
+        ["taskkill", "/T", "/F", "/PID", "8101"],
+    ]
+    assert 8100 in terminated
+
+
+def test_windows_spawn_creates_owned_groups(dev_project, monkeypatch):
+    from simple_module_cli import dev_cmd
+
+    p = dev_project
+    spawned, cleaned = [], []
+    monkeypatch.setattr(dev_cmd, "os", SimpleNamespace(name="nt", environ=dev_cmd.os.environ))
+    monkeypatch.setattr(dev_cmd.subprocess, "CREATE_NEW_PROCESS_GROUP", 512, raising=False)
+    monkeypatch.delattr(dev_cmd.signal, "SIGKILL")
+
+    def popen(command, **kwargs):
+        spawned.append(kwargs)
+        child = SimpleNamespace(pid=8100 + len(p.children), poll=lambda: 7)
+        p.children.append(child)
+        return child
+
+    monkeypatch.setattr(dev_cmd.subprocess, "Popen", popen)
+    monkeypatch.setattr(dev_cmd, "stop_children", lambda children: cleaned.extend(children))
+    assert dev_cmd.run_dev(p.root) == 7
+    assert len(spawned) == 2
+    assert cleaned == p.children
+    for kwargs in spawned:
+        assert kwargs["creationflags"] == 512
+        assert "start_new_session" not in kwargs
+        assert kwargs["env"]["SM_DEV_SUPERVISED"] == "1"
+
+
+def test_posix_cleanup_failure_does_not_skip_sibling(monkeypatch):
+    from simple_module_cli import dev_cmd
+
+    killed = []
+
+    def kill(pid, sig):
+        killed.append((pid, sig))
+        if pid == 8100:
+            raise PermissionError("denied")
+
+    monkeypatch.setattr(dev_cmd.os, "killpg", kill)
+    dev_cmd.stop_children(
+        [SimpleNamespace(pid=pid, wait=lambda timeout: 0) for pid in (8100, 8101)]
+    )
+    assert (8101, signal.SIGTERM) in killed
+    assert (8101, signal.SIGKILL) in killed

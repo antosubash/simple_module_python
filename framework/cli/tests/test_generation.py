@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from simple_module_cli.gen_cmd import _sync_deps as original_sync_deps
 
 
 @pytest.fixture(params=["workspace", "flat"])
@@ -42,7 +43,7 @@ def project(tmp_path, monkeypatch, request):
     monkeypatch.setattr(gen_cmd, "_settings_and_modules", lambda: (Settings(), modules))
     calls = []
 
-    def sync(client_app):
+    def sync(client_app, deps):
         calls.append("deps")
         dep = (root if workspace else client) / "node_modules/widget-dep"
         dep.mkdir(parents=True, exist_ok=True)
@@ -104,7 +105,7 @@ def test_stale_output_is_repaired_and_failed_stage_is_retried(project, monkeypat
     dep = next(root.glob("**/node_modules/widget-dep/package.json"))
     dep.unlink()
     with monkeypatch.context() as patch:
-        patch.setattr(gen_cmd, "_sync_deps", lambda _: (_ for _ in ()).throw(RuntimeError("npm")))
+        patch.setattr(gen_cmd, "_sync_deps", lambda *_: (_ for _ in ()).throw(RuntimeError("npm")))
         with pytest.raises(RuntimeError, match="npm"):
             gen_cmd.run_generation(root)
     assert gen_cmd.run_generation(root) == ["deps"]
@@ -120,3 +121,42 @@ def test_catalog_namespace_change_invalidates_i18n(project, monkeypatch):
     monkeypatch.setattr(gen_cmd, "_settings_and_modules", lambda: (settings, modules))
     assert "i18n" in gen_cmd.run_generation(root)
     assert "extra.hello" in (root / "packages/i18n/src/keys.generated.ts").read_text()
+
+
+def test_allowlist_keeps_installed_catalogs_and_dependency_graph(project, monkeypatch):
+    from simple_module_cli import gen_cmd
+    from simple_module_hosting import host_cli
+
+    root, client, pkg, _ = project
+    gen_cmd.run_generation(root)
+    settings, modules = gen_cmd._settings_and_modules()
+    settings.modules_enabled = []
+    monkeypatch.setattr(gen_cmd, "_settings_and_modules", lambda: (settings, modules))
+    # Exercise the installer too, faking only the npm subprocess.
+    monkeypatch.setattr(gen_cmd, "_sync_deps", original_sync_deps)
+    monkeypatch.setattr(host_cli.shutil, "which", lambda _: "npm")
+    commands = []
+    monkeypatch.setattr(
+        host_cli.subprocess,
+        "run",
+        lambda cmd, **kw: commands.append(cmd) or SimpleNamespace(returncode=0),
+    )
+    (pkg.parent / "package.json").write_text('{"dependencies": {"widget-dep": "^2"}}')
+    assert "deps" in gen_cmd.run_generation(root)
+    assert "widget-dep@^2" in commands[0]
+    assert "widget.hello" in (root / "packages/i18n/src/keys.generated.ts").read_text()
+    assert "Widget" not in json.loads((client / "modules.manifest.json").read_text())
+    assert gen_cmd.run_generation(root) == []
+
+
+def test_discovery_for_generation_includes_disabled_modules(monkeypatch):
+    from simple_module_cli import gen_cmd
+    from simple_module_hosting.settings import Settings
+
+    settings = Settings(modules_enabled=[])
+    monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda **kw: settings)
+    monkeypatch.setattr(
+        "simple_module_core.discover_modules",
+        lambda enabled=None, **kw: ["installed"] if enabled is None else [],
+    )
+    assert gen_cmd._settings_and_modules() == (settings, ["installed"])

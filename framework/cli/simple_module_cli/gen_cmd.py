@@ -24,14 +24,14 @@ def _settings_and_modules():
     from simple_module_hosting import merge_host_settings
 
     settings = merge_host_settings(strict=False)
-    return settings, discover_modules(enabled=settings.modules_enabled, strict=True)
+    return settings, discover_modules(strict=True)
 
 
-def _sync_deps(client: Path) -> None:
-    from simple_module_hosting.host_cli import sync_js_deps
+def _sync_deps(client: Path, deps: dict[str, dict[str, str]]) -> None:
+    from simple_module_hosting.host_cli import sync_module_js_deps
 
     try:
-        sync_js_deps(host_client_app=client, dry_run=False)
+        sync_module_js_deps(client, deps)
     except typer.Exit as exc:
         if exc.exit_code:
             raise
@@ -57,7 +57,13 @@ def run_generation(project_root: Path | None = None) -> list[str]:
     client = client_app_dir(root)
     load_dotenv_into_environ(root / ".env")
     settings, installed = _settings_and_modules()
-    modules = select_auth_provider(installed, settings.auth_provider)
+    enabled = settings.modules_enabled
+    active = (
+        installed
+        if enabled is None
+        else [m for m in installed if m.meta.name.lower() in {name.lower() for name in enabled}]
+    )
+    modules = select_auth_provider(active, settings.auth_provider)
     roots = [Path(str(importlib.resources.files(get_module_package_name(m)))) for m in installed]
     hosting = Path(str(importlib.resources.files("simple_module_hosting")))
     cache = GenerationCache(root / ".smpy/gen.json")
@@ -116,7 +122,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
         lambda: emit_frontend_types_for_modules(settings, installed, root, strict=True),
     )
 
-    deps = collect_module_js_deps(modules)
+    deps = collect_module_js_deps(installed)
     npm_root = root if _declares_workspaces(root) else client
     dep_files = [
         base / "node_modules" / dep / "package.json"
@@ -133,7 +139,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
             "generator": file_hashes([hosting / "host_cli.py", hosting / "manifest.py"]),
         },
         dep_files,
-        lambda: _sync_deps(client),
+        lambda: _sync_deps(client, deps),
     )
 
     targets = module_targets(modules, root, [])

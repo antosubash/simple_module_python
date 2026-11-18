@@ -46,23 +46,39 @@ def choose_vite_port(requested: int | None, *, api_port: int) -> int:
 
 def stop_children(children: list[subprocess.Popen]) -> None:
     for child in children:
-        with suppress(ProcessLookupError):
-            os.killpg(child.pid, signal.SIGTERM)
+        with suppress(OSError):
+            if os.name == "nt":
+                child.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                os.killpg(child.pid, signal.SIGTERM)
     deadline = time.monotonic() + 5
     for child in children:
-        with suppress(subprocess.TimeoutExpired):
+        with suppress(OSError, subprocess.TimeoutExpired):
             child.wait(timeout=max(0, deadline - time.monotonic()))
     for child in children:
-        # A reloader or npm may exit before its descendants. Kill the group even
-        # when the leader was reaped; never look up or kill processes by port/name.
-        with suppress(ProcessLookupError):
-            os.killpg(child.pid, signal.SIGKILL)
-        child.wait(timeout=5)
-
-
-class _StopDev(BaseException):
-    def __init__(self, signum: int):
-        self.signum = signum
+        # A reloader or npm may exit before its descendants. Target only the
+        # owned group/tree, even when its leader was reaped; never search by port/name.
+        try:
+            if os.name == "nt":
+                try:
+                    subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(child.pid)],
+                        check=True,
+                        capture_output=True,
+                        timeout=5,
+                    )
+                except (OSError, subprocess.SubprocessError):
+                    child.terminate()
+                    raise
+            else:
+                with suppress(ProcessLookupError):
+                    os.killpg(child.pid, signal.SIGKILL)
+        except (OSError, subprocess.SubprocessError) as exc:
+            typer.echo(f"warning: could not stop process tree {child.pid}: {exc}", err=True)
+        try:
+            child.wait(timeout=5)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            typer.echo(f"warning: could not reap child {child.pid}: {exc}", err=True)
 
 
 def run_dev(root: Path, *, port: int = 8000, vite_port: int | None = None) -> int:
@@ -77,6 +93,7 @@ def run_dev(root: Path, *, port: int = 8000, vite_port: int | None = None) -> in
     env = {
         **os.environ,
         "SM_PROJECT_ROOT": str(root),
+        "SM_DEV_SUPERVISED": "1",
         "SM_VITE_DEV_URL": f"http://localhost:{selected}",
     }
     npm = shutil.which("npm")
@@ -102,22 +119,34 @@ def run_dev(root: Path, *, port: int = 8000, vite_port: int | None = None) -> in
     children: list[subprocess.Popen] = []
     previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
 
+    shutdown = None
+
     def stop(signum, _frame):
-        raise _StopDev(signum)
+        nonlocal shutdown
+        shutdown = signum
+
+    process_group = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
 
     try:
         for sig in previous:
             signal.signal(sig, stop)
-        children.append(subprocess.Popen(api, cwd=root, env=env, start_new_session=True))
-        children.append(subprocess.Popen(vite, cwd=client, env=env, start_new_session=True))
-        while True:
+        for command, cwd in ((api, root), (vite, client)):
+            if shutdown is not None:
+                return 128 + shutdown
+            children.append(subprocess.Popen(command, cwd=cwd, env=env, **process_group))
+        while shutdown is None:
             for child in children:
                 code = child.poll()
+                if shutdown is not None:
+                    return 128 + shutdown
                 if code is not None:
                     return code if code >= 0 else 128 - code
             time.sleep(0.1)
-    except _StopDev as exc:
-        return 128 + exc.signum
+        return 128 + shutdown
     finally:
         # A second Ctrl-C must not interrupt cleanup and leave the other group alive.
         for sig in previous:

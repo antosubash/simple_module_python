@@ -174,10 +174,11 @@ function moduleBareImportResolver(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [moduleBareImportResolver(), react(), tailwindcss()],
   root: import.meta.dirname,
-  envDir: false,
+  // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
+  envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
   resolve: {
     // `#module/<pkg>` -> that module's package directory. Optional sugar for
     // hand-written imports; modules.generated.css does not rely on it.
@@ -215,4 +216,4 @@ export default defineConfig({
       allow: [fsRoot, ...moduleFsAllow],
     },
   },
-});
+}));
