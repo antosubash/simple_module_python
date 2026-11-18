@@ -41,6 +41,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Failed mail transport reloads block delivery until construction succeeds, with retries on settings refreshes even when values are unchanged. Admin settings saves check choices after field normalization, preserving inputs such as `cookie_samesite="Strict"` (#962).
+
 - **Behaviour change:** module allowlists accept explicit `ep:<entry_point_name>` selectors. Lists containing only explicit selectors skip disabled plugins before import and construction; unqualified items retain metadata-name matching, including name collisions and mixed lists. Unknown explicit selectors fail strict discovery and warn in development. Duplicate selected `meta.name` values fail strict discovery with both distributions in the error; development warns with SM008 and keeps the first entry sorted by distribution name, entry-point name and target. Direct topological sorting also checks duplicates (#961).
 - **Behaviour change:** database provider detection rejects unsupported dialects with a credential-safe error naming the dialect, rather than treating every non-PostgreSQL URL as SQLite. Worker engines and Alembic validate supported providers too (#967).
 - **Behaviour change:** database provider detection rejects unsupported dialects with a credential-safe error naming the dialect, rather than treating every non-PostgreSQL URL as SQLite. Malformed URLs also raise credential-free errors without exposing parser exception chains. Worker engines and Alembic validate supported providers too (#967).

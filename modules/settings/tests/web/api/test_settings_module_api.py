@@ -32,6 +32,20 @@ async def test_put_validation_error_surfaces_422(authenticated_client, app):
     assert "i18n_default_locale" in resp.text
 
 
+async def test_put_choice_uses_normalized_field_value(authenticated_client, app):
+    response = await authenticated_client.put(
+        "/api/settings/modules/users", json={"cookie_samesite": "Strict"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert app.state.users.settings.cookie_samesite == "strict"
+    response = await authenticated_client.get("/api/settings/modules")
+    assert response.status_code == 200
+    users = next(m for m in response.json()["modules"] if m["package"] == "users")
+    field = next(f for f in users["fields"] if f["name"] == "cookie_samesite")
+    assert field["value"] == "strict"
+
+
 @pytest.mark.asyncio
 async def test_put_rejects_and_does_not_persist_unbounded_background_task_values(
     authenticated_client, app

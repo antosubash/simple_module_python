@@ -9,7 +9,12 @@ from settings.core.service import SettingService
 from settings.module_settings.store import SettingsStore
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.health import HealthCheckResult, HealthStatus
-from simple_module_core.mail import MailSender, current_mail_sender, install_default_mail_sender
+from simple_module_core.mail import (
+    MailMessage,
+    MailSender,
+    current_mail_sender,
+    install_default_mail_sender,
+)
 from simple_module_core.settings_hydrate import hydrate_settings
 
 from mail.core import constants as c
@@ -43,6 +48,17 @@ def _worker_is_non_prod() -> bool:
     return os.environ.get("SM_ENVIRONMENT", "development") in NON_PROD_ENVIRONMENTS
 
 
+class _UnavailableMailSender:
+    # Keep callers on the send path so durable delivery fails and retries.
+    delivers_email = True
+
+    async def send(self, message: MailMessage) -> None:
+        await self.verify_connection()
+
+    async def verify_connection(self) -> None:
+        raise RuntimeError("Mail transport is unavailable: configured sender construction failed")
+
+
 def install_app_sender(app: Any) -> None:
     """Install a sender built from *app*'s current mail settings.
 
@@ -51,13 +67,20 @@ def install_app_sender(app: Any) -> None:
     log_bodies = app.state.sm.settings.environment in NON_PROD_ENVIRONMENTS
     development = app.state.sm.settings.environment == "development"
     settings = app.state.mail.settings
-    transport = get_mail_transport(settings.backend, development=development)
-    options = None
-    if transport.package is not None:
-        options = getattr(app.state, transport.package).settings
-    install_default_mail_sender(
-        build_sender(settings, options=options, log_bodies=log_bodies, development=development)
-    )
+    try:
+        transport = get_mail_transport(settings.backend, development=development)
+        options = None
+        if transport.package is not None:
+            options = getattr(app.state, transport.package).settings
+        sender = build_sender(
+            settings, options=options, log_bodies=log_bodies, development=development
+        )
+    except Exception:
+        app.state.mail.sender_failed = True
+        install_default_mail_sender(_UnavailableMailSender())
+        raise
+    app.state.mail.sender_failed = False
+    install_default_mail_sender(sender)
 
 
 async def check_smtp() -> HealthCheckResult:

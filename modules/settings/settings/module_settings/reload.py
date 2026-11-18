@@ -133,9 +133,11 @@ async def apply_changes_and_reload(
         raise EnvPinnedError(pinned)
 
     merged.update(diff)
+    validated = cls(**merged)
     # Dynamic registries expose choices through the same metadata as the UI.
-    # Keep unknown stored values readable, but reject new unsupported choices.
-    for name, value in diff.items():
+    # Check normalized values; existing field validators may accept other spellings.
+    for name in diff:
+        value = getattr(validated, name)
         choices = choices_for(cls.model_fields[name])
         if choices and value not in choices:
             error = ValueError(
@@ -145,7 +147,6 @@ async def apply_changes_and_reload(
                 cls.__name__,
                 [{"type": "value_error", "loc": (name,), "input": value, "ctx": {"error": error}}],
             )
-    validated = cls(**merged)
     dumped_all = validated.model_dump()
 
     # A json field stores what validated, not what was sent: a field validator
