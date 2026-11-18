@@ -1,6 +1,7 @@
 """Readers of generated frontend files must never observe a partial rewrite."""
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from simple_module_hosting.manifest import _write_if_changed
 from simple_module_hosting.module_tsconfig import write_module_tsconfigs
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows readers do not grant delete sharing")
 @pytest.mark.parametrize("kind", ["manifest", "tsconfig"])
 def test_generated_file_replacement_preserves_open_readers(tmp_path: Path, kind: str):
     if kind == "manifest":

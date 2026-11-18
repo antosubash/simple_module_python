@@ -178,7 +178,9 @@ smpy host gen-pages --host-dir=apps/web/client_app
 ## `smpy host typecheck`
 
 Checks the host and installed module sources using generated defaults; existing
-module tsconfig.json files override the defaults. Test files run through Vitest.
+module tsconfig.json files override the defaults. CI typecheck rejects uninstalled
+workspace modules with frontend sources; frontend builds pass `--installed-only`
+to allow intentional exclusions. Test files run through Vitest.
 Run `smpy host typecheck --host-dir=client_app` after gen-pages. Standalone modules
 use `smpy module verify` to install a host toolchain and run typecheck plus Vite.
 

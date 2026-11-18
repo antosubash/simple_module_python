@@ -201,7 +201,7 @@ def create_module(
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
     # An in-repo module (the documented modules/* layout) gets no .github/ and
-    # keeps the workspace JS configs: nested workflows never run and publish.yml
+    # uses host-generated JS configs: nested workflows never run and publish.yml
     # is a PyPI footgun. --standalone forces the standalone layout for a module
     # that lives in its own repo. See GH #210.
     standalone_mode = standalone or not is_inside_existing_repo(target)
@@ -234,8 +234,6 @@ def create_module(
         typer.echo(f"  cd {target}")
         typer.echo("  uv sync --extra dev")
         typer.echo("  uv run pytest")
-        typer.echo("  npm install")
-        typer.echo("  npm run typecheck")
         typer.echo("  uv run smpy module verify")
     typer.echo(
         "\nThe pages ship sample API types (pages/api.generated.ts). Once the host serves "

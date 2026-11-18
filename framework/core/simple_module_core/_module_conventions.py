@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 
-def get_module_package_name(module: ModuleBase) -> str:
-    """Return the parent package of the module defining the class."""
-    name = type(module).__module__
+def get_module_package_name(module: ModuleBase | str) -> str:
+    """Return the parent package of a class's defining module or its import name."""
+    name = module if isinstance(module, str) else type(module).__module__
     return name.rpartition(".")[0] or name
 
 

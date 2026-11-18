@@ -58,7 +58,7 @@ make install
 This generates a publishable module at `modules/orders/` with a working CRUD sample for one `Order` table:
 
 - `pyproject.toml` — `[project.entry-points.simple_module]` → `orders.module:OrdersModule`
-- `package.json` + `tsconfig.json` — JS workspace metadata so `tsc --noEmit` covers the module's `.tsx` pages.
+- No frontend config files are needed: the host generates module TypeScript projects. An authored `tsconfig.json` overrides the defaults. Declare extra JS dependencies in an optional dependency-only `package.json` inside the Python package so they ship in wheels; `smpy host sync-js-deps` installs them into the host.
 - `orders/module.py` — `ModuleBase` subclass with `meta = ModuleMeta(name="Orders", ...)`: routes, a sidebar menu item and permissions.
 - `orders/models.py` — the `Order` table; `orders/contracts/schemas.py` — its DTOs.
 - `orders/core/` — `constants.py` (permissions, page keys, menu). Pass `--with-settings` to also get `settings.py` (a `DbBackedSettings` class), `services.py` (stored on `app.state.orders`) and the `register_settings` hook.

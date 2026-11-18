@@ -62,7 +62,7 @@ Every bundled module and every scaffolded module uses the area layout;
 
 ```text
 modules/orders/
-├── pyproject.toml, package.json, tsconfig.json
+├── pyproject.toml
 ├── orders/
 │   ├── __init__.py, py.typed, module.py
 │   ├── models.py                 # or models/; discovered by name
@@ -81,6 +81,12 @@ modules/orders/
     └── web/crud/test_orders_crud.py
 ```
 
+The host generates module TypeScript projects; authored `tsconfig.json` files are
+optional overrides. Declare extra JS dependencies in a dependency-only
+`package.json` inside the Python package so it ships in wheels. Run
+`smpy host sync-js-deps` to install those extras, including for editable installs.
+Existing module-root npm workspace manifests remain supported.
+
 Tests have no `__init__.py`; importlib mode allows repeated basenames.
 The scaffold uses the `test_orders_` prefix. JS tests stay in `modules/orders/tests-js/`.
 
@@ -93,6 +99,7 @@ See the [module authoring guide](/module-authoring) for the full contract.
 | `host/client_app/modules.generated.ts` | `make gen-pages` (auto via `make dev`) | Every time you add/remove a module page |
 | `host/client_app/modules.manifest.json` | `make gen-pages` | Same |
 | `host/client_app/modules.generated.css` | `make gen-pages` | Same |
+| Host-owned module TypeScript projects | `make gen-pages` / `smpy host typecheck` | For installed modules without authored overrides |
 | `host/migrations/versions/XXXX_*.py` | `make migration msg="…"` | When you add/change SQLModel tables |
 | `modules/<name>/**` | `smpy create-module <name> --dest modules/<name>` | Scaffolding a new module |
 

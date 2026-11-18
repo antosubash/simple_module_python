@@ -11,6 +11,8 @@ import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
+from simple_module_core import get_module_package_name
+
 from simple_module_hosting._generated_files import _write_if_changed
 from simple_module_hosting.assets import ModuleAssets
 
@@ -29,7 +31,9 @@ def _link(target: Path, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if os.name == "nt":
         # Directory junctions don't require Windows developer mode or admin rights.
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(path), str(target)], check=True)
+        from _winapi import CreateJunction
+
+        CreateJunction(str(target), str(path))
     else:
         path.symlink_to(target, target_is_directory=True)
 
@@ -44,12 +48,15 @@ def check_local_coverage(assets: Sequence[ModuleAssets], repo_root: Path) -> Non
     for project in (repo_root / "modules").glob("*/pyproject.toml"):
         data = tomllib.loads(project.read_text(encoding="utf-8"))
         entries = data.get("project", {}).get("entry-points", {}).get("simple_module", {})
-        roots = [project.parent / value.split(".")[0].split(":")[0] for value in entries.values()]
+        roots = [
+            project.parent.joinpath(*get_module_package_name(value.split(":")[0]).split("."))
+            for value in entries.values()
+        ]
         # A missing entry point must not hide an ordinary module directory either.
         if not roots:
             roots.append(project.parent / project.parent.name)
         for package in set(roots):
-            if package not in packages and (
+            if package.resolve() not in packages and (
                 (project.parent / "tsconfig.json").is_file() or _has_typescript(package)
             ):
                 raise ValueError(
@@ -82,10 +89,11 @@ def write_module_tsconfigs(assets: Sequence[ModuleAssets], output_dir: Path) -> 
         _link(target, alias_dir / name)
     for asset in assets:
         package = asset.package_dir
-        source = (package.parent / "pyproject.toml").is_file()
+        # Namespace packages can be several directories below their owning project.
+        project = package.parents[asset.package_name.count(".")]
         candidates = [package / "tsconfig.json"]
-        if source:
-            candidates.append(package.parent / "tsconfig.json")
+        if (project / "pyproject.toml").is_file():
+            candidates.append(project / "tsconfig.json")
         override = next((path for path in candidates if path.is_file()), None)
         if override is not None:
             configs.append(override)
@@ -115,12 +123,15 @@ def write_module_tsconfigs(assets: Sequence[ModuleAssets], output_dir: Path) -> 
     return list(dict.fromkeys(configs))
 
 
-def run_typecheck(assets: Sequence[ModuleAssets], host_dir: Path, repo_root: Path) -> int:
+def run_typecheck(
+    assets: Sequence[ModuleAssets], host_dir: Path, repo_root: Path, *, installed_only: bool = False
+) -> int:
     """Check the host and each module, propagating the first compiler failure."""
     npx = shutil.which("npx")
     if npx is None:
         raise ValueError("npx not found on PATH")
-    check_local_coverage(assets, repo_root.resolve())
+    if not installed_only:
+        check_local_coverage(assets, repo_root.resolve())
     configs = [host_dir.resolve() / "tsconfig.json"]
     configs.extend(write_module_tsconfigs(assets, host_dir))
     for config in configs:

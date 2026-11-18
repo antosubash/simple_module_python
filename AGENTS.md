@@ -400,7 +400,9 @@ development and testing.
   2 spaces, width 100) lints `host/client_app`, `packages`, module `pages/`, `ui/`
   and legacy `components/` dirs. `smpy host typecheck` uses host-generated module
   configs unless an authored `tsconfig.json` overrides them. Packages retain their
-  own configs. Ordinary modules need neither frontend config file.
+  own configs. Ordinary modules need neither frontend config file. CI typecheck
+  rejects uninstalled workspace modules with frontend sources; frontend builds
+  use `--installed-only` to allow intentional exclusions.
 - **`ty` rules.** SQLModel false positives (`unresolved-attribute`,
   `unsupported-operator`, `unknown-argument`, `no-matching-overload`) are
   ignored globally in `pyproject.toml`; don't re-enable them.

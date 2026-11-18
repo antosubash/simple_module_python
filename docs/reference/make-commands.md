@@ -65,7 +65,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 |---|---|---|
 | `smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css}` from the installed modules. Run when you add or remove pages. |
 | `smpy host gen-i18n` | `simple_module_hosting` | Regenerate the typed i18n keys (`keys.generated.ts`) into the installed `@simple-module-py/i18n` package (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists unless `--skip-if-missing` is set. |
-| `smpy host sync-js-deps` | `simple_module_hosting` | Install JS deps declared by wheel-installed modules into `client_app/node_modules`. In-repo workspace modules don't need this. |
+| `smpy host sync-js-deps` | `simple_module_hosting` | Install module-declared JS deps into the host. Module-root npm workspace manifests are installed by npm automatically; dependency-only manifests inside Python packages need this sync even for editable installs. |
 | `smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
 
 `smpy users create-admin` is contributed by the `users` module as a `smpy users` subcommand:
