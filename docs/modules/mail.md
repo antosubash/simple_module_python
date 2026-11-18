@@ -59,10 +59,13 @@ await current_mail_sender().send(
 )
 ```
 
-`reply_to` defaults to `None`. When provided, it must be one bare email address
-(no display name or address list); invalid addresses and control characters,
-including CR/LF header injection, raise `ValueError` at construction. SMTP adds
-the `Reply-To` header and keeps the configured `From` address. Console and
+`reply_to` defaults to `None`. When provided, it must be one mailbox, optionally
+with a display name (for example, `Guide <guide@example.com>` or
+`"Doe, Jane" <guide@example.com>`). Address lists, groups, invalid addresses and
+control characters, including CR/LF header injection, raise `ValueError` at
+construction. SMTP adds the `Reply-To` header and keeps the configured `From`
+address. Internationalized domains in SMTP address headers are IDNA-encoded
+(for example, `guide@bücher.de` becomes `guide@xn--bcher-kva.de`). Console and
 fallback senders log the reply address alongside the recipient and subject.
 Durable outbox events preserve it; existing queued payloads without `reply_to`
 default to `None` and still send.

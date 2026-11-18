@@ -23,6 +23,10 @@ class BookingConfirmed(Event):
         "guide@bad domain",
         "guide@example.com, other@example.com",
         "guide@example.com; other@example.com",
+        '"Doe, Jane" <guide@example.com>, Other <other@example.com>',
+        "Guides: guide@example.com;",
+        "Guide <guide@example.com>\r\nBcc: other@example.com",
+        '"Guide\nName" <guide@example.com>',
         "guide@example.com\r\nBcc: other@example.com",
         "guide@example.com\rBcc: other@example.com",
         "guide@example.com\nBcc: other@example.com",
@@ -34,7 +38,18 @@ def test_reply_to_rejects_invalid_addresses_and_header_injection(address) -> Non
         mail.MailMessage("visitor@example.com", "Booking", "Confirmed", reply_to=address)
 
 
-@pytest.mark.parametrize("reply_to", [None, "guide@example.com", "guide@localhost"])
+@pytest.mark.parametrize(
+    "reply_to",
+    [
+        None,
+        "guide@example.com",
+        "guide@localhost",
+        "Guide <guide@example.com>",
+        '"Doe, Jane" <guide@example.com>',
+        r'"Jane \"JJ\", Doe" <guide@example.com>',
+        "Guide <guide@bücher.de>",
+    ],
+)
 def test_reply_to_survives_durable_json_round_trip(reply_to) -> None:
     event = BookingConfirmed(
         mail.MailMessage("visitor@example.com", "Booking", "Confirmed", reply_to=reply_to)

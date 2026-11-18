@@ -19,8 +19,8 @@ import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from email import policy
 from email.errors import HeaderParseError
-from email.headerregistry import Address
 from typing import Annotated, Any, Protocol, runtime_checkable
 
 from pydantic import BeforeValidator, ConfigDict, field_serializer, field_validator
@@ -103,9 +103,16 @@ def _validate_reply_to(value: str) -> None:
     if not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise ValueError(error)
     try:
-        address = Address(addr_spec=value)
+        header = policy.default.header_factory("To", value)
     except (ValueError, HeaderParseError) as exc:
         raise ValueError(error) from exc
+    if (
+        header.defects
+        or len(header.addresses) != 1
+        or any(group.display_name is not None for group in header.groups)
+    ):
+        raise ValueError(error)
+    address = header.addresses[0]
     if not address.username or not address.domain:
         raise ValueError(error)
 

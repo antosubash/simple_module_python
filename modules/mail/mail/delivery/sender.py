@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from email.headerregistry import Address, Group
 from email.message import EmailMessage
 
 import aiosmtplib
@@ -10,6 +11,30 @@ from simple_module_core.mail import ConsoleMailSender, MailMessage, MailSender
 
 from mail.core import constants as c
 from mail.core.settings import MailSettings
+
+
+def _smtp_address_header(value: str) -> str:
+    if value.isascii():
+        return value
+    parsed = EmailMessage()
+    parsed["To"] = value
+    # Encoded words are valid in display names, but domains need ASCII IDNA.
+    return ", ".join(
+        str(
+            Group(
+                display_name=group.display_name,
+                addresses=[
+                    Address(
+                        display_name=address.display_name,
+                        username=address.username,
+                        domain=address.domain.encode("idna").decode("ascii"),
+                    )
+                    for address in group.addresses
+                ],
+            )
+        )
+        for group in parsed["To"].groups
+    )
 
 
 class SmtpMailSender:
@@ -35,10 +60,10 @@ class SmtpMailSender:
 
     async def send(self, message: MailMessage) -> None:
         email = EmailMessage()
-        email["From"] = self._from
-        email["To"] = message.to
+        email["From"] = _smtp_address_header(self._from)
+        email["To"] = _smtp_address_header(message.to)
         if message.reply_to is not None:
-            email["Reply-To"] = message.reply_to
+            email["Reply-To"] = _smtp_address_header(message.reply_to)
         email["Subject"] = message.subject
         email.set_content(message.text)
         if message.html:

@@ -72,7 +72,16 @@ async def test_send_adds_an_html_alternative(monkeypatch) -> None:
     assert parts == {"text/plain": "Body", "text/html": "<b>Body</b>"}
 
 
-@pytest.mark.parametrize("reply_to", [None, "guide@example.com"])
+@pytest.mark.parametrize(
+    "reply_to",
+    [
+        None,
+        "guide@example.com",
+        "Guide <guide@example.com>",
+        '"Doe, Jane" <guide@example.com>',
+        r'"Jane \"JJ\", Doe" <guide@example.com>',
+    ],
+)
 async def test_smtp_reply_to_header(monkeypatch, reply_to) -> None:
     from email import policy
     from email.parser import BytesParser
