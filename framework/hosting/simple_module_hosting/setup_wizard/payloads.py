@@ -111,6 +111,12 @@ def steps_payload(registry, pending_ids: set[str], translate=None, follow_up=Non
                 pending, action = True, None
             elif step.id == STEP_MIGRATIONS:
                 action = _action_payload(follow_up.action, render)
+                action["title"] = render(follow_up.title_key, follow_up.title)
+                description = render(follow_up.description_key, follow_up.description)
+                note = render(
+                    "hosting.setup.migrations.combined_note", "The database will be set up first."
+                )
+                action["description"] = f"{description} {note}".strip()
                 action["submitLabel"] = render(
                     "hosting.setup.migrations.combined_submit", "Set up install"
                 )

@@ -11,6 +11,7 @@
     "migrations": {
       "apply": "Apply migrations",
       "combined_submit": "Set up install",
+      "combined_note": "The database will be set up first.",
       "follow_up_failed": "Migrations applied. Could not complete this step. Please try again; see the server log if it keeps failing."
     },
     "steps": {

@@ -90,8 +90,12 @@ function Wizard() {
           step.action ? (
             <Card key={step.id}>
               <CardHeader>
-                <CardTitle>{step.title}</CardTitle>
-                {step.description && <CardDescription>{step.description}</CardDescription>}
+                <CardTitle>
+                  <h2>{step.action.title ?? step.title}</h2>
+                </CardTitle>
+                {(step.action.description ?? step.description) && (
+                  <CardDescription>{step.action.description ?? step.description}</CardDescription>
+                )}
               </CardHeader>
               <CardContent>
                 <StepForm

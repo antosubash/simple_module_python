@@ -11,6 +11,7 @@
     "migrations": {
       "apply": "Migrationen anwenden",
       "combined_submit": "Installation einrichten",
+      "combined_note": "Die Datenbank wird zuerst eingerichtet.",
       "follow_up_failed": "Migrationen angewendet. Dieser Schritt konnte nicht abgeschlossen werden. Bitte erneut versuchen; bei weiteren Fehlern das Serverprotokoll prüfen."
     },
     "steps": {

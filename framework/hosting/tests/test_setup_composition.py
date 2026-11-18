@@ -121,10 +121,16 @@ async def test_missing_tables_still_offer_one_combined_form():
     pending = {s.id for s in await registry.incomplete_all(request.app)}
     assert pending == {STEP_MIGRATIONS}
     follow_up = await migration_follow_up(request)
+    follow_up.description = "An account to manage this install."
     payload = steps_payload(registry, pending, follow_up=follow_up)
     forms = [s for s in payload if s["action"]]
     assert [s["id"] for s in forms] == [STEP_MIGRATIONS]
     assert [f["name"] for f in forms[0]["action"]["fields"]] == ["email"]
+    assert forms[0]["action"]["title"] == "First"
+    assert forms[0]["action"]["description"] == (
+        "An account to manage this install. The database will be set up first."
+    )
+    assert forms[0]["title"] == "Migrate"
     assert payload[1]["complete"] is False
 
 

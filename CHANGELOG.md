@@ -26,6 +26,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- The combined first-run setup card shows the administrator title and description, with a translated note that the database is set up first (#987).
+
 - Development diagnostics write to the current stderr text stream without retries. Backpressure or a closed/unwritable stream truncates the report and triggers one guarded log attempt (documented best-effort behaviour). Serving-lifespan output runs on a daemon thread with a two-second wait limit, so the event loop and the boot keep going even if stderr blocks (a stderr whose reader never drains can still delay interpreter exit; #1031). Identical boot findings are attempted once per process with severity/code counts; nonfatal boot findings print only when the app enters its serving lifespan, avoiding generation/reloader-supervisor duplicates. Doctor continues to report every finding to the current stderr on each invocation, including CliRunner capture and repeated calls after app startup (#1024).
 - Keep installation identity out of generic settings reads, edits and bulk output; disabled background-task broadcasting skips identity provisioning, and new bridge messages are deduplicated before remote handlers run (#986).
 

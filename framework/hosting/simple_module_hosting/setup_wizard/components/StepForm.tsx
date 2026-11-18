@@ -17,6 +17,9 @@ export interface StepField {
 
 /** `SetupAction` on the server, minus the handler. Labels arrive translated. */
 export interface StepAction {
+  /** Combined forms describe the follow-up step while the checklist keeps both steps. */
+  title?: string;
+  description?: string;
   submitLabel: string;
   fields: StepField[];
 }
