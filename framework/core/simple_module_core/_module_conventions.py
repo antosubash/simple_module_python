@@ -2,15 +2,33 @@
 
 from __future__ import annotations
 
+import sys
+from importlib.machinery import ModuleSpec
 from importlib.util import find_spec
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from simple_module_core.module import ModuleBase
+
+
+def get_module_package_name(module: ModuleBase) -> str:
+    """Return the parent package of the module defining the class."""
+    name = type(module).__module__
+    return name.rpartition(".")[0] or name
+
+
+def package_spec(package: str) -> ModuleSpec | None:
+    """Inline modules have no spec and cannot contribute conventional files."""
+    if package in sys.modules and getattr(sys.modules[package], "__spec__", None) is None:
+        return None
+    return find_spec(package)
 
 
 def has_conventional_module(package: str, suffix: str) -> bool:
-    name = f"{package}.{suffix}"
-    try:
-        return find_spec(name) is not None
-    except ModuleNotFoundError as exc:
-        # find_spec imports parents; only an absent parent means no endpoint.
-        if exc.name and name.startswith(f"{exc.name}."):
+    parts = f"{package}.{suffix}".split(".")
+    # Inspect parents first: find_spec(child) raises when a parent is a plain module.
+    for length in range(1, len(parts)):
+        spec = package_spec(".".join(parts[:length]))
+        if spec is None or spec.submodule_search_locations is None:
             return False
-        raise
+    return find_spec(".".join(parts)) is not None

@@ -170,18 +170,20 @@ for both API and view routes.
 `name="MyModule"` remains the render-key and dependency identity; table names
 are unchanged and remain the model author's responsibility.
 
-The omitted version comes from the distribution owning the package, using its
-`simple_module` entry point or `importlib.metadata.packages_distributions()`;
-the distribution name need not match the package. Uninstalled packages without
-metadata retain the `"1.0.0"` fallback. An explicit `version=` wins.
+During discovery, an omitted version comes from the distribution owning the
+`simple_module` entry point, including editable installs. The distribution name
+need not match the package. Classes instantiated outside discovery keep the
+`"1.0.0"` fallback. An explicit `version=` wins. Discovery replaces only the
+instance's frozen metadata, leaving the shared class metadata unchanged.
 
 The default `register_routes(api_router, view_router)` includes the `router`
 objects in `<package>.web.endpoints.api` and `<package>.web.endpoints.views`
 when those modules exist. The host applies the metadata prefixes and tags once.
 Absent endpoints are skipped; errors importing an existing endpoint fail boot.
 Override the hook for extra routers, custom ordering or a different layout.
-The default `locale_dirs()` discovers `<package>/locales` under the package-name
-namespace; override only for custom directories/namespaces or to opt out.
+The default `locale_dirs()` discovers `<package>/locales` under the lowercase
+last package component (`acme.billing` uses `billing`); override only for custom
+directories/namespaces or to opt out.
 
 ### Administrative screens
 

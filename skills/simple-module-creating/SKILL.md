@@ -120,11 +120,13 @@ diagnostic codes `SM003` (orphan page) / `SM004` (phantom render).
 absolute route paths. Declare prefixes explicitly; scaffolds use dash-separated
 URLs such as `/api/blog-posts` and `/blog-posts`. Keep existing prefix values
 when adopting conventional routers so URLs do not change.
-The version defaults to the owning distribution's installed metadata (entry
-point ownership or package-to-distribution mapping), falling back to `"1.0.0"`
-for uninstalled packages; explicit `version=` wins. Set `requires_framework=`
+During discovery, the version defaults to the distribution owning the entry
+point, including editable installs. Outside discovery it stays `"1.0.0"`;
+explicit `version=` wins. Discovery replaces the instance's frozen metadata
+without changing the class. Set `requires_framework=`
 to a PEP 440 framework API range (e.g. `">=1.0,<2.0"`) for published modules.
-`locale_dirs()` discovers `<package>/locales` using the package-name namespace;
+`locale_dirs()` discovers `<package>/locales` using the lowercase last package
+component as namespace (`acme.billing` uses `billing`);
 override only for custom directories/namespaces or to opt out.
 
 ## Lifecycle hooks (override only what you need)

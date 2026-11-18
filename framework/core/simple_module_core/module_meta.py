@@ -11,8 +11,7 @@ Re-exported from ``module.py``, so every existing import still works.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
-from importlib import metadata
+from dataclasses import dataclass, field
 
 
 class _DefaultVersion(str):
@@ -71,21 +70,3 @@ class ModuleMeta:
     anonymous visitors don't download admin form labels on every public page.
     The catalog is always available server-side (``Translator``) either way.
     """
-
-    def _with_package_defaults(self, package: str) -> ModuleMeta:
-        """Resolve an omitted version once the declaring class supplies its package."""
-        return replace(
-            self,
-            version=_package_version(package) if self.version is _VERSION else self.version,
-        )
-
-
-def _package_version(package: str) -> str:
-    # Entry-point ownership also works for editable installs without top_level.txt.
-    for ep in metadata.entry_points(group="simple_module"):
-        if ep.module.split(".")[0] == package and ep.dist is not None:
-            return metadata.version(ep.dist.metadata["Name"])
-    distributions = metadata.packages_distributions().get(package, [])
-    if distributions:
-        return metadata.version(distributions[0])
-    return "1.0.0"

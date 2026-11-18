@@ -77,7 +77,12 @@ Modules to sort after **when they are loaded**, for an ordering-only relationshi
 
 ### `version`
 
-Semver string. Used in diagnostic/boot logging to help operators correlate deployed module versions with bug reports. Unless a module declares `requires_framework`, it is not parsed for automated version-range checks.
+Semver string. When omitted, discovery takes the version from the distribution
+owning the entry point, including editable installs. The instance receives new
+frozen metadata; the class keeps its `"1.0.0"` default for use outside discovery.
+An explicit version wins. Used in diagnostic/boot logging to help operators
+correlate deployed module versions with bug reports. Unless a module declares
+`requires_framework`, it is not parsed for automated version-range checks.
 
 ### `requires_framework`
 

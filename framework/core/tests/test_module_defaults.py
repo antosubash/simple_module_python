@@ -96,7 +96,7 @@ async def test_conventional_router_mounted_once_with_host_tags(package, endpoint
                 assert path not in paths
 
 
-@pytest.mark.parametrize("layout", ["none", "web", "endpoints"])
+@pytest.mark.parametrize("layout", ["none", "web", "endpoints", "endpoints_module"])
 def test_absent_conventional_routers(package, layout):
     if layout != "none":
         web = package / "web"
@@ -105,6 +105,8 @@ def test_absent_conventional_routers(package, layout):
         if layout == "endpoints":
             (web / "endpoints").mkdir()
             (web / "endpoints" / "__init__.py").write_text("")
+        elif layout == "endpoints_module":
+            (web / "endpoints.py").write_text("")
     app = FastAPI()
     assert wire_module_routes(app, module_class(package)()) is False
     assert app.openapi()["paths"] == {}
@@ -112,7 +114,12 @@ def test_absent_conventional_routers(package, layout):
 
 @pytest.mark.parametrize("endpoint", ["api", "views"])
 @pytest.mark.parametrize(
-    "body", ['raise ImportError("broken endpoint")', "import missing_dependency_980"]
+    "body",
+    [
+        'raise ImportError("broken endpoint")',
+        "import missing_dependency_980",
+        'raise ModuleNotFoundError("broken endpoint", name=__name__)',
+    ],
 )
 def test_broken_conventional_router_fails_boot(package, endpoint, body):
     write_endpoint(package, endpoint, body)
@@ -141,23 +148,6 @@ def test_explicit_hooks_win(package):
 
     assert wire_module_routes(FastAPI(), Custom()) is False
     assert Custom().locale_dirs() == {"custom_namespace": package}
-
-
-@pytest.mark.parametrize("with_entry_point", [False, True])
-def test_version_from_owning_distribution(package, with_entry_point):
-    dist = package.parent / "unrelated_distribution-9.8.7.dist-info"
-    dist.mkdir()
-    (dist / "METADATA").write_text("Name: unrelated-distribution\nVersion: 9.8.7\n")
-    if with_entry_point:
-        (dist / "entry_points.txt").write_text(
-            f"[simple_module]\nexample = {package.name}.module:ExampleModule\n"
-        )
-    else:
-        (dist / "top_level.txt").write_text(f"{package.name}\n")
-    assert module_class(package).meta.version == "9.8.7"
-    assert type(module_class(package).meta.version) is str
-    assert module_class(package, version="1.0.0").meta.version == "1.0.0"
-    assert module_class(package, version="3.2.1").meta.version == "3.2.1"
 
 
 def test_uninstalled_module_version_fallback(package):

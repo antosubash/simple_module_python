@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from importlib.metadata import entry_points
 
 from simple_module_core._entry_point_errors import own_package_missing, stale_path_message
+from simple_module_core._module_conventions import (
+    get_module_package_name as get_module_package_name,
+)
 from simple_module_core.dotenv import env_str, load_dotenv_into_environ
 from simple_module_core.exceptions import (
     CircularDependencyError,
@@ -14,6 +18,7 @@ from simple_module_core.exceptions import (
     MissingDependencyError,
 )
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_meta import _VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +26,6 @@ ENTRY_POINT_GROUP = "simple_module"
 
 DEFAULT_AUTH_PROVIDER = "users"
 """Auth provider activated when several are installed — see select_auth_provider."""
-
-
-def get_module_package_name(module: ModuleBase) -> str:
-    """Return the top-level Python package a module instance belongs to.
-
-    Used by Alembic env.py, the frontend manifest generator, and diagnostics
-    to locate a module's files (models, pages, templates) on disk.
-    """
-    return type(module).__module__.split(".")[0]
 
 
 def discover_modules(
@@ -116,6 +112,11 @@ def discover_modules(
             )
             continue
 
+        if meta.version is _VERSION:
+            # Resolve on this instance; the class metadata is shared across discoveries.
+            instance.meta = meta = replace(
+                meta, version=ep.dist.version if ep.dist is not None else "1.0.0"
+            )
         modules.append(instance)
         logger.info("Discovered module: %s (v%s)", meta.name, meta.version)
 

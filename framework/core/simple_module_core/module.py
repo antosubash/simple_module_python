@@ -5,11 +5,14 @@ from __future__ import annotations
 from abc import ABC
 from collections.abc import Sequence
 from importlib import import_module, resources
-from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core._module_conventions import has_conventional_module
+from simple_module_core._module_conventions import (
+    get_module_package_name,
+    has_conventional_module,
+    package_spec,
+)
 from simple_module_core._request_hooks import RequestHooksMixin
 from simple_module_core.data_compatibility import DataCompatibilityIssue
 from simple_module_core.module_meta import ModuleMeta
@@ -47,12 +50,6 @@ class ModuleBase(RequestHooksMixin, ABC):
 
     meta: ModuleMeta
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        meta = cls.__dict__.get("meta")
-        if isinstance(meta, ModuleMeta):
-            cls.meta = meta._with_package_defaults(cls.__module__.split(".")[0])
-
     def register_settings(self, app: FastAPI) -> None:
         """Load module-specific settings and store on ``app.state``.
 
@@ -71,7 +68,7 @@ class ModuleBase(RequestHooksMixin, ABC):
         The host applies prefixes and tags. Override for custom route layouts.
         Import errors inside existing endpoint modules propagate to the caller.
         """
-        package = type(self).__module__.split(".")[0]
+        package = get_module_package_name(self)
         for name, target in (("api", api_router), ("views", view_router)):
             suffix = f"web.endpoints.{name}"
             if has_conventional_module(package, suffix):
@@ -221,9 +218,9 @@ class ModuleBase(RequestHooksMixin, ABC):
     def locale_dirs(self) -> dict[str, Path]:
         """Return ``{namespace: directory}`` mapping for locale JSON files.
 
-        Discovers ``<package>/locales`` when it exists, using the package name
-        as namespace. Override for a different directory or namespace, or to
-        return an empty mapping and opt out.
+        Discovers ``<package>/locales`` when it exists, using the lowercase last
+        package component as namespace. Override for a different directory or
+        namespace, or to return an empty mapping and opt out.
 
         The namespace becomes the key prefix in the merged i18n registry.
         A file ``locales/en.json`` containing ``{"browse": {"title": "X"}}``
@@ -231,12 +228,12 @@ class ModuleBase(RequestHooksMixin, ABC):
 
         The package name, not ``ModuleMeta.name``, is the namespace.
         """
-        package = type(self).__module__.split(".")[0]
-        spec = find_spec(package)
+        package = get_module_package_name(self)
+        spec = package_spec(package)
         if spec is None or spec.submodule_search_locations is None:
             return {}
         directory = Path(str(resources.files(package) / "locales"))
-        return {package: directory} if directory.is_dir() else {}
+        return {package.rsplit(".", 1)[-1].lower(): directory} if directory.is_dir() else {}
 
     def db_extensions(self) -> list[str]:
         """Postgres extensions this module needs (``["ltree", "pg_trgm"]``).

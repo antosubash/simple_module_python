@@ -18,8 +18,9 @@ modules/orders/orders/
     └── es.json
 ```
 
-The default map's **key** is the lowercase Python package name (`orders`, not
-`ModuleMeta.name`); the **value** is the directory containing one JSON file per
+The default map's **key** is the lowercase last Python package component
+(`orders`, or `billing` for `acme.billing`, independently of `ModuleMeta.name`);
+the **value** is the directory containing one JSON file per
 supported locale. No override is needed. Override `locale_dirs()` only for
 custom directories/namespaces, or return `{}` to opt out. An override replaces
 the default discovery.

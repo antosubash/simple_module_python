@@ -145,6 +145,7 @@ class _FakeEntryPoint:
     def __init__(self, name: str, target):
         self.name = name
         self._target = target
+        self.dist = None
 
     def load(self):
         return (

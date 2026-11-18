@@ -306,8 +306,9 @@ when adopting conventional routers so URLs do not change.
 ## `locale_dirs()`
 
 The default discovers `<package>/locales` when it is a directory and returns
-`{package_name: directory}`. The namespace uses the lowercase Python package,
-not the PascalCase `ModuleMeta.name`. A missing directory contributes nothing.
+`{namespace: directory}`. The namespace uses the lowercase last component of the
+Python package (`acme.billing` uses `billing`), independently of `ModuleMeta.name`.
+A missing directory or a module without a package spec contributes nothing.
 Override for a custom namespace/directory or return `{}` to opt out.
 
 ## `register_admin_routes(admin_router)`
@@ -465,9 +466,10 @@ class OrdersModule(ModuleBase):
     async def on_shutdown(self, app): ...
 ```
 
-An omitted `ModuleMeta.version` resolves from the owning distribution's metadata
-(entry point ownership first, then the package-to-distribution mapping); explicit
-versions win. Without installed metadata it falls back to `"1.0.0"`.
+During discovery, an omitted `ModuleMeta.version` resolves from the distribution
+owning that entry point; explicit versions win. Discovery assigns new frozen
+metadata to the instance without changing its class. Outside discovery, or without
+an entry point distribution, the default remains `"1.0.0"`.
 
 If your module overrides zero hooks and contributes no conventional routes or
 locales, diagnostic `SM007` (INFO) asks whether it is still doing anything useful.
