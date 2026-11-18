@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import copy
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
@@ -16,6 +17,8 @@ from simple_module_core.principal_permissions import (
     resolve_permissions,
     resolve_principal_permissions,
 )
+from simple_module_core.principals import PRINCIPALS_KEY
+from simple_module_core.resources import ResourcePrincipal
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
@@ -54,14 +57,35 @@ async def resolve_request_permissions(
     if user is None:
         request.state.resolved_permissions = set()
         return set()
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if getattr(user, "tenant_id", None) != tenant_id:
+        # Grant sources see the effective tenant without changing the auth context.
+        user = copy(user)
+        user.tenant_id = tenant_id
     principal = await load_principal(request, user, registry)
     if principal is None:
         await demote_to_anonymous(request)
         return set()
     permissions = set(principal.permissions)
-    request.state.resource_principal = principal
+    request.state.resource_principal = _resource_principal_for(request, principal)
     request.state.resolved_permissions = permissions
     return permissions
+
+
+def _resource_principal_for(request: Request, principal: ResourcePrincipal) -> ResourcePrincipal:
+    """Keep account authentication separate from authorization in this tenant."""
+    factory = getattr(getattr(get_services(request.app), "db", None), "session_factory", None)
+    builder = factory.kw.get("info", {}).get(PRINCIPALS_KEY) if factory is not None else None
+    if builder is not None and builder.multi_tenant:
+        user = getattr(request.state, "user", None)
+        # Public subdomains bind a tenant even for nonmembers. Service keys have
+        # no account membership; their pinned tenant is validated by the resolver.
+        if not getattr(request.state, "tenant_id", None) or (
+            getattr(request.state, "tenant_role", None) is None
+            and getattr(user, "auth_kind", None) != "service"
+        ):
+            return ResourcePrincipal(None)
+    return principal
 
 
 def _registry_for(request: Request) -> PermissionRegistry | None:

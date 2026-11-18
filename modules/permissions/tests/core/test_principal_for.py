@@ -89,6 +89,14 @@ async def test_single_tenant_needs_no_membership(single_app):
     app = single_app
     user_id = await create_user(app, "single@example.com")
 
+    async def request_grants(request, user):
+        return ["test.single"] if user.tenant_id == "single" else []
+
+    async def session_grants(db, user):
+        return ["test.single"] if user.tenant_id == "single" else []
+
+    app.state.sm.permissions.add_grant_source(request_grants, session_source=session_grants)
+
     @app.get("/principal-single")
     async def probe(who: ResourcePrincipal = Depends(resource_principal)):
         return {"user_id": who.user_id, "permissions": sorted(who.permissions)}
@@ -96,6 +104,7 @@ async def test_single_tenant_needs_no_membership(single_app):
     async with app.state.sm.db.session_factory() as db:
         who = await principal_for(db, user_id, "single")
         assert who is not None
+        assert "test.single" in who.permissions
         assert await principal_for(db, "missing", "single") is None
     async with session_client(app, {"user_id": user_id}) as client:
         response = await client.get("/principal-single")

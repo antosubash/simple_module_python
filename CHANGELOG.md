@@ -20,6 +20,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- **Security:** public-subdomain nonmembers receive anonymous resource visibility, including after membership removal; an authenticated account can no longer read its private owned resources in that tenant. This also closes the membership-check gap present on `main`. Service credentials retain their separately validated tenant access. Fixed single-tenant request grant sources receive the effective tenant, matching worker principal lookups (#1005).
+
 - ID-only Keycloak/OIDC principal lookups use known membership and grant sources, without guessing token-only roles or claims. HTTP authentication and membership freshness retain their existing cache invalidation/TTL semantics: losing membership preserves account authentication and tenant switching; unauthorized tenant operations return 403 (#1005).
 
 - Mail attachment deserialization checks the combined base64 size before decoding and decodes each file once; structured `message/*` and `multipart/*` MIME types are rejected. Outbox list queries and API/Inertia responses omit payloads and attachment content (#1006).

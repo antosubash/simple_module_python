@@ -30,14 +30,16 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import Depends, HTTPException, Request
-from simple_module_core.app_state import get_services
 from simple_module_core.permission_denied import PermissionDenied
-from simple_module_core.principals import PRINCIPALS_KEY
 from simple_module_core.resources import ResourcePolicy, ResourcePrincipal
 from simple_module_db.deps import get_db
 from simple_module_db.resource_policy import load_authorized
 
-from simple_module_hosting.permissions import RequiresPermission, ensure_resolved_permissions
+from simple_module_hosting.permissions import (
+    RequiresPermission,
+    _resource_principal_for,
+    ensure_resolved_permissions,
+)
 from simple_module_hosting.token_guard import GATE_PERMISSION, TOKEN_GATE_ATTR
 
 RESOURCE_PERMISSION_PREFIX = "resource:"
@@ -57,22 +59,14 @@ async def resource_principal(request: Request) -> ResourcePrincipal:
     user = getattr(request.state, "user", None)  # resolution may demote a stale token
     if user is None:
         return ResourcePrincipal(user_id=None)
-    factory = getattr(getattr(get_services(request.app), "db", None), "session_factory", None)
-    builder = factory.kw.get("info", {}).get(PRINCIPALS_KEY) if factory is not None else None
-    if (
-        builder is not None
-        and builder.multi_tenant
-        and not getattr(request.state, "tenant_id", None)
-    ):
-        return ResourcePrincipal(user_id=None)
     principal = getattr(request.state, "resource_principal", None)
-    if principal is not None:
-        return principal
-    user_id = getattr(user, "id", None)
-    return ResourcePrincipal(
-        user_id=str(user_id) if user_id is not None else None,
-        permissions=frozenset(held),
-    )
+    if principal is None:
+        user_id = getattr(user, "id", None)
+        principal = ResourcePrincipal(
+            user_id=str(user_id) if user_id is not None else None,
+            permissions=frozenset(held),
+        )
+    return _resource_principal_for(request, principal)
 
 
 class RequiresResource:

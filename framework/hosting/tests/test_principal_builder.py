@@ -42,9 +42,18 @@ def request_for(registry, tenant="own", **credential):
     roles = ["reader"]
     if registry.multi_tenant and tenant == "own":
         roles.append("tenant:member")
-    user = SimpleNamespace(id="u1", roles=roles, **credential)
+    user = SimpleNamespace(id="u1", roles=roles, tenant_id=None, **credential)
     return Request(
-        {"type": "http", "app": app, "headers": [], "state": {"user": user, "tenant_id": tenant}}
+        {
+            "type": "http",
+            "app": app,
+            "headers": [],
+            "state": {
+                "user": user,
+                "tenant_id": tenant,
+                "tenant_role": "member" if registry.multi_tenant and tenant == "own" else None,
+            },
+        }
     )
 
 
@@ -102,3 +111,46 @@ async def test_platform_permissions_do_not_create_an_unscoped_resource_principal
     }
     assert request.state.user.id == "u1"
     assert await resource_principal(request) == ResourcePrincipal(None)
+
+
+@pytest.mark.parametrize("auth_kind", ["session", "bearer", "pat", "service"])
+@pytest.mark.parametrize("cached", [False, True])
+async def test_bound_tenant_without_membership_only_identifies_service_credentials(
+    auth_kind, cached
+):
+    registry = registry_for()
+    request = request_for(registry, tenant="public", auth_kind=auth_kind)
+    assert await resolve_request_permissions(request, registry.permissions) == {
+        "test.role",
+        "test.direct",
+    }
+    assert request.state.user.id == "u1"
+    expected = (
+        ResourcePrincipal("u1", frozenset({"test.role", "test.direct"}))
+        if auth_kind == "service"
+        else ResourcePrincipal(None)
+    )
+    assert request.state.resource_principal == expected
+    if not cached:
+        del request.state.resource_principal
+    assert await resource_principal(request) == expected
+
+
+async def test_fixed_tenant_grant_sources_receive_effective_tenant_without_mutating_user():
+    registry = registry_for(multi=False)
+    registry.default_tenant = "single"
+
+    async def request_grants(request, user):
+        return ["test.single"] if user.tenant_id == "single" else []
+
+    async def session_grants(db, user):
+        return ["test.single"] if user.tenant_id == "single" else []
+
+    registry.permissions.add_grant_source(request_grants, session_source=session_grants)
+    request = request_for(registry, tenant="single")
+    permissions = await resolve_request_permissions(request, registry.permissions)
+    assert "test.single" in permissions
+    async with request.app.state.sm.db.session_factory() as db:
+        worker = await principal_for(db, "u1", "single")
+    assert await resource_principal(request) == worker
+    assert request.state.user.tenant_id is None
