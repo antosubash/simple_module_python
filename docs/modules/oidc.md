@@ -255,3 +255,14 @@ no migration or session conversion is needed.
 Post-login destinations use `host.login_redirect_url` for every provider. The
 default `/dashboard/` falls back to the first other view when Dashboard is absent,
 then `/`. Old per-provider redirect rows are ignored quietly.
+
+## Permission editor and role directory
+
+The Permissions module works with this provider without Users (#953). Its
+[role directory](/framework/user-directory#role-directory) lists distinct
+application role names from the live `role_mapping` values, excluding synthetic
+`tenant:*` roles. The editor maps those names to permissions, which apply to
+verified claim roles through the shared principal builder. Roles are defined and
+assigned in the identity provider, not locally. Cached user accounts do not
+record role membership: arbitrary user role lookups return `None` (unknown),
+while direct per-user grants remain available to platform admins.

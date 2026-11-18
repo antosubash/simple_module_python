@@ -8,7 +8,6 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Search } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
@@ -22,6 +21,7 @@ type UserProp = { id: string; email: string; full_name: string | null };
 export type Props = {
   user: UserProp;
   roles: string[];
+  roles_known?: boolean;
   direct: string[];
   inherited: string[];
   /** Permission key -> roles granting it, so a row can name its source. */
@@ -30,7 +30,15 @@ export type Props = {
 };
 
 /** Grant permissions to one user, on top of whatever their roles already give. */
-function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, groups }: Props) {
+function UserEdit({
+  user,
+  roles,
+  roles_known: rolesKnown = true,
+  direct,
+  inherited,
+  inherited_by: inheritedBy,
+  groups,
+}: Props) {
   const { t } = useT();
   const { data, setData, put, processing, isDirty } = useForm<{ permissions: string[] }>({
     permissions: direct,
@@ -85,12 +93,11 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
             ? t(keys.permissions.user_edit.subtitle, { name: user.full_name })
             : t(keys.permissions.user_edit.subtitle_no_name)
         }
-        // Reached from the user editor; belongs under Users despite the path.
-        section={USERS_ADMIN_PATH}
+        section="/admin/permissions/"
         actions={
           <>
             <Button asChild variant="outline" className="max-lg:min-h-11">
-              <Link href={USERS_ADMIN_PATH}>{t(keys.permissions.user_edit.cancel_link)}</Link>
+              <Link href="/admin/permissions/">{t(keys.permissions.user_edit.cancel_link)}</Link>
             </Button>
             <Button
               type="submit"
@@ -111,7 +118,11 @@ function UserEdit({ user, roles, direct, inherited, inherited_by: inheritedBy, g
               value={
                 roles.length === 0 ? (
                   <span className="text-muted-foreground">
-                    {t(keys.permissions.user_edit.no_roles)}
+                    {t(
+                      rolesKnown
+                        ? keys.permissions.user_edit.no_roles
+                        : keys.permissions.user_edit.unknown_roles,
+                    )}
                   </span>
                 ) : (
                   <span className="flex flex-wrap gap-1.5">

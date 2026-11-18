@@ -232,6 +232,8 @@ Rules that go with them:
   durable handler must not commit `ctx.db`. `docs/framework/events.md`.
 - Users: read accounts through `get_user_directory(app)`
   (`simple_module_core.user_directory`), never `users.models` outside `users`.
+  Read roles through `get_role_directory(app)` (`simple_module_core.role_directory`);
+  `editable` describes local role assignment, not permission mapping edits.
   `DirectoryUser.roles is None` means unknown (Keycloak), not none. Recent
   activity: `get_activity_feed(app)`. `docs/framework/user-directory.md`.
 - Menus: `MenuRegistry.add_provider(fn)` for per-request items; permissions:

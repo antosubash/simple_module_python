@@ -51,11 +51,15 @@ class KeycloakModule(ModuleBase):
         )
 
         # Other modules read accounts through the directory (GH #501).
+        from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
         from simple_module_core.user_directory import set_user_directory
 
         from keycloak.identity.directory import KeycloakDirectory
 
         set_user_directory(app, KeycloakDirectory())
+        set_role_directory(
+            app, MappedRoleDirectory(lambda: app.state.keycloak.settings.role_mapping)
+        )
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:
         for prefix in PUBLIC_PATH_PREFIXES:

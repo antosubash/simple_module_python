@@ -75,6 +75,10 @@ No catalogue declaration grants a role or guards a route. Built-in modules use
 `Permissions` from their `core.constants`; file_storage retains `Permission`.
 Imported legacy `PERM_*` aliases are deprecated for removal in 0.0.50 (#1037).
 
+Read role catalogs with `get_role_directory(app)` from `simple_module_core.role_directory`,
+not provider tables. Its `editable` flag gates local assignment controls, while
+role-name permission mappings work for Users, OIDC and Keycloak.
+
 **Convention:** permission names are `<module>.<action>` (lowercase, dot-separated). Group name is human-readable — it surfaces in the admin UI as a section header. The built-in `admin` role gets the wildcard `"*"` and skips per-permission checks.
 
 `register_permissions` runs once at boot to declare the static catalog. The registry caches its computed views (`all_permissions`, `role_map`) and **invalidates them on every mutation** (`add_group`, `add`, `map_role`), so it is safe to mutate after boot — the Permissions module does exactly that, re-applying persisted role→permission rows into `registry.map_role` at startup and whenever an admin edits a role. Don't roll your own caching of these views; read them fresh.

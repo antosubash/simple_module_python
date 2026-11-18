@@ -14,6 +14,7 @@ from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from simple_module_core.role_directory import DirectoryRole
 from simple_module_core.user_directory import (
     DirectoryStats,
     DirectoryUser,
@@ -49,6 +50,17 @@ def _is_usable(row: Any) -> bool:
 
 class UsersDirectory:
     """Directory over the local ``users_user`` table."""
+
+    editable = True
+
+    async def list_roles(self, db: Any) -> list[DirectoryRole]:
+        rows = (await db.execute(select(Role).order_by(Role.name))).scalars().all()
+        return [DirectoryRole(r.name, r.name, r.description, r.id) for r in rows]
+
+    async def user_roles(self, db: Any, user_id: str) -> tuple[str, ...] | None:
+        found = await self.get_many(db, [user_id], with_roles=True)
+        user = found.get(user_id)
+        return user.roles if user is not None else None
 
     #: Audit entries record ``type(obj).__name__``; the users module registers
     #: its audit link under the same class name.
