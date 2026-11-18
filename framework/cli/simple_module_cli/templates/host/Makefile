@@ -41,7 +41,7 @@ lint:
 # Module diagnostics: structural checks also run at development boot, not production.
 # Doctor additionally checks migration state and table coverage (SM010/SM011).
 doctor:
-	uv run python -m simple_module_core
+	uv run smpy doctor
 
 gen:
 	uv run smpy gen
@@ -50,14 +50,14 @@ gen-api-types:
 	uv run smpy openapi gen-types $(ARGS)
 
 gen-pages:
-	uv run python -m simple_module_hosting gen-pages --host-dir=client_app
+	uv run smpy host gen-pages --host-dir=client_app
 
 sync-js-deps:
-	uv run python -m simple_module_hosting sync-js-deps --host-client-app=client_app
+	uv run smpy host sync-js-deps --host-client-app=client_app
 
 # Individual generators remain available; normal install/dev/build use smpy gen.
 gen-i18n:
-	uv run python -m simple_module_hosting gen-i18n
+	uv run smpy host gen-i18n
 
 # `upgrade heads` (plural) applies every per-module branch head; `upgrade head`
 # (singular) errors once a second module adds its own migration branch label.

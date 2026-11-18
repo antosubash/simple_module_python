@@ -1,4 +1,4 @@
-"""Prepare frozen framework upgrades in a consuming host's own Alembic graph."""
+"""Create schema revisions and prepare frozen upgrades in the host's Alembic graph."""
 
 from __future__ import annotations
 
@@ -10,13 +10,57 @@ from uuid import uuid4
 
 import typer
 
+from simple_module_cli._add_install import _default_exec_runner
 from simple_module_cli._migration_support import (
     NO_ALEMBIC_CONFIG,
     data_upgrade_entry_points,
     resolve_alembic_ini,
+    resolve_project_root,
 )
+from simple_module_cli.case import to_snake_case
 
-migrations_app = typer.Typer(help="Prepare host-owned framework upgrade revisions.")
+migrations_app = typer.Typer(help="Create and prepare host-owned Alembic revisions.")
+
+
+@migrations_app.command("new")
+def new_revision(
+    module: Annotated[str, typer.Argument(help="Module branch label (e.g. orders).")],
+    message: Annotated[str, typer.Option("--message", "-m", help="Revision description.")],
+    config: Annotated[Path | None, typer.Option("--config", help="Host alembic.ini.")] = None,
+) -> None:
+    """Autogenerate on a module's head, or start its first labelled root."""
+    try:
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from alembic.util.exc import CommandError
+    except ImportError as exc:
+        raise typer.BadParameter("Run this command in a host with Alembic installed") from exc
+
+    label = to_snake_case(module)
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", label):
+        raise typer.BadParameter("Module label must be a Python-style module name")
+    ini = resolve_alembic_ini(override=config)
+    if ini is None:
+        raise typer.BadParameter(NO_ALEMBIC_CONFIG)
+    ini = ini.resolve()
+    try:
+        script = ScriptDirectory.from_config(Config(str(ini)))
+        labels = {name for rev in script.walk_revisions() for name in rev.branch_labels}
+        if label in labels:
+            script.get_revision(f"{label}@head")  # refuse ambiguous module heads
+    except CommandError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    root = resolve_project_root().resolve()
+    cmd = ["uv", "run"]
+    if ini.parent == root / "host":
+        cmd.extend(["--project", str(ini.parent)])
+    cmd.extend(["alembic", "-c", str(ini), "revision", "--autogenerate", "-m", message])
+    cmd.extend(
+        ["--head", f"{label}@head"]
+        if label in labels
+        else ["--head", "base", "--branch-label", label]
+    )
+    raise typer.Exit(_default_exec_runner(cmd, root))
 
 
 @migrations_app.command("prepare")

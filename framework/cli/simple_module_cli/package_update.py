@@ -1,20 +1,7 @@
-"""``smpy package-update`` — bump simple_module_* deps to latest PyPI versions.
+"""Plan source-aware Python and npm pin updates; keep the deprecated CLI alias.
 
-Walks the project's ``pyproject.toml`` (and any ``[tool.uv.workspace]`` members),
-finds every dependency whose distribution name starts with ``simple_module_`` /
-``simple-module-``, queries PyPI for the latest non-yanked release, and points
-the constraint at it. Includes optional dependencies and dependency groups.
-Matching npm packages use the selected core release when published on npm.
-
-The rewrite preserves the pin style you wrote: ``==0.0.32`` becomes
-``==0.0.33``, ``>=0.0.32`` becomes ``>=0.0.33``, and an upper bound that
-excludes the latest release skips the dependency instead of being dropped.
-``--loosen`` restores the older behaviour of rewriting every constraint to
-``name>=<latest>``.
-
-Dependencies whose ``[tool.uv.sources]`` entry points at a workspace member, a
-local path, a git ref, or a URL are left untouched — those aren't installed
-from PyPI.
+Manifest planning is separate from installation so dry runs and tests need no
+package manager. The command surface and installation flow live in update_cmd.
 """
 
 from __future__ import annotations
@@ -36,6 +23,7 @@ from simple_module_cli.package_update_deps import (
     source_map,
     workspace_member_dirs,
 )
+from simple_module_cli.package_update_git import plan_git
 from simple_module_cli.package_update_npm import load_manifests, plan_npm
 from simple_module_cli.pypi import Fetcher, default_fetcher, fetch_latest
 
@@ -60,7 +48,7 @@ def _npm_target(cache: dict[str, str | None], skips: list[Skip]) -> tuple[str | 
 
 def _print_summary(changes: list[Change], skips: list[Skip], dry_run: bool) -> None:
     if not changes and not skips:
-        typer.echo("No simple_module_* or @simple-module-py/* dependencies found.")
+        typer.echo("No manifest changes.")
         return
     by_file: dict[Path, list[str]] = {}
     for c in changes:
@@ -75,13 +63,6 @@ def _print_summary(changes: list[Change], skips: list[Skip], dry_run: bool) -> N
         verb = "Would update" if dry_run else "Updated"
         file_count = len({c.file for c in changes})
         typer.echo(f"\n{verb} {len(changes)} dependency(ies) across {file_count} file(s).")
-        if not dry_run:
-            if any(c.file.suffix == ".toml" for c in changes):
-                typer.echo("Run `uv sync` to apply Python changes.")
-            for directory in sorted(
-                {c.file.parent for c in changes if c.file.name == "package.json"}
-            ):
-                typer.echo(f"Run `npm install` in {directory} to apply npm changes.")
     elif skips:
         typer.echo("\nNo updates applied.")
 
@@ -93,7 +74,9 @@ def run_update(
     include_pre: bool = False,
     loosen: bool = False,
     fetcher: Fetcher | None = None,
-) -> None:
+    only: str | None = None,
+    git_runner=None,
+) -> list[str]:
     """Programmatic entry point — separated from the Typer command for testing."""
     path = path.resolve()
     root = path if path.name == "pyproject.toml" else path / "pyproject.toml"
@@ -109,14 +92,27 @@ def run_update(
             continue
         files.append((member, tomlkit.parse(member.read_bytes().decode("utf-8"))))
 
+    if only and not any(
+        normalize(only) == normalize(name)
+        for _, doc in files
+        for name in collect_sm_deps(doc, set(), only)
+    ):
+        typer.echo(f"ERROR: {only} is not a dependency of this app.", err=True)
+        raise typer.Exit(1)
+
+    git_changes, relock, git_targets = plan_git(files, only=only, git_runner=git_runner)
+
     npm_manifests = load_manifests([file.parent for file, _ in files])
     inherited = source_map(root_doc)
     locals_by_file = {file: local_sources(doc, inherited) for file, doc in files}
 
     # Pre-fetch all unique sm packages in parallel — PyPI calls dominate runtime.
-    names = {n for file, doc in files for n in collect_sm_deps(doc, locals_by_file[file])}
-    if any(manifest.packages for manifest in npm_manifests) and not any(
-        normalize(n) == _CORE for n in names
+    names = {n for file, doc in files for n in collect_sm_deps(doc, locals_by_file[file], only)}
+    if (
+        not only
+        and not any(_CORE in local for local in locals_by_file.values())
+        and any(manifest.packages for manifest in npm_manifests)
+        and not any(normalize(n) == _CORE for n in names)
     ):
         names.add("simple_module_core")
     unique_names = sorted(names)
@@ -129,20 +125,25 @@ def run_update(
             )
             cache = dict(results)
 
-    all_changes: list[Change] = []
+    all_changes: list[Change] = list(git_changes)
     all_skips: list[Skip] = []
     pending: list[tuple[Path, str]] = []
 
     for file, doc in files:
         changes, skips, new_doc = process_file(
-            file, doc, cache=cache, loosen=loosen, local=locals_by_file[file]
+            file, doc, cache=cache, loosen=loosen, local=locals_by_file[file], only=only
         )
         all_changes.extend(changes)
         all_skips.extend(skips)
-        if new_doc is not None:
-            pending.append((file, tomlkit.dumps(new_doc)))
+        if new_doc is not None or any(c.file == file for c in git_changes):
+            pending.append((file, tomlkit.dumps(doc)))
 
     target, blocked = _npm_target(cache, all_skips)
+    if _CORE in git_targets:
+        target, blocked = git_targets[_CORE], None
+    all_skips = [s for s in all_skips if normalize(s.package) not in {*git_targets, *relock}]
+    if only and normalize(only) != _CORE and _CORE not in git_targets:
+        npm_manifests = []
     changes, skips, npm_pending = plan_npm(npm_manifests, target, fetch, blocked=blocked)
     all_changes.extend(changes)
     all_skips.extend(skips)
@@ -154,6 +155,7 @@ def run_update(
             file.write_text(content, encoding="utf-8", newline="")
 
     _print_summary(all_changes, all_skips, dry_run)
+    return relock
 
 
 def package_update(
@@ -177,13 +179,22 @@ def package_update(
         ),
     ] = False,
 ) -> None:
-    """Update simple_module_* dependencies and lockstep @simple-module-py/* pins.
+    """Deprecated alias for update (removed in 0.0.50)."""
+    from simple_module_cli.update_cmd import run_update as update
 
-    Each constraint keeps the operator it already has — `==0.0.32` becomes
-    `==0.0.33`, `>=0.0.32` becomes `>=0.0.33` — so bumping versions never
-    silently changes a project's pinning policy. A dependency whose upper
-    bound excludes the latest release is reported and left alone. Pass
-    `--loosen` to rewrite Python constraints to `>=<latest>` instead.
-    npm pins keep exact, caret or tilde style and skip unpublished core versions.
-    """
-    run_update(path, dry_run=dry_run, include_pre=include_pre, loosen=loosen)
+    try:
+        from simple_module_core.deprecation import deprecate
+    except ImportError:
+        import warnings
+
+        warnings.warn(
+            "smpy package-update is deprecated; removed in 0.0.50; use uv run smpy update",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    else:
+        deprecate("smpy package-update", remove_in="0.0.50", use="uv run smpy update").warn()
+    typer.echo(
+        "Deprecated: use `uv run smpy update` (package-update is removed in 0.0.50).", err=True
+    )
+    update(path, dry_run=dry_run, include_pre=include_pre, loosen=loosen)

@@ -105,14 +105,16 @@ def _dependency_arrays(doc: tomlkit.TOMLDocument):
                 yield deps
 
 
-def collect_sm_deps(doc: tomlkit.TOMLDocument, local: set[str]) -> list[str]:
+def collect_sm_deps(
+    doc: tomlkit.TOMLDocument, local: set[str], only: str | None = None
+) -> list[str]:
     return [
         name
         for deps in _dependency_arrays(doc)
         for raw in deps
         if isinstance(raw, str)
         and (name := _dep_name(raw))
-        and _is_sm_package(name)
+        and (normalize(name) == normalize(only) if only else _is_sm_package(name))
         and normalize(name) not in local
     ]
 
@@ -124,6 +126,7 @@ def process_file(
     cache: dict[str, str | None],
     loosen: bool = False,
     local: set[str],
+    only: str | None = None,
 ) -> tuple[list[Change], list[Skip], tomlkit.TOMLDocument | None]:
     changes: list[Change] = []
     skips: list[Skip] = []
@@ -134,7 +137,9 @@ def process_file(
                 continue
             dep_str = raw
             name = _dep_name(dep_str)
-            if not name or not _is_sm_package(name):
+            if not name or not (
+                normalize(name) == normalize(only) if only else _is_sm_package(name)
+            ):
                 continue
             if normalize(name) in local:
                 skips.append(Skip(path, name, "workspace/local source"))

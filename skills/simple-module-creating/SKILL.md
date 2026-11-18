@@ -24,7 +24,7 @@ make migrate
 ```
 
 `make new-module` (→ `scripts/new_module.py`) is the in-repo path. It calls the
-same `create_module` as `smpy create-module`, so both produce the same tree
+same `create_module` as `uv run smpy create-module`, so both produce the same tree
 below (permissions, menu item with `label_key`, `core/constants.py`, CRUD sample,
 `locales/en.json`); the in-repo variant adds workspace-sourced `pyproject.toml`
 metadata and a `LICENSE`. The pages read their text from `locales/en.json`
@@ -33,13 +33,14 @@ through `t(keys.<module>.…)`; the host's `make gen-i18n` (also run by
 module repo gets pages with literal English instead, since it has no host to
 generate `keys`. For a **standalone publishable
 package** (its own repo, with CI + PyPI `publish.yml`), use
-`smpy create-module orders`; pass `--standalone` to force the `.github/`
+`uv run smpy create-module orders`; pass `--standalone` to force the `.github/`
 workflows, then `uv sync` (or `pip install -e ./orders`) to install it into the
-host. Inside a `smpy new` app, `smpy create-module orders --dest modules/orders`
-makes a workspace member and prints the app's steps (`smpy add … --path host`,
-`make install`, `make migration`); don't run `uv sync` inside the module there.
+host. Inside a `uv run smpy new` app, `uv run smpy create-module orders --dest modules/orders`
+wires the workspace member into its host, syncs Python/npm dependencies and runs
+`uv run smpy gen`. Its next step is `uv run smpy migrations new orders -m "init"`,
+then `make migrate` and a dev restart; do not sync from inside the module.
 
-Settings are omitted by default. Add `--with-settings` to `smpy create-module`
+Settings are omitted by default. Add `--with-settings` to `uv run smpy create-module`
 or `ARGS=--with-settings` to `make new-module` only when the module needs
 DB-backed configuration. This adds the settings class, services container and
 `register_settings` hook. Inertia pages are bundled by the host; module releases
@@ -48,7 +49,7 @@ need no page prebundling.
 Ordinary modules need no frontend config files. The host generates TypeScript
 configs; an authored tsconfig.json remains an override. For extra JS dependencies,
 add a dependency-only package.json inside the Python package so it ships in wheels,
-and run `smpy host sync-js-deps`. Root manifests remain npm workspace overrides.
+and run `uv run smpy host sync-js-deps`. Root manifests remain npm workspace overrides.
 
 ## What scaffolding produces
 

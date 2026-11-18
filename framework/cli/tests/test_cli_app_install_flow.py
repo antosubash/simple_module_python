@@ -41,17 +41,31 @@ def test_no_install_next_steps_use_make_install(tmp_path) -> None:
     assert "  npm install\n" not in steps  # make install runs it
 
 
-def test_create_module_inside_an_app_prints_the_app_flow(tmp_path, monkeypatch) -> None:
+def test_create_module_inside_an_app_wires_and_syncs(tmp_path, monkeypatch) -> None:
     target, _ = _new_app(tmp_path)
     monkeypatch.chdir(target)
+    calls = []
+    monkeypatch.setattr(
+        "simple_module_cli._add_install._default_exec_runner",
+        lambda cmd, cwd: calls.append((cmd, cwd)) or 0,
+    )
     result = CliRunner().invoke(app, ["create-module", "notes", "--dest", "modules/notes"])
 
     assert result.exit_code == 0, result.output
-    steps = result.output.split("Next steps", 1)[1]
-    assert "uv run smpy add ../modules/notes --path host" in steps
-    assert "make install" in steps
-    assert 'make migration msg="add notes"' in steps
-    assert "make test" in steps
+    steps = result.output.split("Next step", 1)[1]
+    host = tomllib.loads((target / "host/pyproject.toml").read_text())
+    assert "simple_module_notes" in host["project"]["dependencies"]
+    assert host["tool"]["uv"]["sources"]["simple_module_notes"] == {"workspace": True}
+    assert [call[0] for call in calls] == [
+        ["uv", "sync", "--all-packages"],
+        ["npm", "install"],
+        ["uv", "run", "smpy", "gen"],
+    ]
+    assert all(cwd == target for _, cwd in calls)
+    assert 'uv run smpy migrations new notes -m "init"' in steps
+    assert "make migrate" in steps
+    assert "smpy add" not in steps
+    assert "make install" not in result.output
     assert "restart `make dev`" in steps
     assert "uv sync --extra dev" not in result.output
 

@@ -9,6 +9,9 @@ from pathlib import Path
 
 import typer
 
+from simple_module_cli.package_update_deps import workspace_member_dirs
+from simple_module_cli.package_update_npm import install_roots, load_manifests
+from simple_module_cli.pyproject_edit import load_pyproject
 from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
 
 ExecRunner = Callable[[list[str], Path], int]
@@ -45,13 +48,34 @@ def _sync_command(project_dir: Path) -> tuple[list[str], Path]:
     root, as ``make install`` does.
     """
     root = find_workspace_root(project_dir)
-    if (
-        root is not None
-        and root != project_dir.resolve()
-        and is_workspace_member(project_dir, project_dir)
+    if root is not None and (
+        root == project_dir.resolve() or is_workspace_member(project_dir, project_dir)
     ):
         return ["uv", "sync", "--all-packages"], root
     return ["uv", "sync"], project_dir
+
+
+def sync_project(
+    project_dir: Path, exec_runner: ExecRunner, *, upgrade: list[str] | None = None
+) -> None:
+    """Finish manifest changes using the app's installation and generation flow."""
+    sync_cmd, root = _sync_command(project_dir)
+    for name in upgrade or []:
+        sync_cmd.extend(["--upgrade-package", name])
+    commands = [(sync_cmd, root)]
+    client = next((p for p in (root / "host/client_app", root / "client_app") if p.is_dir()), None)
+    if client is not None:
+        pyproject = root / "pyproject.toml"
+        files = [pyproject, *workspace_member_dirs(pyproject, load_pyproject(pyproject))]
+        manifests = load_manifests([file.parent for file in files])
+        commands.extend((["npm", "install"], directory) for directory in install_roots(manifests))
+        commands.append((["uv", "run", "smpy", "gen"], root))
+    for cmd, cwd in commands:
+        if exec_runner(cmd, cwd) != 0:
+            raise _fail(
+                f"`{' '.join(cmd)}` failed — manifests are already updated. "
+                f"Fix the error, then run `make install` from {root} to finish installation."
+            )
 
 
 def _fail(message: str) -> typer.Exit:
@@ -64,8 +88,6 @@ def post_install(
     dists: list[str],
     models_dists: list[str],
     exec_runner: ExecRunner,
-    *,
-    updating: bool = False,
 ) -> None:
     """Sync dependencies, regenerate frontend files, and check entry points."""
     sync_cmd, sync_dir = _sync_command(project_dir)
@@ -82,15 +104,9 @@ def post_install(
             # A hosting plugin older than the global smpy has no --skip-if-missing.
             code = exec_runner([part for part in cmd if part != _SKIP_IF_MISSING], cwd)
         if code != 0:
-            if not updating:
-                recovery = "rerun the original `smpy add` command"
-            elif has_frontend:
-                recovery = "run `make install gen-pages` from the app root"
-            else:
-                recovery = f"run `{' '.join(sync_cmd)}` from {sync_dir}"
             raise _fail(
                 f"`{' '.join(cmd)}` failed — dependencies are already recorded in pyproject.toml. "
-                f"Fix the error, then {recovery}."
+                "Fix the error, then rerun the original `smpy add` command."
             )
     for dist in dists:
         code = exec_runner(["uv", "run", "python", "-c", _ENTRYPOINT_CHECK, dist], project_dir)
