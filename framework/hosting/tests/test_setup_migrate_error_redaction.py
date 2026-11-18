@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from alembic import command
 from fastapi import HTTPException
+from simple_module_hosting._secret_key import SecretKeyUnavailableError
 from simple_module_hosting.setup_wizard import migrate
 from simple_module_hosting.setup_wizard.migrate import apply_migrations
 from sqlalchemy.engine import make_url
@@ -56,6 +58,22 @@ async def test_migration_failure_detail_is_redacted(monkeypatch, caplog) -> None
     assert _SECRET not in str(info.value.detail)
     assert "cid-123" in str(info.value.detail)
     # The operator still gets the real error, in the log.
+    assert _SECRET in caplog.text
+
+
+async def test_root_persistence_failure_detail_is_redacted(monkeypatch, caplog):
+    monkeypatch.setattr(command, "upgrade", lambda *_args: None)
+    monkeypatch.setattr(
+        "simple_module_hosting.migrations.migration_status",
+        AsyncMock(side_effect=[{"is_current": False}, {"is_current": True}]),
+    )
+    monkeypatch.setattr(
+        migrate, "run_deferred_startup", AsyncMock(side_effect=SecretKeyUnavailableError(_SECRET))
+    )
+    with pytest.raises(HTTPException) as info:
+        await apply_migrations(_request(""), {})
+    assert info.value.status_code == 503
+    assert _SECRET not in str(info.value.detail)
     assert _SECRET in caplog.text
 
 

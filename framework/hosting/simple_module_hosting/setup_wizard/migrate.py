@@ -15,6 +15,7 @@ from collections.abc import Generator
 from fastapi import HTTPException, Request
 
 from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting._secret_key import SecretKeyUnavailableError
 from simple_module_hosting.data_compatibility import DataCompatibilityError
 from simple_module_hosting.setup_gate import is_first_run
 from simple_module_hosting.setup_wizard._migration_lock import migration_lock
@@ -122,6 +123,11 @@ async def apply_migrations(request: Request, _data: dict) -> dict:
     # Modules whose on_startup could not run before the tables existed.
     try:
         await run_deferred_startup(request.app)
+    except SecretKeyUnavailableError as exc:
+        logger.exception("Setup: root secret persistence failed")
+        raise HTTPException(
+            status_code=503, detail="Could not persist the root secret; see the server log."
+        ) from exc
     except DataCompatibilityError as exc:
         # The detail names upgrade ids and the remediation command, never data.
         logger.error("Setup: %s", exc)

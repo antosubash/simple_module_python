@@ -239,11 +239,18 @@ def merge_host_settings(
     # The stored key rode along in the read above (it is a ``host.*`` row), so
     # an established install opens no second connection for it.
     stored_key = overrides.get(SECRET_KEY_FIELD, (None, None))[0]
+    ephemeral = False
+
+    def mark_ephemeral() -> None:
+        nonlocal ephemeral
+        ephemeral = True
+
     secret_key = ensure_secret_key(
         bootstrap.database_url,
         env_value=bootstrap.secret_key if "secret_key" in bootstrap.model_fields_set else None,
         stored=stored_key,
         strict=strict,
+        on_ephemeral=mark_ephemeral,
     )
     # database_url is passed explicitly: BootstrapSettings.__init__ resolves
     # relative sqlite paths against the discovered project root, and
@@ -255,4 +262,6 @@ def merge_host_settings(
     # longer validates (a Literal narrowed in an upgrade) falls back to its
     # default with a WARNING instead of taking down every worker — and with
     # them the admin UI that could fix the row (#497).
-    return construct_leniently(Settings, stored, fixed=fixed)
+    settings = construct_leniently(Settings, stored, fixed=fixed)
+    settings._secret_key_ephemeral = ephemeral
+    return settings

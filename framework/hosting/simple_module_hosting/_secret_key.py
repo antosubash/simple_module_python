@@ -17,6 +17,7 @@ import contextlib
 import logging
 import os
 import secrets
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from simple_module_db.stored_settings import (
@@ -162,6 +163,7 @@ def ensure_secret_key(
     env_value: str | None = None,
     stored: str | None = None,
     strict: bool = False,
+    on_ephemeral: Callable[[], None] | None = None,
 ) -> str:
     """Return the key to sign sessions with, generating one if needed.
 
@@ -178,6 +180,7 @@ def ensure_secret_key(
 
     ``stored`` is the value the caller already read from the settings table,
     if any; a non-empty one is returned without touching the database again.
+    ``on_ephemeral`` marks a generated fallback for post-migration persistence.
     """
     if env_value is None:
         env_value = os.environ.get(ENV_SECRET_KEY)
@@ -203,9 +206,28 @@ def ensure_secret_key(
     if resolved:
         return resolved
 
+    if on_ephemeral is not None:
+        on_ephemeral()
     logger.warning(
         "No SM_SECRET_KEY set and the key could not be stored (database "
         "unreachable or not yet migrated). Using an ephemeral key — sessions "
         "will not survive a restart until setup completes."
     )
     return _generate()
+
+
+async def persist_pending_secret_key(app) -> None:
+    """Replace a first-run ephemeral root with the database's winning stored key."""
+    settings = getattr(app.state, "boot_settings", None)
+    if settings is None or not settings._secret_key_ephemeral:
+        return
+    try:
+        resolved = await _ensure(settings.database_url)
+        if not resolved:
+            raise RuntimeError("the settings table is still missing after migrations")
+    except Exception as exc:
+        raise SecretKeyUnavailableError(
+            "Could not persist the root secret after migrations"
+        ) from exc
+    settings.secret_key = app.state.sm.settings.secret_key = resolved
+    settings._secret_key_ephemeral = False

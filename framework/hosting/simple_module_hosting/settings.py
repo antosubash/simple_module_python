@@ -7,9 +7,13 @@ the process-wiring half or only the DB-backed half may depend on
 
 from __future__ import annotations
 
+from pydantic import PrivateAttr
+
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 from simple_module_hosting.host_settings import HostSettings
 
 
 class Settings(HostSettings, BootstrapSettings):
     """Combined bootstrap + host settings."""
+
+    _secret_key_ephemeral: bool = PrivateAttr(default=False)

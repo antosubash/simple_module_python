@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from users.auth_local.rate_limit import ThroughputLimiter
     from users.core.roles_cache import RoleSummary
     from users.core.settings import UsersSettings
-    from users.core.token_secrets import TokenSecrets
+    from users.core.token_secrets import RuntimeTokenSecrets, TokenSecrets
     from users.mailer import Mailer
     from users.oauth.providers import OAuthProvider
 
@@ -31,7 +31,7 @@ class UsersState:
     """Users-module singletons. Single slot at ``app.state.users``."""
 
     settings: UsersSettings
-    token_secrets: TokenSecrets
+    token_secrets: TokenSecrets | RuntimeTokenSecrets
     mailer: Mailer | None = None
     auth_throughput_limiter: ThroughputLimiter | None = None
     roles_cache: list[RoleSummary] = field(default_factory=list)

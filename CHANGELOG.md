@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve whitespace stripping for legacy Users token keys, and adopt a persisted root after first-run setup migrations so derived reset and verification links survive restarts and agree across workers (#969).
+
 ### Removed
 
 - **Breaking** / **Behaviour change** (#989): removed the deprecated settings root imports: `settings.registration` and `settings.module_registry` → `simple_module_core.module_settings`; `settings.hydrate` → `simple_module_core.settings_hydrate` (its `hydrate_settings_sync` → `simple_module_db.stored_settings`); `settings.constants` → `settings.core.constants`; `settings.store` → `settings.module_settings.store`; `settings._secrets` → `settings.core._secrets`.

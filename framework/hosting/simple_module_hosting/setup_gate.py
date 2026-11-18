@@ -23,6 +23,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting import migrations
 from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting._secret_key import SecretKeyUnavailableError
 from simple_module_hosting.data_compatibility import DataCompatibilityError
 from simple_module_hosting.path_matching import matches_path, validated_prefixes
 
@@ -108,10 +109,13 @@ async def _database_migrated(app) -> bool:
     if not status:
         return True
     if status.get("is_current", True):
-        if getattr(app.state, "deferred_data_compatibility", None):
+        boot = getattr(app.state, "boot_settings", None)
+        if getattr(app.state, "deferred_data_compatibility", None) or getattr(
+            boot, "_secret_key_ephemeral", False
+        ):
             try:
                 await run_deferred_startup(app)
-            except DataCompatibilityError:
+            except (DataCompatibilityError, SecretKeyUnavailableError):
                 return False
         return True
 
@@ -133,7 +137,7 @@ async def _database_migrated(app) -> bool:
         # data compatibility check must keep the gate closed.
         try:
             await run_deferred_startup(app)
-        except DataCompatibilityError:
+        except (DataCompatibilityError, SecretKeyUnavailableError):
             return False
         except Exception:
             logger.exception("Replaying deferred on_startup hooks failed")

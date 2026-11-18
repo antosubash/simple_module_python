@@ -126,15 +126,20 @@ rows follow the existing lenient parsing rules. Env-pinned values still win.
 `SM_SECRET_KEY` is optional. `merge_host_settings()` resolves an explicit value,
 then a stored key, then generates and stores one. An explicit value is never
 copied into the DB. Outside development, pre-app read or persistence failures
-refuse boot; only a confirmed missing settings table permits an ephemeral key
-until setup applies migrations. Production still refuses the shipped root placeholder.
+refuse boot; only a confirmed missing settings table permits an ephemeral key.
+After migrations, setup persists a generated root and adopts the stored winning
+value before replaying module startup. Other first-run workers adopt that same
+value when they observe the completed migrations. Persistence failures keep the
+setup gate closed. Production still refuses the shipped root placeholder.
 
 The resolved root is available at `app.state.boot_settings.secret_key` before
 module settings registration, and at `app.state.sm.settings.secret_key` once
 the complete services container is built. Users derives password-reset and email-verification
 keys with HKDF-SHA256 using `simple-module/v1/users/password-reset` and
-`simple-module/v1/users/email-verification`. Derived keys live in runtime state
-and cannot be changed by DB settings hydration or reloads. Explicit non-placeholder
+`simple-module/v1/users/email-verification`. Users resolves keys lazily from the
+current root, caching them per root value, so links issued after setup survive
+restarts. Editable DB module settings hydration and reloads cannot change them.
+Explicit non-placeholder
 legacy users token-secret env overrides log a deprecation warning and remain
 supported until 0.0.50. Existing links signed by other keys need to be reissued.
 Identity-provider, SMTP, S3 and Sentry credentials remain separate external credentials.

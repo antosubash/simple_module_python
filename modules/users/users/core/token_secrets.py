@@ -2,11 +2,13 @@
 
 import base64
 import logging
-import os
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 
 from simple_module_core.crypto import derive_key
 from simple_module_core.deprecation import deprecate
+from simple_module_core.dotenv import env_str
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class TokenSecrets:
 
 
 def _resolve(root: str, env: str, placeholder: str, label: bytes) -> str:
-    value = os.environ.get(env)
+    value = env_str(env, "")
     if value and value != placeholder:
         logger.warning(_LEGACY[env].message)
         return value
@@ -34,7 +36,7 @@ def _resolve(root: str, env: str, placeholder: str, label: bytes) -> str:
 
 
 def resolve_token_secrets(root: str) -> TokenSecrets:
-    """Resolve once at app construction, after the host root key is available."""
+    """Derive purpose-specific keys, preserving explicit legacy overrides."""
     return TokenSecrets(
         reset_password_token_secret=_resolve(
             root,
@@ -49,3 +51,34 @@ def resolve_token_secrets(root: str) -> TokenSecrets:
             b"simple-module/v1/users/email-verification",
         ),
     )
+
+
+class RuntimeTokenSecrets:
+    """Follow the current host root, including its first-run persistence swap."""
+
+    def __init__(self, root: Callable[[], str]) -> None:
+        self._root = root
+        self._resolve = lru_cache(maxsize=1)(resolve_token_secrets)
+        self._resolve(root())  # Emit legacy-override warnings during registration.
+
+    @property
+    def reset_password_token_secret(self) -> str:
+        return self._resolve(self._root()).reset_password_token_secret
+
+    @property
+    def verification_token_secret(self) -> str:
+        return self._resolve(self._root()).verification_token_secret
+
+
+class TokenSecretsMixin:
+    """Managers read signing keys when used, rather than capturing them at init."""
+
+    _token_secrets: TokenSecrets | RuntimeTokenSecrets
+
+    @property
+    def reset_password_token_secret(self) -> str:
+        return self._token_secrets.reset_password_token_secret
+
+    @property
+    def verification_token_secret(self) -> str:
+        return self._token_secrets.verification_token_secret
