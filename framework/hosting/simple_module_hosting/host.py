@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tomllib
 from collections.abc import Iterable
 from importlib import import_module
 from pathlib import Path
@@ -23,10 +24,11 @@ def _is_workspace_member(host_dir: Path) -> bool:
     if host_dir.name != "host":
         return False
     try:
-        text = (host_dir.parent / "pyproject.toml").read_text(encoding="utf-8")
-    except OSError:
+        with (host_dir.parent / "pyproject.toml").open("rb") as fh:
+            data = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
         return False
-    return "[tool.uv.workspace]" in text
+    return isinstance(data.get("tool", {}).get("uv", {}).get("workspace"), dict)
 
 
 def build_host_app(

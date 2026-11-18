@@ -233,3 +233,21 @@ def test_factory_builds_the_same_runtime_as_create_app(tmp_path, monkeypatch, se
     assert actual.openapi()["paths"].keys() - expected.openapi()["paths"].keys() == {
         "/api/factory-only"
     }
+
+
+@pytest.mark.parametrize(
+    ("manifest", "member"),
+    [
+        ('[tool.uv.workspace]\nmembers = ["host"]\n', True),
+        ('[tool.uv.workspace ]\nmembers = ["host"]\n', True),
+        ('[tool.uv."workspace"]\nmembers = ["host"]\n', True),
+        ("# [tool.uv.workspace]\n[project]\nname = 'x'\n", False),
+        ("not = [valid", False),
+    ],
+)
+def test_workspace_membership_parses_the_manifest(tmp_path, manifest, member):
+    from simple_module_hosting.host import _is_workspace_member
+
+    (tmp_path / "host").mkdir()
+    (tmp_path / "pyproject.toml").write_text(manifest)
+    assert _is_workspace_member(tmp_path / "host") is member
