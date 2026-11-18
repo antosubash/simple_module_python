@@ -59,8 +59,7 @@ class TestGetCurrentUser:
 class TestRequirePermission:
     async def test_raises_403_when_missing_permission(self, app):
         """The RequiresPermission check raises 403 when user lacks permissions."""
-        dep = Depends(RequiresPermission("products.delete"))
-        check_fn = dep.dependency
+        check_fn = RequiresPermission("products.delete")
 
         user = UserContext(id="u1", email="u@test.com", name="User", roles=["viewer"])
         request = _request(app, user)
@@ -71,8 +70,7 @@ class TestRequirePermission:
 
     async def test_admin_bypasses_permission_check(self, app):
         """The RequiresPermission check allows admin users through."""
-        dep = Depends(RequiresPermission("products.delete"))
-        check_fn = dep.dependency
+        check_fn = RequiresPermission("products.delete")
 
         admin_user = UserContext(id="a1", email="admin@test.com", name="Admin", roles=["admin"])
         request = _request(app, admin_user)
@@ -82,16 +80,14 @@ class TestRequirePermission:
 class TestRequirePermissionAdvanced:
     async def test_multiple_permissions_any_match(self, app):
         """User with any of the required permissions should pass."""
-        dep = Depends(RequiresPermission("products.view", "products.edit"))
-        check_fn = dep.dependency
+        check_fn = RequiresPermission("products.view", "products.edit")
 
         admin = UserContext(id="a1", email="a@t.com", name="Admin", roles=["admin"])
         request = _request(app, admin)
         await check_fn(request)
 
     async def test_non_admin_without_permission_fails(self, app):
-        dep = Depends(RequiresPermission("products.delete"))
-        check_fn = dep.dependency
+        check_fn = RequiresPermission("products.delete")
 
         user = UserContext(id="u1", email="u@t.com", name="User", roles=["user"])
         request = _request(app, user)
@@ -107,9 +103,9 @@ class TestRequirePermissionAdvanced:
         so every non-admin role held nothing and this was a 403.
         """
         app.state.sm.permissions.map_role("clerk", ["products.delete"])
-        dep = Depends(RequiresPermission("products.delete"))
+        check_fn = RequiresPermission("products.delete")
         user = UserContext(id="u1", email="u@t.com", name="User", roles=["clerk"])
-        await dep.dependency(_request(app, user))
+        await check_fn(_request(app, user))
 
 
 def test_requires_permission_is_a_token_gate():
