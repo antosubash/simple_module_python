@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tomllib
 from collections.abc import Iterable
 from importlib import import_module
 from pathlib import Path
@@ -11,6 +12,23 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
+
+
+def _is_workspace_member(host_dir: Path) -> bool:
+    """True for ``<root>/host/main.py`` under a uv workspace root (repo and workspace scaffold).
+
+    A flat project keeps ``main.py`` in its own root, even when that directory is named
+    ``host``; only a parent ``pyproject.toml`` declaring ``[tool.uv.workspace]`` makes the
+    parent the project root. Markers such as ``.git`` are not used: images drop them.
+    """
+    if host_dir.name != "host":
+        return False
+    try:
+        with (host_dir.parent / "pyproject.toml").open("rb") as fh:
+            data = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    return isinstance(data.get("tool", {}).get("uv", {}).get("workspace"), dict)
 
 
 def build_host_app(
@@ -21,9 +39,10 @@ def build_host_app(
 ) -> FastAPI:
     """Load the host environment, merge DB settings, configure logging and build.
 
-    Pass ``__file__`` from the host entry point. Project-root discovery starts
-    in its directory, using the same markers as the CLI and migration checks.
-    ``project_root`` overrides that discovery; an existing ``SM_PROJECT_ROOT``
+    Pass ``__file__`` from the host entry point. For ``host/main.py`` the root
+    is the host directory's parent; for a flat ``main.py`` it is its directory.
+    This rule is independent of cwd and project markers. ``project_root``
+    overrides that default; an existing ``SM_PROJECT_ROOT``
     takes precedence and absolute values are preserved. Relative overrides are
     made absolute before changing cwd. The entry file's directory is pinned on
     sys.path so sibling imports survive the cwd change.
@@ -40,13 +59,11 @@ def build_host_app(
         sys.path.insert(0, str(host_dir))
 
     from simple_module_core.dotenv import load_dotenv_into_environ
-    from simple_module_core.migration_support import resolve_project_root
 
     root_env = os.environ.get("SM_PROJECT_ROOT")
     root = root_env or project_root
     if root is None:
-        os.chdir(host_dir)
-        root = resolve_project_root(fallback=host_dir)
+        root = host_dir.parent if _is_workspace_member(host_dir) else host_dir
     root = Path(root).resolve()
     if not root_env or not Path(root_env).is_absolute():
         os.environ["SM_PROJECT_ROOT"] = str(root)
