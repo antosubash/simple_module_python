@@ -33,6 +33,15 @@ class OrdersModule(ModuleBase):
 
 ## Permissions — `register_permissions(registry: PermissionRegistry)`
 
+Outside HTTP, use `await principal_for(db, user_id, tenant_id)` from
+`simple_module_db`; never reconstruct a user's roles or membership from plugin
+tables. Web and worker async sessions carry a `PrincipalRegistry` populated by
+`register_principal_builder(registry)` (no app argument). Grant sources that read
+the DB should register an app-free `session_source=async (db, user) -> keys` with
+`add_grant_source`; the shared builder uses this counterpart in both contexts.
+Bind `tenant_context(tenant_id)` around subsequent resource queries. Unknown IdP
+roles are not guessed outside a request; see `docs/framework/permissions.md`.
+
 ```python
 from simple_module_core.permissions import PermissionRegistry
 

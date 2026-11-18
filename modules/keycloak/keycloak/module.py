@@ -19,6 +19,11 @@ _MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 
 class KeycloakModule(ModuleBase):
+    def register_principal_builder(self, registry) -> None:
+        from keycloak.identity.directory import KeycloakDirectory
+
+        registry.directory = KeycloakDirectory()
+
     meta = ModuleMeta(
         name="Keycloak",
         route_prefix="/api/keycloak",

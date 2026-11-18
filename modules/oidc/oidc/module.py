@@ -33,6 +33,11 @@ class OidcModule(ModuleBase):
     )
     _is_auth_provider = True
 
+    def register_principal_builder(self, registry) -> None:
+        from oidc.identity.directory import OidcDirectory
+
+        registry.directory = OidcDirectory()
+
     def register_settings(self, app: FastAPI) -> None:
         from oidc.core.settings import OidcSettings
         from oidc.core.state import OidcState

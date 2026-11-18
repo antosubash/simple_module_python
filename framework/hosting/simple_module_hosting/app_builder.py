@@ -16,10 +16,13 @@ from simple_module_core.health import HealthRegistry
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.principals import build_principal_registry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
+from simple_module_core.user_directory import get_user_directory
+from simple_module_db.principals import bind_principal_registry
 from simple_module_db.tenant_cleanup import register_tenant_cleanup
 
 from simple_module_hosting._app_boot import (
@@ -197,6 +200,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Phase 6: Initialize database ───────────────────────
     db_state = init_database(settings, health_registry)
+    principals = build_principal_registry(modules, settings, permissions=perm_registry)
+    principals.directory = get_user_directory(app)
+    bind_principal_registry(db_state.session_factory, principals)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)

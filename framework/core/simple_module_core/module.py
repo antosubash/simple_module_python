@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.principals import PrincipalRegistry
     from simple_module_core.resources import ResourceTypeRegistry
     from simple_module_core.setup_steps import SetupRegistry
     from simple_module_core.spa_mount import SpaMount
@@ -85,6 +86,12 @@ class ModuleBase(RequestHooksMixin, ABC):
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         """Declare permissions this module uses."""
+
+    def register_principal_builder(self, registry: PrincipalRegistry) -> None:
+        """Install app-free directory, membership and persisted-role providers.
+
+        Called in both web and worker processes; must not depend on app state.
+        """
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         """Declare feature flags this module exposes."""

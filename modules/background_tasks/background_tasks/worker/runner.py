@@ -59,12 +59,14 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     from background_tasks.executions.tenant_context import set_default_tenant
     from background_tasks.logs.sink import install_log_sink
     from background_tasks.worker.celery_app import build_celery
+    from background_tasks.worker.principals import configure_principals
     from background_tasks.worker.settings import load_runner_settings
 
     # The worker never builds the app, so resolve the host settings the same
     # way host/main.py does (env → DB → default): task bodies must hit the same
     # database with the same fail-closed tenant rules as request code.
     host = merge_host_settings()
+    configure_principals(host)
     default_tenant = None if host.multi_tenant else host.default_tenant or None
     set_database_url(
         host.database_url, tenant_strict=host.multi_tenant, default_tenant=default_tenant

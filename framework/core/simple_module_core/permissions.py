@@ -52,6 +52,7 @@ class PermissionRegistry:
         self._all_permissions_cache: list[str] | None = None
         self._role_map_cache: dict[str, list[str]] | None = None
         self._grant_sources: list[GrantSource] = []
+        self._session_grant_sources: dict[int, GrantSource] = {}
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
         self._source_failed_at: dict[str, float] = {}  # name → clock() of last failure
@@ -182,7 +183,9 @@ class PermissionRegistry:
         self._role_map[role].update(permissions)
         self._invalidate()
 
-    def add_grant_source(self, source: GrantSource) -> None:
+    def add_grant_source(
+        self, source: GrantSource, *, session_source: GrantSource | None = None
+    ) -> None:
         """Contribute permissions a principal holds beyond its roles (GH #337).
 
         Whatever *source* returns is merged into the request's resolved set, so
@@ -191,8 +194,19 @@ class PermissionRegistry:
         ``permissions`` module's direct grants were seen by its own dependency
         and nothing else, so a grant made in the admin UI did nothing on any
         route guarded by the framework's ``RequiresPermission``.
+
+        Supply ``session_source=async (db, user) -> keys`` for app-free use.
+        The shared builder uses it for both web and worker principals. A legacy
+        source receives ``request=None`` outside HTTP and must handle that to
+        contribute there; failures contribute nothing, as they do in requests.
         """
         self._grant_sources.append(source)
+        if session_source is not None:
+            self._session_grant_sources[id(source)] = session_source
+
+    def session_grant_source(self, source: GrantSource) -> GrantSource | None:
+        """The app-free ``async (db, user) -> keys`` counterpart, when supplied."""
+        return self._session_grant_sources.get(id(source))
 
     @property
     def grant_sources(self) -> tuple[GrantSource, ...]:

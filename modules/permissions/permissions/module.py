@@ -40,6 +40,11 @@ async def _resolve_role_permission_labels(_db: AsyncSession, ids: list[str]) -> 
 
 
 class PermissionsModule(ModuleBase):
+    def register_principal_builder(self, registry) -> None:
+        from permissions.grants.principal import role_overlays
+
+        registry.role_overlays = role_overlays
+
     meta = ModuleMeta(
         name="Permissions",
         route_prefix="/api/permissions",
@@ -76,6 +81,7 @@ class PermissionsModule(ModuleBase):
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         from permissions.core.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
+        from permissions.grants.principal import direct_grants_for
         from permissions.grants.source import direct_grant_source
 
         registry.add_group(
@@ -85,7 +91,7 @@ class PermissionsModule(ModuleBase):
         )
         # Direct per-user grants join the framework's one resolution, so every
         # module's RequiresPermission, the menu and the frontend honour them.
-        registry.add_grant_source(direct_grant_source)
+        registry.add_grant_source(direct_grant_source, session_source=direct_grants_for)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         """Let another worker's grant change drop this worker's cached grants."""

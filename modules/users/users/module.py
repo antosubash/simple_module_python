@@ -57,6 +57,11 @@ class UsersModule(ModuleBase):
     )
     _is_auth_provider = True
 
+    def register_principal_builder(self, registry) -> None:
+        from users.core.directory import UsersDirectory
+
+        registry.directory = UsersDirectory()
+
     def register_settings(self, app: FastAPI) -> None:
         from users.core.settings import UsersSettings
         from users.core.state import UsersState

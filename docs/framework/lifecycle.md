@@ -25,6 +25,7 @@ register_csp_sources
 register_design_packs
 register_audit_links
 register_resource_types
+register_principal_builder  (all modules, after database initialization)
 register_exception_handlers
 register_middleware
 register_routes
@@ -34,6 +35,13 @@ register_admin_routes       (only when meta.admin_view_prefix is set)
 ```
 
 On shutdown, `on_shutdown` runs in **reverse** dependency order.
+
+`register_principal_builder(registry)` installs app-free user-directory,
+membership-role and persisted-role providers in a framework `PrincipalRegistry`.
+The web host binds it to its session factory after database initialization;
+workers call it alongside `register_permissions` using the same selected modules,
+without running settings hooks or building an app. See
+[principals outside requests](/framework/permissions#principals-outside-requests).
 
 ## `register_settings(app)`
 

@@ -22,6 +22,7 @@ from simple_module_db.pagination import (
     paginate,
     total_pages,
 )
+from simple_module_db.principals import principal_for
 from simple_module_db.provider import DatabaseProvider, detect_provider
 from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
 from simple_module_db.session import DatabaseState, RequestSession, init_db
@@ -90,6 +91,7 @@ __all__ = [
     "mark_written",
     "no_tenant",
     "paginate",
+    "principal_for",
     "record_bulk_audit",
     "render_item",
     "tenant_context",

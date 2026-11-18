@@ -109,11 +109,14 @@ def test_stored_invalid_task_routes_do_not_stop_the_worker(db_url: str, caplog) 
 def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypatch) -> None:
     """GH #490: the entry point scaffolded apps use must hydrate from the DB."""
     from background_tasks.executions import tenant_context
+    from background_tasks.worker import principals
     from background_tasks.worker.runner import build_runner_celery
     from simple_module_core import leases
     from simple_module_db.leases import DbLeaseBackend
 
     # The runner sets process-wide state; don't leak it into later tests.
+    for name in ("_host_settings", "_app_registry", "_revision"):
+        monkeypatch.setattr(principals, name, getattr(principals, name))
     monkeypatch.setattr(tenant_context, "_default_tenant", tenant_context._default_tenant)
     monkeypatch.setattr(leases, "_backend", leases._backend)
     for name in ("_tenant_strict", "_default_tenant"):
