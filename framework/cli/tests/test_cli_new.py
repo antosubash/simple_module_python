@@ -59,17 +59,11 @@ def test_sm_new_pins_client_app_simple_module_deps_to_framework_version(tmp_path
         )
 
 
-_SECRET_KEYS = (
-    "SM_SECRET_KEY",
-    "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
-    "SM_USERS_VERIFICATION_TOKEN_SECRET",
-)
+_SECRET_KEYS = ("SM_SECRET_KEY",)
 
 
 def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> None:
-    # GH #441: the committed .env.example must not carry real secrets. The
-    # users token secrets are needed because UsersSettings refuses its
-    # placeholders in production, the mode the compose containers boot in.
+    # GH #441: the committed .env.example must not carry real secrets.
     runner = CliRunner()
     target = tmp_path / "my-app"
     runner.invoke(
@@ -85,6 +79,9 @@ def test_sm_new_writes_generated_secrets_to_gitignored_env(tmp_path: Path) -> No
         assert key not in example
         assert f"# {key}=" in example_text
     assert ".env" in (target / ".gitignore").read_text().splitlines()
+    for legacy in ("SM_USERS_RESET_PASSWORD_TOKEN_SECRET", "SM_USERS_VERIFICATION_TOKEN_SECRET"):
+        assert legacy not in env
+        assert legacy not in example_text
     # Non-secret settings stay in step between the two files.
     assert env["SM_DATABASE_URL"] == example["SM_DATABASE_URL"]
 

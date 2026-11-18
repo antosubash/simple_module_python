@@ -50,7 +50,7 @@ router = APIRouter()
 # Module permissions exist (settings.view / .create / .edit / .delete) but the
 # endpoints used to be unauthenticated relative to the role map — any logged-in
 # user could read or rewrite system settings (including secrets like
-# ``reset_password_token_secret``). Each route now gates on the relevant
+# ``oauth_google_client_secret``). Each route now gates on the relevant
 # permission via the wildcard map.
 _VIEW = [Depends(RequiresPermission(PERM_VIEW))]
 _CREATE = [Depends(RequiresPermission(PERM_CREATE))]

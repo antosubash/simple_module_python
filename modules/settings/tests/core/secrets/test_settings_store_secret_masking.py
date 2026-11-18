@@ -178,7 +178,7 @@ class TestTheMaskStopsAtTheScreen:
     """Masking is for the screens. The code that *applies* a setting has to see
     the real value, or hydration writes a row of dots over every credential the
     deployment stored — a mailer that cannot authenticate, and a
-    ``reset_password_token_secret`` that no longer verifies the tokens it signed.
+    ``oauth_google_client_secret`` that no longer authenticates with Google.
     """
 
     async def test_the_store_reads_through_the_mask(self, db_session) -> None:
@@ -190,14 +190,14 @@ class TestTheMaskStopsAtTheScreen:
             SettingCreate(
                 scope=SettingScope.SYSTEM,
                 scope_id=SYSTEM_SCOPE_ID,
-                key="users.reset_password_token_secret",
+                key="users.oauth_google_client_secret",
                 value="s3kr3t",
                 value_type=VALUE_TYPE_STRING,
             )
         )
         overrides = await SettingsStore(service).get_overrides("users")
 
-        assert overrides["reset_password_token_secret"] == ("s3kr3t", VALUE_TYPE_STRING)
+        assert overrides["oauth_google_client_secret"] == ("s3kr3t", VALUE_TYPE_STRING)
 
     async def test_a_consumer_module_reads_the_real_value(self, db_session) -> None:
         """``SettingsAccessor.get`` is what another module calls to obtain a

@@ -70,15 +70,15 @@ async def test_delete_field_resets_to_default(authenticated_client, app):
 async def test_put_secret_mask_sentinel_is_noop(authenticated_client, app):
     await authenticated_client.put(
         "/api/settings/modules/users",
-        json={"reset_password_token_secret": "real-secret-value-48-chars-long-xxxxxxxxxx"},
+        json={"oauth_google_client_secret": "real-secret-value-48-chars-long-xxxxxxxxxx"},
     )
-    original = app.state.users.settings.reset_password_token_secret
+    original = app.state.users.settings.oauth_google_client_secret
     resp = await authenticated_client.put(
         "/api/settings/modules/users",
-        json={"reset_password_token_secret": "••••••••"},
+        json={"oauth_google_client_secret": "••••••••"},
     )
     assert resp.status_code == 200
-    assert app.state.users.settings.reset_password_token_secret == original
+    assert app.state.users.settings.oauth_google_client_secret == original
 
 
 async def test_host_body_guard_save_and_clear_apply_without_restart(authenticated_client, app):

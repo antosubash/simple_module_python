@@ -11,6 +11,9 @@ Edit deployment settings such as mail credentials, feature flags and storage
 backends in the admin UI. The tables below cover the framework, bundled modules
 and repository tools. See [Configuration](/guide/configuration) for an overview.
 
+The root signing key is generated and stored when `SM_SECRET_KEY` is unset.
+Users reset and verification keys are derived from it; no secret env variable is required.
+
 ## Framework
 
 | Variable | Default | Notes |
@@ -126,8 +129,6 @@ settings editor. The variables below seed accounts or supply signing secrets.
 | `SM_USERS_BOOTSTRAP_PASSWORD_GENERATED` | unset | Internal entrypoint marker. `1` logs generated credentials when the bootstrap admin is created. |
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optionally seeds a second account without admin privileges. |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Password paired with the second account's email. |
-| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | dev placeholder | HMAC key for password-reset tokens. Supply a non-placeholder value in production. |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | dev placeholder | HMAC key for email-verification tokens. Supply a non-placeholder value in production. |
 
 The Users setting `oauth_microsoft_discovery_url` is honored only when
 `SM_ENVIRONMENT` is explicitly `development` or `testing`.

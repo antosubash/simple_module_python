@@ -33,6 +33,7 @@ from users.models import User
 
 if TYPE_CHECKING:
     from users.core.settings import UsersSettings
+    from users.core.token_secrets import TokenSecrets
 
 logger = logging.getLogger(__name__)
 
@@ -42,18 +43,17 @@ class UserManager(
 ):
     """Customizes password validation, token secrets, and lifecycle emails."""
 
-    # Secrets and lifetimes pulled from settings at construction time so
-    # subclasses of UserManager work in tests without full app startup.
     def __init__(
         self,
         user_db: UserDatabaseWithRoles,
         mailer: Mailer,
         settings: UsersSettings,
+        token_secrets: TokenSecrets,
     ) -> None:
         super().__init__(user_db, PASSWORD_HELPER)
         self.mailer = mailer
-        self.reset_password_token_secret = settings.reset_password_token_secret
-        self.verification_token_secret = settings.verification_token_secret
+        self.reset_password_token_secret = token_secrets.reset_password_token_secret
+        self.verification_token_secret = token_secrets.verification_token_secret
         self.reset_password_token_lifetime_seconds = settings.reset_password_token_lifetime_seconds
         self.verification_token_lifetime_seconds = settings.verification_token_lifetime_seconds
         self.cookie_max_age_seconds = settings.cookie_max_age_seconds
@@ -294,4 +294,4 @@ async def get_user_manager(
     users = request.app.state.users
     mailer = users.mailer
     settings = users.settings
-    yield UserManager(user_db, mailer, settings)
+    yield UserManager(user_db, mailer, settings, users.token_secrets)

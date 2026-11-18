@@ -1,0 +1,51 @@
+"""Runtime token keys; legacy env overrides expire in 0.0.50 (#969)."""
+
+import base64
+import logging
+import os
+from dataclasses import dataclass
+
+from simple_module_core.crypto import derive_key
+from simple_module_core.deprecation import deprecate
+
+logger = logging.getLogger(__name__)
+
+_LEGACY = {
+    name: deprecate(name, remove_in="0.0.50", use="keys derived from the host root secret")
+    for name in (
+        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+        "SM_USERS_VERIFICATION_TOKEN_SECRET",
+    )
+}
+
+
+@dataclass(frozen=True)
+class TokenSecrets:
+    reset_password_token_secret: str
+    verification_token_secret: str
+
+
+def _resolve(root: str, env: str, placeholder: str, label: bytes) -> str:
+    value = os.environ.get(env)
+    if value and value != placeholder:
+        logger.warning(_LEGACY[env].message)
+        return value
+    return base64.urlsafe_b64encode(derive_key(root, label)).decode()
+
+
+def resolve_token_secrets(root: str) -> TokenSecrets:
+    """Resolve once at app construction, after the host root key is available."""
+    return TokenSecrets(
+        reset_password_token_secret=_resolve(
+            root,
+            "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+            "dev-reset-token-secret-change-me",
+            b"simple-module/v1/users/password-reset",
+        ),
+        verification_token_secret=_resolve(
+            root,
+            "SM_USERS_VERIFICATION_TOKEN_SECRET",
+            "dev-verify-token-secret-change-me",
+            b"simple-module/v1/users/email-verification",
+        ),
+    )

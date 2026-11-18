@@ -33,8 +33,6 @@ async def test_missing_mail_origin_preserves_public_response(captured_mail, capl
     app.state.users = SimpleNamespace(
         settings=UsersSettings(
             base_url="",
-            reset_password_token_secret="test-reset-secret-32-bytes-xxxxx",
-            verification_token_secret="test-verify-secret-32-bytes-xxxxx",
         ),
         auth_throughput_limiter=ThroughputLimiter(),
     )

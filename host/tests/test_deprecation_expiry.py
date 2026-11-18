@@ -21,8 +21,12 @@ from simple_module_core.deprecation import (
 )
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
-_SHIM_MODULES: tuple[str, ...] = ()
-_EXPECTED = {"Makefile SM_TEST_PG_URL fallback"}
+_SHIM_MODULES: tuple[str, ...] = ("users.core.token_secrets",)
+_EXPECTED = {
+    "Makefile SM_TEST_PG_URL fallback",
+    "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+    "SM_USERS_VERIFICATION_TOKEN_SECRET",
+}
 
 
 _MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"

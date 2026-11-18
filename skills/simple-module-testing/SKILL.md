@@ -103,7 +103,7 @@ make test-e2e                         # in another terminal
 
 Env vars they read (defaults in parens): `E2E_BASE_URL` (`http://localhost:8000`), `E2E_USERNAME` (`admin@example.com`), `E2E_PASSWORD` (`admin`), `E2E_USER_ID` (optional — enables the password-reset test).
 
-Token-minting helpers in `tests/e2e/conftest.py` use the same `SM_USERS_VERIFICATION_TOKEN_SECRET` as the server, so you don't need to scrape the console mail log to grab a verify link.
+Token-minting helpers in `tests/e2e/conftest.py` derive keys from the same explicit `SM_SECRET_KEY` as the server (token-minting tests skip without it), so you don't need to scrape the console mail log to grab a verify link.
 
 ## Module-test layout
 

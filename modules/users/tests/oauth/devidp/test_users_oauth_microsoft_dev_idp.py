@@ -46,8 +46,6 @@ def test_the_override_is_ignored_in_production(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, logger="users.settings"):
         settings = _settings(
             oauth_microsoft_discovery_url="http://idp.evil/.well-known/x",
-            reset_password_token_secret="a-real-reset-secret-for-this-test",
-            verification_token_secret="a-real-verify-secret-for-this-test",
         )
     assert "users.oauth.microsoft_discovery_ignored" in caplog.text
     client = build_client_map(settings)["microsoft"].client
