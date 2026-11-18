@@ -106,6 +106,8 @@ def init_database(settings: Settings, health_registry: HealthRegistry):
 
 def mount_host_static(app: FastAPI, project_root: Path) -> None:
     static_dir = project_root / "host" / _STATIC_DIR_NAME
+    if not static_dir.is_dir():
+        static_dir = project_root / _STATIC_DIR_NAME
     if static_dir.is_dir():
         static = PrecompressedStaticFiles(directory=static_dir)
         app.mount(_STATIC_MOUNT_PATH, static, name=_STATIC_DIR_NAME)

@@ -21,9 +21,10 @@ def build_host_app(
 ) -> FastAPI:
     """Load the host environment, merge DB settings, configure logging and build.
 
-    Pass ``__file__`` from the host entry point. Project-root discovery starts
-    in its directory, using the same markers as the CLI and migration checks.
-    ``project_root`` overrides that discovery; an existing ``SM_PROJECT_ROOT``
+    Pass ``__file__`` from the host entry point. For ``host/main.py`` the root
+    is the host directory's parent; for a flat ``main.py`` it is its directory.
+    This rule is independent of cwd and project markers. ``project_root``
+    overrides that default; an existing ``SM_PROJECT_ROOT``
     takes precedence and absolute values are preserved. Relative overrides are
     made absolute before changing cwd. The entry file's directory is pinned on
     sys.path so sibling imports survive the cwd change.
@@ -40,13 +41,11 @@ def build_host_app(
         sys.path.insert(0, str(host_dir))
 
     from simple_module_core.dotenv import load_dotenv_into_environ
-    from simple_module_core.migration_support import resolve_project_root
 
     root_env = os.environ.get("SM_PROJECT_ROOT")
     root = root_env or project_root
     if root is None:
-        os.chdir(host_dir)
-        root = resolve_project_root(fallback=host_dir)
+        root = host_dir.parent if host_dir.name == "host" else host_dir
     root = Path(root).resolve()
     if not root_env or not Path(root_env).is_absolute():
         os.environ["SM_PROJECT_ROOT"] = str(root)
