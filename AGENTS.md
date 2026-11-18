@@ -178,6 +178,8 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_audit_links`, `register_resource_types`, `register_exception_handlers`,
 `register_middleware`, `register_routes(api_router, view_router)`,
 `register_admin_routes(admin_router)` (only with `ModuleMeta.admin_view_prefix`),
+then `register_fallback_routes(router)` after framework routes, static/SPA mounts
+and host routers (dependency order, first match wins; uses `view_prefix`),
 then async `check_data_compatibility(db)` (read-only upgrade checks before
 settings hydration; an `error` refuses boot outside development), then async
 `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
@@ -190,6 +192,10 @@ when present; import failures inside existing endpoints still fail boot.
 mount under a prefix. Omitted `version` comes from the owning distribution
 (fallback `1.0.0` without metadata). Explicit versions and hook overrides win.
 Keep existing prefixes when adopting conventional routes so URLs do not change.
+Catch-all views belong in `register_fallback_routes`, which defaults to no-op.
+Pass host routers to `create_app(..., routers=...)` or `build_host_app(..., routers=...)`
+so they precede fallbacks. Routes and mounts added to the returned app before
+startup or first dispatch also stay ahead of fallbacks.
 
 Rules that go with them:
 

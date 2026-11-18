@@ -153,7 +153,16 @@ In execution order — no-op by default except conventional router discovery:
 | `register_exception_handlers(app)` | Module-specific error mapping |
 | `register_middleware(app)` | LIFO — module middleware sorted last wraps outermost |
 | `register_routes(api_router, view_router)` | Default includes `<package>.web.endpoints.api.router` and `.views.router` when present; override for custom layouts or ordering. Existing module import errors propagate. The host applies prefixes and tags once. |
+| `register_admin_routes(admin_router)` | Additional admin views when `meta.admin_view_prefix` is set. |
+| `register_fallback_routes(router)` | Opt-in catch-all views at `view_prefix`. Finalized at startup and before first dispatch after ordinary routes and mounts, including post-builder host additions and bare mount redirects. Dependency order; first match wins. Fallback-only views retain discovery order for login destinations. Auth/tenant middleware and opt-in CSRF still apply; public access uses `register_public_routes`. |
 | `on_startup(app)` / `on_shutdown(app)` | Async; shutdown runs in reverse order |
+
+Move catch-alls out of the conventional views router into the fallback hook.
+Pass host routers through `create_app(..., routers=(host_router,))` or
+`build_host_app(..., routers=(host_router,))` so they precede fallbacks;
+routers or custom mounts added to the returned app are appended afterward.
+Use dependencies to order overlapping fallback modules; a matched handler's 404
+does not try the next fallback. See `docs/framework/lifecycle.md`.
 
 ## Verify after scaffolding
 

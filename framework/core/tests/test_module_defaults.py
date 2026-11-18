@@ -169,3 +169,15 @@ def test_diagnostics_recognize_conventional_locales(package):
 
     (package / "locales").mkdir()
     assert ModuleDiagnostics()._check_empty_modules([module_class(package)()]) == []
+
+
+def test_diagnostics_recognize_fallback_only_modules(package):
+    from simple_module_core.diagnostics import ModuleDiagnostics
+
+    class FallbackOnly(module_class(package)):
+        def register_fallback_routes(self, router):
+            @router.get("/{slug}")
+            async def fallback(slug: str):
+                return {"slug": slug}
+
+    assert ModuleDiagnostics()._check_empty_modules([FallbackOnly()]) == []

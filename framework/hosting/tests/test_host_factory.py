@@ -108,9 +108,11 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
     )
     app = FastAPI()
 
-    def create(received):
+    def create(received, *, routers=()):
         assert received is settings
         events.append("app")
+        for router in routers:
+            app.include_router(router)
         return app
 
     monkeypatch.setattr("simple_module_hosting.create_app", create)
@@ -178,7 +180,7 @@ def test_factory_entry_file_root_mounts_static_without_markers(
     monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda: settings)
     monkeypatch.setattr("simple_module_hosting.logging.setup_logging", lambda **kwargs: None)
 
-    def create(_settings):
+    def create(_settings, *, routers=()):
         app = FastAPI()
         mount_host_static(app, Path(os.environ["SM_PROJECT_ROOT"]))
         return app

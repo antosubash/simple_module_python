@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
@@ -35,6 +36,7 @@ from simple_module_hosting._boot_checks import report_tenant_resolution, report_
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
+from simple_module_hosting._module_routes import wire_fallback_routes
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
     install_middleware,
@@ -66,7 +68,7 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = _resolve_project_root()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter] = ()) -> FastAPI:
     """Build and configure the full FastAPI application.
 
     Boot sequence:
@@ -79,6 +81,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
       7. Inertia setup & exception handlers (register_exception_handlers)
       8. Middleware pipeline (register_middleware)
       9. Routes (register_routes), health endpoints, static files
+      10. Host routers, then module fallback routes (dependency order)
+
+    Host routers and mounts, including those added to the returned app before
+    startup or first dispatch, precede fallback routes.
     """
     # ── Phase 0: Pre-app config read ───────────────────────
     # Phases 1 and 8 below consume settings to build the module list, the
@@ -218,10 +224,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # ── Phase 9: Routes, health, static files ──────────────
-    view_prefixes: dict[str, str] = {}  # discovery order; only modules with view routes
+    view_modules: set[str] = set()
     for mod in modules:
         if wire_module_routes(app, mod):
-            view_prefixes[mod.meta.name] = mod.meta.view_prefix
+            view_modules.add(mod.meta.name)
 
     app.include_router(health_router)
     app.include_router(i18n_router)  # /i18n/set-locale — LocaleSwitcher posts here
@@ -231,6 +237,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     mount_host_static(app, _PROJECT_ROOT)
 
     mount_module_static_dirs(app, modules)
+
+    for router in routers:
+        app.include_router(router)
+    for mod in modules:
+        if wire_fallback_routes(app, mod):
+            view_modules.add(mod.meta.name)
+    view_prefixes = {  # discovery order across ordinary and fallback-only modules
+        mod.meta.name: mod.meta.view_prefix for mod in modules if mod.meta.name in view_modules
+    }
 
     app.state.sm = Services(
         settings=settings,

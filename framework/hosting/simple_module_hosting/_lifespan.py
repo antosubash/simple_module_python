@@ -21,6 +21,7 @@ from fastapi import FastAPI
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
+from simple_module_hosting._fallback_routes import finalize_fallback_routes
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting._table_coverage import add_table_coverage
 from simple_module_hosting.data_compatibility import check_data_compatibility
@@ -83,6 +84,7 @@ def build_lifespan(modules: Sequence) -> Callable:
                 cleanup.push_async_callback(mod.on_shutdown, app)
             # Here rather than in create_app: the host includes its own routers
             # after create_app returns, and those should be guarded too.
+            finalize_fallback_routes(app)
             guard_included_routers(app, warm=environment != "testing")
             yield
 
