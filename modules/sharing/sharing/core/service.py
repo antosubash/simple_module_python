@@ -30,7 +30,6 @@ from sharing.core.audience import Audience, OpenAudience
 from sharing.core.constants import (
     CANDIDATES_MAX,
     CANDIDATES_MIN_QUERY,
-    CANDIDATES_SCAN,
     ERR_BAD_ROLE,
     ERR_EXPIRED,
     ERR_FORBIDDEN,
@@ -38,6 +37,7 @@ from sharing.core.constants import (
     ERR_SELF,
     ERR_UNKNOWN_GRANTEE,
     ERR_UNKNOWN_TYPE,
+    PERM_DIRECTORY_SEARCH,
     PERM_MANAGE,
     SUBJECT_USER,
 )
@@ -185,16 +185,24 @@ class SharingService:
             return []
         owner_col = getattr(resource_type.policy, "owner_col", None)
         owner_id = str(getattr(row, getattr(owner_col, "key", "owner_id"), ""))
-        # shortcut: bounded directory scan can underfill after tenant filtering; add
-        # directory-side membership search if large directories need exhaustive matches.
-        found = await self.directory.search(self.db, term, limit=CANDIDATES_SCAN)
-        users = [u for u in found if u.is_active and u.id not in {owner_id, principal.user_id}]
-        visible = await self.audience.visible([u.id for u in users])
-        return [
-            ShareCandidate(id=u.id, display_name=u.label, email=u.email)
-            for u in users
-            if u.id in visible
-        ][:CANDIDATES_MAX]
+        audience_ids = await self.audience.search_ids()
+        found = await self.directory.search(
+            self.db,
+            term,
+            limit=CANDIDATES_MAX,
+            include_ids=audience_ids,
+            exclude_ids=[uid for uid in (owner_id, principal.user_id) if uid],
+            active_only=True,
+            exact_email=audience_ids is None and not principal.has(PERM_DIRECTORY_SEARCH),
+        )
+        candidates = []
+        for user in found:
+            local, separator, domain = user.email.rpartition("@")
+            email = f"{local[:1]}•••@{domain}" if separator else "•••"
+            # Names may themselves contain an email; never echo those verbatim.
+            label = user.label if "@" not in user.label else email
+            candidates.append(ShareCandidate(id=user.id, display_name=label, email=email))
+        return candidates
 
 
 __all__ = ["SharingError", "SharingService"]

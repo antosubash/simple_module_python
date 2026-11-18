@@ -125,14 +125,28 @@ call `useShares(resourceType, resourceId, open)`. It exposes `shares`, `query`,
 `setQuery`, `candidates`, `tooShort`, `loading`, `searching`, `pending`, `error`,
 `grant(candidate, role)` and `revoke(share)`. Mutations update the list on success;
 failures leave it unchanged and set a translated error. Duplicate mutations are
-blocked while a request is pending.
+blocked while a request is pending. Close, Escape and outside dismissal are disabled
+during mutations. If a custom consumer closes and reopens while a write is
+pending, the hook refreshes after that write settles.
 
 Candidate queries under three trimmed characters return an empty list without
 searching the directory, after resource authorization. Searches are limited to
-60 per minute per signed-in user. At most 200 directory matches are scanned and
-20 eligible people returned, so a large directory may require a more specific
-query. Ownership comes from `OwnedResourcePolicy.owner_col`, or `owner_id` on
-rows using a custom policy. Missing membership information fails closed on a
+60 per minute and 500 per day per signed-in user, using the host's shared rate
+limit store (Redis across workers, otherwise per process). At most 20 eligible
+people are returned. Activity, owner/caller exclusions and tenant membership
+are filtered inside directory search **before** the limit.
+
+In multi-tenant mode, substring/name searches are restricted to members of the
+caller's active tenant, even for directory administrators. In single-tenant
+mode, substring/name searches require `sharing.directory_search`; ordinary
+sharers must enter an exact email address (case insensitive). This permission
+is registered but is not granted to ordinary user or tenant roles.
+
+Every candidate email is masked, for example `a•••@example.com`. Labels that
+fall back to an email, or contain an email, use the masked form too. No raw email
+is returned by the candidates route.
+
+Ownership comes from `OwnedResourcePolicy.owner_col`, or `owner_id` on rows using a custom policy. Missing membership information fails closed on a
 multi-tenant host. Custom policies with a different ownership shape must expose
 an `owner_col` with its mapped column key to exclude their owner.
 

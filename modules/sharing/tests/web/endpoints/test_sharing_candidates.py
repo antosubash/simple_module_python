@@ -48,7 +48,10 @@ async def test_candidates_filter_inactive_owner_and_foreign_tenant(picker, tenan
         directory.users[inactive.user_id] = DirectoryUser(
             id=inactive.user_id, email="friend-disabled@example.com", is_active=False
         )
-        directory.search = AsyncMock(return_value=list(directory.users.values()))
+        directory.users[friend.user_id] = DirectoryUser(
+            id=friend.user_id, email="friend@example.com"
+        )
+        directory.search = AsyncMock(wraps=directory.search)
         set_user_directory(picker, directory)
         query = await note_query(picker, owner.user_id)
         response = await owner.client.get(PATH, params=query)
@@ -56,13 +59,10 @@ async def test_candidates_filter_inactive_owner_and_foreign_tenant(picker, tenan
         assert response.json() == [
             {
                 "id": friend.user_id,
-                "display_name": directory.users[friend.user_id].label,
-                "email": directory.users[friend.user_id].email,
+                "display_name": "f•••@example.com",
+                "email": "f•••@example.com",
             }
         ]
-        directory.search.assert_awaited_once_with(
-            directory.search.call_args.args[0], "friend", limit=200
-        )
 
 
 async def test_candidates_need_resource_share_permission(picker, tenant_client):
@@ -128,3 +128,53 @@ def test_candidates_register_per_user_rate_limit():
     assert rule.key == "user"
     assert rule.rate == "60/minute"
     assert registry.match("POST", PATH) is None
+
+
+async def test_daily_budget_is_per_user_and_resets_after_a_day():
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+    from sharing.web.endpoints.api import router
+    from simple_module_core.rate_limit import InProcessWindowStore
+    from simple_module_hosting.rate_limit_deps import RateLimit
+    from starlette.requests import Request
+
+    route = next(route for route in router.routes if route.path == "/candidates")
+    budget = next(
+        dep.dependency for dep in route.dependencies if isinstance(dep.dependency, RateLimit)
+    )
+    assert budget.spec.limit == 500 and budget.spec.period == 86400
+    now = [0.0]
+    store = InProcessWindowStore(clock=lambda: now[0])
+    app = SimpleNamespace(state=SimpleNamespace(sm=SimpleNamespace(rate_limit_store=store)))
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": PATH,
+            "headers": [],
+            "app": app,
+            "state": {"user": SimpleNamespace(id="owner")},
+        }
+    )
+    for _ in range(500):
+        await budget(request)
+    with pytest.raises(HTTPException) as error:
+        await budget(request)
+    assert error.value.status_code == 429
+    request.scope["state"]["user"] = SimpleNamespace(id="another")
+    await budget(request)
+    request.scope["state"]["user"] = SimpleNamespace(id="owner")
+    now[0] = 86401.0
+    await budget(request)
+
+
+def test_directory_discovery_permission_is_registered_but_not_granted_to_ordinary_roles():
+    from simple_module_core.permissions import PermissionRegistry
+
+    registry = PermissionRegistry()
+    SharingModule().register_permissions(registry)
+    assert "sharing.directory_search" in registry.all_permissions
+    assert all(
+        "sharing.directory_search" not in permissions for permissions in registry.role_map.values()
+    )

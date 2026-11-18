@@ -12,10 +12,11 @@ from fastapi import APIRouter, Depends, Query, Request
 from simple_module_core.resources import ResourcePrincipal
 from simple_module_core.user_directory import get_user_directory
 from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.rate_limit_deps import RateLimit
 from simple_module_hosting.resource_deps import resource_principal
 
 from sharing.contracts.schemas import ShareCandidate, ShareGrant, ShareOut
-from sharing.core.constants import PERM_SHARE
+from sharing.core.constants import CANDIDATES_DAILY_RATE, PERM_SHARE
 from sharing.core.service import SharingError
 from sharing.web.deps import SharingServiceDep, http_error
 from sharing.web.present import present_shares
@@ -69,7 +70,11 @@ async def revoke_share(
         raise http_error(exc) from None
 
 
-@router.get("/candidates", response_model=list[ShareCandidate])
+@router.get(
+    "/candidates",
+    response_model=list[ShareCandidate],
+    dependencies=[Depends(RateLimit(CANDIDATES_DAILY_RATE, key="user"))],
+)
 async def share_candidates(
     resource_type: str,
     resource_id: str,

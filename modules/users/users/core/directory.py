@@ -83,9 +83,27 @@ class UsersDirectory:
             roles.setdefault(user_id, []).append(name)
         return roles
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
         stmt = select(*_COLUMNS).order_by(User.email).limit(limit)
-        if term and term.strip():
+        if include_ids is not None:
+            stmt = stmt.where(User.id.in_(list(parse_user_ids(include_ids))))
+        if exclude_ids:
+            stmt = stmt.where(User.id.not_in(list(parse_user_ids(exclude_ids))))
+        if active_only:
+            stmt = stmt.where(User.is_active.is_(True), User.disabled_at.is_(None))
+        if exact_email:
+            stmt = stmt.where(func.lower(User.email) == (term or "").strip().lower())
+        elif term and term.strip():
             stmt = stmt.where(name_or_email_contains(User.full_name, User.email, term.strip()))
         rows = (await db.execute(stmt)).all()
         return [to_directory_user(row, str(row.id), is_active=_is_usable(row)) for row in rows]

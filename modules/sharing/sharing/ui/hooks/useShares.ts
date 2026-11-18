@@ -11,6 +11,7 @@ const SEARCH_DELAY_MS = 250;
 /** Idle until open. Resource policies and tenant boundaries are enforced by the API. */
 export function useShares(resourceType: string, resourceId: string, open = true) {
   const { t } = useT();
+  const [refresh, setRefresh] = useState(0);
   const [shares, setShares] = useState<Share[]>([]);
   const [found, setFound] = useState<{ query: string; rows: ShareCandidate[] } | null>(null);
   const [query, setQuery] = useState('');
@@ -30,8 +31,6 @@ export function useShares(resourceType: string, resourceId: string, open = true)
     setQuery('');
     setFound(null);
     setError(null);
-    setPending(false);
-    mutating.current = false;
     setLoading(open);
     if (open) {
       void apiResult(
@@ -48,7 +47,7 @@ export function useShares(resourceType: string, resourceId: string, open = true)
     return () => {
       generation.current++;
     };
-  }, [resourceType, resourceId, open, t]);
+  }, [resourceType, resourceId, open, t, refresh]);
 
   useEffect(() => {
     setSearchError(null);
@@ -94,12 +93,16 @@ export function useShares(resourceType: string, resourceId: string, open = true)
           },
         }),
       );
-      if (generation.current !== current) return;
+      mutating.current = false;
+      setPending(false);
+      if (generation.current !== current) {
+        // A reopened dialog may have loaded before this write committed.
+        setRefresh((value) => value + 1);
+        return;
+      }
       if (result.ok)
         setShares((rows) => [...rows.filter((row) => row.id !== result.data.id), result.data]);
       else setError(t(keys.sharing.dialog.failed));
-      mutating.current = false;
-      setPending(false);
     },
     [resourceType, resourceId, open, t],
   );
@@ -116,11 +119,15 @@ export function useShares(resourceType: string, resourceId: string, open = true)
           params: { path: { share_id: share.id } },
         }),
       );
-      if (generation.current !== current) return;
-      if (result.ok) setShares((rows) => rows.filter((row) => row.id !== share.id));
-      else setError(t(keys.sharing.dialog.failed));
       mutating.current = false;
       setPending(false);
+      if (generation.current !== current) {
+        // A reopened dialog may have loaded before this write committed.
+        setRefresh((value) => value + 1);
+        return;
+      }
+      if (result.ok) setShares((rows) => rows.filter((row) => row.id !== share.id));
+      else setError(t(keys.sharing.dialog.failed));
     },
     [open, t],
   );

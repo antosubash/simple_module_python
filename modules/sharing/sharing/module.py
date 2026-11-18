@@ -57,7 +57,7 @@ class SharingModule(ModuleBase):
     def register_permissions(self, registry: PermissionRegistry) -> None:
         registry.add_group(
             c.PERM_GROUP,
-            [c.PERM_SHARE, c.PERM_VIEW, c.PERM_MANAGE],
+            [c.PERM_SHARE, c.PERM_VIEW, c.PERM_MANAGE, c.PERM_DIRECTORY_SEARCH],
             label_key=f"{c.LOCALE_NAMESPACE}.permission_group",
         )
         # Sharing what you own is an ordinary user action; the resource's

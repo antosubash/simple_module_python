@@ -131,3 +131,40 @@ it('blocks duplicate grants and ignores a grant response after the resource chan
   expect(result.current.shares).toEqual([]);
   expect(result.current.pending).toBe(false);
 });
+
+it('refreshes after a delayed mutation settles across closing and reopening', async () => {
+  let finish!: () => void;
+  let held = false;
+  const writing = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (request: Request) => {
+      if (request.method === 'POST') {
+        await writing;
+        held = true;
+        return Response.json(share, { status: 201 });
+      }
+      return Response.json(held ? [share] : []);
+    }),
+  );
+  const { result, rerender } = renderHook(({ open }) => useShares('notes.note', 'note', open), {
+    initialProps: { open: true },
+  });
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  let mutation!: Promise<void>;
+  act(() => {
+    mutation = result.current.grant(candidate, 'view');
+  });
+  rerender({ open: false });
+  rerender({ open: true });
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.pending).toBe(true);
+  await act(async () => {
+    finish();
+    await mutation;
+  });
+  await waitFor(() => expect(result.current.shares).toEqual([share]));
+  expect(result.current.pending).toBe(false);
+});

@@ -44,7 +44,12 @@ function ResourceShareDialog({ resourceType, resourceId, roles }: ShareDialogPro
   const state = useShares(resourceType, resourceId, open);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!state.pending) setOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         <Button type="button" variant="outline">
           {t(keys.sharing.dialog.button)}
@@ -161,7 +166,7 @@ function ResourceShareDialog({ resourceType, resourceId, roles }: ShareDialogPro
           </p>
         )}
         <DialogClose asChild>
-          <Button type="button" variant="outline">
+          <Button type="button" variant="outline" disabled={state.pending}>
             {t(keys.sharing.dialog.close)}
           </Button>
         </DialogClose>

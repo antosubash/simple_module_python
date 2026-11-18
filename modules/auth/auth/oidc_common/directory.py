@@ -65,9 +65,26 @@ class CacheDirectory:
                     found[key] = to_directory_user(row, key)
         return found
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
         stmt = select(*self._columns).order_by(self.model.email).limit(limit)
-        if term and term.strip():
+        if include_ids is not None:
+            stmt = stmt.where(self.model.id.in_(list(parse_user_ids(include_ids))))
+        if exclude_ids:
+            stmt = stmt.where(self.model.id.not_in(list(parse_user_ids(exclude_ids))))
+        # Cache entries represent signed-in users; this provider has no activity flag.
+        if exact_email:
+            stmt = stmt.where(func.lower(self.model.email) == (term or "").strip().lower())
+        elif term and term.strip():
             stmt = stmt.where(
                 name_or_email_contains(self.model.full_name, self.model.email, term.strip())
             )

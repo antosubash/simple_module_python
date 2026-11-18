@@ -17,9 +17,11 @@ from simple_module_db.tenancy import current_tenant_id, tenant_context
 def picker_service():
     directory = FakeDirectory("owner", "manager", "friend", "inactive", "foreign")
     directory.users["inactive"] = DirectoryUser(
-        id="inactive", email="disabled@test", is_active=False
+        id="inactive", email="abc-disabled@test", is_active=False
     )
-    directory.search = AsyncMock(return_value=list(directory.users.values()))
+    for uid in ("owner", "manager", "friend", "foreign"):
+        directory.users[uid] = DirectoryUser(id=uid, email=f"abc-{uid}@test")
+    directory.search = AsyncMock(wraps=directory.search)
     app = SimpleNamespace(
         state=SimpleNamespace(
             sm=SimpleNamespace(tenancy=TenancyMode.MULTI),
@@ -34,13 +36,15 @@ def picker_service():
     return service, app
 
 
-async def test_candidates_drop_inactive_owner_caller_and_other_tenant(picker_service):
-    service, app = picker_service
+@pytest.mark.parametrize("permissions", [frozenset(), frozenset({"sharing.directory_search"})])
+async def test_candidates_drop_inactive_owner_caller_and_other_tenant(picker_service, permissions):
+    service, _ = picker_service
     with tenant_context("blue"):
-        found = await service.candidates(ResourcePrincipal("manager"), NOTE_TYPE, "note", " abc ")
+        found = await service.candidates(
+            ResourcePrincipal("manager", permissions=permissions), NOTE_TYPE, "note", " abc "
+        )
     assert [row.id for row in found] == ["friend"]
-    service.directory.search.assert_awaited_once_with(service.db, "abc", limit=200)
-    app.state.tenant_members.assert_awaited_once_with(service.db, "blue", {"friend", "foreign"})
+    assert found[0].email == found[0].display_name == "a•••@test"
 
 
 @pytest.mark.parametrize("q", ["", " a ", " ab "])
@@ -71,9 +75,59 @@ async def test_missing_tenant_or_membership_store_fails_closed(picker_service, t
         current_tenant_id.reset(token)
 
 
-async def test_single_tenant_candidates_need_no_membership_store(picker_service):
+@pytest.mark.parametrize(
+    "query, expected", [("abc", []), ("friend", []), ("ABC-FRIEND@TEST", ["friend"])]
+)
+async def test_single_tenant_without_permission_requires_exact_email(
+    picker_service, query, expected
+):
     service, app = picker_service
     app.state.sm.tenancy = TenancyMode.SINGLE
     app.state.tenant_members = None
-    found = await service.candidates(ResourcePrincipal("owner"), NOTE_TYPE, "note", "abc")
+    found = await service.candidates(ResourcePrincipal("owner"), NOTE_TYPE, "note", query)
+    assert [row.id for row in found] == expected
+
+
+async def test_directory_permission_allows_substrings_and_masks_email_labels(picker_service):
+    service, app = picker_service
+    app.state.sm.tenancy = TenancyMode.SINGLE
+    service.directory.users["friend"] = DirectoryUser(
+        id="friend", email="abc-friend@test", full_name="abc-friend@test"
+    )
+    service.directory.users["manager"] = DirectoryUser(
+        id="manager", email="abc-manager@test", full_name="Abc Manager"
+    )
+    found = await service.candidates(
+        ResourcePrincipal("owner", permissions=frozenset({"sharing.directory_search"})),
+        NOTE_TYPE,
+        "note",
+        "abc",
+    )
     assert [row.id for row in found] == ["manager", "friend", "foreign"]
+    assert [row.display_name for row in found] == ["Abc Manager", "a•••@test", "a•••@test"]
+    assert {row.email for row in found} == {"a•••@test"}
+
+
+async def test_eligible_member_after_200_foreign_matches_is_found(picker_service):
+    service, _ = picker_service
+    friend = service.directory.users["friend"]
+    service.directory.users = {
+        str(n): DirectoryUser(id=str(n), email=f"abc{n}@test") for n in range(200)
+    }
+    service.directory.users["friend"] = friend
+    with tenant_context("blue"):
+        found = await service.candidates(ResourcePrincipal("owner"), NOTE_TYPE, "note", "abc")
+    assert [row.id for row in found] == ["friend"]
+
+
+@pytest.mark.parametrize("name", [None, "", "ALICE@EXAMPLE.COM", "Alice <alice@example.com>"])
+async def test_masks_email_including_fallback_and_email_containing_labels(picker_service, name):
+    service, _ = picker_service
+    service.directory.users = {
+        "friend": DirectoryUser(id="friend", email="alice@example.com", full_name=name)
+    }
+    with tenant_context("blue"):
+        found = await service.candidates(ResourcePrincipal("owner"), NOTE_TYPE, "note", "alice")
+    assert [row.model_dump() for row in found] == [
+        {"id": "friend", "display_name": "a•••@example.com", "email": "a•••@example.com"}
+    ]
