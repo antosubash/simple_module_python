@@ -17,7 +17,8 @@
       "!**/*.generated.ts",
       "!host/client_app/modules.manifest.json",
       "!host/client_app/modules.generated.css",
-      "!host/client_app/modules.assets.json"
+      "!host/client_app/modules.assets.json",
+      "!host/client_app/.module-tsconfig"
     ],
     "ignoreUnknown": true
   },

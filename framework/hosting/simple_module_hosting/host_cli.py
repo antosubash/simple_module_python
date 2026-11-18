@@ -67,6 +67,33 @@ def gen_pages(
     )
 
 
+@app.command("typecheck")
+def typecheck(
+    host_dir: Annotated[Path, typer.Option("--host-dir")] = Path("client_app"),
+    installed_only: Annotated[
+        bool,
+        typer.Option("--installed-only", help="Allow intentionally uninstalled workspace modules."),
+    ] = False,
+) -> None:
+    """Check the host and installed modules, honouring optional module tsconfigs."""
+    from simple_module_hosting.assets import compute_module_assets, framework_assets
+    from simple_module_hosting.module_tsconfig import run_typecheck
+
+    if not host_dir.is_dir():
+        typer.echo(f"ERROR: client_app directory not found at {host_dir}", err=True)
+        raise typer.Exit(code=1)
+    # Typecheck even auth providers omitted from the active host's page manifest.
+    assets = [*compute_module_assets(discover_modules(), include_empty=True), *framework_assets()]
+    try:
+        code = run_typecheck(
+            assets, host_dir, repo_root_from_client_app(host_dir), installed_only=installed_only
+        )
+    except ValueError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    raise typer.Exit(code=code)
+
+
 @app.command("gen-i18n")
 def gen_i18n(
     allow_removals: Annotated[
@@ -138,7 +165,7 @@ def sync_js_deps(
         typer.echo(f"ERROR: client_app directory not found at {host_client_app}", err=True)
         raise typer.Exit(code=1)
 
-    modules = select_auth_provider(discover_modules(), resolve_auth_provider())
+    modules = discover_modules()
     by_module = collect_module_js_deps(modules)
     if not by_module:
         typer.echo("No module JS dependencies declared.")

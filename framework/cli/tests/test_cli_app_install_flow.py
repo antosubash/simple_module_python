@@ -62,3 +62,6 @@ def test_create_module_outside_an_app_keeps_the_package_flow(tmp_path, monkeypat
 
     assert result.exit_code == 0, result.output
     assert "uv sync --extra dev" in result.output
+    assert "uv run smpy module verify" in result.output
+    assert "npm install" not in result.output
+    assert "npm run typecheck" not in result.output

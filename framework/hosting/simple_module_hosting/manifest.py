@@ -24,12 +24,14 @@ from pathlib import Path
 
 from simple_module_core import ModuleBase, get_module_package_name
 
+from simple_module_hosting._generated_files import _write_if_changed
 from simple_module_hosting.assets import (
     compute_module_assets,
     framework_assets,
     render_assets_json,
     render_modules_css,
 )
+from simple_module_hosting.module_tsconfig import write_module_tsconfigs
 from simple_module_hosting.page_globs import glob_patterns_for
 
 logger = logging.getLogger(__name__)
@@ -104,23 +106,6 @@ def compute_module_pages(modules: Sequence[ModuleBase]) -> dict[str, Path]:
             continue
         result[mod.meta.name] = pages_dir.resolve()
     return result
-
-
-def _write_if_changed(path: Path, payload: str) -> bool:
-    """Write ``payload`` to ``path`` only if the on-disk content differs.
-
-    Avoids bumping the file's mtime on every dev-server boot, which would
-    otherwise cascade into Vite's file-watcher and trigger spurious HMR.
-    Returns True if a write happened.
-    """
-    try:
-        existing = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        existing = None
-    if existing == payload:
-        return False
-    path.write_text(payload, encoding="utf-8")
-    return True
 
 
 def _is_in_repo_module(pages_dir: Path, repo_root: Path | None) -> bool:
@@ -203,6 +188,7 @@ def write_module_pages_manifest(
     # Rendered from the richer asset record rather than pages_map, so that a
     # module shipping CSS but no pages/ still contributes its stylesheets.
     assets = [*compute_module_assets(modules), *framework]
+    write_module_tsconfigs(assets, output_dir)
     css_path = output_dir / "modules.generated.css"
     css_text = render_modules_css(assets, in_repo=lambda p: _is_in_repo_module(p, repo_root))
 

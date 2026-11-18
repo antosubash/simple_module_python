@@ -32,7 +32,7 @@ Everything goes through `make`; the root `Makefile` is the full list
 | `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n $(PYTEST_WORKERS) --dist loadgroup`, default 4 workers, `PYTEST_WORKERS=0` for serial) then Vitest |
 | `make test-py-pg` | Pytest on Postgres (`SM_TEST_DATABASE_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
-| `make lint` | Every CI lint check: Ruff format + Ruff + `ty` + Biome + per-workspace `tsc`, package metadata/README, locale files, doc paths, i18n and API-type freshness, file-size cap, no test sleeps, no double casts, no raw `fetch`, hardcoded strings, CI parity, untranslated strings |
+| `make lint` | Every CI lint check: Ruff format + Ruff + `ty` + Biome + host/module `tsc`, package metadata/README, locale files, doc paths, i18n and API-type freshness, file-size cap, no test sleeps, no double casts, no raw `fetch`, hardcoded strings, CI parity, untranslated strings |
 | `make doctor` | Module diagnostics (`SM0xx`) |
 | `make migrate` / `make downgrade` / `make migration-history` | Alembic `upgrade heads` / `-1` / history |
 | `make migration LABEL=<branch_label> msg="..."` | Autogenerate on the selected branch (`--head <branch_label>@head`); `LABEL` is required |
@@ -398,8 +398,11 @@ development and testing.
 - **JS tests** go in `modules/<m>/tests-js/*.test.ts(x)`, `packages/**` or
   `host/client_app/**`; Vitest collects nothing else. Biome (single quotes,
   2 spaces, width 100) lints `host/client_app`, `packages`, module `pages/`, `ui/`
-  and legacy `components/` dirs; `tsc` runs per workspace, and a module with
-  `.tsx` but no `tsconfig.json` fails `make ci-js-typecheck`.
+  and legacy `components/` dirs. `smpy host typecheck` uses host-generated module
+  configs unless an authored `tsconfig.json` overrides them. Packages retain their
+  own configs. Ordinary modules need neither frontend config file. CI typecheck
+  rejects uninstalled workspace modules with frontend sources; frontend builds
+  use `--installed-only` to allow intentional exclusions.
 - **`ty` rules.** SQLModel false positives (`unresolved-attribute`,
   `unsupported-operator`, `unknown-argument`, `no-matching-overload`) are
   ignored globally in `pyproject.toml`; don't re-enable them.
@@ -460,7 +463,7 @@ overlapping `spa_mounts` (`SM032`) and an `error` from a module's
 before shipping. Codes that change how you write code: `SM003`/`SM004`
 render-key mismatch, `SM009` framework→plugin import, `SM011` table missing from
 migrations, `SM012` settings not on `app.state`, `SM013`–`SM016` locale drift,
-`SM017` module pages without `package.json`/`tsconfig.json`, `SM018` Inertia
+`SM017` invalid optional frontend dependency manifests, `SM018` Inertia
 call to `/api`, `SM019` views with no menu item or permission, `SM022`/`SM023`
 CSS in the wrong file, `SM024` unique key without `tenant_id`, `SM028` heavy
 import in `tasks.py`, `SM031` `/api` route with no permission/`Authenticated()`

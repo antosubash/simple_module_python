@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "uv run --no-sync python -m simple_module_hosting typecheck --host-dir . --installed-only && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

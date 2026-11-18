@@ -38,6 +38,19 @@ def run_verify(info: ModuleInfo, *, fresh: bool = False, runner=subprocess.run) 
         ("uv sync", [uv, "sync"], host),
         ("npm install", [npm, "install"], client_app),
         (
+            "sync-js-deps",
+            [
+                uv,
+                "run",
+                "python",
+                "-m",
+                "simple_module_hosting",
+                "sync-js-deps",
+                "--host-client-app=client_app",
+            ],
+            host,
+        ),
+        (
             "gen-pages",
             [
                 uv,
@@ -52,6 +65,20 @@ def run_verify(info: ModuleInfo, *, fresh: bool = False, runner=subprocess.run) 
         ),
         # Keyed pages read `keys.<module>`, which only the host's gen-i18n adds (GH #918).
         ("gen-i18n", [uv, "run", "python", "-m", "simple_module_hosting", "gen-i18n"], host),
+        (
+            "typecheck",
+            [
+                uv,
+                "run",
+                "--no-sync",
+                "python",
+                "-m",
+                "simple_module_hosting",
+                "typecheck",
+                "--host-dir=client_app",
+            ],
+            host,
+        ),
         ("frontend build (tsc + vite)", [npm, "run", "build"], client_app),
     )
     for label, cmd, cwd in steps:

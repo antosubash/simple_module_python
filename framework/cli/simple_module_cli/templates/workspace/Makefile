@@ -60,7 +60,7 @@ gen-pages:
 	cd host && uv run python -m simple_module_hosting gen-pages --host-dir=client_app
 
 # Pull JS deps shipped by wheel-installed modules into host/client_app/node_modules.
-# Workspace modules under modules/* don't need this — npm hoists them automatically.
+# Root module manifests are npm workspaces; manifests inside Python packages need sync.
 sync-module-deps:
 	cd host && uv run python -m simple_module_hosting sync-js-deps --host-client-app=client_app
 

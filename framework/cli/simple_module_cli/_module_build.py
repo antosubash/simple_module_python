@@ -44,7 +44,7 @@ def run_build(info: ModuleInfo, *, fresh: bool = False, runner=subprocess.run) -
             raise typer.Exit(code=1)
 
     out_dir = info.root / info.package_name / "static" / "dist"
-    config_path = info.root / ".smpy" / "module-build.config.mjs"
+    config_path = client_app / "module-build.config.mjs"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         _vite_lib_config(entry, out_dir, global_name=to_pascal_case(info.package_name)),

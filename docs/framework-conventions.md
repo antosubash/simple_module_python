@@ -6,7 +6,7 @@ Short reference for the invariants module authors rely on. When in doubt, read t
 
 ```text
 modules/<name>/
-├── pyproject.toml, package.json, tsconfig.json
+├── pyproject.toml
 ├── <name>/
 │   ├── __init__.py, py.typed, module.py
 │   ├── models.py                 # or models/; discovered by name
@@ -28,6 +28,12 @@ modules/<name>/
 Modules use `core/` and `web/`. See [Module layout](module-layout.md) for the
 root lookup table, area selection, test naming, and compatibility policy. Area initializers contain
 only a docstring. Keep private helpers in the area they serve.
+
+The host generates module TypeScript configs; an authored `tsconfig.json` is an
+override. Modules need no frontend config files by default. Extra JS dependencies
+go in an optional dependency-only `package.json` inside the Python package, so it
+ships in wheels; run `smpy host sync-js-deps` for these packaged extras, including
+editable installs. Existing module-root npm workspace manifests remain supported.
 
 Scaffold with `smpy create-module <name> --dest modules/<name>` (or
 `make new-module name=<name>` inside this repo). Both generate the CRUD sample,
@@ -636,7 +642,7 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | SM014 | WARNING | Non-default locale missing keys present in the default |
 | SM015 | WARNING | Non-default locale has keys not in the default |
 | SM016 | ERROR | Locale JSON invalid or contains non-string leaves |
-| SM017 | WARNING | Module ships `pages/*.tsx` but is missing `package.json` / `tsconfig.json` |
+| SM017 | WARNING | An optional frontend dependency manifest is invalid |
 | SM018 | WARNING | Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint |
 | SM019 | WARNING | Module registers view routes but no menu items or permissions (unreachable in UI) |
 | SM020 | ERROR | Multiple auth provider modules installed |

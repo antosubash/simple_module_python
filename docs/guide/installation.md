@@ -128,7 +128,7 @@ Then `make migrate && make dev`.
 smpy create-module orders --dest modules/orders
 ```
 
-That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `core/constants.py` (add `--with-settings` for `core/settings.py` and `core/services.py`), a REST `web/endpoints/api.py`, an empty `pages/` dir, tests, and `pyproject.toml`/`package.json`/`tsconfig.json`. Flesh out models, contracts, views, and pages as your domain needs them. Wire it into the host, create its tables and restart:
+That generates a publishable module package at `modules/orders/` with the starter layout — `module.py` (its `ModuleBase` subclass + entry point), `core/constants.py` (add `--with-settings` for `core/settings.py` and `core/services.py`), a REST `web/endpoints/api.py`, CRUD pages, locales, tests, and `pyproject.toml`. The host generates TypeScript configs; an authored `tsconfig.json` is an optional override. Add a dependency-only `package.json` inside the Python package only for extra JS dependencies, then run `smpy host sync-js-deps` (also needed for editable installs). Flesh out models, contracts, views, and pages as your domain needs them. Wire it into the host, create its tables and restart:
 
 ```bash
 smpy add ../modules/orders --path host

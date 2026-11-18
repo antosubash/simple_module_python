@@ -17,8 +17,15 @@ modules/<name>/
   tests/           Python tests mirroring package areas
   tests-js/        Vitest tests, when needed
   docs/            module-specific documentation, when needed
-  README.md, LICENSE, pyproject.toml, package.json, tsconfig.json
+  README.md, LICENSE, pyproject.toml
 ```
+
+Modules need no frontend config files by default. The host generates TypeScript
+projects; an authored `tsconfig.json` in the project root or Python package
+overrides them. Declare extra JS dependencies in an optional dependency-only
+`package.json` inside the Python package, then run `smpy host sync-js-deps` for
+those packaged extras, including editable installs. Existing module-root npm
+workspace manifests remain supported.
 
 ## Package root: lookup paths
 
@@ -44,8 +51,9 @@ checkers, not a framework runtime lookup.
 
 Other root files and folders are legacy exceptions, tracked explicitly by
 `host/tests/test_module_layout.py:1`. Keep named lookup paths pinned with tests
-that load them as their consumer does. Generated wheel metadata such as
-`package.json` is packaging output, not another source area.
+that load them as their consumer does. An optional dependency-only
+`package.json` may live inside the Python package so it ships automatically; it is
+metadata, not another source area.
 
 ## Areas
 
@@ -87,7 +95,7 @@ Tailwind scans `ui/`, pages and legacy root `components/` on wheel-installed
 modules, including nested source directories hidden by a venv's ignore file.
 The asset manifest exposes `ui`; the pages manifest still contains only
 `pages/`. Biome covers `ui/**`; the untranslated-string and double-cast checks
-already recurse throughout the package. Module tsconfig includes recurse too.
+already recurse throughout the package. Generated module TypeScript projects recurse too.
 Both host and scaffold `client_app/module-assets.ts` readers also register UI
 source prefixes for Vite's bare-import fallback and dependency scan. Existing
 hosts must update that reader when adopting UI sources; upgrading Python

@@ -55,7 +55,9 @@ def _names(settings: Settings) -> tuple[str, ...]:
 
 
 @pytest.mark.parametrize(("environment", "installed"), [("development", True), ("testing", False)])
-def test_installed_only_in_development(environment: str, installed: bool) -> None:
+def test_installed_only_in_development(
+    environment: str, installed: bool, isolated_host_root
+) -> None:
     names = _names(
         Settings(
             database_url="sqlite+aiosqlite:///:memory:",

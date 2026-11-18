@@ -45,11 +45,16 @@ DB-backed configuration. This adds the settings class, services container and
 `register_settings` hook. Inertia pages are bundled by the host; module releases
 need no page prebundling.
 
+Ordinary modules need no frontend config files. The host generates TypeScript
+configs; an authored tsconfig.json remains an override. For extra JS dependencies,
+add a dependency-only package.json inside the Python package so it ships in wheels,
+and run `smpy host sync-js-deps`. Root manifests remain npm workspace overrides.
+
 ## What scaffolding produces
 
 ```text
 modules/orders/
-├── pyproject.toml, package.json, tsconfig.json
+├── pyproject.toml
 ├── orders/
 │   ├── __init__.py, py.typed, module.py
 │   ├── models.py                 # or models/; discovered by name
