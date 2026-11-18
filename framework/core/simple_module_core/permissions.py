@@ -17,6 +17,7 @@ from simple_module_core._permission_grants import (  # noqa: F401  (re-exported)
     is_admin,
     is_admin_principal,
 )
+from simple_module_core.permission_catalogue import PermissionCatalogue
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class PermissionRegistry:
     def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._groups: dict[str, PermissionGroup] = {}
+        self._catalogue_labels: dict[str, dict[str, str]] = {}
         self._role_map: dict[str, set[str]] = {}
         # Admin-editor grants (DB-backed). Kept apart from ``_role_map`` (code
         # mappings) so replacing a role's DB keys never drops a code grant.
@@ -115,8 +117,20 @@ class PermissionRegistry:
         return out
 
     def source_labels(self, name: str) -> dict[str, str]:
-        """Human labels supplied by source *name*, keyed by permission string."""
-        return dict(self._source_output(name)[1]) if name in self._sources else {}
+        """Human labels from catalogues and runtime sources, keyed by permission."""
+        labels = dict(self._catalogue_labels.get(name, {}))
+        if name in self._sources:
+            labels.update(self._source_output(name)[1])
+        return labels
+
+    def add_catalogue(self, catalogue: type[PermissionCatalogue]) -> None:
+        """Register every member without assigning permissions to any role."""
+        self.add_group(
+            catalogue._group_label, list(catalogue), label_key=catalogue._group_label_key
+        )
+        self._catalogue_labels.setdefault(catalogue._group_label, {}).update(
+            {p.value: p.label for p in catalogue if p.label}
+        )
 
     def add_group(self, name: str, permissions: list[str], *, label_key: str = "") -> None:
         """Register a group; ``label_key`` translates ``name`` per request (like menus)."""

@@ -177,7 +177,7 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_setup_steps`, `register_csp_sources`, `register_design_packs`,
 `register_audit_links`, `register_resource_types`, `register_exception_handlers`,
 `register_middleware`, `register_routes(api_router, view_router)`,
-`register_admin_routes(admin_router)` (only with `ModuleMeta.admin_view_prefix`),
+`register_admin_routes(admin_router)` (with `ModuleMeta.admin` or `admin_view_prefix`),
 then `register_fallback_routes(router)` after framework routes, static/SPA mounts
 and host routers (dependency order, first match wins; uses `view_prefix`),
 then async `check_data_compatibility(db)` (read-only upgrade checks before
@@ -199,10 +199,9 @@ startup or first dispatch also stay ahead of fallbacks.
 
 Rules that go with them:
 
-- A module gets one view router per prefix. All-admin modules point
-  `view_prefix` at `/admin/<name>`; modules with both public and admin pages set
-  `admin_view_prefix` and use `register_admin_routes`. A prefix is a URL
-  convention, not a permission: guard every route.
+- A module gets one view router per prefix. Declare `ModuleMeta(admin=AdminSurface(...))`
+  for admin routing/menu/layout defaults. Legacy `admin_view_prefix` and
+  `register_admin_routes` remain supported. Guard every route explicitly.
 - `register_public_routes` exempts routes from `AuthMiddleware`, method-aware
   (`registry.add_regex(r"…/tilejson$", methods={"GET"})`):
   `docs/framework/public-routes.md`.
@@ -253,13 +252,17 @@ RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
 
 Detail: `docs/framework/middleware.md`, `docs/framework/request-guards.md`.
 
-**Admin section.** Admin screens live under `/admin/*`, register into
-`MenuSection.ADMIN_SIDEBAR` and render in `AdminLayout`, all three together.
-`SidebarLayout` renders the menu its `menuKey` names, so a page left on
-`AuthenticatedLayout` after its item moved shows a sidebar without it.
-`group=` sub-clusters inside a sidebar (`Access`, `Appearance`, `System`).
-`/admin` itself ships with `simple_module_hosting`; use `/admin/*` view URLs.
-`/api/*` paths never move.
+**Admin section.** Prefer `ModuleMeta(admin=AdminSurface(prefix="/admin/<name>",
+routes="<package>.admin.views:router", menu_group="Access",
+menu_group_key="ui.nav_groups.access"))`. The base admin hook loads that router
+(omitted target: `<package>.web.endpoints.admin:router`). This supplies the prefix,
+`MenuSection.ADMIN_SIDEBAR`/group defaults for this module's menu URLs under it,
+and `AdminLayout` for its pages without an explicit layout. `make gen-pages`
+applies layouts through generated loaders, including in existing host resolvers.
+Explicit menu sections, nonempty groups/keys and page layouts win. The surface
+implies no permission: routes and menu items still declare their own guards.
+Existing explicit wiring remains supported unchanged. `/admin` itself ships
+with `simple_module_hosting`; `/api/*` paths never move.
 
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
 `modules/<pkg>/<pkg>/pages/<Page>.tsx`; host pages under
@@ -340,8 +343,12 @@ The session cookie is `Secure` outside development and testing.
   `DeclarativeBase`/`Mapped[...]` in module code.
 - **No magic strings in non-test Python** (`scripts/check_hardcoded_strings.py`):
   `RequiresPermission(...)`, `registry.map_role(...)`, `registry.add_group(...)`
-  items, `inertia.render(...)` keys and `depends_on=[...]` entries must be
-  constants from `core/constants.py`: `PERM_*`, role names, `_PAGE_*`, `_MODULE_*`.
+  items and `depends_on=[...]` entries use named constants from `core/constants.py`
+  or `PermissionCatalogue` members. Attach the catalogue to `ModuleBase.permissions`
+  for default registration; custom hooks extend it via `super()`. Literal module
+  `inertia.render("MetaName/Page")` keys are allowed when the checker verifies the
+  owning module name and existing TSX page (nested pages supported, tests excluded).
+  Existing `PAGE_*` constants remain supported; new aliases are unnecessary.
 - **300-line cap** on `.py`/`.ts`/`.tsx`, tests included, untracked files
   included (`scripts/check_file_size.py`). Exempt: shadcn components under
   `packages/ui/src/components/ui/**`, generated i18n files,

@@ -14,12 +14,7 @@ from {{PACKAGE_NAME}}.contracts.schemas import (
 )
 from {{PACKAGE_NAME}}.core.constants import (
     MENU_URL,
-    PAGE_BROWSE,
-    PAGE_CREATE,
-    PAGE_EDIT,
-    PERM_{{PACKAGE_NAME_UPPER}}_CREATE,
-    PERM_{{PACKAGE_NAME_UPPER}}_EDIT,
-    PERM_{{PACKAGE_NAME_UPPER}}_VIEW,
+    Permissions,
 )
 from {{PACKAGE_NAME}}.web.deps import get_{{SINGULAR}}_service
 from {{PACKAGE_NAME}}.web.service import {{SINGULAR_CLASS}}Service
@@ -30,7 +25,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def browse(
     inertia: InertiaDep,
@@ -38,7 +33,7 @@ async def browse(
 ) -> InertiaResponse:
     items = await service.get_all()
     return await inertia.render(
-        PAGE_BROWSE,
+        "{{MODULE_NAME}}/Browse",
         {"items": [item.model_dump(mode="json") for item in items]},
     )
 
@@ -46,16 +41,16 @@ async def browse(
 @router.get(
     "/create",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_CREATE))],
+    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
 )
 async def create_view(inertia: InertiaDep) -> InertiaResponse:
-    return await inertia.render(PAGE_CREATE)
+    return await inertia.render("{{MODULE_NAME}}/Create")
 
 
 @router.post(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_CREATE))],
+    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
 )
 async def create_submit(
     data: {{SINGULAR_CLASS}}Create,
@@ -68,7 +63,7 @@ async def create_submit(
 @router.get(
     "/{item_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_EDIT))],
+    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
 )
 async def edit_view(
     item_id: int,
@@ -78,13 +73,13 @@ async def edit_view(
     item = await service.get_by_id(item_id)
     if item is None:
         return RedirectResponse(MENU_URL, status_code=303)
-    return await inertia.render(PAGE_EDIT, {"item": item.model_dump(mode="json")})
+    return await inertia.render("{{MODULE_NAME}}/Edit", {"item": item.model_dump(mode="json")})
 
 
 @router.post(
     "/{item_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_EDIT))],
+    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
 )
 async def edit_submit(
     item_id: int,

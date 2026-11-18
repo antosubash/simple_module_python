@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from simple_module_core import AdminSurface
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
@@ -21,14 +21,13 @@ class DashboardModule(ModuleBase):
         route_prefix="/api/dashboard",
         view_prefix="/dashboard",
         # The dashboard itself is an app screen; Doctor is an admin one.
-        admin_view_prefix="/admin/doctor",
+        admin=AdminSurface(
+            prefix="/admin/doctor",
+            routes="dashboard.web.endpoints.views:admin_router",
+            menu_group="System",
+        ),
         i18n_audience="admin",
     )
-
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from dashboard.web.endpoints.views import admin_router as doctor_views
-
-        admin_router.include_router(doctor_views)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         # Administrative data (user counts, installed modules, system info):
@@ -59,8 +58,6 @@ class DashboardModule(ModuleBase):
                 url=_URL_DOCTOR,
                 icon=_ICON_DOCTOR,
                 order=220,
-                section=MenuSection.ADMIN_SIDEBAR,
-                group="System",
                 # Mirrors the view route's admin-only guard — without it the
                 # entry shows for every signed-in account and 403s on click.
                 roles=["admin"],

@@ -5,7 +5,6 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Building2, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { type AdminTenant, AdminTenantsTable } from '../ui/components/AdminTenantsTable';
@@ -104,5 +103,4 @@ function AdminBrowse({ tenants, q, page, has_more }: Props) {
   );
 }
 
-AdminBrowse.layout = [AdminLayout];
 export default AdminBrowse;

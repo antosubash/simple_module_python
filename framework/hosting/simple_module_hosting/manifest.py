@@ -25,6 +25,7 @@ from pathlib import Path
 from simple_module_core import ModuleBase, get_module_package_name
 
 from simple_module_hosting._generated_files import _write_if_changed
+from simple_module_hosting.admin_surfaces import render_admin_surfaces
 from simple_module_hosting.assets import (
     compute_module_assets,
     framework_assets,
@@ -172,15 +173,20 @@ def write_module_pages_manifest(
         "",
         "import type { ComponentType } from 'react';",
         "",
+        *render_admin_surfaces(modules),
         "type PageModule = { default: ComponentType<Record<string, unknown>> };",
         "",
         "export const moduleGlobs: Record<string, Record<string, () => Promise<PageModule>>> = {",
     ]
+    surfaces = {m.meta.name: m.meta.admin for m in modules if m.meta.admin is not None}
     for name in sorted(pages_map):
-        lines.append(
-            f"  {json.dumps(name)}: import.meta.glob<PageModule>"
-            f"({json.dumps(_glob_pattern_for(pages_map[name], output_dir))}),"
+        glob = (
+            "import.meta.glob<PageModule>"
+            f"({json.dumps(_glob_pattern_for(pages_map[name], output_dir))})"
         )
+        if name in surfaces:
+            glob = f"withAdminSurface({glob}, moduleAdminSurfaces[{json.dumps(name)}])"
+        lines.append(f"  {json.dumps(name)}: {glob},")
     lines.append("};")
     lines.append("")
     generated_text = "\n".join(lines)

@@ -1,18 +1,18 @@
 """Stable identifiers for the {{MODULE_NAME}} module.
 
-Permissions, Inertia page keys, menu and routing values live here so the
-hardcoded-strings check can hold every other file to named constants.
+Permissions, menu and routing values live here. Inertia keys are checked
+against this module's discovered pages.
 """
 
-PERM_{{PACKAGE_NAME_UPPER}}_VIEW = "{{PACKAGE_NAME}}.view"
-PERM_{{PACKAGE_NAME_UPPER}}_CREATE = "{{PACKAGE_NAME}}.create"
-PERM_{{PACKAGE_NAME_UPPER}}_EDIT = "{{PACKAGE_NAME}}.edit"
-PERM_{{PACKAGE_NAME_UPPER}}_DELETE = "{{PACKAGE_NAME}}.delete"
-PERM_GROUP = "{{MODULE_NAME}}"
+from simple_module_core.permissions import PermissionCatalogue
 
-PAGE_BROWSE = "{{MODULE_NAME}}/Browse"
-PAGE_CREATE = "{{MODULE_NAME}}/Create"
-PAGE_EDIT = "{{MODULE_NAME}}/Edit"
+
+class Permissions(PermissionCatalogue, group="{{MODULE_NAME}}"):
+    VIEW = "{{PACKAGE_NAME}}.view"
+    CREATE = "{{PACKAGE_NAME}}.create"
+    EDIT = "{{PACKAGE_NAME}}.edit"
+    DELETE = "{{PACKAGE_NAME}}.delete"
+
 
 API_PREFIX = "/api/{{MODULE_SLUG}}"
 VIEW_PREFIX = "/{{MODULE_SLUG}}"

@@ -31,6 +31,11 @@ class OrdersModule(ModuleBase):
 
 **Sections:** `SIDEBAR`, `ADMIN_SIDEBAR`, `NAVBAR`, `USER_DROPDOWN`. The `menus` shared prop on every Inertia response contains all four — the React layout chooses which to render where. `order` controls intra-section sorting (lower = first). `method="post"` is for items that need to be a form submission (logout) rather than a link. `group="Administration"` clusters items under a sub-header within a section; ungrouped (`""`) items render flat. `requires_auth=True` (default) hides the item from anonymous users.
 
+`ModuleMeta(admin=AdminSurface(...))` supplies `ADMIN_SIDEBAR` and group defaults
+for the owning module's menu URLs under its prefix, including provider items.
+Explicit sections and nonempty groups/keys win. It also supplies page layout
+and routing defaults; every route and menu item still declares its guards.
+
 ## Permissions — `register_permissions(registry: PermissionRegistry)`
 
 Outside HTTP, use `await principal_for(db, user_id, tenant_id)` from
@@ -46,27 +51,33 @@ only in an active tenant, validated by the builder's session-owned `tenant_activ
 provider; see `docs/framework/permissions.md`.
 
 ```python
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.permissions import PermissionCatalogue, PermissionRegistry
+
+
+class Permissions(PermissionCatalogue, group="Orders", label_key="orders.permission_group"):
+    VIEW = "orders.view", "View orders"
+    CREATE = "orders.create"
+    DELETE = "orders.delete"
 
 
 class OrdersModule(ModuleBase):
+    permissions = Permissions  # default hook registers every member
+
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Orders",
-            [
-                "orders.view",
-                "orders.create",
-                "orders.delete",
-            ],
-        )
-        registry.map_role("staff", ["orders.view", "orders.create"])
+        super().register_permissions(registry)
+        registry.map_role(ROLE_STAFF, [Permissions.VIEW, Permissions.CREATE])
 ```
+
+Catalogue members are strings used by guards and registration alike. Optional
+member labels appear in the role editor; `label_key` translates the group.
+Existing `PERM_*` constants, `add_group`, `add` and custom hooks stay supported.
+No catalogue declaration grants a role or guards a route.
 
 **Convention:** permission names are `<module>.<action>` (lowercase, dot-separated). Group name is human-readable — it surfaces in the admin UI as a section header. The built-in `admin` role gets the wildcard `"*"` and skips per-permission checks.
 
 `register_permissions` runs once at boot to declare the static catalog. The registry caches its computed views (`all_permissions`, `role_map`) and **invalidates them on every mutation** (`add_group`, `add`, `map_role`), so it is safe to mutate after boot — the Permissions module does exactly that, re-applying persisted role→permission rows into `registry.map_role` at startup and whenever an admin edits a role. Don't roll your own caching of these views; read them fresh.
 
-To check inside an endpoint, depend on `RequiresPermission("<module>.<action>")` (from `simple_module_hosting.permissions`), not by reading the registry by hand. The dependency handles wildcard expansion and the 401-vs-403 distinction.
+To check inside an endpoint, depend on `RequiresPermission(Permissions.VIEW)` (from `simple_module_hosting.permissions`), not by reading the registry by hand. The dependency handles wildcard expansion and the 401-vs-403 distinction.
 
 ## Feature flags — `register_feature_flags(registry: FeatureFlagRegistry)`
 

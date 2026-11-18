@@ -179,6 +179,7 @@ class ModuleDiagnostics:
                 )
                 and "register_menu_items" not in cls.__dict__
                 and "register_permissions" not in cls.__dict__
+                and not getattr(mod, "permissions", None)
             )
             if not silently_invisible:
                 continue

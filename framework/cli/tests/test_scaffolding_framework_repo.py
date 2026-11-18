@@ -88,10 +88,10 @@ class TestRichModuleContent:
         assert "label_key=MENU_LABEL_KEY" in module_py
         assert "register_settings" not in module_py
         assert "app.state.orders =" not in module_py
-        assert "PAGE_BROWSE," in views
-        assert 'render("Orders/' not in views
+        assert '"Orders/Browse"' in views
+        assert "RequiresPermission(Permissions.VIEW)" in views
         assert '"orders.view"' not in module_py
-        assert 'PERM_ORDERS_VIEW = "orders.view"' in (pkg / "core" / "constants.py").read_text()
+        assert 'VIEW = "orders.view"' in (pkg / "core" / "constants.py").read_text()
 
     def test_locale_catalog_carries_the_menu_key(self, orders: Path):
         data = json.loads((orders / "orders" / "locales" / "en.json").read_text())

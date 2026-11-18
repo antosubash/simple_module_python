@@ -160,3 +160,27 @@ def test_discovery_for_generation_includes_disabled_modules(monkeypatch):
         lambda enabled=None, **kw: ["installed"] if enabled is None else [],
     )
     assert gen_cmd._settings_and_modules() == (settings, ["installed"])
+
+
+def test_admin_surface_changes_invalidate_page_loaders(project):
+    from dataclasses import replace
+
+    from simple_module_cli import gen_cmd
+    from simple_module_core import AdminSurface
+
+    root, client, _, _ = project
+    gen_cmd.run_generation(root)
+    _, modules = gen_cmd._settings_and_modules()
+    modules[0].meta = replace(modules[0].meta, admin=AdminSurface(prefix="/admin/widget"))
+    assert "pages" in gen_cmd.run_generation(root)
+    generated = client / "modules.generated.ts"
+    assert 'prefix: "/admin/widget"' in generated.read_text()
+    modules[0].meta = replace(
+        modules[0].meta,
+        admin_view_prefix="",
+        admin=AdminSurface(prefix="/admin/changed", layout="theme/layout:Custom"),
+    )
+    assert "pages" in gen_cmd.run_generation(root)
+    assert 'prefix: "/admin/changed"' in generated.read_text()
+    assert 'from "theme/layout"' in generated.read_text()
+    assert gen_cmd.run_generation(root) == []

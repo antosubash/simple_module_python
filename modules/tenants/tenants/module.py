@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core import AdminSurface
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
@@ -73,7 +74,12 @@ class TenantsModule(ModuleBase):
         name=c.DISPLAY_NAME,
         route_prefix="/api/tenants",
         view_prefix="/tenants",
-        admin_view_prefix="/admin/tenants",
+        admin=AdminSurface(
+            prefix="/admin/tenants",
+            routes="tenants.web.endpoints.admin:views",
+            menu_group="Access",
+            menu_group_key="ui.nav_groups.access",
+        ),
         # Auth: its middleware must have set request.state.user before the
         # resolver runs. Settings: ordering only, since registering settings
         # is the framework's (#500).
@@ -140,11 +146,6 @@ class TenantsModule(ModuleBase):
         if self._settings_available():
             view_router.include_router(settings_router)
 
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from tenants.web.endpoints.admin import views as admin_views
-
-        admin_router.include_router(admin_views)
-
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
@@ -186,10 +187,7 @@ class TenantsModule(ModuleBase):
                 url="/admin/tenants/",
                 icon="briefcase",
                 order=105,
-                section=MenuSection.ADMIN_SIDEBAR,
                 permissions=[c.PERM_PLATFORM_VIEW],
-                group="Access",
-                group_key="ui.nav_groups.access",
             )
         )
 
