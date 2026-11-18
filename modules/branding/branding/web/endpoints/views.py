@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(constants.PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(constants.Permissions.VIEW))],
 )
 async def manage(request: Request, inertia: InertiaDep) -> InertiaResponse:
     # Current branding is delivered through the shared ``branding`` prop (the

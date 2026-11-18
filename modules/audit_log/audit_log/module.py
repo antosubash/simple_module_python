@@ -6,25 +6,23 @@ from fastapi import FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
 
 from audit_log.core.constants import (
-    ALL_PERMISSIONS,
     API_PREFIX,
-    LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
     MENU_ORDER,
     MENU_URL,
     MODULE_NAME,
     MODULE_PACKAGE,
-    PERM_GROUP,
-    PERM_VIEW,
     VIEW_PREFIX,
+    Permissions,
 )
 
 
 class AuditLogModule(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
@@ -53,15 +51,8 @@ class AuditLogModule(ModuleBase):
                 group_key="ui.nav_groups.system",
                 # Mirrors the view route's guard — the same ungated-menu bug
                 # this module already shipped before the filter existed.
-                permissions=[PERM_VIEW],
+                permissions=[Permissions.VIEW],
             )
-        )
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            PERM_GROUP,
-            list(ALL_PERMISSIONS),
-            label_key=f"{LOCALE_NAMESPACE}.permission_group",
         )
 
     async def on_startup(self, app: FastAPI) -> None:

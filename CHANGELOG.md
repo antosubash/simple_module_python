@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+- Migrate the remaining module permissions to `PermissionCatalogue`, preserving keys, registry metadata, role mappings and deprecated imported constants; no behaviour change (#1037).
+
 ### Added
 
 - Mail transport providers register named factories through `mail.contracts`, with built-in console/SMTP transports and provider-owned DB settings shared by web startup, settings reloads and durable worker resolution. The admin backend selector lists registered transports. **Behaviour change:** unknown transports fail outside development; explicit `install_mail_sender` overrides survive settings reloads (#962).

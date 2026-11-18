@@ -5,7 +5,7 @@ from simple_module_core.permissions import ADMIN_ROLE, PermissionRegistry, grant
 from simple_module_core.user_directory import DirectoryUser
 from simple_module_hosting.permissions import resolve_principal_permissions
 
-from permissions.core.constants import PERM_MANAGE
+from permissions.core.constants import Permissions
 
 
 class PermissionWriteRefused(HTTPException):
@@ -47,7 +47,7 @@ async def check_permission_write(
         # No principal: skip the grant sources, which expect a real user.
         raise _refuse(_PLATFORM_ONLY)
     held = await resolve_principal_permissions(request, actor, registry, include_tenant_roles=False)
-    if not grants(held, PERM_MANAGE):
+    if not grants(held, Permissions.MANAGE):
         raise _refuse(_PLATFORM_ONLY)
     if target is not None:
         # Unknown provider roles cannot prove that the target is within reach.

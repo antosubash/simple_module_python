@@ -25,6 +25,15 @@ _SHIM_MODULES: tuple[str, ...] = (
     "simple_module_core._auth_providers",
     "users.core.token_secrets",
     "api_tokens.core.constants",
+    "audit_log.core.constants",
+    "background_tasks.core.constants",
+    "branding.core.constants",
+    "dashboard.core.constants",
+    "feature_flags.core.constants",
+    "permissions.core.constants",
+    "settings.core.constants",
+    "sharing.core.constants",
+    "users.core.constants",
     "background_tasks.core.invalidation_channel",
 )
 _EXPECTED = {
@@ -35,6 +44,15 @@ _EXPECTED = {
     "SM_USERS_VERIFICATION_TOKEN_SECRET",
     "smpy package-update",
     "api_tokens PERM_* constants",
+    "audit_log PERM_* constants",
+    "background_tasks PERM_* constants",
+    "branding PERM_* constants",
+    "dashboard PERM_* constants",
+    "feature_flags PERM_* constants",
+    "permissions PERM_* constants",
+    "settings PERM_* constants",
+    "sharing PERM_* constants",
+    "users PERM_* constants",
 }
 
 

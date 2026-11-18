@@ -16,12 +16,12 @@ from simple_module_hosting.rate_limit_deps import RateLimit
 from simple_module_hosting.resource_deps import resource_principal
 
 from sharing.contracts.schemas import ShareCandidate, ShareGrant, ShareOut, ShareSubjectType
-from sharing.core.constants import CANDIDATES_DAILY_RATE, PERM_SHARE, SUBJECT_USER
+from sharing.core.constants import CANDIDATES_DAILY_RATE, SUBJECT_USER, Permissions
 from sharing.core.service import SharingError
 from sharing.web.deps import SharingServiceDep, http_error
 from sharing.web.present import present_shares
 
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_SHARE))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(Permissions.SHARE))])
 
 
 @router.get("/shares", response_model=list[ShareOut])

@@ -36,6 +36,12 @@ call `registry.add_catalogue(Permissions)` explicitly. Existing `add_group`, `ad
 `PERM_*` string constants and overrides remain supported. Declaring a catalogue
 registers keys only: it never grants roles or guards a route automatically.
 
+Built-in modules declare their permissions through catalogues (#1037). Import
+`Permissions` from a module's `core.constants` (file_storage retains its
+`Permission` name). Imported legacy
+`PERM_*` aliases are deprecated for removal in 0.0.50; stored permission keys and
+role mappings are unchanged.
+
 ## Enforcing at endpoints
 
 Use the `RequiresPermission` dependency from `simple_module_hosting.permissions`:

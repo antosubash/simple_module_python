@@ -20,7 +20,7 @@ router = APIRouter()
 # not the uploading admin's active organisation's, and the anonymous asset
 # routes must find them with no tenant bound (see ``file_storage.core.scope``).
 
-_MANAGE = Depends(RequiresPermission(constants.PERM_MANAGE))
+_MANAGE = Depends(RequiresPermission(constants.Permissions.MANAGE))
 
 
 def _validate_design_pack(request: Request, changes: dict) -> None:

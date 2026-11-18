@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
+
 # ── Module identity ─────────────────────────────────────────────
 MODULE_NAME = "background_tasks"
 MODULE_DISPLAY_NAME = "BackgroundTasks"
@@ -33,8 +36,23 @@ ENV_REDIS_URL = "SM_REDIS_URL"
 
 # ── Permissions ─────────────────────────────────────────────────
 PERM_GROUP = "Background tasks"
-PERM_VIEW = "background_tasks.view"
-PERM_MANAGE = "background_tasks.manage"
+
+
+class Permissions(
+    PermissionCatalogue, group=PERM_GROUP, label_key="background_tasks.permission_group"
+):
+    VIEW = "background_tasks.view"
+    MANAGE = "background_tasks.manage"
+
+
+deprecate(
+    "background_tasks PERM_* constants",
+    remove_in="0.0.50",
+    use="background_tasks.core.constants.Permissions",
+)
+PERM_VIEW = Permissions.VIEW
+PERM_MANAGE = Permissions.MANAGE
+
 
 # ── Routes ──────────────────────────────────────────────────────
 API_PREFIX = "/api/background_tasks"

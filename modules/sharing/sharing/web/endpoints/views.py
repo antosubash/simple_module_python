@@ -16,7 +16,7 @@ from simple_module_inertia import InertiaResponse
 from sqlmodel import col, select
 from starlette.responses import RedirectResponse
 
-from sharing.core.constants import ADMIN_URL, PAGE_ADMIN, PERM_MANAGE, PERM_VIEW
+from sharing.core.constants import ADMIN_URL, PAGE_ADMIN, Permissions
 from sharing.core.service import SharingError
 from sharing.models import ResourceShare
 from sharing.web.deps import SharingServiceDep, http_error
@@ -25,7 +25,7 @@ from sharing.web.present import present_shares
 router = APIRouter()
 
 
-@router.get("/", response_model=None, dependencies=[Depends(RequiresPermission(PERM_VIEW))])
+@router.get("/", response_model=None, dependencies=[Depends(RequiresPermission(Permissions.VIEW))])
 async def admin_index(
     request: Request,
     inertia: InertiaDep,
@@ -57,7 +57,7 @@ async def admin_index(
             "total": total,
             "page": served,
             "per_page": params.per_page,
-            "can_revoke": who.has(PERM_MANAGE),
+            "can_revoke": who.has(Permissions.MANAGE),
             "tenant_required": tenant_required,
         },
     )
@@ -66,7 +66,7 @@ async def admin_index(
 @router.post(
     "/{share_id}/revoke",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def admin_revoke(
     share_id: uuid.UUID,

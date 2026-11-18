@@ -10,7 +10,12 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db import independent_session
 
-from permissions.core.constants import _MODULE_AUTH, _MODULE_USERS, USER_CLEANUP_HANDLER
+from permissions.core.constants import (
+    _MODULE_AUTH,
+    _MODULE_USERS,
+    USER_CLEANUP_HANDLER,
+    Permissions,
+)
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -40,6 +45,8 @@ async def _resolve_role_permission_labels(_db: AsyncSession, ids: list[str]) -> 
 
 
 class PermissionsModule(ModuleBase):
+    permissions = Permissions
+
     def register_principal_builder(self, registry) -> None:
         from permissions.grants.principal import role_overlays
 
@@ -80,15 +87,10 @@ class PermissionsModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        from permissions.core.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
         from permissions.grants.principal import direct_grants_for
         from permissions.grants.source import direct_grant_source
 
-        registry.add_group(
-            PERMISSION_GROUP,
-            [PERM_VIEW, PERM_MANAGE],
-            label_key="permissions.permission_group",
-        )
+        super().register_permissions(registry)
         # Direct per-user grants join the framework's one resolution, so every
         # module's RequiresPermission, the menu and the frontend honour them.
         registry.add_grant_source(direct_grant_source, session_source=direct_grants_for)

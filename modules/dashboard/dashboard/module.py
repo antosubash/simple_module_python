@@ -5,9 +5,8 @@ from __future__ import annotations
 from simple_module_core import AdminSurface
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
 
-from dashboard.core.constants import PERM_GROUP, PERM_VIEW
+from dashboard.core.constants import Permissions
 
 _URL_DASHBOARD = "/dashboard/"
 _URL_DOCTOR = "/admin/doctor/"
@@ -16,6 +15,10 @@ _ICON_DOCTOR = "stethoscope"
 
 
 class DashboardModule(ModuleBase):
+    # Administrative data: only admin (wildcard) or explicit grants; never
+    # map user/tenant roles here, including single-tenant installs (#464).
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="Dashboard",
         route_prefix="/api/dashboard",
@@ -28,17 +31,6 @@ class DashboardModule(ModuleBase):
         ),
         i18n_audience="admin",
     )
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        # Administrative data (user counts, installed modules, system info):
-        # ``admin`` holds it through ``*`` and no other role is mapped — not
-        # even ``user`` on a single-tenant install, or any self-registered
-        # account could read it (#464). Grant it to a role in the role editor.
-        registry.add_group(
-            PERM_GROUP,
-            [PERM_VIEW],
-            label_key="dashboard.permission_group",
-        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(

@@ -11,7 +11,6 @@ from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
 
 from background_tasks.core.constants import (
     _MODULE_SETTINGS,
@@ -22,10 +21,8 @@ from background_tasks.core.constants import (
     MENU_LABEL,
     MENU_ORDER,
     MODULE_DISPLAY_NAME,
-    PERM_GROUP,
-    PERM_MANAGE,
-    PERM_VIEW,
     VIEW_PREFIX,
+    Permissions,
 )
 
 if TYPE_CHECKING:
@@ -68,6 +65,8 @@ async def _resolve_execution_labels(db: AsyncSession, ids: list[str]) -> dict[st
 class BackgroundTasksModule(ModuleBase):
     """Celery + Redis task queue with an admin UI for retrying failed/stuck tasks."""
 
+    permissions = Permissions
+
     meta = ModuleMeta(
         name=MODULE_DISPLAY_NAME,
         route_prefix=API_PREFIX,
@@ -85,13 +84,6 @@ class BackgroundTasksModule(ModuleBase):
             "background_tasks",
             BackgroundTasksSettings,
             lambda s: BackgroundTasksServices(settings=s),
-        )
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            PERM_GROUP,
-            [PERM_VIEW, PERM_MANAGE],
-            label_key="background_tasks.permission_group",
         )
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:

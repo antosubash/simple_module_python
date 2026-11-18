@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
 from simple_module_core.resources import ACTION_EDIT, ACTION_VIEW
 
 MODULE_NAME: Final = "Sharing"
@@ -11,14 +13,27 @@ MODULE_PACKAGE: Final = "sharing"
 LOCALE_NAMESPACE: Final = "sharing"
 
 PERM_GROUP: Final = "Sharing"
-PERM_SHARE: Final = "sharing.share"
-"""Use the grant/revoke API at all; the resource's own policy still decides."""
-PERM_VIEW: Final = "sharing.view"
-"""See every share in the tenant (the admin page)."""
-PERM_DIRECTORY_SEARCH: Final = "sharing.directory_search"
-"""Discover directory users by name or email substring outside multi-tenant mode."""
-PERM_MANAGE: Final = "sharing.manage"
-"""Revoke any share in the tenant."""
+
+
+class Permissions(PermissionCatalogue, group=PERM_GROUP, label_key="sharing.permission_group"):
+    # Use the grant/revoke API; the resource's policy still decides.
+    SHARE = "sharing.share"
+    # See every share in the tenant (the admin page).
+    VIEW = "sharing.view"
+    # Revoke any share in the tenant.
+    MANAGE = "sharing.manage"
+    # Discover directory users outside multi-tenant mode.
+    DIRECTORY_SEARCH = "sharing.directory_search"
+
+
+deprecate(
+    "sharing PERM_* constants",
+    remove_in="0.0.50",
+    use="sharing.core.constants.Permissions",
+)
+PERM_SHARE: Final = Permissions.SHARE
+PERM_MANAGE: Final = Permissions.MANAGE
+
 USER_ROLE: Final = "user"
 
 PAGE_ADMIN: Final = "Sharing/Admin"
