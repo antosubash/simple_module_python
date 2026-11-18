@@ -144,45 +144,39 @@ def test_sm_new_makefile_has_quality_gate_targets(tmp_path: Path) -> None:
     assert "upgrade head\n" not in makefile  # the buggy singular form is gone
 
 
-def test_sm_new_makefile_kill_is_port_scoped(tmp_path: Path) -> None:
-    """Regression #461: `make kill` must free only this app's ports, never
-    pkill every uvicorn/vite (other apps, vitest) on the machine."""
+def test_sm_new_makefile_cleanup_does_not_search_for_processes(tmp_path: Path) -> None:
+    """Cleanup belongs to the supervisor, never a name/port process search."""
     from simple_module_cli.app_project import create_app_project
 
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
     makefile = (target / "Makefile").read_text()
     assert "pkill" not in makefile
-    assert "lsof -ti:$(API_PORT),$(VITE_PORT)" in makefile
+    assert "lsof" not in makefile
+    assert "Ctrl-C" in makefile
     assert "--port $(API_PORT)" in makefile
-    assert "SM_VITE_DEV_URL" in makefile
+    assert "s/^SM_VITE_DEV_URL=" not in makefile
 
 
 @pytest.mark.parametrize("flat", [False, True])
-def test_sm_new_makefile_generates_i18n_before_dev(tmp_path: Path, flat: bool) -> None:
-    """GH #946: wait for i18n generation, then start dev even if it fails."""
+def test_sm_new_makefile_uses_unified_commands(tmp_path: Path, flat: bool) -> None:
+    """Install/build prepare all artifacts; dev delegates to the process owner."""
     from simple_module_cli.app_project import create_app_project
 
     if shutil.which("make") is None:
         pytest.skip("make is not installed")
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[], flat=flat)
-    makefile = target / "Makefile"
-    assert "simple_module_hosting gen-i18n" in makefile.read_text()
-    makefile.rename(target / "Scaffold.mk")
-    makefile.write_text(
-        "include Scaffold.mk\n"
-        "gen-pages:\n\t@echo generated-pages\n"
-        "gen-i18n:\n\t@echo attempted-i18n\n\t@false\n"
-        "dev-api:\n\t@echo started-api\n"
-        "dev-ui:\n\t@echo started-ui\n"
-    )
-    result = subprocess.run(["make", "-j2", "dev"], cwd=target, capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
-    assert "warning: gen-i18n failed" in result.stderr
-    for server in ("started-api", "started-ui"):
-        assert result.stdout.index("generated-pages") < result.stdout.index(server)
-        assert result.stdout.index("attempted-i18n") < result.stdout.index(server)
+    for action in ("install", "build", "dev"):
+        result = subprocess.run(["make", "-n", action], cwd=target, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        if action == "dev":
+            assert "uv run smpy dev" in result.stdout
+            assert "uvicorn" not in result.stdout
+        else:
+            assert "uv run smpy gen" in result.stdout
+            if action == "build":
+                assert result.stdout.index("smpy gen") < result.stdout.index("npm run build")
 
 
 def test_host_template_makefile_has_no_pkill() -> None:

@@ -69,12 +69,12 @@ cd myapp
 make dev
 ```
 
-The scaffolded app ships with a small Makefile that runs the API + Vite dev server in parallel:
+The scaffolded Makefile delegates to `uv run smpy dev`, which generates frontend artifacts before starting both servers:
 
 - `uvicorn main:app` on `:8000` (the FastAPI + Inertia app)
-- `vite` on `:5050` (the frontend dev server with HMR)
+- `vite` on the first free port starting at `:5050` (the frontend dev server with HMR)
 
-Hit `http://localhost:8000`. You should see the landing page.
+Hit `http://localhost:8000`. You should see the landing page. Use `uv run smpy dev --port 8010` for a second app; add `--vite-port 5201` only when you need a fixed Vite port. Ctrl-C or SIGTERM cleans up both owned process groups, including reload workers. A child exiting also stops its sibling. Python is the dotenv reader; exported variables win over file values, and the selected Vite URL is passed to both children.
 
 ## Database choice
 
@@ -197,7 +197,7 @@ Pass `--loosen` to rewrite every Python constraint to `>=<latest>` instead.
 Run `uv tool update-shell` (or restart your shell) so the tool's bin dir is on PATH.
 
 **Port already in use.**
-Run `make kill` to free the app's API and Vite ports (`:8000` and the port in `SM_VITE_DEV_URL`, default `:5050`) before the next `make dev`. It only touches those ports, never other apps' servers. To run two apps side by side, give each its own `API_PORT` (`make dev API_PORT=8010`) and `SM_VITE_DEV_URL`.
+Vite automatically skips occupied ports. For an occupied API port, use `make dev ARGS="--port 8010"`. An explicit `--vite-port` fails when occupied rather than silently moving. Stop a previous `smpy dev` with Ctrl-C or SIGTERM to its supervisor PID; `make kill` only prints this guidance and never kills other projects by port or process name.
 
 **Alembic complains about a revision mismatch.**
 The DB is ahead of or behind the migration files. For a dev DB: `rm app.db && make migrate`. For Postgres: `docker compose down -v && docker compose up -d postgres && make migrate`.

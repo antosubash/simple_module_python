@@ -279,7 +279,7 @@ export default function Browse({ orders }: { orders: OrderOut[] }) {
 }
 ```
 
-Translations (`orders/locales/en.json`). `keys.orders.*` is generated from this file by `make gen-i18n`, which `make install`, `make build` and every dev boot run, so a new key needs one of them before `tsc` sees it:
+Translations (`orders/locales/en.json`). `keys.orders.*` is generated from this file by `smpy gen`, which `make install`, `make build` and `smpy dev` run (direct dev boots also refresh keys), so a new key needs one of them before `tsc` sees it:
 
 ```json
 {

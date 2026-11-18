@@ -31,9 +31,8 @@ function findNodeModulesRoot(start: string): string {
 }
 const fsRoot = findNodeModulesRoot(import.meta.dirname);
 
-// Walks up from client_app to the directory holding the project .env itself —
-// fsRoot tracks node_modules, which (in flat mode) is NOT where .env lives.
-const { origin: devUrl, port: devPort } = viteDevServer(import.meta.dirname);
+// smpy dev passes the resolved URL through the process environment.
+const { origin: devUrl, port: devPort } = viteDevServer();
 
 const {
   fsAllow: moduleFsAllow,
@@ -175,9 +174,11 @@ function moduleBareImportResolver(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [moduleBareImportResolver(), react(), tailwindcss()],
   root: import.meta.dirname,
+  // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
+  envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
   resolve: {
     // `#module/<pkg>` -> that module's package directory. Optional sugar for
     // hand-written imports; modules.generated.css does not rely on it.
@@ -215,4 +216,4 @@ export default defineConfig({
       allow: [fsRoot, ...moduleFsAllow],
     },
   },
-});
+}));

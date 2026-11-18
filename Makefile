@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+.PHONY: gen install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -7,6 +7,7 @@ UV_SYNC_FLAGS ?=
 install:
 	uv sync $(UV_SYNC_FLAGS) --all-packages
 	npm install
+	$(MAKE) gen
 
 # Install (granular — used by CI so Python jobs don't pull npm and vice versa)
 install-py:
@@ -16,10 +17,8 @@ install-js:
 	npm ci
 
 # Development
-dev: docker-up gen-pages
-	$(MAKE) gen-i18n || echo "warning: gen-i18n failed; continuing with dev startup" >&2
-	@echo "Starting API and UI dev servers..."
-	$(MAKE) -j2 dev-api dev-ui
+dev: docker-up
+	uv run --project host smpy dev $(ARGS)
 
 dev-api:
 	uv run --project host uvicorn host.main:app --reload --reload-include '*locales/*.json' --port 8000
@@ -35,6 +34,9 @@ openapi:
 # start a new module's with ARGS="--module <name>".
 gen-api-types:
 	uv run --project host smpy openapi gen-types $(ARGS)
+
+gen:
+	uv run --project host smpy gen
 
 # Regenerate host/client_app/modules.{manifest.json,generated.ts,generated.css} from installed modules.
 gen-pages:
@@ -52,7 +54,7 @@ sync-module-deps:
 	uv run --project host smpy host sync-js-deps --host-client-app=host/client_app
 
 # Build
-build:
+build: gen
 	npm run build
 
 # Testing
@@ -308,13 +310,9 @@ new-module:                 ## Scaffold a new module (usage: make new-module nam
 	@# Replace the scaffold's sample types with what the module's routes emit.
 	-uv run --project host smpy openapi gen-types --module $(name)
 
-# Kill dev servers
+# The dev supervisor, rather than process-name/port searches, owns cleanup.
 kill:
-	@echo "Stopping dev servers..."
-	@-pkill -f "uvicorn host.main" 2>/dev/null
-	@-pkill -f "vite" 2>/dev/null
-	@-lsof -ti:8000,5050,5173 | xargs kill -9 2>/dev/null
-	@echo "Ports 8000, 5050, 5173 freed."
+	@echo "Stop smpy dev with Ctrl-C (or send SIGTERM to its PID); it cleans up both process groups."
 
 # Docker — the default app image (./Dockerfile). Standalone: SQLite inside the
 # container, no Postgres or Redis needed. Both run targets honour SM_APP_PORT

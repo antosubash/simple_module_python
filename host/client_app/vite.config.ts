@@ -6,8 +6,10 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig, type Plugin } from 'vite';
 import { compressAssets } from './compress-assets.ts';
 import { loadModuleAssets } from './module-assets.ts';
+import { viteDevServer } from './vite.dev-url.ts';
 
 const projectRoot = path.resolve(import.meta.dirname, '../..');
+const { origin: devUrl, port: devPort } = viteDevServer();
 
 // ANALYZE=1 npm run build emits host/static/dist/stats.html — a sunburst of
 // every chunk and its constituent modules. Open it to chase bundle bloat.
@@ -171,6 +173,8 @@ export default defineConfig(({ command }) => ({
     },
   },
   root: import.meta.dirname,
+  // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
+  envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
   build: {
     outDir: '../static/dist',
     manifest: true,
@@ -217,12 +221,10 @@ export default defineConfig(({ command }) => ({
     },
   },
   server: {
-    // If you override SM_VITE_PORT, set the backend's SM_VITE_DEV_URL to the
-    // same port — the backend uses it for the dev <script src> and the CSP
-    // script-src/connect-src, so a mismatch breaks asset loading + HMR.
-    port: Number(process.env.SM_VITE_PORT) || 5050,
+    // smpy dev supplies the same URL to Vite and the API.
+    port: devPort,
     strictPort: true,
-    origin: `http://localhost:${Number(process.env.SM_VITE_PORT) || 5050}`,
+    origin: devUrl,
     fs: {
       allow: [projectRoot, ...moduleFsAllow],
     },

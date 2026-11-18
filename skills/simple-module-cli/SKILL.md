@@ -164,6 +164,12 @@ smpy skills update simple-module-doctor                   # explicitly re-pull o
 
 The bundle resolves against your installed `simple_module_cli`. To get newer skills, upgrade the CLI (`uv sync` or `pip install -U simple_module_cli`) and re-run `smpy skills update`.
 
+## `smpy gen` and `smpy dev` — the normal app loop
+
+Run `uv run smpy gen` from the app root to generate pages, i18n keys, module npm deps and local API types together. Install, dev, build and module verify call it automatically. Content hashes and output checks in the local `.smpy/gen.json` cache skip unchanged stages without touching files. Generation failures stop dev/build. Existing individual generator commands and their flags remain available; CI freshness checks run them unconditionally. i18n output remains in the package consumed by its existing exports and type augmentation.
+
+Run `uv run smpy dev` to generate first and supervise API + Vite. API defaults to 8000; choose a spare one with `--port 8201`. Vite chooses the first free port from 5050; `--vite-port 5201` pins it and fails if occupied. Python loads dotenv (exported env wins), then passes the selected `SM_VITE_DEV_URL` to both children. Do not parse dotenv in Vite or Make. Ctrl-C/SIGTERM stops only the child process groups the supervisor started, including reload workers. Either child exiting stops the other. `make dev ARGS="--port 8201"` is equivalent in a scaffold; the framework repo first starts its shared Docker services. `make kill` prints stop guidance without searching by process name or port.
+
 ## `smpy host gen-pages` — regenerate the Inertia manifest
 
 Run from a host project. Scans every installed module's `pages/*.tsx`, writes `client_app/modules.{manifest.json,generated.ts,generated.css}`, and extends Vite's `server.fs.allow`.
@@ -236,7 +242,7 @@ Don't bake `--password` literals into a script you commit; use a secrets store a
 - **A module added while `make dev` runs logs "installed but … cannot be imported in this process".** The reload keeps the import path the server started with; restart `make dev`.
 - **Calling `smpy create-admin` before migrations have run.** The users tables don't exist yet; the command will error. Run `alembic upgrade head` first (or use `smpy new` which does it for you when `--no-install` isn't set).
 - **Expecting `--with products` (or `keycloak` / `audit_log`) to work on `smpy new`.** Those modules exist in the monorepo but aren't scaffolder-catalog keys, so `smpy new --with products` errors. Either scaffold without them and `pip install simple_module_products` into the host afterward, or use `smpy create-host --with Products` (which doesn't validate against the catalog).
-- **Port 5050 already taken when starting a scaffolded app.** Set `SM_VITE_DEV_URL` in the project `.env` (e.g. `http://localhost:5310`) — the scaffolded `vite.config.ts` derives the dev server's port and origin from that same value, so it's the only knob to turn.
+- **Port 5050 already taken when starting a scaffolded app.** Use `smpy dev`: it selects a free Vite port automatically. Pin with `--vite-port 5310` only when needed; change the API with `--port 8010`.
 - **`smpy package-update` "did nothing" for a workspace dep.** Deps sourced from a `[tool.uv.sources]` workspace/path/git/URL entry are intentionally skipped (their version isn't on PyPI) — they show up in the output as `skipped`, not updated. Also remember to run `uv sync` after; `package-update` only rewrites the constraint strings.
 
 ## Related skills

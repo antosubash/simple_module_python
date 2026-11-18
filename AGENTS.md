@@ -27,8 +27,8 @@ Everything goes through `make`; the root `Makefile` is the full list
 
 | Command | Purpose |
 |---|---|
-| `make install` | `uv sync --all-packages` + `npm install` |
-| `make dev` | Shared Docker stack up (needs the sibling `../dev-services` checkout) + `gen-pages` + API (:8000) and Vite (:5050). Without that stack, run `make dev-api` and `make dev-ui` |
+| `make install` | `uv sync --all-packages` + `npm install` + `smpy gen` |
+| `make dev` | Shared Docker stack up (needs the sibling `../dev-services` checkout), then `smpy dev`: generation + API (:8000) + Vite (first free port from 5050). Without Docker, run `uv run smpy dev` |
 | `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n $(PYTEST_WORKERS) --dist loadgroup`, default 4 workers, `PYTEST_WORKERS=0` for serial) then Vitest |
 | `make test-py-pg` | Pytest on Postgres (`SM_TEST_DATABASE_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
@@ -37,6 +37,7 @@ Everything goes through `make`; the root `Makefile` is the full list
 | `make migrate` / `make downgrade` / `make migration-history` | Alembic `upgrade heads` / `-1` / history |
 | `make migration LABEL=<branch_label> msg="..."` | Autogenerate on the selected branch (`--head <branch_label>@head`); `LABEL` is required |
 | `make migrations-roundtrip-pg` | Postgres portability gate (upgrade → downgrade base → upgrade → `alembic check`); CI runs it |
+| `make gen` | Incrementally generate pages, i18n keys, module JS deps and API types; also runs during install/dev/build and `smpy module verify` |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` (gitignored; needed before `tsc`/Vite) |
 | `make gen-i18n` | Regenerate `packages/i18n/src/{keys.generated,generated-resources}.ts` (committed; CI diffs them) |
 | `make gen-api-types` | Regenerate each module's `pages/api.generated.ts` from its routes (committed; CI diffs via `ci-api-types-fresh`) |
@@ -62,8 +63,10 @@ repo root via `host/alembic.ini`, so it shares `.env`/`SM_DATABASE_URL` with the
   worker/beat.
 - **Sandboxed sessions have no Docker.** Launch API + Vite directly per
   `.claude/skills/running-the-stack/SKILL.md` (spare ports, SQLite file DB,
-  `smpy users create-admin`). `make kill` runs `pkill -f vite` and kills other
-  projects' servers, so kill by port instead.
+  `smpy users create-admin`). Use `uv run smpy dev --port 8201` for a spare
+  API port; Vite is chosen automatically, or pin it with `--vite-port 5201`.
+  Ctrl-C/SIGTERM stops only the process groups this supervisor started.
+  `make kill` prints this stop guidance; it never searches by process name or port.
 - The test plugin ignores project dotenv files; leave `.env` in place.
   Never export `SM_ENVIRONMENT=production` in a shell that
   runs pytest: production validators (localhost broker, placeholder secrets)
@@ -75,8 +78,10 @@ repo root via `host/alembic.ini`, so it shares `.env`/`SM_DATABASE_URL` with the
 
 Run what CI runs, in this order; a red push costs a review cycle.
 
-1. `make gen-pages` once per fresh checkout (generated frontend files are
-   gitignored; `tsc` and Vite fail without them).
+1. `make gen` once per fresh checkout and after route/catalog changes.
+   Page manifests are gitignored; commit regenerated i18n keys and API types.
+   The incremental cache is local to the checkout; CI freshness targets still
+   run generators unconditionally. `tsc` and Vite need the generated files.
 2. `make lint`. `ruff format --check .` also formats Python fences inside
    `.md` files, so run `uv run ruff format docs/` after editing docs. Every
    backticked repo path in `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/` and

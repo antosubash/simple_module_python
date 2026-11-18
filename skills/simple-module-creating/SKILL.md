@@ -15,8 +15,8 @@ description: Use when adding a new feature package to a simple_module_python app
 # `uv sync --all-packages`, `npm install` and `make gen-i18n`
 make new-module name=orders
 
-# if you added a frontend page, regenerate the Inertia manifest
-make gen-pages
+# refresh all generated frontend artifacts (also automatic on install/dev/build)
+make gen
 
 # if you added SQLModel tables, autogenerate + apply a migration
 make migration msg="add orders module"

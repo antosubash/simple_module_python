@@ -160,13 +160,20 @@ def sync_js_deps(
     ] = False,
 ) -> None:
     """Install JS deps declared by installed modules into host's node_modules."""
+    sync_module_js_deps(
+        host_client_app, collect_module_js_deps(discover_modules()), dry_run=dry_run
+    )
+
+
+def sync_module_js_deps(
+    host_client_app: Path, by_module: dict[str, dict[str, str]], *, dry_run: bool = False
+) -> None:
+    """Install exactly the collected graph used by the generation fingerprint."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     if not host_client_app.is_dir():
         typer.echo(f"ERROR: client_app directory not found at {host_client_app}", err=True)
         raise typer.Exit(code=1)
 
-    modules = discover_modules()
-    by_module = collect_module_js_deps(modules)
     if not by_module:
         typer.echo("No module JS dependencies declared.")
         return

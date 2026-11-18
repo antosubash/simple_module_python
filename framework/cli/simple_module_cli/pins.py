@@ -48,7 +48,7 @@ def _pin_one(dep: str, version: str) -> str:
 def pin_framework_deps(pyproject_path: Path, version: str) -> None:
     """Pin every ``simple_module_*`` requirement in a pyproject to ``==version``.
 
-    Rewrites both ``dependencies`` and every ``optional-dependencies`` extra
+    Rewrites ``dependencies``, development groups and every ``optional-dependencies`` extra
     (the module template's ``dev`` extra pins ``simple_module_test``). Used by
     ``create_module`` and ``create_host`` so a freshly scaffolded package
     resolves against the framework version that created it. See GH #195 / #206.
@@ -66,4 +66,8 @@ def pin_framework_deps(pyproject_path: Path, version: str) -> None:
     if optional is not None:
         for extra, items in list(optional.items()):
             optional[extra] = [_pin_one(dep, version) for dep in items]
+    for name, items in doc.get("dependency-groups", {}).items():
+        doc["dependency-groups"][name] = [
+            _pin_one(dep, version) if isinstance(dep, str) else dep for dep in items
+        ]
     pyproject_path.write_text(tomlkit.dumps(doc), encoding="utf-8")
