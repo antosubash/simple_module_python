@@ -1,4 +1,5 @@
 import { keys, useT } from '@simple-module-py/i18n';
+import { NavIcon } from '@simple-module-py/ui/components/NavIcon';
 import { PasswordInput } from '@simple-module-py/ui/components/PasswordInput';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Checkbox } from '@simple-module-py/ui/components/ui/checkbox';
@@ -10,6 +11,8 @@ import { AuthField } from './AuthField';
 export interface OAuthProvider {
   name: string;
   display_name: string;
+  label_key?: string;
+  icon?: string;
 }
 
 interface LoginFormProps {
@@ -128,7 +131,12 @@ export function LoginForm({
           {oauthProviders.map((provider) => (
             <Button key={provider.name} type="button" variant="outline" size="lg" asChild>
               <a href={`/api/users/auth/${provider.name}/login`}>
-                {t(keys.users.login.continue_with, { name: provider.display_name })}
+                {provider.icon && <NavIcon name={provider.icon} className="size-4" />}
+                {t(keys.users.login.continue_with, {
+                  name: provider.label_key
+                    ? t(provider.label_key, { defaultValue: provider.display_name })
+                    : provider.display_name,
+                })}
               </a>
             </Button>
           ))}
