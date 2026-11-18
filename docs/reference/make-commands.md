@@ -104,7 +104,7 @@ The remaining targets have the same purpose in both layouts:
 | `make gen` | Same incremental pipeline as `uv run smpy gen`. Install, dev, build and module verify call it automatically. Generation errors stop startup/build. |
 | `make gen-pages` | Regenerate `modules.manifest.json`, `modules.generated.ts`, `modules.generated.css` and `modules.assets.json` in the host's frontend directory. Install, dev and build include this stage via `smpy gen`. Same effect as `smpy host gen-pages`. |
 | `make sync-js-deps` (flat) / `make sync-module-deps` (workspace) | Install module-declared JS deps as described above. Same effect as `smpy host sync-js-deps`. |
-| `make gen-i18n` | Regenerate `keys.generated.ts` and `generated-resources.ts` for typed `t(keys.<ns>...)` calls. Writes into the installed `@simple-module-py/i18n/src`: under `client_app/node_modules` in a flat app or root `node_modules` in a workspace. Install, dev and build include this stage via `smpy gen`. Same effect as `smpy host gen-i18n`. |
+| `make gen-i18n` | Regenerate `keys.generated.ts` and `generated-resources.ts` for typed `t(keys.<ns>...)` calls. Writes into the installed `@simple-module-py/i18n/src`, the first copy found in `node_modules` at the app root, then `client_app/node_modules`, then parent directories. Install, dev and build include this stage via `smpy gen`. Same effect as `smpy host gen-i18n`. |
 | `make doctor` | Run module diagnostics, including migration state and table coverage. Structural checks also run at development boot; production does not run that suite. |
 | `make kill` | Print stop guidance: Ctrl-C in the `smpy dev` terminal, or send SIGTERM to its supervisor PID. No processes are searched for or killed by port/name. |
 
