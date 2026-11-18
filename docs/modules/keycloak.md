@@ -9,9 +9,10 @@ A pluggable **OIDC auth provider** backed by Keycloak. Install it *instead of* [
 | `name` | `Keycloak` |
 | `route_prefix` | `/api/keycloak` |
 | `view_prefix` | `/keycloak` |
+| `provides_auth` | `True` |
 | `depends_on` | `["Auth"]` (optional: `["Settings"]`) |
 
-The module sets the class flag `_is_auth_provider = True`, which is what the auth-provider diagnostics count (see [below](#auth-provider-diagnostics)).
+The module declares `ModuleMeta(provides_auth=True)`, which auth selection and diagnostics count (see [below](#auth-provider-diagnostics)). The legacy module class marker `_is_auth_provider = True` warns once per class and is removed in 0.1.0.
 
 ## The AuthProvider contract
 
@@ -166,12 +167,12 @@ Top-level keys in `keycloak/locales/en.json` (namespace `keycloak`): `login`, `l
 
 ## Auth-provider diagnostics
 
-The framework's module diagnostics (run by `make doctor` and at prod boot) count modules with `_is_auth_provider = True`:
+The framework's module diagnostics (`make doctor` and development boot) count modules declaring `meta.provides_auth=True`:
 
-- **SM020** (error) — more than one auth provider installed (e.g. `users` *and* `keycloak`). Install only one.
+- **SM020** (error) — more than one provider remains active. Set `SM_AUTH_PROVIDER=keycloak` or enable only one. A module object exposing the provider protocol shape without declaring the capability gets an SM020 warning; separate implementation objects are not statically detectable.
 - **SM021** (warning) — no auth provider installed at all.
 
-In production these errors fail boot. So swapping to Keycloak means **removing `simple_module_users`** from the host's dependencies, not running it alongside.
+Before diagnostics and hook registration, auth selection drops other declared providers. Outside development an invalid selection among several providers fails boot. Installing only Keycloak also works; modules that require `Users` must be excluded.
 
 ## Enabling
 

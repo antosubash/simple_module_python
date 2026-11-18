@@ -22,11 +22,13 @@ from simple_module_core.deprecation import (
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (
+    "simple_module_core._auth_providers",
     "users.core.token_secrets",
     "api_tokens.core.constants",
     "background_tasks.core.invalidation_channel",
 )
 _EXPECTED = {
+    "ModuleBase._is_auth_provider",
     "global Redis invalidation channel bridge",
     "Makefile SM_TEST_PG_URL fallback",
     "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",

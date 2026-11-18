@@ -25,7 +25,7 @@ Users reset and verification keys are derived from it; no secret env variable is
 | `SM_VITE_DEV_URL` | `http://localhost:5050` | Vite HMR origin for development. Host and scaffolded Vite configs derive their port and origin from this URL. `smpy dev` supplies its selected URL to both children. |
 | `SM_VITE_PORT` | unset | Deprecated Vite-only fallback when `SM_VITE_DEV_URL` is absent: `SM_VITE_PORT=5201 npm run dev` still works. Prefer `uv run smpy dev --port 8201 --vite-port 5201` to keep API and Vite URLs aligned; direct API launches need their matching `SM_VITE_DEV_URL`. |
 | `SM_SECRET_KEY` | generated when unset | Session signing key. If unset, the framework reuses the stored key or generates and saves one. A fresh DB without the settings table uses a temporary key until persistence is possible. An explicit key wins and stays out of the DB. Production rejects the literal placeholder `change-me-in-production`. |
-| `SM_MODULES_ENABLED` | unset | JSON array of module names. Unset loads all installed modules. An empty array loads none. |
+| `SM_MODULES_ENABLED` | unset | JSON array of metadata names or explicit `ep:<entry_point_name>` selectors. Unset loads all installed modules. An empty array loads none. |
 | `SM_PROJECT_ROOT` | discovered | Overrides project-root discovery for `.env` and relative SQLite paths. Otherwise discovery walks up from the working directory and stops at repository or home-directory boundaries. |
 
 The repository's Docker entrypoint generates and exports a process-local
@@ -38,9 +38,15 @@ stable key when using that entrypoint and sharing sessions across restarts or re
 export SM_MODULES_ENABLED='["Users","Dashboard"]'
 ```
 
-Use the module's `ModuleMeta.name`. Matching is case-insensitive. Include any
-required dependencies and restart after changing the allow-list. A
-comma-separated string fails settings validation.
+Use `ModuleMeta.name` or an explicit `ep:<entry_point_name>` selector,
+case-insensitively. Unqualified items always match metadata names. Include any
+required dependencies and restart after changing the allow-list. To skip
+disabled plugins before import, every item must use `ep:` (for example
+`["ep:auth","ep:users","ep:background_tasks"]`). Mixed lists are supported,
+but discovery loads all candidates to resolve any unqualified metadata name.
+An `ep:` selector with no installed entry point fails strict discovery and
+warns in development; unknown metadata names only warn.
+See [Discovery](/framework/discovery). A comma-separated string fails settings validation.
 
 ## Host settings (`HostSettings`)
 

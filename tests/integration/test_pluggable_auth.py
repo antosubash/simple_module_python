@@ -8,13 +8,13 @@ from auth.contracts.provider import AuthProvider
 def test_users_module_is_auth_provider():
     from users.module import UsersModule
 
-    assert UsersModule._is_auth_provider is True
+    assert UsersModule.meta.provides_auth is True
 
 
 def test_keycloak_module_is_auth_provider():
     from keycloak.module import KeycloakModule
 
-    assert KeycloakModule._is_auth_provider is True
+    assert KeycloakModule.meta.provides_auth is True
 
 
 def test_sm020_fires_with_both_modules():

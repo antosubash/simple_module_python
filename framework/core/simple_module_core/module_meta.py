@@ -75,6 +75,9 @@ class ModuleMeta:
     admin: AdminSurface | None = None
     """Opt-in admin routing, menu and page-layout defaults; grants no permissions."""
 
+    provides_auth: bool = False
+    """This module installs an AuthProvider; participates in selection and SM020."""
+
     def __post_init__(self) -> None:
         if self.admin is not None:
             if self.admin_view_prefix and self.admin_view_prefix != self.admin.prefix:

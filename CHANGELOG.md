@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Auth-provider modules declare the public `ModuleMeta.provides_auth` capability for selection and SM020/SM021 diagnostics. Users, Keycloak and OIDC use it. SM020 warns when a module object exposes the provider protocol shape without declaring it; provider objects created inside hooks cannot be detected statically (#960).
+
 - Modules can declare an `AdminSurface` once for router prefix, admin menu defaults and page layout, without implying permissions. Existing explicit wiring remains supported. `PermissionCatalogue` string enums register through the base permission hook; scaffold variants use one catalogue and verified page literals instead of `PAGE_*` aliases (#988).
 - Sharing subject providers with built-in user and tenant-role recipients, typed
   discovery and dialog selection, and single-query SQL membership checks (#963).
@@ -30,9 +32,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Deprecated
 
+- The `_is_auth_provider` module class marker remains a fallback until 0.1.0, with a warning once per legacy class; declare `ModuleMeta(provides_auth=True)` instead (#960).
+
 - API tokens' `PERM_USE`/`PERM_MANAGE` constants remain aliases until removal in 0.0.50; use `api_tokens.core.constants.Permissions` (#988).
 
 ### Fixed
+
+- **Behaviour change:** module allowlists accept explicit `ep:<entry_point_name>` selectors. Lists containing only explicit selectors skip disabled plugins before import and construction; unqualified items retain metadata-name matching, including name collisions and mixed lists. Unknown explicit selectors fail strict discovery and warn in development. Duplicate selected `meta.name` values fail strict discovery with both distributions in the error; development warns with SM008 and keeps the first entry sorted by distribution name, entry-point name and target. Direct topological sorting also checks duplicates (#961).
 
 - SM019 includes admin-only routes declared through `AdminSurface` or the legacy admin hook, while permission catalogues still make modules discoverable. Admin layout defaults also match URL-encoded Unicode and spaces in surface prefixes (#988).
 - Sharing tenant-role recipient searches match display labels in the request locale as well as role IDs (#963).

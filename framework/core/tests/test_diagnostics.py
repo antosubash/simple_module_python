@@ -101,12 +101,10 @@ class TestAuthProviderDiagnostics:
         from simple_module_core.module import ModuleBase, ModuleMeta
 
         class FakeUsers(ModuleBase):
-            meta = ModuleMeta(name="Users")
-            _is_auth_provider = True
+            meta = ModuleMeta(name="Users", provides_auth=True)
 
         class FakeKeycloak(ModuleBase):
-            meta = ModuleMeta(name="Keycloak")
-            _is_auth_provider = True
+            meta = ModuleMeta(name="Keycloak", provides_auth=True)
 
         diags = ModuleDiagnostics()
         results = diags._check_auth_provider_conflict([FakeUsers(), FakeKeycloak()])
@@ -132,8 +130,7 @@ class TestAuthProviderDiagnostics:
         from simple_module_core.module import ModuleBase, ModuleMeta
 
         class FakeUsers(ModuleBase):
-            meta = ModuleMeta(name="Users")
-            _is_auth_provider = True
+            meta = ModuleMeta(name="Users", provides_auth=True)
 
         class FakeDashboard(ModuleBase):
             meta = ModuleMeta(name="Dashboard")
