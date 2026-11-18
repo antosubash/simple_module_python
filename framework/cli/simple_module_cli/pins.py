@@ -18,6 +18,35 @@ from pathlib import Path
 # What resolve_framework_version() returns for an install without dist-info.
 PLACEHOLDER_VERSION = "0.0.0"
 
+# Mirrors the publish-pypi matrix in .github/workflows/release.yml; tested for drift.
+FRAMEWORK_DISTRIBUTIONS = frozenset(
+    {
+        "simple_module_cli",
+        "simple_module_core",
+        "simple_module_db",
+        "simple_module_hosting",
+        "simple_module_inertia",
+        "simple_module_test",
+        "simple_module_api_tokens",
+        "simple_module_audit_log",
+        "simple_module_auth",
+        "simple_module_background_tasks",
+        "simple_module_branding",
+        "simple_module_dashboard",
+        "simple_module_feature_flags",
+        "simple_module_file_storage",
+        "simple_module_keycloak",
+        "simple_module_mail",
+        "simple_module_oidc",
+        "simple_module_permissions",
+        "simple_module_settings",
+        "simple_module_site_lock",
+        "simple_module_tenants",
+        "simple_module_users",
+        "simple_module_sharing",
+    }
+)
+
 
 def resolve_framework_version() -> str:
     """Resolve the framework version that scaffolded apps should pin against.

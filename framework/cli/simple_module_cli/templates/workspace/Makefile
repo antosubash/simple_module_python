@@ -45,7 +45,7 @@ lint:
 # Module diagnostics: structural checks also run at development boot, not production.
 # Doctor additionally checks migration state and table coverage (SM010/SM011).
 doctor:
-	uv run python -m simple_module_core
+	uv run smpy doctor
 
 # Prepare every generated frontend artifact incrementally.
 gen:
@@ -56,16 +56,16 @@ gen-api-types:
 
 # Individual aliases force regeneration, for CI and explicit use.
 gen-pages:
-	cd host && uv run python -m simple_module_hosting gen-pages --host-dir=client_app
+	cd host && uv run smpy host gen-pages --host-dir=client_app
 
 # Pull JS deps shipped by wheel-installed modules into host/client_app/node_modules.
 # Root module manifests are npm workspaces; manifests inside Python packages need sync.
 sync-module-deps:
-	cd host && uv run python -m simple_module_hosting sync-js-deps --host-client-app=client_app
+	cd host && uv run smpy host sync-js-deps --host-client-app=client_app
 
 # Individual generators remain available; normal install/dev/build use smpy gen.
 gen-i18n:
-	cd host && uv run python -m simple_module_hosting gen-i18n
+	cd host && uv run smpy host gen-i18n
 
 # `upgrade heads` (plural) applies every per-module branch head; `upgrade head`
 # (singular) errors once a second module adds its own migration branch label.

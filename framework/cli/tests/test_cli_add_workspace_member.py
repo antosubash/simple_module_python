@@ -9,8 +9,7 @@ import pytest
 import typer
 from simple_module_cli._add_install import _sync_command
 from simple_module_cli.add_cmd import run_add
-from simple_module_cli.cli import _app_add_command
-from simple_module_cli.git_source import parse_add_spec
+from simple_module_cli.cli import _app_host
 from simple_module_cli.uv_workspace import is_workspace_member
 
 HOST = '[project]\nname = "myhost"\nversion = "0.1.0"\ndependencies = []\n'
@@ -92,10 +91,9 @@ def test_missing_path_error_names_the_resolution_base(
     assert "--path project" in capsys.readouterr().err
 
 
-def test_workspace_hint_inside_host_dir_prints_a_path_spec(
+def test_module_nested_under_host_is_detected_as_an_app_member(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # GH #471: a bare "modules/x" would be parsed by `smpy add` as a PyPI requirement.
     (tmp_path / "pyproject.toml").write_text(
         '[tool.uv.workspace]\nmembers = ["host", "host/modules/*"]\n', encoding="utf-8"
     )
@@ -105,13 +103,7 @@ def test_workspace_hint_inside_host_dir_prints_a_path_spec(
     _write_module(module)
     monkeypatch.chdir(tmp_path)
 
-    command = _app_add_command(module)
-
-    assert command is not None
-    assert command.endswith("--path host")  # printed for the app root
-    spec = command.split("smpy add ", 1)[1].split(" --path", 1)[0]
-    assert spec == "./modules/forest_plots"
-    assert parse_add_spec(spec).kind == "path"
+    assert _app_host(module) == tmp_path / "host"
 
 
 def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) -> None:

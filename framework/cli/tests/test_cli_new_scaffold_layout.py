@@ -167,13 +167,23 @@ def test_sm_new_makefile_uses_unified_commands(tmp_path: Path, flat: bool) -> No
         pytest.skip("make is not installed")
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[], flat=flat)
-    for action in ("install", "build", "dev"):
+    actions = {
+        "install": "uv run smpy gen",
+        "build": "uv run smpy gen",
+        "dev": "uv run smpy dev",
+        "doctor": "uv run smpy doctor",
+        "gen-pages": "uv run smpy host gen-pages",
+        "gen-i18n": "uv run smpy host gen-i18n",
+        "sync-js-deps" if flat else "sync-module-deps": "uv run smpy host sync-js-deps",
+    }
+    for action, command in actions.items():
         result = subprocess.run(["make", "-n", action], cwd=target, capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
+        assert command in result.stdout
         if action == "dev":
             assert "uv run smpy dev" in result.stdout
             assert "uvicorn" not in result.stdout
-        else:
+        elif action in ("install", "build"):
             assert "uv run smpy gen" in result.stdout
             if action == "build":
                 assert result.stdout.index("smpy gen") < result.stdout.index("npm run build")

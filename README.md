@@ -31,8 +31,8 @@ Inside the app, use its own CLI with `uv run smpy …`:
 | Command | What it does |
 |---|---|
 | `uv run smpy add <spec>` | Add a module from PyPI, a `git+` URL or a local path |
-| `uv run smpy create-module <name>` | Scaffold a publishable module package |
-| `uv run smpy update` / `package-update` | Update git-sourced modules / the `simple_module_*` pins |
+| `uv run smpy create-module <name>` | Scaffold a module; wire and install it inside an app workspace |
+| `uv run smpy update` | Update PyPI/git framework and module pins, sync lockfiles and generate |
 | `uv run smpy users create-admin` | Create (or with `--force`, reset) an admin |
 | `uv run smpy doctor` | Check installed modules and database compatibility |
 | `uv run smpy skills add` | Install the agent skills for this framework into the project |

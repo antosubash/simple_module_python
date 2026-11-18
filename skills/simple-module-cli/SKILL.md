@@ -1,51 +1,51 @@
 ---
 name: simple-module-cli
-description: Use when invoking the `smpy` CLI for a simple_module_python project — starting a new app, scaffolding a host or a publishable module, bumping simple_module_* dependencies to their latest PyPI versions, regenerating the Inertia page manifest, importing settings overrides from env, creating an admin user, or installing the bundled agent skills. Triggers on "smpy new", "smpy create-host", "smpy create-module", "smpy package-update", "smpy host gen-pages", "smpy users create-admin", "smpy skills add", or any unfamiliar `smpy` subcommand.
+description: Use when invoking the `uv run smpy` CLI for a simple_module_python project — starting a new app, scaffolding a host or a publishable module, bumping simple_module_* dependencies to their latest PyPI versions, regenerating the Inertia page manifest, importing settings overrides from env, creating an admin user, or installing the bundled agent skills. Triggers on "uv run smpy new", "uv run smpy create-host", "uv run smpy create-module", "uv run smpy update", "uv run smpy host gen-pages", "uv run smpy users create-admin", "uv run smpy skills add", or any unfamiliar `uv run smpy` subcommand.
 ---
 
-# simple_module_python: the `smpy` CLI
+# simple_module_python: the `uv run smpy` CLI
 
-The `smpy` command is provided by `simple_module_cli` (installed as a dep of `simple_module_hosting`); `simple-module` is an identical alias for the same entry point. It groups several kinds of operations: scaffolding new things, project-time helpers for the host, admin shortcuts for the bundled modules, installing the bundled agent skills, and bumping `simple_module_*` deps.
+The `uv run smpy` command is provided by `simple_module_cli` (installed as a dep of `simple_module_hosting`); `simple-module` is an identical alias for the same entry point. It groups several kinds of operations: scaffolding new things, project-time helpers for the host, admin shortcuts for the bundled modules, installing the bundled agent skills, and bumping `simple_module_*` deps.
 
-`new`, `create-host`, `create-module`, `package-update`, and `skills` are built into `simple_module_cli` and always present. `host` / `settings` / `users` are **plugin subgroups** contributed by installed packages (`simple_module_hosting` / `simple_module_settings` / `simple_module_users`) through the `simple_module_cli.cli_plugins` entry-point group — they only show up when that package is installed, which is why a fresh bare host won't list `smpy users` until the users module is added.
+`new`, `create-host`, `create-module`, `add`, `update`, `migrations`, and `skills` are built into `simple_module_cli` and always present. `host` / `settings` / `users` are **plugin subgroups** contributed by installed packages (`simple_module_hosting` / `simple_module_settings` / `simple_module_users`) through the `simple_module_cli.cli_plugins` entry-point group — they only show up when that package is installed, which is why a fresh bare host won't list `uv run smpy users` until the users module is added.
 
 ## Top-level commands
 
 | Command | When to use |
 |---|---|
-| `smpy new <name>` | Greenfield: scaffold a complete app (host + selected modules) in one shot, with an interactive wizard for DB / tenancy / module preset |
-| `smpy create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
-| `smpy create-module <name>` | You're adding a module to a `smpy new` app (`--dest modules/<name>`), or authoring a publishable module package in its own repo |
-| `smpy package-update` | Bump every `simple_module_*` / `simple-module-*` dependency, optional extra and dependency group to its latest non-yanked PyPI release, and `@simple-module-py/*` npm pins to the same core version (workspace/path/git/URL sources are left untouched) |
-| `smpy migrations prepare <upgrade-id> --head <label>@head` | Write the host-side revision for a framework data upgrade that boot or `make doctor` reported (`mail.settings_namespace_v1`, `users.hashed_bearer_tokens_v1`); it never applies it — run your migrate step afterwards |
-| `smpy doctor` | Run the module diagnostics (`SM0xx`, including `SM033` data-compatibility findings) against this host's database |
-| `smpy skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
-| `smpy host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
-| `smpy settings …` | Settings-module admin — currently `import-from-env` |
-| `smpy users …` | Users-module admin — currently `create-admin` |
+| `uv run smpy new <name>` | Greenfield: scaffold a complete app (host + selected modules) in one shot, with an interactive wizard for DB / tenancy / module preset |
+| `uv run smpy create-host <name>` | You want just a bare host project; you'll add modules later by `pip install`-ing them |
+| `uv run smpy create-module <name>` | You're adding a module to a `uv run smpy new` app (`--dest modules/<name>`), or authoring a publishable module package in its own repo |
+| `uv run smpy update` | Update every `simple_module_*` / `simple-module-*` dependency, optional extra and dependency group to its latest non-yanked PyPI release, and `@simple-module-py/*` npm pins to the same core version (git tags update together per repo; workspace/path/URL sources stay local). Sync Python/npm lockfiles and run generation |
+| `uv run smpy migrations prepare <upgrade-id> --head <label>@head` | Write the host-side revision for a framework data upgrade that boot or `make doctor` reported (`mail.settings_namespace_v1`, `users.hashed_bearer_tokens_v1`); it never applies it — run your migrate step afterwards |
+| `uv run smpy doctor` | Run the module diagnostics (`SM0xx`, including `SM033` data-compatibility findings) against this host's database |
+| `uv run smpy skills …` | Install / update the bundled agent-skill packs into a project (`add`, `list`, `update`) |
+| `uv run smpy host …` | Project-time helpers run from inside a host directory (page manifest, JS dep sync) |
+| `uv run smpy settings …` | Settings-module admin — currently `import-from-env` |
+| `uv run smpy users …` | Users-module admin — currently `create-admin` |
 
-## `smpy new <name>` — the wizard
+## `uv run smpy new <name>` — the wizard
 
 The fastest way from zero to a working app. It calls `create-host` under the hood, then installs and wires up the modules you pick.
 
-App names must be **lowercase** with a single separator style (`my_app`, `my-app`, or `myapp`) — `smpy new` rejects mixed case / spaces / mixed separators up front (`MyApp`, `foo_bar-baz` error out). `create-host` and `create-module` are lenient and accept any case.
+App names must be **lowercase** with a single separator style (`my_app`, `my-app`, or `myapp`) — `uv run smpy new` rejects mixed case / spaces / mixed separators up front (`MyApp`, `foo_bar-baz` error out). `create-host` and `create-module` are lenient and accept any case.
 
 ```bash
 # Interactive (asks for DB, tenancy, preset, module list)
-smpy new my_app
+uv run smpy new my_app
 
 # Non-interactive: take all defaults (sqlite, no tenancy, standard preset)
-smpy new my_app --yes
+uv run smpy new my_app --yes
 
 # Pick a preset and add extras
-smpy new my_app --preset full --tenancy --db postgres
-smpy new my_app --preset minimal --with background_tasks,file_storage --yes
+uv run smpy new my_app --preset full --tenancy --db postgres
+uv run smpy new my_app --preset minimal --with background_tasks,file_storage --yes
 
 # Consume-only host: no modules/ dir, no sample module to author against
-smpy new my_app --preset standard --flat --yes
+uv run smpy new my_app --preset standard --flat --yes
 
 # Scaffold only — skip uv sync / npm install / the initial migration
-smpy new my_app --no-install
+uv run smpy new my_app --no-install
 ```
 
 **Module presets:**
@@ -61,7 +61,7 @@ smpy new my_app --no-install
 
 `--with` accepts a comma-separated list of catalog keys (`auth, users, permissions, dashboard, settings, feature_flags, file_storage, background_tasks`). Transitive `requires` are auto-added; the wizard prints `Added X (required by Y)` so you can see what got pulled in. An unknown key fails fast with the available list (so `--with=does_not_exist` is self-correcting). Note the catalog is a curated subset — repo modules like `products`, `keycloak`, and `audit_log` are **not** catalog keys; add those to an existing host by installing the package (see the pitfall below).
 
-Selecting `background_tasks` also runs its post-scaffold **recipe**: it drops `docker-compose.yml`, `scripts/run_worker.py`, a shared app/worker Dockerfile, an `SM_REDIS_URL` entry in `.env.example`, and Celery `make` targets. App, worker and beat share that one Redis URL; `smpy docker add-worker` copies it. Keep `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` for per-field overrides such as non-Redis transports. The closing "Next steps" then reminds you to run `docker compose up -d redis worker beat` for the worker/beat processes.
+Selecting `background_tasks` also runs its post-scaffold **recipe**: it drops `docker-compose.yml`, `scripts/run_worker.py`, a shared app/worker Dockerfile, an `SM_REDIS_URL` entry in `.env.example`, and Celery `make` targets. App, worker and beat share that one Redis URL; `uv run smpy docker add-worker` copies it. Keep `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` for per-field overrides such as non-Redis transports. The closing "Next steps" then reminds you to run `docker compose up -d redis worker beat` for the worker/beat processes.
 
 **Options summary:**
 
@@ -76,28 +76,32 @@ Selecting `background_tasks` also runs its post-scaffold **recipe**: it drops `d
 | `--yes / -y` | off | Skip prompts; accept defaults |
 | `--no-install` | off | Skip `uv sync` / `npm install` / the autogenerated initial migration; the printed next steps use `make migration` / `make migrate` / `make dev` instead |
 
-Passing `--preset` or any `--with` value switches `smpy new` into flag-driven mode (no wizard) even without `--yes`; DB and tenancy then come from `--db` / `--tenancy` defaults. The validated name is also normalized to a PyPI-safe kebab-case slug — `smpy new my_app` prints `Normalizing PyPI name to 'my-app'.` and uses that for the package metadata.
+Passing `--preset` or any `--with` value switches `uv run smpy new` into flag-driven mode (no wizard) even without `--yes`; DB and tenancy then come from `--db` / `--tenancy` defaults. The validated name is also normalized to a PyPI-safe kebab-case slug — `uv run smpy new my_app` prints `Normalizing PyPI name to 'my-app'.` and uses that for the package metadata.
 
-## `smpy create-host <name>` — bare host
-
-```bash
-smpy create-host MyApp                       # empty host, no modules declared
-smpy create-host MyApp --with Auth,Products  # declare module deps in pyproject.toml
-smpy create-host MyApp --dest ./apps/myapp   # custom destination
-```
-
-`--with` takes **PascalCase module names** (matching `ModuleMeta.name`), not catalog keys — each is lowercased into a `simple_module_<name>` dependency in `pyproject.toml`. Unlike `smpy new`, the names are **not** checked against the scaffolder catalog, so any published module works (e.g. `--with Products` → `simple_module_products`). No deps are installed and no transitive `requires` are resolved; you drive `uv sync` and migrations yourself. Use this when you want to wire the build by hand rather than via `smpy new`'s wizard.
-
-## `smpy create-module <name>` — module package
-
-Scaffolds one module package: inside a `smpy new` app, or as a standalone repo to publish to PyPI.
+## `uv run smpy create-host <name>` — bare host
 
 ```bash
-smpy create-module orders --dest modules/orders   # inside an app: a workspace member
-smpy create-module orders                         # writes ./simple_module_orders/
+uv run smpy create-host MyApp                       # empty host, no modules declared
+uv run smpy create-host MyApp --with Auth,Products  # declare module deps in pyproject.toml
+uv run smpy create-host MyApp --dest ./apps/myapp   # custom destination
 ```
 
-Inside a workspace app, `uv run smpy add ../modules/orders --path host` syncs the whole workspace. If the host has a `client_app`, it also runs `uv run smpy host gen-pages` and `uv run smpy host sync-js-deps`, followed by `uv run smpy host gen-i18n` if the i18n package is installed. Follow the frontend hint to run `make install` from the app root, which links the module's pages and generates its keys. Run `make migration msg="add orders"`, `make migrate` and `make test`, then restart `make dev`. Running `uv sync` inside the module directory would uninstall the rest of the app from the shared venv. Outside an app, the scaffolder prints the standalone flow (`uv sync --extra dev`, `uv run pytest`, `smpy module verify`).
+`--with` takes **PascalCase module names** (matching `ModuleMeta.name`), not catalog keys — each is lowercased into a `simple_module_<name>` dependency in `pyproject.toml`. Unlike `uv run smpy new`, the names are **not** checked against the scaffolder catalog, so any published module works (e.g. `--with Products` → `simple_module_products`). No deps are installed and no transitive `requires` are resolved; you drive `uv sync` and migrations yourself. Use this when you want to wire the build by hand rather than via `uv run smpy new`'s wizard.
+
+## `uv run smpy create-module <name>` — module package
+
+Scaffolds one module package: inside a `uv run smpy new` app, or as a standalone repo to publish to PyPI.
+
+```bash
+uv run smpy create-module orders --dest modules/orders   # inside an app: a workspace member
+uv run smpy create-module orders                         # writes ./simple_module_orders/
+```
+
+Inside a workspace app, `uv run smpy create-module` wires the module into the host,
+runs `uv sync --all-packages` and `npm install` from the app root, then `uv run smpy gen`.
+The next step is `uv run smpy migrations new orders -m "init"`; review the revision,
+run `make migrate` and restart `make dev`. Do not sync from inside the module.
+Outside an app, the scaffolder keeps the standalone package flow.
 
 Settings are opt-in: pass `--with-settings` to add `core/settings.py`,
 `core/services.py` and the DB-backed `register_settings` hook. Without it,
@@ -110,15 +114,15 @@ The result is a complete package: `pyproject.toml` with the entry point declared
 
 For the post-scaffold steps (entry point, Inertia namespace, etc.) see **simple-module-creating**.
 
-## `smpy package-update` — bump `simple_module_*` deps
+## `uv run smpy update` — update pins and install
 
 Walks the project's `pyproject.toml` (plus every `[tool.uv.workspace]` member), finds each dependency whose distribution name matches `simple_module_*` / `simple-module-*`, queries PyPI for the latest non-yanked release, and rewrites the constraint to the latest release, keeping its operator (`==` stays `==`, `>=` stays `>=`; `--loosen` rewrites to `>=<latest>`). It covers `[project] dependencies`, optional-dependency extras and `[dependency-groups]`. It also bumps `@simple-module-py/*` pins in each root/member `package.json` and `client_app/package.json` to the selected `simple_module_core` version (keeping `^`/`~`, never downgrading, skipping versions not on npm or when the Python core pin was held back). PyPI lookups run in parallel, so it's quick even across a multi-package workspace.
 
 ```bash
-smpy package-update                      # rewrite constraints in ./pyproject.toml (+ workspace members)
-smpy package-update --dry-run            # show "old  →  new" per file, write nothing
-smpy package-update --include-pre        # also consider pre-releases (a/b/rc/dev/post)
-smpy package-update --path apps/web      # point at another project root or a pyproject.toml
+uv run smpy update                      # rewrite constraints in ./pyproject.toml (+ workspace members)
+uv run smpy update --dry-run            # show "old  →  new" per file, write nothing
+uv run smpy update --include-pre        # also consider pre-releases (a/b/rc/dev/post)
+uv run smpy update --path apps/web      # point at another project root or a pyproject.toml
 ```
 
 | Flag | Default | Meaning |
@@ -128,9 +132,15 @@ smpy package-update --path apps/web      # point at another project root or a py
 | `--include-pre` | off | Allow pre-release versions as the "latest" |
 | `--loosen` | off | Rewrite Python constraints to `>=<latest>` instead of keeping their operator |
 
-**Deps it deliberately skips:** anything whose `[tool.uv.sources]` entry points at a workspace member, a local `path`, a `git` ref, or a `url` — those don't come from PyPI, so their version lives elsewhere. Skipped deps are listed with a reason (`workspace/local source`, `not found on PyPI`). The command only edits constraints; **run `uv sync` (and `npm install` for npm changes) afterward** to actually install the new versions (it reminds you to).
+Git sources move together per repository URL to a compatible release tag; branch
+sources refresh their locked SHA, and immutable revisions stay pinned. Workspace,
+path and URL sources stay unchanged. After editing manifests, the command runs
+`uv sync` (`--all-packages` at a workspace root), `npm install` where the frontend
+lives, then `uv run smpy gen`. Python-only apps skip frontend steps. A failed step stops
+the command; fix it and rerun. `uv run smpy package-update` is a deprecated alias, removed
+in 0.0.50. `--dry-run` neither writes nor installs.
 
-## `smpy migrations prepare` — framework data upgrades
+## `uv run smpy migrations prepare` — framework data upgrades
 
 A scaffolded host owns its Alembic history, so framework data migrations don't
 reach it. When boot (outside development it refuses on an `error`) or
@@ -138,87 +148,87 @@ reach it. When boot (outside development it refuses on an `error`) or
 host and apply it like any other:
 
 ```bash
-smpy migrations prepare users.hashed_bearer_tokens_v1 --head users@head
+uv run smpy migrations prepare users.hashed_bearer_tokens_v1 --head users@head
 uv run alembic -c host/alembic.ini upgrade heads
 ```
 
 The token upgrade deletes existing bearer tokens before altering the columns,
 so every client signs in again; stop old workers first.
 
-## `smpy skills` — install the bundled agent skills
+## `uv run smpy skills` — install the bundled agent skills
 
 `simple_module_cli` ships a set of [SKILL.md](https://agentskills.io/specification) packs (the ones in this directory). Drop them into any project so Claude Code / Cursor / Codex / etc. find them automatically.
 
 ```bash
-smpy skills list                                          # see what's available
-smpy skills add                                           # install ALL skills into ./.claude/skills/
-smpy skills add simple-module-creating simple-module-cli  # specific ones only
-smpy skills add -g                                        # ~/.claude/skills (machine-wide)
-smpy skills add --dest agents/skills                      # explicit target dir
-smpy skills add --symlink                                 # symlink to bundled source (good when iterating on the skills themselves)
-smpy skills update                                        # re-pull whatever is already installed at the dest
-smpy skills update simple-module-doctor                   # explicitly re-pull one (always force-overwrites)
+uv run smpy skills list                                          # see what's available
+uv run smpy skills add                                           # install ALL skills into ./.claude/skills/
+uv run smpy skills add simple-module-creating simple-module-cli  # specific ones only
+uv run smpy skills add -g                                        # ~/.claude/skills (machine-wide)
+uv run smpy skills add --dest agents/skills                      # explicit target dir
+uv run smpy skills add --symlink                                 # symlink to bundled source (good when iterating on the skills themselves)
+uv run smpy skills update                                        # re-pull whatever is already installed at the dest
+uv run smpy skills update simple-module-doctor                   # explicitly re-pull one (always force-overwrites)
 ```
 
-**Without `--force`, `smpy skills add` skips skills that already exist at the destination** — so re-running it is safe. Use `--force` (or `smpy skills update`) to overwrite.
+**Without `--force`, `uv run smpy skills add` skips skills that already exist at the destination** — so re-running it is safe. Use `--force` (or `uv run smpy skills update`) to overwrite.
 
-The bundle resolves against your installed `simple_module_cli`. To get newer skills, upgrade the CLI (`uv sync` or `pip install -U simple_module_cli`) and re-run `smpy skills update`.
+The bundle resolves against your installed `simple_module_cli`. To get newer skills, upgrade the CLI (`uv sync` or `pip install -U simple_module_cli`) and re-run `uv run smpy skills update`.
 
-## `smpy gen` and `smpy dev` — the normal app loop
+## `uv run smpy gen` and `uv run smpy dev` — the normal app loop
 
 Run `uv run smpy gen` from the app root to generate pages, i18n keys, module npm deps and local API types together. Install, dev, build and module verify call it automatically. Content hashes and output checks in the local `.smpy/gen.json` cache skip unchanged stages without touching files. Generation failures stop dev/build. Existing individual generator commands and their flags remain available; CI freshness checks run them unconditionally. i18n output remains in the package consumed by its existing exports and type augmentation.
 
 Run `uv run smpy dev` to generate first and supervise API + Vite. API defaults to 8000; choose a spare one with `--port 8201`. Vite chooses the first free port from 5050; `--vite-port 5201` pins it and fails if occupied. Python loads dotenv (exported env wins), then passes the selected `SM_VITE_DEV_URL` to both children. Do not parse dotenv in Vite or Make. Ctrl-C/SIGTERM stops only the child process groups the supervisor started, including reload workers. Either child exiting stops the other. `make dev ARGS="--port 8201"` is equivalent in a scaffold; the framework repo first starts its shared Docker services. `make kill` prints stop guidance without searching by process name or port.
 
-## `smpy host gen-pages` — regenerate the Inertia manifest
+## `uv run smpy host gen-pages` — regenerate the Inertia manifest
 
 Run from a host project. Scans every installed module's `pages/*.tsx`, writes `client_app/modules.{manifest.json,generated.ts,generated.css}`, and extends Vite's `server.fs.allow`.
 
 ```bash
-smpy host gen-pages                              # uses ./client_app
-smpy host gen-pages --host-dir=apps/web/client_app
+uv run smpy host gen-pages                              # uses ./client_app
+uv run smpy host gen-pages --host-dir=apps/web/client_app
 ```
 
-`smpy new` runs this at scaffold time; you only need to call it manually after adding/renaming `.tsx` files mid-session, or after `pip install`-ing a new module that ships pages.
+`uv run smpy new` runs this at scaffold time; you only need to call it manually after adding/renaming `.tsx` files mid-session, or after `pip install`-ing a new module that ships pages.
 
-## `smpy host typecheck`
+## `uv run smpy host typecheck`
 
 Checks the host and installed module sources using generated defaults; existing
 module tsconfig.json files override the defaults. CI typecheck rejects uninstalled
 workspace modules with frontend sources; frontend builds pass `--installed-only`
 to allow intentional exclusions. Test files run through Vitest.
-Run `smpy host typecheck --host-dir=client_app` after gen-pages. Standalone modules
-use `smpy module verify` to install a host toolchain and run typecheck plus Vite.
+Run `uv run smpy host typecheck --host-dir=client_app` after gen-pages. Standalone modules
+use `uv run smpy module verify` to install a host toolchain and run typecheck plus Vite.
 
-## `smpy host sync-js-deps` — install module JS deps
+## `uv run smpy host sync-js-deps` — install module JS deps
 
 Wheel-installed modules ship `package.json` declarations that need to land in the host's `client_app/node_modules`. This command does that. **Module-root workspace manifests don't need it** — npm workspaces install those automatically. A dependency-only manifest inside the Python package ships in wheels without extra packaging config and needs this sync even for an editable install. Modules with no extra deps need no manifest.
 
 ```bash
-smpy host sync-js-deps                           # uses ./client_app
-smpy host sync-js-deps --host-client-app=apps/web/client_app
-smpy host sync-js-deps --dry-run                 # print the npm install command without running it
+uv run smpy host sync-js-deps                           # uses ./client_app
+uv run smpy host sync-js-deps --host-client-app=apps/web/client_app
+uv run smpy host sync-js-deps --dry-run                 # print the npm install command without running it
 ```
 
 Run after `pip install <module>` if the new module ships frontend code.
 
-## `smpy settings import-from-env`
+## `uv run smpy settings import-from-env`
 
 Walks the live environment for every `SM_<PREFIX>_<FIELD>` variable matching a registered settings dataclass and writes a SYSTEM-tier override into the settings module's store. Useful when promoting from environment-driven config (typical in Docker) to in-DB overrides (manageable in the admin UI) without re-keying values by hand.
 
 ```bash
-smpy settings import-from-env
+uv run smpy settings import-from-env
 ```
 
-## `smpy users create-admin`
+## `uv run smpy users create-admin`
 
 Bootstraps the first admin user, or rotates an existing admin's password.
 
 ```bash
-smpy users create-admin -e admin@example.com                       # prompts for the password
-smpy users create-admin -e admin@example.com -p hunter2
-smpy users create-admin -e admin@example.com -p new-password --force      # rotate
-smpy users create-admin -e admin@example.com -p hunter2 --full-name "Admin"
+uv run smpy users create-admin -e admin@example.com                       # prompts for the password
+uv run smpy users create-admin -e admin@example.com -p hunter2
+uv run smpy users create-admin -e admin@example.com -p new-password --force      # rotate
+uv run smpy users create-admin -e admin@example.com -p hunter2 --full-name "Admin"
 ```
 
 | Flag | Meaning |
@@ -232,21 +242,21 @@ Don't bake `--password` literals into a script you commit; use a secrets store a
 
 ## Pitfalls
 
-- **Wrong shell for `--with`.** `smpy new` `--with auth,users` (catalog keys, lowercase). `smpy create-host` `--with Auth,Users` (`ModuleMeta.name`, PascalCase). They're not interchangeable.
-- **Ran `smpy new` inside an existing project.** The default `--dest ./<name>` creates a sibling directory. If the directory already exists and is non-empty, the command errors out — pass `--dest` explicitly to disambiguate.
-- **Ran `smpy host gen-pages` from outside the host directory.** Defaults to `./client_app`; pass `--host-dir` from elsewhere.
-- **Forgot `smpy host sync-js-deps` after `pip install`-ing a module with pages.** Vite resolves module imports against `client_app/node_modules`; the new module's JS deps won't land until you sync.
-- **Ran `uv sync` inside a module of a `smpy new` app.** That syncs the module's own project and uninstalls the app's other packages from the shared venv. Run `make install` (`uv sync --all-packages`) at the app root instead; a plain `uv sync` at the root also works, since the root depends on the host.
-- **`uv run smpy` warns that the app uses another framework version, or `smpy doctor` says this smpy is not installed in the project's venv.** A global `smpy` is answering; run `uv sync --all-packages` so the app's own CLI is installed, then `uv run smpy …`.
+- **Wrong shell for `--with`.** `uv run smpy new` `--with auth,users` (catalog keys, lowercase). `uv run smpy create-host` `--with Auth,Users` (`ModuleMeta.name`, PascalCase). They're not interchangeable.
+- **Ran `uv run smpy new` inside an existing project.** The default `--dest ./<name>` creates a sibling directory. If the directory already exists and is non-empty, the command errors out — pass `--dest` explicitly to disambiguate.
+- **Ran `uv run smpy host gen-pages` from outside the host directory.** Defaults to `./client_app`; pass `--host-dir` from elsewhere.
+- **Forgot `uv run smpy host sync-js-deps` after `pip install`-ing a module with pages.** Vite resolves module imports against `client_app/node_modules`; the new module's JS deps won't land until you sync.
+- **Ran `uv sync` inside a module of a `uv run smpy new` app.** That syncs the module's own project and uninstalls the app's other packages from the shared venv. Run `make install` (`uv sync --all-packages`) at the app root instead; a plain `uv sync` at the root also works, since the root depends on the host.
+- **`uv run smpy` warns that the app uses another framework version, or `uv run smpy doctor` says the CLI is not installed in the project's venv.** The app CLI is missing; run `uv sync --all-packages` so the app's own CLI is installed, then `uv run smpy …`.
 - **Editing `locales/*.json` doesn't reload `make dev`** in an app made before 0.0.47: add `--reload-include '*locales/*.json'` to the `uvicorn` line of `dev-api`.
 - **A module added while `make dev` runs logs "installed but … cannot be imported in this process".** The reload keeps the import path the server started with; restart `make dev`.
-- **Calling `smpy create-admin` before migrations have run.** The users tables don't exist yet; the command will error. Run `alembic upgrade head` first (or use `smpy new` which does it for you when `--no-install` isn't set).
-- **Expecting `--with products` (or `keycloak` / `audit_log`) to work on `smpy new`.** Those modules exist in the monorepo but aren't scaffolder-catalog keys, so `smpy new --with products` errors. Either scaffold without them and `pip install simple_module_products` into the host afterward, or use `smpy create-host --with Products` (which doesn't validate against the catalog).
-- **Port 5050 already taken when starting a scaffolded app.** Use `smpy dev`: it selects a free Vite port automatically. Pin with `--vite-port 5310` only when needed; change the API with `--port 8010`.
-- **`smpy package-update` "did nothing" for a workspace dep.** Deps sourced from a `[tool.uv.sources]` workspace/path/git/URL entry are intentionally skipped (their version isn't on PyPI) — they show up in the output as `skipped`, not updated. Also remember to run `uv sync` after; `package-update` only rewrites the constraint strings.
+- **Calling `uv run smpy create-admin` before migrations have run.** The users tables don't exist yet; the command will error. Run `alembic upgrade head` first (or use `uv run smpy new` which does it for you when `--no-install` isn't set).
+- **Expecting `--with products` (or `keycloak` / `audit_log`) to work on `uv run smpy new`.** Those modules exist in the monorepo but aren't scaffolder-catalog keys, so `uv run smpy new --with products` errors. Either scaffold without them and `pip install simple_module_products` into the host afterward, or use `uv run smpy create-host --with Products` (which doesn't validate against the catalog).
+- **Port 5050 already taken when starting a scaffolded app.** Use `uv run smpy dev`: it selects a free Vite port automatically. Pin with `--vite-port 5310` only when needed; change the API with `--port 8010`.
+- **`uv run smpy update` "did nothing" for a workspace dep.** Deps sourced from a `[tool.uv.sources]` workspace/path/URL entry are intentionally skipped (their version isn't on PyPI) — they show up in the output as `skipped`, not updated. Git refs update separately; the command also installs and generates.
 
 ## Related skills
 
-- **simple-module-creating** — what `smpy create-module` produces and the post-scaffold contract
-- **simple-module-inertia-pages** — what `smpy host gen-pages` regenerates and why
-- **simple-module-migrations** — the migration step `smpy new` runs (`make migration` + `make migrate`, or `alembic upgrade head` directly)
+- **simple-module-creating** — what `uv run smpy create-module` produces and the post-scaffold contract
+- **simple-module-inertia-pages** — what `uv run smpy host gen-pages` regenerates and why
+- **simple-module-migrations** — the migration step `uv run smpy new` runs (`make migration` + `make migrate`, or `alembic upgrade head` directly)
