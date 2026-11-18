@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._types import DiagnosticLevel
@@ -42,8 +43,11 @@ class TestSm017JsWorkspaceFiles:
 
         assert results == []
 
-    async def test_silent_when_both_present(self, tmp_path: Path):
-        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=True, with_tsconfig=True)
+    @pytest.mark.parametrize("with_tsconfig", [True, False])
+    async def test_silent_with_valid_manifest(self, tmp_path: Path, with_tsconfig: bool):
+        src_dir = _mk_module_tree(
+            tmp_path, "orders", with_pkg_json=True, with_tsconfig=with_tsconfig
+        )
         mod = _FakeModule(meta=_FakeMeta(name="Orders"))
 
         results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
@@ -56,14 +60,6 @@ class TestSm017JsWorkspaceFiles:
         src_dir = module_dir / "backend_only"
         src_dir.mkdir(parents=True)
         mod = _FakeModule(meta=_FakeMeta(name="BackendOnly"))
-
-        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
-
-        assert results == []
-
-    async def test_silent_with_only_package_json(self, tmp_path: Path):
-        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=True, with_tsconfig=False)
-        mod = _FakeModule(meta=_FakeMeta(name="Orders"))
 
         results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
 

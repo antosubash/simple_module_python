@@ -26,9 +26,7 @@ def check_js_workspace_files(mod: ModuleBase, src_dir: Path) -> list[Diagnostic]
                 raise ValueError("expected a JSON object")
             for block in ("dependencies", "peerDependencies", "devDependencies"):
                 deps = data.get(block, {})
-                if not isinstance(deps, dict) or not all(
-                    isinstance(k, str) and isinstance(v, str) for k, v in deps.items()
-                ):
+                if not isinstance(deps, dict) or not all(isinstance(v, str) for v in deps.values()):
                     raise ValueError(f"{block} must map package names to version strings")
         except (OSError, ValueError) as exc:
             return [
