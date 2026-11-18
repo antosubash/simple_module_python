@@ -28,7 +28,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Make the clean-target repo-detection test independent of repository markers above its temporary directory, including `/tmp/.git`; production detection behavior is unchanged (#1001).
-
+- Production Docker images serve frontend assets again: derive the host project root from the entry file even without Git or env markers, and mount flat scaffolds' `static/` directory (regression since #978, introduced by #1002).
 - **Behaviour change:** generated app, worker and beat Redis connections use only `SM_REDIS_URL`; per-field Celery variables remain overrides for non-Redis transports. The production localhost guard also rejects IPv6 loopback (#970).
 - **Behaviour change:** module scaffolds omit empty settings and services plumbing unless `--with-settings` is passed (`make new-module name=orders ARGS=--with-settings`). Remove unused Sharing settings, retain the Settings module configuration used by its registry and tests, and correct DB-backed settings and Inertia page release instructions (#981).
 - Host factory boot preserves explicit absolute `SM_PROJECT_ROOT` values while resolving relative overrides before changing directory (#978).
