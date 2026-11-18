@@ -3,7 +3,7 @@
 import { keys, t } from '@simple-module-py/i18n';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 
 export const OUTBOX_STATUS = {
   PENDING: 'pending',

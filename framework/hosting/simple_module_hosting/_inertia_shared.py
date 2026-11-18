@@ -10,7 +10,8 @@ from typing import Any
 
 from simple_module_core.app_state import get_inertia_shared_providers, get_services
 from simple_module_core.i18n import Translator
-from simple_module_inertia import is_inertia_request
+from simple_module_inertia import always, is_inertia_request
+from simple_module_inertia.props import Prop
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import Scope
@@ -102,18 +103,15 @@ def csrf_shared_prop(request: Request, *, is_authenticated: bool) -> dict[str, s
     return {CSRF_SHARED_PROP: token} if token else {}
 
 
-def lazy_csrf_shared_prop(
-    request: Request, *, is_authenticated: bool
-) -> dict[str, Callable[[], str]]:
+def lazy_csrf_shared_prop(request: Request, *, is_authenticated: bool) -> dict[str, Prop]:
     """Like :func:`csrf_shared_prop`, but the token is resolved at render time.
 
-    The token stays lazy even after layout resolution, so an Inertia partial
-    that excludes it does not mint an unused session token. Inertia calls
-    the callable only when it serialises props.
+    Resolve only on page renders, including partial reloads, so a rotated
+    token replaces the client's previous value even with ``only``/``except``.
     """
     if not is_authenticated or request.scope.get("session") is None:
         return {}
-    return {CSRF_SHARED_PROP: lambda: get_csrf_token(request)}
+    return {CSRF_SHARED_PROP: always(lambda: get_csrf_token(request))}
 
 
 def build_menu_translator(request: Request) -> Callable[[str], str] | None:

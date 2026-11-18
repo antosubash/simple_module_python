@@ -1,5 +1,5 @@
 import { type ApiResult, apiResult } from '@simple-module-py/ui/lib/api';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 
 /**
  * Password sign-in. The route takes a form-encoded body (the OAuth2 password

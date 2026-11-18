@@ -4,7 +4,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card } from '@simple-module-py/ui/components/ui/card';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import type { FieldMeta } from './FieldInput';
 import { ModuleFieldRow } from './ModuleFieldRow';
 import { TestConnectionButton } from './TestConnectionButton';

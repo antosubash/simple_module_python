@@ -79,11 +79,11 @@ Inertia's `router.post(...)` / `.patch(...)` / `.put(...)` / `.delete(...)` expe
 Two fixes, in preference order:
 
 1. **Stay Inertia-native** — point the call at a *view* endpoint (under `view_prefix`, e.g. `/orders/...`) that returns `RedirectResponse(..., status_code=303)`. Inertia follows the redirect and re-renders the page.
-2. **Need the JSON payload back** — call the `/api/*` endpoint through the module's typed client, `pages/api.ts`, instead of Inertia's `router` or a raw `fetch()`:
+2. **Need the JSON payload back** — call the `/api/*` endpoint through the module's typed client, `pages/api.generated.ts`, instead of Inertia's `router` or a raw `fetch()`:
 
 ```tsx
 import { apiResult } from "@simple-module-py/ui/lib/api";
-import { api } from "./api"; // export const api = createApi<paths>();
+import { api } from "./api.generated";
 
 const result = await apiResult(api.POST("/api/orders/", { body: payload }));
 if (!result.ok) return setError(result.detail ?? t(keys.orders.errors.generic));
@@ -94,9 +94,9 @@ result.data; // typed from the route's response_model
 
 The typed client (#504):
 
-- **Types are generated.** `pages/api.generated.ts` comes from the module's routes — run `smpy openapi gen-types --module <pkg>` (`make gen-api-types` in the framework repo) after changing an endpoint or DTO, and commit it. Never edit it. A route without `response_model` (or a return annotation) generates an `unknown` body.
+- **Client and types are generated together.** `pages/api.generated.ts` comes from the module's routes — run `smpy openapi gen-types --module <pkg>` (`make gen-api-types` in the framework repo) after changing an endpoint or DTO, and commit it. Import `api` from it; a separate `api.ts` is only for custom client logic and is never overwritten by generation. Never edit the generated file. A route without `response_model` (or a return annotation) generates an `unknown` body.
 - **One result shape.** `apiResult(...)` resolves to `{ ok, status, data, detail, fieldErrors, error }`: `detail` is the server's string `detail` (a message or a stable code), `fieldErrors` maps a 422's last `loc` element to its `msg`, and a network failure is `status: 0` — it never throws. `useApiErrorToast(fallbackKey)` toasts `detail ?? t(fallbackKey)`.
-- **CSRF is automatic.** Signed-in sessions get a `csrfToken` shared prop; the client sends it as `X-CSRF-Token` on POST/PUT/PATCH/DELETE to the same origin, so `RequiresCsrf` routes just work. Anonymous pages get no token.
+- **CSRF is automatic.** Signed-in sessions get a `csrfToken` shared prop; the client sends it as `X-CSRF-Token` on POST/PUT/PATCH/DELETE to the same origin, so declaring `RequiresCsrf` is the module's only CSRF step. The token survives `only`/`except` partial reloads and is read afresh per call after login/logout; do not pin a page token in manual headers. Anonymous pages get no shared token; anonymous authentication forms expose their session token explicitly.
 - **Off-schema calls** (another module's route, a server-supplied URL, multipart uploads, `/setup/*`) use `apiFetch<T>(url, { method, json })` — same conventions and result shape, untyped.
 - **Reuse generated DTOs** for prop types: `type Item = components["schemas"]["OrderOut"]` (see *Typing them in TSX* above for how props are typed).
 

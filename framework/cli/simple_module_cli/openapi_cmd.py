@@ -81,7 +81,7 @@ def export(
 
 @openapi_app.command("gen-types")
 def gen_types(module: _ModuleOption = None) -> None:
-    """Write ``<package>/pages/api.generated.ts`` for modules under this project.
+    """Write API types and the ``api`` client to ``<package>/pages/api.generated.ts``.
 
     Without ``--module``: every module that already has the file. Needs Node
     (``npx``) unless ``openapi-typescript`` is installed in the project.
