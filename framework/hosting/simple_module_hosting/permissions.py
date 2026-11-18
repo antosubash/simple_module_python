@@ -9,15 +9,13 @@ from simple_module_core.app_state import get_services
 from simple_module_core.permission_denied import PERMISSION_DENIED_PREFIX, PermissionDenied
 from simple_module_core.permissions import DEFAULT_ROLE_PERMISSIONS, WILDCARD, grants
 from simple_module_core.principal_permissions import (
-    _held_permissions,
     _role_and_claimed,
     apply_scope_cap,
     lacks_required_permission,
+    load_principal,
     resolve_permissions,
     resolve_principal_permissions,
 )
-from simple_module_core.principals import PRINCIPALS_KEY
-from simple_module_db.principals import _principal_for
 
 from simple_module_hosting._anonymous import demote_to_anonymous
 from simple_module_hosting.token_guard import GATE_PERMISSION
@@ -56,25 +54,12 @@ async def resolve_request_permissions(
     if user is None:
         request.state.resolved_permissions = set()
         return set()
-    sm = get_services(request.app)
-    factory = getattr(getattr(sm, "db", None), "session_factory", None)
-    if factory is not None and PRINCIPALS_KEY in factory.kw.get("info", {}):
-        async with factory() as db:
-            principal = await _principal_for(
-                db, str(user.id), getattr(request.state, "tenant_id", None), request=request
-            )
-        if principal is None:
-            await demote_to_anonymous(request)
-            return set()
-        permissions = set(principal.permissions)
-        request.state.resource_principal = principal
-        request.state.resolved_permissions = permissions
-        return permissions
-    held = await _held_permissions(request, user, registry)
-    if lacks_required_permission(user, held):
+    principal = await load_principal(request, user, registry)
+    if principal is None:
         await demote_to_anonymous(request)
         return set()
-    permissions = apply_scope_cap(held, user)
+    permissions = set(principal.permissions)
+    request.state.resource_principal = principal
     request.state.resolved_permissions = permissions
     return permissions
 

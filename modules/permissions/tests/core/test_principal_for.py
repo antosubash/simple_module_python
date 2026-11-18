@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi import Depends
+from permissions.core.service import PermissionService
 from permissions.models import RolePermission, UserPermission
 from simple_module_core.resources import ResourcePrincipal
 from simple_module_core.tenancy import TenantRole, tenant_role
@@ -51,6 +52,7 @@ async def test_request_parity(app, tenant_client, case):
                 tenant = await db.get(Tenant, tenant_id)
                 tenant.status = "suspended"
             await db.commit()
+            await PermissionService(db, registry).load_all_into_registry()
         forget(user_id)
         async with app.state.sm.db.session_factory() as db:
             who = await principal_for(db, user_id, tenant_id)

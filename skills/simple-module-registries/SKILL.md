@@ -38,7 +38,8 @@ Outside HTTP, use `await principal_for(db, user_id, tenant_id)` from
 tables. Web and worker async sessions carry a `PrincipalRegistry` populated by
 `register_principal_builder(registry)` (no app argument). Grant sources that read
 the DB should register an app-free `session_source=async (db, user) -> keys` with
-`add_grant_source`; the shared builder uses this counterpart in both contexts.
+`add_grant_source`; session-owned lookups use this counterpart. HTTP resolution
+keeps the request source and its caches; both loaders share pure composition.
 Bind `tenant_context(tenant_id)` around subsequent resource queries. Unknown IdP
 roles are not guessed outside a request; see `docs/framework/permissions.md`.
 

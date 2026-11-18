@@ -16,11 +16,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
-- `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Web and worker sessions share registered directory, membership and permission resolution, including persisted role and direct grants (#1005).
+- `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Workers read registered directory, membership and grants through the caller's session; pending writes flush under the original tenant before lookup changes context. Requests share pure principal composition while retaining their existing membership, direct-grant and role-overlay caches (#1005).
 
 ### Fixed
 
-- **Behaviour change:** request permission resolution refreshes local account activity, roles, active membership and persisted grants through the shared principal builder; stale session roles no longer retain revoked resource permissions. ID-only Keycloak/OIDC lookups use known membership and grant sources, without guessing token-only roles or claims (#1005).
+- ID-only Keycloak/OIDC principal lookups use known membership and grant sources, without guessing token-only roles or claims. HTTP authentication and membership freshness retain their existing cache invalidation/TTL semantics: losing membership preserves account authentication and tenant switching; unauthorized tenant operations return 403 (#1005).
 
 - Mail attachment deserialization checks the combined base64 size before decoding and decodes each file once; structured `message/*` and `multipart/*` MIME types are rejected. Outbox list queries and API/Inertia responses omit payloads and attachment content (#1006).
 

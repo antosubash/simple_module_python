@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import Any
 
 from simple_module_core.permissions import (
@@ -11,6 +12,7 @@ from simple_module_core.permissions import (
     PermissionRegistry,
     grants,
 )
+from simple_module_core.resources import ResourcePrincipal
 from simple_module_core.tenancy import is_tenant_role
 
 logger = logging.getLogger(__name__)
@@ -123,19 +125,57 @@ async def _held_permissions(
     permissions = _role_and_claimed(user, role_map, include_tenant_roles=include_tenant_roles)
     if registry is None or WILDCARD in permissions:
         return permissions
+    permissions.update(await _grant_permissions(request, user, registry, db=db))
+    return permissions
+
+
+async def _grant_permissions(
+    request: Any, user: Any, registry: PermissionRegistry, *, db: Any = None
+) -> set[str]:
+    permissions: set[str] = set()
     for source in registry.grant_sources:
         try:
-            # Grants are additive keys only: the wildcard (admin) comes from
-            # roles, never from a source, so a stray ``*`` row can't escalate.
             session_source = registry.session_grant_source(source)
             if db is not None and session_source is not None:
                 keys = await session_source(db, user)
             else:
                 keys = await source(request, user)
+            # Grants are additive keys only: the wildcard (admin) comes from
+            # roles, never from a source, so a stray "*" row can't escalate.
             permissions.update(k for k in keys if k != WILDCARD)
         except Exception:
             logger.exception("Grant source %r raised; contributing nothing", source)
     return permissions
+
+
+def compose_principal(
+    user: Any, role_map: dict[str, list[str]] | None, direct_grants: Iterable[str]
+) -> ResourcePrincipal | None:
+    """Compose loaded account/membership roles and grants without I/O.
+
+    Loaders validate the account and attach the selected membership's role.
+    Claims and direct grants cannot confer the wildcard; credentials keep their
+    required permission and scope ceiling on both loading paths.
+    """
+    held = _role_and_claimed(user, role_map)
+    held.update(key for key in direct_grants if key != WILDCARD)
+    if lacks_required_permission(user, held):
+        return None
+    user_id = getattr(user, "id", None)
+    return ResourcePrincipal(
+        str(user_id) if user_id is not None else None, frozenset(apply_scope_cap(held, user))
+    )
+
+
+async def load_principal(
+    request: Any, user: Any, registry: PermissionRegistry | None, *, db: Any = None
+) -> ResourcePrincipal | None:
+    """Use cached HTTP sources, or session sources for a worker-owned lookup."""
+    role_map = registry.role_map if registry is not None else None
+    direct = set()
+    if registry is not None and WILDCARD not in _role_and_claimed(user, role_map):
+        direct = await _grant_permissions(request, user, registry, db=db)
+    return compose_principal(user, role_map, direct)
 
 
 def lacks_required_permission(user: Any, held: set[str]) -> bool:

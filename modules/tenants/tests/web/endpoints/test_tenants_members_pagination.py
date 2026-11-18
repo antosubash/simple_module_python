@@ -4,12 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi import FastAPI
-from simple_module_db.pagination import PageParams
 from sqlalchemy import delete, select
-from tenants.core.service import TenantService
 from tenants.models import Membership, Tenant
-from tenants.web.deps import ActiveTenantContext
-from tenants.web.endpoints.api import list_members, router
+from tenants.resolution.resolver import forget
+from tenants.web.endpoints.api import router
 
 
 async def test_members_api_and_page_paginate_and_clamp(app, tenant_client):
@@ -75,17 +73,15 @@ async def test_empty_roster_and_lenient_page_parameters(app, tenant_client):
             )
         ).json()["props"]
         assert props["pagination"] == {"page": 1, "per_page": 1, "total": 1}
-        # Exercise empty pagination directly: removing the caller also revokes access.
+        # A raw DB delete keeps the existing membership cache warm until invalidated.
         async with app.state.sm.db.session_factory() as db:
             await db.execute(delete(Membership).where(Membership.tenant_id == tenant_id))
             await db.commit()
-            data = await list_members(
-                ActiveTenantContext(tenant_id, "owner", user_id),
-                TenantService(db),
-                PageParams(page=999),
-            )
-        assert data.model_dump() == {"items": [], "total": 0, "page": 1, "per_page": 25, "pages": 1}
-        assert (await client.get("/api/tenants/current/members?page=999")).status_code == 401
+        response = await client.get("/api/tenants/current/members?page=999")
+        assert response.status_code == 200
+        assert response.json() == {"items": [], "total": 0, "page": 1, "per_page": 25, "pages": 1}
+        forget(user_id)
+        assert (await client.get("/api/tenants/current/members?page=999")).status_code == 403
 
 
 def test_members_openapi_preserves_typed_items():

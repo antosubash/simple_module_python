@@ -196,9 +196,10 @@ class PermissionRegistry:
         route guarded by the framework's ``RequiresPermission``.
 
         Supply ``session_source=async (db, user) -> keys`` for app-free use.
-        The shared builder uses it for both web and worker principals. A legacy
-        source receives ``request=None`` outside HTTP and must handle that to
-        contribute there; failures contribute nothing, as they do in requests.
+        Session-owned lookups use it; HTTP resolution keeps using *source* and
+        its caches. A legacy source receives ``request=None`` outside HTTP and
+        must handle that to contribute there; failures contribute nothing, as
+        they do in requests.
         """
         self._grant_sources.append(source)
         if session_source is not None:

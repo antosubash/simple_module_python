@@ -97,18 +97,31 @@ fixed `default_tenant` replaces the caller's tenant argument (unset stays unboun
 Missing users return `None`; missing registry configuration raises `RuntimeError`.
 Directory/membership/role-store errors propagate rather than yielding a principal.
 Grant-source failures retain the existing fail-closed behavior: log and contribute
-no keys. Nothing commits the session.
+no keys. Pending writes are flushed under the caller's original tenant before
+lookup changes tenant context; nothing commits the session.
 
 **Shared implementation.** `ModuleBase.register_principal_builder(registry)` is an
 app-free registration hook. Users, Keycloak and OIDC supply a directory; Tenants
 supplies the active membership-role lookup; Permissions supplies persisted role
 overlays and the session counterpart of its direct-grant source. The framework
 imports no provider tables. The web host uses `get_user_directory(app)` and binds
-the registry to its async session factory. Request permission resolution and
-`principal_for` call the same builder, including credential scope caps and required
-permissions on requests. Bare routers retain their existing registry-only fallback.
-Unscoped platform requests can retain global permissions; a resource principal
-without an active tenant on a multi-tenant host is anonymous.
+the registry to its async session factory.
+
+Requests and workers use separate loaders and the same pure `compose_principal`
+function for the loaded account (including its membership role), role map and direct
+grants. This preserves HTTP query counts: requests reuse the authenticated account,
+Tenants' membership cache, Permissions' direct-grant TTL cache with singleflight,
+and the role-overlay registry refreshed by invalidation (with periodic fallback).
+They do not re-read those stores through the worker builder. Credential scope caps
+and required permissions share the same composition. Workers read the caller's
+session without these HTTP caches, so transaction-local changes are visible.
+
+Request account and membership freshness follows the existing authentication and
+membership cache invalidation/TTL rules. Losing a membership does not make a valid
+account anonymous: global authenticated operations and tenant switching remain
+available, while operations without an authorized tenant return 403. Unscoped
+platform requests retain global permissions; a resource principal without an active
+tenant on a multi-tenant host is anonymous.
 
 The worker runner uses its merged host settings (env → DB → defaults), discovers
 the same enabled modules and auth provider, and binds an independent registry to
@@ -127,9 +140,9 @@ worker state replaces the registry on newly obtained worker session factories.
 
 For a custom grant source, register
 `registry.add_grant_source(request_source, session_source=session_source)` where the
-counterpart is `async (db, user) -> keys`. Both web and worker builders use that
-counterpart. Legacy sources without one receive `request=None` in headless calls;
-they must handle it to contribute there. Neither source can grant `*`.
+counterpart is `async (db, user) -> keys`. HTTP resolution uses `request_source`;
+worker resolution uses the session counterpart. Legacy sources without one receive
+`request=None` in headless calls; they must handle it to contribute there. Neither source can grant `*`.
 
 **External identity providers.** `DirectoryUser.roles is None` means unknown.
 Keycloak/OIDC ID-only lookups cannot recover JWT/session roles, permissions or
@@ -242,7 +255,7 @@ class UserContext:
     permissions: list[str] = field(default_factory=list)
 ```
 
-The active auth provider (`users`, `keycloak` or `oidc`) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. Claim permissions stay in the signed session until the next sign-in, so revocable permissions belong in a grant source. The shared builder refreshes local account roles and activity from the directory; verified IdP claims remain request-only when directory roles are unknown. `UserContext.has_permission(key)` is an exact-match check against that list alone.
+The active auth provider (`users`, `keycloak` or `oidc`) owns extraction from the session cookie / bearer token. `InertiaLayoutDataMiddleware` then expands roles into a permission set (cached on `request.state.resolved_permissions`) and serializes `auth.user`, `auth.isAuthenticated`, `auth.permissions` into the Inertia shared props. Permissions are derived mostly from roles via the `PermissionRegistry.role_map`. `UserContext.permissions` adds keys the principal carries itself — a token scope or IdP claim a provider or principal resolver maps in. `resolve_principal_permissions` (and so `RequiresPermission` and `auth.permissions`) merges them into the role-derived set, **dropping `*`**: like a grant source, a claim can never confer the wildcard; admin comes from roles only. Claim permissions stay in the signed session until the next sign-in, so revocable permissions belong in a grant source. HTTP resolution reuses the account validated by the authentication provider and its existing caches; worker lookups read local account roles and activity from the directory. Verified IdP claims remain request-only when directory roles are unknown. `UserContext.has_permission(key)` is an exact-match check against that list alone.
 
 ## Scoped principals (API tokens) and ungated routes
 

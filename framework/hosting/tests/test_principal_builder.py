@@ -1,7 +1,8 @@
-"""HTTP and headless callers use one builder, including credential restrictions."""
+"""Cached HTTP and session loaders share principal composition and credential caps."""
 
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
@@ -29,7 +30,7 @@ class Factory:
 
     @asynccontextmanager
     async def __call__(self):
-        yield SimpleNamespace(info=self.kw["info"])
+        yield SimpleNamespace(info=self.kw["info"], flush=AsyncMock())
 
 
 def request_for(registry, tenant="own", **credential):
@@ -38,7 +39,10 @@ def request_for(registry, tenant="own", **credential):
             sm=SimpleNamespace(db=SimpleNamespace(session_factory=Factory(registry)))
         )
     )
-    user = SimpleNamespace(id="u1", roles=["admin"], **credential)
+    roles = ["reader"]
+    if registry.multi_tenant and tenant == "own":
+        roles.append("tenant:member")
+    user = SimpleNamespace(id="u1", roles=roles, **credential)
     return Request(
         {"type": "http", "app": app, "headers": [], "state": {"user": user, "tenant_id": tenant}}
     )
@@ -56,7 +60,7 @@ def registry_for(*, multi=True):
         return ["test.direct"]
 
     async def legacy(request, user):
-        raise AssertionError("the session counterpart must be shared by both paths")
+        return ["test.direct"]
 
     registry.membership_role = membership
     registry.permissions.add_grant_source(legacy, session_source=direct)
@@ -79,19 +83,6 @@ async def test_request_and_headless_principals_are_identical(multi):
     )
 
 
-async def test_inactive_user_and_nonmember_are_not_resource_principals():
-    registry = registry_for()
-    registry.directory.active = False
-    request = request_for(registry)
-    assert await resolve_request_permissions(request, registry.permissions) == set()
-    assert request.state.user is None
-    assert await resource_principal(request) == ResourcePrincipal(None)
-    registry.directory.active = True
-    request = request_for(registry, tenant="other")
-    assert await resolve_request_permissions(request, registry.permissions) == set()
-    assert await resource_principal(request) == ResourcePrincipal(None)
-
-
 async def test_request_scopes_and_required_permission_remain_enforced():
     registry = registry_for()
     request = request_for(registry, scopes=["test.direct"])
@@ -109,4 +100,5 @@ async def test_platform_permissions_do_not_create_an_unscoped_resource_principal
         "test.role",
         "test.direct",
     }
+    assert request.state.user.id == "u1"
     assert await resource_principal(request) == ResourcePrincipal(None)

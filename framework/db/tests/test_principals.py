@@ -1,11 +1,12 @@
-"""App-free resolution, context isolation, claims and credential restrictions."""
+"""App-free resolution, tenant isolation and session-owned provider reads."""
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
-from simple_module_db.principals import _principal_for, principal_for
+from simple_module_db.principals import principal_for
 from simple_module_db.tenancy import all_tenants, current_tenant_id, is_all_tenants, tenant_context
 
 USER_ID = "a7dd822c-1d04-4e10-a2f3-a0dc2da004c4"
@@ -36,7 +37,7 @@ def setup(*, multi=True, active=True, roles=("reader",)):
         return "member" if tenant == "own" else None
 
     registry.membership_role = membership
-    return SimpleNamespace(info={PRINCIPALS_KEY: registry}), registry
+    return SimpleNamespace(info={PRINCIPALS_KEY: registry}, flush=AsyncMock()), registry
 
 
 async def test_roles_membership_and_sources_use_the_bound_tenant():
@@ -118,29 +119,6 @@ async def test_unknown_idp_roles_are_not_guessed_but_sources_and_membership_appl
     registry.permissions.add_grant_source(direct)
     who = await principal_for(db, USER_ID, "own")
     assert who.permissions == {"test.member", "test.source"}
-    request = SimpleNamespace(
-        state=SimpleNamespace(
-            user=SimpleNamespace(
-                id=USER_ID, roles=["reader"], permissions=["test.claim"], scopes=None
-            )
-        )
-    )
-    requested = await _principal_for(db, USER_ID, "own", request=request)
-    assert requested.permissions == who.permissions | {"test.read", "test.claim"}
-
-
-async def test_request_and_id_lookup_share_live_roles_and_credential_caps():
-    db, _ = setup()
-    request = SimpleNamespace(
-        state=SimpleNamespace(
-            user=SimpleNamespace(id=USER_ID, roles=["admin"], permissions=[], scopes=["test.read"])
-        )
-    )
-    requested = await _principal_for(db, USER_ID, "own", request=request)
-    assert requested.permissions == {"test.read"}
-    assert request.state.user.roles == ["reader", "tenant:member"]
-    request.state.user.required_permission = "test.revoked"
-    assert await _principal_for(db, USER_ID, "own", request=request) is None
 
 
 async def test_missing_configuration_is_an_error():
@@ -148,20 +126,35 @@ async def test_missing_configuration_is_an_error():
         await principal_for(SimpleNamespace(info={}), USER_ID, "own")
 
 
-async def test_service_request_is_not_a_directory_user():
+async def test_service_credential_id_is_not_a_directory_user():
     db, _ = setup()
-    request = SimpleNamespace(
-        state=SimpleNamespace(
-            user=SimpleNamespace(
-                id="svc:123",
-                roles=[],
-                permissions=["test.read"],
-                scopes=["test.read"],
-                auth_kind="service",
-            )
-        )
-    )
-    who = await _principal_for(db, "svc:123", "other", request=request)
-    assert who.user_id == "svc:123"
-    assert who.permissions == {"test.read"}
     assert await principal_for(db, "svc:123", "other") is None
+
+
+@pytest.mark.parametrize("pending", ["insert", "update"])
+async def test_lookup_flushes_pending_writes_under_the_original_tenant(strict_session, pending):
+    from _models import _TenantItem
+    from sqlalchemy import select
+
+    db = strict_session
+    _, registry = setup()
+    db.info[PRINCIPALS_KEY] = registry
+
+    class ReadingDirectory(Directory):
+        async def get_many(self, db, ids, *, with_roles=False):
+            await db.execute(select(_TenantItem.id))  # ORM reads can autoflush.
+            return await super().get_many(db, ids, with_roles=with_roles)
+
+    registry.directory = ReadingDirectory()
+    with tenant_context("outer"):
+        item = _TenantItem(name="pending")
+        db.add(item)
+        if pending == "update":
+            await db.flush()
+            item.name = "updated"
+        who = await principal_for(db, USER_ID, "own")
+        assert who is not None
+        assert current_tenant_id.get() == "outer"
+        assert item.tenant_id == "outer"
+        stored = (await db.execute(select(_TenantItem))).scalar_one()
+        assert stored.name == ("updated" if pending == "update" else "pending")
