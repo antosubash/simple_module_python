@@ -79,7 +79,7 @@ async def share_candidates(
     resource_type: str,
     resource_id: str,
     service: SharingServiceDep,
-    q: str = Query("", max_length=100),
+    q: str = Query("", max_length=320),
     who: ResourcePrincipal = Depends(resource_principal),
 ) -> list[ShareCandidate]:
     try:

@@ -20,7 +20,11 @@ from simple_module_core.user_directory import (
     chunked,
     parse_user_ids,
 )
-from simple_module_db.user_directory_sql import name_or_email_contains, to_directory_user
+from simple_module_db.user_directory_sql import (
+    name_or_email_contains,
+    search_rows,
+    to_directory_user,
+)
 from sqlalchemy import String, cast, func, select
 
 from users.models import Role, User, UserRole
@@ -94,9 +98,7 @@ class UsersDirectory:
         active_only: bool = False,
         exact_email: bool = False,
     ) -> list[DirectoryUser]:
-        stmt = select(*_COLUMNS).order_by(User.email).limit(limit)
-        if include_ids is not None:
-            stmt = stmt.where(User.id.in_(list(parse_user_ids(include_ids))))
+        stmt = select(*_COLUMNS).order_by(User.email)
         if exclude_ids:
             stmt = stmt.where(User.id.not_in(list(parse_user_ids(exclude_ids))))
         if active_only:
@@ -105,7 +107,7 @@ class UsersDirectory:
             stmt = stmt.where(func.lower(User.email) == (term or "").strip().lower())
         elif term and term.strip():
             stmt = stmt.where(name_or_email_contains(User.full_name, User.email, term.strip()))
-        rows = (await db.execute(stmt)).all()
+        rows = await search_rows(db, stmt, User.id, include_ids=include_ids, limit=limit)
         return [to_directory_user(row, str(row.id), is_active=_is_usable(row)) for row in rows]
 
     def match_ids(self, term: str) -> Any | None:

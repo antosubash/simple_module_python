@@ -45,6 +45,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Sharing candidate searches accept complete emails up to 320 characters and query large tenant member lists in bounded chunks, preserving email order and the final result limit (#990, #991).
 - Sharing candidates mask emails and email-derived labels, restrict directory discovery to the active tenant or `sharing.directory_search`, enforce minute/day budgets, and filter eligibility before limiting results. Pending grants survive dialog reopening; bundled dialogs prevent dismissal during mutations. Correct translated search guidance and recipient labels (#990, #991).
 
 - **Behaviour change:** sharing grants reject inactive users and unsupported `subject_type` values with 422; omitted `subject_type` still defaults to `user` (#991).

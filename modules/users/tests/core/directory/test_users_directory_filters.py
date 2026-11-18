@@ -61,3 +61,18 @@ async def test_exact_email_is_case_insensitive_and_literal(directory_db):
     found = await directory.search(db, "ALEX_X@EXAMPLE.COM", limit=10, exact_email=True)
     assert [u.email for u in found] == ["alex_x@example.com"]
     assert await directory.search(db, "alex", limit=10, exact_email=True) == []
+
+
+async def test_large_member_filter_chunks_queries_and_keeps_global_limit(directory_db):
+    db, connection = directory_db
+    ids = [uuid.UUID(int=n + 1) for n in range(32768)]
+    for index, email in [(0, "z@test"), (500, "b@test"), (1000, "c@test"), (-1, "a@test")]:
+        connection.execute(User.__table__.insert().values(id=ids[index], email=email))
+    found = await UsersDirectory().search(db, None, limit=3, include_ids=[str(uid) for uid in ids])
+    assert [user.email for user in found] == ["a@test", "b@test", "c@test"]
+    statements = [call.args[0] for call in db.execute.call_args_list]
+    assert len(statements) > 1
+    assert all(
+        len(stmt.compile(compile_kwargs={"render_postcompile": True}).params) <= 505
+        for stmt in statements
+    )
