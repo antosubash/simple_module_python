@@ -181,11 +181,13 @@ The old `_is_auth_provider` module marker warns once per class and is removed in
 0.1.0. SM020 warns on undeclared module objects exposing the provider protocol
 shape; separate provider objects created inside hooks are not statically detectable.
 
-`SM_MODULES_ENABLED` accepts JSON lists of meta names or entry-point names,
-case-insensitively. To exclude a broken plugin before import, every list item
-must match an installed entry-point name (`background_tasks`, not
-`BackgroundTasks`). Otherwise discovery loads candidates before matching
-arbitrary legacy meta names. See `docs/framework/discovery.md`.
+`SM_MODULES_ENABLED` accepts JSON lists of meta names or explicit
+`ep:<entry_point_name>` selectors, case-insensitively. To exclude a broken plugin
+before import, every list item must use `ep:` (for example `ep:background_tasks`).
+Unqualified items always match metadata names; mixed lists load all candidates
+before matching. Unknown explicit selectors fail strict discovery and warn in
+development. Entry points sort by distribution name, entry-point name and target,
+so development keeps a deterministic duplicate winner. See `docs/framework/discovery.md`.
 
 The new module should appear in the registered-modules log line. If it has a view endpoint, visit `<view_prefix>/`. Run `make doctor` for the same diagnostics out of band (orphan pages, coupling, migration drift, locale checks) — see the **simple-module-doctor** skill for the full code list.
 

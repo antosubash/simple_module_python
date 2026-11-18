@@ -47,11 +47,11 @@ def discover_modules(
     Parameters
     ----------
     enabled:
-        Case-insensitive allowlist of entry-point names or ``ModuleMeta.name``.
-        If every item matches an installed entry-point name, only those entry
-        points are imported. Otherwise all candidates must load to resolve
-        arbitrary metadata names. ``None`` loads all; an empty list imports
-        nothing. Unmatched names log a warning.
+        Case-insensitive allowlist of ``ModuleMeta.name`` values or explicit
+        ``ep:<entry_point_name>`` selectors. Only an all-explicit list filters
+        before import; metadata names require loading all candidates, including
+        in mixed lists. ``None`` loads all; an empty list imports nothing.
+        Unmatched names warn; unknown explicit selectors raise in strict mode.
     strict:
         When ``True``, any invalid module (failed to load, not a
         ``ModuleBase`` subclass, missing/invalid ``meta``) raises
@@ -73,17 +73,29 @@ def discover_modules(
         else:
             logger.error("%s — skipping", msg)
 
-    eps = entry_points(group=ENTRY_POINT_GROUP)
+    eps = sorted(
+        entry_points(group=ENTRY_POINT_GROUP),
+        key=lambda ep: (
+            ep.dist.metadata["Name"] if ep.dist is not None else "",
+            ep.name,
+            ep.value,
+        ),
+    )
     modules: list[ModuleBase] = []
     allowlist_lower = {name.lower() for name in enabled} if enabled is not None else None
-    ep_names = {ep.name.lower() for ep in eps}
-    # Metadata names are arbitrary: an unresolved token could name any candidate.
-    filter_before_load = allowlist_lower is not None and allowlist_lower <= ep_names
+    explicit = {name for name in allowlist_lower or () if name.startswith("ep:")}
+    unknown_eps = explicit - {f"ep:{ep.name.lower()}" for ep in eps}
+    if strict and unknown_eps:
+        raise InvalidModuleError(
+            f"modules_enabled references {', '.join(sorted(unknown_eps))} which is not installed"
+        )
+    # Unqualified names always mean metadata, even when an entry-point name overlaps.
+    filter_before_load = allowlist_lower is not None and allowlist_lower == explicit
     matched: set[str] = set()
     origins: dict[str, str] = {}
 
     for ep in eps:
-        if filter_before_load and ep.name.lower() not in allowlist_lower:
+        if filter_before_load and f"ep:{ep.name.lower()}" not in explicit:
             continue
         try:
             module_cls = ep.load()
@@ -117,7 +129,7 @@ def discover_modules(
             )
             continue
 
-        names = {ep.name.lower(), meta.name.lower()}
+        names = {f"ep:{ep.name.lower()}", meta.name.lower()}
         if allowlist_lower is not None and not names & allowlist_lower:
             logger.info(
                 "Module '%s' is installed but not in modules_enabled — skipping",

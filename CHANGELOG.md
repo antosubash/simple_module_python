@@ -38,7 +38,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- **Behaviour change:** module allowlists accept entry-point names. When every item resolves to an installed entry-point name, disabled plugins are skipped before import and construction. Unresolved meta-name items retain post-load matching, preserving existing meta-name lists. Duplicate selected `meta.name` values fail strict discovery with both distributions in the error; development warns with SM008 and keeps the first entry. Direct topological sorting also checks duplicates (#961).
+- **Behaviour change:** module allowlists accept explicit `ep:<entry_point_name>` selectors. Lists containing only explicit selectors skip disabled plugins before import and construction; unqualified items retain metadata-name matching, including name collisions and mixed lists. Unknown explicit selectors fail strict discovery and warn in development. Duplicate selected `meta.name` values fail strict discovery with both distributions in the error; development warns with SM008 and keeps the first entry sorted by distribution name, entry-point name and target. Direct topological sorting also checks duplicates (#961).
 
 - SM019 includes admin-only routes declared through `AdminSurface` or the legacy admin hook, while permission catalogues still make modules discoverable. Admin layout defaults also match URL-encoded Unicode and spaces in surface prefixes (#988).
 - Sharing tenant-role recipient searches match display labels in the request locale as well as role IDs (#963).

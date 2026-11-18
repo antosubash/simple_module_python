@@ -140,13 +140,16 @@ Auth modules declare `ModuleMeta(provides_auth=True)` for selection and SM020;
 the legacy `_is_auth_provider` marker warns once per class (removal 0.1.0).
 Duplicate meta names raise `InvalidModuleError` (`SM008`) outside development,
 naming both distributions; development warns and skips the later entry point.
-Allowlists accept entry-point names as well as meta names. Only when every item
-matches an installed entry-point name can discovery skip other plugins before
-import; unresolved meta-name items require loading candidates first.
+Allowlists accept explicit `ep:<entry_point_name>` selectors as well as meta
+names. Only lists containing solely explicit selectors skip other plugins before
+import; unqualified names always match metadata and require loading candidates.
+Unknown explicit selectors fail strict discovery and warn in development.
+Entry points sort by distribution name, entry-point name and target before load,
+making the development duplicate winner deterministic.
 
 **Two names per module.** `ModuleMeta.name` (scaffold default: PascalCase,
 `FeatureFlags`) keys Inertia render paths and `depends_on`; `SM_MODULES_ENABLED`
-accepts this name or the entry-point name, case-insensitively.
+accepts this name or `ep:<entry_point_name>`, case-insensitively.
 The Python package name (`feature_flags`) keys the i18n namespace,
 `app.state.<package>` and table prefixes. Don't swap them: `keys.<ns>` breaks if
 the namespace is the meta name.

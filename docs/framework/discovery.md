@@ -11,7 +11,7 @@ Every module's `pyproject.toml` ends with:
 orders = "orders.module:OrdersModule"
 ```
 
-- The **key** (`orders`) is the entry-point name. It can select the module before import; the framework's authoritative name remains `ModuleMeta.name`.
+- The **key** (`orders`) is the entry-point name. The explicit selector `ep:orders` can select the module before import; the framework's authoritative name remains `ModuleMeta.name`.
 - The **value** is `<import_path>:<class_name>`. The class must inherit from `simple_module_core.module.ModuleBase` and declare a non-null `meta = ModuleMeta(...)` class attribute.
 
 Entry points are registered **at install time**, not at import time. After editing a module's `pyproject.toml`, re-run `uv sync --all-packages` (or `make install`) so the installer writes the new metadata to the venv's `*.dist-info/entry_points.txt`.
@@ -20,12 +20,12 @@ Entry points are registered **at install time**, not at import time. After editi
 
 `simple_module_core.discovery.discover_modules()`:
 
-1. Iterates `importlib.metadata.entry_points(group="simple_module")`.
-2. If every allowlist item matches an installed entry-point name (case-insensitive), excludes unselected entry points **before** calling `.load()` or constructing anything. An empty list imports nothing. Otherwise loads candidates so arbitrary legacy meta names can still match (see [Disabling modules](#disabling-modules-at-runtime)).
+1. Sorts `importlib.metadata.entry_points(group="simple_module")` by distribution name (empty when unavailable), entry-point name and target value before loading anything.
+2. If every allowlist item is an explicit `ep:<entry_point_name>` selector (case-insensitive), excludes unselected entry points **before** calling `.load()` or constructing anything. An empty list imports nothing. An unqualified metadata name requires loading all candidates, including in mixed lists (see [Disabling modules](#disabling-modules-at-runtime)).
 3. For each remaining entry point, calls `.load()` to import the module's `module.py` and pull out the class, then instantiates it (`module_cls()`).
 4. Validates: the loaded object must be a `ModuleBase` subclass with a `meta` attribute of type `ModuleMeta`.
-5. Keeps candidates whose entry-point name **or** `ModuleMeta.name` matches the allowlist, case-insensitively. Reports unknown allowlist entries.
-6. Rejects duplicate `meta.name` values among selected modules in strict mode, naming both entry points and their distributions. Development logs `SM008` and skips later entries, retaining the first discovered module. Disabled duplicates do not conflict.
+5. Keeps candidates whose explicit entry-point selector **or** `ModuleMeta.name` matches the allowlist, case-insensitively. Unknown metadata names warn; an explicit selector with no installed entry point fails strict discovery and warns in development.
+6. Rejects duplicate `meta.name` values among selected modules in strict mode, naming both entry points and their distributions. Development logs `SM008` and skips later entries, retaining the first module in the stable entry-point order. Disabled duplicates do not conflict.
 7. Returns a `list` of `ModuleBase` **instances** (one per module, constructed with no args). A separate `topological_sort()` call (made by `create_app`) then orders them by `ModuleMeta.depends_on` using a stable tiebreaker (name). Sorting a manually supplied list also rejects duplicates in strict mode, or warns and keeps the first in lenient mode.
 
 Failures:
@@ -142,8 +142,9 @@ for ep in entry_points(group='simple_module'):
 ## Disabling modules at runtime
 
 Set `SM_MODULES_ENABLED` to a JSON list (for example
-`SM_MODULES_ENABLED='["Auth","Users","BackgroundTasks"]'`). Items match
-entry-point names or `ModuleMeta.name`, case-insensitively. Useful for:
+`SM_MODULES_ENABLED='["Auth","Users","BackgroundTasks"]'`). Unqualified items
+match `ModuleMeta.name`; `ep:<entry_point_name>` selects an entry point instead.
+Both forms are case-insensitive and may be mixed. Useful for:
 
 - Running tests against a minimal world (`SM_MODULES_ENABLED='["Auth","Users"]'`).
 - Temporarily disabling a misbehaving module in production without a redeploy.
@@ -156,17 +157,18 @@ while metadata uses PascalCase (`BackgroundTasks`, `FileStorage`). Existing
 meta-name lists, including CI's e2e/perf lists, continue to work. Discovery does
 **not** guess a PascalCase-to-package mapping: third-party names can be unrelated.
 
-To isolate a broken plugin before import, write **every** item using an installed
-entry-point name, for example
-`SM_MODULES_ENABLED='["auth","users","background_tasks"]'`. In this form only
-the named entry points load, even if their metadata names differ. If **any** item
-does not match an installed entry-point name (including a typo, a missing package,
-or a meta name such as `BackgroundTasks`), discovery must import candidates to
-resolve it and then filter by either name. An excluded broken plugin can still
-fail strict discovery in that fallback mode. If a token is both an entry-point
-name and another plugin's metadata name, the pre-load rule takes precedence when
-all tokens resolve to entry points; use the desired plugin's entry-point name to
-disambiguate.
+To isolate a broken plugin before import, write **every** item as an explicit
+entry-point selector, for example
+`SM_MODULES_ENABLED='["ep:auth","ep:users","ep:background_tasks"]'`. Only the
+named entry points load, even if their metadata names differ. An unknown `ep:`
+selector fails strict discovery and warns in development; it does not cause
+unselected entry points to load. If **any** item is unqualified, discovery must
+import all candidates to resolve metadata names, so an excluded broken plugin
+can still fail strict discovery in a mixed list such as `["ep:users","BackgroundTasks"]`.
+
+Unqualified names retain metadata matching even when another plugin's entry-point
+name overlaps. For example, with `orders_plugin` declaring `Orders` and `orders`
+declaring `Billing`, `["Orders"]` selects `Orders`; `["ep:orders"]` selects `Billing`.
 
 ## Strict-mode checklist
 
