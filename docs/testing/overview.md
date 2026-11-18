@@ -26,7 +26,7 @@ The default `pytest` invocation pins `-m 'not e2e and not perf'` (your app's `py
 
 `make test-py-pg` runs the Python suite on Postgres in parallel, with 4 workers
 by default (`PYTEST_WORKERS` overrides this; `0` runs serially). Set
-`SM_TEST_PG_URL` to a disposable test database URL; the default database is
+`SM_TEST_DATABASE_URL` to a disposable test database URL; the default database is
 `sm_test`. Each xdist worker uses its own `<database>_gw<N>` database (for
 example, `sm_test_gw0`), created if needed; the role needs `CREATEDB` to create
 them. Serial runs use the named database itself.

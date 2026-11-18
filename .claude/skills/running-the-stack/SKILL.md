@@ -36,7 +36,7 @@ description: Use when launching, restarting, or smoke-testing simple_module_pyth
 - `cp`/`rm` are interactive aliases in this shell: use `command cp -f` / `command rm -f … < /dev/null`.
 
 ## Tests
-- Unit: `make test-py` (move any `.env` aside first — a dashboard test asserts Vite on :5050) · `make test-js` · single: `uv run pytest path::name`, `npx vitest run <path>`.
+- Unit: `make test-py` (project dotenv files are ignored) · `make test-js` · single: `uv run pytest path::name`, `npx vitest run <path>`.
 - Postgres: `SM_TEST_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test uv run pytest -p no:anyio <paths>`.
 - E2E (server running): `uv run playwright install chromium` once, then `E2E_BASE_URL=http://localhost:8201 E2E_USERNAME=admin@example.com E2E_PASSWORD=<pw> uv run pytest -m e2e tests/e2e -v`. See `docs/e2e-testing.md`.
 - Gate before a PR: `make lint` (also format-checks Python in `.md` — run `uv run ruff format docs/` first).

@@ -97,11 +97,13 @@ class TestIsInsideExistingRepo:
         (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
         assert is_inside_existing_repo(tmp_path / "modules" / "orders")
 
-    async def test_clean_target_is_not_in_repo(self, tmp_path):
+    async def test_clean_target_is_not_in_repo(self, tmp_path, monkeypatch):
         from simple_module_cli.scaffolding import is_inside_existing_repo
 
         # The module's own scaffolded pyproject.toml at dest must not count.
         dest = tmp_path / "standalone"
         dest.mkdir()
         (dest / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        # Bound this test's walk at tmp_path; markers above it belong to the machine (#1001).
+        monkeypatch.setattr(type(tmp_path), "parents", property(lambda path: ()))
         assert not is_inside_existing_repo(dest)

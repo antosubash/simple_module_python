@@ -242,8 +242,7 @@ use `DbBackedSettings` resolve from stored values and defaults. The
 | Variable | Default | Notes |
 |---|---|---|
 | `SM_APP_PORT` | `8000` | Published host port for the repository Docker run targets. |
-| `SM_TEST_DATABASE_URL` | in-memory SQLite | Database used by the pytest fixtures. |
-| `SM_TEST_PG_URL` | local PostgreSQL `sm_test` | Database URL passed to the pytest fixtures by `make test-py-pg`. |
+| `SM_TEST_DATABASE_URL` | in-memory SQLite; local PostgreSQL `sm_test` for `make test-py-pg` | Database used by the pytest fixtures and the Postgres Make target. |
 | `SM_MIGRATIONS_PG_URL` | local PostgreSQL `sm_migrations_check` | Disposable database used by `make migrations-roundtrip-pg`. |
 | `SM_TEST_REDIS_URL` | unset | External Redis URL for tests that need Redis. |
 | `SM_TEST_REAL_PASSWORD_HASHING` | unset | Any nonempty value keeps real password hashing costs in tests. |

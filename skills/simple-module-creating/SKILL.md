@@ -76,8 +76,8 @@ regenerated i18n key files it leaves behind.
 
 Modules use this area layout.
 Area initializers hold only a docstring. Private helpers stay in their area.
-Tests have no `__init__.py`, keep `conftest.py` at their root and use globally
-unique `test_orders_*.py` basenames; JS tests stay in `tests-js/`.
+Tests have no `__init__.py` and keep `conftest.py` at their root. The test plugin
+defaults to importlib mode, so test basenames may repeat; JS tests stay in `tests-js/`.
 See [Module layout](https://docs.py.simplemodule.dev/module-layout) for the lookup consumers and shim policy.
 
 ## The contract: pyproject.toml + module.py

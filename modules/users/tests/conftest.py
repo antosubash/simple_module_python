@@ -18,7 +18,7 @@ import httpx
 import pytest
 
 # Bare import, not relative: tests/ has no __init__.py, so these are
-# top-level modules on pytest's sys.path — same mechanism as the
+# top-level modules on pytest's explicit pythonpath — same mechanism as the
 # _middleware_support plugin loaded at the bottom of this file.
 from _users_app_builders import (
     ALICE,
