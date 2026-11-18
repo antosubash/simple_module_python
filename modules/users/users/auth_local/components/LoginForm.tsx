@@ -133,7 +133,9 @@ export function LoginForm({
               <a href={`/api/users/auth/${provider.name}/login`}>
                 {provider.icon && <NavIcon name={provider.icon} className="size-4" />}
                 {t(keys.users.login.continue_with, {
-                  name: provider.label_key ? t(provider.label_key) : provider.display_name,
+                  name: provider.label_key
+                    ? t(provider.label_key, { defaultValue: provider.display_name })
+                    : provider.display_name,
                 })}
               </a>
             </Button>

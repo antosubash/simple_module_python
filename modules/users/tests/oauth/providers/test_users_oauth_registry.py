@@ -29,6 +29,75 @@ def _configure(app):
     )
 
 
+def _failing_factory(app):
+    if not app.state.custom.settings.enabled:
+        raise RuntimeError("Custom provider unavailable")
+    return _factory(app)
+
+
+def test_factory_failure_publishes_fresh_clients_and_buttons(caplog):
+    from users.contracts import register_oauth_provider
+    from users.core.startup import _build_oauth_clients
+
+    app = FastAPI()
+    app.state.users = SimpleNamespace(
+        settings=UsersSettings(oauth_google_client_id="g-id", oauth_google_client_secret="g-secret")
+    )
+    _configure(app)
+    register_oauth_provider(app, "custom", _failing_factory)
+    register_oauth_provider(
+        app,
+        "healthy",
+        lambda app: OAuthProvider("healthy", "Healthy SSO", GitHubOAuth2("id", "secret")),
+    )
+    _build_oauth_clients(app)
+    assert set(app.state.users.oauth_clients) == {"google", "custom", "healthy"}
+
+    app.state.users.settings = UsersSettings(
+        oauth_github_client_id="gh-id", oauth_github_client_secret="gh-secret"
+    )
+    app.state.custom.settings.enabled = False
+    _build_oauth_clients(app)
+
+    assert set(app.state.users.oauth_clients) == {"github", "healthy"}
+    assert app.state.users.oauth_providers == [
+        {"name": "github", "display_name": "GitHub"},
+        {"name": "healthy", "display_name": "Healthy SSO"},
+    ]
+    assert any(
+        record.levelname == "ERROR" and "custom" in record.message for record in caplog.records
+    )
+
+
+@pytest.mark.anyio
+async def test_reload_removes_google_callbacks_even_when_custom_factory_fails(
+    users_app, anon_client
+):
+    from users.contracts import register_oauth_provider
+    from users.core.startup import _build_oauth_clients
+
+    _configure(users_app)
+    register_oauth_provider(users_app, "custom", _failing_factory)
+    users_app.state.users.settings = users_app.state.users.settings.model_copy(
+        update={"oauth_google_client_id": "g-id", "oauth_google_client_secret": "g-secret"}
+    )
+    _build_oauth_clients(users_app)
+    assert set(users_app.state.users.oauth_clients) == {"google", "custom"}
+
+    users_app.state.users.settings = users_app.state.users.settings.model_copy(
+        update={"oauth_google_client_id": "", "oauth_google_client_secret": ""}
+    )
+    users_app.state.custom.settings.enabled = False
+    await users_app.state.sm.event_bus.publish(SettingsReloaded(package="users", changed=()))
+
+    assert users_app.state.users.oauth_clients == {}
+    assert users_app.state.users.oauth_providers == []
+    for name in ("google", "custom"):
+        response = await anon_client.get(f"/api/users/auth/{name}/callback")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "OAUTH_PROVIDER_NOT_FOUND"
+
+
 def test_registry_builds_custom_provider_at_startup_and_is_app_scoped():
     from users.contracts import register_oauth_provider
     from users.core.startup import _build_oauth_clients

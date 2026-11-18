@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
     from users.oauth.providers import OAuthProvider
 
 type OAuthProviderFactory = Callable[[FastAPI], OAuthProvider | None]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,11 @@ def build_registered_providers(
     clients: dict[str, OAuthProvider] = {}
     buttons: list[dict[str, str]] = []
     for name, entry in _registry(app).items():
-        provider = entry.factory(app)
+        try:
+            provider = entry.factory(app)
+        except Exception:
+            logger.exception("OAuth factory for %s failed; provider disabled", name)
+            continue
         if provider is None:
             continue
         if provider.name != name:

@@ -20,6 +20,27 @@ const baseProps = {
 };
 
 describe('LoginForm', () => {
+  test('falls back to the display name when a custom provider translation is missing', () => {
+    configureI18n({
+      locale: 'en',
+      messages: { [keys.users.login.continue_with]: 'Continue with {name}' },
+    });
+    render(
+      <LoginForm
+        {...baseProps}
+        error={null}
+        oauthProviders={[
+          { name: 'custom', display_name: 'Staff SSO', label_key: 'custom.login.missing' },
+        ]}
+      />,
+    );
+    expect(screen.getByRole('link', { name: 'Continue with Staff SSO' })).toHaveAttribute(
+      'href',
+      '/api/users/auth/custom/login',
+    );
+    configureI18n({ locale: 'en', messages: {} });
+  });
+
   test('translates custom provider labels and keeps the registered login URL', () => {
     configureI18n({
       locale: 'en',
