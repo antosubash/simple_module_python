@@ -1,4 +1,4 @@
-.PHONY: gen install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+.PHONY: gen install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages ci-docker-smoke worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -210,6 +210,10 @@ ci-api-types-fresh:
 # is not part of `lint`.
 ci-css-build:
 	uv run pytest framework/cli/tests/test_module_css_build.py
+
+# Builds and boots the production image; deliberately outside the lint loop.
+ci-docker-smoke:
+	python3 scripts/ci_docker_smoke.py
 
 # Enforce a max of 300 lines per .py/.ts/.tsx file.
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.

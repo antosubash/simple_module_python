@@ -113,11 +113,13 @@ js-lint (`biome ci --error-on-warnings`, plus the untranslated check),
 js-typecheck (plus `make ci-api-types-fresh`), js-build (`make ci-css-build`),
 migrations-roundtrip-pg, doctor (`make ci-doctor`: migrate a throwaway SQLite
 DB, `alembic check`, then `make doctor`), e2e-smoke, perf-guards,
-file-size-check, package-build. CI calls the same `make ci-*` targets as
+file-size-check, package-build, docker-smoke (`make ci-docker-smoke`: build and
+boot the production image, check health and a rendered asset; path-filtered on PRs).
+CI calls the same `make ci-*` targets as
 `make lint` (`make ci-check-ci-parity` enforces it), with
 `UV_SYNC_FLAGS=--locked` so a stale `uv.lock` fails: commit `uv.lock` whenever a
-`pyproject.toml` changes (`make install` stays unlocked). `make ci-css-build`
-and `make ci-docs-build` are in CI but not in `make lint` (slow).
+`pyproject.toml` changes (`make install` stays unlocked). `make ci-css-build`,
+`make ci-docs-build` and `make ci-docker-smoke` are in CI but not in `make lint` (slow).
 `.github/workflows/postgres-tests.yml` runs `make test-py-pg` nightly, on
 demand and on PRs touching `framework/db`, `framework/testing`,
 `modules/{tenants,users,background_tasks,file_storage}` or `host/migrations`;
