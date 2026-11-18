@@ -64,7 +64,7 @@ def test_model_config_ignore_only_where_ty_checks_assignments(
 
 @pytest.mark.parametrize("name", ["bookmarks", "group", "g", "g_x", "a2", "zebra"])
 def test_module_imports_are_sorted_for_any_package_name(tmp_path: Path, name: str) -> None:
-    """``PERM_GROUP`` sorts before or after ``PERM_<PACKAGE>_*`` depending on the name."""
+    """Generated imports stay sorted for short, underscored and plural package names."""
     app = tmp_path / "app"
     create_app_project(app, name="app", db="sqlite", tenancy=False, selected=[])
     create_module(app / "modules" / name, name, standalone=False)

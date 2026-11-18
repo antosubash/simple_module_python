@@ -23,6 +23,7 @@ from simple_module_core.deprecation import (
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (
     "users.core.token_secrets",
+    "api_tokens.core.constants",
     "background_tasks.core.invalidation_channel",
 )
 _EXPECTED = {
@@ -31,6 +32,7 @@ _EXPECTED = {
     "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
     "SM_USERS_VERIFICATION_TOKEN_SECRET",
     "smpy package-update",
+    "api_tokens PERM_* constants",
 }
 
 

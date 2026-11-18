@@ -41,6 +41,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
     from simple_module_core import get_module_package_name, select_auth_provider
     from simple_module_core.dotenv import load_dotenv_into_environ
     from simple_module_hosting._i18n_target import resolve_i18n_types_dir
+    from simple_module_hosting.admin_surfaces import render_admin_surfaces
     from simple_module_hosting.assets import (
         compute_module_assets,
         framework_assets,
@@ -81,9 +82,15 @@ def run_generation(project_root: Path | None = None) -> list[str]:
         "pages",
         lambda: {
             "assets": render_assets_json(assets),
+            "admin_surfaces": render_admin_surfaces(modules),
             "sources": sorted(str(p) for p in page_sources),
             "generator": file_hashes(
-                [hosting / "manifest.py", hosting / "assets.py", hosting / "page_globs.py"]
+                [
+                    hosting / "manifest.py",
+                    hosting / "assets.py",
+                    hosting / "page_globs.py",
+                    hosting / "admin_surfaces.py",
+                ]
             ),
         },
         [

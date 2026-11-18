@@ -16,6 +16,7 @@ from simple_module_core._module_conventions import (
 from simple_module_core._request_hooks import RequestHooksMixin
 from simple_module_core.data_compatibility import DataCompatibilityIssue
 from simple_module_core.module_meta import ModuleMeta
+from simple_module_core.permission_catalogue import PermissionCatalogue
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -47,6 +48,7 @@ class ModuleBase(RequestHooksMixin, ABC):
     """
 
     meta: ModuleMeta
+    permissions: type[PermissionCatalogue] | None = None
 
     def register_settings(self, app: FastAPI) -> None:
         """Load module-specific settings and store on ``app.state``.
@@ -73,13 +75,19 @@ class ModuleBase(RequestHooksMixin, ABC):
                 target.include_router(import_module(f"{package}.{suffix}").router)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
-        """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
+        """Load the declared admin router. Explicit overrides remain supported.
 
-        Only for modules serving both public and admin pages (see
-        ``ModuleMeta.admin_view_prefix``); all-admin modules point
-        ``view_prefix`` at ``/admin/...``. Nothing is gated automatically:
-        the prefix is a URL convention, not a permission.
+        Routes must declare their own guards: the surface grants no permission.
+        Legacy admin_view_prefix without a surface keeps the no-op default.
         """
+        if self.meta.admin is not None:
+            target = self.meta.admin.routes or (
+                f"{get_module_package_name(self)}.web.endpoints.admin:router"
+            )
+            package, separator, name = target.partition(":")
+            if not separator or not package or not name:
+                raise ValueError("AdminSurface.routes must be python.module:router")
+            admin_router.include_router(getattr(import_module(package), name))
 
     def register_fallback_routes(self, router: APIRouter) -> None:
         """Register last-resort view routes, mounted at ``meta.view_prefix``.
@@ -94,7 +102,9 @@ class ModuleBase(RequestHooksMixin, ABC):
         """Contribute menu items visible in the UI."""
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        """Declare permissions this module uses."""
+        """Register ``permissions`` when declared; overrides may extend via super()."""
+        if self.permissions is not None:
+            registry.add_catalogue(self.permissions)
 
     def register_principal_builder(self, registry: PrincipalRegistry) -> None:
         """Install app-free directory, membership and persisted-role providers.

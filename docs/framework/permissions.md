@@ -4,27 +4,37 @@ Permissions are **strings** owned by modules and enforced at endpoint boundaries
 
 ## Declaring permissions
 
-Inside a module's `register_permissions(registry)`:
+Declare a string enum catalogue in the module's constants, then attach it to
+`ModuleBase.permissions`. The default `register_permissions` hook registers every
+member; there is no repeated permission list:
 
 ```python
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core import ModuleBase
+from simple_module_core.permissions import PermissionCatalogue
+
+
+class Permissions(PermissionCatalogue, group="Orders", label_key="orders.permission_group"):
+    VIEW = "orders.view", "View orders"
+    CREATE = "orders.create"
+    EDIT = "orders.edit"
+    DELETE = "orders.delete"
 
 
 class OrdersModule(ModuleBase):
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Orders",
-            [
-                "orders.view",
-                "orders.create",
-                "orders.edit",
-                "orders.delete",
-                "orders.export",
-            ],
-        )
+    permissions = Permissions
 ```
 
-The group name (`"Orders"`) is the display label in the role editor. Permission strings conventionally use `<module>.<verb>` lowercase.
+Members are strings: `RequiresPermission(Permissions.CREATE)`, menu guards, role
+mappings and JSON use exactly `"orders.create"`. An optional `(key, label)` member
+provides a human label in the role editor. `group` is the heading (defaults to
+the catalogue class name); `label_key` translates that heading. Existing runtime
+source labels take precedence over catalogue labels for the same key.
+
+A custom `register_permissions` override calls `super().register_permissions(registry)`
+to include its catalogue, then adds role mappings or runtime sources. Alternatively
+call `registry.add_catalogue(Permissions)` explicitly. Existing `add_group`, `add`,
+`PERM_*` string constants and overrides remain supported. Declaring a catalogue
+registers keys only: it never grants roles or guards a route automatically.
 
 ## Enforcing at endpoints
 
@@ -39,15 +49,15 @@ router = APIRouter()
 @router.post(
     "",
     status_code=201,
-    dependencies=[Depends(RequiresPermission("orders.create"))],
+    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
 )
 async def create_order(...): ...
 
 @router.get(
     "/export",
     dependencies=[
-        Depends(RequiresPermission("orders.view")),
-        Depends(RequiresPermission("orders.export")),
+        Depends(RequiresPermission(Permissions.VIEW)),
+        Depends(RequiresPermission(PERM_ORDERS_EXPORT)),
     ],
 )
 async def export_orders(...): ...

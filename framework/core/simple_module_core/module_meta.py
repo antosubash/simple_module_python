@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from simple_module_core.admin_surface import AdminSurface
+
 
 class _DefaultVersion(str):
     """Distinguish an omitted version from an explicit fallback value."""
@@ -69,3 +71,12 @@ class ModuleMeta:
     anonymous visitors don't download admin form labels on every public page.
     The catalog is always available server-side (``Translator``) either way.
     """
+
+    admin: AdminSurface | None = None
+    """Opt-in admin routing, menu and page-layout defaults; grants no permissions."""
+
+    def __post_init__(self) -> None:
+        if self.admin is not None:
+            if self.admin_view_prefix and self.admin_view_prefix != self.admin.prefix:
+                raise ValueError("admin_view_prefix conflicts with admin.prefix")
+            object.__setattr__(self, "admin_view_prefix", self.admin.prefix)

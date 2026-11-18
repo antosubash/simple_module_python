@@ -21,7 +21,7 @@ from api_tokens.contracts.schemas import (
     RevokedCount,
     TokenView,
 )
-from api_tokens.core.constants import PERM_USE, TokenKind
+from api_tokens.core.constants import Permissions, TokenKind
 from api_tokens.credentials.scopes import assignable_scopes, check_subset
 from api_tokens.credentials.service import TokenError
 from api_tokens.web.deps import (
@@ -38,7 +38,7 @@ router = APIRouter(
     dependencies=[
         Depends(require_session_principal),
         Depends(RequiresCsrf()),
-        Depends(RequiresPermission(PERM_USE)),
+        Depends(RequiresPermission(Permissions.USE)),
     ],
 )
 

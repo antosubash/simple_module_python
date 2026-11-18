@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
+from simple_module_core import AdminSurface
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -51,7 +52,12 @@ class UsersModule(ModuleBase):
         # Sign-in and self-service stay on /users; the management CRUD
         # belongs with the other admin screens. One view_prefix cannot
         # express both, hence the second router.
-        admin_view_prefix="/admin/users",
+        admin=AdminSurface(
+            prefix="/admin/users",
+            routes="users.admin.views:router",
+            menu_group="Access",
+            menu_group_key="ui.nav_groups.access",
+        ),
         depends_on=[_MODULE_DEPENDENCY_AUTH],
         optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
@@ -198,10 +204,7 @@ class UsersModule(ModuleBase):
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
                 order=100,
-                section=MenuSection.ADMIN_SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
-                group="Access",
-                group_key="ui.nav_groups.access",
             )
         )
         # Self-service: profile + logout live in the user dropdown.
@@ -273,11 +276,6 @@ class UsersModule(ModuleBase):
         register_oauth_routes(api_router)
 
         view_router.include_router(auth_views)
-
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from users.admin.views import router as admin_views
-
-        admin_router.include_router(admin_views)
 
     async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
         from users.core.data_compatibility import check_data_compatibility

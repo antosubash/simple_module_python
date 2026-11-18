@@ -135,15 +135,23 @@ to a PEP 440 framework API range (e.g. `">=1.0,<2.0"`) for published modules.
 component as namespace (`acme.billing` uses `billing`);
 override only for custom directories/namespaces or to opt out.
 
+Declare admin routing once with `ModuleMeta(admin=AdminSurface(prefix="/admin/orders",
+routes="orders.admin.views:router", menu_group="Access",
+menu_group_key="ui.nav_groups.access"))` (import `AdminSurface` from
+`simple_module_core`). It defaults this module's menu URLs below the prefix to
+`ADMIN_SIDEBAR` and its pages to `AdminLayout` after `make gen-pages`. Explicit
+menu/layout choices win. It grants no permissions; guard routes and menu items.
+Omitted `routes` loads `<package>.web.endpoints.admin:router`; hook overrides win.
+
 ## Lifecycle hooks (override only what you need)
 
-In execution order — no-op by default except conventional router discovery:
+In execution order — defaults discover conventional routers and register `ModuleBase.permissions`:
 
 | Hook | Use it for |
 |---|---|
 | `register_settings(app)` | `register_module_settings(app, "<pkg>", SettingsCls, factory)` (from `simple_module_core.module_settings`): DB-hydrated settings on `app.state.<lower_name>` |
 | `register_menu_items(registry)` | Sidebar / navbar entries |
-| `register_permissions(registry)` | `<module>.<action>` strings, grouped |
+| `register_permissions(registry)` | Defaults to the `PermissionCatalogue` on `permissions`; overrides extend with `super()` |
 | `register_feature_flags(registry)` | `FeatureFlagDefinition` constants |
 | `register_event_handlers(bus, app)` | `bus.subscribe(EventCls, handler)` |
 | `register_health_checks(registry)` | Module-owned health probes |
@@ -153,7 +161,7 @@ In execution order — no-op by default except conventional router discovery:
 | `register_exception_handlers(app)` | Module-specific error mapping |
 | `register_middleware(app)` | LIFO — module middleware sorted last wraps outermost |
 | `register_routes(api_router, view_router)` | Default includes `<package>.web.endpoints.api.router` and `.views.router` when present; override for custom layouts or ordering. Existing module import errors propagate. The host applies prefixes and tags once. |
-| `register_admin_routes(admin_router)` | Additional admin views when `meta.admin_view_prefix` is set. |
+| `register_admin_routes(admin_router)` | Defaults to the router in `meta.admin = AdminSurface(...)`; legacy `admin_view_prefix` + overrides remain supported. |
 | `register_fallback_routes(router)` | Opt-in catch-all views at `view_prefix`. Finalized at startup and before first dispatch after ordinary routes and mounts, including post-builder host additions and bare mount redirects. Dependency order; first match wins. Fallback-only views retain discovery order for login destinations. Auth/tenant middleware and opt-in CSRF still apply; public access uses `register_public_routes`. |
 | `on_startup(app)` / `on_shutdown(app)` | Async; shutdown runs in reverse order |
 

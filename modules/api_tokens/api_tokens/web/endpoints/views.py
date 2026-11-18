@@ -15,10 +15,7 @@ from simple_module_inertia import InertiaResponse
 
 from api_tokens.core.constants import (
     EXPIRY_PRESETS_DAYS,
-    PAGE_ADMIN,
-    PAGE_INDEX,
-    PERM_MANAGE,
-    PERM_USE,
+    Permissions,
 )
 from api_tokens.credentials.scopes import assignable_roles, assignable_scopes
 from api_tokens.web.deps import (
@@ -31,10 +28,13 @@ from api_tokens.web.deps import (
 from api_tokens.web.endpoints.admin_api import tenant_token_views
 
 router = APIRouter(
-    dependencies=[Depends(require_session_principal), Depends(RequiresPermission(PERM_USE))]
+    dependencies=[Depends(require_session_principal), Depends(RequiresPermission(Permissions.USE))]
 )
 admin_router = APIRouter(
-    dependencies=[Depends(require_session_principal), Depends(RequiresPermission(PERM_MANAGE))]
+    dependencies=[
+        Depends(require_session_principal),
+        Depends(RequiresPermission(Permissions.MANAGE)),
+    ]
 )
 
 
@@ -58,7 +58,7 @@ async def index(
 ) -> InertiaResponse:
     tokens = await service.list_for_owner(user_uuid(user, t), limit=limit + 1, offset=offset)
     return await inertia.render(
-        PAGE_INDEX,
+        "ApiTokens/Index",
         {
             "tokens": [service.to_view(tok).model_dump(mode="json") for tok in tokens[:limit]],
             "pagination": {"limit": limit, "offset": offset, "has_more": len(tokens) > limit},
@@ -85,7 +85,7 @@ async def admin_index(
         # to create a service key. The page says so instead of a 500.
         views, tenant_required = [], True
     return await inertia.render(
-        PAGE_ADMIN,
+        "ApiTokens/Admin",
         {
             "tokens": [v.model_dump(mode="json") for v in views[:limit]],
             "pagination": {"limit": limit, "offset": offset, "has_more": len(views) > limit},

@@ -2,7 +2,6 @@ import { Head } from '@inertiajs/react';
 import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { initials } from '@simple-module-py/ui/lib/initials';
 import { StatusPill } from '../../admin/components/StatusPill';
 import { deriveState, type UserListItem } from '../../admin/components/user-list-item';
@@ -136,5 +135,4 @@ function Edit({
   );
 }
 
-Edit.layout = [AdminLayout];
 export default Edit;

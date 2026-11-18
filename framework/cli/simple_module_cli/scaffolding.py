@@ -24,7 +24,6 @@ from typing import TypeGuard
 from simple_module_cli._lint_tooling import (
     MODEL_CONFIG_TY_IGNORE,
     TY_REQUIREMENT,
-    module_constants_import,
 )
 
 # The template engine lives in _templating.py; the private names are imported
@@ -251,7 +250,6 @@ def create_module(
             "{{SINGULAR}}": singular,
             "{{SINGULAR_UPPER}}": singular.upper(),
             "{{SINGULAR_CLASS}}": to_pascal_case(singular),
-            "{{CONSTANTS_IMPORTS}}": module_constants_import(package_name.upper()),
             "{{MODEL_CONFIG_TY_IGNORE}}": MODEL_CONFIG_TY_IGNORE if framework_repo else "",
             # npm-side pin for @simple-module-py/* devDependencies; "*" when the
             # caller skips pinning (mirrors _should_pin_framework_version).

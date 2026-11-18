@@ -110,3 +110,48 @@ class TestPathSkipping:
         path.write_text('Depends(RequiresPermission("users.manage"))\n', encoding="utf-8")
         results = find_violations([path], tmp_path)
         assert results == []
+
+
+class TestVerifiedPageLiterals:
+    def test_existing_page_accepts_multiline_and_keyword_calls(self, tmp_path):
+        pkg = tmp_path / "orders"
+        (pkg / "pages" / "Admin").mkdir(parents=True)
+        (pkg / "pages" / "Admin" / "Edit.tsx").write_text("export default () => null")
+        (pkg / "module.py").write_text('meta = ModuleMeta(name="Orders")\n')
+        path = _write(
+            pkg,
+            "views.py",
+            """async def view(inertia):
+    await inertia.render(
+        'Orders/Admin/Edit', {})
+    await inertia.render(component="Orders/Admin/Edit")
+    await inertia.render("Orders/Admin/Edit")
+""",
+        )
+        assert _check_file(path) == []
+
+    def test_rejects_wrong_namespace_missing_and_test_pages(self, tmp_path):
+        pkg = tmp_path / "orders"
+        (pkg / "pages").mkdir(parents=True)
+        (pkg / "pages" / "Browse.tsx").write_text("")
+        (pkg / "pages" / "Browse.test.tsx").write_text("")
+        (pkg / "module.py").write_text('meta = ModuleMeta(name="Orders")\n')
+        for page in ["Other/Browse", "Orders/Missing", "Orders/Browse.test", "Orders/../Browse"]:
+            path = _write(
+                pkg, "views.py", f"async def view(inertia):\n    await inertia.render('{page}')\n"
+            )
+            assert len(_check_file(path)) == 1, page
+
+    def test_permission_and_role_rules_cover_multiline_single_quotes(self, tmp_path):
+        path = _write(
+            tmp_path,
+            "views.py",
+            """RequiresPermission(
+    'orders.view')
+registry.map_role(
+    'editor', [])
+registry.add_group('Orders', [
+    'orders.edit'])
+""",
+        )
+        assert len(_check_file(path)) == 3
