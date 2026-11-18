@@ -17,11 +17,11 @@ from __future__ import annotations
 import base64
 import logging
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Annotated, Any, Protocol, runtime_checkable
 
-from pydantic import ConfigDict, field_serializer, field_validator
+from pydantic import BeforeValidator, ConfigDict, field_serializer, field_validator
 from sqlmodel import SQLModel
 
 logger = logging.getLogger("simple_module.mail")
@@ -62,6 +62,10 @@ class MailAttachment(SQLModel):
             raise ValueError(
                 "attachment content_type must be a valid type/subtype without parameters"
             )
+        if value.split("/", 1)[0].lower() in {"message", "multipart"}:
+            raise ValueError(
+                "attachment structured MIME types (message/*, multipart/*) are not supported"
+            )
         return value
 
     @field_validator("content", mode="before")
@@ -76,13 +80,31 @@ class MailAttachment(SQLModel):
         return base64.b64encode(value).decode("ascii")
 
 
+def _check_encoded_attachment_size(value: Any) -> Any:
+    if not isinstance(value, (list, tuple)):
+        return value
+    encoded_length = padding = 0
+    for item in value:
+        if isinstance(item, dict) and isinstance(content := item.get("content"), str):
+            encoded_length += len(content)
+            padding += 2 if content.endswith("==") else int(content.endswith("="))
+    # Four base64 characters encode three bytes, less each file's terminal padding.
+    if encoded_length * 3 > (MAX_ATTACHMENT_BYTES + padding) * 4:
+        raise ValueError(
+            f"attachment total size must not exceed {MAX_ATTACHMENT_BYTES} bytes (10 MiB)"
+        )
+    return value
+
+
 @dataclass(frozen=True)
 class MailMessage:
     to: str
     subject: str
     text: str
     html: str | None = None
-    attachments: tuple[MailAttachment, ...] | list[MailAttachment] = ()
+    attachments: Annotated[
+        Sequence[MailAttachment], BeforeValidator(_check_encoded_attachment_size)
+    ] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "attachments", tuple(self.attachments))

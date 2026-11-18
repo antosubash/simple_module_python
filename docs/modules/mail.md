@@ -77,7 +77,8 @@ await current_mail_sender().send(
 ```
 
 `filename` must be nonempty and cannot contain `/`, `\`, control characters, or
-be `.` or `..`. `content_type` must be a MIME `type/subtype` without parameters.
+be `.` or `..`. `content_type` must be a MIME `type/subtype` without parameters;
+structured `message/*` and `multipart/*` types are not supported.
 Content is bytes; `MAX_ATTACHMENT_BYTES` in `simple_module_core.mail` caps the
 combined raw attachment content at **10 MiB** per message. Invalid metadata or
 an oversized total raises `ValueError` at construction. The attachment DTO is
@@ -97,7 +98,7 @@ their message inside the handler; this flow stays unchanged. See
 [durable delivery](/framework/events#durable-delivery) for registration and retries.
 Base64 adds roughly one third to stored attachment size; outbox payloads contain
 the file content, so keep sensitive files under the same access controls as
-other queued event data.
+other queued event data. Admin outbox lists omit payloads and attachment content.
 
 ## Lifecycle
 

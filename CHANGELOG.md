@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Mail attachment deserialization checks the combined base64 size before decoding and decodes each file once; structured `message/*` and `multipart/*` MIME types are rejected. Outbox list queries and API/Inertia responses omit payloads and attachment content (#1006).
+
 - Limit the `smpy update` PyPI cohort to distributions published with the framework; independently released packages such as `simple_module_images` update individually and cannot block framework updates (#984).
 - Named `smpy update` requests keep sibling framework PyPI pins together and refuse partial updates before writes. npm updates respect the host's effective core source, including local overrides of root git sources. First module migration roots explicitly select a configured revision directory when Alembic scans multiple locations (#984).
 - Preserve whitespace stripping for legacy Users token keys, and adopt a persisted root after first-run setup migrations so derived reset and verification links survive restarts and agree across workers (#969).

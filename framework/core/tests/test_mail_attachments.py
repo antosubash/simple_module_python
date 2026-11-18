@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass
+from unittest.mock import Mock
 
 import pytest
 from simple_module_core import mail
@@ -150,3 +151,43 @@ def test_invalid_base64_payload_is_rejected() -> None:
                 }
             },
         )
+
+
+@pytest.mark.parametrize("contents", [["A" * 12], ["YWJj"] * 3])
+def test_oversized_encoded_total_is_rejected_before_decoding(monkeypatch, contents) -> None:
+    monkeypatch.setattr(mail, "MAX_ATTACHMENT_BYTES", 4)
+    decode = Mock(wraps=mail.base64.b64decode)
+    monkeypatch.setattr(mail.base64, "b64decode", decode)
+    with pytest.raises(ValueError, match="attachment total size"):
+        deserialize_event(Confirmation, _payload(contents))
+    decode.assert_not_called()
+
+
+@pytest.mark.parametrize("contents", [["eHh4eA=="], ["eA=="] * 4, ["eHh4", "eA=="]])
+def test_encoded_boundary_accounts_for_each_files_padding(monkeypatch, contents) -> None:
+    monkeypatch.setattr(mail, "MAX_ATTACHMENT_BYTES", 4)
+    decode = Mock(wraps=mail.base64.b64decode)
+    monkeypatch.setattr(mail.base64, "b64decode", decode)
+    event = deserialize_event(Confirmation, _payload(contents))
+    assert b"".join(item.content for item in event.message.attachments) == b"xxxx"
+    assert decode.call_count == len(contents)
+
+
+def _payload(contents):
+    return {
+        "message": {
+            "to": "a@test",
+            "subject": "Hi",
+            "text": "Body",
+            "attachments": [
+                {"filename": "a.bin", "content_type": "application/octet-stream", "content": c}
+                for c in contents
+            ],
+        }
+    }
+
+
+@pytest.mark.parametrize("content_type", ["message/rfc822", "MESSAGE/global", "multipart/mixed"])
+def test_structured_mime_types_are_rejected(content_type) -> None:
+    with pytest.raises(ValueError, match=r"structured MIME types.*not supported"):
+        mail.MailAttachment(filename="a.bin", content_type=content_type, content=b"body")

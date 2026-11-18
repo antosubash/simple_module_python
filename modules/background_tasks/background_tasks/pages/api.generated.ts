@@ -301,13 +301,6 @@ export interface components {
             event_key: string;
             /** Handler Name */
             handler_name: string;
-            /**
-             * Payload
-             * @default {}
-             */
-            payload: {
-                [key: string]: unknown;
-            };
             /** Tenant Id */
             tenant_id?: string | null;
             status: components["schemas"]["OutboxStatus"];

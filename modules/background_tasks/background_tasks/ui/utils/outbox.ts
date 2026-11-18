@@ -39,7 +39,6 @@ export interface OutboxMessage {
   id: string;
   event_key: string;
   handler_name: string;
-  payload: Record<string, unknown>;
   tenant_id: string | null;
   status: OutboxStatus;
   attempts: number;
