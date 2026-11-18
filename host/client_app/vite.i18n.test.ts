@@ -50,45 +50,49 @@ for (const [name, config] of [
             configFile: false,
             envDir: false,
             plugins: [plugin],
-            optimizeDeps: { force },
+            optimizeDeps: {
+              force,
+              rolldownOptions: { transform: { define: { __EXISTING_DEFINE__: 'true' } } },
+            },
           },
           command,
         );
-        return { resolved, plugin: resolved.plugins.find((p) => p.name === plugin?.name) };
+        return {
+          resolved,
+          plugin: resolved.plugins.find((p) => p.name === plugin?.name),
+          optimizerDefines:
+            resolved.environments.client.optimizeDeps.rolldownOptions?.transform?.define,
+        };
       }
-      function start(plugin: Plugin | undefined) {
-        const hook = plugin?.buildStart;
-        if (hook) return Reflect.apply(typeof hook === 'function' ? hook : hook.handler, {}, [{}]);
-      }
-      return { files, hashFile, load, start };
+      return { files, hashFile, load };
     }
 
-    it('forces optimization for a missing hash, then reuses unchanged generated files', async () => {
-      const { hashFile, load, start } = await setup();
+    it('keeps the optimizer hash input identical for unchanged generated files', async () => {
+      const { hashFile, load } = await setup();
       const first = await load();
-      expect(first.resolved.optimizeDeps.force).toBe(true);
-      expect(fs.existsSync(hashFile)).toBe(false);
-      await start(first.plugin);
-      expect(fs.readFileSync(hashFile, 'utf8')).toMatch(/^[a-f0-9]{64}$/);
-      const second = await load();
-      expect(second.resolved.optimizeDeps.force).toBe(false);
+      expect(first.optimizerDefines?.__SM_I18N_HASH__).toMatch(/^"[a-f0-9]{64}"$/);
+      expect(first.optimizerDefines?.__EXISTING_DEFINE__).toBe('true');
+      expect(first.resolved.optimizeDeps.force).toBe(false);
+      expect((await load()).optimizerDefines).toEqual(first.optimizerDefines);
       expect((await load('serve', true)).resolved.optimizeDeps.force).toBe(true);
+      expect(fs.existsSync(hashFile)).toBe(false);
+      expect(first.plugin?.buildStart).toBeUndefined();
     });
 
     it.each([0, 1])(
-      'forces optimization and rewrites the hash when generated file %s changes',
+      'changes the optimizer hash input when generated file %s changes, including on retry',
       async (index) => {
-        const { files, hashFile, load, start } = await setup();
-        await start((await load()).plugin);
-        const previous = fs.readFileSync(hashFile, 'utf8');
+        const { files, hashFile, load } = await setup();
+        const first = await load();
         fs.writeFileSync(files[index], 'export const keys = { newKey: true };');
         const changed = await load();
-        expect(changed.resolved.optimizeDeps.force).toBe(true);
-        expect(changed.resolved.environments.client.optimizeDeps.force).toBe(true);
-        expect(fs.readFileSync(hashFile, 'utf8')).toBe(previous);
-        await start(changed.plugin);
-        expect(fs.readFileSync(hashFile, 'utf8')).not.toBe(previous);
-        expect((await load()).resolved.optimizeDeps.force).toBe(false);
+        expect(changed.optimizerDefines?.__SM_I18N_HASH__).not.toBe(
+          first.optimizerDefines?.__SM_I18N_HASH__,
+        );
+        expect(changed.optimizerDefines?.__SM_I18N_HASH__).toMatch(/^"[a-f0-9]{64}"$/);
+        expect(changed.resolved.optimizeDeps.force).toBe(false);
+        expect((await load()).optimizerDefines).toEqual(changed.optimizerDefines);
+        expect(fs.existsSync(hashFile)).toBe(false);
       },
     );
 
@@ -114,9 +118,10 @@ for (const [name, config] of [
       expect(restart).toHaveBeenCalledExactlyOnceWith(true);
     });
 
-    it('does not force optimization or write a hash for a production build', async () => {
+    it('does not alter optimizer options or write a hash for a production build', async () => {
       const { hashFile, load } = await setup();
-      const { resolved, plugin } = await load('build');
+      const { resolved, plugin, optimizerDefines } = await load('build');
+      expect(optimizerDefines).toEqual({ __EXISTING_DEFINE__: 'true' });
       expect(resolved.optimizeDeps.force).toBe(false);
       expect(plugin).toBeUndefined();
       expect(fs.existsSync(hashFile)).toBe(false);

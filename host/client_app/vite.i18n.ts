@@ -5,8 +5,6 @@ import { normalizePath, type Plugin } from 'vite';
 
 export function i18nGenerated(): Plugin {
   let files: string[] = [];
-  let hashFile: string;
-  let hash: string;
   let restartTimer: ReturnType<typeof setTimeout> | undefined;
   return {
     name: 'simple-module:i18n-generated',
@@ -22,10 +20,14 @@ export function i18nGenerated(): Plugin {
       );
       const digest = createHash('sha256');
       for (const file of files) digest.update(fs.readFileSync(file)).update('\0');
-      hash = digest.digest('hex');
-      hashFile = path.join(config.cacheDir, 'sm-i18n.hash');
-      config.optimizeDeps.force ||=
-        !fs.existsSync(hashFile) || fs.readFileSync(hashFile, 'utf8') !== hash;
+      // Vite's getConfigHash includes rolldownOptions, coupling cache validity to this digest.
+      config.optimizeDeps.rolldownOptions ??= {};
+      const options = config.optimizeDeps.rolldownOptions;
+      options.transform ??= {};
+      options.transform.define = {
+        ...options.transform.define,
+        __SM_I18N_HASH__: JSON.stringify(digest.digest('hex')),
+      };
       // Explicitly added installed files must bypass Vite's node_modules ignore.
       if (config.server.watch !== null) {
         const ignored = config.server.watch?.ignored;
@@ -37,10 +39,6 @@ export function i18nGenerated(): Plugin {
           ],
         };
       }
-    },
-    buildStart() {
-      fs.mkdirSync(path.dirname(hashFile), { recursive: true });
-      fs.writeFileSync(hashFile, hash);
     },
     configureServer(server) {
       server.watcher.add(files);
