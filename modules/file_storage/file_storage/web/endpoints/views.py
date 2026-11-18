@@ -14,10 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.core import constants
-from file_storage.files.aggregates import StorageAggregates
 from file_storage.files.resolve import label_for, resolve_uploader_labels
 from file_storage.files.service import FileStorageService
-from file_storage.web.deps import OwnerScope, get_file_storage_service
+from file_storage.web.deps import OwnerScope, get_authorized_file_storage_service
 
 router = APIRouter()
 
@@ -37,7 +36,7 @@ async def browse(
     content_type: str = "",
     uploaded_by: str = "",
     db: AsyncSession = Depends(get_db),
-    service: FileStorageService = Depends(get_file_storage_service),
+    service: FileStorageService = Depends(get_authorized_file_storage_service),
     owner: str | None = OwnerScope,
 ) -> InertiaResponse:
     # ``lenient_page_params`` clamps a page below 1 (0, negative, a hand-edited
@@ -46,9 +45,9 @@ async def browse(
     filters = {
         "search": q or None,
         "content_type": content_type or None,
-        # Without file_storage.manage the screen is the caller's own uploads
-        # (#544); the uploader filter cannot widen it.
-        "created_by": owner if owner is not None else (uploaded_by or None),
+        # The service policy supplies row visibility; this only narrows the search.
+        # Retain the legacy rule that members cannot override the uploader filter.
+        "created_by": (uploaded_by or None) if owner is None else None,
     }
     # Count before paging, not after. A page requested past the end (reloading
     # after deleting the last row on that page, or a stale ?page= link) must be
@@ -61,12 +60,13 @@ async def browse(
     page = clamp_page(params.page, total, _PER_PAGE)
     items = await service.page_of_files(page=page, per_page=_PER_PAGE, **filters)
     # The bucket-wide numbers — usage and both facet lists — come from one
-    # scan, cached with a short TTL. They ignore the active filters so the
+    # scan, cached only for legacy manager visibility. They ignore search filters so the
     # dropdowns keep offering the other types and people (a filter that hides
     # its own alternatives is a dead end) and so the usage figure keeps
     # describing the bucket rather than the search box.
     aggregates = await service.storage_aggregates()
-    content_types, uploaders = await _facets(service, aggregates, owner)
+    content_types = [facet.as_dict() for facet in aggregates.content_types]
+    uploaders: list[dict] = [{"id": f.value, "count": f.count} for f in aggregates.uploaders]
     # One lookup covers the rows on screen and the filter's options, so
     # picking someone from the dropdown never renames them.
     labels = await resolve_uploader_labels(
@@ -93,10 +93,8 @@ async def browse(
             # screen reports usage rather than inventing a total.
             "backend": settings.backend,
             # The quota measures the tenant, so only callers who see the whole
-            # tenant get it; everyone else sees their own usage, no ceiling.
-            "used_bytes": (
-                aggregates.used_bytes if owner is None else await service.used_bytes_by(owner)
-            ),
+            # tenant get it; others see usage of visible files, with no ceiling.
+            "used_bytes": aggregates.used_bytes,
             "quota_bytes": settings.quota_bytes if owner is None else None,
             "max_file_size_bytes": settings.max_file_size_bytes,
             # Above this the page uploads in resumable parts; null when the
@@ -110,25 +108,6 @@ async def browse(
             "allowed_content_types": settings.allowed_content_types,
         },
     )
-
-
-async def _facets(
-    service: FileStorageService, aggregates: StorageAggregates, owner: str | None
-) -> tuple[list[dict], list[dict]]:
-    """The type and uploader dropdowns: bucket-wide, or the caller's own slice.
-
-    A caller confined to their own files must not learn who else uploaded what
-    from the facet lists either, so theirs come from their rows alone. The
-    usage figure stays bucket-wide: the quota it is measured against is.
-    """
-    if owner is None:
-        return (
-            [facet.as_dict() for facet in aggregates.content_types],
-            [{"id": f.value, "count": f.count} for f in aggregates.uploaders],
-        )
-    content_types = await service.content_type_facets(created_by=owner)
-    total = sum(facet["count"] for facet in content_types)
-    return content_types, ([{"id": owner, "count": total}] if total else [])
 
 
 def _file_payload(item: StoredFileOut, labels: dict[str, str]) -> dict:

@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- File storage supports module-owned file access policies through `simple_module_core.file_access`, with `ResourcePolicy` SQL filtering and a never-publishable option. Generic metadata, bytes, thumbnails, publication, deletion, list counts and browse facets honor the policy; untagged files keep their existing uploader/manage rules. **Behaviour change:** tagged files with missing policies, and already-public files whose policy forbids publishing, are hidden by generic routes. Apply migration `f999a1b2c3d4` on `file_storage@head` (#999).
+
 - `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Workers read registered directory, membership and grants through the caller's session; pending writes flush under the original tenant before lookup changes context. Requests share pure principal composition while retaining their existing membership, direct-grant and role-overlay caches (#1005).
 
 ### Fixed

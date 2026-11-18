@@ -13,6 +13,7 @@ answers all three and the result can be cached.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern, like_prefix_pattern
@@ -23,6 +24,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from file_storage.contracts.schemas import StoredFileOut
 from file_storage.core import constants
 from file_storage.models import StoredFile
+
+if TYPE_CHECKING:
+    from file_storage.files.access import FileAccess
 
 
 def order_clauses(sort: str) -> list:
@@ -83,6 +87,7 @@ async def count_files(
     created_by: str | None = None,
     search: str | None = None,
     content_type: str | None = None,
+    access: FileAccess | None = None,
 ) -> int:
     """How many rows the filters match.
 
@@ -100,6 +105,8 @@ async def count_files(
     query = select(func.count(StoredFile.id)).select_from(StoredFile)  # ty: ignore[invalid-argument-type]
     for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
         query = query.where(clause)
+    if access is not None:
+        query = access.apply(query)
     return int((await db.execute(query)).scalar() or 0)
 
 
@@ -112,11 +119,14 @@ async def page_of_files(
     search: str | None = None,
     content_type: str | None = None,
     sort: str = constants.DEFAULT_SORT,
+    access: FileAccess | None = None,
 ) -> list[StoredFileOut]:
     """One page of rows, narrowed by the same filters as the count (newest first by default)."""
     query = select(StoredFile)
     for clause in filter_clauses(created_by=created_by, search=search, content_type=content_type):
         query = query.where(clause)
+    if access is not None:
+        query = access.apply(query)
     params = PageParams(page=page, per_page=per_page)
     result = await db.execute(
         query.order_by(*order_clauses(sort)).offset(params.offset).limit(params.per_page)
@@ -133,6 +143,7 @@ async def list_files(
     search: str | None = None,
     content_type: str | None = None,
     sort: str = constants.DEFAULT_SORT,
+    access: FileAccess | None = None,
 ) -> tuple[list[StoredFileOut], int]:
     """Page plus total, for callers whose page number is already known good.
 
@@ -140,12 +151,16 @@ async def list_files(
     422 rather than clamping, so it never needs the count before the rows.
     """
     filters = {"created_by": created_by, "search": search, "content_type": content_type}
-    total = await count_files(db, **filters)
-    items = await page_of_files(db, page=page, per_page=per_page, sort=sort, **filters)
+    total = await count_files(db, access=access, **filters)
+    items = await page_of_files(
+        db, page=page, per_page=per_page, sort=sort, access=access, **filters
+    )
     return items, total
 
 
-async def content_type_facets(db: AsyncSession, *, created_by: str | None = None) -> list[dict]:
+async def content_type_facets(
+    db: AsyncSession, *, created_by: str | None = None, access: FileAccess | None = None
+) -> list[dict]:
     """Distinct content types present for one uploader, with counts.
 
     Offering the full IANA list would be noise; the only types worth showing
@@ -157,17 +172,21 @@ async def content_type_facets(db: AsyncSession, *, created_by: str | None = None
     query = select(StoredFile.content_type, func.count().label("n"))
     for clause in filter_clauses(created_by=created_by, search=None, content_type=None):
         query = query.where(clause)
+    if access is not None:
+        query = access.apply(query)
     query = query.group_by(StoredFile.content_type).order_by(StoredFile.content_type)
 
     rows = (await db.execute(query)).all()
     return [{"value": str(row[0]), "count": int(row[1])} for row in rows]
 
 
-async def used_bytes_by(db: AsyncSession, owner: str) -> int:
+async def used_bytes_by(db: AsyncSession, owner: str, *, access: FileAccess | None = None) -> int:
     """Total size of one uploader's files, summed in the database."""
     query = select(func.coalesce(func.sum(StoredFile.size_bytes), 0)).where(
         StoredFile.created_by == owner
     )
+    if access is not None:
+        query = access.apply(query)
     return int((await db.execute(query)).scalar_one())
 
 
