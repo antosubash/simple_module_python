@@ -44,6 +44,8 @@ def role_picker():
         ("de", "Administratoren", ["admin"]),
         ("en", "  mEmBeRs  ", ["member"]),
         ("de", "EIGENTÜMER", ["owner"]),
+        ("de", "Eigentumer", ["owner"]),
+        ("de", "Eigentümer", ["owner"]),
         ("de", "glieder", ["member"]),
         ("de", "member", ["member"]),
         ("de", "owner", ["owner"]),

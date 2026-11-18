@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Collection, Mapping
 
 from simple_module_core.resources import ResourcePrincipal
@@ -77,10 +78,16 @@ async def _valid_role(ctx: SubjectContext, subject_id: str) -> str | None:
     return None
 
 
+def _fold(text: str) -> str:
+    """Case- and diacritic-insensitive form: ``Eigentümer`` and ``eigentumer`` match."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
 async def _role_candidates(ctx: SubjectContext, term: str, owner_id: str) -> list[ShareCandidate]:
     if not await _role_visible(ctx):
         return []
-    term = term.casefold()
+    term = _fold(term)
     return [
         ShareCandidate(
             id=role.value, display_name=tenant_role(role), subject_type=SUBJECT_TENANT_ROLE
@@ -89,7 +96,7 @@ async def _role_candidates(ctx: SubjectContext, term: str, owner_id: str) -> lis
         if term in role.value
         or (
             ctx.translate is not None
-            and term in ctx.translate(f"sharing.subjects.{role.value}").casefold()
+            and term in _fold(ctx.translate(f"sharing.subjects.{role.value}"))
         )
     ]
 
