@@ -7,8 +7,20 @@ import { defineConfig, type Plugin } from 'vite';
 import { compressAssets } from './compress-assets.ts';
 import { loadModuleAssets } from './module-assets.ts';
 import { viteDevServer } from './vite.dev-url.ts';
+import { i18nGenerated } from './vite.i18n.ts';
 
 const projectRoot = path.resolve(import.meta.dirname, '../..');
+// Package managers may hoist the install above client_app, so walk up to find it.
+export function findNodeModulesRoot(start: string): string {
+  let dir = start;
+  while (dir !== path.dirname(dir)) {
+    // Vite creates node_modules/.vite even where npm hasn't installed anything.
+    if (fs.existsSync(path.join(dir, 'node_modules', 'vite', 'package.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return start;
+}
+const fsRoot = findNodeModulesRoot(import.meta.dirname);
 const { origin: devUrl, port: devPort } = viteDevServer();
 
 // ANALYZE=1 npm run build emits host/static/dist/stats.html — a sunburst of
@@ -99,7 +111,7 @@ function moduleBareImportResolver(): Plugin {
 }
 
 const moduleDecls = collectModuleDecls();
-const fakeWorkspaceImporter = path.join(projectRoot, 'package.json');
+const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
 
 // Chunks smaller than this get merged into their importer. See build.rollupOptions.
 const MIN_CHUNK_BYTES = 20_000;
@@ -118,6 +130,7 @@ export default defineConfig(({ command }) => ({
   // served paths out from under it.
   base: command === 'build' ? '/static/dist/' : '/',
   plugins: [
+    i18nGenerated(),
     moduleBareImportResolver(),
     react(),
     tailwindcss(),
@@ -168,7 +181,7 @@ export default defineConfig(({ command }) => ({
     // path provides a NODE_PATH-style fallback. See GitHub issue #152.
     rolldownOptions: {
       resolve: {
-        modules: ['node_modules', path.join(projectRoot, 'node_modules')],
+        modules: ['node_modules', path.join(fsRoot, 'node_modules')],
       },
     },
   },
@@ -226,7 +239,7 @@ export default defineConfig(({ command }) => ({
     strictPort: true,
     origin: devUrl,
     fs: {
-      allow: [projectRoot, ...moduleFsAllow],
+      allow: [projectRoot, fsRoot, ...moduleFsAllow],
     },
   },
 }));

@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { type Plugin, defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { loadModuleAssets } from './module-assets.ts';
 import { viteDevServer } from './vite.dev-url.ts';
+import { i18nGenerated } from './vite.i18n.ts';
 
 // Force every importer (host, workspace module, wheel-installed module)
 // to resolve to one React copy + a single Inertia hook context. Without
@@ -18,13 +19,12 @@ const REACT_CORE_DEPS = [
   '@inertiajs/react',
 ] as const;
 
-// File-system serve root — the directory that holds `node_modules`. In flat
-// mode that's the host root; in workspace mode npm hoists `node_modules` to
-// the workspace root one level higher, so we walk up to find it.
-function findNodeModulesRoot(start: string): string {
+// Package managers may hoist the install above client_app, so walk up to find it.
+export function findNodeModulesRoot(start: string): string {
   let dir = start;
   while (dir !== path.dirname(dir)) {
-    if (fs.existsSync(path.join(dir, 'node_modules'))) return dir;
+    // Vite creates node_modules/.vite even where npm hasn't installed anything.
+    if (fs.existsSync(path.join(dir, 'node_modules', 'vite', 'package.json'))) return dir;
     dir = path.dirname(dir);
   }
   return start;
@@ -175,7 +175,7 @@ function moduleBareImportResolver(): Plugin {
 }
 
 export default defineConfig(({ command }) => ({
-  plugins: [moduleBareImportResolver(), react(), tailwindcss()],
+  plugins: [i18nGenerated(), moduleBareImportResolver(), react(), tailwindcss()],
   root: import.meta.dirname,
   // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
   envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
