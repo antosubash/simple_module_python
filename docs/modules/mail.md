@@ -42,6 +42,39 @@ await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body
 - `sender.delivers_email` is `False` for console senders, so a screen can show a link instead of promising an inbox.
 - Code that may run in the outbox worker (no `app`) uses `await resolve_mail_sender(db)`. The module installs a resolver in `register_event_handlers` before its `app is None` return; it hydrates `MailSettings` from the given session. A worker restricted with `SM_MODULES_ENABLED` must therefore list `Mail` (and any module whose durable handler sends mail, such as `Tenants`); without it the tenants invitation handler raises, so the outbox retries the row (and marks it `dead` after its retries) instead of dropping the email.
 
+### Reply address
+
+Set `reply_to` when replies should reach someone other than the platform's
+configured sender. For example, a booking confirmation can direct replies to
+the tour guide:
+
+```python
+await current_mail_sender().send(
+    MailMessage(
+        to="visitor@example.com",
+        subject="Your guided tour is booked",
+        text="Your tour is confirmed. Reply to this email to contact your guide.",
+        reply_to="guide@example.com",
+    )
+)
+```
+
+`reply_to` defaults to `None`. When provided, it must be one mailbox, optionally
+with a display name (for example, `Guide <guide@example.com>` or
+`"Doe, Jane" <guide@example.com>`). Address lists, groups, invalid addresses and
+control characters, including CR/LF header injection, raise `ValueError` at
+construction. SMTP adds the `Reply-To` header and keeps the configured `From`
+address. Internationalized domains in SMTP address headers are IDNA-encoded
+(for example, `guide@bücher.de` becomes `guide@xn--bcher-kva.de`). Domains that
+cannot be IDNA-encoded in `to` or `reply_to` raise `ValueError` during message
+construction and durable deserialization, before entering delivery retries.
+Non-ASCII local parts (before `@`) are rejected in `reply_to`; in `to` and the
+configured `From` address they require an SMTP server advertising `SMTPUTF8`.
+IDN domains and non-ASCII display names alone do not require `SMTPUTF8`.
+Console and fallback senders log the reply address alongside the recipient and subject.
+Durable outbox events preserve it; existing queued payloads without `reply_to`
+default to `None` and still send.
+
 ### Attachments
 
 Pass a list or tuple of `MailAttachment` SQLModel DTOs. For example, attach an
@@ -120,3 +153,5 @@ other queued event data. Admin outbox lists omit payloads and attachment content
 Inspect `captured_mail.messages[0].attachments` (or
 `captured_mail.to("a@example.com")[0].attachments`) for the DTOs and their original
 content bytes.
+Inspect `captured_mail.messages[0].reply_to` (or
+`captured_mail.to("visitor@example.com")[0].reply_to`) for the reply address.

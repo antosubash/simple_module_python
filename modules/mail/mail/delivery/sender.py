@@ -6,7 +6,12 @@ import contextlib
 from email.message import EmailMessage
 
 import aiosmtplib
-from simple_module_core.mail import ConsoleMailSender, MailMessage, MailSender
+from simple_module_core.mail import (
+    ConsoleMailSender,
+    MailMessage,
+    MailSender,
+    smtp_address_header,
+)
 
 from mail.core import constants as c
 from mail.core.settings import MailSettings
@@ -35,8 +40,10 @@ class SmtpMailSender:
 
     async def send(self, message: MailMessage) -> None:
         email = EmailMessage()
-        email["From"] = self._from
-        email["To"] = message.to
+        email["From"] = smtp_address_header(self._from)
+        email["To"] = smtp_address_header(message.to)
+        if message.reply_to is not None:
+            email["Reply-To"] = smtp_address_header(message.reply_to)
         email["Subject"] = message.subject
         email.set_content(message.text)
         if message.html:
