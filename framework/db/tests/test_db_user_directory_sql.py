@@ -45,7 +45,7 @@ async def test_chunk_merge_preserves_database_email_collation():
     engine = create_engine("sqlite://")
     identities.create(engine)
     try:
-        with Session(engine) as connection:
+        with engine.begin() as connection:
             ids = [UUID(int=n + 1) for n in range(501)]
             connection.execute(
                 identities.insert(),
