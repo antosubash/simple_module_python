@@ -1,8 +1,10 @@
 """Only an app entering its serving lifespan emits development diagnostics."""
 
 import asyncio
+import errno
 import io
 import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -12,6 +14,7 @@ from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core import __main__ as doctor
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, _runner
 from simple_module_core.services import DiagnosticsState
+from simple_module_hosting import _dev_boot
 from simple_module_hosting._lifespan import build_lifespan
 
 
@@ -104,3 +107,90 @@ async def test_doctor_prints_all_findings_after_deduplicated_dev_boot(
         assert "orphan serving page" in output
         assert "unverified index" in output
         assert "Results: 0 error(s), 1 warning(s), 1 info; SM003=1, SM026=1" in output
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+async def test_blocked_stderr_does_not_hold_lifespan_or_shutdown(monkeypatch, cancelled):
+    release = threading.Event()
+    entered = threading.Event()
+    worker = []
+
+    class BlockedStream(io.StringIO):
+        def write(self, text):
+            worker.append(threading.current_thread())
+            entered.set()
+            release.wait(2)
+            return super().write(text)
+
+    monkeypatch.setattr(_runner.sys, "stderr", BlockedStream())
+    monkeypatch.setattr(_runner, "_printed_diagnostics", set())
+    monkeypatch.setattr(_dev_boot, "_OUTPUT_TIMEOUT", 0.05, raising=False)
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        settings=SimpleNamespace(environment="development"),
+        diagnostics=DiagnosticsState(
+            results=[Diagnostic(DiagnosticLevel.WARNING, "SM003", "blocked output", "Demo")]
+        ),
+        db=SimpleNamespace(engine=SimpleNamespace(dispose=AsyncMock())),
+    )
+    monkeypatch.setattr(
+        "simple_module_hosting._lifespan.migration_status",
+        AsyncMock(return_value={"is_current": True}),
+    )
+    monkeypatch.setattr("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock())
+
+    async def serve():
+        async with build_lifespan([])(app):
+            pass
+
+    started = time.monotonic()
+    task = asyncio.create_task(serve())
+    try:
+        if cancelled:
+            async with asyncio.timeout(0.5):
+                while not entered.is_set():
+                    await asyncio.sleep(0.001)  # intentional-sleep: poll the writer's entry
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        else:
+            await asyncio.wait_for(task, timeout=0.5)
+        assert time.monotonic() - started < 0.5
+        assert worker and worker[0].daemon
+        assert worker[0].is_alive()
+        app.state.sm.db.engine.dispose.assert_awaited_once()
+    finally:
+        release.set()
+        for thread in worker:
+            thread.join(timeout=1)
+        if not task.done():
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+
+async def test_partial_stderr_failure_does_not_prevent_boot(monkeypatch, caplog):
+    class PartialStream(io.StringIO):
+        def write(self, text):
+            super().write(text[:12])
+            raise BlockingIOError(errno.EAGAIN, "partially accepted", 12)
+
+    stream = PartialStream()
+    monkeypatch.setattr(_runner.sys, "stderr", stream)
+    monkeypatch.setattr(_runner, "_printed_diagnostics", set())
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        settings=SimpleNamespace(environment="development"),
+        diagnostics=DiagnosticsState(
+            results=[Diagnostic(DiagnosticLevel.WARNING, "SM003", "partial output", "Demo")]
+        ),
+        db=SimpleNamespace(engine=SimpleNamespace(dispose=AsyncMock())),
+    )
+    monkeypatch.setattr(
+        "simple_module_hosting._lifespan.migration_status",
+        AsyncMock(return_value={"is_current": True}),
+    )
+    monkeypatch.setattr("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock())
+    async with build_lifespan([])(app):
+        assert stream.getvalue() == "⚠ SM003 [WAR"
+        assert caplog.messages == ["diagnostics output truncated: stderr not writable"]

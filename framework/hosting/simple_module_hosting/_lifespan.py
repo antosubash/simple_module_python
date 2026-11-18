@@ -13,16 +13,15 @@ can still reach the database.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
-from simple_module_core.diagnostics import print_diagnostics
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
+from simple_module_hosting._dev_boot import print_boot_diagnostics
 from simple_module_hosting._fallback_routes import finalize_fallback_routes
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting._table_coverage import add_table_coverage
@@ -50,7 +49,7 @@ def build_lifespan(modules: Sequence) -> Callable:
             environment = getattr(settings, "environment", None)
             diagnostics = getattr(app.state.sm, "diagnostics", None)
             if environment == "development" and diagnostics is not None and diagnostics.results:
-                await asyncio.to_thread(print_diagnostics, diagnostics.results, once=True)
+                await print_boot_diagnostics(diagnostics.results)
             migration = app.state.migration = await migration_status(app.state.sm.db.engine)
             if migration["is_current"] is None and environment == "development":
                 logger.warning("%s: %s", MIGRATION_DRIFT_CODE, migration_problem(migration))

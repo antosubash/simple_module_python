@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-import select
 import sys
-import time
 from collections import Counter
 from contextlib import suppress
 from pathlib import Path
@@ -26,7 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _printed_diagnostics: set[tuple[int, str, str, str, str | None]] = set()
-_OUTPUT_TIMEOUT = 2.0
 
 
 def run_diagnostics(
@@ -103,7 +100,7 @@ def run_diagnostics(
 def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> None:
     """Print diagnostics to the current stderr, optionally once per process at boot.
 
-    Output is best-effort: a slow or closed stderr must never prevent boot.
+    Output is best-effort: backpressure or a closed stderr truncates the report.
     The PID in the key keeps forked serving processes independent of parents.
     Doctor calls leave ``once`` disabled so every invocation prints a full report.
     """
@@ -131,60 +128,16 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
         + ", ".join(f"{code}={count}" for code, count in sorted(codes.items()))
     )
     report = "".join(f"{d}\n\n" for d in unique) + summary + "\n"
-    _write_report(report, summary)
+    _write_report(report)
 
 
-def _write_report(report: str, summary: str) -> None:
-    """Deliver bytes within one deadline, without replaying buffered text writes."""
+def _write_report(report: str) -> None:
+    """Use the current text stream; retries could duplicate partially accepted output."""
     # CliRunner and pytest replace stderr after this module is imported.
     stream = sys.stderr
-    fd = None
-    blocking = None
     try:
-        try:
-            fd = stream.fileno()
-            blocking = os.get_blocking(fd)
-        except (OSError, ValueError):
-            fd = None
-        if fd is None:
-            # Capture streams have no transport to poll; never replay their writes.
-            stream.write(report)
-            stream.flush()
-            return
-
-        deadline = time.monotonic() + _OUTPUT_TIMEOUT
-        payload = memoryview(report.encode(stream.encoding or "utf-8", errors="backslashreplace"))
-        os.set_blocking(fd, False)
-        while True:
-            _remaining(deadline)
-            try:
-                # Drain older buffered output separately, before writing this report.
-                stream.flush()
-                break
-            except BlockingIOError:
-                select.select([], [fd], [], _remaining(deadline))
-        position = 0
-        while position < len(payload):
-            _remaining(deadline)
-            try:
-                written = os.write(fd, payload[position:])
-                if written == 0:
-                    raise OSError("stderr made no progress")
-                position += written
-            except BlockingIOError:
-                select.select([], [fd], [], _remaining(deadline))
-    except (OSError, ValueError) as exc:
-        # Keep the descriptor non-blocking while handlers may target that same pipe.
+        stream.write(report)
+        stream.flush()
+    except (OSError, ValueError):
         with suppress(OSError, ValueError):
-            logger.warning("Could not write module diagnostics (%s); %s", exc, summary)
-    finally:
-        if fd is not None and blocking is not None:
-            with suppress(OSError, ValueError):
-                os.set_blocking(fd, blocking)
-
-
-def _remaining(deadline: float) -> float:
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        raise TimeoutError("stderr output deadline exceeded")
-    return remaining
+            logger.warning("diagnostics output truncated: stderr not writable")

@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Sequence
 
 from fastapi import FastAPI
-from simple_module_core.diagnostics import Diagnostic, print_diagnostics
+from simple_module_core.diagnostics import Diagnostic
 from simple_module_core.diagnostics._migration import MigrationDiagnostics, module_table_names
 from simple_module_core.module import ModuleBase
 from sqlalchemy import inspect
+
+from simple_module_hosting._dev_boot import print_boot_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,6 @@ async def add_table_coverage(app: FastAPI, modules: Sequence[ModuleBase]) -> Non
     )
     if not found:
         return
-    await asyncio.to_thread(print_diagnostics, found, once=True)
+    await print_boot_diagnostics(found)
     state.runner = lambda: [*runner(), *found]
     state.results = [*state.results, *found]

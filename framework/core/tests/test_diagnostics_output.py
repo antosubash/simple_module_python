@@ -41,7 +41,7 @@ def test_capture_stream_preserves_full_details(monkeypatch):
 
 
 @pytest.mark.parametrize("error", [BrokenPipeError, OSError, BlockingIOError, ValueError])
-def test_unwritable_stream_falls_back_once_with_bounded_wait(monkeypatch, caplog, error):
+def test_unwritable_stream_logs_truncation_once(monkeypatch, caplog, error):
     class UnwritableStream(io.StringIO):
         def write(self, text):
             number = errno.EAGAIN if error is BlockingIOError else errno.EIO
@@ -50,8 +50,7 @@ def test_unwritable_stream_falls_back_once_with_bounded_wait(monkeypatch, caplog
     monkeypatch.setattr(_runner.sys, "stderr", UnwritableStream())
     print_diagnostics([finding(), finding(code="SM024")])
     assert len(caplog.records) == 1
-    assert "diagnostics" in caplog.messages[0]
-    assert "SM003=1, SM024=1" in caplog.messages[0]
+    assert caplog.messages == ["diagnostics output truncated: stderr not writable"]
 
 
 def test_fallback_logger_using_a_closed_pipe_cannot_abort_boot(monkeypatch):
@@ -81,7 +80,7 @@ def test_capture_stream_partial_failure_is_not_replayed(monkeypatch, caplog):
     print_diagnostics([finding()])
     assert stream.getvalue() == "⚠ SM003 [WAR"
     assert len(caplog.records) == 1
-    assert "SM003=1" in caplog.messages[0]
+    assert caplog.messages == ["diagnostics output truncated: stderr not writable"]
 
 
 def test_broken_pipe_on_flush_falls_back_once(monkeypatch, caplog):
@@ -92,7 +91,7 @@ def test_broken_pipe_on_flush_falls_back_once(monkeypatch, caplog):
     monkeypatch.setattr(_runner.sys, "stderr", BrokenFlushStream())
     print_diagnostics([finding()])
     assert len(caplog.records) == 1
-    assert "SM003=1" in caplog.messages[0]
+    assert caplog.messages == ["diagnostics output truncated: stderr not writable"]
 
 
 def test_each_call_writes_all_findings_to_current_stderr(monkeypatch):
@@ -140,3 +139,17 @@ def test_a_new_process_does_not_inherit_deduplication(monkeypatch, capsys):
     monkeypatch.setattr(os, "getpid", lambda: pid + 1)
     print_diagnostics([finding()], once=True)
     assert "[WARNING] Demo: Page has no render call" in capsys.readouterr().err
+
+
+def test_closed_stderr_and_closed_fallback_do_not_raise(monkeypatch):
+    stream = io.StringIO()
+    stream.close()
+    monkeypatch.setattr(_runner.sys, "stderr", stream)
+
+    def closed_logger(*args, **kwargs):
+        raise ValueError("I/O operation on closed file")
+
+    monkeypatch.setattr(_runner.logger, "warning", closed_logger)
+    monkeypatch.setattr(_runner.logger, "info", closed_logger)
+    print_diagnostics([finding()])
+    print_diagnostics([])
