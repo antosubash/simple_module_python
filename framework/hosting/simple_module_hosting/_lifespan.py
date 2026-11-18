@@ -49,7 +49,7 @@ def build_lifespan(modules: Sequence) -> Callable:
             environment = getattr(settings, "environment", None)
             diagnostics = getattr(app.state.sm, "diagnostics", None)
             if environment == "development" and diagnostics is not None and diagnostics.results:
-                print_diagnostics(diagnostics.results)
+                print_diagnostics(diagnostics.results, once=True)
             migration = app.state.migration = await migration_status(app.state.sm.db.engine)
             if migration["is_current"] is None and environment == "development":
                 logger.warning("%s: %s", MIGRATION_DRIFT_CODE, migration_problem(migration))

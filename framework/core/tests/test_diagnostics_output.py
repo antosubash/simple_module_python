@@ -125,10 +125,20 @@ def test_broken_pipe_on_flush_falls_back_once(monkeypatch, caplog):
     assert "SM003=1" in caplog.messages[0]
 
 
+def test_each_call_writes_all_findings_to_current_stderr(monkeypatch):
+    for _ in range(2):
+        stream = io.StringIO()
+        monkeypatch.setattr(_runner.sys, "stderr", stream)
+        print_diagnostics([finding(), finding(code="SM024")])
+        output = stream.getvalue()
+        assert output.count("[WARNING] Demo: Page has no render call") == 2
+        assert "SM003=1, SM024=1" in output
+
+
 def test_identical_diagnostics_are_printed_once_across_calls(capsys):
     original = finding()
-    print_diagnostics([original, replace(original)])
-    print_diagnostics([replace(original)])
+    print_diagnostics([original, replace(original)], once=True)
+    print_diagnostics([replace(original)], once=True)
     output = capsys.readouterr().err
     assert output.count("[WARNING] Demo: Page has no render call") == 1
     assert output.count("Results:") == 1
@@ -155,8 +165,8 @@ def test_a_new_process_does_not_inherit_deduplication(monkeypatch, capsys):
     import os
 
     pid = os.getpid()
-    print_diagnostics([finding()])
+    print_diagnostics([finding()], once=True)
     capsys.readouterr()
     monkeypatch.setattr(os, "getpid", lambda: pid + 1)
-    print_diagnostics([finding()])
+    print_diagnostics([finding()], once=True)
     assert "[WARNING] Demo: Page has no render call" in capsys.readouterr().err

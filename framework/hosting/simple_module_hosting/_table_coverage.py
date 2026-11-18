@@ -39,6 +39,6 @@ async def add_table_coverage(app: FastAPI, modules: Sequence[ModuleBase]) -> Non
     )
     if not found:
         return
-    print_diagnostics(found)
+    print_diagnostics(found, once=True)
     state.runner = lambda: [*runner(), *found]
     state.results = [*state.results, *found]

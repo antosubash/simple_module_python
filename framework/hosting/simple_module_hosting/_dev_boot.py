@@ -63,7 +63,7 @@ def run_dev_boot(
     diagnostics = diagnostics_state.rerun()
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
     if errors:
-        print_diagnostics(diagnostics)
+        print_diagnostics(diagnostics, once=True)
         raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
 
     # Nonfatal findings print in lifespan, never in a generator/reloader supervisor.

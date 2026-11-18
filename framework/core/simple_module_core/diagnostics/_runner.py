@@ -98,11 +98,12 @@ def run_diagnostics(
     return diagnostics
 
 
-def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
-    """Print each (code, message, module/file location) once per process.
+def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> None:
+    """Print diagnostics to the current stderr, optionally once per process at boot.
 
     Output is best-effort: a slow or closed stderr must never prevent boot.
     The PID in the key keeps forked serving processes independent of parents.
+    Doctor calls leave ``once`` disabled so every invocation prints a full report.
     """
     if not diagnostics:
         with suppress(OSError):
@@ -111,10 +112,12 @@ def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
 
     unique = []
     for d in diagnostics:
-        key = (os.getpid(), d.code, d.message, d.module_name, d.file)
-        if key not in _printed_diagnostics:
+        if once:
+            key = (os.getpid(), d.code, d.message, d.module_name, d.file)
+            if key in _printed_diagnostics:
+                continue
             _printed_diagnostics.add(key)
-            unique.append(d)
+        unique.append(d)
     if not unique:
         return
 
@@ -136,6 +139,7 @@ def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
 
 def _write_report(report: str) -> None:
     """Retry partial writes and flushes for at most 100 ms per report."""
+    # CliRunner and pytest replace stderr after this module is imported.
     stream = sys.stderr
     deadline = time.monotonic() + 0.1
     position = 0
