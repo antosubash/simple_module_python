@@ -4,9 +4,12 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi import FastAPI
+from simple_module_db.pagination import PageParams
 from sqlalchemy import delete, select
+from tenants.core.service import TenantService
 from tenants.models import Membership, Tenant
-from tenants.web.endpoints.api import router
+from tenants.web.deps import ActiveTenantContext
+from tenants.web.endpoints.api import list_members, router
 
 
 async def test_members_api_and_page_paginate_and_clamp(app, tenant_client):
@@ -65,20 +68,24 @@ async def test_members_api_rejects_invalid_pagination(tenant_client, query):
 
 
 async def test_empty_roster_and_lenient_page_parameters(app, tenant_client):
-    async with tenant_client("owner") as (client, tenant_id, _):
+    async with tenant_client("owner") as (client, tenant_id, user_id):
         props = (
             await client.get(
                 "/tenants/members?page=oops&per_page=-1", headers={"X-Inertia": "true"}
             )
         ).json()["props"]
         assert props["pagination"] == {"page": 1, "per_page": 1, "total": 1}
-        # Keep the already-authorized request's membership cache warm to exercise
-        # an empty roster independently of the tenant access gate.
+        # Exercise empty pagination directly: removing the caller also revokes access.
         async with app.state.sm.db.session_factory() as db:
             await db.execute(delete(Membership).where(Membership.tenant_id == tenant_id))
             await db.commit()
-        data = (await client.get("/api/tenants/current/members?page=999")).json()
-        assert data == {"items": [], "total": 0, "page": 1, "per_page": 25, "pages": 1}
+            data = await list_members(
+                ActiveTenantContext(tenant_id, "owner", user_id),
+                TenantService(db),
+                PageParams(page=999),
+            )
+        assert data.model_dump() == {"items": [], "total": 0, "page": 1, "per_page": 25, "pages": 1}
+        assert (await client.get("/api/tenants/current/members?page=999")).status_code == 401
 
 
 def test_members_openapi_preserves_typed_items():
