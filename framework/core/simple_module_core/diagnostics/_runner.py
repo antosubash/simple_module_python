@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import select
 import sys
 import time
 from collections import Counter
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _printed_diagnostics: set[tuple[int, str, str, str, str | None]] = set()
+_OUTPUT_TIMEOUT = 2.0
 
 
 def run_diagnostics(
@@ -106,7 +108,7 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
     Doctor calls leave ``once`` disabled so every invocation prints a full report.
     """
     if not diagnostics:
-        with suppress(OSError):
+        with suppress(OSError, ValueError):
             logger.info("\u2713 No module diagnostics issues found")
         return
 
@@ -129,32 +131,60 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
         + ", ".join(f"{code}={count}" for code, count in sorted(codes.items()))
     )
     report = "".join(f"{d}\n\n" for d in unique) + summary + "\n"
-    try:
-        _write_report(report)
-    except OSError as exc:
-        # A logging handler may itself target the same broken stderr pipe.
-        with suppress(OSError):
-            logger.warning("Could not write module diagnostics (%s); %s", exc, summary)
+    _write_report(report, summary)
 
 
-def _write_report(report: str) -> None:
-    """Retry partial writes and flushes for at most 100 ms per report."""
+def _write_report(report: str, summary: str) -> None:
+    """Deliver bytes within one deadline, without replaying buffered text writes."""
     # CliRunner and pytest replace stderr after this module is imported.
     stream = sys.stderr
-    deadline = time.monotonic() + 0.1
-    position = 0
-    while True:
+    fd = None
+    blocking = None
+    try:
         try:
-            while position < len(report):
-                written = stream.write(report[position:])
-                if written == 0:
-                    raise BlockingIOError("stderr made no progress")
-                position += written
+            fd = stream.fileno()
+            blocking = os.get_blocking(fd)
+        except (OSError, ValueError):
+            fd = None
+        if fd is None:
+            # Capture streams have no transport to poll; never replay their writes.
+            stream.write(report)
             stream.flush()
             return
-        except BlockingIOError as exc:
-            position += getattr(exc, "characters_written", 0)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise
-            time.sleep(min(0.01, remaining))
+
+        deadline = time.monotonic() + _OUTPUT_TIMEOUT
+        payload = memoryview(report.encode(stream.encoding or "utf-8", errors="backslashreplace"))
+        os.set_blocking(fd, False)
+        while True:
+            _remaining(deadline)
+            try:
+                # Drain older buffered output separately, before writing this report.
+                stream.flush()
+                break
+            except BlockingIOError:
+                select.select([], [fd], [], _remaining(deadline))
+        position = 0
+        while position < len(payload):
+            _remaining(deadline)
+            try:
+                written = os.write(fd, payload[position:])
+                if written == 0:
+                    raise OSError("stderr made no progress")
+                position += written
+            except BlockingIOError:
+                select.select([], [fd], [], _remaining(deadline))
+    except (OSError, ValueError) as exc:
+        # Keep the descriptor non-blocking while handlers may target that same pipe.
+        with suppress(OSError, ValueError):
+            logger.warning("Could not write module diagnostics (%s); %s", exc, summary)
+    finally:
+        if fd is not None and blocking is not None:
+            with suppress(OSError, ValueError):
+                os.set_blocking(fd, blocking)
+
+
+def _remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("stderr output deadline exceeded")
+    return remaining

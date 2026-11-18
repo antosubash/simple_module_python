@@ -1,5 +1,8 @@
 """Only an app entering its serving lifespan emits development diagnostics."""
 
+import asyncio
+import io
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -10,6 +13,41 @@ from simple_module_core import __main__ as doctor
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, _runner
 from simple_module_core.services import DiagnosticsState
 from simple_module_hosting._lifespan import build_lifespan
+
+
+async def test_diagnostic_output_does_not_stall_the_event_loop(monkeypatch):
+    released = threading.Event()
+    responsive = []
+
+    class WaitingStream(io.StringIO):
+        def write(self, text):
+            responsive.append(released.wait(0.5))
+            return super().write(text)
+
+    stream = WaitingStream()
+    monkeypatch.setattr(_runner.sys, "stderr", stream)
+    monkeypatch.setattr(_runner, "_printed_diagnostics", set())
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        settings=SimpleNamespace(environment="development"),
+        diagnostics=DiagnosticsState(
+            results=[Diagnostic(DiagnosticLevel.WARNING, "SM003", "slow output", "Demo")]
+        ),
+        db=SimpleNamespace(engine=SimpleNamespace(dispose=AsyncMock())),
+    )
+    monkeypatch.setattr(
+        "simple_module_hosting._lifespan.migration_status",
+        AsyncMock(return_value={"is_current": True}),
+    )
+    monkeypatch.setattr("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock())
+    timer = asyncio.get_running_loop().call_later(0.02, released.set)
+    try:
+        async with build_lifespan([])(app):
+            assert responsive and all(responsive)
+            assert "slow output" in stream.getvalue()
+    finally:
+        timer.cancel()
+        released.set()
 
 
 @pytest.mark.parametrize("entrypoint", ["make", "smpy"])

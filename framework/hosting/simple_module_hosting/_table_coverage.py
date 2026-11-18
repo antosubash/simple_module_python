@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Sequence
 
@@ -39,6 +40,6 @@ async def add_table_coverage(app: FastAPI, modules: Sequence[ModuleBase]) -> Non
     )
     if not found:
         return
-    print_diagnostics(found, once=True)
+    await asyncio.to_thread(print_diagnostics, found, once=True)
     state.runner = lambda: [*runner(), *found]
     state.results = [*state.results, *found]
