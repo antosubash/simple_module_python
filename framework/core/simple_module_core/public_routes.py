@@ -7,8 +7,7 @@ status pages) contribute exemptions here via
 collects them into one registry at boot and the middleware consults it on every
 request.
 
-Unlike the deprecated ``AuthProvider.get_public_paths`` contract — a flat tuple of
-prefixes matched with ``str.startswith`` — a :class:`PublicRoute` is
+A :class:`PublicRoute` is
 **method-aware** and supports prefix / exact / suffix / regex matching. That
 lets a module expose ``GET /api/gis/datasets/{id}/tilejson`` while leaving
 ``PATCH``/``POST`` siblings under the same prefix authenticated.
@@ -19,7 +18,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from simple_module_core.deprecation import deprecate
 from simple_module_core.rate_limit import parse_rate
 
 _MatchKind = str  # one of: "prefix" | "exact" | "suffix" | "regex"
@@ -161,28 +159,4 @@ class PublicRouteRegistry:
         return list(self._routes)
 
 
-_LEGACY_GET_PUBLIC_PATHS = deprecate(
-    "AuthProvider.get_public_paths",
-    remove_in="0.1.0",
-    use="ModuleBase.register_public_routes (method-aware PublicRouteRegistry)",
-)
-_warned_providers: set[type] = set()
-
-
-def legacy_provider_public_paths(provider: object) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """``(prefixes, exact)`` from a provider's deprecated ``get_public_paths()``.
-
-    Providers that dropped the method (users, keycloak) yield nothing. A provider
-    that still implements it keeps working until 0.1.0, with one
-    ``DeprecationWarning`` per provider class.
-    """
-    getter = getattr(provider, "get_public_paths", None)
-    if getter is None:
-        return (), ()
-    if type(provider) not in _warned_providers:
-        _warned_providers.add(type(provider))
-        _LEGACY_GET_PUBLIC_PATHS.warn(stacklevel=2)
-    return getter()
-
-
-__all__ = ["PublicRoute", "PublicRouteRegistry", "legacy_provider_public_paths"]
+__all__ = ["PublicRoute", "PublicRouteRegistry"]

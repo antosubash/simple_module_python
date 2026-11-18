@@ -76,7 +76,7 @@ class TenantsModule(ModuleBase):
         optional_depends_on=[c._MODULE_SETTINGS],
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from tenants.contracts.events import InvitationCreated
         from tenants.invitations.mail import send_invitation_email
 

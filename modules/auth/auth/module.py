@@ -1,7 +1,7 @@
 """Auth module — shared contracts (UserContext, AuthProvider, deps).
 
 Intentionally minimal: this module owns the PUBLIC interface (UserContext,
-AuthProvider, PrincipalResolver, get_current_user, CurrentUser, require_permission)
+AuthProvider, PrincipalResolver, get_current_user, CurrentUser)
 that every other module imports. Keeping it stable prevents churn when auth
 internals change.
 

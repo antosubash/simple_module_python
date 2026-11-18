@@ -67,7 +67,7 @@ class FeatureFlagsModule(ModuleBase):
         i18n_audience="admin",
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
         from feature_flags.core.tenant_cleanup import purge_tenant_data

@@ -79,11 +79,9 @@ There is no role ranking: such a grantee may grant **any** declared role,
 including another manager. The API still requires `sharing.share`. Expired
 shares and shares from other tenants grant no access.
 
-`ResourceType.shareable_actions` is deprecated for removal in **0.1.0** and
-warns when supplied. Existing view/edit subsets still restrict grantable roles;
-`edit` continues to imply view. Migrate to `share_roles` and pass that mapping
-to the SQL factory too. When both are supplied, `share_roles` takes precedence.
-No database migration is needed.
+Use `ResourceType.share_roles` and pass the same mapping to the SQL factory.
+For a view-only subset use `{"view": (ACTION_VIEW,)}`; edit implies view through
+`{"edit": (ACTION_VIEW, ACTION_EDIT)}`. No database migration is needed.
 
 ## Routes
 

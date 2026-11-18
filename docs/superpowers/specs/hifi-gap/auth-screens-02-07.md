@@ -1,5 +1,9 @@
 # Hi-Fi deck gap analysis — auth-screens-02-07
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 > **Superseded:** Guidance below to implement `get_public_paths()` is obsolete. Use
 > `ModuleBase.register_public_routes` and the method-aware `PublicRouteRegistry`;
 > see [Public routes](../../../framework/public-routes.md). The legacy shim is removed in 0.1.0.

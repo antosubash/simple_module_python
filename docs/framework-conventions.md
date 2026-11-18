@@ -450,7 +450,7 @@ or `simple-module-keycloak` (Keycloak OIDC). Both implement the `AuthProvider`
 protocol from `auth.contracts.provider`.
 
 **Module authors never import from `users` or `keycloak` directly.** Use only:
-- `from auth.web.deps import CurrentUser, require_permission`
+- `from auth.web.deps import CurrentUser` and `from simple_module_hosting.permissions import RequiresPermission`
 - `from auth.contracts.schemas import UserContext`
 
 The `AuthMiddleware` (in `auth/web/middleware.py`) delegates to the active provider's
@@ -610,10 +610,10 @@ class OrderPlaced(Event):
     total: Decimal
 ```
 
-Subscribe in `register_event_handlers(bus)`:
+Subscribe in `register_event_handlers(bus, app)`:
 
 ```python
-def register_event_handlers(self, bus: EventBus) -> None:
+def register_event_handlers(self, bus: EventBus, app) -> None:
     bus.subscribe(OrderPlaced, self._on_order_placed)
 ```
 

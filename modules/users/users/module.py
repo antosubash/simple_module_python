@@ -84,7 +84,7 @@ class UsersModule(ModuleBase):
 
         register_inertia_shared_provider(app, users_shared_props)
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         """Rebuild the OAuth client cache when the users settings reload.
 
         Routes mount at construction (before DB hydration), so the cache is the

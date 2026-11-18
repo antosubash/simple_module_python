@@ -1,5 +1,9 @@
 # DB-backed Module Settings Implementation Plan
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace `SM_<MODULE>_*` env-var sprawl with DB-backed overrides behind every module's pydantic `BaseSettings`, plus a typed admin UI at `/settings/modules` that supports hot-reload and per-field "Requires restart" semantics.
@@ -58,7 +62,7 @@ from __future__ import annotations
 import pytest
 from pydantic_settings import BaseSettings
 
-from settings.module_registry import ModuleSettingsRegistry
+from simple_module_core.module_settings import ModuleSettingsRegistry
 
 
 class _Foo(BaseSettings):
@@ -170,7 +174,7 @@ from __future__ import annotations
 import pytest
 
 from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.module_settings.store import SettingsStore
 
 
 @pytest.mark.asyncio
@@ -239,7 +243,7 @@ to avoid collision with free-form user-defined setting keys.
 
 from __future__ import annotations
 
-from settings.constants import SCOPE_SYSTEM, SYSTEM_SCOPE_ID
+from settings.core.constants import SCOPE_SYSTEM, SYSTEM_SCOPE_ID
 from settings.contracts.schemas import SettingScope, SettingUpsert, SettingValueType
 from settings.service import SettingService
 
@@ -357,9 +361,9 @@ import pytest
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings
 
-from settings.hydrate import hydrate_settings, value_type_for_field
+from simple_module_core.settings_hydrate import hydrate_settings, value_type_for_field
 from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.module_settings.store import SettingsStore
 
 
 class _Cfg(BaseSettings):
@@ -441,7 +445,7 @@ from typing import TypeVar, get_args, get_origin
 
 from pydantic_settings import BaseSettings
 
-from settings.store import SettingsStore
+from settings.module_settings.store import SettingsStore
 
 T = TypeVar("T", bound=BaseSettings)
 
@@ -537,9 +541,9 @@ import pytest
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
-from settings.constants import MODULE_PACKAGE
-from settings.module_registry import ModuleSettingsRegistry
-from settings.registration import register_module_settings
+from settings.core.constants import MODULE_PACKAGE
+from simple_module_core.module_settings import ModuleSettingsRegistry
+from simple_module_core.module_settings import register_module_settings
 from settings.services import SettingsServices
 from settings.settings import SettingsSettings
 
@@ -605,7 +609,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from settings.contracts.registry import SettingsRegistry
-from settings.module_registry import ModuleSettingsRegistry
+from simple_module_core.module_settings import ModuleSettingsRegistry
 from settings.settings import SettingsSettings
 
 
@@ -642,7 +646,7 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
-from settings.constants import MODULE_PACKAGE
+from settings.core.constants import MODULE_PACKAGE
 
 
 def register_module_settings(
@@ -778,13 +782,13 @@ from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
 
 from settings.contracts.events import SettingsReloaded
-from settings.module_registry import ModuleSettingsRegistry
-from settings.registration import register_module_settings
+from simple_module_core.module_settings import ModuleSettingsRegistry
+from simple_module_core.module_settings import register_module_settings
 from settings.reload import apply_changes_and_reload
 from settings.service import SettingService
 from settings.services import SettingsServices
 from settings.settings import SettingsSettings
-from settings.store import SettingsStore
+from settings.module_settings.store import SettingsStore
 
 
 class _UsersCfg(BaseSettings):
@@ -897,10 +901,10 @@ from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 from simple_module_core.events import EventBus
 
-from settings.constants import MODULE_PACKAGE
+from settings.core.constants import MODULE_PACKAGE
 from settings.contracts.events import SettingsReloaded
-from settings.hydrate import hydrate_settings, value_type_for_field
-from settings.store import SettingsStore
+from simple_module_core.settings_hydrate import hydrate_settings, value_type_for_field
+from settings.module_settings.store import SettingsStore
 
 
 def _encode(value: Any, value_type: str) -> str:
@@ -1227,7 +1231,7 @@ for mod in modules:
 # among leaves).
 from dataclasses import dataclass
 from simple_module_hosting.host_settings import HostSettings
-from settings.registration import register_module_settings
+from simple_module_core.module_settings import register_module_settings
 
 
 @dataclass
@@ -1280,7 +1284,7 @@ from httpx import ASGITransport, AsyncClient
 async def test_lifespan_hydrates_host_settings_from_db(app, db_session):
     """After lifespan starts, host settings reflect DB overrides, not defaults."""
     from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.module_settings.store import SettingsStore
 
     # Seed an override before the lifespan's hydrate step would run.
     # (In this fixture, lifespan has already started — so we simulate by
@@ -1317,9 +1321,9 @@ import logging
 
 from fastapi import FastAPI
 
-from settings.constants import MODULE_PACKAGE
-from settings.hydrate import hydrate_settings
-from settings.store import SettingsStore
+from settings.core.constants import MODULE_PACKAGE
+from simple_module_core.settings_hydrate import hydrate_settings
+from settings.module_settings.store import SettingsStore
 
 logger = logging.getLogger(__name__)
 
@@ -1353,7 +1357,7 @@ Modify `framework/hosting/simple_module_hosting/app_builder.py`, replace the lif
         # Hydrate all registered settings from DB before any module on_startup.
         from simple_module_hosting._hydrate_step import hydrate_all
         from settings.service import SettingService
-        from settings.store import SettingsStore
+        from settings.module_settings.store import SettingsStore
 
         async with app.state.sm.db.session_factory() as session:
             store = SettingsStore(SettingService(session))
@@ -1424,7 +1428,7 @@ Modify `modules/settings/settings/module.py`:
         # The settings module itself bootstraps its own services object —
         # it can't use register_module_settings because that helper reads
         # app.state.settings.module_registry, which doesn't exist yet.
-        from settings.module_registry import ModuleSettingsRegistry
+        from simple_module_core.module_settings import ModuleSettingsRegistry
         from settings.contracts.registry import SettingsRegistry
         from settings.services import SettingsServices
         from settings.settings import SettingsSettings
@@ -1479,7 +1483,7 @@ Open `modules/users/users/module.py`. Find `register_settings` and rewrite it as
 def register_settings(self, app: FastAPI) -> None:
     from users.services import UsersServices  # or whatever the dataclass is called
     from users.settings import UsersSettings
-    from settings.registration import register_module_settings
+    from simple_module_core.module_settings import register_module_settings
 
     register_module_settings(
         app,
@@ -1499,9 +1503,9 @@ Every test that does `monkeypatch.setenv("SM_USERS_*", ...)` becomes: write to `
 @pytest.mark.asyncio
 async def test_allow_signup_override_from_db(db_session):
     from users.settings import UsersSettings
-    from settings.hydrate import hydrate_settings
+    from simple_module_core.settings_hydrate import hydrate_settings
     from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.module_settings.store import SettingsStore
 
     store = SettingsStore(SettingService(db_session))
     await store.set_override("users", "allow_signup", "true", "bool")
@@ -1789,7 +1793,7 @@ class ModuleSettingField:
 Extend `_field_view` to read the type (via `value_type_for_field` from `hydrate.py`) and the `json_schema_extra` on the FieldInfo:
 
 ```python
-from settings.hydrate import value_type_for_field
+from simple_module_core.settings_hydrate import value_type_for_field
 
 
 def _field_view(name: str, settings: BaseSettings, prefix: str) -> ModuleSettingField:
@@ -1927,11 +1931,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
 
 from settings._module_settings import collect_module_settings, serialize
-from settings.constants import MODULE_PACKAGE
+from settings.core.constants import MODULE_PACKAGE
 from settings.deps import get_setting_service
 from settings.reload import apply_changes_and_reload
 from settings.service import SettingService
-from settings.store import SettingsStore
+from settings.module_settings.store import SettingsStore
 
 _MASK_SENTINEL = "••••••••"
 
@@ -2001,7 +2005,7 @@ async def reset_field(
     await store.clear_override(package, field)
 
     # Re-hydrate from DB (now missing the override) and reassign.
-    from settings.hydrate import hydrate_settings
+    from simple_module_core.settings_hydrate import hydrate_settings
 
     hydrated = await hydrate_settings(cls, store, package)
     services = getattr(request.app.state, package)
@@ -2572,7 +2576,7 @@ async def test_import_from_env_writes_overrides(db_session, monkeypatch, app):
     monkeypatch.setenv("SM_BG_TASKS_RETENTION_DAYS", "30")
 
     from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.module_settings.store import SettingsStore
 
     store = SettingsStore(SettingService(db_session))
     n = await import_from_env_impl(app, store)
@@ -2590,7 +2594,7 @@ async def test_import_ignores_unknown_env(db_session, monkeypatch, app):
     monkeypatch.setenv("SM_USERS_DOES_NOT_EXIST", "value")
 
     from settings.service import SettingService
-    from settings.store import SettingsStore
+    from settings.module_settings.store import SettingsStore
 
     store = SettingsStore(SettingService(db_session))
     n = await import_from_env_impl(app, store)
@@ -2622,9 +2626,9 @@ import sys
 
 from fastapi import FastAPI
 
-from settings.constants import MODULE_PACKAGE
-from settings.hydrate import value_type_for_field
-from settings.store import SettingsStore
+from settings.core.constants import MODULE_PACKAGE
+from simple_module_core.settings_hydrate import value_type_for_field
+from settings.module_settings.store import SettingsStore
 
 
 def _env_prefix_for(package: str) -> str:

@@ -503,7 +503,7 @@ from file_storage.contracts import FileUploaded
 
 
 class MyModule(ModuleBase):
-    def register_event_handlers(self, bus):
+    def register_event_handlers(self, bus, app):
         bus.subscribe(FileUploaded, self._on_uploaded)
 
     async def _on_uploaded(self, event: FileUploaded) -> None: ...

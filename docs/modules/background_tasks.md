@@ -334,7 +334,7 @@ from orders.contracts.events import OrderPlaced
 
 
 class InvoicesModule(ModuleBase):
-    def register_event_handlers(self, bus, app=None) -> None:
+    def register_event_handlers(self, bus, app) -> None:
         # Before any `if app is None: return` — the worker registers with app=None.
         bus.subscribe_durable(OrderPlaced, create_invoice)
 

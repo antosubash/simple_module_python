@@ -48,7 +48,7 @@ class PermissionsModule(ModuleBase):
         i18n_audience="admin",
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.user_events import UserDeleted
 
         from permissions.grants.user_cleanup import purge_user_grants

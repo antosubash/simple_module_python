@@ -44,7 +44,7 @@ The framework's first-party modules live on PyPI as `simple_module_<name>` and a
 
 | Module | What it provides |
 |---|---|
-| `auth` | Tiny public API (`UserContext`, `get_current_user`, `require_permission`) |
+| `auth` | Tiny public API (`UserContext`, `get_current_user`) |
 | `users` | Email + password login, sessions, roles, invites, admin UI |
 | `permissions` | Role + direct-grant assignment store + `RequiresPermission` |
 | `settings` | DB-backed key/value store + per-module pydantic settings + admin UI |

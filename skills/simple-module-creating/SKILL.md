@@ -144,7 +144,7 @@ In execution order — no-op by default except conventional router discovery:
 | `register_menu_items(registry)` | Sidebar / navbar entries |
 | `register_permissions(registry)` | `<module>.<action>` strings, grouped |
 | `register_feature_flags(registry)` | `FeatureFlagDefinition` constants |
-| `register_event_handlers(bus)` | `bus.subscribe(EventCls, handler)` |
+| `register_event_handlers(bus, app)` | `bus.subscribe(EventCls, handler)` |
 | `register_health_checks(registry)` | Module-owned health probes |
 | `register_public_routes(registry)` | Exempt routes from auth via `add_prefix` / `add_regex` (method-aware) |
 | `register_cors_policies(registry)` | Opt a public, cross-origin path into CORS (`registry.add_regex(pattern, CorsPolicy(...), enabled=...)`); most specific match wins |

@@ -1,5 +1,9 @@
 # Auth Principal-Resolver Chain Implementation Plan
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Expose a principal-resolver chain on `app.state.auth` so downstream modules (e.g. `smpy_gis`) can plug in a PAT / bearer-token resolver alongside the existing session-cookie auth, with no changes to existing session-only consumers.

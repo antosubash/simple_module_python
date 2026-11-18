@@ -251,7 +251,7 @@ def resolved_permissions_for(request: Request) -> set[str]:
 
 
 class RequiresPermission:
-    """FastAPI dependency that enforces a specific permission.
+    """FastAPI dependency that requires any one of the supplied permissions.
 
     Honours roles *and* every registered grant source, so a direct per-user
     grant from the ``permissions`` module takes effect here too.
@@ -267,8 +267,9 @@ class RequiresPermission:
     # may reach it — capped at its scopes by the check below.
     __sm_token_gate__ = GATE_PERMISSION
 
-    def __init__(self, permission: str) -> None:
+    def __init__(self, permission: str, *alternatives: str) -> None:
         self.permission = permission
+        self.permissions = (permission, *alternatives)
 
     async def __call__(self, request: Request) -> None:
         user = getattr(request.state, "user", None)
@@ -278,5 +279,5 @@ class RequiresPermission:
         permissions = await ensure_resolved_permissions(request)
         if getattr(request.state, "user", None) is None:  # demoted while resolving
             raise HTTPException(status_code=401, detail="Authentication required")
-        if not grants(permissions, self.permission):
-            raise PermissionDenied(self.permission)
+        if not any(grants(permissions, key) for key in self.permissions):
+            raise PermissionDenied(", ".join(self.permissions))

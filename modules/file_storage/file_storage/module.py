@@ -55,7 +55,7 @@ class FileStorageModule(ModuleBase):
             lambda s: FileStorageServices(settings=s),
         )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from file_storage.core.tenant_deletion import register_tenant_deletion
 
         register_tenant_deletion(bus, app)

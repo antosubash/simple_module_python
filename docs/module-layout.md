@@ -236,28 +236,28 @@ One module per PR; no logic changes in a move PR.
 7. Review the diff as moves and import rewrites only. Verify wheel contents,
    UI scanning and module lookup paths. Keep logic changes in another PR.
 
-## Migration status (2026-11-05)
+## Migration status (2026-11-18)
 
 Counts refer to the source package root and direct `tests/test_*.py` files;
-cache directories are ignored. Shim files left at old paths are counted separately. Update this table
+cache directories are ignored. The old layout shims have been removed (#989). Update this table
 when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
 | --- | ---: | ---: | --- |
-| api_tokens | 3 (+4 shims) | 0 | follows this layout |
+| api_tokens | 3 | 0 | follows this layout |
 | audit_log | 3 | 0 | follows this layout |
-| auth | 3 (+4 shims) | 0 | follows this layout |
-| background_tasks | 4 (+10 shims) | 0 | follows this layout |
-| branding | 2 (+6 shims) | 0 | follows this layout |
+| auth | 3 | 0 | follows this layout |
+| background_tasks | 4 | 0 | follows this layout |
+| branding | 2 | 0 | follows this layout |
 | dashboard | 2 | 0 | follows this layout |
-| feature_flags | 3 (+1 shim) | 0 | follows this layout |
-| file_storage | 4 (+7 shims) | 0 | follows this layout |
-| keycloak | 3 (+5 shims) | 0 | follows this layout |
-| mail | 2 (+2 shims) | 0 | follows this layout |
-| oidc | 3 (+3 shims) | 0 | follows this layout |
-| permissions | 3 (+2 shims) | 0 | follows this layout |
-| settings | 4 (+8 shims, +3 deprecated re-exports) | 0 | follows this layout |
-| sharing | 3 (+3 shims) | 0 | follows this layout |
-| site_lock | 2 (+1 shim) | 0 | follows this layout |
-| tenants | 3 (+6 shims) | 0 | follows this layout |
-| users | 3 (+7 shims) | 0 | follows this layout |
+| feature_flags | 3 | 0 | follows this layout |
+| file_storage | 4 | 0 | follows this layout |
+| keycloak | 3 | 0 | follows this layout |
+| mail | 2 | 0 | follows this layout |
+| oidc | 3 | 0 | follows this layout |
+| permissions | 3 | 0 | follows this layout |
+| settings | 4 | 0 | follows this layout |
+| sharing | 3 | 0 | follows this layout |
+| site_lock | 2 | 0 | follows this layout |
+| tenants | 3 | 0 | follows this layout |
+| users | 3 | 0 | follows this layout |

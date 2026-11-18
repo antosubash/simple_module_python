@@ -35,7 +35,7 @@ class OrdersModule(ModuleBase):
         )
 ```
 
-That surfaces the module's settings fields under `/admin/settings/`, hydrated from the DB store at startup. The settings class is normally a `simple_module_core.settings_base.DbBackedSettings` (DB is the only source). Registration and hydration live in the framework (#500); this module adds the admin editor, hot reload and the key/value API. `settings.registration`, `settings.module_registry` and `settings.hydrate` are deprecated re-exports.
+That surfaces the module's settings fields under `/admin/settings/`, hydrated from the DB store at startup. The settings class is normally a `simple_module_core.settings_base.DbBackedSettings` (DB is the only source). Registration and hydration live in the framework (#500); this module adds the admin editor, hot reload and the key/value API.
 
 ## Depends on
 

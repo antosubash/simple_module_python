@@ -46,7 +46,7 @@ class MailModule(ModuleBase):
             )
         )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         # Before the ``app is None`` return: the outbox worker builds modules
         # without an app and still has to send durable mail.
         from mail.delivery.runtime import resolve_sender_from_db

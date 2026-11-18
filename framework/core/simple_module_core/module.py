@@ -33,9 +33,6 @@ if TYPE_CHECKING:
     from simple_module_core.spa_mount import SpaMount
 
 
-EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN = "0.1.0"
-
-
 class ModuleBase(RequestHooksMixin, ABC):
     """Base class for all modules.
 
@@ -92,12 +89,10 @@ class ModuleBase(RequestHooksMixin, ABC):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         """Declare feature flags this module exposes."""
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         """Subscribe to events published by other modules.
 
-        The optional ``app=None`` compatibility default has
-        ``remove_in="0.1.0"``. Overrides own the call, so the base class cannot
-        reliably warn when callers omit it. Pass ``app`` through to handlers
+        Pass ``app`` explicitly, or ``None`` in workers. Pass it through to handlers
         that need ``app.state.sm.db.session_factory`` to persist on the
         framework's engine instead of building their own.
         """
