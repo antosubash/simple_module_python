@@ -89,6 +89,8 @@ def _register_all() -> None:
     deprecate("simple_module_inertia.props.lazy", remove_in=props.LAZY_REMOVE_IN, use="optional()")
     # The Makefile fallback is shell, so it is registered here (#985).
     deprecate("Makefile SM_TEST_PG_URL fallback", remove_in="0.0.49", use="SM_TEST_DATABASE_URL")
+    # Read by vite.dev-url.ts (repo host and scaffold), so registered here (#983).
+    deprecate("SM_VITE_PORT dev-server fallback", remove_in="0.0.49", use="smpy dev / SM_VITE_DEV_URL")
 
 
 def test_every_known_shim_is_registered() -> None:
