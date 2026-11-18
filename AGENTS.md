@@ -136,9 +136,17 @@ absent), and the host calls each `register_*` hook in that order
 (`docs/framework/discovery.md`). Outside development a missing `depends_on`
 target fails the boot (`MissingDependencyError`, `SM030`); selecting
 `keycloak` drops `Users`, so modules needing it must be left out.
+Auth modules declare `ModuleMeta(provides_auth=True)` for selection and SM020;
+the legacy `_is_auth_provider` marker warns once per class (removal 0.1.0).
+Duplicate meta names raise `InvalidModuleError` (`SM008`) outside development,
+naming both distributions; development warns and skips the later entry point.
+Allowlists accept entry-point names as well as meta names. Only when every item
+matches an installed entry-point name can discovery skip other plugins before
+import; unresolved meta-name items require loading candidates first.
 
 **Two names per module.** `ModuleMeta.name` (scaffold default: PascalCase,
-`FeatureFlags`) keys Inertia render paths, `depends_on` and `SM_MODULES_ENABLED`.
+`FeatureFlags`) keys Inertia render paths and `depends_on`; `SM_MODULES_ENABLED`
+accepts this name or the entry-point name, case-insensitively.
 The Python package name (`feature_flags`) keys the i18n namespace,
 `app.state.<package>` and table prefixes. Don't swap them: `keys.<ns>` breaks if
 the namespace is the meta name.
@@ -477,7 +485,7 @@ Unlisted test directories are silently never collected.
 environment. The table with triggers and fixes is
 `docs/reference/diagnostic-codes.md`. **Production does not run the suite.**
 What fails a production boot is strict discovery (a bad entry point, missing
-`meta`, or a missing `depends_on` target), the auth-provider check
+`meta`, duplicate meta names, or a missing `depends_on` target), the auth-provider check
 (`SM020`), placeholder secrets, a localhost Celery broker, the `SM010`
 migration check (except on a never-migrated first run, which goes to `/setup`),
 overlapping `spa_mounts` (`SM032`) and an `error` from a module's

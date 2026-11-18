@@ -47,6 +47,7 @@ _ICON_LOG_OUT = "log-out"
 class UsersModule(ModuleBase):
     meta = ModuleMeta(
         name="Users",
+        provides_auth=True,
         route_prefix="/api/users",
         view_prefix="/users",
         # Sign-in and self-service stay on /users; the management CRUD
@@ -61,7 +62,6 @@ class UsersModule(ModuleBase):
         depends_on=[_MODULE_DEPENDENCY_AUTH],
         optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
-    _is_auth_provider = True
 
     def register_principal_builder(self, registry) -> None:
         from users.core.directory import UsersDirectory

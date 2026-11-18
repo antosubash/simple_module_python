@@ -4,6 +4,10 @@
 It discovers authorization, token, JWKS and optional logout and revocation endpoints. It uses
 hosted login with authorization code flow, S256 PKCE, state and nonce checks.
 Only one auth provider may be active; select it with `SM_AUTH_PROVIDER=oidc`.
+`OidcModule` declares `ModuleMeta(provides_auth=True)` so auth selection and
+SM020/SM021 recognize it. Custom providers should declare the same field on
+their owning module; the legacy `_is_auth_provider` module marker warns once
+per class and is removed in 0.1.0. See [Discovery](/framework/discovery).
 
 ## Install and activate
 

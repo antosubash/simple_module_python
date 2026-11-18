@@ -612,6 +612,11 @@ In the admin UI, the user list and edit page show an **"External · SSO"** badge
 
 ## UsersAuthProvider
 
+`UsersModule` declares `ModuleMeta(provides_auth=True)` for provider selection
+and SM020/SM021 diagnostics. Third-party providers should declare this field
+on their owning module. The legacy `_is_auth_provider` module marker warns
+once per class and is removed in 0.1.0. See [Discovery](/framework/discovery).
+
 `UsersAuthProvider` (registered on `app.state.auth.auth_provider` in `register_settings`) is the `AuthProvider` the auth module's `AuthMiddleware` delegates to. On each request `resolve_user`:
 
 - For a `Bearer` token, looks the token's SHA-256 digest up in `users_access_token` and returns the active user.

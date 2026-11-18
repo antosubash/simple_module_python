@@ -10,6 +10,7 @@ from simple_module_core._module_conventions import (
     has_conventional_module,
     package_spec,
 )
+from simple_module_core.diagnostics._auth import check_auth_providers
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._css import check_module_css
 from simple_module_core.diagnostics._dependencies import check_missing_dependencies
@@ -212,36 +213,7 @@ class ModuleDiagnostics:
         return diags
 
     def _check_auth_provider_conflict(self, modules: list[ModuleBase]) -> list[Diagnostic]:
-        """SM020/SM021: exactly one auth provider module must be installed."""
-        providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
-        diags: list[Diagnostic] = []
-        if len(providers) > 1:
-            names = ", ".join(m.meta.name for m in providers)
-            diags.append(
-                Diagnostic(
-                    level=DiagnosticLevel.ERROR,
-                    code="SM020",
-                    message=f"Multiple auth provider modules installed: {names}",
-                    module_name=providers[0].meta.name,
-                    suggestion=(
-                        "Install only one auth provider (e.g. 'users' OR 'keycloak', not both)"
-                    ),
-                )
-            )
-        elif len(providers) == 0:
-            diags.append(
-                Diagnostic(
-                    level=DiagnosticLevel.WARNING,
-                    code="SM021",
-                    message="No auth provider module installed",
-                    module_name="(none)",
-                    suggestion=(
-                        "Install an auth provider module "
-                        "(e.g. 'simple-module-users' or 'simple-module-keycloak')"
-                    ),
-                )
-            )
-        return diags
+        return check_auth_providers(modules)
 
     def _check_missing_meta(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         diags: list[Diagnostic] = []

@@ -26,12 +26,12 @@ if TYPE_CHECKING:
 class OidcModule(ModuleBase):
     meta = ModuleMeta(
         name="Oidc",
+        provides_auth=True,
         route_prefix="/api/oidc",
         view_prefix="/oidc",
         depends_on=[_MODULE_AUTH],
         optional_depends_on=[_MODULE_SETTINGS],
     )
-    _is_auth_provider = True
 
     def register_principal_builder(self, registry) -> None:
         from oidc.identity.directory import OidcDirectory

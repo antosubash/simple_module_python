@@ -38,9 +38,12 @@ stable key when using that entrypoint and sharing sessions across restarts or re
 export SM_MODULES_ENABLED='["Users","Dashboard"]'
 ```
 
-Use the module's `ModuleMeta.name`. Matching is case-insensitive. Include any
-required dependencies and restart after changing the allow-list. A
-comma-separated string fails settings validation.
+Use `ModuleMeta.name` or the entry-point name, case-insensitively. Include any
+required dependencies and restart after changing the allow-list. To skip
+disabled plugins before import, every item must match an installed entry-point
+name (for example `["auth","users","background_tasks"]`). Otherwise discovery
+loads candidates before matching arbitrary meta names such as `BackgroundTasks`.
+See [Discovery](/framework/discovery). A comma-separated string fails settings validation.
 
 ## Host settings (`HostSettings`)
 

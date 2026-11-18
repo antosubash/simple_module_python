@@ -174,14 +174,25 @@ does not try the next fallback. See `docs/framework/lifecycle.md`.
 
 ## Verify after scaffolding
 
-Boot the host. The diagnostics pass runs **only in development** — warnings/errors print to the boot logs and any ERROR raises `SystemExit`. In **production** the diagnostics pass is skipped; the one thing that fails a production boot is strict module *discovery* (a bad entry point — broken import, missing `meta`, non-`ModuleBase` class), surfaced as `SM001`. So `SM008`/`SM009` are dev-boot / `make doctor` errors, not production-boot blockers; `SM007` (module overrides no hooks) is info-only.
+Boot the host. The diagnostics pass runs **only in development** — warnings/errors print to the boot logs and any ERROR raises `SystemExit`. In **production** the static pass is skipped; strict discovery rejects broken entry points/missing metadata (`SM001`), duplicate meta names (`SM008`, naming both distributions) and missing dependencies (`SM030`). Auth-provider selection and migration checks also run outside development. Lenient discovery warns on duplicates and skips later entries. `SM009` remains a dev-boot / `make doctor` check; `SM007` (module overrides no hooks) is info-only.
+
+Auth modules declare `ModuleMeta(provides_auth=True)` for selection and SM020/SM021.
+The old `_is_auth_provider` module marker warns once per class and is removed in
+0.1.0. SM020 warns on undeclared module objects exposing the provider protocol
+shape; separate provider objects created inside hooks are not statically detectable.
+
+`SM_MODULES_ENABLED` accepts JSON lists of meta names or entry-point names,
+case-insensitively. To exclude a broken plugin before import, every list item
+must match an installed entry-point name (`background_tasks`, not
+`BackgroundTasks`). Otherwise discovery loads candidates before matching
+arbitrary legacy meta names. See `docs/framework/discovery.md`.
 
 The new module should appear in the registered-modules log line. If it has a view endpoint, visit `<view_prefix>/`. Run `make doctor` for the same diagnostics out of band (orphan pages, coupling, migration drift, locale checks) — see the **simple-module-doctor** skill for the full code list.
 
 ## Pitfalls
 
 - **Forgot the entry point.** Package installs, module silently doesn't load (production strict mode raises `InvalidModuleError`). Verify `[project.entry-points.simple_module]` exists in `pyproject.toml`.
-- **`name=` collides.** Two modules with the same `ModuleMeta.name` raise `SM008` at dev boot / `make doctor` (their lowercased names would also collide as table prefixes in the shared schema).
+- **`name=` collides.** Duplicate `ModuleMeta.name` values raise `InvalidModuleError` with `SM008` in strict discovery; development warns and skips the later entry point. Rename or disable one. Static diagnostics also reject table-prefix collisions in their supplied module list.
 - **Registered the module by hand in host code.** Don't — discovery is entry-point-only; host code never imports module code.
 
 Services raise domain exceptions derived from a per-module base in
