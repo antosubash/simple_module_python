@@ -8,6 +8,7 @@ from fastapi import Request
 from simple_module_db import init_db
 from simple_module_db.deps import get_db
 from simple_module_hosting import _app_boot, _lifespan, app_builder
+from sqlalchemy.engine import make_url
 
 
 @pytest.fixture
@@ -60,10 +61,15 @@ async def test_supplied_database_is_used_and_not_disposed(
         await state.engine.dispose()
 
 
-async def test_default_database_is_created_and_disposed(database_app):
+@pytest.mark.parametrize(
+    "database_url", [None, "postgresql+asyncpg://user:test-password@localhost/test_db"]
+)
+async def test_default_database_is_created_and_disposed(database_app, database_url):
+    if database_url is not None:
+        database_app = database_app.model_copy(update={"database_url": database_url})
     app = app_builder.create_app(database_app)
     state = app.state.sm.db
-    assert state.engine.url.render_as_string() == database_app.database_url
+    assert state.engine.url == make_url(database_app.database_url)
     assert state._listeners_registered
     pool = state.engine.pool
     async with app.router.lifespan_context(app):

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import traceback
+
 import pytest
 from simple_module_db.base import create_module_base
 from simple_module_db.mixins import AuditMixin, MultiTenantMixin, SoftDeleteMixin, VersionedMixin
 from simple_module_db.provider import DatabaseProvider, detect_provider
+from simple_module_db.session import init_db
 
 
 class TestCreateModuleBase:
@@ -68,6 +71,25 @@ class TestDetectProvider:
         assert "sqlite" in message.lower() and "postgresql" in message.lower()
         assert "private-password" not in message
         assert "user" not in message
+
+    @pytest.mark.parametrize("validate", [detect_provider, init_db])
+    @pytest.mark.parametrize(
+        "database_url",
+        [
+            "mysql+aiomysql://user:prefix@middle:secret-tail@host/db",
+            "postgresql+asyncpg://user:prefix@middle:secret-tail@host/db",
+            "postgresql+asyncpg://user:secret-tail@host:invalid-port/db",
+            "invalid-url-user:secret-tail",
+        ],
+    )
+    def test_malformed_url_does_not_expose_credentials(self, validate, database_url):
+        with pytest.raises(ValueError) as error:
+            validate(database_url)
+        for credential in ("user", "prefix", "secret-tail"):
+            assert credential not in str(error.value)
+        assert "secret-tail" not in "".join(traceback.format_exception(error.value))
+        assert error.value.__cause__ is None
+        assert error.value.__suppress_context__
 
 
 class TestMixins:
