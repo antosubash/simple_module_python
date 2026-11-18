@@ -17,6 +17,7 @@ from simple_module_cli.package_update_deps import (
     Change,
     Skip,
     collect_sm_deps,
+    is_framework_package,
     local_sources,
     normalize,
     process_file,
@@ -141,7 +142,7 @@ def run_update(
 
     if (
         only
-        and normalize(only).startswith("simple-module-")
+        and is_framework_package(only)
         and any(normalize(name) == normalize(only) for name in names)
         and any(s.reason != "workspace/local source" for s in all_skips)
     ):
@@ -176,7 +177,7 @@ def run_update(
         versions = {str(s["tag"]).removeprefix("v") for s in core_sources}
         if len(versions) == 1:
             target, blocked = versions.pop(), None
-    if only and not normalize(only).startswith("simple-module-") and _CORE not in git_targets:
+    if only and not is_framework_package(only) and _CORE not in git_targets:
         npm_manifests = []
     changes, skips, npm_pending = plan_npm(npm_manifests, target, fetch, blocked=blocked)
     all_changes.extend(changes)

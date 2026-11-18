@@ -158,8 +158,10 @@ every dependency group, including workspace roots with only dev groups.
 Projects matching `[tool.uv.workspace].exclude` (exact paths or globs) are skipped.
 Include-group objects and workspace/local uv sources are left alone; source
 names are normalized and member sources override root sources.
-Naming one PyPI `simple_module_*` package updates its PyPI siblings together to keep
-the framework pins aligned; a skipped PyPI sibling refuses the update before writes.
+Naming one PyPI distribution published with this framework updates its framework
+and bundled-module PyPI siblings together to keep their pins aligned; a skipped
+PyPI sibling refuses the update before writes. Independently released packages
+such as `simple_module_images` are selected individually and do not join this cohort.
 
 It also scans each root/member `package.json` and `client_app/package.json`, in
 `dependencies`, `devDependencies`, `optionalDependencies` and `peerDependencies`.
