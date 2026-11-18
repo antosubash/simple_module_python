@@ -10,7 +10,7 @@ pip install simple_module_settings
 
 ## What it provides
 
-- `/settings` admin page (and `/settings/modules`) aggregating every installed module's settings into one editable view.
+- `/admin/settings` admin page (and `/admin/settings/modules`) aggregating every installed module's settings into one editable view.
 - `register_module_settings(app, package, SettingsClass, services_factory)` helper — a module calls this from its own `register_settings(app)` hook to record its `BaseSettings` class; the UI renders its fields automatically (no panel/page wiring needed).
 - DB-backed runtime settings store (hydrated into each module's `BaseSettings` at startup, before module `on_startup` hooks run) for values admins change at runtime.
 

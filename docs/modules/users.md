@@ -97,7 +97,7 @@ Admin (`users.manage`) — served from the module's `admin_view_prefix`, `/admin
 
 The separate Create and Invite pages merged into `AddPeople`. Their old paths survive as 307 redirects carrying the mode: `GET /admin/users/invite` → `/admin/users/add?mode=invite`, and `GET /admin/users/create` → `/admin/users/add?mode=create`.
 
-These pages moved out of `/users/admin` when the admin screens were gathered under `/admin` — the pre-move URLs still 301 for now, but link to the new ones. The `/api/users/admin/*` endpoints below are a separate contract and did **not** move.
+These pages live under `/admin/users`. The `/api/users/admin/*` endpoints below are a separate contract and did **not** move.
 
 ## Public contracts
 

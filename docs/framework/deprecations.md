@@ -28,6 +28,7 @@ Non-Python fallbacks are registered explicitly by the test.
 | Shim | Use instead |
 |---|---|
 | Makefile `SM_TEST_PG_URL` fallback | `SM_TEST_DATABASE_URL` |
+| `SM_VITE_PORT` dev-server fallback | `smpy dev --vite-port` or `SM_VITE_DEV_URL` |
 
 ## Removed early (#989)
 
