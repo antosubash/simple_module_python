@@ -1,4 +1,6 @@
-"""``do_orm_execute`` filter: soft-delete and tenant scoping on every ORM statement.
+"""``do_orm_execute`` filter: registered scopes on every ORM statement.
+
+Tenant, soft-delete and module scopes use the same predicate pipeline below.
 
 Scope (#332, #506). Tenant and soft-delete criteria are attached for *every*
 tenant-scoped / soft-deletable model, not only the entities a statement
@@ -18,11 +20,13 @@ from typing import Any
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import ORMExecuteState, Session, with_loader_criteria
+from sqlalchemy.sql import visitors
 
 from simple_module_db import _secondary_scope  # noqa: F401  (registers the execution-scope listener)
 from simple_module_db import model_registry as registry
+from simple_module_db._builtin_scopes import tenant_scope
 from simple_module_db._bulk_pk_update import is_bulk_pk_update, scoped_bulk_pk_update
-from simple_module_db._core_joins import _base_name, is_scoped_leaf
+from simple_module_db._core_joins import _base_name, _is_orm, is_scoped_leaf
 from simple_module_db._engine_policies import _engine_policy as _engine_policy  # re-exported
 from simple_module_db._engine_policies import session_policy, set_policy
 from simple_module_db._entity_selectables import refuse_aliased_core
@@ -36,13 +40,11 @@ from simple_module_db.scope_predicates import (
     scoped_names,
     subquery_predicates,
 )
+from simple_module_db.scopes import ResolvedScope, resolve_scopes
 from simple_module_db.tenancy import (
-    ALL_TENANTS_OPTION,
     DEFAULT_TENANT_ID,
     TenantIsolationError,
-    current_tenant_id,
     is_all_tenants,
-    missing_tenant_error,
 )
 
 # ``_engine_policy`` (imported above) is re-exported: the per-engine policy map lives in
@@ -106,83 +108,95 @@ def is_strict(session: Session) -> bool:
 
 
 def filter_statements(execute_state: ORMExecuteState) -> Any:
-    """Scope ORM statements by soft-delete and tenant.
-
-    * SELECT: soft-delete + tenant loader criteria.
-    * UPDATE / DELETE: tenant criteria, and an UPDATE may not assign
-      ``tenant_id`` (the bulk sibling of the unit-of-work rule).
-    * INSERT: explicit ``tenant_id`` values must match the bound tenant;
-      missing ones are stamped with it (#357).
-
-    Without a tenant, strict mode raises instead of leaving the statement
-    unscoped. Bypass: ``execution_options(all_tenants=True)`` or
-    ``all_tenants()``; soft-delete bypass: ``include_deleted=True``.
-    """
-    if execute_state.is_insert:
-        session = execute_state.session
-        _scope_insert_source(execute_state)
-        return guard_insert(
-            execute_state,
-            strict=strict_configured(session),
-            fallback=fallback_tenant_id(session),
-        )
-    is_select = execute_state.is_select
-    if not (is_select or execute_state.is_update or execute_state.is_delete):
+    """Apply all registered scopes to ORM entities and Core references."""
+    session = execute_state.session
+    is_insert = execute_state.is_insert
+    is_write = execute_state.is_update or execute_state.is_delete
+    if not (is_insert or is_write or execute_state.is_select):
         return None
-
-    options_in = execute_state.execution_options
-    skip_soft_delete = not is_select or options_in.get("include_deleted", False)
-    tenant_id = current_tenant_id.get()
-    skip_tenant = options_in.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
-    strict = strict_configured(execute_state.session)
-    if execute_state.is_update and not skip_tenant:
-        # Before the early return: moving rows between tenants is refused
-        # bound or not (#356), like the unit-of-work rule in flush_guard.
+    scopes = resolve_scopes(session, execute_state.execution_options, is_write=is_write)
+    if execute_state.is_update and not tenant_scope.bypassed(execute_state.execution_options):
         _refuse_tenant_move(execute_state)
-    if skip_soft_delete and (skip_tenant or (tenant_id is None and not strict)):
-        return None
+    if is_insert:
+        _scope_insert_source(execute_state, scopes)
+        from simple_module_db._scope_writes import guard_scope_insert
 
-    options = []
-    named: list[type] = []
-    for mapper in execute_state.all_mappers:
-        if registry.flags(mapper.class_)[1]:
-            named.append(mapper.class_)
+        guard_scope_insert(execute_state, scopes)
+        return guard_insert(
+            execute_state, strict=strict_configured(session), fallback=fallback_tenant_id(session)
+        )
+    if not any(r.active for r in scopes):
+        return None
+    names = scoped_names(scopes)
+    if not names:
+        return None
+    # Loader options do nothing for wholly Core statements. Keep them for nested
+    # ORM references too, even when the outer statement uses the Core compiler.
+    statement: Any = execute_state.statement
+    needs_loaders = execute_state.is_orm_statement or any(
+        _is_orm(el) for el in visitors.iterate(statement)
+    )
     execute_state.statement = scope_core(
         execute_state.statement,
-        subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict),
-        scoped_names(skip_soft_delete, skip_tenant),
-        orm_covered(skip_soft_delete, skip_tenant, tenant_id),
-        nested_dml_guard(skip_tenant, tenant_id, strict),
-        # A relationship loader's statement wraps one that was scoped when it ran.
+        subquery_predicates(scopes),
+        names,
+        orm_covered(scopes) if needs_loaders else None,
+        nested_dml_guard(scopes),
         None if execute_state.is_relationship_load else refuse_aliased_core,
     )
-    if not skip_soft_delete:
-        options.extend(
-            with_loader_criteria(c, c.is_deleted.is_(False), include_aliases=True)
-            for c in registry.soft_delete_classes
+    options = []
+    bulk_predicates = []
+    named_classes = {m.class_ for m in execute_state.all_mappers}
+    op = (
+        "SELECT" if execute_state.is_select else ("UPDATE" if execute_state.is_update else "DELETE")
+    )
+    for resolved in scopes:
+        scope = resolved.scope
+        named = list(named_classes & scope._classes)
+        core = _dml_target(execute_state, scope._table_names)
+        explicit = (
+            scope is not tenant_scope
+            and any(
+                _base_name(f) in scope._table_names
+                for f in getattr(execute_state.statement, "_from_obj", ())
+            )
+            if resolved.required
+            else False
         )
-    if not skip_tenant:
-        options.extend(_tenant_criteria(execute_state, named, tenant_id, strict))
+        if resolved.required and (named or core or explicit):
+            raise scope.missing_error(
+                named[0].__name__ if named else str(_base_name(core[0])) if core else scope.name, op
+            )
+        if not resolved.active:
+            continue
+        if execute_state.is_update and scope is not tenant_scope:
+            from simple_module_db._scope_writes import refuse_scope_move
 
+            if named or core:
+                refuse_scope_move(execute_state, scope)
+        for table in core:
+            execute_state.statement = execute_state.statement.where(resolved.predicate(table.c))
+        if needs_loaders:
+            options.extend(
+                with_loader_criteria(cls, resolved.predicate(cls), include_aliases=True)
+                for cls in scope._classes
+            )
+        if execute_state.is_update:
+            bulk_predicates.extend(resolved.predicate(cls) for cls in named)
     if options:
         execute_state.statement = execute_state.statement.options(*options)
-    if named and tenant_id is not None and not skip_tenant and is_bulk_pk_update(execute_state):
-        return scoped_bulk_pk_update(execute_state, named, tenant_id)
+    if bulk_predicates and is_bulk_pk_update(execute_state):
+        return scoped_bulk_pk_update(execute_state, bulk_predicates)
     return None
 
 
-def _scope_insert_source(execute_state: ORMExecuteState) -> None:
-    """What an INSERT reads — its SELECT source, its value subqueries — like any SELECT."""
-    options = execute_state.execution_options
-    skip_soft_delete = options.get("include_deleted", False)
-    skip_tenant = options.get(ALL_TENANTS_OPTION, False) or is_all_tenants()
-    names = scoped_names(skip_soft_delete, skip_tenant)
+def _scope_insert_source(execute_state: ORMExecuteState, scopes: list[ResolvedScope]) -> None:
+    """An INSERT's source and value subqueries read through the same scope pipeline."""
+    names = scoped_names(scopes)
     if not names:
         return
-    tenant_id = current_tenant_id.get()
-    strict = strict_configured(execute_state.session)
-    predicates_for = subquery_predicates(skip_soft_delete, skip_tenant, tenant_id, strict)
-    nested = nested_dml_guard(skip_tenant, tenant_id, strict)
+    predicates_for = subquery_predicates(scopes)
+    nested = nested_dml_guard(scopes)
     execute_state.statement = scope_insert(
         execute_state.statement,
         lambda el: scope_core(
@@ -192,42 +206,10 @@ def _scope_insert_source(execute_state: ORMExecuteState) -> None:
 
 
 def _dml_target(execute_state: ORMExecuteState, names: set[str]) -> list[Any]:
-    """The target of a Core UPDATE / DELETE on ``Model.__table__``, if scoped.
-
-    Every other Core reference — in a SELECT, or joined in by an UPDATE /
-    DELETE — is scoped by ``core_scope``.
-    """
     if execute_state.is_select:
         return []
     target = getattr(execute_state.statement, "table", None)
-    # ``delete(Model.__table__.alias("v"))`` is named after the alias.
     return [target] if target is not None and is_scoped_leaf(target, names) else []
-
-
-def _tenant_criteria(
-    execute_state: ORMExecuteState, named: list[type], tenant_id: str | None, strict: bool
-) -> list[Any]:
-    core = _dml_target(execute_state, registry.tenant_table_names)
-    op = (
-        "SELECT" if execute_state.is_select else ("UPDATE" if execute_state.is_update else "DELETE")
-    )
-    if tenant_id is None:
-        if not strict:
-            return []
-        if named or core:
-            raise missing_tenant_error(named[0].__name__ if named else str(_base_name(core[0])), op)
-        # Indirect references (joins, subqueries) with no tenant bound match
-        # nothing — tenant_id is NOT NULL — rather than every tenant.
-        return [
-            with_loader_criteria(c, c.tenant_id.is_(None), include_aliases=True)
-            for c in registry.tenant_classes
-        ]
-    for table in core:
-        execute_state.statement = execute_state.statement.where(table.c.tenant_id == tenant_id)
-    return [
-        with_loader_criteria(c, c.tenant_id == tenant_id, include_aliases=True)
-        for c in registry.tenant_classes | set(named)
-    ]
 
 
 def _refuse_tenant_move(execute_state: ORMExecuteState) -> None:
