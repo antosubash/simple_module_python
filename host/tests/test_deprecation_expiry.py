@@ -87,6 +87,8 @@ def _register_all() -> None:
     from simple_module_inertia import props
 
     deprecate("simple_module_inertia.props.lazy", remove_in=props.LAZY_REMOVE_IN, use="optional()")
+    # The Makefile fallback is shell, so it is registered here (#985).
+    deprecate("Makefile SM_TEST_PG_URL fallback", remove_in="0.0.49", use="SM_TEST_DATABASE_URL")
 
 
 def test_every_known_shim_is_registered() -> None:

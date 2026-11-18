@@ -32,8 +32,8 @@ modules/<name>/
 Every module uses this layout;
 see [Module layout](module-layout.md) for the exact root contract and shim policy.
 Area initializers contain only a docstring; private helpers live in their area.
-Tests have no `__init__.py`, use globally unique `test_<name>_*.py` basenames,
-and keep module-wide fixtures in `modules/<name>/tests/conftest.py`. JS tests stay in `tests-js/`.
+Tests have no `__init__.py`. Pytest runs in `importlib` import mode, so basenames may
+repeat across modules; the scaffold still prefixes them (`test_<name>_*.py`). Keep module-wide fixtures in `modules/<name>/tests/conftest.py`. JS tests stay in `tests-js/`.
 
 ### Standalone vs in-repo: `.github/` workflows
 
