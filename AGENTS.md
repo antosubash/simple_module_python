@@ -30,7 +30,7 @@ Everything goes through `make`; the root `Makefile` is the full list
 | `make install` | `uv sync --all-packages` + `npm install` |
 | `make dev` | Shared Docker stack up (needs the sibling `../dev-services` checkout) + `gen-pages` + API (:8000) and Vite (:5050). Without that stack, run `make dev-api` and `make dev-ui` |
 | `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n $(PYTEST_WORKERS) --dist loadgroup`, default 4 workers, `PYTEST_WORKERS=0` for serial) then Vitest |
-| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
+| `make test-py-pg` | Pytest on Postgres (`SM_TEST_DATABASE_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
 | `make lint` | Every CI lint check: Ruff format + Ruff + `ty` + Biome + per-workspace `tsc`, package metadata/README, locale files, doc paths, i18n and API-type freshness, file-size cap, no test sleeps, no double casts, no raw `fetch`, hardcoded strings, CI parity, untranslated strings |
 | `make doctor` | Module diagnostics (`SM0xx`) |
@@ -64,10 +64,8 @@ repo root via `host/alembic.ini`, so it shares `.env`/`SM_DATABASE_URL` with the
   `.claude/skills/running-the-stack/SKILL.md` (spare ports, SQLite file DB,
   `smpy users create-admin`). `make kill` runs `pkill -f vite` and kills other
   projects' servers, so kill by port instead.
-- If a repo-root `.env` exists, read it (don't copy values) and move it aside
-  for `make test-py`, then restore it: the `settings` fixture does not pin
-  `vite_dev_url`, so a `.env` value leaks into a dashboard test that asserts
-  Vite on `:5050`. Never export `SM_ENVIRONMENT=production` in a shell that
+- The test plugin ignores project dotenv files; leave `.env` in place.
+  Never export `SM_ENVIRONMENT=production` in a shell that
   runs pytest: production validators (localhost broker, placeholder secrets)
   abort the test plugin.
 - The invalidation tests need `redis-server` on `PATH` or `SM_TEST_REDIS_URL`;
@@ -155,9 +153,9 @@ modules/<name>/<name>/
 Other root directories are allowed only as named domain areas, listed per module
 in `DOMAIN_AREAS` in the layout test. Area `__init__.py` files hold only a
 docstring. Private helpers stay in their area with a leading underscore. Tests
-mirror `tests/<area>/<feature>/`, with no `__init__.py`, unique `test_<name>_*.py`
-basenames, no top-level `test_*.py`, and `conftest.py` at `tests/` root. JS
-tests stay in `tests-js/`.
+mirror `tests/<area>/<feature>/`, with no `__init__.py`, no top-level
+`test_*.py`, and `conftest.py` at `tests/` root. Importlib mode allows repeated
+basenames. JS tests stay in `tests-js/`.
 
 `gen-pages` writes `modules.generated.css` with an `@import` per CSS file that
 exists. A `@theme` inside a cascade layer is inert and an unlayered rule beats
@@ -472,9 +470,12 @@ gate and not public, `SM034` `subscribe_durable` without `name=`.
 
 `simple_module_test` (`framework/testing/`, auto-loaded via `pytest11`) provides
 app-level fixtures to every test directory; the root `conftest.py` is thin.
+It ignores project dotenv files before collection and defaults to importlib mode.
+Test support directories are listed explicitly in pytest's `pythonpath` setting.
 `docs/testing/fixtures.md`.
 
-- `settings`: in-memory SQLite, `multi_tenant=True`, `auth_provider="users"`.
+- `settings`: in-memory SQLite, `multi_tenant=True`, `auth_provider="users"`,
+  `vite_dev_url="http://localhost:5050"`.
   `SM_TEST_DATABASE_URL=postgresql+asyncpg://…` switches the whole suite to
   Postgres; `make test-py-pg` uses `-p no:anyio` because an asyncpg connection
   cannot cross event loops.

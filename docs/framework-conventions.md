@@ -33,7 +33,7 @@ Scaffold with `smpy create-module <name> --dest modules/<name>` (or
 `make new-module name=<name>` inside this repo). Both generate the CRUD sample,
 settings container, contracts, pages, locales, and nested tests from the same
 templates. Tests have no package initializers, keep `conftest.py` at the tests
-root, and use unique `test_<name>_*.py` basenames. JS tests stay in `tests-js/`.
+root, and use `test_*.py` basenames (repeats are safe with importlib mode). JS tests stay in `tests-js/`.
 
 ## ModuleMeta
 

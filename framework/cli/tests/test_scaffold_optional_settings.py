@@ -10,8 +10,9 @@ from pathlib import Path
 import pytest
 from simple_module_cli.cli import app
 from simple_module_cli.scaffolding import create_module
-from test_scaffold_lint_tooling import _ruff
 from typer.testing import CliRunner
+
+from framework.cli.tests.test_scaffold_lint_tooling import _ruff
 
 
 @pytest.mark.parametrize("with_settings", [False, True])

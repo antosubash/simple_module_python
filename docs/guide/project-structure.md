@@ -81,8 +81,8 @@ modules/orders/
     └── web/crud/test_orders_crud.py
 ```
 
-Tests have no `__init__.py`; basenames are globally unique and start with
-`test_orders_`. JS tests stay in `modules/orders/tests-js/`.
+Tests have no `__init__.py`; importlib mode allows repeated basenames.
+The scaffold uses the `test_orders_` prefix. JS tests stay in `modules/orders/tests-js/`.
 
 See the [module authoring guide](/module-authoring) for the full contract.
 

@@ -118,15 +118,16 @@ tests/
 
 Mirror package ownership, using `tests/<area>/<feature>/test_<module>_*.py`.
 Keep module-wide `conftest.py` at `tests/` root. Do not add `__init__.py` in test
-directories. Basenames must be globally unique: default pytest import mode
-loads non-package tests by basename, even when they live in different folders.
+directories. The `simple_module_test` plugin defaults to pytest's
+`--import-mode=importlib`, so basenames may repeat across folders and modules.
+This repo sets that mode explicitly in its root pytest configuration too.
 The root-layout test refuses a `test_*.py` directly under `tests/`.
 
 A helper shared by several test folders stays at `tests/` root as
-`_<module>_support.py`. The root `conftest.py` puts that directory on
-`sys.path`, so `from _<module>_support import ...` keeps working from nested
-folders; a module that has helpers needs that `conftest.py` even when it holds
-no fixtures.
+`_<module>_support.py`. Importlib mode does not add test directories to
+`sys.path`: list helper directories in `[tool.pytest.ini_options].pythonpath`
+relative to the project root. This also lets `pytest_plugins` in conftests
+import support modules. Keep helper module names distinct across those directories.
 
 The root `pyproject.toml:137` lists `modules/<name>/tests` in `testpaths`, and
 `framework/cli/simple_module_cli/framework_repo.py` wires that root. Pytest
@@ -174,22 +175,26 @@ the root-layout test's `DEPRECATED_ROOT` map until removed.
 
 ## Downstream modules
 
-A module created with `smpy create-module` already follows this layout. The
-check that keeps it that way lives in this repo's
-[`host/tests/test_module_layout.py`](https://github.com/antosubash/simple_module_python/blob/main/host/tests/test_module_layout.py),
-which an app or a standalone module repo does not have. To keep the same ratchet:
+A module created with `smpy create-module` already follows this layout. Install
+`simple_module_test` and call its public `assert_module_layout` helper from a
+test instead of copying this repository's implementation:
 
-1. Copy that test into your own tests, for example `tests/test_module_layout.py`. <!-- path-check: ignore -->
-2. Point `MODULES` at your modules directory (`modules/` in a `smpy new` app). The
-   copy computes it with `parents[2]`, which is right for `host/tests/`; from
-   `tests/test_module_layout.py` use `parents[1]`. <!-- path-check: ignore -->
-   A standalone module repo has the package at its root, with no `modules/<name>/`
-   level, so change the `package`, `pyproject.toml` and `tests/` paths in the test too.
-3. Replace `DOMAIN_AREAS` with your own modules' named areas, and empty
-   `DEPRECATED_ROOT` unless you keep root-level shims.
+```python
+from pathlib import Path
 
-`ALLOWED_ROOT` is the root lookup list in [Package root](#package-root-lookup-paths);
-keep the two in step when you upgrade the framework.
+from simple_module_test import assert_module_layout
+
+
+def test_orders_layout():
+    assert_module_layout(Path("modules/orders"), "orders", domain_areas={"fulfillment"})
+```
+
+The first argument is the module project directory containing its Python package,
+`pyproject.toml` and `tests/`. In a standalone module repository use `Path(".")`.
+Omit `domain_areas` for modules with only the standard areas; `deprecated_root`
+accepts temporary root-level compatibility files. The helper checks root entries,
+CLI registration and test layout (no root test files or test package initializers),
+without requiring globally unique test basenames.
 
 ## Moving an existing module
 
@@ -209,7 +214,7 @@ One module per PR; no logic changes in a move PR.
    `subscribe_durable(..., name=<constant>)`, and a moved durable event class
    needs a data migration. `host/tests/test_durable_wire_names.py` freezes both.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
-   package initializers and prefix each basename with the module name.
+   package initializers; importlib mode permits repeated basenames.
    JS tests remain in `tests-js/`.
 4. Add external-import shims with a removal release two releases ahead; alias shims are
    auto-discovered by the expiry test (re-export shims are registered by hand),

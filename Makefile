@@ -80,9 +80,15 @@ test-py:
 # (rows emptied, or `public` rebuilt when it changed), so each xdist worker
 # creates and uses its own `<db>_gw<N>` database (the role needs CREATEDB);
 # PYTEST_WORKERS=0 uses the named database itself.
-SM_TEST_PG_URL ?= postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test
+ifndef SM_TEST_DATABASE_URL
+ifdef SM_TEST_PG_URL
+$(warning SM_TEST_PG_URL is deprecated; use SM_TEST_DATABASE_URL. This alias will be removed in 0.0.49.)
+SM_TEST_DATABASE_URL := $(SM_TEST_PG_URL)
+endif
+endif
+SM_TEST_DATABASE_URL ?= postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test
 test-py-pg:
-	SM_TEST_DATABASE_URL=$(SM_TEST_PG_URL) uv run pytest -p no:anyio -n $(PYTEST_WORKERS) --dist loadgroup
+	SM_TEST_DATABASE_URL='$(SM_TEST_DATABASE_URL)' uv run pytest -p no:anyio -n $(PYTEST_WORKERS) --dist loadgroup
 
 test-js:
 	npm test
