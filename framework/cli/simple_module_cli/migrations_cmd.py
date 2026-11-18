@@ -58,7 +58,14 @@ def new_revision(
     cmd.extend(
         ["--head", f"{label}@head"]
         if label in labels
-        else ["--head", "base", "--branch-label", label]
+        else [
+            "--head",
+            "base",
+            "--branch-label",
+            label,
+            "--version-path",
+            str(script._version_locations[0]),
+        ]
     )
     raise typer.Exit(_default_exec_runner(cmd, root))
 

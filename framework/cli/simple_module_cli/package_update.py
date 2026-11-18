@@ -104,6 +104,7 @@ def run_update(
 
     npm_manifests = load_manifests([file.parent for file, _ in files])
     inherited = source_map(root_doc)
+    effective_sources = {file: {**inherited, **source_map(doc)} for file, doc in files}
     locals_by_file = {file: local_sources(doc, inherited) for file, doc in files}
 
     # Pre-fetch all unique sm packages in parallel — PyPI calls dominate runtime.
@@ -138,11 +139,44 @@ def run_update(
         if new_doc is not None or any(c.file == file for c in git_changes):
             pending.append((file, tomlkit.dumps(doc)))
 
+    if (
+        only
+        and normalize(only).startswith("simple-module-")
+        and any(normalize(name) == normalize(only) for name in names)
+        and any(s.reason != "workspace/local source" for s in all_skips)
+    ):
+        _print_summary([], all_skips, dry_run)
+        typer.echo(
+            "ERROR: Cannot partially update the framework cohort; resolve skipped PyPI pins first.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    all_skips = [
+        s
+        for s in all_skips
+        if not (
+            normalize(s.package) in {*git_targets, *relock}
+            and isinstance(source := effective_sources[s.file].get(normalize(s.package)), dict)
+            and "git" in source
+        )
+    ]
     target, blocked = _npm_target(cache, all_skips)
-    if _CORE in git_targets:
-        target, blocked = git_targets[_CORE], None
-    all_skips = [s for s in all_skips if normalize(s.package) not in {*git_targets, *relock}]
-    if only and normalize(only) != _CORE and _CORE not in git_targets:
+    core_sources = [
+        effective_sources[file].get(_CORE, {})
+        for file, doc in files
+        if any(normalize(name) == _CORE for name in collect_sm_deps(doc, set()))
+    ]
+    if (
+        _CORE in git_targets
+        and core_sources
+        and all(isinstance(s, dict) and "git" in s and "tag" in s for s in core_sources)
+        and not any(normalize(s.package) == _CORE for s in all_skips)
+    ):
+        versions = {str(s["tag"]).removeprefix("v") for s in core_sources}
+        if len(versions) == 1:
+            target, blocked = versions.pop(), None
+    if only and not normalize(only).startswith("simple-module-") and _CORE not in git_targets:
         npm_manifests = []
     changes, skips, npm_pending = plan_npm(npm_manifests, target, fetch, blocked=blocked)
     all_changes.extend(changes)

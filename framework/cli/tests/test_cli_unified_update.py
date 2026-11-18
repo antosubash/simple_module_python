@@ -127,23 +127,87 @@ def test_workspace_inherited_git_core_keeps_npm_in_lockstep(tmp_path, only):
     assert len(urls) == 1
 
 
-def test_named_update_does_not_touch_other_pypi_pins(tmp_path, fake_pypi):
+@pytest.mark.parametrize("workspace", [False, True])
+def test_named_framework_update_keeps_exact_sibling_pins_together(tmp_path, fake_pypi, workspace):
+    host = tmp_path / "host" if workspace else tmp_path
+    host.mkdir(exist_ok=True)
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "app"\nversion = "0"\n'
-        'dependencies = ["simple_module_core==0.0.46", "simple_module_db==0.0.46"]\n'
+        'dependencies = ["simple_module_cli==0.0.46", "unrelated==1"]\n'
+        + ('[tool.uv.workspace]\nmembers = ["host"]\n' if workspace else "")
+    )
+    with (host / "pyproject.toml").open("a") as output:
+        output.write(
+            '[dependency-groups]\ndev = ["simple_module_core==0.0.46"]\n'
+            '[project.optional-dependencies]\ndb = ["simple_module_db==0.0.46"]\n'
+        )
+    versions = dict.fromkeys(
+        ["simple_module_core", "simple_module_db", "simple_module_cli"], "0.0.47"
     )
     calls = []
     update_cmd.run_update(
         tmp_path,
         only="simple-module-db",
-        fetcher=fake_pypi({"simple_module_db": "0.0.47"}),
+        fetcher=fake_pypi(versions),
         exec_runner=lambda cmd, cwd: calls.append(cmd) or 0,
     )
     assert tomllib.loads((tmp_path / "pyproject.toml").read_text())["project"]["dependencies"] == [
-        "simple_module_core==0.0.46",
-        "simple_module_db==0.0.47",
+        "simple_module_cli==0.0.47",
+        "unrelated==1",
     ]
-    assert calls == [["uv", "sync"]]
+    data = tomllib.loads((host / "pyproject.toml").read_text())
+    assert data["dependency-groups"]["dev"] == ["simple_module_core==0.0.47"]
+    assert data["project"]["optional-dependencies"]["db"] == ["simple_module_db==0.0.47"]
+    assert calls == [["uv", "sync", "--all-packages"] if workspace else ["uv", "sync"]]
+
+
+@pytest.mark.parametrize("only", [None, "simple-module-core"])
+def test_host_local_core_override_blocks_npm_despite_root_git_target(tmp_path, only, capsys):
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.uv.workspace]\nmembers = ["host"]\n[tool.uv.sources]\n'
+        'simple-module-core = {git = "https://example.com/fw", tag = "v0.0.46"}\n'
+    )
+    host = tmp_path / "host"
+    host.mkdir()
+    project = host / "pyproject.toml"
+    project.write_text(
+        '[project]\nname = "app"\nversion = "0"\n'
+        'dependencies = ["simple_module_core==0.0.46"]\n[tool.uv.sources]\n'
+        'simple_module_core = {path = "../local-core"}\n'
+    )
+    manifest = tmp_path / "package.json"
+    manifest.write_text('{"dependencies":{"@simple-module-py/ui":"^0.0.46"}}')
+    before = project.read_bytes(), manifest.read_bytes()
+    update_cmd.run_update(
+        host,
+        only=only,
+        fetcher=lambda url: {"versions": {"0.0.47": {}}},
+        git_runner=lambda *a, **k: "sha\trefs/tags/v0.0.47\n",
+        exec_runner=lambda *a: 0,
+    )
+    assert (project.read_bytes(), manifest.read_bytes()) == before
+    output = capsys.readouterr().out
+    assert "simple_module_core: skipped (workspace/local source)" in output
+    assert "@simple-module-py/ui: skipped (simple_module_core not updated" in output
+
+
+def test_named_framework_update_refuses_missing_sibling_release_before_writes(tmp_path, fake_pypi):
+    project = tmp_path / "pyproject.toml"
+    project.write_text(
+        '[project]\nname = "app"\nversion = "0"\n'
+        'dependencies = ["simple_module_core==0.0.46", "simple_module_db==0.0.46"]\n'
+    )
+    before = project.read_bytes()
+    calls = []
+    with pytest.raises(typer.Exit):
+        update_cmd.run_update(
+            tmp_path,
+            only="simple-module-db",
+            fetcher=fake_pypi({"simple_module_db": "0.0.47"}),
+            exec_runner=lambda cmd, cwd: calls.append(cmd) or 0,
+        )
+    assert project.read_bytes() == before
+    assert calls == []
 
 
 def test_git_update_does_not_downgrade_a_newer_tag(tmp_path):

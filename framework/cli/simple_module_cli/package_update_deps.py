@@ -108,6 +108,8 @@ def _dependency_arrays(doc: tomlkit.TOMLDocument):
 def collect_sm_deps(
     doc: tomlkit.TOMLDocument, local: set[str], only: str | None = None
 ) -> list[str]:
+    if only and _is_sm_package(only):
+        only = None  # Framework packages publish in lockstep.
     return [
         name
         for deps in _dependency_arrays(doc)
@@ -130,6 +132,8 @@ def process_file(
 ) -> tuple[list[Change], list[Skip], tomlkit.TOMLDocument | None]:
     changes: list[Change] = []
     skips: list[Skip] = []
+    if only and _is_sm_package(only):
+        only = None
 
     for deps in _dependency_arrays(doc):
         for idx, raw in enumerate(deps):
