@@ -13,6 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TestSessionManagement:
+    @pytest.mark.parametrize("dialect", ["mysql+aiomysql", "mssql+pyodbc"])
+    def test_unsupported_provider_is_rejected_before_engine_creation(self, dialect):
+        with pytest.raises(ValueError, match=dialect.split("+")[0]) as error:
+            init_db(f"{dialect}://user:hidden-password@host/db")
+        assert "hidden-password" not in str(error.value)
+
     async def test_init_db_returns_database_state(self):
         """init_db should return a DatabaseState with engine and session factory."""
         db_state = init_db("sqlite+aiosqlite:///:memory:")

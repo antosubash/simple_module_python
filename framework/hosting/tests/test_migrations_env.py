@@ -78,3 +78,20 @@ def test_runner_configures_autogenerate_hooks(monkeypatch):
     assert not options["include_object"](None, "unowned", "table", True, None)
     assert options["render_item"] is migrations_env.render_item
     assert callable(options["process_revision_directives"])
+
+
+@pytest.mark.parametrize("offline", [True, False], ids=["offline", "online"])
+def test_runner_rejects_unsupported_dialect_without_credentials(monkeypatch, offline):
+    from simple_module_hosting import migrations_env
+    from simple_module_hosting.migrations import ALEMBIC_DATABASE_URL_ATTRIBUTE
+
+    monkeypatch.setattr(migrations_env, "build_module_metadata", MetaData)
+    context = Mock()
+    context.config = Config()
+    context.config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE] = (
+        "mysql+aiomysql://user:hidden-password@host/db"
+    )
+    context.is_offline_mode.return_value = offline
+    with pytest.raises(ValueError, match="mysql") as error:
+        migrations_env.run_migrations(context)
+    assert "hidden-password" not in str(error.value)

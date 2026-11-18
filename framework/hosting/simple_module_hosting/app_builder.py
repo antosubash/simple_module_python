@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core import CspSourceRegistry
@@ -23,6 +23,7 @@ from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
 from simple_module_core.user_directory import get_user_directory
 from simple_module_db.principals import bind_principal_registry
+from simple_module_db.session import DatabaseState
 from simple_module_db.tenant_cleanup import register_tenant_cleanup
 
 from simple_module_hosting._app_boot import (
@@ -67,7 +68,12 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = _resolve_project_root()
 
 
-def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter] = ()) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    routers: Iterable[APIRouter] = (),
+    database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
+) -> FastAPI:
     """Build and configure the full FastAPI application.
 
     Boot sequence:
@@ -84,6 +90,10 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
 
     Host routers and mounts, including those added to the returned app before
     startup or first dispatch, precede fallback routes.
+
+    ``database`` supplies a state or a synchronous factory called once with
+    resolved settings. Both are caller-owned: the caller disposes their engines,
+    including after startup failure. Only the default engine is lifespan-owned.
     """
     # ── Phase 0: Pre-app config read ───────────────────────
     # Phases 1 and 8 below consume settings to build the module list, the
@@ -149,7 +159,7 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
     audit_link_registry = AuditLinkRegistry()
     resource_type_registry = ResourceTypeRegistry()
 
-    lifespan = build_lifespan(modules)
+    lifespan = build_lifespan(modules, dispose_database=database is None)
 
     app = build_fastapi_app(settings, lifespan)
 
@@ -208,7 +218,7 @@ def create_app(settings: Settings | None = None, *, routers: Iterable[APIRouter]
     )
 
     # ── Phase 6: Initialize database ───────────────────────
-    db_state = init_database(settings, health_registry)
+    db_state = init_database(settings, health_registry, database)
     principals = build_principal_registry(modules, settings, permissions=perm_registry)
     principals.directory = get_user_directory(app)
     bind_principal_registry(db_state.session_factory, principals)

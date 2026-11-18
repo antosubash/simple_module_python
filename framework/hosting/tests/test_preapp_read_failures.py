@@ -78,3 +78,22 @@ def test_unreachable_postgres_refuses_boot_outside_development() -> None:
     url = "postgresql+asyncpg://nobody:nobody@127.0.0.1:1/nothing"
     with pytest.raises(HostSettingsUnavailableError):
         merge_host_settings(_bootstrap(url, "production"))
+
+
+_MALFORMED = "mysql+aiomysql://user:prefix@middle:secret-tail@host/db"
+
+
+def test_malformed_url_never_quotes_the_password_strict() -> None:
+    with pytest.raises(HostSettingsUnavailableError) as raised:
+        load_host_overrides(_MALFORMED, strict=True)
+    assert "secret-tail" not in str(raised.value)
+    assert "prefix" not in str(raised.value)
+
+
+def test_malformed_url_never_quotes_the_password_in_warnings(caplog) -> None:
+    caplog.set_level(logging.WARNING, logger=_LOGGER)
+    seen: list[str] = []
+    assert load_host_overrides(_MALFORMED) == {}
+    assert load_host_overrides(_MALFORMED, warn_unavailable=seen.append) == {}
+    assert "secret-tail" not in caplog.text and "prefix" not in caplog.text
+    assert seen and all("secret-tail" not in m and "prefix" not in m for m in seen)
