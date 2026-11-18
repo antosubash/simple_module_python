@@ -7,7 +7,42 @@ description: Use when a module needs to contribute menu items, permissions, feat
 
 Four cross-cutting registries are populated during boot from each module's `register_*` hook. They turn the modular monolith into something more than a bag of routers: navigation aggregates, permission checks expand consistently, features can be toggled per tenant, and modules emit/consume events without importing each other.
 
-All four are populated in **Phase 5** of `app_builder.build_app`, in this per-module order: `register_menu_items` → `register_permissions` → `register_feature_flags` → `register_event_handlers` → `register_health_checks` → `register_public_routes` → `register_csp_sources`. (The last three — health checks, anonymous-route exemptions, and CSP sources — are also registries but out of scope here; see **simple-module-creating**.) Each is constructed once in Phase 3 and stashed on `app.state.sm` (as `menu_registry`, `permissions`, `feature_flags`, `event_bus`, …) only **after** all module hooks have run.
+Registries are populated by `create_app` in dependency order. The complete hook
+sequence is in `docs/framework/lifecycle.md`. The host's synchronous
+`create_app(settings, customize=fn)` / `build_host_app(__file__, customize=fn)`
+callback runs after all registration hooks, with `app.state.sm` available and
+before the outer middleware pipeline is finalized. Apply host overrides there;
+a module that sorts last still precedes later hook phases.
+
+## Explicit host overrides (#954)
+
+- Public routes: `app.state.sm.public_routes.remove(pattern, kind="exact", methods={"GET"})`.
+  The literal registration pattern and kind must match. Omit methods to remove
+  every scope; otherwise the complete normalized method set must match. All
+  duplicates of that identity are removed; overlapping exemptions remain.
+- Code grants: `app.state.sm.permissions.revoke_role(role, permission)` or
+  `revoke_role(role)` for all grants from `map_role`. DB overlays are independent:
+  they can grant the revoked permission only if they explicitly include it.
+  Catalog sources, direct grants and the default admin wildcard are unchanged.
+- Rate limits: `app.state.rate_limit_rules.replace_exact(path, rule)` (also
+  `replace_prefix` / `replace_regex`). Rule methods override overlapping scopes
+  for the same literal pattern, preserving other methods. Omit methods for all.
+- Resources: `app.state.sm.resource_types.replace(resource_type)` validates and
+  replaces by name. Plain `register` still rejects duplicate names.
+- Events: `bus.unsubscribe(EventType, handler)`,
+  `bus.unsubscribe_durable(EventType, name=NAME)` and
+  `bus.replace_durable(EventType, replacement_handler, name=NAME)`. Stable names
+  and SM034 semantics remain. Replacement also rebinds outstanding deliveries;
+  removal does not delete outbox rows. Apply durable overrides to worker buses
+  too: workers do not run the web host's callback.
+- Shared props: `replace_inertia_shared_prop(app, key, provider)` from
+  `simple_module_hosting`. The sync/async provider returns one value. Explicit
+  replacement runs last and can replace framework keys; ordinary providers
+  still keep the first key. Missing dynamic keys fail at render time.
+
+Missing removal/replacement targets raise `KeyError`. Plain additions preserve
+existing accumulation, first-wins or duplicate rejection. Override existing
+registry objects; do not replace `app.state.sm` or swap referenced registries.
 
 ## Menu — `register_menu_items(registry: MenuRegistry)`
 
@@ -81,7 +116,7 @@ role-name permission mappings work for Users, OIDC and Keycloak.
 
 **Convention:** permission names are `<module>.<action>` (lowercase, dot-separated). Group name is human-readable — it surfaces in the admin UI as a section header. The built-in `admin` role gets the wildcard `"*"` and skips per-permission checks.
 
-`register_permissions` runs once at boot to declare the static catalog. The registry caches its computed views (`all_permissions`, `role_map`) and **invalidates them on every mutation** (`add_group`, `add`, `map_role`), so it is safe to mutate after boot — the Permissions module does exactly that, re-applying persisted role→permission rows into `registry.map_role` at startup and whenever an admin edits a role. Don't roll your own caching of these views; read them fresh.
+`register_permissions` runs once at boot to declare the static catalog. The registry caches its computed views (`all_permissions`, `role_map`) and **invalidates them on every mutation** (`add_group`, `add`, `map_role`, `revoke_role`, overlay updates), so it is safe to mutate after boot — the Permissions module uses separate role overlays for persisted grants at startup and whenever an admin edits a role. Don't roll your own caching of these views; read them fresh.
 
 To check inside an endpoint, depend on `RequiresPermission(Permissions.VIEW)` (from `simple_module_hosting.permissions`), not by reading the registry by hand. The dependency handles wildcard expansion and the 401-vs-403 distinction.
 
@@ -169,7 +204,7 @@ async def place_order(self, ...):
 
 **`publish`** awaits every handler concurrently via `asyncio.gather` and isolates handler failures (logged via `return_exceptions`, never propagated to the publisher). **`publish_nowait`** uses pyee's `emit` to schedule handlers as tasks on the running loop and returns immediately without awaiting them — use when the publisher must not block on handler latency. Both isolate handler errors; the difference is only whether the publisher waits.
 
-The event bus has no persistence and no retry. If the host crashes between `publish` and the handler completing, the event is lost. For durable workflows use `background_tasks` (Celery) instead.
+The event bus has no persistence and no retry. If the host crashes between `publish` and the handler completing, the event is lost. For durable workflows use `subscribe_durable` and `publish_durable` with the outbox transport supplied by `background_tasks`.
 
 ## Inter-module convention: contracts only
 
@@ -177,7 +212,7 @@ Module A consuming Module B's events should import only from `b.contracts.events
 
 ## Pitfalls
 
-- **Added menu items or permission *groups* after boot.** The menu/permission/flag catalogs are meant to be declared in the `register_*` hooks. (The registries do invalidate their caches on mutation, so a late `add` won't serve stale data — but per-module hooks only run once at boot, so a catalog entry added later belongs to no module and won't survive a restart.) The one sanctioned runtime mutation is `PermissionRegistry.map_role`, which the Permissions module re-applies from the DB when an admin edits a role.
+- **Added menu items or permission *groups* after boot.** The menu/permission/flag catalogs are meant to be declared in the `register_*` hooks. (The registries do invalidate their caches on mutation, so a late `add` won't serve stale data — but per-module hooks only run once at boot, so a catalog entry added later belongs to no module and won't survive a restart.) The Permissions module refreshes persisted grants through role overlays; keep code mappings separate from DB grants.
 - **Raw permission strings in endpoints (`request.state.user.permissions`).** Use `RequiresPermission(...)`. The dependency handles wildcard expansion and the 401-vs-403 distinction.
 - **Forgot a feature flag's `default_enabled=False`.** A flag added with `default_enabled=True` is on for every tenant on first deploy — defeats the point of gating a rollout. Default to `False`; flip via override after the rollout window.
 - **Tried to subscribe to an event in `register_settings` instead of `register_event_handlers`.** `register_settings` receives only `app`, and `app.state.sm` (which holds `event_bus`) isn't assigned until **after** every registration hook runs — so the bus is unreachable there. Subscribe in `register_event_handlers`, which is handed the bus directly.

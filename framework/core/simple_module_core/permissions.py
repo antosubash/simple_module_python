@@ -197,6 +197,21 @@ class PermissionRegistry:
         self._role_map[role].update(permissions)
         self._invalidate()
 
+    def revoke_role(self, role: str, permission: str | None = None) -> None:
+        """Revoke one or all map_role grants; DB overlays and other sources remain.
+
+        This removes code grants, not a deny rule: an explicit DB grant can
+        still grant the same permission. Missing code grants raise KeyError.
+        """
+        permissions = self._role_map.get(role)
+        if not permissions or (permission is not None and permission not in permissions):
+            raise KeyError(f"No code grant for role {role!r}: {permission!r}")
+        if permission is None:
+            permissions.clear()
+        else:
+            permissions.remove(permission)
+        self._invalidate()
+
     def add_grant_source(
         self, source: GrantSource, *, session_source: GrantSource | None = None
     ) -> None:

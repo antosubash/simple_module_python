@@ -32,6 +32,7 @@ register_routes
 register_admin_routes       (only when meta.admin_view_prefix is set)
 -- framework routes, static/SPA mounts, host routers
 register_fallback_routes    (all modules, in dependency order)
+-- customize(app)           (host callback; finish outer middleware afterwards)
 -- check_data_compatibility (async, before module settings hydration)
 -- on_startup (async, after middleware is installed)
 ```
@@ -44,6 +45,38 @@ The web host binds it to its session factory after database initialization;
 workers call it alongside `register_permissions` using the same selected modules,
 without running settings hooks or building an app. See
 [principals outside requests](/framework/permissions#principals-outside-requests).
+
+## Host overrides
+
+`create_app(settings, customize=customize)` and
+`build_host_app(__file__, customize=customize)` accept a synchronous callable
+receiving the app. It runs once, after **all** module registration hooks,
+including exception handlers, middleware, ordinary/admin routes and fallback
+routes. `app.state.sm` and the request registries on `app.state` are available.
+The framework finishes the outer middleware pipeline only after the callback;
+requests and lifespan startup have not begun. Callback errors abort construction.
+
+```python
+def customize(app):
+    app.state.sm.public_routes.remove("/news", kind="exact")
+    app.state.sm.permissions.revoke_role("tenant:member", "news.publish")
+
+
+app = build_host_app(__file__, customize=customize)
+```
+
+Use this point for registry overrides rather than a host module that happens to
+sort last: module dependency order only orders a phase, and later phases can
+still register entries. The callback changes existing registry objects in place;
+do not replace `app.state.sm` or swap registry objects already referenced by
+middleware. All six registry overrides are effective here: public routes,
+code role grants, rate rules (`app.state.rate_limit_rules`), resource types,
+event subscriptions and shared Inertia props. Plain additions retain their
+existing first-wins, accumulation or duplicate-rejection behavior. Removing or
+replacing an unknown entry raises `KeyError` (shared-prop keys are dynamic, so
+that check occurs at render time). This callback is not a startup hook: DB
+settings hydrate later and workers do not construct a web app. Apply durable
+subscription overrides consistently in worker registrations as well.
 
 ## `register_settings(app)`
 

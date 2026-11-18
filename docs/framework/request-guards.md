@@ -148,6 +148,26 @@ from simple_module_hosting.rate_limit_deps import RateLimit
 
 `rate_limit_authenticated` is now counted per user, not per IP.
 
+### Replacing a registered rate rule
+
+In the host's [customize callback](lifecycle.md#host-overrides):
+
+```python
+def customize(app):
+    app.state.rate_limit_rules.replace_exact(
+        "/api/invites", RateLimitRule("2/minute", key="user", methods={"POST"})
+    )
+```
+
+`replace_exact`, `replace_prefix` and `replace_regex` identify the literal
+pattern and match kind. The replacement's `methods` overrides overlapping
+method scopes for that identity, preserving all other methods and unrelated
+rules. Omitting methods replaces all scopes for the pattern. A missing target
+raises `KeyError`; invalid input fails before mutation. `enabled=` has the
+same per-request meaning as on additions. A disabled replacement falls back
+to other matching patterns, not the superseded rule. Specificity across
+patterns is unchanged, and plain additions still keep the first rule on ties.
+
 ### Storage
 
 - **Redis** when `SM_REDIS_URL` is set (needs the `redis` package, which

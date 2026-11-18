@@ -18,6 +18,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Registries expose explicit public-route removal, code role-grant revocation, rate-rule and resource-type replacement, event unsubscription/durable rebinding, and shared Inertia prop replacement. Both app factories accept `customize(app)` after all module registration hooks and before outer middleware assembly. Code revocation leaves explicit DB grants intact; ordinary additions keep their existing behavior (#954).
+
 - Mail transport providers register named factories through `mail.contracts`, with built-in console/SMTP transports and provider-owned DB settings shared by web startup, settings reloads and durable worker resolution. The admin backend selector lists registered transports. **Behaviour change:** unknown transports fail outside development; explicit `install_mail_sender` overrides survive settings reloads (#962).
 - Users exposes `register_oauth_provider` through `users.contracts`. App-scoped provider factories survive settings reloads; startup and reload derive OAuth clients and login buttons from the same registry. Custom buttons support translated labels and shared UI icons; built-in callback URLs and sign-in policies are unchanged (#964).
 - Auth-provider modules declare the public `ModuleMeta.provides_auth` capability for selection and SM020/SM021 diagnostics. Users, Keycloak and OIDC use it. SM020 warns when a module object exposes the provider protocol shape without declaring it; provider objects created inside hooks cannot be detected statically (#960).

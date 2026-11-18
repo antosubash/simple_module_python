@@ -208,6 +208,32 @@ another module could provide one; `background_tasks` is the shipped
 implementation — see [its docs](/modules/background_tasks#durable-events-outbox)
 for the outbox, retries, the admin page and the worker side.
 
+## Removing and replacing subscriptions
+
+The host's [customize callback](lifecycle.md#host-overrides) can call:
+
+```python
+bus.unsubscribe(OrderPlaced, send_receipt)
+bus.unsubscribe_durable(OrderPlaced, name=INVOICE_HANDLER)
+bus.replace_durable(OrderPlaced, replacement_invoice_handler, name=OTHER_HANDLER)
+```
+
+`unsubscribe` removes that callable from the in-process bus, affecting both
+`publish` and future `publish_nowait` calls. Already scheduled calls continue.
+Durable removal and replacement identify the exact event type and stable name;
+a missing handler or subscription raises `KeyError`. `replace_durable` validates
+the new handler before rebinding, preserving subscription order. Plain durable
+subscription still rejects a different handler using an existing name. The
+underlying registry also exposes `bus.durable.remove` and `bus.durable.replace`.
+Explicit names remain required for overrides; `subscribe_durable` without
+`name=` retains its warning and SM034 diagnostic.
+
+Replacement retains the event/name identity, so outstanding deliveries run the
+new handler. Removal does not delete outbox rows: outstanding deliveries will
+retry as unknown handlers and may become dead. Workers construct their own bus
+without `create_app`, so apply the same durable overrides in their registration
+path too; a web `customize` callback alone does not change a worker's bus.
+
 ## Testing
 
 Subscribe a spy in a test fixture:

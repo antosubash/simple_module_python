@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from simple_module_hosting.shared_props import (
         register_inertia_shared_provider as register_inertia_shared_provider,
     )
+    from simple_module_hosting.shared_props import (
+        replace_inertia_shared_prop as replace_inertia_shared_prop,
+    )
 
 __all__ = [
     "Settings",
@@ -23,6 +26,7 @@ __all__ = [
     "merge_host_settings",
     "register_inertia_shared_provider",
     "render_error_page",
+    "replace_inertia_shared_prop",
     "setup_logging",
 ]
 
@@ -33,6 +37,7 @@ _EXPORT_MODULES = {
     "create_app": "app_builder",
     "merge_host_settings": "_preapp_config",
     "register_inertia_shared_provider": "shared_props",
+    "replace_inertia_shared_prop": "shared_props",
     "render_error_page": "errors",
     "setup_logging": "logging",
 }

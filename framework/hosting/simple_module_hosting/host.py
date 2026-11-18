@@ -8,7 +8,7 @@ import tomllib
 from collections.abc import Callable, Iterable, Iterator
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -40,6 +40,7 @@ def build_host_app(
     project_root: str | Path | None = None,
     routers: Iterable[APIRouter | str] = (),
     database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
+    customize: Callable[[FastAPI], None] | None = None,
 ) -> FastAPI:
     """Load the host environment, merge DB settings, configure logging and build.
 
@@ -61,6 +62,8 @@ def build_host_app(
 
     ``database`` is passed to ``create_app`` after settings resolve. Supplied
     states and factory results remain caller-owned; dispose their engines yourself.
+    ``customize(app)`` runs after all module registration hooks, with
+    ``app.state.sm`` available, before the outer middleware pipeline is finished.
     """
     host_dir = Path(entry_file).resolve().parent
     if str(host_dir) not in sys.path:
@@ -83,7 +86,9 @@ def build_host_app(
 
     settings = merge_host_settings()
     setup_logging(level=settings.log_level, json_format=settings.log_format == "json")
-    options = {"database": database} if database is not None else {}
+    options: dict[str, Any] = {"database": database} if database is not None else {}
+    if customize is not None:
+        options["customize"] = customize
     return create_app(settings, routers=_resolve_routers(routers), **options)
 
 

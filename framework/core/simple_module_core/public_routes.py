@@ -137,6 +137,27 @@ class PublicRouteRegistry:
         """Return ``True`` if any registered rule exempts *method* + *path*."""
         return any(route.matches(method, path) for route in self._routes)
 
+    def remove(
+        self, pattern: str, *, kind: _MatchKind = "prefix", methods: Iterable[str] | None = None
+    ) -> None:
+        """Remove all registrations with this literal pattern and kind.
+
+        Omit methods to remove every method scope; otherwise the normalized
+        method set must equal the registration's set. Other overlapping
+        exemptions remain active. Raises KeyError if nothing matches.
+        """
+        target = PublicRoute(pattern, kind=kind, methods=methods)
+        matches = [
+            route
+            for route in self._routes
+            if route.kind == kind
+            and route.pattern == pattern
+            and (methods is None or route.methods == target.methods)
+        ]
+        if not matches:
+            raise KeyError(f"No public route registered for {target!r}")
+        self._routes = [route for route in self._routes if route not in matches]
+
     def match(self, method: str, path: str) -> PublicRoute | None:
         """The rule that governs *method* + *path*, if any.
 

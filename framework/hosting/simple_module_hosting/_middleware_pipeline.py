@@ -63,16 +63,15 @@ def build_csp(settings: Settings, csp_registry: CspSourceRegistry) -> str:
     return csp_registry.extend_policy(base)
 
 
-def install_middleware(
+def install_inner_middleware(
     app: FastAPI,
     settings: Settings,
     modules: list,
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
-    csp_registry: CspSourceRegistry,
     rate_limit_store: WindowStore,
 ) -> None:
-    """Install the full middleware pipeline.
+    """Install the inner pipeline and run module middleware hooks.
 
     Order matters: last added = first executed. Execution order:
     (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
@@ -118,6 +117,10 @@ def install_middleware(
         app.add_middleware(TenantMiddleware, fixed=settings.default_tenant)
     for mod in modules:
         mod.register_middleware(app)
+
+
+def install_middleware(app: FastAPI, settings: Settings, csp_registry: CspSourceRegistry) -> None:
+    """Finish the outer pipeline after host customization, consuming CSP here."""
     # Outside every module middleware and the cache guard, so it normalises
     # the final response — including redirects a module middleware issues
     # itself (an expired session's login redirect after a DELETE must still
