@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
-
 from fastapi import APIRouter
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -27,13 +24,6 @@ class DashboardModule(ModuleBase):
         admin_view_prefix="/admin/doctor",
         i18n_audience="admin",
     )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from dashboard.web.endpoints.api import router as api
-        from dashboard.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
         from dashboard.web.endpoints.views import admin_router as doctor_views
@@ -76,6 +66,3 @@ class DashboardModule(ModuleBase):
                 roles=["admin"],
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        return {"dashboard": Path(str(importlib.resources.files(__package__) / "locales"))}

@@ -23,6 +23,7 @@ import logging
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core._module_conventions import get_module_package_name
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
@@ -89,7 +90,7 @@ def _is_tenant_scoped(cls: type) -> bool:
 
 def module_tables(mod: ModuleBase) -> list[Any]:
     """Tables of the ``MultiTenantMixin`` models in the module's ``models``."""
-    pkg = type(mod).__module__.rsplit(".", 1)[0]
+    pkg = get_module_package_name(mod)
     try:
         models = importlib.import_module(f"{pkg}.models")
     except ModuleNotFoundError:

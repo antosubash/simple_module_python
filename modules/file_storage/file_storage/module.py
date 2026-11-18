@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.resources
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
@@ -189,10 +187,6 @@ class FileStorageModule(ModuleBase):
                 default_enabled=False,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {constants.LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the storage backend and probe its backing resource.

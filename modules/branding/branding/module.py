@@ -7,8 +7,6 @@ page through a registered Inertia shared-props provider.
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
@@ -116,7 +114,3 @@ class BrandingModule(ModuleBase):
         from branding.web.shared_props import branding_shared_props
 
         register_inertia_shared_provider(app, branding_shared_props)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {constants.PACKAGE: base}

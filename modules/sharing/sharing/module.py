@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core import ModuleBase, ModuleMeta
@@ -14,7 +12,7 @@ from simple_module_core.tenancy import TenantRole, tenant_role
 from sharing.core import constants as c
 
 if TYPE_CHECKING:
-    from fastapi import APIRouter, FastAPI
+    from fastapi import FastAPI
     from simple_module_core.audit_links import AuditLinkRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.permissions import PermissionRegistry
@@ -39,13 +37,6 @@ class SharingModule(ModuleBase):
         from sharing.core.user_cleanup import purge_user_shares
 
         bus.subscribe_durable(UserDeleted, purge_user_shares, name=c.USER_CLEANUP_HANDLER)
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from sharing.web.endpoints.api import router as api
-        from sharing.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -85,7 +76,3 @@ class SharingModule(ModuleBase):
                 label_key=c.AUDIT_LABEL_KEY,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {c.LOCALE_NAMESPACE: base}

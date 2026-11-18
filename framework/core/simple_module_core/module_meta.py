@@ -14,6 +14,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+class _DefaultVersion(str):
+    """Distinguish an omitted version from an explicit fallback value."""
+
+
+_VERSION = _DefaultVersion("1.0.0")
+
+
 @dataclass(frozen=True)
 class ModuleMeta:
     """Metadata describing a module."""
@@ -44,7 +51,7 @@ class ModuleMeta:
     works without the other one. Sorted exactly like ``depends_on`` when
     present, so moving an entry here does not change the boot order.
     """
-    version: str = "1.0.0"
+    version: str = _VERSION
     requires_framework: str | None = None
     """PEP 440 specifier for the framework API version this module supports.
 

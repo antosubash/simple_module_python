@@ -13,8 +13,6 @@ credential sources (PAT bearer tokens, API keys, etc.).
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -50,6 +48,3 @@ class AuthModule(ModuleBase):
         from auth.web.middleware import AuthMiddleware
 
         app.add_middleware(AuthMiddleware)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        return {"auth": Path(str(importlib.resources.files(__package__) / "locales"))}

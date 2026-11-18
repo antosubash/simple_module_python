@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
@@ -154,7 +152,3 @@ class SettingsModule(ModuleBase):
                 label_resolver=_resolve_setting_labels,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}

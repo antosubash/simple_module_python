@@ -161,13 +161,9 @@ Note the absence of `self.session.commit()`. The per-request `get_db` dependency
 
 ```python
 # modules/orders/orders/module.py
-from fastapi import FastAPI, APIRouter
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.permissions import PermissionRegistry
-
-from orders.web.endpoints.api import router as api_router
-from orders.web.endpoints.views import router as view_router
 
 
 class OrdersModule(ModuleBase):
@@ -200,17 +196,10 @@ class OrdersModule(ModuleBase):
                 group="Content",
             )
         )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from orders.web.endpoints.api import router as api
-        from orders.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 ```
 
 - `MenuItem` takes `label` (the displayed string) and `url` (the link target). Translation is handled in the React layer via `useT()` — not on the menu definition. Pre-filter visibility via `roles=[...]` if the entry should only show for specific roles.
-- `route_prefix` / `view_prefix` from `ModuleMeta` already prefix the routers (`/api/orders` and `/orders`) — `register_routes` should mount the inner routers without re-adding the prefix.
+- The default `register_routes` discovers the conventional API and view routers. `route_prefix` / `view_prefix` from `ModuleMeta` mount them at `/api/orders` and `/orders`; no route hook override is needed.
 
 ## 7. Enforce permissions on endpoints
 

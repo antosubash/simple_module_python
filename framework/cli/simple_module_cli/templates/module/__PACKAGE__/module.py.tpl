@@ -5,8 +5,7 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
-from fastapi import APIRouter{{SETTINGS_FASTAPI_IMPORT}}
-from simple_module_core import ModuleBase, ModuleMeta
+{{SETTINGS_FASTAPI_IMPORT}}from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 {{SETTINGS_IMPORT}}from simple_module_core.permissions import PermissionRegistry
 
@@ -21,18 +20,10 @@ class {{MODULE_NAME}}Module(ModuleBase):
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         depends_on=[],
-        version="0.1.0",
         requires_framework=">=1.0,<2.0",
     )
 
-{{SETTINGS_HOOK}}    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from {{PACKAGE_NAME}}.web.endpoints.api import router as api
-        from {{PACKAGE_NAME}}.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
-
-    def register_menu_items(self, registry: MenuRegistry) -> None:
+{{SETTINGS_HOOK}}    def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
@@ -57,10 +48,6 @@ class {{MODULE_NAME}}Module(ModuleBase):
                 PERM_{{PACKAGE_NAME_UPPER}}_DELETE,
             ],
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}
 
     def static_mounts(self) -> dict[str, Path]:
         """Expose optional pre-built static assets, separate from Inertia pages.

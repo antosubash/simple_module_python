@@ -14,7 +14,6 @@ MODEL_CONFIG_TY_IGNORE = "  # ty: ignore[invalid-assignment]"
 
 _MODULE_CONSTANTS = (
     "API_PREFIX",
-    "LOCALE_NAMESPACE",
     "MENU_ICON",
     "MENU_LABEL",
     "MENU_LABEL_KEY",

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from simple_module_core._module_conventions import (
+    get_module_package_name,
+    has_conventional_module,
+    package_spec,
+)
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._css import check_module_css
 from simple_module_core.diagnostics._dependencies import check_missing_dependencies
@@ -126,7 +130,16 @@ class ModuleDiagnostics:
                 )
                 if name in cls.__dict__
             ]
-            if not overridden:
+            package = get_module_package_name(mod)
+            conventional_routes = (
+                any(
+                    has_conventional_module(package, f"web.endpoints.{name}")
+                    for name in ("api", "views")
+                )
+                if not overridden
+                else False
+            )
+            if not overridden and not conventional_routes and not mod.locale_dirs():
                 diags.append(
                     Diagnostic(
                         level=DiagnosticLevel.INFO,
@@ -141,7 +154,7 @@ class ModuleDiagnostics:
     def _check_views_without_menu(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         """Warn when a module ships view routes but is silently invisible.
 
-        A module that overrides ``register_routes`` and declares a non-empty
+        A module with conventional views or a ``register_routes`` override and a non-empty
         ``view_prefix`` produces user-facing pages. Without either
         ``register_menu_items`` (so admins can navigate to it from the sidebar)
         or ``register_permissions`` (so admins can see it in the role-permission
@@ -159,7 +172,10 @@ class ModuleDiagnostics:
             silently_invisible = (
                 meta is not None
                 and getattr(meta, "view_prefix", "")
-                and "register_routes" in cls.__dict__
+                and (
+                    "register_routes" in cls.__dict__
+                    or has_conventional_module(get_module_package_name(mod), "web.endpoints.views")
+                )
                 and "register_menu_items" not in cls.__dict__
                 and "register_permissions" not in cls.__dict__
             )
@@ -232,8 +248,8 @@ class ModuleDiagnostics:
         return diags
 
     def _find_package_dir(self, package_name: str) -> Path | None:
-        """Locate the source directory for a top-level package."""
-        spec = importlib.util.find_spec(package_name)
+        """Locate the source directory for a package."""
+        spec = package_spec(package_name)
         if spec and spec.submodule_search_locations:
             locations = list(spec.submodule_search_locations)
             if locations:
@@ -242,5 +258,5 @@ class ModuleDiagnostics:
 
     def _find_source_dir(self, mod: ModuleBase) -> Path | None:
         """Locate the source directory for a module's package."""
-        pkg_name = type(mod).__module__.rsplit(".", 1)[0]
+        pkg_name = get_module_package_name(mod)
         return self._find_package_dir(pkg_name)

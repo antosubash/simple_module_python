@@ -164,7 +164,7 @@ exists. A `@theme` inside a cascade layer is inert and an unlayered rule beats
 every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 (`SM022`/`SM023`). See `docs/module-authoring.md` § Styling.
 
-**Lifecycle hooks** on `ModuleBase` (all no-op by default; order and examples in
+**Lifecycle hooks** on `ModuleBase` (no-op except conventional routes/locales; order and examples in
 `docs/framework/lifecycle.md`): `register_settings`, `register_menu_items`,
 `register_permissions`, `register_feature_flags`, `register_event_handlers`,
 `register_invalidations`, `register_health_checks`, `register_public_routes`,
@@ -177,6 +177,14 @@ then async `check_data_compatibility(db)` (read-only upgrade checks before
 settings hydration; an `error` refuses boot outside development), then async
 `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
 `db_extensions()`, `template_dirs()`, `static_mounts()`, `spa_mounts()`.
+
+By default, `register_routes` includes `<package>.web.endpoints.{api,views}.router`
+when present; import failures inside existing endpoints still fail boot.
+`locale_dirs()` discovers `<package>/locales` using the package name as namespace.
+`route_prefix` and `view_prefix` default to `""`; declare them explicitly to
+mount under a prefix. Omitted `version` comes from the owning distribution
+(fallback `1.0.0` without metadata). Explicit versions and hook overrides win.
+Keep existing prefixes when adopting conventional routes so URLs do not change.
 
 Rules that go with them:
 
@@ -367,8 +375,9 @@ development and testing.
   `AuditLink.for_model(Model, url_template=…, …)` (a table-name `entity_type`
   silently never matches); `register_design_packs` slugs must match
   `^[a-z0-9][a-z0-9-]*$` and the host must still import the CSS.
-- **i18n.** Ship `<package>/locales/<lang>.json`, declare in `locale_dirs()` with
-  the lowercase package name as namespace; `{"browse": {"title": "X"}}` becomes
+- **i18n.** Ship `<package>/locales/<lang>.json`; the default `locale_dirs()` discovers
+  it with the lowercase package name as namespace. Override only for custom paths
+  or namespaces; `{"browse": {"title": "X"}}` becomes
   `<ns>.browse.title`; plurals use CLDR suffixes (`_one`, `_other`). Menu items
   set `label_key`/`group_key` beside `label`/`group` (an unresolved key falls
   back to the literal, silently); group headers use `ui.nav_groups.*`.

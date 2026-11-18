@@ -646,7 +646,15 @@ Diagnostics run automatically at boot — warnings print to stderr in dev, error
 
 ## Internationalization
 
-Modules ship translations as JSON under `<package>/locales/<lang>.json` and declare them via `ModuleBase.locale_dirs()`:
+Modules ship translations as JSON under `<package>/locales/<lang>.json`.
+`ModuleBase.locale_dirs()` discovers that directory automatically when present.
+The namespace is the lowercase last component of the Python package name:
+`orders` for `orders.module`, or `billing` for `acme.billing.module`, regardless
+of `ModuleMeta.name`.
+
+The `smpy create-module` / `make new-module` scaffold emits a starter
+`locales/en.json`; no locale hook is needed, including for hand-written modules
+using the conventional layout. Override only for a custom directory or namespace:
 
 ```python
 import importlib.resources
@@ -655,10 +663,10 @@ from pathlib import Path
 
 class OrdersModule(ModuleBase):
     def locale_dirs(self) -> dict[str, Path]:
-        return {"orders": Path(str(importlib.resources.files(__package__) / "locales"))}
+        return {"sales": Path(str(importlib.resources.files(__package__) / "locales"))}
 ```
 
-The `smpy create-module` / `make new-module` scaffold emits this method and a starter `locales/en.json`; add it yourself only for a hand-rolled module.
+An override replaces automatic discovery. Return `{}` to opt out.
 
 ### Key naming
 

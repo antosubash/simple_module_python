@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -111,10 +108,6 @@ class ApiTokensModule(ModuleBase):
         from api_tokens.credentials.audit import build_token_audit_link
 
         registry.register(build_token_audit_link())
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {c.LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
         from api_tokens.credentials.resolver import resolve_api_token

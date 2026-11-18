@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Sequence
+from importlib import import_module, resources
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core._module_conventions import (
+    get_module_package_name,
+    has_conventional_module,
+    package_spec,
+)
 from simple_module_core._request_hooks import RequestHooksMixin
 from simple_module_core.data_compatibility import DataCompatibilityIssue
 from simple_module_core.module_meta import ModuleMeta
@@ -33,8 +39,8 @@ EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN = "0.1.0"
 class ModuleBase(RequestHooksMixin, ABC):
     """Base class for all modules.
 
-    Subclasses override only the methods they need; every hook is a no-op by
-    default. Request-pipeline hooks (public routes, body limits, CSP sources,
+    Subclasses override only the methods they need; routes and locales follow
+    package conventions by default. Request-pipeline hooks (public routes, body limits, CSP sources,
     CORS policies, rate limits, middleware, exception handlers) live in
     ``_request_hooks.RequestHooksMixin``. The boot order the host calls them
     in is documented in ``docs/framework/lifecycle.md`` (settings, then the
@@ -57,7 +63,16 @@ class ModuleBase(RequestHooksMixin, ABC):
         api_router: APIRouter,
         view_router: APIRouter,
     ) -> None:
-        """Register API endpoints and Inertia view routes."""
+        """Include conventional ``web.endpoints.{api,views}.router`` when present.
+
+        The host applies prefixes and tags. Override for custom route layouts.
+        Import errors inside existing endpoint modules propagate to the caller.
+        """
+        package = get_module_package_name(self)
+        for name, target in (("api", api_router), ("views", view_router)):
+            suffix = f"web.endpoints.{name}"
+            if has_conventional_module(package, suffix):
+                target.include_router(import_module(f"{package}.{suffix}").router)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
         """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
@@ -203,20 +218,22 @@ class ModuleBase(RequestHooksMixin, ABC):
     def locale_dirs(self) -> dict[str, Path]:
         """Return ``{namespace: directory}`` mapping for locale JSON files.
 
-        Default returns an empty dict. Override to contribute a module's
-        locales::
-
-            return {
-                "products": importlib.resources.files(__package__) / "locales"
-            }
+        Discovers ``<package>/locales`` when it exists, using the lowercase last
+        package component as namespace. Override for a different directory or
+        namespace, or to return an empty mapping and opt out.
 
         The namespace becomes the key prefix in the merged i18n registry.
         A file ``locales/en.json`` containing ``{"browse": {"title": "X"}}``
         becomes the key ``products.browse.title`` at runtime.
 
-        Convention: use the module's lowercase name as the namespace.
+        The package name, not ``ModuleMeta.name``, is the namespace.
         """
-        return {}
+        package = get_module_package_name(self)
+        spec = package_spec(package)
+        if spec is None or spec.submodule_search_locations is None:
+            return {}
+        directory = Path(str(resources.files(package) / "locales"))
+        return {package.rsplit(".", 1)[-1].lower(): directory} if directory.is_dir() else {}
 
     def db_extensions(self) -> list[str]:
         """Postgres extensions this module needs (``["ltree", "pg_trgm"]``).

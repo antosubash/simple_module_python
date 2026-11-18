@@ -4,8 +4,6 @@ Permissions, Inertia page keys, menu and routing values live here so the
 hardcoded-strings check can hold every other file to named constants.
 """
 
-LOCALE_NAMESPACE = "{{PACKAGE_NAME}}"
-
 PERM_{{PACKAGE_NAME_UPPER}}_VIEW = "{{PACKAGE_NAME}}.view"
 PERM_{{PACKAGE_NAME_UPPER}}_CREATE = "{{PACKAGE_NAME}}.create"
 PERM_{{PACKAGE_NAME_UPPER}}_EDIT = "{{PACKAGE_NAME}}.edit"

@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
-
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
@@ -42,13 +39,6 @@ class AuditLogModule(ModuleBase):
         register_module_settings(
             app, MODULE_PACKAGE, AuditLogSettings, lambda s: AuditLogServices(settings=s)
         )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from audit_log.web.endpoints.api import router as api
-        from audit_log.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -93,7 +83,3 @@ class AuditLogModule(ModuleBase):
         app.state.sm.db.audit_callback = None
         app.state.sm.db.refuse_unaudited_dml = False
         set_activity_feed(app, None)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}

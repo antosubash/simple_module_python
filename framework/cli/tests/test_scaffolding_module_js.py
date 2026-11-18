@@ -69,8 +69,6 @@ class TestSamplePage:
         constants = (dest / "my_feature" / "core" / "constants.py").read_text(encoding="utf-8")
         assert '"MyFeature/Browse"' in constants
         module_py = (dest / "my_feature" / "module.py").read_text(encoding="utf-8")
-        assert "view_prefix=VIEW_PREFIX" in module_py
-        assert 'VIEW_PREFIX = "/my-feature"' in constants
         assert "register_menu_items" in module_py
 
 
