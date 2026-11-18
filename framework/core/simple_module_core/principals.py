@@ -31,6 +31,7 @@ class PrincipalRegistry:
     role_overlays: RoleOverlays | None = None
     multi_tenant: bool = False
     default_tenant: str | None = None
+    resource_context: dict[str, Any] = field(default_factory=dict)
 
 
 def build_principal_registry(

@@ -9,6 +9,7 @@ from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sharing.contracts import get_subject_registry
 from sharing.core.audience import Audience
 from sharing.core.service import SharingError, SharingService
 
@@ -21,6 +22,7 @@ async def get_sharing_service(
         request.app.state.sm.resource_types,
         get_user_directory(request.app),
         Audience(request.app, db),
+        get_subject_registry(request.app),
     )
 
 

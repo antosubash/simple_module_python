@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - Modules can declare an `AdminSurface` once for router prefix, admin menu defaults and page layout, without implying permissions. Existing explicit wiring remains supported. `PermissionCatalogue` string enums register through the base permission hook; scaffold variants use one catalogue and verified page literals instead of `PAGE_*` aliases (#988).
+- Sharing subject providers with built-in user and tenant-role recipients, typed
+  discovery and dialog selection, and single-query SQL membership checks (#963).
 
 - **Behaviour change:** never-migrated installs accept one setup form that validates administrator credentials, applies migrations under the existing lock, and creates the first administrator (#987). A failed creation after migration returns to the administrator form; existing database upgrades and external identity providers retain their migration flow. Module setup actions can opt into this composition with a schema-free validator.
 

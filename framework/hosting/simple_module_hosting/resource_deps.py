@@ -65,6 +65,8 @@ async def resource_principal(request: Request) -> ResourcePrincipal:
         principal = ResourcePrincipal(
             user_id=str(user_id) if user_id is not None else None,
             permissions=frozenset(held),
+            roles=frozenset(getattr(user, "roles", None) or ()),
+            tenant_id=getattr(request.state, "tenant_id", None),
         )
     return _resource_principal_for(request, principal)
 

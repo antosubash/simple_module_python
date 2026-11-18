@@ -37,4 +37,14 @@ def test_loaded_account_roles_membership_and_grants(roles, scopes, required, wan
     )
     role_map = {"reader": ["test.role"], "tenant:member": ["test.member"], "admin": ["*"]}
     who = compose_principal(user, role_map, ["test.direct", "*"])
-    assert who == (None if want is None else ResourcePrincipal("u1", frozenset(want)))
+    assert who == (
+        None if want is None else ResourcePrincipal("u1", frozenset(want), roles=frozenset(roles))
+    )
+
+
+def test_principal_carries_tenant_roles_separately_from_capped_permissions():
+    user = SimpleNamespace(id="u", roles=["tenant:member"], tenant_id="a", scopes=[])
+    who = compose_principal(user, {"tenant:member": ["sharing.share"]}, [])
+    assert who.permissions == frozenset()
+    assert who.roles == frozenset({"tenant:member"})
+    assert who.tenant_id == "a"

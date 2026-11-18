@@ -2,7 +2,7 @@
 
 Optional generic share table for [resource-scoped access](/framework/resource-access).
 A module whose rows are owned by a user can let the owner share one row with
-another user (a declared role, optionally until a date) without shipping its
+a registered subject (an access role, optionally until a date) without shipping its
 own share model. Nothing depends on it: the framework only sees the
 `share_exists` factory a module passes to its `OwnedResourcePolicy`.
 
@@ -89,7 +89,8 @@ For a view-only subset use `{"view": (ACTION_VIEW,)}`; edit implies view through
 |---|---|---|---|
 | `POST` | `/api/sharing/shares` | `sharing.share` | Grant or update. 422 for an unknown type, role or grantee, or a past `expires_at`; 404 when the granter cannot see the row; 403 when they can see it but may not share it. |
 | `GET` | `/api/sharing/shares?resource_type=&resource_id=` | `sharing.share` | Every share on one row (expired included, flagged), for whoever may share it. |
-| `GET` | `/api/sharing/candidates?resource_type=&resource_id=&q=` | `sharing.share` | Requires `ACTION_SHARE` on the resource. Active users only, excluding the owner and caller; tenant members only in multi-tenant mode. |
+| `GET` | `/api/sharing/candidates?resource_type=&resource_id=&q=&subject_type=` | `sharing.share` | Requires `ACTION_SHARE`. Searches one registered subject type (default `user`); user discovery excludes inactive accounts, owner/caller and foreign tenants. |
+| `GET` | `/api/sharing/subject-types?resource_type=&resource_id=` | `sharing.share` | Registered type ids and translation keys, for whoever may share the resource. |
 | `DELETE` | `/api/sharing/shares/{id}` | `sharing.share` | Hard delete. Allowed for whoever may share the row, the grantee (leaving the share), or `sharing.manage`. |
 | `GET` | `/admin/sharing/` | `sharing.view` | Admin page: every share in the active tenant, paginated, with user labels. |
 | `POST` | `/admin/sharing/{id}/revoke` | `sharing.manage` | Revoke from the admin page. |
@@ -150,8 +151,103 @@ Ownership comes from `OwnedResourcePolicy.owner_col`, or `owner_id` on rows usin
 multi-tenant host. Custom policies with a different ownership shape must expose
 an `owner_col` with its mapped column key to exclude their owner.
 
-`POST /api/sharing/shares` accepts only `subject_type: "user"` (also the default
-when omitted). Unsupported subject types and inactive users return 422 (#991).
+`POST /api/sharing/shares` accepts a registered `subject_type`; omitting it still
+means `"user"`. Existing rows and the table schema are unchanged. Unknown types
+and invalid/invisible subjects return 422; rows for an unregistered provider
+never grant access (#963). Inactive users remain invalid (#991).
+
+## Subject providers
+
+Sharing registers `user` and `tenant_role`. The latter accepts `owner`, `admin`,
+or `member`: the exact membership role in the active tenant, without role
+inheritance. It reads `tenant_role(TenantRole.MEMBER)` and its peers from the
+live principal, never infers membership from permissions or the platform
+wildcard. Changing a membership role revokes access on the next request.
+A missing tenant, nonmember, or principal used under another tenant grants no
+role access. The provider uses core tenancy contracts and has no dependency on
+the `tenants` package. Without a membership provider it cannot validate roles.
+
+`GET /api/sharing/subject-types?resource_type=&resource_id=` returns registered
+`subject_type` / `label_key` pairs after the resource's share authorization.
+Pass `subject_type` to the candidates route (default `user`); every candidate
+includes its type. All providers share the existing minimum query length,
+per-user minute/day search budgets and resource authorization. The dialog adds
+a translated type switch when multiple providers are registered. User email
+masking, exact-email discovery and tenant audience checks are unchanged.
+
+A module that depends on `Sharing` registers providers in its existing
+`register_principal_builder` hook, using public contracts. Registration is local
+to the host/worker, never process-global; duplicates and malformed names fail
+at boot. Type ids are lowercase identifiers of at most 16 characters (the
+existing column width). For example, a `teams` module can register its own team
+model and services as follows:
+
+```python
+from sharing.contracts import SubjectContext, SubjectProvider, get_subject_registry
+from simple_module_db.tenancy import current_tenant_id
+from sqlmodel import select
+
+
+def team_membership(principal, subject_id):
+    # Explicit tenant predicate also scopes a SQL subquery on a non-tenant mixin.
+    return subject_id.in_(
+        select(TeamMember.team_id).where(
+            TeamMember.user_id == principal.user_id,
+            TeamMember.tenant_id == current_tenant_id.get(),
+        )
+    )
+
+
+class TeamsModule(ModuleBase):
+    # meta.depends_on includes Sharing; TeamMember belongs to this module.
+    def register_principal_builder(self, registry):
+        get_subject_registry(registry).register(
+            SubjectProvider(
+                name="team",
+                label_key="teams.sharing.subject_type",
+                validate=validate_visible_team,
+                candidates=search_visible_teams,
+                labels=visible_team_labels,
+                membership=team_membership,
+            )
+        )
+```
+
+The callbacks are trusted module code with these contracts:
+
+- `validate(ctx: SubjectContext, subject_id: str) -> str | None` is async. Verify the
+  id exists and the sharer may name it in the active tenant. Return its canonical
+  id when valid, or `None` for unknown, inactive and foreign subjects to prevent
+  enumeration. The canonical id is used for self-share checks and storage.
+- `candidates(ctx, query, owner_id) -> list[ShareCandidate]` is async. Filter
+  visibility **before** the limit, return at most 20 rows, and mask private
+  labels/emails just like the user provider. Sharing sets each returned type.
+- `labels(ctx, ids) -> Mapping[str, str]` is async and batched once per provider
+  per response. Only return labels visible to `ctx.principal`; missing/unknown
+  labels fall back to ids. The user provider and granter labels share one
+  audience-filtered directory lookup. Other types never enter that lookup.
+- `membership(principal, subject_id_column) -> SQL expression` is synchronous
+  and must perform no I/O. Return a predicate (for example `column.in_(SELECT
+  ...)` or `column.in_(request_ids)`) scoped to the active tenant and user.
+  Return SQL `false()` when identity/membership is unavailable. Exceptions
+  propagate; providers never fall back to user membership.
+
+`SubjectContext` contains the caller's `db`, `directory`, tenant `audience`,
+and `principal`. `ResourcePrincipal` carries vetted `roles` and `tenant_id`
+separately from capped permissions. Trusted module extensions are in `context`;
+Sharing binds its registry there through the principal builder. Both HTTP's
+`resource_principal` and `simple_module_db.principals.principal_for` carry the
+same registry, including in workers. Headless callers must still bind
+`tenant_context(tenant_id)` around their resource queries. A manually built
+principal without a registry supports built-ins only.
+
+Membership predicates are ORed inside the existing correlated share `EXISTS`.
+Lists and counts remain one SQL query each, regardless of resource count:
+there is no per-row membership lookup. A provider needing precomputed ids must
+compute them once per request outside `filter`, attach them through its own
+trusted principal context (copy it; never mutate the shared registry context), and reuse that set; prefer a SQL subquery for live
+membership. Labels are likewise batched, avoiding N+1 directory queries.
+
 
 ## Tenancy
 
@@ -168,7 +264,7 @@ membership store, nobody qualifies. Single-tenant apps have no such check.
 
 `sharing_resource_share` (`ResourceShare`, `MultiTenantMixin` + `AuditMixin`):
 `resource_type`, `resource_id` (canonical text: a UUID's 32-digit hex, an int's
-decimal), `subject_type` (`user`), `subject_id`, `role`, `granted_by`,
+decimal), `subject_type` (defaults to `user`), `subject_id`, `role`, `granted_by`,
 `expires_at`. Unique on `(tenant_id, resource_type, resource_id, subject_type,
 subject_id)`, so re-granting updates the role and expiry in place. Shares are
 tenant-scoped: a share made in one tenant never applies in another. An expired

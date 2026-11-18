@@ -54,7 +54,9 @@ it('waits for open, searches trimmed terms, adds and removes with typed requests
   act(() => result.current.setQuery('  friend  '));
   await act(() => vi.advanceTimersByTimeAsync(250));
   expect(result.current.candidates).toEqual([candidate]);
-  const search = new URL(requests[1].url);
+  const candidateRequest = requests.find((r) => r.url.includes('/candidates'));
+  if (!candidateRequest) throw new Error('Missing candidates request');
+  const search = new URL(candidateRequest.url);
   expect(search.pathname).toBe('/api/sharing/candidates');
   expect(search.searchParams.get('q')).toBe('friend');
   expect(search.searchParams.get('resource_type')).toBe('notes.note');

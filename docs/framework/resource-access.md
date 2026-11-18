@@ -11,7 +11,7 @@ enforce the same rule and give the same 404/403 answers (GH #526).
 | Piece | Package | Role |
 |---|---|---|
 | `ResourcePolicy` | `simple_module_core.resources` | Protocol: `filter(principal, action, stmt)` and `can(principal, action, obj)` |
-| `ResourcePrincipal` | `simple_module_core.resources` | `user_id` + the request's resolved permission set |
+| `ResourcePrincipal` | `simple_module_core.resources` | `user_id`, resolved permissions, live roles/tenant and trusted module context |
 | `ResourceType`, `ResourceTypeRegistry` | `simple_module_core.resources` | What `register_resource_types` declares; read at `app.state.sm.resource_types` |
 | `OwnedResourcePolicy`, `select_by_id`, `load_authorized` | `simple_module_db.resource_policy` | The stock owner / public / shared policy |
 | `RequiresResource`, `resource_principal` | `simple_module_hosting.resource_deps` | FastAPI dependencies |

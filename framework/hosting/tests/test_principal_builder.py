@@ -126,7 +126,12 @@ async def test_bound_tenant_without_membership_only_identifies_service_credentia
     }
     assert request.state.user.id == "u1"
     expected = (
-        ResourcePrincipal("u1", frozenset({"test.role", "test.direct"}))
+        ResourcePrincipal(
+            "u1",
+            frozenset({"test.role", "test.direct"}),
+            roles=frozenset({"reader"}),
+            tenant_id="public",
+        )
         if auth_kind == "service"
         else ResourcePrincipal(None)
     )
@@ -148,7 +153,7 @@ async def test_nonmember_admin_bypass_requires_a_bound_tenant_and_uncapped_wildc
     permissions = {"*"} if scopes is None else {"test.direct"}
     assert await resolve_request_permissions(request, registry.permissions) == permissions
     expected = (
-        ResourcePrincipal("u1", frozenset({"*"}))
+        ResourcePrincipal("u1", frozenset({"*"}), roles=frozenset({"admin"}), tenant_id=tenant)
         if tenant is not None and scopes is None
         else ResourcePrincipal(None)
     )
@@ -176,3 +181,31 @@ async def test_fixed_tenant_grant_sources_receive_effective_tenant_without_mutat
         worker = await principal_for(db, "u1", "single")
     assert await resource_principal(request) == worker
     assert request.state.user.tenant_id is None
+
+
+async def test_context_extensions_are_shared_by_request_and_headless_principals():
+    registry = registry_for()
+    marker = object()
+    registry.resource_context["extension"] = marker
+    request = request_for(registry)
+    await resolve_request_permissions(request, registry.permissions)
+    web = await resource_principal(request)
+    async with request.app.state.sm.db.session_factory() as db:
+        worker = await principal_for(db, "u1", "own")
+    assert web.context["extension"] is worker.context["extension"] is marker
+    assert web.roles == worker.roles == frozenset({"reader", "tenant:member"})
+    assert web.tenant_id == worker.tenant_id == "own"
+
+
+async def test_unbound_tenant_role_claims_do_not_become_membership_facts():
+    registry = registry_for(multi=False)
+    registry.default_tenant = "fixed"
+    request = request_for(registry, tenant="fixed")
+    request.state.user.roles.append("tenant:owner")
+    await resolve_request_permissions(request, registry.permissions)
+    assert (await resource_principal(request)).roles == frozenset({"reader"})
+    registry = registry_for(multi=True)
+    request = request_for(registry, tenant="public")
+    request.state.user.roles = ["admin", "tenant:owner"]
+    await resolve_request_permissions(request, registry.permissions)
+    assert (await resource_principal(request)).roles == frozenset({"admin"})

@@ -1149,6 +1149,7 @@ export const keys = {
       search_label: 'sharing.dialog.search_label',
       search_min: 'sharing.dialog.search_min',
       search_placeholder: 'sharing.dialog.search_placeholder',
+      subject_type: 'sharing.dialog.subject_type',
       title: 'sharing.dialog.title',
     },
     list: {
@@ -1174,6 +1175,13 @@ export const keys = {
       description: 'sharing.revoke.description',
       failed: 'sharing.revoke.failed',
       title: 'sharing.revoke.title',
+    },
+    subjects: {
+      admin: 'sharing.subjects.admin',
+      member: 'sharing.subjects.member',
+      owner: 'sharing.subjects.owner',
+      tenant_role: 'sharing.subjects.tenant_role',
+      user: 'sharing.subjects.user',
     },
   },
   tenants: {

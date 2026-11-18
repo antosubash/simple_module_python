@@ -129,5 +129,10 @@ async def test_masks_email_including_fallback_and_email_containing_labels(picker
     with tenant_context("blue"):
         found = await service.candidates(ResourcePrincipal("owner"), NOTE_TYPE, "note", "alice")
     assert [row.model_dump() for row in found] == [
-        {"id": "friend", "display_name": "a•••@example.com", "email": "a•••@example.com"}
+        {
+            "id": "friend",
+            "display_name": "a•••@example.com",
+            "email": "a•••@example.com",
+            "subject_type": "user",
+        }
     ]

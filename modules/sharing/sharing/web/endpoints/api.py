@@ -15,8 +15,8 @@ from simple_module_hosting.permissions import RequiresPermission
 from simple_module_hosting.rate_limit_deps import RateLimit
 from simple_module_hosting.resource_deps import resource_principal
 
-from sharing.contracts.schemas import ShareCandidate, ShareGrant, ShareOut
-from sharing.core.constants import CANDIDATES_DAILY_RATE, PERM_SHARE
+from sharing.contracts.schemas import ShareCandidate, ShareGrant, ShareOut, ShareSubjectType
+from sharing.core.constants import CANDIDATES_DAILY_RATE, PERM_SHARE, SUBJECT_USER
 from sharing.core.service import SharingError
 from sharing.web.deps import SharingServiceDep, http_error
 from sharing.web.present import present_shares
@@ -37,7 +37,12 @@ async def list_shares(
     except SharingError as exc:
         raise http_error(exc) from None
     return await present_shares(
-        get_user_directory(request.app), service.db, shares, service.audience
+        get_user_directory(request.app),
+        service.db,
+        shares,
+        service.audience,
+        who,
+        service.subject_registry(who),
     )
 
 
@@ -53,7 +58,12 @@ async def grant_share(
     except SharingError as exc:
         raise http_error(exc) from None
     (out,) = await present_shares(
-        get_user_directory(request.app), service.db, [share], service.audience
+        get_user_directory(request.app),
+        service.db,
+        [share],
+        service.audience,
+        who,
+        service.subject_registry(who),
     )
     return out
 
@@ -80,9 +90,27 @@ async def share_candidates(
     resource_id: str,
     service: SharingServiceDep,
     q: str = Query("", max_length=320),
+    subject_type: str = Query(SUBJECT_USER, min_length=1, max_length=16),
     who: ResourcePrincipal = Depends(resource_principal),
 ) -> list[ShareCandidate]:
     try:
-        return await service.candidates(who, resource_type, resource_id, q)
+        return await service.candidates(who, resource_type, resource_id, q, subject_type)
     except SharingError as exc:
         raise http_error(exc) from None
+
+
+@router.get("/subject-types", response_model=list[ShareSubjectType])
+async def subject_types(
+    resource_type: str,
+    resource_id: str,
+    service: SharingServiceDep,
+    who: ResourcePrincipal = Depends(resource_principal),
+) -> list[ShareSubjectType]:
+    try:
+        await service._authorize(who, service._type(resource_type), resource_id)
+    except SharingError as exc:
+        raise http_error(exc) from None
+    return [
+        ShareSubjectType(subject_type=p.name, label_key=p.label_key)
+        for p in service.subject_registry(who).all()
+    ]

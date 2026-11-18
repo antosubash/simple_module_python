@@ -163,7 +163,10 @@ def compose_principal(
         return None
     user_id = getattr(user, "id", None)
     return ResourcePrincipal(
-        str(user_id) if user_id is not None else None, frozenset(apply_scope_cap(held, user))
+        str(user_id) if user_id is not None else None,
+        frozenset(apply_scope_cap(held, user)),
+        roles=frozenset(getattr(user, "roles", None) or ()),
+        tenant_id=getattr(user, "tenant_id", None),
     )
 
 

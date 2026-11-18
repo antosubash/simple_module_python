@@ -26,6 +26,11 @@ class SharingModule(ModuleBase):
         view_prefix=c.VIEW_PREFIX,
     )
 
+    def register_principal_builder(self, registry) -> None:
+        from sharing.contracts.subjects import get_subject_registry
+
+        get_subject_registry(registry)
+
     def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
