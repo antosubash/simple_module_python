@@ -50,3 +50,43 @@ async def test_bridge_publishes_and_receives_on_both_channels(monkeypatch):
         ]
     finally:
         await transport.stop()
+
+
+async def test_new_publish_is_dispatched_once_across_the_bridge(monkeypatch):
+    frames = asyncio.Queue()
+    subscribed = asyncio.Event()
+
+    async def subscribe(*channels):
+        subscribed.set()
+
+    async def get_message(**kwargs):
+        return await frames.get()
+
+    async def publish(channel, message):
+        await frames.put({"type": "message", "channel": channel, "data": message.encode()})
+
+    pubsub = SimpleNamespace(subscribe=subscribe, get_message=get_message, aclose=AsyncMock())
+    client = SimpleNamespace(
+        pubsub=lambda: pubsub, ping=AsyncMock(), publish=publish, aclose=AsyncMock()
+    )
+    monkeypatch.setattr("redis.asyncio.from_url", lambda *a, **kw: client)
+    receiver = InvalidationBus(origin="receiver")
+    sender = InvalidationBus(origin="sender")
+    seen = []
+    drained = asyncio.Event()
+    receiver.subscribe("cache", seen.append)
+    receiver.subscribe("sentinel", lambda message: drained.set())
+    transport = RedisInvalidationTransport(
+        receiver, "redis://fake", "installation-channel", legacy_channel="legacy-channel"
+    )
+    sender.set_transport(transport)
+    await transport.start()
+    try:
+        await subscribed.wait()
+        await sender.publish("cache", "same-key")
+        await sender.publish("cache", "same-key")
+        await sender.publish("sentinel")
+        await drained.wait()
+        assert [message.key for message in seen] == ["same-key", "same-key"]
+    finally:
+        await transport.stop()

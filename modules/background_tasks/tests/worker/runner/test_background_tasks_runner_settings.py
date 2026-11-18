@@ -123,6 +123,7 @@ def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypa
         return real_build(settings)
 
     monkeypatch.setattr(celery_app, "build_celery", capture_config)
+    monkeypatch.setenv("SM_BG_TASKS_BROADCAST_INVALIDATIONS", "true")
     monkeypatch.delenv("SM_BG_TASKS_INVALIDATION_CHANNEL", raising=False)
 
     # The runner sets process-wide state; don't leak it into later tests.

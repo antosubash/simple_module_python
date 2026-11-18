@@ -46,6 +46,7 @@ from settings.core.constants import (
     VIEW_PREFIX,
     VIEW_STORE_PATH,
 )
+from settings.core.exceptions import InternalKeyError
 from settings.core.service import SettingService
 from settings.core.tenant_scope import tenant_update_error
 from settings.module_settings.discovery import (
@@ -183,7 +184,7 @@ async def update_action(
         return redirect_back_with_errors(request, {"value": error})
     try:
         await service.update(setting_id, data)
-    except ModuleKeyError as exc:
+    except (ModuleKeyError, InternalKeyError) as exc:
         return redirect_back_with_errors(request, {"value": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 
@@ -207,7 +208,7 @@ async def delete_action(
             "settings.browse.delete_managed_error", setting=exc.key, clear_via=exc.clear_via
         )
         return redirect_back_with_errors(request, {"delete": message})
-    except ModuleKeyError as exc:
+    except (ModuleKeyError, InternalKeyError) as exc:
         return redirect_back_with_errors(request, {"delete": str(exc)})
     return RedirectResponse(_REDIRECT_SETTINGS, status_code=303)
 

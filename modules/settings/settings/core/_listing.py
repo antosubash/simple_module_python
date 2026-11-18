@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from simple_module_db import LIKE_ESCAPE_CHAR, like_contains_pattern
-from simple_module_db.stored_settings import SYSTEM_SCOPE_ID, Setting
+from simple_module_db.stored_settings import INTERNAL_SETTING_KEYS, SYSTEM_SCOPE_ID, Setting
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -22,7 +22,9 @@ class SettingListing:
 
     async def list_all(self) -> list[SettingOut]:
         result = await self.db.execute(
-            select(Setting).order_by(Setting.scope, Setting.scope_id, Setting.key)
+            select(Setting)
+            .where(Setting.key.not_in(INTERNAL_SETTING_KEYS))
+            .order_by(Setting.scope, Setting.scope_id, Setting.key)
         )
         return [out(row) for row in result.scalars()]
 
@@ -70,7 +72,7 @@ class SettingListing:
 
     @staticmethod
     def _filter_conditions(scope: SettingScope | None, q: str | None) -> list:
-        conditions = []
+        conditions = [Setting.key.not_in(INTERNAL_SETTING_KEYS)]
         if scope is not None:
             conditions.append(Setting.scope == scope.value)
         needle = (q or "").strip()
@@ -112,6 +114,10 @@ class SettingListing:
     def _scope_stmt(scope: SettingScope, scope_id: str):
         return (
             select(Setting)
-            .where(col(Setting.scope) == scope.value, col(Setting.scope_id) == scope_id)
+            .where(
+                col(Setting.scope) == scope.value,
+                col(Setting.scope_id) == scope_id,
+                Setting.key.not_in(INTERNAL_SETTING_KEYS),
+            )
             .order_by(Setting.key)
         )

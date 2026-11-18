@@ -80,7 +80,7 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Hydrated from the DB like the web process, so an admin-edited setting
     # reaches the worker at boot, not only the web app.
     settings = load_runner_settings()
-    if settings.invalidation_channel is None:
+    if settings.broadcast_invalidations and settings.invalidation_channel is None:
         settings.invalidation_channel = installation_channel(
             load_installation_id(host.database_url)
         )

@@ -103,8 +103,11 @@ Until that release, derived-default processes **publish and subscribe on both**
 the derived channel and the legacy global `simple_module.invalidation` channel.
 This preserves old → new and new → old invalidations. The bridge registers a
 `simple_module_core.deprecation` warning with `remove_in="0.1.0"`, enforced by
-`host/tests/test_deprecation_expiry.py`. Duplicate deliveries are possible;
-handlers must remain forget-only and tolerate them.
+`host/tests/test_deprecation_expiry.py`. New publishers attach a message ID;
+receivers retain the most recent 1024 IDs and dispatch each once, even when both
+bridge copies arrive. Version-1 messages from old publishers remain accepted
+without IDs. Handlers must remain forget-only and tolerate duplicates outside
+that bounded window.
 
 Redis Pub/Sub ignores logical database indices. While the bridge exists,
 **legacy traffic can still cross installations**, including between new processes

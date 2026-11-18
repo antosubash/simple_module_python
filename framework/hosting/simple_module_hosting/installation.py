@@ -9,6 +9,8 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
+from simple_module_db.stored_settings import INSTALLATION_ID_KEY
+
 from simple_module_hosting._stored_identity import ensure_stored_identity
 
 
@@ -18,7 +20,7 @@ async def ensure_installation_id(database_url: str) -> str | None:
     Do not invent an ephemeral ID: replicas would silently stop hearing each
     other. Database errors propagate so callers can report degraded fan-out.
     """
-    return await ensure_stored_identity(database_url, "host.installation_id", lambda: uuid4().hex)
+    return await ensure_stored_identity(database_url, INSTALLATION_ID_KEY, lambda: uuid4().hex)
 
 
 def load_installation_id(database_url: str) -> str | None:
