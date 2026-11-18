@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Mail messages accept an optional validated `reply_to` mailbox, including display names and quoted commas, delivered as SMTP `Reply-To`, included in console/fallback logs, preserved by the durable outbox, and exposed by `captured_mail`. SMTP address headers use IDNA for internationalized domains. Previously queued payloads without the field remain valid (#1025).
+
 - File storage supports module-owned file access policies through `simple_module_core.file_access`, with `ResourcePolicy` SQL filtering and a never-publishable option. Generic metadata, bytes, thumbnails, publication, deletion, list counts and browse facets honor the policy; untagged files keep their existing uploader/manage rules. **Behaviour change:** tagged files with missing policies, and already-public files whose policy forbids publishing, are hidden by generic routes. Apply migration `f999a1b2c3d4` on `file_storage@head` (#999).
 
 - `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Workers read registered directory, membership and grants through the caller's session; pending writes flush under the original tenant before lookup changes context. Requests share pure principal composition while retaining their existing membership, direct-grant and role-overlay caches (#1005).
@@ -23,6 +25,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Development diagnostics write to the current stderr text stream without retries. Backpressure or a closed/unwritable stream truncates the report and triggers one guarded log attempt (documented best-effort behaviour). Serving-lifespan output runs on a daemon thread with a two-second wait limit, so the event loop and the boot keep going even if stderr blocks (a stderr whose reader never drains can still delay interpreter exit; #1031). Identical boot findings are attempted once per process with severity/code counts; nonfatal boot findings print only when the app enters its serving lifespan, avoiding generation/reloader-supervisor duplicates. Doctor continues to report every finding to the current stderr on each invocation, including CliRunner capture and repeated calls after app startup (#1024).
+- Mail messages reject IDN domains that cannot be encoded in `to` or `reply_to` at construction and durable deserialization, instead of consuming delivery retries (#1025).
 
 - **Security:** ordinary public-subdomain nonmembers receive anonymous resource visibility, including after membership removal; an authenticated account can no longer read its private owned resources in that tenant. This also closes the membership-check gap present on `main`. Platform admins holding the uncapped wildcard retain resource-policy bypass access without membership in an active tenant, on both HTTP and `principal_for`; suspended or missing tenants remain denied. Service credentials retain their separately validated tenant access. Fixed single-tenant request grant sources receive the effective tenant, matching worker principal lookups (#1005).
 

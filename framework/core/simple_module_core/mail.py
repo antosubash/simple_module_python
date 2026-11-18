@@ -19,6 +19,10 @@ import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from email import policy
+from email.errors import HeaderParseError
+from email.headerregistry import Address, Group
+from email.message import EmailMessage
 from typing import Annotated, Any, Protocol, runtime_checkable
 
 from pydantic import BeforeValidator, ConfigDict, field_serializer, field_validator
@@ -96,6 +100,56 @@ def _check_encoded_attachment_size(value: Any) -> Any:
     return value
 
 
+def smtp_address_header(value: str) -> str:
+    """Encode IDN domains for SMTP, preserving ASCII headers and mailbox syntax.
+
+    Raises ValueError if a domain cannot be IDNA-encoded.
+    """
+    if value.isascii():
+        return value
+    parsed = EmailMessage()
+    parsed["To"] = value
+    # Encoded words are valid in display names, but domains need ASCII IDNA.
+    try:
+        return ", ".join(
+            str(
+                Group(
+                    display_name=group.display_name,
+                    addresses=[
+                        Address(
+                            display_name=address.display_name,
+                            username=address.username,
+                            domain=address.domain.encode("idna").decode("ascii"),
+                        )
+                        for address in group.addresses
+                    ],
+                )
+            )
+            for group in parsed["To"].groups
+        )
+    except UnicodeError as exc:
+        raise ValueError("mail address domains must be IDNA-encodable") from exc
+
+
+def _validate_reply_to(value: str) -> None:
+    error = "reply_to must be one email address without control characters"
+    if not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise ValueError(error)
+    try:
+        header = policy.default.header_factory("To", value)
+    except (ValueError, HeaderParseError) as exc:
+        raise ValueError(error) from exc
+    if (
+        header.defects
+        or len(header.addresses) != 1
+        or any(group.display_name is not None for group in header.groups)
+    ):
+        raise ValueError(error)
+    address = header.addresses[0]
+    if not address.username or not address.domain:
+        raise ValueError(error)
+
+
 @dataclass(frozen=True)
 class MailMessage:
     to: str
@@ -105,8 +159,13 @@ class MailMessage:
     attachments: Annotated[
         Sequence[MailAttachment], BeforeValidator(_check_encoded_attachment_size)
     ] = ()
+    reply_to: str | None = None
 
     def __post_init__(self) -> None:
+        smtp_address_header(self.to)
+        if self.reply_to is not None:
+            _validate_reply_to(self.reply_to)
+            smtp_address_header(self.reply_to)
         object.__setattr__(self, "attachments", tuple(self.attachments))
         if sum(len(item.content) for item in self.attachments) > MAX_ATTACHMENT_BYTES:
             raise ValueError(
@@ -140,7 +199,12 @@ class ConsoleMailSender:
         self.include_body = include_body
 
     async def send(self, message: MailMessage) -> None:
-        extra = {"mail_to": message.to, "mail_subject": message.subject}
+        extra = {
+            "mail_to": message.to,
+            "mail_subject": message.subject,
+            "mail_reply_to": message.reply_to,
+        }
+        reply_to = f" (Reply-To: {message.reply_to})" if message.reply_to else ""
         for attachment in message.attachments:
             logger.log(
                 logging.INFO if self.include_body else logging.WARNING,
@@ -151,16 +215,18 @@ class ConsoleMailSender:
             )
         if self.include_body:
             logger.info(
-                "Mail to %s (not sent, console sender): %s\n%s",
+                "Mail to %s%s (not sent, console sender): %s\n%s",
                 message.to,
+                reply_to,
                 message.subject,
                 message.text,
                 extra=extra,
             )
         else:
             logger.warning(
-                "Mail to %s not sent: no mail transport is installed (%s)",
+                "Mail to %s%s not sent: no mail transport is installed (%s)",
                 message.to,
+                reply_to,
                 message.subject,
                 extra=extra,
             )
