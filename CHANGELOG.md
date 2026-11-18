@@ -18,6 +18,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- One frontend extension registry discovers module `ui/extensions.ts(x)` entries and runs registrations before app startup. Modules can contribute ordered, permission-aware user edit panels and tenant settings sections, replace the user menu/topbar, add navigation icons, and register settings controls selected by a field's `control` hint. Existing defaults remain unchanged without registrations (#956, #957, #966).
+
 - Registries expose explicit public-route removal, code role-grant revocation, rate-rule and resource-type replacement, event unsubscription/durable rebinding, and shared Inertia prop replacement. Both app factories accept `customize(app)` after all module registration hooks and before outer middleware assembly. Code revocation leaves explicit DB grants intact; ordinary additions keep their existing behavior (#954).
 - Modules can register custom `ScopeFilter` policies through `simple_module_db.register_scope`, sharing tenant/soft-delete coverage across ORM/Core reads, relationship and mapped secondary tables, and scoped writes. Policies support context variables/callables, independent bypass options, fail-closed handling and optional insert stamping. Built-in tenant and soft-delete semantics are unchanged (#968).
 - Mail transport providers register named factories through `mail.contracts`, with built-in console/SMTP transports and provider-owned DB settings shared by web startup, settings reloads and durable worker resolution. The admin backend selector lists registered transports. **Behaviour change:** unknown transports fail outside development; explicit `install_mail_sender` overrides survive settings reloads (#962).

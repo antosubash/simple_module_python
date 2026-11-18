@@ -32,6 +32,7 @@ from simple_module_hosting.assets import (
     render_assets_json,
     render_modules_css,
 )
+from simple_module_hosting.frontend_extensions import render_frontend_extensions
 from simple_module_hosting.module_tsconfig import write_module_tsconfigs
 from simple_module_hosting.page_globs import glob_patterns_for
 
@@ -168,10 +169,12 @@ def write_module_pages_manifest(
     manifest_text = json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n"
 
     generated_path = output_dir / "modules.generated.ts"
+    module_assets = compute_module_assets(modules)
     lines: list[str] = [
         _GENERATED_TS_HEADER,
         "",
         "import type { ComponentType } from 'react';",
+        *render_frontend_extensions(module_assets, output_dir),
         "",
         *render_admin_surfaces(modules),
         "type PageModule = { default: ComponentType<Record<string, unknown>> };",
@@ -193,7 +196,7 @@ def write_module_pages_manifest(
 
     # Rendered from the richer asset record rather than pages_map, so that a
     # module shipping CSS but no pages/ still contributes its stylesheets.
-    assets = [*compute_module_assets(modules), *framework]
+    assets = [*module_assets, *framework]
     write_module_tsconfigs(assets, output_dir)
     css_path = output_dir / "modules.generated.css"
     css_text = render_modules_css(assets, in_repo=lambda p: _is_in_repo_module(p, repo_root))

@@ -22,6 +22,10 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
+    "./extensions": {
+      "types": "./src/extensions.tsx",
+      "default": "./src/extensions.tsx"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { activeLocale, keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
+import { Slot, slots } from '@simple-module-py/ui/extensions';
 import { useRelativeTime } from '@simple-module-py/ui/hooks/use-relative-time';
 import { initials } from '@simple-module-py/ui/lib/initials';
 import { StatusPill } from '../../admin/components/StatusPill';
@@ -128,6 +129,7 @@ function Edit({
           {/* Only accounts that sign in through an identity provider have any. */}
           {linkedSignIns.length > 0 && <LinkedSignInsCard links={linkedSignIns} />}
 
+          <Slot name={slots.usersEditPanels} props={{ userId: user.id }} />
           <DangerZone userId={user.id} email={user.email} isSelf={isSelf} />
         </div>
       </PageShell>

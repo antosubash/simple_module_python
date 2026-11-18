@@ -90,6 +90,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
                     hosting / "assets.py",
                     hosting / "page_globs.py",
                     hosting / "admin_surfaces.py",
+                    hosting / "frontend_extensions.py",
                 ]
             ),
         },

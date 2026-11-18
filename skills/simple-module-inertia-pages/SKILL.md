@@ -25,6 +25,37 @@ uv run smpy gen  # also runs during install/dev/build
 
 Boot regenerates it too; mid-session adds need the manual call before HMR sees them.
 
+## Frontend extensions
+
+To extend another page, ship one optional `<package>/ui/extensions.ts` or `.tsx`
+exporting synchronous `register(registry: ExtensionRegistry)`. Import the type,
+`slots` and any runtime helpers from `@simple-module-py/ui/extensions`.
+`smpy gen` discovers installed/selected modules, including those without pages,
+and emits `registerModuleExtensions` in dependency order. The host calls it with
+`extensions` once before `createInertiaApp`, then wraps Inertia's App in
+`ExtensionsProvider` and `LayoutComponentsProvider`. New scaffolded hosts do this
+already; existing hosts need the wiring described in the frontend extension docs.
+
+- `registry.registerSlot(slots.usersEditPanels, { id, order, permission, component })`
+  supplies a panel receiving `{ userId: string }`.
+- `slots.tenantsSettingsSections` supplies a section receiving `{ tenant: { id, name, slug } }`.
+- Lower order renders first, default zero; ties keep registration order. IDs are
+  unique per slot. Set `fallback` to a skeleton matching a lazy panel's dimensions.
+  Optional permission checks use the current shared auth props
+  and only control visibility; backend routes still enforce permissions/tenancy.
+- `registerLayout('UserMenu' | 'Topbar', component)` replaces default chrome.
+- `registerIcon(name, component)` adds icons; built-in names retain their glyphs.
+- `registerFieldRenderer(control, component)` supplies a settings control receiving
+  `{ field, value, onChange, id }`. Declare the hint with
+  `json_schema_extra={"control": "my_module.control"}`. Unknown hints use defaults;
+  secret fields stay masked until the user starts a new value.
+
+Keep registration entries small and use `React.lazy` for heavy components.
+Slots/field inputs supply Suspense boundaries; lazy chrome supplies its own.
+Register before render, reload the document after editing registrations, and
+translate contribution text using `t(keys...)`. Layouts and field renderers use
+the last registration, so hosts can register after modules to choose replacements.
+
 ## Shared props (no setup needed)
 
 `InertiaLayoutDataMiddleware` prepares these for every page render (lazily: a JSON `/api` call never builds them; code that renders outside `InertiaDep` awaits `resolve_inertia_shared(request)` from `simple_module_hosting.inertia_deps`):
