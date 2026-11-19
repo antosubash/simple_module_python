@@ -246,13 +246,21 @@ Rules that go with them:
 request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
 SM_TRUSTED_PROXY) → (SentryContext if Sentry is enabled) → CorrelationId →
 RequestLogging → (ServerTiming, development only) → CORS → BodyLimit → GZip →
-SecurityHeaders → Session → InertiaMiddleware → <module middleware> → (Tenant:
-multi_tenant, or fixed to default_tenant) → Locale → InertiaLayoutData →
+SecurityHeaders → <before_session> → Session → InertiaMiddleware → <default module middleware> →
+(Tenant: multi_tenant, or fixed to default_tenant) → Locale → <after_tenant> → InertiaLayoutData →
 RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
 (`framework/hosting/tests/test_middleware_order.py` pins it). Rules that follow:
 
 - Modules at the same dependency tier: the one that sorts later wraps outermost.
   Use `depends_on` to order, never names.
+- `register_middleware(app)` keeps its signature. Use
+  `simple_module_hosting.add_middleware(app, cls, stage="before_session"|"default"|"after_tenant")`
+  or `after="tenant"` (inside both Tenant and Locale); ordinary
+  `app.add_middleware` stays in the default tier. In `customize(app)`,
+  `replace_middleware(app, Target, Middleware(Subclass, ...))` preserves the
+  target's position and constructor defaults. Replacements must subclass the
+  target and honor its security contract. `disable_middleware` permits only
+  GZip, RequestLogging and ServerTiming; see `docs/framework/middleware.md`.
 - Any `X-Inertia` response is forced `private, no-store`; to cache a public
   page, set `Cache-Control`/ETag on the *document* response only.
 - `RateLimit` runs after auth, so by default it throttles only anonymous

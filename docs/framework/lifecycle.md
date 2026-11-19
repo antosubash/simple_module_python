@@ -314,14 +314,21 @@ Handlers are registered on the main `app`, so they apply globally. Keep them tig
 
 ## `register_middleware(app)`
 
-Install ASGI middleware. Starlette's `add_middleware` is **LIFO** — the last middleware added runs first. Modules' middleware runs *between* the framework's built-in middleware and the app itself. See [Middleware pipeline](/framework/middleware) for ordering rules.
+Install ASGI middleware. The hook signature is unchanged. Starlette's
+`add_middleware` is **LIFO** — the last middleware added runs first. Ordinary
+`app.add_middleware` stays outside Tenant and Locale. The hosting helper accepts
+`stage="before_session"`, `stage="default"` or `stage="after_tenant"`;
+`after="tenant"` aliases the last, inside both Tenant and Locale. See
+[Middleware pipeline](/framework/middleware) for stage contracts and host overrides.
 
 ```python
 def register_middleware(self, app: FastAPI) -> None:
     app.add_middleware(OrdersRateLimitMiddleware, rate=10)
 ```
 
-When two modules at the same dependency tier both add middleware, the module that sorts **later** wraps outermost (executes first).
+Within each stage, the module that registers later in dependency order wraps
+outermost (executes first). Host overrides run through `customize(app)` after
+registration and before middleware stages and replacements are finalized.
 
 ## `register_routes(api_router, view_router)`
 
