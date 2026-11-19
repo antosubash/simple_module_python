@@ -14,13 +14,18 @@ from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from simple_module_core.role_directory import DirectoryRole
 from simple_module_core.user_directory import (
     DirectoryStats,
     DirectoryUser,
     chunked,
     parse_user_ids,
 )
-from simple_module_db.user_directory_sql import name_or_email_contains, to_directory_user
+from simple_module_db.user_directory_sql import (
+    name_or_email_contains,
+    search_rows,
+    to_directory_user,
+)
 from sqlalchemy import String, cast, func, select
 
 from users.models import Role, User, UserRole
@@ -45,6 +50,17 @@ def _is_usable(row: Any) -> bool:
 
 class UsersDirectory:
     """Directory over the local ``users_user`` table."""
+
+    editable = True
+
+    async def list_roles(self, db: Any) -> list[DirectoryRole]:
+        rows = (await db.execute(select(Role).order_by(Role.name))).scalars().all()
+        return [DirectoryRole(r.name, r.name, r.description, r.id) for r in rows]
+
+    async def user_roles(self, db: Any, user_id: str) -> tuple[str, ...] | None:
+        found = await self.get_many(db, [user_id], with_roles=True)
+        user = found.get(user_id)
+        return user.roles if user is not None else None
 
     #: Audit entries record ``type(obj).__name__``; the users module registers
     #: its audit link under the same class name.
@@ -83,11 +99,27 @@ class UsersDirectory:
             roles.setdefault(user_id, []).append(name)
         return roles
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
-        stmt = select(*_COLUMNS).order_by(User.email).limit(limit)
-        if term and term.strip():
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
+        stmt = select(*_COLUMNS).order_by(User.email)
+        if exclude_ids:
+            stmt = stmt.where(User.id.not_in(list(parse_user_ids(exclude_ids))))
+        if active_only:
+            stmt = stmt.where(User.is_active.is_(True), User.disabled_at.is_(None))
+        if exact_email:
+            stmt = stmt.where(func.lower(User.email) == (term or "").strip().lower())
+        elif term and term.strip():
             stmt = stmt.where(name_or_email_contains(User.full_name, User.email, term.strip()))
-        rows = (await db.execute(stmt)).all()
+        rows = await search_rows(db, stmt, User.id, include_ids=include_ids, limit=limit)
         return [to_directory_user(row, str(row.id), is_active=_is_usable(row)) for row in rows]
 
     def match_ids(self, term: str) -> Any | None:

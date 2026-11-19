@@ -53,6 +53,8 @@ class StoredFile(Base, AuditMixin, SoftDeleteMixin, MultiTenantMixin, table=True
         default=False,
         sa_column=sa.Column(sa.Boolean(), nullable=False, server_default=sa.false()),
     )
+    # NULL preserves the legacy uploader/manage rules; unknown tags fail closed.
+    owner_module: str | None = Field(default=None, max_length=128)
     extra_metadata: dict = Field(
         default_factory=dict,
         sa_type=sa.JSON,

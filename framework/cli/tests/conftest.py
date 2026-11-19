@@ -1,8 +1,7 @@
 """Fixtures shared by the tests in this directory.
 
-These test files have no ``__init__.py`` (test basenames are globally unique
-instead), so a plain helper import across files is not available — a fixture is
-how the factory below gets shared.
+These test files have no ``__init__.py``. Shared factories are exposed as
+fixtures, and importlib mode allows repeated test basenames.
 """
 
 from __future__ import annotations

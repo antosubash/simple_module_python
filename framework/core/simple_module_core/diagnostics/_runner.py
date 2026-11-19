@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
+from collections import Counter
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -20,6 +23,7 @@ if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
 logger = logging.getLogger(__name__)
+_printed_diagnostics: set[tuple[int, str, str, str, str | None]] = set()
 
 
 def run_diagnostics(
@@ -33,6 +37,7 @@ def run_diagnostics(
     i18n_extra_sources: list[tuple[str, str, Path]] | None = None,
     database_dialect: str | None = None,
     i18n_unknown_overrides: dict[str, list[str]] | None = None,
+    existing_index_names: frozenset[str] | None = None,
 ) -> list[Diagnostic]:
     """Convenience function to run all diagnostics.
 
@@ -44,7 +49,8 @@ def run_diagnostics(
     host/ui locale dirs that aren't owned by a ``ModuleBase``.
     ``database_dialect`` (``"sqlite"``, ``"postgresql"``...) enables SM026, which
     flags expression indexes a SQLite database cannot verify, and SM029, which flags
-    modules declaring ``db_extensions`` on SQLite.
+    modules declaring ``db_extensions`` on SQLite. ``existing_index_names``
+    (``sqlite_file_index_names``) limits SM026 to indexes the database lacks.
     ``i18n_unknown_overrides`` (``I18nRegistry.unknown_override_keys``) enables SM027.
     """
     diagnostics = ModuleDiagnostics().run(modules)
@@ -53,7 +59,10 @@ def run_diagnostics(
         for mod in modules:
             diagnostics.extend(
                 check_expression_indexes_unverifiable(
-                    module_all_tables(mod), database_dialect, mod.meta.name
+                    module_all_tables(mod),
+                    database_dialect,
+                    mod.meta.name,
+                    existing_index_names=existing_index_names,
                 )
             )
             diagnostics.extend(check_db_extensions_need_postgres(mod, database_dialect))
@@ -88,21 +97,47 @@ def run_diagnostics(
     return diagnostics
 
 
-def print_diagnostics(diagnostics: list[Diagnostic]) -> None:
-    """Pretty-print diagnostics to stderr."""
+def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> None:
+    """Print diagnostics to the current stderr, optionally once per process at boot.
+
+    Output is best-effort: backpressure or a closed stderr truncates the report.
+    The PID in the key keeps forked serving processes independent of parents.
+    Doctor calls leave ``once`` disabled so every invocation prints a full report.
+    """
     if not diagnostics:
-        logger.info("\u2713 No module diagnostics issues found")
+        with suppress(OSError, ValueError):
+            logger.info("\u2713 No module diagnostics issues found")
         return
 
-    errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
-    warnings = [d for d in diagnostics if d.level == DiagnosticLevel.WARNING]
-    infos = [d for d in diagnostics if d.level == DiagnosticLevel.INFO]
-
+    unique = []
     for d in diagnostics:
-        print(str(d), file=sys.stderr)
-        print(file=sys.stderr)
+        if once:
+            key = (os.getpid(), d.code, d.message, d.module_name, d.file)
+            if key in _printed_diagnostics:
+                continue
+            _printed_diagnostics.add(key)
+        unique.append(d)
+    if not unique:
+        return
 
-    print(
-        f"Results: {len(errors)} error(s), {len(warnings)} warning(s), {len(infos)} info",
-        file=sys.stderr,
+    levels = Counter(d.level for d in unique)
+    codes = Counter(d.code for d in unique)
+    summary = (
+        f"Results: {levels[DiagnosticLevel.ERROR]} error(s), "
+        f"{levels[DiagnosticLevel.WARNING]} warning(s), {levels[DiagnosticLevel.INFO]} info; "
+        + ", ".join(f"{code}={count}" for code, count in sorted(codes.items()))
     )
+    report = "".join(f"{d}\n\n" for d in unique) + summary + "\n"
+    _write_report(report)
+
+
+def _write_report(report: str) -> None:
+    """Use the current text stream; retries could duplicate partially accepted output."""
+    # CliRunner and pytest replace stderr after this module is imported.
+    stream = sys.stderr
+    try:
+        stream.write(report)
+        stream.flush()
+    except (OSError, ValueError):
+        with suppress(OSError, ValueError):
+            logger.warning("diagnostics output truncated: stderr not writable")

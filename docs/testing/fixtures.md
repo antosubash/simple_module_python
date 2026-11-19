@@ -2,6 +2,12 @@
 
 The `simple_module_test` plugin provides app-level fixtures that every test directory inherits — auto-loaded via its `pytest11` entry point, so installing the package is enough (no `conftest.py` import needed). Everything you need for a typical integration test — app, DB session, HTTP client, authenticated client — is already wired up.
 
+The plugin ignores the invoking project's `.env` before importing conftests or
+collecting tests, through both the core dotenv parser and pydantic settings.
+Leave local dotenv files in place. Exported environment variables still apply;
+temporary dotenv files created by configuration tests can still be read.
+The `settings` fixture pins `vite_dev_url` to `http://localhost:5050`.
+
 ## Available fixtures
 
 | Fixture | Scope | Returns | Use when |
@@ -21,8 +27,8 @@ All fixtures are **function-scoped** — each test gets its own. The SQLite data
 ## Postgres
 
 Set `SM_TEST_DATABASE_URL` to an async Postgres URL to use Postgres instead of
-in-memory SQLite. `make test-py-pg` sets this from `SM_TEST_PG_URL` and runs
-4 workers by default. Under xdist each worker uses its own
+in-memory SQLite. `make test-py-pg` uses the same variable (defaulting to the
+local `sm_test` database) and runs 4 workers by default. Under xdist each worker uses its own
 `<database>_gw<N>` database, creating it if needed (the role needs `CREATEDB`).
 `PYTEST_WORKERS=0 make test-py-pg` runs serially against the named database.
 

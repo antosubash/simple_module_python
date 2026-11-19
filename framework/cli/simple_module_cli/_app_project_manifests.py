@@ -41,6 +41,7 @@ _APP_NPM_DEPS = {
 # with templates/host/client_app/package.json.tpl.
 _APP_NPM_DEV_DEPS = {
     "@simple-module-py/tsconfig": _FRAMEWORK_VERSION,
+    "@simple-module-py/vite-plugin": _FRAMEWORK_VERSION,
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^26.5.0",
     "@types/react": "^19.0.0",

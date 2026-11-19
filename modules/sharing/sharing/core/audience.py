@@ -26,6 +26,15 @@ class Audience:
         self.app = app
         self.db = db
 
+    async def search_ids(self) -> set[str] | None:
+        """All active-tenant members, or no restriction on a single-tenant host."""
+        if tenancy_mode(self.app) is not TenancyMode.MULTI:
+            return None
+        tenant_id = current_tenant_id.get()
+        if tenant_id is None:
+            return set()
+        return await tenant_member_ids(self.app, self.db, tenant_id, None) or set()
+
     async def visible(self, user_ids: Collection[str]) -> set[str]:
         wanted = {uid for uid in user_ids if uid}
         if not wanted or tenancy_mode(self.app) is not TenancyMode.MULTI:
@@ -39,6 +48,9 @@ class Audience:
 
 class OpenAudience:
     """Everyone is visible (single-tenant use, or tests without an app)."""
+
+    async def search_ids(self) -> set[str] | None:
+        return None
 
     async def visible(self, user_ids: Collection[str]) -> set[str]:
         return {uid for uid in user_ids if uid}

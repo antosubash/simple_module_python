@@ -17,8 +17,9 @@ async def test_oidc_callback_rotates_csrf(monkeypatch):
     )
     app = SimpleNamespace(
         state=SimpleNamespace(
+            host=SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/dashboard/")),
+            sm=SimpleNamespace(modules=[SimpleNamespace(meta=SimpleNamespace(name="Dashboard"))]),
             keycloak=SimpleNamespace(
-                settings=SimpleNamespace(login_redirect_url="/dashboard/"),
                 jwks_cache=SimpleNamespace(
                     validate_jwt=AsyncMock(
                         return_value={"sub": "new", "nonce": "nonce", "exp": int(time.time()) + 300}

@@ -14,6 +14,7 @@ Primary exports:
 * :func:`inertia_page` / :class:`InertiaPage` — parse an Inertia document or
   ``X-Inertia`` response into fluent prop assertions and partial/deferred reloads.
 * :func:`inertia_headers` — default ``X-Inertia-Version`` header for clients.
+* :func:`assert_module_layout` — enforce standard package and test directories.
 
 The pytest plugin auto-registers these fixtures (no imports needed):
 ``fake_event_bus``, ``build_test_app``, ``settings``, ``db_state``,
@@ -34,6 +35,7 @@ from simple_module_test.app_factory import build_test_app
 from simple_module_test.fake_events import FakeEventBus, RecordedEvent
 from simple_module_test.inertia import inertia_headers
 from simple_module_test.inertia_page import InertiaPage, inertia_page
+from simple_module_test.layout import assert_module_layout
 from simple_module_test.oidc_issuer import OidcTestIssuer
 from simple_module_test.routes import effective_route_paths
 from simple_module_test.session_cookie import forge_session_cookie
@@ -46,6 +48,7 @@ __all__ = [
     "OidcTestIssuer",
     "RecordedEvent",
     "TenantClient",
+    "assert_module_layout",
     "build_test_app",
     "effective_route_paths",
     "forge_session_cookie",

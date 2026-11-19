@@ -4,16 +4,26 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from importlib.metadata import entry_points
 
+from simple_module_core._auth_providers import provides_auth
 from simple_module_core._entry_point_errors import own_package_missing, stale_path_message
+from simple_module_core._module_conventions import (
+    get_module_package_name as get_module_package_name,
+)
+from simple_module_core._module_ordering import (
+    missing_dependencies as missing_dependencies,
+)
+from simple_module_core._module_ordering import (
+    topological_sort as topological_sort,
+)
 from simple_module_core.dotenv import env_str, load_dotenv_into_environ
 from simple_module_core.exceptions import (
-    CircularDependencyError,
     InvalidModuleError,
-    MissingDependencyError,
 )
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_meta import _VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +31,6 @@ ENTRY_POINT_GROUP = "simple_module"
 
 DEFAULT_AUTH_PROVIDER = "users"
 """Auth provider activated when several are installed — see select_auth_provider."""
-
-
-def get_module_package_name(module: ModuleBase) -> str:
-    """Return the top-level Python package a module instance belongs to.
-
-    Used by Alembic env.py, the frontend manifest generator, and diagnostics
-    to locate a module's files (models, pages, templates) on disk.
-    """
-    return type(module).__module__.split(".")[0]
 
 
 def discover_modules(
@@ -46,11 +47,11 @@ def discover_modules(
     Parameters
     ----------
     enabled:
-        Optional allowlist of module names (case-insensitive matched against
-        ``ModuleMeta.name``). When ``None`` (default), every installed module
-        is loaded. When a list, only modules whose name appears in it are
-        loaded. Names that don't match any installed module log a warning.
-        An empty list loads nothing.
+        Case-insensitive allowlist of ``ModuleMeta.name`` values or explicit
+        ``ep:<entry_point_name>`` selectors. Only an all-explicit list filters
+        before import; metadata names require loading all candidates, including
+        in mixed lists. ``None`` loads all; an empty list imports nothing.
+        Unmatched names warn; unknown explicit selectors raise in strict mode.
     strict:
         When ``True``, any invalid module (failed to load, not a
         ``ModuleBase`` subclass, missing/invalid ``meta``) raises
@@ -72,11 +73,30 @@ def discover_modules(
         else:
             logger.error("%s — skipping", msg)
 
-    eps = entry_points(group=ENTRY_POINT_GROUP)
+    eps = sorted(
+        entry_points(group=ENTRY_POINT_GROUP),
+        key=lambda ep: (
+            ep.dist.metadata["Name"] if ep.dist is not None else "",
+            ep.name,
+            ep.value,
+        ),
+    )
     modules: list[ModuleBase] = []
     allowlist_lower = {name.lower() for name in enabled} if enabled is not None else None
+    explicit = {name for name in allowlist_lower or () if name.startswith("ep:")}
+    unknown_eps = explicit - {f"ep:{ep.name.lower()}" for ep in eps}
+    if strict and unknown_eps:
+        raise InvalidModuleError(
+            f"modules_enabled references {', '.join(sorted(unknown_eps))} which is not installed"
+        )
+    # Unqualified names always mean metadata, even when an entry-point name overlaps.
+    filter_before_load = allowlist_lower is not None and allowlist_lower == explicit
+    matched: set[str] = set()
+    origins: dict[str, str] = {}
 
     for ep in eps:
+        if filter_before_load and f"ep:{ep.name.lower()}" not in explicit:
+            continue
         try:
             module_cls = ep.load()
         except Exception as exc:
@@ -109,20 +129,39 @@ def discover_modules(
             )
             continue
 
-        if allowlist_lower is not None and meta.name.lower() not in allowlist_lower:
+        names = {f"ep:{ep.name.lower()}", meta.name.lower()}
+        if allowlist_lower is not None and not names & allowlist_lower:
             logger.info(
                 "Module '%s' is installed but not in modules_enabled — skipping",
                 meta.name,
             )
             continue
 
+        matched.update(names)
+        origin = f"entry point '{ep.name}'"
+        if ep.dist is not None:
+            origin += f" in distribution '{ep.dist.metadata['Name']}'"
+        if meta.name in origins:
+            message = (
+                f"SM008 Duplicate module name '{meta.name}': {origins[meta.name]} and {origin}"
+            )
+            if strict:
+                raise InvalidModuleError(message)
+            logger.warning("%s — skipping later entry point", message)
+            continue
+        origins[meta.name] = origin
+
+        if meta.version is _VERSION:
+            # Resolve on this instance; the class metadata is shared across discoveries.
+            instance.meta = meta = replace(
+                meta, version=ep.dist.version if ep.dist is not None else "1.0.0"
+            )
         modules.append(instance)
         logger.info("Discovered module: %s (v%s)", meta.name, meta.version)
 
     # Warn about allowlist entries that didn't resolve to an installed module.
     if allowlist_lower is not None:
-        loaded = {m.meta.name.lower() for m in modules}
-        missing = allowlist_lower - loaded
+        missing = allowlist_lower - matched
         for name in missing:
             logger.warning(
                 "modules_enabled references '%s' which is not installed — ignoring",
@@ -169,7 +208,7 @@ def select_auth_provider(
     should pass ``strict=True``: SM020 would catch this, but diagnostics run
     in development only, so nothing else reports it in a deployed app.
     """
-    providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
+    providers = [m for m in modules if provides_auth(m)]
     if len(providers) < 2:
         return list(modules)
 
@@ -191,100 +230,4 @@ def select_auth_provider(
         keep.meta.name,
         ", ".join(m.meta.name for m in providers if m is not keep),
     )
-    return [m for m in modules if m is keep or not getattr(m, "_is_auth_provider", False)]
-
-
-def missing_dependencies(modules: Sequence[ModuleBase]) -> list[tuple[str, str]]:
-    """Every ``(module, dependency)`` pair whose dependency is not in *modules*."""
-    names = {m.meta.name for m in modules}
-    return [
-        (mod.meta.name, dep) for mod in modules for dep in mod.meta.depends_on if dep not in names
-    ]
-
-
-def _ordering_deps(mod: ModuleBase, loaded: dict[str, ModuleBase]) -> list[str]:
-    """The loaded modules *mod* must sort after: required and optional alike."""
-    wanted = [*mod.meta.depends_on, *mod.meta.optional_depends_on]
-    return [dep for dep in dict.fromkeys(wanted) if dep in loaded]
-
-
-def topological_sort(modules: Sequence[ModuleBase], *, strict: bool = False) -> list[ModuleBase]:
-    """Sort modules so dependencies come before dependents.
-
-    ``optional_depends_on`` orders the same way when present and is never
-    missing. A ``depends_on`` entry naming a module that is not loaded is
-    logged and ignored; with ``strict`` every such pair is collected and
-    raised at once as :class:`MissingDependencyError`. The host passes
-    ``strict`` outside development: a module whose dependency is absent would
-    otherwise boot and fail later, or silently query another module's empty
-    tables (GH #501).
-
-    Raises ``CircularDependencyError`` if a cycle is detected.
-    """
-    missing = missing_dependencies(modules)
-    if missing and strict:
-        raise MissingDependencyError(missing)
-    for name, dep in missing:
-        logger.warning("Module '%s' depends on '%s' which is not installed — ignoring", name, dep)
-
-    by_name: dict[str, ModuleBase] = {m.meta.name: m for m in modules}
-
-    # Kahn's algorithm
-    in_degree: dict[str, int] = dict.fromkeys(by_name, 0)
-    dependents: dict[str, list[str]] = {name: [] for name in by_name}
-
-    edges = {m.meta.name: _ordering_deps(m, by_name) for m in modules}
-    for name, deps in edges.items():
-        for dep_name in deps:
-            in_degree[name] += 1
-            dependents[dep_name].append(name)
-
-    queue: list[str] = [name for name, deg in in_degree.items() if deg == 0]
-    result: list[str] = []
-
-    while queue:
-        # Sort queue for deterministic ordering
-        queue.sort()
-        current = queue.pop(0)
-        result.append(current)
-        for dependent in dependents[current]:
-            in_degree[dependent] -= 1
-            if in_degree[dependent] == 0:
-                queue.append(dependent)
-
-    if len(result) != len(by_name):
-        # Find the cycle for a helpful error message
-        remaining = set(by_name.keys()) - set(result)
-        cycle = _find_cycle(remaining, edges)
-        raise CircularDependencyError(cycle)
-
-    return [by_name[name] for name in result]
-
-
-def _find_cycle(nodes: set[str], deps: dict[str, list[str]]) -> list[str]:
-    """Find one cycle in the dependency graph for error reporting."""
-    visited: set[str] = set()
-    path: list[str] = []
-
-    def dfs(node: str) -> list[str] | None:
-        if node in visited:
-            idx = path.index(node) if node in path else 0
-            return [*path[idx:], node]
-        visited.add(node)
-        path.append(node)
-        for dep in deps.get(node, []):
-            if dep in nodes:
-                result = dfs(dep)
-                if result:
-                    return result
-        path.pop()
-        return None
-
-    for node in nodes:
-        visited.clear()
-        path.clear()
-        cycle = dfs(node)
-        if cycle:
-            return cycle
-
-    return list(nodes)  # fallback
+    return [m for m in modules if m is keep or not provides_auth(m)]

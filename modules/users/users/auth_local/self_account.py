@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
+from simple_module_hosting.auth_policy import session_cookie_is_secure
 from simple_module_hosting.session import SESSION_REMEMBER_KEY
 from simple_module_hosting.token_guard import Authenticated
 
@@ -126,7 +127,13 @@ async def _reissue_browser_cookie(request: Request, user, access_token_db) -> Re
     window = (
         settings.remember_me_max_age_seconds if is_remembered else settings.cookie_max_age_seconds
     )
-    return await cookie_login_response(access_token_db, user, settings, window)
+    return await cookie_login_response(
+        access_token_db,
+        user,
+        settings,
+        window,
+        cookie_secure=session_cookie_is_secure(request.app.state.sm.settings),
+    )
 
 
 @router.post("/me/sessions/revoke-all", status_code=204, dependencies=[Depends(Authenticated())])

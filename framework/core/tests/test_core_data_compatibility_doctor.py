@@ -23,7 +23,10 @@ def test_core_doctor_reports_semantic_data_errors(tmp_path, monkeypatch, capsys,
             assert await db.scalar(sa.text("SELECT version_num FROM alembic_version")) == "local"
             return [
                 DataCompatibilityIssue(
-                    upgrade_id="example.v1", message="Upgrade required", severity="error"
+                    upgrade_id="example.v1",
+                    message="Upgrade required",
+                    severity="error",
+                    remediation_text="Follow the Example module upgrade guide.",
                 )
             ]
 
@@ -42,4 +45,5 @@ def test_core_doctor_reports_semantic_data_errors(tmp_path, monkeypatch, capsys,
         assert result.exit_code == 1
         output = result.output
     assert "example.v1" in output
-    assert "smpy migrations prepare example.v1" in output
+    assert "Follow the Example module upgrade guide." in output
+    assert "smpy migrations prepare example.v1" not in output

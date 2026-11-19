@@ -9,11 +9,11 @@ from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
-from background_tasks.core.constants import LOG_LEVEL_NAMES, LOG_PER_PAGE, PERM_VIEW
+from background_tasks.core.constants import LOG_LEVEL_NAMES, LOG_PER_PAGE, Permissions
 from background_tasks.logs.service import LogService
 from background_tasks.web.deps import get_log_service
 
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(Permissions.VIEW))])
 
 
 @router.get("/logs", response_model=None)

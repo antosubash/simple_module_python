@@ -14,7 +14,7 @@ Pre-wired into any app scaffolded with `smpy new`.
 
 - Email + password registration, login, logout, password reset.
 - Admin invite flow — admin enters an email, recipient clicks a link, sets a password, is logged in.
-- Public signup toggle (`SM_USERS_ALLOW_SIGNUP`, default `false`).
+- Public signup toggle (the `allow_signup` setting at `/admin/settings/`, default off).
 - Bootstrap admin via env vars (`SM_USERS_BOOTSTRAP_EMAIL` + `SM_USERS_BOOTSTRAP_PASSWORD`) — idempotent, only creates if the users table is empty.
 - `smpy users create-admin` CLI for ad-hoc admin creation.
 - Inertia pages for login/register/invite-accept/admin-invite.
@@ -81,7 +81,7 @@ Full detail, including the `demo_read_only = false` warning, is in
 
 ## Social sign-in (Google, GitHub, Microsoft, OIDC)
 
-OAuth providers are configured in the admin UI at **/settings/modules → Users**
+OAuth providers are configured in the admin UI at **/admin/settings/modules → Users**
 (no environment variables). Each provider activates once its client id **and**
 secret are set; the secret is masked in the UI. Changes apply live — no restart.
 

@@ -145,7 +145,7 @@ class TestAcceptInvite:
         fake_mailer.send_password_reset = AsyncMock()
 
         user_db = UserDatabaseWithRoles(users_db, User)
-        manager = UserManager(user_db, fake_mailer, settings)
+        manager = UserManager(user_db, fake_mailer, settings, users_app.state.users.token_secrets)
         # Reload the user with the manager to get a proper User object
         fetched = await user_db.get_by_email("invited@example.com")
         token = manager.mint_invite_token(fetched)

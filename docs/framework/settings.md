@@ -29,7 +29,8 @@ class BootstrapSettings(BaseSettings):
 
 The `SM_` prefix means every field is set via `SM_<FIELD>` (e.g. `SM_DATABASE_URL`, `SM_LOG_FORMAT`). `multi_tenant` / `tenant_header` and the other tunables live on the DB-backed `HostSettings` half.
 
-Hosts call `merge_host_settings()` before `create_app` to apply stored host
+The public `build_host_app()` factory calls `merge_host_settings()` before
+`create_app` to apply stored host
 settings before middleware and module discovery are built. Precedence is
 **env → DB → default**. Here, env includes the discovered project `.env`;
 process environment variables take precedence over that file. Both the boot
@@ -37,6 +38,29 @@ process environment variables take precedence over that file. Both the boot
 `find_env_file()`, including from a project subdirectory, without requiring
 `load_dotenv_into_environ()` first. Direct settings construction supports an
 explicit `_env_file` path or `_env_file=None` to disable dotenv loading.
+
+A host entry point can delegate the complete boot sequence:
+
+```python
+from simple_module_hosting.host import build_host_app
+
+app = build_host_app(__file__, routers=("routes:router",))
+```
+
+The factory pins the entry directory on `sys.path`, publishes `SM_PROJECT_ROOT`,
+changes to the project root and loads dotenv into `os.environ` **before importing
+settings or application code**. This order also covers code reading environment
+variables directly. Router import strings defer their imports until after dotenv;
+pre-built `APIRouter` instances are supported when no deferred import is needed.
+The existing package exports remain available, loaded lazily to preserve this order.
+
+Project-root discovery starts at the entry directory and uses the same markers
+as the CLI and migration checks. Pass `project_root=` for a custom layout. An existing
+`SM_PROJECT_ROOT` wins over either. This is process startup code: configure one host
+per process. Keep app-specific additions after the call and read boot settings from
+`app.state.sm.settings`. `create_app` retains its development-only extras.
+Restart-required fields are still merged before middleware and module discovery;
+calling `Settings()` instead would bypass DB overrides at that stage.
 
 The set of env-supplied fields is cached once per settings class per process,
 including custom sources and `env_seeded_fields`. Configure process variables,
@@ -52,10 +76,73 @@ key and database URL are preserved too. Fields the bootstrap did not supply
 still use env → DB → default.
 
 Construct once at boot, put on `app.state.sm.settings`, never mutated.
+Runtime readers use `app.state.host.settings`, replaced after a committed admin
+save and by the existing cross-process settings invalidation/reload.
 
-### Placeholder-secret check
+### Shared host policy
 
-Outside the non-prod environments, boot fails if `secret_key == "change-me-in-production"`. A pydantic `model_validator(mode="after")` enforces this when `Settings()` is constructed — before any middleware can issue signed cookies against a known-placeholder key.
+Set `host.public_base_url` once for canonical URLs, account emails, copied
+account links and tenant invitations. Blank `users.base_url` (the new default)
+and blank `tenants.public_base_url` inherit it; explicit module origins still
+win. The shared `simple_module_hosting.public_urls.public_origin` helper never
+uses the inbound Host header. With both values blank, copied and invitation links stay relative for
+fresh development installs. Account emails (password reset, verification,
+invitations) are skipped with an ERROR log naming `host.public_base_url` until an
+absolute origin is configured; the public responses stay the same, and startup
+still succeeds.
+An explicitly stored users origin, including the old localhost default, keeps
+winning: clear it to inherit the host.
+
+`host.session_cookie_secure` controls both session and users auth cookies.
+Unset means Secure outside development/testing and HTTP-compatible within them;
+changing it needs a restart. `host.login_redirect_url` is the live post-login
+destination for Users, Keycloak and OIDC. It defaults to `/dashboard/`; without
+Dashboard each provider chooses the first other module with view routes, then
+`/`. Safe saved deep links still take precedence.
+
+The old provider `login_redirect_url` and `users.cookie_secure` fields are no
+longer read; move any overrides to the corresponding host field. The unused
+`keycloak.admin_role` and `background_tasks.max_retries` fields are also removed;
+use Keycloak role mapping and each task's retry policy. User provisioning reads
+only the documented `SM_USERS_BOOTSTRAP_*` environment/dotenv keys, never DB
+bootstrap fields. Unknown stored module keys are ignored quietly, including all
+these removed fields; no schema migration or cleanup is needed.
+
+### Live request guards
+
+`max_request_body_bytes`, `rate_limit_public`, `rate_limit_authenticated` and
+all six `cors_*` host fields apply after a committed settings reload, without a
+restart. Hydration validates and compiles one immutable policy snapshot; every
+request retains one snapshot across its guards, with no per-request DB lookup
+or rate parsing. Runtime guard values follow hydration, so configure them in
+the DB or process environment rather than only passing an unpersisted boot
+`Settings` object to `create_app`. Module-registered body, rate and CORS rules keep their existing
+precedence. Invalid admin writes are rejected before persistence; invalid old
+rows follow the existing lenient parsing rules. Env-pinned values still win.
+
+
+### Root signing key
+
+`SM_SECRET_KEY` is optional. `merge_host_settings()` resolves an explicit value,
+then a stored key, then generates and stores one. An explicit value is never
+copied into the DB. Outside development, pre-app read or persistence failures
+refuse boot; only a confirmed missing settings table permits an ephemeral key.
+After migrations, setup persists a generated root and adopts the stored winning
+value before replaying module startup. Other first-run workers adopt that same
+value when they observe the completed migrations. Persistence failures keep the
+setup gate closed. Production still refuses the shipped root placeholder.
+
+The resolved root is available at `app.state.boot_settings.secret_key` before
+module settings registration, and at `app.state.sm.settings.secret_key` once
+the complete services container is built. Users derives password-reset and email-verification
+keys with HKDF-SHA256 using `simple-module/v1/users/password-reset` and
+`simple-module/v1/users/email-verification`. Users resolves keys lazily from the
+current root, caching them per root value, so links issued after setup survive
+restarts. Editable DB module settings hydration and reloads cannot change them.
+Explicit non-placeholder
+legacy users token-secret env overrides log a deprecation warning and remain
+supported until 0.0.50. Existing links signed by other keys need to be reissued.
+Identity-provider, SMTP, S3 and Sentry credentials remain separate external credentials.
 
 ## Module settings
 
@@ -108,13 +195,9 @@ reload and the generic key/value API on top.
 | Secret-field masking (`conceals_secret`, `mask`, ...) | `simple_module_core.secret_fields` |
 | `Setting` model, scope/table constants, `get_overrides_sync`, `hydrate_settings_sync` | `simple_module_db.stored_settings` |
 
-The old plugin paths (`settings.registration`, `settings.module_registry`,
-`settings.hydrate`) still re-export these and emit a `DeprecationWarning`;
-`settings.models` and the moved names in `settings.module_settings.store` /
-`settings.core.constants` / `settings.core._secrets` re-export them silently.
-The old module paths `settings.store`, `settings.constants` and
-`settings._secrets` are aliases of those modules that warn on import. All of
-these go no earlier than 0.1.0.
+Import directly from the framework locations above. The settings plugin keeps
+its `settings.models` model identity and its area-level store, constants and
+secret helpers; the deprecated root import paths were removed in #989.
 
 A Celery worker or CLI script never runs the lifespan, so it hydrates
 synchronously:

@@ -17,6 +17,7 @@ from simple_module_core._permission_grants import (  # noqa: F401  (re-exported)
     is_admin,
     is_admin_principal,
 )
+from simple_module_core.permission_catalogue import PermissionCatalogue
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class PermissionRegistry:
     def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._groups: dict[str, PermissionGroup] = {}
+        self._catalogue_labels: dict[str, dict[str, str]] = {}
         self._role_map: dict[str, set[str]] = {}
         # Admin-editor grants (DB-backed). Kept apart from ``_role_map`` (code
         # mappings) so replacing a role's DB keys never drops a code grant.
@@ -52,6 +54,7 @@ class PermissionRegistry:
         self._all_permissions_cache: list[str] | None = None
         self._role_map_cache: dict[str, list[str]] | None = None
         self._grant_sources: list[GrantSource] = []
+        self._session_grant_sources: dict[int, GrantSource] = {}
         self._sources: dict[str, PermissionSourceProvider] = {}
         self._source_cache: dict[str, tuple[list[str], dict[str, str]]] = {}
         self._source_failed_at: dict[str, float] = {}  # name → clock() of last failure
@@ -114,8 +117,20 @@ class PermissionRegistry:
         return out
 
     def source_labels(self, name: str) -> dict[str, str]:
-        """Human labels supplied by source *name*, keyed by permission string."""
-        return dict(self._source_output(name)[1]) if name in self._sources else {}
+        """Human labels from catalogues and runtime sources, keyed by permission."""
+        labels = dict(self._catalogue_labels.get(name, {}))
+        if name in self._sources:
+            labels.update(self._source_output(name)[1])
+        return labels
+
+    def add_catalogue(self, catalogue: type[PermissionCatalogue]) -> None:
+        """Register every member without assigning permissions to any role."""
+        self.add_group(
+            catalogue._group_label, list(catalogue), label_key=catalogue._group_label_key
+        )
+        self._catalogue_labels.setdefault(catalogue._group_label, {}).update(
+            {p.value: p.label for p in catalogue if p.label}
+        )
 
     def add_group(self, name: str, permissions: list[str], *, label_key: str = "") -> None:
         """Register a group; ``label_key`` translates ``name`` per request (like menus)."""
@@ -182,7 +197,24 @@ class PermissionRegistry:
         self._role_map[role].update(permissions)
         self._invalidate()
 
-    def add_grant_source(self, source: GrantSource) -> None:
+    def revoke_role(self, role: str, permission: str | None = None) -> None:
+        """Revoke one or all map_role grants; DB overlays and other sources remain.
+
+        This removes code grants, not a deny rule: an explicit DB grant can
+        still grant the same permission. Missing code grants raise KeyError.
+        """
+        permissions = self._role_map.get(role)
+        if not permissions or (permission is not None and permission not in permissions):
+            raise KeyError(f"No code grant for role {role!r}: {permission!r}")
+        if permission is None:
+            permissions.clear()
+        else:
+            permissions.remove(permission)
+        self._invalidate()
+
+    def add_grant_source(
+        self, source: GrantSource, *, session_source: GrantSource | None = None
+    ) -> None:
         """Contribute permissions a principal holds beyond its roles (GH #337).
 
         Whatever *source* returns is merged into the request's resolved set, so
@@ -191,8 +223,20 @@ class PermissionRegistry:
         ``permissions`` module's direct grants were seen by its own dependency
         and nothing else, so a grant made in the admin UI did nothing on any
         route guarded by the framework's ``RequiresPermission``.
+
+        Supply ``session_source=async (db, user) -> keys`` for app-free use.
+        Session-owned lookups use it; HTTP resolution keeps using *source* and
+        its caches. A legacy source receives ``request=None`` outside HTTP and
+        must handle that to contribute there; failures contribute nothing, as
+        they do in requests.
         """
         self._grant_sources.append(source)
+        if session_source is not None:
+            self._session_grant_sources[id(source)] = session_source
+
+    def session_grant_source(self, source: GrantSource) -> GrantSource | None:
+        """The app-free ``async (db, user) -> keys`` counterpart, when supplied."""
+        return self._session_grant_sources.get(id(source))
 
     @property
     def grant_sources(self) -> tuple[GrantSource, ...]:

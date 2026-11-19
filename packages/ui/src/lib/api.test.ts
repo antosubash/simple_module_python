@@ -69,6 +69,31 @@ describe('createApi', () => {
     expect(await request.json()).toEqual({ name: 'a' });
   });
 
+  it('reads the initial document token on the first mutation', async () => {
+    const api = createApi<paths>();
+    setCsrfToken(undefined);
+    document.body.innerHTML =
+      '<script data-page="app" type="application/json">{"props":{"csrfToken":"initial"}}</script>';
+    const fetchMock = stubFetch(201, {});
+    await api.POST('/api/things/{id}', { params: { path: { id: '1' } }, body: { name: 'a' } });
+    expect(sent(fetchMock).headers.get('X-CSRF-Token')).toBe('initial');
+  });
+
+  it('reads the current token after login, partial reload, logout and login again', async () => {
+    const api = createApi<paths>();
+    for (const [event, props, expected] of [
+      ['navigate', { csrfToken: 'login' }, 'login'],
+      ['success', { items: [1], csrfToken: 'rotated' }, 'rotated'],
+      ['navigate', {}, null],
+      ['navigate', { csrfToken: 'next-login' }, 'next-login'],
+    ] as const) {
+      handlers[event]({ detail: { page: { props } } });
+      const fetchMock = stubFetch(201, {});
+      await api.POST('/api/things/{id}', { params: { path: { id: '1' } }, body: { name: 'a' } });
+      expect(sent(fetchMock).headers.get('X-CSRF-Token')).toBe(expected);
+    }
+  });
+
   it('never sends the token on a safe method', async () => {
     const fetchMock = stubFetch(200, { id: '1' });
     await createApi<paths>().GET('/api/things/{id}', { params: { path: { id: '1' } } });

@@ -45,7 +45,7 @@ async def test_db_doctor_data_findings(tmp_path, migrated, severity, expected):
         assert len(findings) == 1
         assert findings[0].level == expected
         assert "example.v1" in findings[0].message
-        assert "smpy migrations prepare example.v1" in findings[0].suggestion
+        assert findings[0].suggestion is None
     else:
         assert findings == []
 

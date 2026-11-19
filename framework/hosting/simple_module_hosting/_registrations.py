@@ -7,13 +7,11 @@ they run in. ``app_builder.create_app`` is the only intended caller.
 
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.cors import CorsPolicyRegistry
-from simple_module_core.deprecation import deprecate
 from simple_module_core.rate_limit import RateLimitRegistry
 from simple_module_core.resources import ResourceTypeRegistry
 
@@ -67,10 +65,11 @@ def run_module_registrations(
     """
     resource_type_registry = resource_type_registry or ResourceTypeRegistry()
     for mod in modules:
-        mod.register_menu_items(menu_registry)
+        with menu_registry.admin_surface(mod.meta.admin):
+            mod.register_menu_items(menu_registry)
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
-        dispatch_event_handlers(mod, event_bus, app)
+        mod.register_event_handlers(event_bus, app=app)
         mod.register_invalidations(invalidation_bus, app)
         health_registry.set_owner(mod.meta.name)
         mod.register_health_checks(health_registry)
@@ -89,27 +88,3 @@ def run_module_registrations(
 
     health_registry.set_owner("")
     setup_registry.set_owner("")
-
-
-_ONE_ARG_EVENT_HANDLERS = deprecate(
-    "register_event_handlers(self, bus) without the app parameter",
-    remove_in="0.1.0",
-    use="register_event_handlers(self, bus, app=None)",
-)
-
-
-def dispatch_event_handlers(mod, event_bus, app: FastAPI) -> None:
-    """Call ``mod.register_event_handlers`` with or without ``app``.
-
-    Deprecated back-compat for modules that still override the one-arg form
-    ``(self, bus)``; passing ``app=`` to those crashes. Removed in 0.1.0.
-    """
-    sig = inspect.signature(mod.register_event_handlers)
-    accepts_app = "app" in sig.parameters or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
-    if accepts_app:
-        mod.register_event_handlers(event_bus, app=app)
-    else:
-        _ONE_ARG_EVENT_HANDLERS.warn()
-        mod.register_event_handlers(event_bus)

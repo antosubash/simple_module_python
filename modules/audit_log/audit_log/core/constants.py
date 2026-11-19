@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Final
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
+
 MODULE_NAME: Final = "AuditLog"
 MODULE_PACKAGE: Final = "audit_log"
 LOCALE_NAMESPACE: Final = MODULE_PACKAGE
@@ -19,8 +22,20 @@ MENU_ICON: Final = "scroll-text"
 MENU_ORDER: Final = 210
 
 PERM_GROUP: Final = MODULE_NAME
-PERM_VIEW: Final = "audit_log.view"
-ALL_PERMISSIONS: Final = (PERM_VIEW,)
+
+
+class Permissions(PermissionCatalogue, group=PERM_GROUP, label_key="audit_log.permission_group"):
+    VIEW = "audit_log.view"
+
+
+deprecate(
+    "audit_log PERM_* constants",
+    remove_in="0.0.50",
+    use="audit_log.core.constants.Permissions",
+)
+PERM_VIEW: Final = Permissions.VIEW
+
+ALL_PERMISSIONS: Final = tuple(Permissions)
 
 TABLE_AUDIT_ENTRY: Final = "audit_log_audit_entry"
 

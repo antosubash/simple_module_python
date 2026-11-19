@@ -16,7 +16,7 @@ from typing import Any
 from simple_module_core.audit_links import AuditLink
 from simple_module_core.user_directory import resolve_user_labels as _labels_via
 
-from users.core.constants import PERM_USERS_MANAGE
+from users.core.constants import Permissions
 from users.core.directory import UsersDirectory
 from users.models import User
 
@@ -53,5 +53,5 @@ def build_user_audit_link(admin_url_prefix: str) -> AuditLink:
         # unaccepted invite, since those have no `full_name` yet. The audit row
         # itself is not withheld: a reader without `users.manage` still sees
         # that a `User` was updated and which id, just not who. GH #300.
-        label_permission=PERM_USERS_MANAGE,
+        label_permission=Permissions.MANAGE,
     )

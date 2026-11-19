@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -3084,7 +3084,7 @@ wheels = [
 
 [[package]]
 name = "simple-module-api-tokens"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/api_tokens" }
 dependencies = [
     { name = "fastapi-users-db-sqlalchemy" },
@@ -3109,7 +3109,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-audit-log"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/audit_log" }
 dependencies = [
     { name = "simple-module-core" },
@@ -3126,7 +3126,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-auth"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/auth" }
 dependencies = [
     { name = "cryptography" },
@@ -3151,7 +3151,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-background-tasks"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/background_tasks" }
 dependencies = [
     { name = "celery", extra = ["redis"] },
@@ -3174,7 +3174,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-branding"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/branding" }
 dependencies = [
     { name = "simple-module-core" },
@@ -3195,10 +3195,11 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-cli"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "framework/cli" }
 dependencies = [
     { name = "packaging" },
+    { name = "pyyaml" },
     { name = "tomlkit" },
     { name = "typer" },
 ]
@@ -3206,36 +3207,41 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "packaging", specifier = ">=23.0,<27" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "tomlkit", specifier = ">=0.13,<0.16" },
     { name = "typer", specifier = ">=0.12,<0.28" },
 ]
 
 [[package]]
 name = "simple-module-core"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "framework/core" }
 dependencies = [
     { name = "babel" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "packaging" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyee" },
+    { name = "sqlmodel" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "babel", specifier = ">=2.14,<3" },
+    { name = "cryptography", specifier = ">=42" },
     { name = "fastapi", specifier = ">=0.140,<0.163" },
     { name = "packaging", specifier = ">=23.0,<27" },
     { name = "pydantic", specifier = ">=2.0,<3" },
     { name = "pydantic-settings", specifier = ">=2.0,<3" },
     { name = "pyee", specifier = ">=12.0,<15" },
+    { name = "sqlmodel", specifier = ">=0.0.22,<0.1" },
 ]
 
 [[package]]
 name = "simple-module-dashboard"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/dashboard" }
 dependencies = [
     { name = "simple-module-core" },
@@ -3252,7 +3258,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-db"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "framework/db" }
 dependencies = [
     { name = "aiosqlite" },
@@ -3277,7 +3283,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-feature-flags"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/feature_flags" }
 dependencies = [
     { name = "simple-module-core" },
@@ -3294,7 +3300,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-file-storage"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/file_storage" }
 dependencies = [
     { name = "aiofiles" },
@@ -3371,7 +3377,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-hosting"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "framework/hosting" }
 dependencies = [
     { name = "click" },
@@ -3415,7 +3421,7 @@ provides-extras = ["redis", "sentry"]
 
 [[package]]
 name = "simple-module-inertia"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "framework/inertia" }
 dependencies = [
     { name = "fastapi" },
@@ -3432,7 +3438,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-keycloak"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/keycloak" }
 dependencies = [
     { name = "cryptography" },
@@ -3459,7 +3465,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-mail"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/mail" }
 dependencies = [
     { name = "aiosmtplib" },
@@ -3476,7 +3482,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-oidc"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/oidc" }
 dependencies = [
     { name = "cryptography" },
@@ -3501,14 +3507,13 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-permissions"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/permissions" }
 dependencies = [
     { name = "cachetools" },
     { name = "simple-module-core" },
     { name = "simple-module-db" },
     { name = "simple-module-hosting" },
-    { name = "simple-module-users" },
 ]
 
 [package.metadata]
@@ -3517,7 +3522,6 @@ requires-dist = [
     { name = "simple-module-core", editable = "framework/core" },
     { name = "simple-module-db", editable = "framework/db" },
     { name = "simple-module-hosting", editable = "framework/hosting" },
-    { name = "simple-module-users", editable = "modules/users" },
 ]
 
 [[package]]
@@ -3575,7 +3579,7 @@ dev = [
 
 [[package]]
 name = "simple-module-settings"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/settings" }
 dependencies = [
     { name = "simple-module-core" },
@@ -3594,7 +3598,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-sharing"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/sharing" }
 dependencies = [
     { name = "simple-module-core" },
@@ -3613,7 +3617,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-site-lock"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/site_lock" }
 dependencies = [
     { name = "simple-module-auth" },
@@ -3632,7 +3636,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-tenants"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/tenants" }
 dependencies = [
     { name = "cachetools" },
@@ -3659,12 +3663,13 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-test"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "framework/testing" }
 dependencies = [
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -3680,6 +3685,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=42" },
     { name = "fastapi", specifier = ">=0.140,<0.163" },
     { name = "httpx", specifier = ">=0.27,<0.29" },
+    { name = "pydantic-settings", specifier = ">=2.4,<3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8,<3" },
     { name = "pytest", specifier = ">=8.0,<10" },
     { name = "pytest-asyncio", specifier = ">=0.24,<2" },
@@ -3692,7 +3698,7 @@ requires-dist = [
 
 [[package]]
 name = "simple-module-users"
-version = "0.0.46"
+version = "0.0.47"
 source = { editable = "modules/users" }
 dependencies = [
     { name = "cachetools" },

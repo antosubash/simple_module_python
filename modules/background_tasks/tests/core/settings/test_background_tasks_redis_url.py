@@ -107,6 +107,14 @@ def test_redis_url_satisfies_the_production_validator(
     assert settings.broker_url == "redis://redis:6379/0"
 
 
+@pytest.mark.parametrize("host", ["localhost", "127.0.0.1", "[::1]"])
+def test_redis_url_localhost_is_rejected_in_production(monkeypatch, host) -> None:
+    monkeypatch.setenv("SM_ENVIRONMENT", "production")
+    monkeypatch.setenv("SM_REDIS_URL", f"redis://{host}:6379/0")
+    with pytest.raises(ValueError, match="must not point at localhost"):
+        BackgroundTasksSettings()
+
+
 _STORED = {
     "broker_url": ("redis://stored:6379/0", "string"),
     "result_backend": ("redis://stored:6379/1", "string"),

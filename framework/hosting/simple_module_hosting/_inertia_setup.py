@@ -71,7 +71,9 @@ def branding_head(request: Request) -> dict:
 def site_info(request: Request) -> SiteInfo:
     """The public base URL (operator setting, never the request ``Host``) and app name."""
     host = get_host_services(request.app)
-    base_url = getattr(getattr(host, "settings", None), "public_base_url", "") or ""
+    from simple_module_hosting.public_urls import public_origin
+
+    base_url = public_origin(getattr(host, "settings", None))
     return SiteInfo(base_url=base_url, app_name=branding_head(request)["app_name"])
 
 

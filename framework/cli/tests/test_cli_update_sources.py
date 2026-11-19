@@ -6,7 +6,13 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from simple_module_cli.update_cmd import run_sources_update
+import typer
+from simple_module_cli.update_cmd import run_update
+
+
+def run_sources_update(path, **kwargs):
+    kwargs.setdefault("fetcher", lambda _url: {})
+    return run_update(path, **kwargs)
 
 
 def _host(tmp_path: Path, url: str) -> Path:
@@ -65,6 +71,23 @@ def test_group_update_moves_all_siblings(tmp_path: Path) -> None:
     assert ["uv", "sync"] in calls
 
 
+def test_tag_update_reports_how_to_finish_installing(tmp_path: Path, capsys) -> None:
+    p = _host(tmp_path, "https://github.com/x/mods")
+    (p.parent / "client_app").mkdir()
+
+    with pytest.raises(typer.Exit):
+        run_sources_update(
+            p,
+            only=None,
+            dry_run=False,
+            git_runner=_git_stub(["v0.3.0"]),
+            exec_runner=lambda cmd, _cwd: int(cmd[-1] == "gen"),
+        )
+
+    assert 'tag = "v0.3.0"' in p.read_text()
+    assert "run `make install` from" in capsys.readouterr().err
+
+
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     p = _host(tmp_path, "https://github.com/x/mods")
     before = p.read_text(encoding="utf-8")
@@ -114,7 +137,7 @@ def test_only_limits_to_that_group(tmp_path: Path) -> None:
     assert p.read_text(encoding="utf-8").count('tag = "v0.3.0"') == 2
 
 
-def test_pypi_name_delegates_to_uv_lock(tmp_path: Path) -> None:
+def test_named_pypi_update_leaves_git_pins_alone(tmp_path: Path, fake_pypi) -> None:
     p = _host(tmp_path, "https://github.com/x/mods")
     calls, runner = _recorder()
     run_sources_update(
@@ -123,8 +146,11 @@ def test_pypi_name_delegates_to_uv_lock(tmp_path: Path) -> None:
         dry_run=False,
         git_runner=_git_stub([]),
         exec_runner=runner,
+        fetcher=fake_pypi({"simple_module_dashboard": "0.2.0"}),
     )
-    assert ["uv", "lock", "--upgrade-package", "simple_module_dashboard"] in calls
+    assert "simple_module_dashboard>=0.2.0" in p.read_text()
+    assert p.read_text().count('tag = "v0.1.0"') == 2
+    assert ["uv", "sync"] in calls
 
 
 def test_branch_pin_relocks_and_labels_dev_mode(tmp_path: Path, capsys) -> None:
@@ -138,7 +164,7 @@ def test_branch_pin_relocks_and_labels_dev_mode(tmp_path: Path, capsys) -> None:
     )
     calls, runner = _recorder()
     run_sources_update(p, only=None, dry_run=False, git_runner=_git_stub([]), exec_runner=runner)
-    assert ["uv", "lock", "--upgrade-package", "simple_module_blog"] in calls
+    assert ["uv", "sync", "--upgrade-package", "simple-module-blog"] in calls
     assert "dev-mode" in capsys.readouterr().out
 
 
@@ -182,7 +208,7 @@ def test_group_update_requires_tag_accepted_by_every_sibling(
     after = p.read_text(encoding="utf-8")
     if expected is None:
         assert after == before
-        assert calls == []
+        assert calls == [["uv", "sync"]]
     else:
         assert after.count(f'tag = "{expected}"') == 2
 

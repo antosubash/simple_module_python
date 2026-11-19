@@ -1,6 +1,6 @@
 [project]
 name = "simple_module_audit_log"
-version = "0.0.46"
+version = "0.0.47"
 description = "Automatic field-level audit trail for all SQLModel entities"
 readme = "README.md"
 license = "MIT"
@@ -21,9 +21,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "simple_module_core==0.0.46",
-    "simple_module_db==0.0.46",
-    "simple_module_hosting==0.0.46",
+    "simple_module_core==0.0.47",
+    "simple_module_db==0.0.47",
+    "simple_module_hosting==0.0.47",
 ]
 
 [project.entry-points.simple_module]
@@ -46,9 +46,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["audit_log"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"package.json" = "audit_log/package.json"
 
 [tool.uv.sources]
 simple_module_core = { workspace = true }

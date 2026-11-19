@@ -192,3 +192,10 @@ def test_npm_bump_keeps_wildcard_only_for_private_packages(tmp_path: Path, write
     bump_npm_package(public, "0.0.2")
     assert json.loads(private.read_text())["peerDependencies"]["@simple-module-py/ui"] == "*"
     assert json.loads(public.read_text())["peerDependencies"]["@simple-module-py/ui"] == "0.0.2"
+
+
+def test_private_module_manifest_without_version_stays_versionless(tmp_path, writer):
+    p = writer(tmp_path / "package.json", '{"private": true, "dependencies": {"sonner": "^2"}}')
+    assert bump_npm_package(p, "0.0.47", check=True)
+    assert bump_npm_package(p, "0.0.48")
+    assert "version" not in json.loads(p.read_text())

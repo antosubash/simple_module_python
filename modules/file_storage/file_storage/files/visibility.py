@@ -8,6 +8,9 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from simple_module_core.file_access import ACTION_PUBLISH, FileAccessPolicyRegistry
+from simple_module_core.permission_denied import PermissionDenied
+from simple_module_core.resources import ACTION_EDIT, ACTION_VIEW, ResourcePrincipal
 from simple_module_db import finalize_session
 from simple_module_db.listeners import SESSION_HAS_WRITES_KEY
 from sqlalchemy import select
@@ -16,6 +19,7 @@ from sqlmodel import col
 
 from file_storage.backends.guard import require_backend
 from file_storage.files import thumbnails
+from file_storage.files.access import FileAccess
 from file_storage.models import StoredFile
 
 if TYPE_CHECKING:
@@ -29,11 +33,17 @@ class FileStoragePublic:
     db: AsyncSession
     backend: StorageBackend
     settings: FileStorageSettings
+    policies: FileAccessPolicyRegistry
 
     if TYPE_CHECKING:
 
         async def get(
-            self, file_id: uuid.UUID, *, platform: bool = False, owner: str | None = None
+            self,
+            file_id: uuid.UUID,
+            *,
+            platform: bool = False,
+            owner: str | None = None,
+            action: str = ACTION_VIEW,
         ) -> StoredFile: ...
 
     async def get_public(self, file_id: uuid.UUID) -> StoredFile:
@@ -51,7 +61,8 @@ class FileStoragePublic:
             .where(col(StoredFile.id) == file_id, col(StoredFile.public).is_(True))
             .execution_options(all_tenants=True)
         )
-        row = (await self.db.execute(stmt)).scalar_one_or_none()
+        access = FileAccess(self.policies, ResourcePrincipal(None), public=True)
+        row = (await self.db.execute(access.apply(stmt))).scalar_one_or_none()
         if row is None:
             # circular at import time
             from file_storage.files.service import StoredFileNotFoundError
@@ -63,7 +74,11 @@ class FileStoragePublic:
         self, file_id: uuid.UUID, public: bool, *, owner: str | None = None
     ) -> StoredFile:
         """Publish or unpublish one of the bound tenant's files (``owner``'s, if given)."""
-        row = await self.get(file_id, owner=owner)
+        row = await self.get(file_id, owner=owner, action=ACTION_PUBLISH if public else ACTION_EDIT)
+        if public and row.owner_module is not None:
+            entry = self.policies.get(row.owner_module)
+            if entry is None or not entry.publishable:
+                raise PermissionDenied("resource:publish")
         row.public = public
         await self.db.flush()
         await self.db.refresh(row)

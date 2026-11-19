@@ -1,5 +1,9 @@
 # Auth principal-resolver chain
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 **Status:** Approved, ready for implementation plan.
 **Issue:** [#163 — simple_module_auth: expose a principal resolver that handles session cookie OR PAT bearer token](https://github.com/antosubash/simple_module_python/issues/163)
 **Driver:** Unblock `smpy_gis` T3 (Personal Access Token workstream) by **end of M3 (2026-08-31)**.

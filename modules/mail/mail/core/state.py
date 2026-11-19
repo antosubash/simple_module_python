@@ -12,3 +12,4 @@ class MailState:
     """``settings`` is reassigned in place on a hot reload, so stay mutable."""
 
     settings: MailSettings
+    sender_failed: bool = False

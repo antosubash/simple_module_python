@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
+
 # ── Module identity ─────────────────────────────────────────────
 MODULE_NAME = "background_tasks"
 MODULE_DISPLAY_NAME = "BackgroundTasks"
@@ -33,8 +36,23 @@ ENV_REDIS_URL = "SM_REDIS_URL"
 
 # ── Permissions ─────────────────────────────────────────────────
 PERM_GROUP = "Background tasks"
-PERM_VIEW = "background_tasks.view"
-PERM_MANAGE = "background_tasks.manage"
+
+
+class Permissions(
+    PermissionCatalogue, group=PERM_GROUP, label_key="background_tasks.permission_group"
+):
+    VIEW = "background_tasks.view"
+    MANAGE = "background_tasks.manage"
+
+
+deprecate(
+    "background_tasks PERM_* constants",
+    remove_in="0.0.50",
+    use="background_tasks.core.constants.Permissions",
+)
+PERM_VIEW = Permissions.VIEW
+PERM_MANAGE = Permissions.MANAGE
+
 
 # ── Routes ──────────────────────────────────────────────────────
 API_PREFIX = "/api/background_tasks"
@@ -97,14 +115,7 @@ HEARTBEAT_MIN_INTERVAL_SECONDS = 30
 TASK_STUCK_AFTER_ATTR = "stuck_after"
 DEFAULT_PURGE_INTERVAL_SECONDS = 60 * 60 * 24
 DEFAULT_RETENTION_DAYS = 14
-DEFAULT_MAX_RETRIES = 3
-# Redis pub/sub channel carrying the framework's cache invalidations. Namespaced
-# so that two apps on one Redis *server* do not each act on the other's messages.
-# The server, not the database: pub/sub ignores the logical DB index, so DBs 4 and
-# 5 of one instance share this channel. Mostly that costs pointless reads, but it
-# is not unconditionally harmless — an emptied cache is also what exposes
-# ``UsersAuthProvider._version_still_current``'s fail-open branch, so rename it
-# per app rather than relying on the DB number.
+# Prefix for installation channels; also the legacy global channel until 0.1.0.
 DEFAULT_INVALIDATION_CHANNEL = "simple_module.invalidation"
 
 # ── Internal task names ─────────────────────────────────────────

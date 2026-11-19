@@ -100,7 +100,9 @@ def find_npm_name(pkg_root: Path) -> str | None:
     return None
 
 
-def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
+def compute_module_assets(
+    modules: Sequence[ModuleBase], *, include_empty: bool = False
+) -> list[ModuleAssets]:
     """Return per-module frontend assets, preserving discovery order.
 
     Discovery order matters. ``discover_modules()`` topologically sorts by
@@ -132,11 +134,11 @@ def compute_module_assets(modules: Sequence[ModuleBase]) -> list[ModuleAssets]:
             pages_dir=pages_dir.resolve() if pages_dir.is_dir() else None,
             theme_css=theme.resolve() if theme.is_file() else None,
             styles_css=styles.resolve() if styles.is_file() else None,
-            npm_name=find_npm_name(pkg_root),
+            npm_name=find_npm_name(pkg_root) or f"@simple-module-py/{pkg_name.replace('_', '-')}",
             components_dir=components_dir.resolve() if components_dir.is_dir() else None,
             ui_dir=ui_dir.resolve() if ui_dir.is_dir() else None,
         )
-        if any(
+        if include_empty or any(
             (entry.pages_dir, entry.theme_css, entry.styles_css, entry.components_dir, entry.ui_dir)
         ):
             result.append(entry)

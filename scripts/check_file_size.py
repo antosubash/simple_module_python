@@ -32,6 +32,7 @@ DEFAULT_EXEMPT_GLOBS: tuple[str, ...] = (
     # and is rewritten on every dev-mode boot. Hand-shrinking is futile.
     "packages/i18n/src/*.generated.ts",
     "packages/i18n/src/generated-resources.ts",
+    "**/i18n/generated-resources.ts",
     # Typed API client definitions emitted by `smpy openapi gen-types` (#504),
     # and any other generator output; regenerated, never edited by hand.
     "**/*.generated.ts",

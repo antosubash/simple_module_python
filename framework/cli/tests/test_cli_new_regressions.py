@@ -94,9 +94,6 @@ def test_sm_new_sample_module_views_carry_a_menu_item(tmp_path: Path) -> None:
         ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)],
     )
     module_py = (target / "modules" / "hello" / "hello" / "module.py").read_text()
-    constants = (target / "modules" / "hello" / "hello" / "core" / "constants.py").read_text()
-    assert "view_prefix=VIEW_PREFIX" in module_py
-    assert 'VIEW_PREFIX = "/hello"' in constants
     assert "register_menu_items" in module_py
 
 
@@ -117,8 +114,7 @@ def test_sm_new_registers_landing_route_at_root(tmp_path: Path) -> None:
     assert '"Landing"' in routes_py, "host's / route must render the Landing page"
 
     main_py = (target / "host" / "main.py").read_text(encoding="utf-8")
-    assert "host_router" in main_py, "main.py must wire host_router into the app"
-    assert "include_router(host_router)" in main_py
+    assert 'routers=("routes:router",)' in main_py
 
     landing_tsx = target / "host" / "client_app" / "pages" / "Landing.tsx"
     assert landing_tsx.is_file(), "Landing.tsx must ship in the host's pages dir"

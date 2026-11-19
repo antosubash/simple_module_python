@@ -175,6 +175,20 @@ class DurableRegistry:
     def handler_names(self, event_type: type) -> list[str]:
         return list(self._subs.get(event_key(event_type), {}))
 
+    def remove(self, event_type: type, *, name: str) -> None:
+        """Remove a subscription; fail clearly if this event/name is unknown."""
+        if self.lookup(event_key(event_type), name) is None:
+            raise KeyError(f"No durable subscription {name!r} for {event_key(event_type)}")
+        del self._subs[event_key(event_type)][name]
+
+    def replace(self, event_type: type, handler: DurableHandler, *, name: str) -> None:
+        """Validate and rebind a name atomically, preserving subscription order."""
+        if self.lookup(event_key(event_type), name) is None:
+            raise KeyError(f"No durable subscription {name!r} for {event_key(event_type)}")
+        validated = DurableRegistry()
+        validated.add(event_type, handler, name)
+        self._subs[event_key(event_type)][name] = validated._subs[event_key(event_type)][name]
+
     def lookup(self, key: str, name: str) -> DurableSubscription | None:
         return self._subs.get(key, {}).get(name)
 

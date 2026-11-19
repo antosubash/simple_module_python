@@ -39,6 +39,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Page manifest + generated module imports, the app's i18n keys (module pages
 # read `keys.<module>`, which the published @simple-module-py/i18n lacks), then
 # the production bundle.
+RUN cd host && uv run --no-sync python -m simple_module_hosting sync-js-deps --host-client-app=client_app
 RUN cd host && uv run python -m simple_module_hosting gen-pages --host-dir=client_app
 RUN cd host && uv run python -m simple_module_hosting gen-i18n
 RUN npm run build

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 # admin UI can say so rather than letting the edit look like it took effect.
 _RESTART_DB = {"requires_restart": True, "group": "Database"}
 _RESTART_GUARD = {"requires_restart": True, "group": "Request guards"}
-_RESTART_CORS = {"requires_restart": True, "group": "CORS"}
+DEFAULT_LOGIN_REDIRECT_URL = "/dashboard/"
 _RESTART_API = {"requires_restart": True, "group": "API"}
 
 # Consumed while create_app builds the tenant middleware, the strict tenant

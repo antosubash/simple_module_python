@@ -1,5 +1,9 @@
 # Enhancement batch #447–#459: design
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 Date: 2026-10-15. Tracking issue: #460.
 
 Issues covered:

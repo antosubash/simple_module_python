@@ -51,20 +51,24 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Imported after ``.env`` is in the environment, so nothing below can
     # resolve a setting before it is.
     from simple_module_hosting import merge_host_settings
+    from simple_module_hosting.installation import load_installation_id
     from simple_module_hosting.leases import configure_process_leases
 
     from background_tasks.core.db_settings import worker_database_options
+    from background_tasks.core.invalidation_channel import installation_channel
     from background_tasks.core.settings import BackgroundTasksSettings
     from background_tasks.core.sync_db import configure_database, set_database_url
     from background_tasks.executions.tenant_context import set_default_tenant
     from background_tasks.logs.sink import install_log_sink
     from background_tasks.worker.celery_app import build_celery
+    from background_tasks.worker.principals import configure_principals
     from background_tasks.worker.settings import load_runner_settings
 
     # The worker never builds the app, so resolve the host settings the same
     # way host/main.py does (env → DB → default): task bodies must hit the same
     # database with the same fail-closed tenant rules as request code.
     host = merge_host_settings()
+    configure_principals(host)
     default_tenant = None if host.multi_tenant else host.default_tenant or None
     set_database_url(
         host.database_url, tenant_strict=host.multi_tenant, default_tenant=default_tenant
@@ -76,6 +80,10 @@ def build_runner_celery(fallback_env_file: Path | None = None) -> Celery:
     # Hydrated from the DB like the web process, so an admin-edited setting
     # reaches the worker at boot, not only the web app.
     settings = load_runner_settings()
+    if settings.broadcast_invalidations and settings.invalidation_channel is None:
+        settings.invalidation_channel = installation_channel(
+            load_installation_id(host.database_url)
+        )
     # Re-apply the engine options now the worker's DB-stored overrides are known.
     configure_database(worker_database_options(host, settings))
     celery = build_celery(settings)

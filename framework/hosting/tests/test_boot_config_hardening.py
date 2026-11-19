@@ -21,12 +21,11 @@ from simple_module_core.setup_steps import SetupRegistry, SetupStep
 from simple_module_core.stored_settings import parse_stored_value
 from simple_module_hosting import _secret_key
 from simple_module_hosting._hydrate_step import hydrate_all
-from simple_module_hosting._lifespan import _is_first_run
 from simple_module_hosting._preapp_config import (
     apply_host_overrides,
 )
 from simple_module_hosting._secret_key import SecretKeyUnavailableError, ensure_secret_key
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS, is_first_run
 
 
 @pytest.fixture(autouse=True)
@@ -72,14 +71,15 @@ def test_fresh_install_may_use_an_ephemeral_key_when_strict(tmp_path: Path) -> N
     assert ensure_secret_key(url, strict=True)
 
 
-def test_blank_stored_key_is_repaired_once(tmp_path: Path) -> None:
+@pytest.mark.parametrize("blank", ["", " \t\n"])
+def test_blank_stored_key_is_repaired_once(tmp_path: Path, blank: str) -> None:
     """A blank row used to defeat the insert forever: an ephemeral key per boot."""
     db = tmp_path / "blank.db"
-    url = seed_settings_db(db, [("host.secret_key", "")], value_type="string")
+    url = seed_settings_db(db, [("host.secret_key", blank)], value_type="string")
 
-    key = ensure_secret_key(url, stored="", strict=True)
+    key = ensure_secret_key(url, stored=blank, strict=True)
 
-    assert key
+    assert len(key.strip()) >= 40
     stored = sqlite3.connect(db).execute(
         "SELECT value FROM settings_setting WHERE key = 'host.secret_key'"
     )
@@ -142,9 +142,7 @@ async def test_raising_step_counts_as_first_run_only_without_history(
     current_revision: str | None, first_run: bool
 ) -> None:
     app = SimpleNamespace(
-        state=SimpleNamespace(
-            sm=SimpleNamespace(setup_registry=_raising_registry()),
-            migration={"current_revision": current_revision},
-        )
+        state=SimpleNamespace(sm=SimpleNamespace(setup_registry=_raising_registry()))
     )
-    assert await _is_first_run(app) is first_run
+    status = {"is_current": False, "current_revision": current_revision}
+    assert await is_first_run(app, status) is first_run

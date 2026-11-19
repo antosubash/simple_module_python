@@ -9,11 +9,11 @@ from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
-from background_tasks.core.constants import PERM_VIEW, OutboxStatus
+from background_tasks.core.constants import OutboxStatus, Permissions
 from background_tasks.outbox.service import OutboxService
 from background_tasks.web.deps import get_outbox_service
 
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(Permissions.VIEW))])
 
 PER_PAGE = 20
 

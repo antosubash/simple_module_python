@@ -4,7 +4,7 @@ import { apiResult, NETWORK_FAILURE } from '@simple-module-py/ui/lib/api';
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../api';
+import { api } from '../../api.generated';
 import { isPlausibleEmail } from '../invite-emails';
 import type { InviteResult } from './InviteResults';
 

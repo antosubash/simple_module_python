@@ -99,7 +99,7 @@ def bump_npm_package(package_json: Path, new_version: str, *, check: bool = Fals
     data = json.loads(package_json.read_text(encoding="utf-8"))
     changed = False
 
-    if data.get("version") != new_version:
+    if ("version" in data or not data.get("private")) and data.get("version") != new_version:
         changed = True
         data["version"] = new_version
 

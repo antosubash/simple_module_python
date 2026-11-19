@@ -61,3 +61,41 @@ def test_python_dash_m_invocation_runs_cli(module_target: str) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "gen-pages" in result.stdout
+
+
+@pytest.mark.parametrize("skip", [False, True])
+def test_gen_i18n_missing_package(tmp_path, monkeypatch, skip):
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    args = ["gen-i18n", "--skip-if-missing"] if skip else ["gen-i18n"]
+    result = CliRunner().invoke(app, args)
+
+    assert result.exit_code == (0 if skip else 1), result.output
+    assert "@simple-module-py/i18n" in result.output
+    if skip:
+        assert result.output.splitlines() == [
+            "Skipping gen-i18n: @simple-module-py/i18n not found."
+        ]
+
+
+@pytest.mark.parametrize("workspace_root", [True, False], ids=["workspace", "flat"])
+def test_sync_js_deps_targets_the_workspace_only_when_one_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, workspace_root: bool
+) -> None:
+    client_app = tmp_path / "client_app"
+    client_app.mkdir()
+    (client_app / "package.json").write_text("{}", encoding="utf-8")
+    if workspace_root:
+        (tmp_path / "package.json").write_text('{"workspaces": ["client_app"]}', encoding="utf-8")
+    monkeypatch.setattr("simple_module_hosting.host_cli.discover_modules", list)
+    monkeypatch.setattr("simple_module_hosting.host_cli.select_auth_provider", lambda m, _p: m)
+    monkeypatch.setattr(
+        "simple_module_hosting.host_cli.collect_module_js_deps", lambda _m: {"x": {"dep": "^1"}}
+    )
+    monkeypatch.setattr("simple_module_hosting.host_cli.shutil.which", lambda _n: "npm")
+
+    result = CliRunner().invoke(
+        app, ["sync-js-deps", "--host-client-app", str(client_app), "--dry-run"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ("--workspace client_app" in result.output) is workspace_root

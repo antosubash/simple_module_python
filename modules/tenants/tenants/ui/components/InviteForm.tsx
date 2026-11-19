@@ -9,7 +9,7 @@ import { Copy } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { useTenantErrors } from '../hooks/useTenantErrors';
 
 interface Props {

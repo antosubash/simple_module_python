@@ -58,7 +58,4 @@ def test_scaffolded_modules_import_independently(tmp_path: Path, variant: str):
         "**/test-dom.tsx",
         "**/page-tests/**",
     }
-    import json
-
-    config = json.loads((dest / "tsconfig.json").read_text())
-    assert config["include"] == ["layout_import_probe/**/*.ts", "layout_import_probe/**/*.tsx"]
+    assert not (dest / "tsconfig.json").exists()

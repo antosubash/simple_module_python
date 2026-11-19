@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
 from simple_module_core.user_directory import DirectoryUser
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,13 +85,9 @@ class RegistrySyncMixin:
         registry is role-scoped; user grants are resolved on every
         request (see :meth:`resolve_effective_permissions`).
         """
-        result = await self.db.execute(
-            select(RolePermission.role_name, RolePermission.permission_key)
-        )
-        by_role: dict[str, list[str]] = {}
-        for name, key in result.all():
-            by_role.setdefault(name, []).append(key)
-        self.registry.replace_role_overlays(by_role)
+        from permissions.grants.principal import role_overlays
+
+        self.registry.replace_role_overlays(await role_overlays(self.db))
 
     async def sync_admin_all_permissions(self, assigned_by: str | None = None) -> None:
         """Ensure the admin role holds every registered permission key.

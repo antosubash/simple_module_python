@@ -1,7 +1,7 @@
 """The rate limiter follows AuthMiddleware's own public/anonymous decision.
 
 AuthMiddleware records ``scope["state"]["auth_public"]`` (framework defaults +
-public-route registry + provider legacy paths); the limiter keys on that flag so
+public-route registry); the limiter keys on that flag so
 the two can never disagree, including on path variants.
 """
 
@@ -30,7 +30,7 @@ class TestRealAuthMiddleware:
         "path",
         [
             "/i18n/en.json",  # framework-public prefix, not in the registry
-            "/users/login",  # provider legacy public path, not in the registry
+            "/users/login",  # provider login registered by its module
             "/users/login/",  # trailing slash
             "/users/login?x=1",  # query string
             "//users/login",  # double slash

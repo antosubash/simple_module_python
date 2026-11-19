@@ -9,7 +9,6 @@ flags; nothing here talks to a request.
 from __future__ import annotations
 
 import inspect
-import warnings
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
@@ -105,22 +104,6 @@ def scroll(
         raise ValueError("scroll() requires a non-empty page_name")
     meta = ScrollMeta(page_name, current_page, previous_page, next_page, reset, wrapper)
     return replace(as_prop(value), scroll=meta)
-
-
-# This package stays free of simple_module_core, so it cannot use
-# ``simple_module_core.deprecation``; the expiry test (host/tests) registers this
-# constant there instead.
-LAZY_REMOVE_IN = "0.1.0"
-
-
-def lazy(value: Any) -> Prop:
-    """Deprecated alias kept for callers migrating from fastapi-inertia."""
-    warnings.warn(
-        f"lazy() is deprecated and will be removed in {LAZY_REMOVE_IN}; use optional() instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return optional(value)
 
 
 async def resolve_value(value: Any) -> Any:

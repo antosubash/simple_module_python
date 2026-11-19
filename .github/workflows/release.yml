@@ -133,6 +133,8 @@ jobs:
           uv run pytest host/tests/test_deprecation_expiry.py -q -p no:cacheprovider -n 0
       - name: Build Python wheels + sdists
         run: uv build --all-packages --out-dir dist-py
+      - name: Install npm build tooling
+        run: npm ci
       - name: Pack npm tarballs
         run: |
           mkdir -p dist-npm
@@ -231,7 +233,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [ui, i18n, tsconfig]
+        package: [ui, i18n, tsconfig, vite-plugin]
     environment: npm
     steps:
       - uses: actions/download-artifact@v8

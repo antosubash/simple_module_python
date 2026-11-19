@@ -10,9 +10,14 @@ registration hook.
 | Body size (`BodyLimitMiddleware`) | `413` | 10 MiB | `register_body_limits` |
 | Rate limit (`RateLimitMiddleware`) | `429` + `Retry-After` | `120/minute` per IP, anonymous public routes only | `rate=` on a public rule |
 
-Both settings are read when the middleware stack is built, so editing them in
-the admin UI needs a restart (the pre-app settings read picks the DB value up
-on the next boot; an env var still wins).
+Body limits and both rate tiers use an immutable host policy snapshot per
+request. A committed admin save refreshes that snapshot through the existing
+settings reload, without restarting or querying the DB on each request.
+Environment values still win over DB overrides. Module body-limit overrides,
+public-route rate overrides and registered rate-limit rules keep applying.
+Changing a global rate period starts a separate window; the previous period
+cannot keep blocking requests. Proxy trust and forwarded-host settings still
+require a restart.
 
 ## Body-size guard
 
@@ -142,6 +147,26 @@ from simple_module_hosting.rate_limit_deps import RateLimit
 ```
 
 `rate_limit_authenticated` is now counted per user, not per IP.
+
+### Replacing a registered rate rule
+
+In the host's [customize callback](lifecycle.md#host-overrides):
+
+```python
+def customize(app):
+    app.state.rate_limit_rules.replace_exact(
+        "/api/invites", RateLimitRule("2/minute", key="user", methods={"POST"})
+    )
+```
+
+`replace_exact`, `replace_prefix` and `replace_regex` identify the literal
+pattern and match kind. The replacement's `methods` overrides overlapping
+method scopes for that identity, preserving all other methods and unrelated
+rules. Omitting methods replaces all scopes for the pattern. A missing target
+raises `KeyError`; invalid input fails before mutation. `enabled=` has the
+same per-request meaning as on additions. A disabled replacement falls back
+to other matching patterns, not the superseded rule. Specificity across
+patterns is unchanged, and plain additions still keep the first rule on ties.
 
 ### Storage
 

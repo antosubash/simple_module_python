@@ -5,7 +5,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { ServerCrash, ServerOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { VIEW_BASE, type WorkerSnapshot } from '../utils/constants';
 import { diagnoseWorkerHealth, type WorkerHealthState } from '../utils/worker-health';
 

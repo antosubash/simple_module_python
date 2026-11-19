@@ -32,7 +32,6 @@ function message(over: Partial<OutboxMessage> = {}): OutboxMessage {
     id: 'm1',
     event_key: 'orders.contracts.events.OrderPlaced',
     handler_name: 'billing.handlers.charge',
-    payload: {},
     tenant_id: null,
     status: 'dead',
     attempts: 5,

@@ -116,7 +116,7 @@ def test_task_exception_is_tagged(monkeypatch: pytest.MonkeyPatch) -> None:
     assert event["tags"]["task"] == "orders.explode"
 
 
-def test_no_dsn_never_imports_sdk() -> None:
+def test_no_dsn_never_imports_sdk(isolated_host_root) -> None:
     code = textwrap.dedent(
         """
         import os, sys
@@ -130,7 +130,13 @@ def test_no_dsn_never_imports_sdk() -> None:
     )
     env = {k: v for k, v in __import__("os").environ.items() if k != "SM_SENTRY_DSN"}
     env["SM_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+    env["SM_PROJECT_ROOT"] = str(isolated_host_root)
     result = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=False
+        [sys.executable, "-c", code],
+        cwd=isolated_host_root,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr[-2000:]

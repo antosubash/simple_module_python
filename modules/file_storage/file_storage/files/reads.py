@@ -22,6 +22,7 @@ from file_storage.core import constants
 from file_storage.files import aggregates, queries
 
 if TYPE_CHECKING:
+    from file_storage.files.access import FileAccess
     from file_storage.files.aggregates import AggregateCache, StorageAggregates
 
 
@@ -30,6 +31,7 @@ class FileStorageReads:
 
     db: AsyncSession
     _aggregate_cache: AggregateCache | None
+    access: FileAccess | None
 
     async def list_files(
         self,
@@ -43,6 +45,7 @@ class FileStorageReads:
     ) -> tuple[list[StoredFileOut], int]:
         return await queries.list_files(
             self.db,
+            access=self.access,
             page=page,
             per_page=per_page,
             created_by=created_by,
@@ -59,7 +62,11 @@ class FileStorageReads:
         content_type: str | None = None,
     ) -> int:
         return await queries.count_files(
-            self.db, created_by=created_by, search=search, content_type=content_type
+            self.db,
+            created_by=created_by,
+            search=search,
+            content_type=content_type,
+            access=self.access,
         )
 
     async def page_of_files(
@@ -73,6 +80,7 @@ class FileStorageReads:
     ) -> list[StoredFileOut]:
         return await queries.page_of_files(
             self.db,
+            access=self.access,
             page=page,
             per_page=per_page,
             created_by=created_by,
@@ -87,6 +95,15 @@ class FileStorageReads:
         call here so a caller cannot accidentally pay for the scan more than
         once, whether or not a cache is wired in.
         """
+        if self.access is not None:
+            # Only legacy manager totals are safe to cache across requests.
+            if (
+                self._aggregate_cache is not None
+                and not self.access.registry.items()
+                and self.access.principal.has(constants.Permission.MANAGE)
+            ):
+                return await self._aggregate_cache.get(self.db, untagged=True)
+            return await aggregates.compute(self.db, access=self.access)
         if self._aggregate_cache is None:
             return await aggregates.compute(self.db)
         return await self._aggregate_cache.get(self.db)
@@ -94,7 +111,9 @@ class FileStorageReads:
     async def content_type_facets(self, *, created_by: str | None = None) -> list[dict]:
         """Types present in the bucket, or in one uploader's slice of it."""
         if created_by is not None:
-            return await queries.content_type_facets(self.db, created_by=created_by)
+            return await queries.content_type_facets(
+                self.db, created_by=created_by, access=self.access
+            )
         return [facet.as_dict() for facet in (await self.storage_aggregates()).content_types]
 
     async def uploader_facets(self) -> list[dict]:
@@ -102,7 +121,7 @@ class FileStorageReads:
 
     async def used_bytes_by(self, owner: str) -> int:
         """Bytes held by one uploader's files (not cached, not tenant-wide)."""
-        return await queries.used_bytes_by(self.db, owner)
+        return await queries.used_bytes_by(self.db, owner, access=self.access)
 
     async def used_bytes(self) -> int:
         return (await self.storage_aggregates()).used_bytes

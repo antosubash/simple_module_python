@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 import secrets
 import time
-from typing import TYPE_CHECKING
 
 from auth.oidc_common.session import sign_in, stale_callback
 from fastapi import APIRouter, HTTPException, Request
+from simple_module_hosting.auth_policy import login_redirect_url
 from starlette.responses import RedirectResponse
 
 from keycloak.core.constants import (
@@ -26,21 +26,14 @@ from keycloak.core.constants import (
 )
 from keycloak.identity.tokens import store_refresh_token
 
-if TYPE_CHECKING:
-    from keycloak.core.settings import KeycloakSettings
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["keycloak-auth"])
-
-
-def _get_settings(request: Request) -> KeycloakSettings:
-    return request.app.state.keycloak.settings
 
 
 def _get_oidc_client(request: Request):
     from keycloak.identity.oidc import OIDCClient
 
-    s = _get_settings(request)
+    s = request.app.state.keycloak.settings
     return OIDCClient(
         server_url=s.server_url,
         realm=s.realm,
@@ -70,7 +63,7 @@ async def oidc_login(request: Request):
 async def oidc_callback(request: Request):
     code = request.query_params.get("code")
     stale = stale_callback(
-        request, _SESSION_OIDC_STATE, _SESSION_USER_CTX, _get_settings(request).login_redirect_url
+        request, _SESSION_OIDC_STATE, _SESSION_USER_CTX, login_redirect_url(request.app, "Keycloak")
     )
     if stale is not None:
         return stale
@@ -126,13 +119,12 @@ async def oidc_callback(request: Request):
     provider = request.app.state.auth.auth_provider
     user_ctx = await provider.sign_in_from_claims(request, claims)
 
-    s = _get_settings(request)
     next_url = sign_in(
         request,
         user=user_ctx,
         expires_at=expires_at,
         authority=provider._session_authority,
-        redirect=s.login_redirect_url,
+        redirect=login_redirect_url(request.app, "Keycloak"),
         user_key=_SESSION_USER_CTX,
         identity_key=SESSION_IDENTITY_KEY,
         identity=(claims["sub"],),

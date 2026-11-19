@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from simple_module_core.diagnostics._inertia_api import check_inertia_api_calls
 from simple_module_core.diagnostics._js_workspace import check_js_workspace_files
 from simple_module_core.diagnostics._types import DiagnosticLevel
@@ -34,21 +35,19 @@ def _mk_module_tree(root: Path, name: str, *, with_pkg_json: bool, with_tsconfig
 
 
 class TestSm017JsWorkspaceFiles:
-    async def test_fires_when_both_missing(self, tmp_path: Path):
+    async def test_silent_when_both_missing(self, tmp_path: Path):
         src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=False, with_tsconfig=False)
         mod = _FakeModule(meta=_FakeMeta(name="Orders"))
 
         results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
 
-        codes = [r.code for r in results]
-        files = [r.file for r in results]
-        assert codes == ["SM017", "SM017"]
-        assert all(r.level == DiagnosticLevel.WARNING for r in results)
-        assert any("package.json" in (f or "") for f in files)
-        assert any("tsconfig.json" in (f or "") for f in files)
+        assert results == []
 
-    async def test_silent_when_both_present(self, tmp_path: Path):
-        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=True, with_tsconfig=True)
+    @pytest.mark.parametrize("with_tsconfig", [True, False])
+    async def test_silent_with_valid_manifest(self, tmp_path: Path, with_tsconfig: bool):
+        src_dir = _mk_module_tree(
+            tmp_path, "orders", with_pkg_json=True, with_tsconfig=with_tsconfig
+        )
         mod = _FakeModule(meta=_FakeMeta(name="Orders"))
 
         results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
@@ -66,15 +65,14 @@ class TestSm017JsWorkspaceFiles:
 
         assert results == []
 
-    async def test_fires_only_for_missing_file(self, tmp_path: Path):
-        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=True, with_tsconfig=False)
+    async def test_reports_invalid_dependency_manifest(self, tmp_path):
+        src_dir = _mk_module_tree(tmp_path, "orders", with_pkg_json=False, with_tsconfig=False)
+        (src_dir.parent / "package.json").write_text('{"dependencies": ["broken"]}')
         mod = _FakeModule(meta=_FakeMeta(name="Orders"))
-
-        results = check_js_workspace_files(mod, src_dir)  # pyright: ignore[reportArgumentType]
-
+        results = check_js_workspace_files(mod, src_dir)
         assert len(results) == 1
         assert results[0].code == "SM017"
-        assert "tsconfig.json" in (results[0].file or "")
+        assert "package.json" in results[0].file
 
     async def test_silent_when_module_lives_in_site_packages(self, tmp_path: Path):
         site_packages = tmp_path / ".venv" / "lib" / "python3.12" / "site-packages"

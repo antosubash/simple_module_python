@@ -9,8 +9,7 @@ import pytest
 import typer
 from simple_module_cli._add_install import _sync_command
 from simple_module_cli.add_cmd import run_add
-from simple_module_cli.cli import _app_add_command
-from simple_module_cli.git_source import parse_add_spec
+from simple_module_cli.cli import _app_host
 from simple_module_cli.uv_workspace import is_workspace_member
 
 HOST = '[project]\nname = "myhost"\nversion = "0.1.0"\ndependencies = []\n'
@@ -92,10 +91,9 @@ def test_missing_path_error_names_the_resolution_base(
     assert "--path project" in capsys.readouterr().err
 
 
-def test_workspace_hint_inside_host_dir_prints_a_path_spec(
+def test_module_nested_under_host_is_detected_as_an_app_member(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # GH #471: a bare "modules/x" would be parsed by `smpy add` as a PyPI requirement.
     (tmp_path / "pyproject.toml").write_text(
         '[tool.uv.workspace]\nmembers = ["host", "host/modules/*"]\n', encoding="utf-8"
     )
@@ -105,17 +103,13 @@ def test_workspace_hint_inside_host_dir_prints_a_path_spec(
     _write_module(module)
     monkeypatch.chdir(tmp_path)
 
-    command = _app_add_command(module)
-
-    assert command is not None
-    assert command.endswith("--path host")  # printed for the app root
-    spec = command.split("smpy add ", 1)[1].split(" --path", 1)[0]
-    assert spec == "./modules/forest_plots"
-    assert parse_add_spec(spec).kind == "path"
+    assert _app_host(module) == tmp_path / "host"
 
 
 def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) -> None:
     """GH #916: `uv sync` from host/ would uninstall the root's dev tools and other members."""
+    host = workspace / "host"
+    (host / "client_app").mkdir()
     _write_module(workspace / "modules" / "forest_plots")
     calls: list[tuple[list[str], Path]] = []
 
@@ -123,13 +117,14 @@ def test_add_inside_an_app_workspace_syncs_the_whole_workspace(workspace: Path) 
         calls.append((cmd, cwd))
         return 0
 
-    run_add(
-        "../modules/forest_plots",
-        pyproject=workspace / "host" / "pyproject.toml",
-        exec_runner=runner,
-    )
+    run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
 
     assert calls[0] == (["uv", "sync", "--all-packages"], workspace.resolve())
+    assert calls[1:-1] == [
+        (["uv", "run", "smpy", "host", "gen-pages"], host),
+        (["uv", "run", "smpy", "host", "sync-js-deps"], host),
+        (["uv", "run", "smpy", "host", "gen-i18n", "--skip-if-missing"], host),
+    ]
 
 
 def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path: Path) -> None:
@@ -140,3 +135,18 @@ def test_add_in_a_project_outside_the_workspace_members_syncs_it_alone(tmp_path:
     (app_dir / "pyproject.toml").write_text(HOST, encoding="utf-8")
 
     assert _sync_command(app_dir) == (["uv", "sync"], app_dir)
+
+
+def test_add_falls_back_when_the_hosting_plugin_predates_skip_if_missing(workspace: Path) -> None:
+    host = workspace / "host"
+    (host / "client_app").mkdir()
+    _write_module(workspace / "modules" / "forest_plots")
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str], cwd: Path) -> int:
+        calls.append(cmd)
+        return 2 if "--skip-if-missing" in cmd else 0
+
+    run_add("../modules/forest_plots", pyproject=host / "pyproject.toml", exec_runner=runner)
+
+    assert ["uv", "run", "smpy", "host", "gen-i18n"] in calls

@@ -34,7 +34,7 @@ def invitation_mail_wanted(url: str) -> bool:
     if not mail_transport_installed() or not current_mail_sender().delivers_email:
         return False
     if not absolute_accept_url(url):
-        logger.warning(c.MAIL_RELATIVE_WARNING)
+        logger.error(c.MAIL_RELATIVE_WARNING)
         return False
     return True
 
@@ -61,7 +61,7 @@ def invitation_message(event: InvitationCreated) -> MailMessage:
 async def send_invitation_email(event: InvitationCreated, ctx: DurableContext) -> None:
     """Propagate failures for outbox retries; never commit the worker session."""
     if not absolute_accept_url(event.accept_url):
-        logger.warning(c.MAIL_RELATIVE_WARNING)
+        logger.error(c.MAIL_RELATIVE_WARNING)
         return
     if not mail_transport_installed():
         # The web process had a transport when it queued this; a worker started

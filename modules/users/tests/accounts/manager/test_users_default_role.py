@@ -18,6 +18,7 @@ def _manager(app, session, *, allow_signup: bool, **update) -> UserManager:
         UserDatabaseWithRoles(session, User, OAuthAccount),
         MagicMock(send_verification=AsyncMock()),
         settings,
+        app.state.users.token_secrets,
     )
 
 

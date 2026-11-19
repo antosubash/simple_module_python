@@ -21,6 +21,7 @@ from file_storage.contracts.service import (
     StorageError,
     StorageNotFoundError,
 )
+from file_storage.models import StoredFile
 
 __all__ = [
     "ConfigurationError",
@@ -34,6 +35,7 @@ __all__ = [
     "StorageBackendError",
     "StorageError",
     "StorageNotFoundError",
+    "StoredFile",
     "StoredFileListOut",
     "StoredFileOut",
     "open_local",

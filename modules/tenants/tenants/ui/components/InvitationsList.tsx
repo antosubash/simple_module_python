@@ -5,7 +5,7 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { useTenantErrors } from '../hooks/useTenantErrors';
 
 export interface Invitation {

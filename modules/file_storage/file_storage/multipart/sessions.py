@@ -33,7 +33,12 @@ from file_storage.contracts.service import (
 from file_storage.core import constants
 from file_storage.core.scope import owning_tenant
 from file_storage.files import queries
-from file_storage.files.service import FileStorageService, FileTooLargeError, generate_key
+from file_storage.files.service import (
+    FileStorageService,
+    FileTooLargeError,
+    StoredFileNotFoundError,
+    generate_key,
+)
 from file_storage.models import StoredFile, UploadSession
 from file_storage.multipart.guards import UploadGuards
 from file_storage.multipart.support import (
@@ -120,6 +125,11 @@ class UploadSessionService(UploadGuards):
         session = (await self.db.execute(stmt)).scalar_one_or_none() if owner else None
         if session is None:
             raise UploadNotFoundError(str(upload_id))
+        if session.status == constants.UploadStatus.COMPLETED and session.file_id:
+            try:
+                await self.files.get(session.file_id)
+            except StoredFileNotFoundError as exc:
+                raise UploadNotFoundError(str(upload_id)) from exc
         return session
 
     async def get_open(self, upload_id: uuid.UUID) -> UploadSession:

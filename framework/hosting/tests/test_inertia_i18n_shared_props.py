@@ -10,14 +10,18 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
+from simple_module_inertia.request import InertiaRequest
+from simple_module_inertia.resolve import resolve_props
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 
-def _resolved(shared: dict) -> dict:
-    """Shared props as a render would serialise them (lazy ones called)."""
-    return {k: (v() if callable(v) else v) for k, v in shared.items()}
+async def _resolved(request: Request) -> dict:
+    """Use the renderer's resolver so shared prop factories retain their semantics."""
+    shared = await resolve_inertia_shared(request)
+    req = InertiaRequest.from_headers(request.headers, request.method)
+    return (await resolve_props({}, shared, "Shared", req)).props
 
 
 def _build_app() -> FastAPI:
@@ -34,7 +38,7 @@ def _build_app() -> FastAPI:
 
     @app.get("/shared")
     async def shared(request: Request) -> JSONResponse:
-        return JSONResponse(_resolved(await resolve_inertia_shared(request)))
+        return JSONResponse(await _resolved(request))
 
     # Stack order (last added = outermost = runs first):
     #   LocaleMiddleware (outer) -> InertiaLayoutDataMiddleware (inner)
@@ -98,7 +102,7 @@ def _build_audience_app(tmp_path) -> FastAPI:
 
     @app.get("/shared")
     async def shared(request: Request) -> JSONResponse:
-        return JSONResponse(_resolved(await resolve_inertia_shared(request)))
+        return JSONResponse(await _resolved(request))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,
@@ -154,6 +158,32 @@ async def test_login_mid_session_reships_messages_on_an_inertia_partial(tmp_path
     assert body["i18n"]["messages"] == {"pages.title": "Pages", "settings.key": "Key"}
 
 
+async def test_partial_only_i18n_after_login_includes_resolved_csrf_token(tmp_path) -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=_build_audience_app(tmp_path)), base_url="http://test"
+    ) as client:
+        await client.get("/shared", headers={"Accept": "text/html"})
+        response = await client.get(
+            "/shared",
+            headers={
+                "X-Test-Auth": "1",
+                "X-Inertia": "true",
+                "X-Inertia-Partial-Component": "Shared",
+                "X-Inertia-Partial-Data": "i18n",
+                "X-SM-I18n": "en:public",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    body = response.json()
+    assert body["i18n"]["messages"] == {"pages.title": "Pages", "settings.key": "Key"}
+    assert isinstance(body["csrfToken"], str)
+    assert len(body["csrfToken"]) >= 32
+    assert "auth" not in body
+    assert "menus" not in body
+
+
 async def test_inertia_partial_with_unchanged_audience_still_skips_messages(tmp_path) -> None:
     client = AsyncClient(
         transport=ASGITransport(app=_build_audience_app(tmp_path)), base_url="http://test"
@@ -176,7 +206,7 @@ async def test_inertia_shared_props_fallback_when_registry_missing(
 
     @app.get("/shared")
     async def shared(request: Request) -> JSONResponse:
-        return JSONResponse(_resolved(await resolve_inertia_shared(request)))
+        return JSONResponse(await _resolved(request))
 
     app.add_middleware(
         InertiaLayoutDataMiddleware,
