@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import select
 import sys
 from collections import Counter
 from contextlib import suppress
@@ -103,7 +104,7 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
 
     Output is best-effort: backpressure or a closed stderr truncates the report.
     The PID in the key keeps forked serving processes independent of parents.
-    Boot output uses a separate file stream when possible so a blocked daemon
+    Boot output uses a separate raw descriptor when possible so a blocked daemon
     writer cannot hold stderr's lock during interpreter shutdown. Doctor calls
     leave ``once`` disabled so every invocation prints to the current stderr.
     """
@@ -144,12 +145,25 @@ def _write_report(report: str, *, isolate: bool = False) -> None:
         except (OSError, ValueError):
             pass  # In-memory capture wrappers have no descriptor.
         else:
-            # Own the buffer, not the file flags: dup shares O_NONBLOCK with stderr.
-            with (
-                suppress(OSError, ValueError),
-                os.fdopen(os.dup(fd), "w", encoding=stream.encoding, errors=stream.errors) as out,
-            ):
-                out.write(report)
+            # dup shares O_NONBLOCK; raw writes never acquire stderr's buffer lock.
+            with suppress(OSError, ValueError):
+                owned_fd = os.dup(fd)
+                try:
+                    limit = getattr(select, "PIPE_BUF", 512)
+                    errors = stream.errors or "strict"
+                    for line in report.splitlines():
+                        record = f"{line}\n".encode(stream.encoding, errors=errors)
+                        if len(record) > limit:
+                            # Keep pipe writes atomic without splitting a Unicode character.
+                            record = (
+                                record[: limit - 1]
+                                .decode(stream.encoding, errors="ignore")
+                                .encode(stream.encoding, errors=errors)
+                            ) + b"\n"
+                        if os.write(owned_fd, record) != len(record):
+                            break
+                finally:
+                    os.close(owned_fd)
             # Do not fall back to a logger that could acquire stderr's lock.
             return
     try:
