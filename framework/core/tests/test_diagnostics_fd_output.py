@@ -6,6 +6,7 @@ import select
 import subprocess
 import sys
 import textwrap
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from pathlib import Path
 
@@ -68,9 +69,7 @@ def test_unicode_report_lines_survive_concurrent_stderr_writes():
 
 
 @pytest.mark.parametrize("fallback", [False, True])
-def test_oversized_unicode_records_are_bounded_and_newline_terminated(
-    tmp_path, monkeypatch, fallback
-):
+def test_oversized_unicode_records_are_bounded_and_newline_terminated(monkeypatch, fallback):
     limit = 512 if fallback else getattr(select, "PIPE_BUF", 512)
     if fallback:
         monkeypatch.delattr(select, "PIPE_BUF", raising=False)
@@ -81,14 +80,17 @@ def test_oversized_unicode_records_are_bounded_and_newline_terminated(
         records.append(data)
         return write(fd, data)
 
-    path = tmp_path / "stderr"
-    with path.open("w", encoding="utf-8") as stream:
-        monkeypatch.setattr(_runner.sys, "stderr", stream)
-        monkeypatch.setattr(_runner.os, "write", record_write)
-        _runner._write_report("start\n" + "€" * limit + "\nend\n", isolate=True)
+    read_fd, write_fd = os.pipe()
+    with os.fdopen(read_fd, "rb") as incoming, ThreadPoolExecutor(max_workers=1) as reader:
+        received = reader.submit(incoming.read)
+        with os.fdopen(write_fd, "w", encoding="utf-8") as stream:
+            monkeypatch.setattr(_runner.sys, "stderr", stream)
+            monkeypatch.setattr(_runner.os, "write", record_write)
+            _runner._write_report("start\n" + "€" * limit + "\nend\n", isolate=True)
+        output = received.result(timeout=2).decode("utf-8")
     assert len(records) == 3
     assert all(len(record) <= limit and record.endswith(b"\n") for record in records)
-    assert path.read_text(encoding="utf-8") == "start\n" + "€" * ((limit - 1) // 3) + "\nend\n"
+    assert output == "start\n" + "€" * ((limit - 1) // 3) + "\nend\n"
 
 
 @pytest.mark.parametrize("console_ownership", [False, True])
@@ -158,7 +160,7 @@ def test_failed_os_write_closes_duplicate_without_retry_or_shared_output(
     assert caplog.records == []
 
 
-def test_partial_os_write_is_not_retried(tmp_path, monkeypatch):
+def test_partial_os_write_completes_non_pipe_report(tmp_path, monkeypatch):
     write = os.write
     attempts = []
 
@@ -170,9 +172,9 @@ def test_partial_os_write_is_not_retried(tmp_path, monkeypatch):
     with path.open("w", encoding="utf-8") as stream:
         monkeypatch.setattr(_runner.sys, "stderr", stream)
         monkeypatch.setattr(_runner.os, "write", partial_write)
-        _runner._write_report("first\nsecond\n", isolate=True)
-    assert attempts == [b"first\n"]
-    assert path.read_bytes() == b"fi"
+        _runner._write_report("€ first\nsecond\n", isolate=True)
+    assert len(attempts) > 1
+    assert path.read_text(encoding="utf-8") == "€ first\nsecond\n"
 
 
 def test_full_nonblocking_pipe_abandons_report_and_preserves_flags(monkeypatch):

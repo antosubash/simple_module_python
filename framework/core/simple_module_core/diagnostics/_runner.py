@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import codecs
 import io
 import logging
 import os
 import select
+import stat
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -136,7 +139,7 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
 
 
 def _write_report(report: str, *, isolate: bool = False) -> None:
-    """Never retry partial output; isolate boot file writes from stderr's lock."""
+    """Isolate boot writes from stderr's lock; abandon output on backpressure."""
     # CliRunner and pytest replace stderr after this module is imported.
     stream = sys.stderr
     if isolate and isinstance(stream, io.TextIOWrapper):
@@ -149,19 +152,22 @@ def _write_report(report: str, *, isolate: bool = False) -> None:
             with suppress(OSError, ValueError):
                 owned_fd = os.dup(fd)
                 try:
-                    limit = getattr(select, "PIPE_BUF", 512)
-                    errors = stream.errors or "strict"
-                    for line in report.splitlines():
-                        record = f"{line}\n".encode(stream.encoding, errors=errors)
-                        if len(record) > limit:
-                            # Keep pipe writes atomic without splitting a Unicode character.
-                            record = (
-                                record[: limit - 1]
-                                .decode(stream.encoding, errors="ignore")
-                                .encode(stream.encoding, errors=errors)
-                            ) + b"\n"
-                        if os.write(owned_fd, record) != len(record):
-                            break
+                    encoding = stream.encoding or "utf-8"
+                    encoder = codecs.getincrementalencoder(encoding)(errors="backslashreplace")
+                    data = encoder.encode(report, final=True)
+                    if stat.S_ISFIFO(os.fstat(owned_fd).st_mode):
+                        for record in _pipe_records(
+                            data, encoding, getattr(select, "PIPE_BUF", 512)
+                        ):
+                            if os.write(owned_fd, record) != len(record):
+                                break
+                    else:
+                        remaining = memoryview(data)
+                        while remaining:
+                            written = os.write(owned_fd, remaining)
+                            if written <= 0:
+                                break
+                            remaining = remaining[written:]
                 finally:
                     os.close(owned_fd)
             # Do not fall back to a logger that could acquire stderr's lock.
@@ -172,3 +178,31 @@ def _write_report(report: str, *, isolate: bool = False) -> None:
     except (OSError, ValueError):
         with suppress(OSError, ValueError):
             logger.warning("diagnostics output truncated: stderr not writable")
+
+
+def _pipe_records(data: bytes, encoding: str, limit: int) -> Iterator[bytes]:
+    """Keep encoded newlines and character boundaries, including a single BOM."""
+    decoder = codecs.getincrementaldecoder(encoding)()
+    start = previous = 0
+    boundaries = [0]
+    # Newline bytes can also occur unaligned inside multibyte characters.
+    for end in range(1, len(data) + 1):
+        character = decoder.decode(data[end - 1 : end])
+        if not character:
+            continue
+        if character == "\n":
+            if end - start <= limit:
+                yield data[start:end]
+            else:
+                newline = data[previous:end]
+                stop = max(
+                    boundary for boundary in boundaries if boundary - start <= limit - len(newline)
+                )
+                yield data[start:stop] + newline
+            start = end
+            boundaries = [end]
+        elif end - start <= limit:
+            boundaries.append(end)
+        previous = end
+    if start < len(data):
+        yield data[start : boundaries[-1]]
