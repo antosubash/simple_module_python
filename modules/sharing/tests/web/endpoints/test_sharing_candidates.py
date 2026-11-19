@@ -59,6 +59,7 @@ async def test_candidates_filter_inactive_owner_and_foreign_tenant(picker, tenan
         assert response.json() == [
             {
                 "id": friend.user_id,
+                "subject_type": "user",
                 "display_name": "f•••@example.com",
                 "email": "f•••@example.com",
             }

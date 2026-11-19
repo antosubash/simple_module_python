@@ -10,6 +10,7 @@ from simple_module_core._module_conventions import (
     has_conventional_module,
     package_spec,
 )
+from simple_module_core.diagnostics._auth import check_auth_providers
 from simple_module_core.diagnostics._coupling import check_framework_module_coupling
 from simple_module_core.diagnostics._css import check_module_css
 from simple_module_core.diagnostics._dependencies import check_missing_dependencies
@@ -106,6 +107,7 @@ class ModuleDiagnostics:
                 name
                 for name in (
                     "register_routes",
+                    "register_fallback_routes",
                     "register_menu_items",
                     "register_permissions",
                     "register_feature_flags",
@@ -155,7 +157,9 @@ class ModuleDiagnostics:
         """Warn when a module ships view routes but is silently invisible.
 
         A module with conventional views or a ``register_routes`` override and a non-empty
-        ``view_prefix`` produces user-facing pages. Without either
+        ``view_prefix``, or admin routes at ``admin_view_prefix``, produces user-facing
+        pages. Admin routes come from ``AdminSurface`` or ``register_admin_routes``.
+        Without either
         ``register_menu_items`` (so admins can navigate to it from the sidebar)
         or ``register_permissions`` (so admins can see it in the role-permission
         editor), the module is silently invisible from the admin UI.
@@ -169,15 +173,22 @@ class ModuleDiagnostics:
         for mod in modules:
             cls = type(mod)
             meta = getattr(mod, "meta", None)
+            if meta is None:
+                continue
+            view_prefix = getattr(meta, "view_prefix", "")
+            admin_prefix = getattr(meta, "admin_view_prefix", "")
+            has_views = view_prefix and (
+                "register_routes" in cls.__dict__
+                or has_conventional_module(get_module_package_name(mod), "web.endpoints.views")
+            )
+            has_admin_views = admin_prefix and (
+                getattr(meta, "admin", None) is not None or "register_admin_routes" in cls.__dict__
+            )
             silently_invisible = (
-                meta is not None
-                and getattr(meta, "view_prefix", "")
-                and (
-                    "register_routes" in cls.__dict__
-                    or has_conventional_module(get_module_package_name(mod), "web.endpoints.views")
-                )
+                (has_views or has_admin_views)
                 and "register_menu_items" not in cls.__dict__
                 and "register_permissions" not in cls.__dict__
+                and not getattr(mod, "permissions", None)
             )
             if not silently_invisible:
                 continue
@@ -187,50 +198,22 @@ class ModuleDiagnostics:
                     code="SM019",
                     message=(
                         f"Module '{meta.name}' registers view routes "
-                        f"(view_prefix={meta.view_prefix!r}) but no menu items "
+                        f"(view_prefix={view_prefix!r}, admin_view_prefix={admin_prefix!r}) "
+                        "but no menu items "
                         "or permissions"
                     ),
                     module_name=meta.name,
                     suggestion=(
                         "Override register_menu_items() to surface this module "
                         "in the sidebar, register_permissions() to surface it in "
-                        "the role editor, or clear view_prefix if it's API-only"
+                        "the role editor, or clear the view prefixes if it's API-only"
                     ),
                 )
             )
         return diags
 
     def _check_auth_provider_conflict(self, modules: list[ModuleBase]) -> list[Diagnostic]:
-        """SM020/SM021: exactly one auth provider module must be installed."""
-        providers = [m for m in modules if getattr(m, "_is_auth_provider", False)]
-        diags: list[Diagnostic] = []
-        if len(providers) > 1:
-            names = ", ".join(m.meta.name for m in providers)
-            diags.append(
-                Diagnostic(
-                    level=DiagnosticLevel.ERROR,
-                    code="SM020",
-                    message=f"Multiple auth provider modules installed: {names}",
-                    module_name=providers[0].meta.name,
-                    suggestion=(
-                        "Install only one auth provider (e.g. 'users' OR 'keycloak', not both)"
-                    ),
-                )
-            )
-        elif len(providers) == 0:
-            diags.append(
-                Diagnostic(
-                    level=DiagnosticLevel.WARNING,
-                    code="SM021",
-                    message="No auth provider module installed",
-                    module_name="(none)",
-                    suggestion=(
-                        "Install an auth provider module "
-                        "(e.g. 'simple-module-users' or 'simple-module-keycloak')"
-                    ),
-                )
-            )
-        return diags
+        return check_auth_providers(modules)
 
     def _check_missing_meta(self, modules: list[ModuleBase]) -> list[Diagnostic]:
         diags: list[Diagnostic] = []

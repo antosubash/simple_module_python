@@ -4,6 +4,10 @@
 It discovers authorization, token, JWKS and optional logout and revocation endpoints. It uses
 hosted login with authorization code flow, S256 PKCE, state and nonce checks.
 Only one auth provider may be active; select it with `SM_AUTH_PROVIDER=oidc`.
+`OidcModule` declares `ModuleMeta(provides_auth=True)` so auth selection and
+SM020/SM021 recognize it. Custom providers should declare the same field on
+their owning module; the legacy `_is_auth_provider` module marker warns once
+per class and is removed in 0.1.0. See [Discovery](/framework/discovery).
 
 ## Install and activate
 
@@ -251,3 +255,14 @@ no migration or session conversion is needed.
 Post-login destinations use `host.login_redirect_url` for every provider. The
 default `/dashboard/` falls back to the first other view when Dashboard is absent,
 then `/`. Old per-provider redirect rows are ignored quietly.
+
+## Permission editor and role directory
+
+The Permissions module works with this provider without Users (#953). Its
+[role directory](/framework/user-directory#role-directory) lists distinct
+application role names from the live `role_mapping` values, excluding synthetic
+`tenant:*` roles. The editor maps those names to permissions, which apply to
+verified claim roles through the shared principal builder. Roles are defined and
+assigned in the identity provider, not locally. Cached user accounts do not
+record role membership: arbitrary user role lookups return `None` (unknown),
+while direct per-user grants remain available to platform admins.

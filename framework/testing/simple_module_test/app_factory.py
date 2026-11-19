@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from simple_module_core import ModuleBase
+from simple_module_hosting._module_routes import wire_fallback_routes
 from simple_module_hosting.app_builder import wire_module_routes
 
 
@@ -20,4 +21,5 @@ def build_test_app(module: ModuleBase | type[ModuleBase]) -> FastAPI:
     app = FastAPI()
     app.state.module = instance
     wire_module_routes(app, instance)
+    wire_fallback_routes(app, instance)
     return app

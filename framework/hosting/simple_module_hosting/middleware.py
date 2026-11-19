@@ -21,7 +21,6 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from simple_module_hosting._inertia_shared import (
     build_i18n_block,
     build_menu_translator,
-    default_home_url,
     lazy_csrf_shared_prop,
     merge_shared_prop_providers,
 )
@@ -160,6 +159,4 @@ class InertiaLayoutDataMiddleware:
             await merge_shared_prop_providers(scope["app"], request, shared)
         finally:
             request.state.user = actual
-        # After the providers, so a module's own value (users) wins.
-        shared.setdefault("homeUrl", default_home_url(scope["app"]))
         return shared

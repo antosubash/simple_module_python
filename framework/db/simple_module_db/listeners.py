@@ -13,6 +13,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from simple_module_db._persisted_owner import mark_unverified, owner_mark, restore_owner_mark
+from simple_module_db._scope_writes import guard_scope_flush
 from simple_module_db.audit_redaction import AUDIT_REDACTED, pk_is_redacted
 from simple_module_db.bulk_audit import audit_statement
 from simple_module_db.bulk_guard import install_bulk_guard
@@ -168,6 +169,7 @@ def _before_flush_listener(
     instances: object,
 ) -> None:
     guard_flush(session)
+    guard_scope_flush(session)
     user_id = current_user_id.get()
     now = datetime.now(UTC)
 

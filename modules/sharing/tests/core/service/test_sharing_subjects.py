@@ -14,7 +14,7 @@ from simple_module_core.user_directory import DirectoryUser
 from sqlalchemy.orm import make_transient_to_detached
 
 
-@pytest.mark.parametrize("subject_type", ["group", "tenant", ""])
+@pytest.mark.parametrize("subject_type", ["", "a" * 17])
 def test_subject_type_is_validated(subject_type):
     with pytest.raises(ValidationError):
         ShareGrant.model_validate(

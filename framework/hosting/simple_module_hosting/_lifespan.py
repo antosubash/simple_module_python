@@ -21,6 +21,8 @@ from fastapi import FastAPI
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
+from simple_module_hosting._dev_boot import print_boot_diagnostics
+from simple_module_hosting._fallback_routes import finalize_fallback_routes
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting._table_coverage import add_table_coverage
 from simple_module_hosting.data_compatibility import check_data_compatibility
@@ -30,13 +32,14 @@ from simple_module_hosting.setup_gate import is_first_run
 logger = logging.getLogger(__name__)
 
 
-def build_lifespan(modules: Sequence) -> Callable:
+def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         async with AsyncExitStack() as cleanup:
-            cleanup.push_async_callback(app.state.sm.db.engine.dispose)
+            if dispose_database:
+                cleanup.push_async_callback(app.state.sm.db.engine.dispose)
             # Report first, decide second. On a genuinely fresh install a
             # behind-head database must still boot far enough to serve the wizard —
             # running the migrations is one of the things that wizard does, and
@@ -45,6 +48,9 @@ def build_lifespan(modules: Sequence) -> Callable:
             # fails the boot. See is_first_run for how the two are told apart.
             settings = getattr(app.state.sm, "settings", None)
             environment = getattr(settings, "environment", None)
+            diagnostics = getattr(app.state.sm, "diagnostics", None)
+            if environment == "development" and diagnostics is not None and diagnostics.results:
+                await print_boot_diagnostics(diagnostics.results)
             migration = app.state.migration = await migration_status(app.state.sm.db.engine)
             if migration["is_current"] is None and environment == "development":
                 logger.warning("%s: %s", MIGRATION_DRIFT_CODE, migration_problem(migration))
@@ -83,6 +89,7 @@ def build_lifespan(modules: Sequence) -> Callable:
                 cleanup.push_async_callback(mod.on_shutdown, app)
             # Here rather than in create_app: the host includes its own routers
             # after create_app returns, and those should be guarded too.
+            finalize_fallback_routes(app)
             guard_included_routers(app, warm=environment != "testing")
             yield
 

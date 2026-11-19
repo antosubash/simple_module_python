@@ -11,6 +11,8 @@
       timeout: 3s
       retries: 10
 
+  # Invalidation channels use the shared database installation id (no env setup).
+  # Legacy global fan-out remains until 0.1.0 for rolling upgrades.
   # worker/beat reuse the app image — same code, different command.
   worker:
     build:

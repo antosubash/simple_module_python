@@ -70,7 +70,7 @@ class TestWiring:
         assert state.supported is False
         assert state.results == []
 
-    def test_a_development_boot_keeps_its_findings_and_can_rerun(self, monkeypatch) -> None:
+    def test_a_development_boot_keeps_its_findings_and_can_rerun(self, monkeypatch, capsys) -> None:
         calls: list[dict] = []
 
         def fake_run_diagnostics(modules, **kwargs):
@@ -78,6 +78,13 @@ class TestWiring:
             return [_FINDING]
 
         monkeypatch.setattr("simple_module_hosting._dev_boot.run_diagnostics", fake_run_diagnostics)
+        settings_finding = Diagnostic(
+            DiagnosticLevel.WARNING, "SM012", "missing module settings state", "Demo"
+        )
+        monkeypatch.setattr(
+            "simple_module_hosting.app_builder.check_settings_registration",
+            lambda app, modules: [settings_finding],
+        )
         # Both write into the working tree; the point here is the diagnostics
         # holder, not the generated frontend artefacts.
         monkeypatch.setattr(
@@ -98,11 +105,13 @@ class TestWiring:
         )
 
         state = app.state.sm.diagnostics
-        assert state.results == [_FINDING]
+        # Generation and reload supervisors build apps without serving them.
+        assert capsys.readouterr().err == ""
+        assert state.results == [_FINDING, settings_finding]
         assert state.ran_at is not None
         assert len(calls) == 1
 
-        state.rerun()
+        assert state.rerun() == [_FINDING, settings_finding]
 
         assert len(calls) == 2
         # The re-run must be the same call the boot made, or the screen would

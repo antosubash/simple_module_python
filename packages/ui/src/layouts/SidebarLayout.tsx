@@ -4,7 +4,7 @@ import { Toaster } from '@simple-module-py/ui/components/ui/sonner';
 import { TooltipProvider } from '@simple-module-py/ui/components/ui/tooltip';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { AppTopbar, activeSection, findSection } from '../components/AppTopbar';
+import { activeSection, findSection } from '../components/AppTopbar';
 import { BrandingBanner } from '../components/BrandingBanner';
 import { BrandingFooter } from '../components/BrandingFooter';
 import { BrandingHead } from '../components/BrandingHead';
@@ -14,10 +14,10 @@ import { PageHeadingProvider, usePageSection } from '../components/page-heading'
 import { darkSurfaceLogo } from '../lib/brand';
 import { useHomeUrl } from '../lib/home-url';
 import type { MenuItem } from '../types';
+import { useLayoutComponents } from './LayoutComponentsProvider';
 import { MobileBar } from './MobileBar';
 import { SidebarBrandRow } from './SidebarBrandRow';
 import { SidebarNav } from './SidebarNav';
-import { SidebarUserMenu } from './SidebarUserMenu';
 import { DEFAULT_SIDEBAR_THEME, type SidebarTheme } from './sidebar-theme';
 import { useDrawerA11y } from './useDrawerA11y';
 
@@ -49,6 +49,7 @@ export function SidebarLayout(props: SidebarLayoutProps) {
 }
 
 function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: SidebarLayoutProps) {
+  const { UserMenu, Topbar } = useLayoutComponents();
   const { t } = useT();
   const page = usePage();
   const { auth, menus, branding } = page.props;
@@ -178,7 +179,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
 
           {/* User section — avatar row opens a dropdown with Profile / Logout / etc. */}
           {auth?.user && (
-            <SidebarUserMenu
+            <UserMenu
               user={auth.user}
               items={menus?.userDropdown ?? NO_ITEMS}
               hoverBg={theme.hoverBg}
@@ -190,7 +191,7 @@ function SidebarShell({ children, menuKey, theme, headerSlot, footerNavSlot }: S
 
         {/* Main content */}
         <main className="flex min-h-screen flex-col lg:ml-64">
-          <AppTopbar
+          <Topbar
             navItems={paletteItems}
             accountItems={menus?.userDropdown ?? NO_ITEMS}
             currentUrl={currentUrl}

@@ -2,7 +2,7 @@
 
 A minimal public-API module. It owns the import paths every *other* module uses to read the current user (`UserContext`, `AuthProvider`, `get_current_user`) and ships the provider-agnostic `AuthMiddleware` — but **no routes, no models, no UI**. The actual login/session logic lives in an auth-provider module ([`users`](/modules/users) for local accounts + OAuth, [`oidc`](/modules/oidc) for generic OIDC, or [`keycloak`](/modules/keycloak) for Keycloak SSO).
 
-Auth is **pluggable**: exactly one installed module registers an `AuthProvider` implementation on `app.state.auth.auth_provider`, and `AuthMiddleware` delegates to it on every request. The split exists so you can swap authentication backends without churning every consumer's import paths. Diagnostics enforce the invariant — `SM020` errors if two auth-provider modules are installed, `SM021` warns if none is.
+Auth is **pluggable**: exactly one active module registers an `AuthProvider` implementation on `app.state.auth.auth_provider`, and `AuthMiddleware` delegates to it on every request. Modules declare `ModuleMeta(provides_auth=True)` for selection and diagnostics. `SM_AUTH_PROVIDER` selects one when several are installed; `SM020` errors if multiple providers remain after selection and warns on detectable undeclared module objects. `SM021` warns if none declares the capability. The legacy `_is_auth_provider` module marker warns once per class until removal in 0.1.0. See [Discovery](/framework/discovery).
 
 ## ModuleMeta
 

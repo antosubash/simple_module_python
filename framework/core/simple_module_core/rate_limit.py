@@ -217,6 +217,24 @@ class RateLimitRegistry:
     ) -> None:
         self._rules.add(KIND_REGEX, pattern, rule, methods=rule.methods, enabled=enabled)
 
+    def replace_exact(
+        self, path: str, rule: RateLimitRule, *, enabled: Callable[[], bool] | None = None
+    ) -> None:
+        """Override this path for rule.methods (all methods when omitted)."""
+        self._rules.replace(KIND_EXACT, path, rule, methods=rule.methods, enabled=enabled)
+
+    def replace_prefix(
+        self, prefix: str, rule: RateLimitRule, *, enabled: Callable[[], bool] | None = None
+    ) -> None:
+        """Override this prefix for rule.methods; preserve other methods."""
+        self._rules.replace(KIND_PREFIX, prefix, rule, methods=rule.methods, enabled=enabled)
+
+    def replace_regex(
+        self, pattern: str, rule: RateLimitRule, *, enabled: Callable[[], bool] | None = None
+    ) -> None:
+        """Override this literal regex for rule.methods; preserve other methods."""
+        self._rules.replace(KIND_REGEX, pattern, rule, methods=rule.methods, enabled=enabled)
+
     def match(self, method: str, path: str) -> RateLimitRule | None:
         return self._rules.match(method, path)
 

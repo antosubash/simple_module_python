@@ -12,12 +12,12 @@ React pages. There is no host–module API boundary.
 
 Stack: Python 3.12 + FastAPI + SQLModel + Alembic; Inertia.js v3 + React +
 Tailwind 4 + Vite. `uv` workspaces for Python, `npm` workspaces for JS.
-Published as ~23 PyPI packages (`simple_module_*`) and 3 npm packages
+Published as ~23 PyPI packages (`simple_module_*`) and 4 npm packages
 (`@simple-module-py/*`) in lockstep (`docs/release.md`).
 
 Layout: `framework/{core,db,hosting,inertia,testing,cli}` (the framework),
 `modules/<name>` (plugin modules), `host/` (the dev host app and all Alembic
-migrations), `packages/{ui,i18n,tsconfig}` (shared JS), `skills/` (agent skills
+migrations), `packages/{ui,i18n,tsconfig,vite-plugin}` (shared JS), `skills/` (agent skills
 shipped to users via `smpy skills add`), `.claude/skills/` (skills for this repo).
 
 ## Commands
@@ -39,7 +39,7 @@ Everything goes through `make`; the root `Makefile` is the full list
 | `make migrations-roundtrip-pg` | Postgres portability gate (upgrade → downgrade base → upgrade → `alembic check`); CI runs it |
 | `make gen` | Incrementally generate pages, i18n keys, module JS deps and API types; also runs during install/dev/build and `smpy module verify` |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` (gitignored; needed before `tsc`/Vite) |
-| `make gen-i18n` | Regenerate `packages/i18n/src/{keys.generated,generated-resources}.ts` (committed; CI diffs them) |
+| `make gen-i18n` | Regenerate module-local and app-owned i18n keys plus central compatibility files (committed; CI checks freshness) |
 | `make gen-api-types` | Regenerate each module's `pages/api.generated.ts` from its routes (committed; CI diffs via `ci-api-types-fresh`) |
 | `make new-module name=<name>` | Scaffold a module package (see § Adding a module for what it does *not* do) |
 | `make openapi` | Export `openapi.json` for typed clients |
@@ -88,7 +88,7 @@ Run what CI runs, in this order; a red push costs a review cycle.
    `skills/` must be a tracked file (`scripts/check_doc_paths.py`; exceptions in
    `scripts/doc_path_allowlist.txt`).
 3. `make test-py` and `make test-js`.
-4. Touched any `locales/*.json`? `make gen-i18n` and commit the two generated
+4. Touched any `locales/*.json`? `make gen-i18n` and commit the generated
    files; CI runs the generator and fails on a diff. The generator refuses to
    drop a namespace (an unsynced venv looks like a deleted module);
    `make gen-i18n ARGS=--allow-removals` is only for a module you really
@@ -136,9 +136,20 @@ absent), and the host calls each `register_*` hook in that order
 (`docs/framework/discovery.md`). Outside development a missing `depends_on`
 target fails the boot (`MissingDependencyError`, `SM030`); selecting
 `keycloak` drops `Users`, so modules needing it must be left out.
+Auth modules declare `ModuleMeta(provides_auth=True)` for selection and SM020;
+the legacy `_is_auth_provider` marker warns once per class (removal 0.1.0).
+Duplicate meta names raise `InvalidModuleError` (`SM008`) outside development,
+naming both distributions; development warns and skips the later entry point.
+Allowlists accept explicit `ep:<entry_point_name>` selectors as well as meta
+names. Only lists containing solely explicit selectors skip other plugins before
+import; unqualified names always match metadata and require loading candidates.
+Unknown explicit selectors fail strict discovery and warn in development.
+Entry points sort by distribution name, entry-point name and target before load,
+making the development duplicate winner deterministic.
 
 **Two names per module.** `ModuleMeta.name` (scaffold default: PascalCase,
-`FeatureFlags`) keys Inertia render paths, `depends_on` and `SM_MODULES_ENABLED`.
+`FeatureFlags`) keys Inertia render paths and `depends_on`; `SM_MODULES_ENABLED`
+accepts this name or `ep:<entry_point_name>`, case-insensitively.
 The Python package name (`feature_flags`) keys the i18n namespace,
 `app.state.<package>` and table prefixes. Don't swap them: `keys.<ns>` breaks if
 the namespace is the meta name.
@@ -177,7 +188,11 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_setup_steps`, `register_csp_sources`, `register_design_packs`,
 `register_audit_links`, `register_resource_types`, `register_exception_handlers`,
 `register_middleware`, `register_routes(api_router, view_router)`,
-`register_admin_routes(admin_router)` (only with `ModuleMeta.admin_view_prefix`),
+`register_admin_routes(admin_router)` (with `ModuleMeta.admin` or `admin_view_prefix`),
+then `register_fallback_routes(router)` after framework routes, static/SPA mounts
+and host routers (dependency order, first match wins; uses `view_prefix`),
+then host `customize(app)` (`create_app` / `build_host_app`, with `app.state.sm`
+available, before the outer middleware pipeline is finalized),
 then async `check_data_compatibility(db)` (read-only upgrade checks before
 settings hydration; an `error` refuses boot outside development), then async
 `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
@@ -190,13 +205,16 @@ when present; import failures inside existing endpoints still fail boot.
 mount under a prefix. Omitted `version` comes from the owning distribution
 (fallback `1.0.0` without metadata). Explicit versions and hook overrides win.
 Keep existing prefixes when adopting conventional routes so URLs do not change.
+Catch-all views belong in `register_fallback_routes`, which defaults to no-op.
+Pass host routers to `create_app(..., routers=...)` or `build_host_app(..., routers=...)`
+so they precede fallbacks. Routes and mounts added to the returned app before
+startup or first dispatch also stay ahead of fallbacks.
 
 Rules that go with them:
 
-- A module gets one view router per prefix. All-admin modules point
-  `view_prefix` at `/admin/<name>`; modules with both public and admin pages set
-  `admin_view_prefix` and use `register_admin_routes`. A prefix is a URL
-  convention, not a permission: guard every route.
+- A module gets one view router per prefix. Declare `ModuleMeta(admin=AdminSurface(...))`
+  for admin routing/menu/layout defaults. Legacy `admin_view_prefix` and
+  `register_admin_routes` remain supported. Guard every route explicitly.
 - `register_public_routes` exempts routes from `AuthMiddleware`, method-aware
   (`registry.add_regex(r"…/tilejson$", methods={"GET"})`):
   `docs/framework/public-routes.md`.
@@ -216,6 +234,8 @@ Rules that go with them:
   durable handler must not commit `ctx.db`. `docs/framework/events.md`.
 - Users: read accounts through `get_user_directory(app)`
   (`simple_module_core.user_directory`), never `users.models` outside `users`.
+  Read roles through `get_role_directory(app)` (`simple_module_core.role_directory`);
+  `editable` describes local role assignment, not permission mapping edits.
   `DirectoryUser.roles is None` means unknown (Keycloak), not none. Recent
   activity: `get_activity_feed(app)`. `docs/framework/user-directory.md`.
 - Menus: `MenuRegistry.add_provider(fn)` for per-request items; permissions:
@@ -226,13 +246,21 @@ Rules that go with them:
 request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
 SM_TRUSTED_PROXY) → (SentryContext if Sentry is enabled) → CorrelationId →
 RequestLogging → (ServerTiming, development only) → CORS → BodyLimit → GZip →
-SecurityHeaders → Session → InertiaMiddleware → <module middleware> → (Tenant:
-multi_tenant, or fixed to default_tenant) → Locale → InertiaLayoutData →
+SecurityHeaders → <before_session> → Session → InertiaMiddleware → <default module middleware> →
+(Tenant: multi_tenant, or fixed to default_tenant) → Locale → <after_tenant> → InertiaLayoutData →
 RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
 (`framework/hosting/tests/test_middleware_order.py` pins it). Rules that follow:
 
 - Modules at the same dependency tier: the one that sorts later wraps outermost.
   Use `depends_on` to order, never names.
+- `register_middleware(app)` keeps its signature. Use
+  `simple_module_hosting.add_middleware(app, cls, stage="before_session"|"default"|"after_tenant")`
+  or `after="tenant"` (inside both Tenant and Locale); ordinary
+  `app.add_middleware` stays in the default tier. In `customize(app)`,
+  `replace_middleware(app, Target, Middleware(Subclass, ...))` preserves the
+  target's position and constructor defaults. Replacements must subclass the
+  target and honor its security contract. `disable_middleware` permits only
+  GZip, RequestLogging and ServerTiming; see `docs/framework/middleware.md`.
 - Any `X-Inertia` response is forced `private, no-store`; to cache a public
   page, set `Cache-Control`/ETag on the *document* response only.
 - `RateLimit` runs after auth, so by default it throttles only anonymous
@@ -247,13 +275,17 @@ RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
 
 Detail: `docs/framework/middleware.md`, `docs/framework/request-guards.md`.
 
-**Admin section.** Admin screens live under `/admin/*`, register into
-`MenuSection.ADMIN_SIDEBAR` and render in `AdminLayout`, all three together.
-`SidebarLayout` renders the menu its `menuKey` names, so a page left on
-`AuthenticatedLayout` after its item moved shows a sidebar without it.
-`group=` sub-clusters inside a sidebar (`Access`, `Appearance`, `System`).
-`/admin` itself ships with `simple_module_hosting`; use `/admin/*` view URLs.
-`/api/*` paths never move.
+**Admin section.** Prefer `ModuleMeta(admin=AdminSurface(prefix="/admin/<name>",
+routes="<package>.admin.views:router", menu_group="Access",
+menu_group_key="ui.nav_groups.access"))`. The base admin hook loads that router
+(omitted target: `<package>.web.endpoints.admin:router`). This supplies the prefix,
+`MenuSection.ADMIN_SIDEBAR`/group defaults for this module's menu URLs under it,
+and `AdminLayout` for its pages without an explicit layout. `make gen-pages`
+applies layouts through generated loaders, including in existing host resolvers.
+Explicit menu sections, nonempty groups/keys and page layouts win. The surface
+implies no permission: routes and menu items still declare their own guards.
+Existing explicit wiring remains supported unchanged. `/admin` itself ships
+with `simple_module_hosting`; `/api/*` paths never move.
 
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
 `modules/<pkg>/<pkg>/pages/<Page>.tsx`; host pages under
@@ -334,8 +366,12 @@ The session cookie is `Secure` outside development and testing.
   `DeclarativeBase`/`Mapped[...]` in module code.
 - **No magic strings in non-test Python** (`scripts/check_hardcoded_strings.py`):
   `RequiresPermission(...)`, `registry.map_role(...)`, `registry.add_group(...)`
-  items, `inertia.render(...)` keys and `depends_on=[...]` entries must be
-  constants from `core/constants.py`: `PERM_*`, role names, `_PAGE_*`, `_MODULE_*`.
+  items and `depends_on=[...]` entries use named constants from `core/constants.py`
+  or `PermissionCatalogue` members. Attach the catalogue to `ModuleBase.permissions`
+  for default registration; custom hooks extend it via `super()`. Literal module
+  `inertia.render("MetaName/Page")` keys are allowed when the checker verifies the
+  owning module name and existing TSX page (nested pages supported, tests excluded).
+  Existing `PAGE_*` constants remain supported; new aliases are unnecessary.
 - **300-line cap** on `.py`/`.ts`/`.tsx`, tests included, untracked files
   included (`scripts/check_file_size.py`). Exempt: shadcn components under
   `packages/ui/src/components/ui/**`, generated i18n files,
@@ -464,7 +500,7 @@ Unlisted test directories are silently never collected.
 environment. The table with triggers and fixes is
 `docs/reference/diagnostic-codes.md`. **Production does not run the suite.**
 What fails a production boot is strict discovery (a bad entry point, missing
-`meta`, or a missing `depends_on` target), the auth-provider check
+`meta`, duplicate meta names, or a missing `depends_on` target), the auth-provider check
 (`SM020`), placeholder secrets, a localhost Celery broker, the `SM010`
 migration check (except on a never-migrated first run, which goes to `/setup`),
 overlapping `spa_mounts` (`SM032`) and an `error` from a module's

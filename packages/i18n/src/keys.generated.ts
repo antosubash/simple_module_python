@@ -828,6 +828,9 @@ export const keys = {
       done: 'hosting.setup.done',
       migrations: {
         apply: 'hosting.setup.migrations.apply',
+        combined_note: 'hosting.setup.migrations.combined_note',
+        combined_submit: 'hosting.setup.migrations.combined_submit',
+        follow_up_failed: 'hosting.setup.migrations.follow_up_failed',
       },
       request_failed: 'hosting.setup.request_failed',
       steps: {
@@ -894,6 +897,7 @@ export const keys = {
       direct_count_label_one: 'permissions.browse.direct_count_label_one',
       direct_count_label_other: 'permissions.browse.direct_count_label_other',
       edit_link: 'permissions.browse.edit_link',
+      external_roles: 'permissions.browse.external_roles',
       group_description: 'permissions.browse.group_description',
       no_permissions: 'permissions.browse.no_permissions',
       no_roles: 'permissions.browse.no_roles',
@@ -961,6 +965,7 @@ export const keys = {
       subtitle: 'permissions.user_edit.subtitle',
       subtitle_no_name: 'permissions.user_edit.subtitle_no_name',
       title: 'permissions.user_edit.title',
+      unknown_roles: 'permissions.user_edit.unknown_roles',
       via_role: 'permissions.user_edit.via_role',
     },
   },
@@ -1146,6 +1151,7 @@ export const keys = {
       search_label: 'sharing.dialog.search_label',
       search_min: 'sharing.dialog.search_min',
       search_placeholder: 'sharing.dialog.search_placeholder',
+      subject_type: 'sharing.dialog.subject_type',
       title: 'sharing.dialog.title',
     },
     list: {
@@ -1171,6 +1177,13 @@ export const keys = {
       description: 'sharing.revoke.description',
       failed: 'sharing.revoke.failed',
       title: 'sharing.revoke.title',
+    },
+    subjects: {
+      admin: 'sharing.subjects.admin',
+      member: 'sharing.subjects.member',
+      owner: 'sharing.subjects.owner',
+      tenant_role: 'sharing.subjects.tenant_role',
+      user: 'sharing.subjects.user',
     },
   },
   tenants: {

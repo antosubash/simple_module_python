@@ -25,6 +25,7 @@ def project(tmp_path, monkeypatch, request):
     (client / "package.json").write_text("{}")
     pkg = root / "modules/widget/widget"
     (pkg / "pages").mkdir(parents=True)
+    (pkg.parent / "pyproject.toml").write_text("[project]\nname = 'widget'\n")
     (pkg / "__init__.py").write_text("")
     (pkg / "module.py").write_text("# module\n")
     (pkg / "pages/Browse.tsx").write_text("export default () => null;")
@@ -68,14 +69,14 @@ def test_noop_touches_no_files(project):
     from simple_module_cli.gen_cmd import run_generation
 
     root, _, _, calls = project
-    assert run_generation(root) == ["pages", "i18n", "deps", "api"]
+    assert run_generation(root) == ["i18n", "pages", "deps", "api"]
     before = snapshot(root)
     assert run_generation(root) == []
     assert snapshot(root) == before
     assert calls == ["deps", "api"]
 
 
-@pytest.mark.parametrize("stage", ["pages", "i18n", "deps", "api"])
+@pytest.mark.parametrize("stage", ["i18n", "pages", "deps", "api"])
 def test_changed_input_runs_its_generator(project, stage):
     from simple_module_cli.gen_cmd import run_generation
 
@@ -160,3 +161,71 @@ def test_discovery_for_generation_includes_disabled_modules(monkeypatch):
         lambda enabled=None, **kw: ["installed"] if enabled is None else [],
     )
     assert gen_cmd._settings_and_modules() == (settings, ["installed"])
+
+
+def test_admin_surface_changes_invalidate_page_loaders(project):
+    from dataclasses import replace
+
+    from simple_module_cli import gen_cmd
+    from simple_module_core import AdminSurface
+
+    root, client, _, _ = project
+    gen_cmd.run_generation(root)
+    _, modules = gen_cmd._settings_and_modules()
+    modules[0].meta = replace(modules[0].meta, admin=AdminSurface(prefix="/admin/widget"))
+    assert "pages" in gen_cmd.run_generation(root)
+    generated = client / "modules.generated.ts"
+    assert 'prefix: "/admin/widget"' in generated.read_text()
+    modules[0].meta = replace(
+        modules[0].meta,
+        admin_view_prefix="",
+        admin=AdminSurface(prefix="/admin/changed", layout="theme/layout:Custom"),
+    )
+    assert "pages" in gen_cmd.run_generation(root)
+    assert 'prefix: "/admin/changed"' in generated.read_text()
+    assert 'from "theme/layout"' in generated.read_text()
+    assert gen_cmd.run_generation(root) == []
+
+
+def test_local_keys_and_app_aggregate_are_repaired(project):
+    from simple_module_cli.gen_cmd import run_generation
+
+    root, client, pkg, _ = project
+    run_generation(root)
+    local = pkg / "pages/i18n.generated.ts"
+    aggregate = client / "i18n/keys.generated.ts"
+    assert "widget.hello" in local.read_text()
+    assert "widget.hello" in aggregate.read_text()
+    local.unlink()
+    assert run_generation(root) == ["i18n"]
+    assert local.is_file()
+
+
+def test_legacy_manifest_registers_app_keys_without_vite_plugin(project):
+    from simple_module_cli.gen_cmd import run_generation
+
+    root, client, _, _ = project
+    run_generation(root)
+    assert "import './i18n/keys.generated';" in (client / "modules.generated.ts").read_text()
+    assert "registerTranslationKeys(keys)" in (client / "i18n/keys.generated.ts").read_text()
+
+
+def test_legacy_generators_register_keys_in_either_order(project):
+    import shutil
+
+    from simple_module_cli.gen_cmd import _settings_and_modules, run_generation
+    from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
+    from simple_module_hosting.manifest import write_module_pages_manifest
+
+    root, client, _, _ = project
+    run_generation(root)
+    settings, modules = _settings_and_modules()
+    shutil.rmtree(client / "i18n")
+    write_module_pages_manifest(modules, client)
+    emit_frontend_types_for_modules(settings, modules, root, strict=True)
+    manifest = client / "modules.generated.ts"
+    statement = "import './i18n/keys.generated';"
+    assert manifest.read_text().count(statement) == 1
+    before = manifest.read_text()
+    write_module_pages_manifest(modules, client)
+    assert manifest.read_text() == before

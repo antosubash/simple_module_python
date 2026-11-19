@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
+import { useT } from '@simple-module-py/i18n';
+import { keys } from './i18n.generated';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useApiErrorToast } from '@simple-module-py/ui/hooks/use-api-error-toast';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';

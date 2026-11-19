@@ -14,12 +14,77 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+- Migrate the remaining module permissions to `PermissionCatalogue`, preserving keys, registry metadata, role mappings and deprecated imported constants; no behaviour change (#1037).
+
+### Added
+
+- Module middleware can target `before_session`, `default` or `after_tenant` stages (`after="tenant"` runs inside Tenant and Locale). Host `customize(app)` can replace middleware with an explicit subclass implementation while retaining its position and constructor defaults. Only GZip, RequestLogging and ServerTiming can be disabled; security layers refuse disabling. Existing hook signatures and the default pipeline remain unchanged (#955).
+
+- One frontend extension registry discovers module `ui/extensions.ts(x)` entries and runs registrations before app startup. Modules can contribute ordered, permission-aware user edit panels and tenant settings sections, replace the user menu/topbar, add navigation icons, and register settings controls selected by a field's `control` hint. Existing defaults remain unchanged without registrations (#956, #957, #966).
+- Portable module-local typed i18n keys and app-owned catalog augmentation. Standalone module scaffolds use translated keys; generation no longer modifies installed npm packages. Central exports and older custom namespace imports remain compatible through app-owned manifest registration (#958).
+- `@simple-module-py/vite-plugin` now owns module asset aliases, hoisted bare-import resolution, dependency optimization and generated-i18n digest invalidation (#959, #1003). Host and app scaffolds use it; existing copied configs remain supported. See [migration instructions](docs/frontend/module-tooling-migration.md).
+
+- Registries expose explicit public-route removal, code role-grant revocation, rate-rule and resource-type replacement, event unsubscription/durable rebinding, and shared Inertia prop replacement. Both app factories accept `customize(app)` after all module registration hooks and before outer middleware assembly. Code revocation leaves explicit DB grants intact; ordinary additions keep their existing behavior (#954).
+- Modules can register custom `ScopeFilter` policies through `simple_module_db.register_scope`, sharing tenant/soft-delete coverage across ORM/Core reads, relationship and mapped secondary tables, and scoped writes. Policies support context variables/callables, independent bypass options, fail-closed handling and optional insert stamping. Built-in tenant and soft-delete semantics are unchanged (#968).
+- Mail transport providers register named factories through `mail.contracts`, with built-in console/SMTP transports and provider-owned DB settings shared by web startup, settings reloads and durable worker resolution. The admin backend selector lists registered transports. **Behaviour change:** unknown transports fail outside development; explicit `install_mail_sender` overrides survive settings reloads (#962).
+- Users exposes `register_oauth_provider` through `users.contracts`. App-scoped provider factories survive settings reloads; startup and reload derive OAuth clients and login buttons from the same registry. Custom buttons support translated labels and shared UI icons; built-in callback URLs and sign-in policies are unchanged (#964).
+- Auth-provider modules declare the public `ModuleMeta.provides_auth` capability for selection and SM020/SM021 diagnostics. Users, Keycloak and OIDC use it. SM020 warns when a module object exposes the provider protocol shape without declaring it; provider objects created inside hooks cannot be detected statically (#960).
+- `create_app` and `build_host_app` accept a prebuilt `DatabaseState` or a synchronous settings-to-state factory for custom engines and session routing. Supplied states and factory results remain caller-owned; lifespan cleanup only disposes the default engine (#967).
+
+- Modules can declare an `AdminSurface` once for router prefix, admin menu defaults and page layout, without implying permissions. Existing explicit wiring remains supported. `PermissionCatalogue` string enums register through the base permission hook; scaffold variants use one catalogue and verified page literals instead of `PAGE_*` aliases (#988).
+- Sharing subject providers with built-in user and tenant-role recipients, typed
+  discovery and dialog selection, and single-query SQL membership checks (#963).
+
+- **Behaviour change:** never-migrated installs accept one setup form that validates administrator credentials, applies migrations under the existing lock, and creates the first administrator (#987). A failed creation after migration returns to the administrator form; existing database upgrades and external identity providers retain their migration flow. Module setup actions can opt into this composition with a schema-free validator.
+
+- Mail messages accept an optional validated `reply_to` mailbox, including display names and quoted commas, delivered as SMTP `Reply-To`, included in console/fallback logs, preserved by the durable outbox, and exposed by `captured_mail`. SMTP address headers use IDNA for internationalized domains. Previously queued payloads without the field remain valid (#1025).
+
+- File storage supports module-owned file access policies through `simple_module_core.file_access`, with `ResourcePolicy` SQL filtering and a never-publishable option. Generic metadata, bytes, thumbnails, publication, deletion, list counts and browse facets honor the policy; untagged files keep their existing uploader/manage rules. **Behaviour change:** tagged files with missing policies, and already-public files whose policy forbids publishing, are hidden by generic routes. Apply migration `f999a1b2c3d4` on `file_storage@head` (#999).
+
+- `await simple_module_db.principal_for(session, user_id, tenant_id)` builds a live resource principal without a request or FastAPI app. Workers read registered directory, membership and grants through the caller's session; pending writes flush under the original tenant before lookup changes context. Requests share pure principal composition while retaining their existing membership, direct-grant and role-overlay caches (#1005).
+
+### Deprecated
+
+- The `_is_auth_provider` module class marker remains a fallback until 0.1.0, with a warning once per legacy class; declare `ModuleMeta(provides_auth=True)` instead (#960).
+
+- API tokens' `PERM_USE`/`PERM_MANAGE` constants remain aliases until removal in 0.0.50; use `api_tokens.core.constants.Permissions` (#988).
+
 ### Fixed
 
+- Middleware replacements merge constructor arguments by parameter, so positional overrides of inherited keywords and keyword overrides of inherited positional arguments build without duplicate values and retain unspecified options (#955).
+
+- Frontend extension registrations from wheel-installed and out-of-tree modules resolve host npm dependencies during typechecking and builds; extension sources remain checked by module TypeScript projects (#956).
+- CLI-only installs can scaffold modules without hosting installed. Module-local i18n resources compose with app catalogs and shared namespaces without TypeScript interface conflicts. **Behaviour change:** only the app aggregate augments central compatibility keys; standalone modules use their local keys (#958).
+
+- **Behaviour change:** Permissions works with Users, OIDC and Keycloak through a provider-neutral role directory. External role mappings and direct user grants have their own admin entry point; cached claim roles remain explicitly unknown. Users is now only an optional ordering dependency of Permissions (#953).
+
+- Failed mail transport reloads block delivery until construction succeeds, with retries on settings refreshes even when values are unchanged. Admin settings saves check choices after field normalization, preserving inputs such as `cookie_samesite="Strict"` (#962).
+- OAuth factory failures disable only the failing provider, so settings reloads still remove disabled providers and refresh login buttons. Custom login labels fall back to the provider display name when their translation is missing (#964).
+
+- **Behaviour change:** module allowlists accept explicit `ep:<entry_point_name>` selectors. Lists containing only explicit selectors skip disabled plugins before import and construction; unqualified items retain metadata-name matching, including name collisions and mixed lists. Unknown explicit selectors fail strict discovery and warn in development. Duplicate selected `meta.name` values fail strict discovery with both distributions in the error; development warns with SM008 and keeps the first entry sorted by distribution name, entry-point name and target. Direct topological sorting also checks duplicates (#961).
+- **Behaviour change:** database provider detection rejects unsupported dialects with a credential-safe error naming the dialect, rather than treating every non-PostgreSQL URL as SQLite. Worker engines and Alembic validate supported providers too (#967).
+- **Behaviour change:** database provider detection rejects unsupported dialects with a credential-safe error naming the dialect, rather than treating every non-PostgreSQL URL as SQLite. Malformed URLs also raise credential-free errors without exposing parser exception chains. Worker engines and Alembic validate supported providers too (#967).
+
+- SM019 includes admin-only routes declared through `AdminSurface` or the legacy admin hook, while permission catalogues still make modules discoverable. Admin layout defaults also match URL-encoded Unicode and spaces in surface prefixes (#988).
+- Sharing tenant-role recipient searches match display labels in the request locale as well as role IDs (#963).
+
+- The combined first-run setup card shows the administrator title and description, with a translated note that the database is set up first (#987).
+
+- Development diagnostics write to the current stderr text stream without retries. Backpressure or a closed/unwritable stream truncates the report and triggers one guarded log attempt (documented best-effort behaviour). Serving-lifespan output runs on a daemon thread with a two-second wait limit, so the event loop and the boot keep going even if stderr blocks (a stderr whose reader never drains can still delay interpreter exit; #1031). Identical boot findings are attempted once per process with severity/code counts; nonfatal boot findings print only when the app enters its serving lifespan, avoiding generation/reloader-supervisor duplicates. Doctor continues to report every finding to the current stderr on each invocation, including CliRunner capture and repeated calls after app startup (#1024).
+- Keep installation identity out of generic settings reads, edits and bulk output; disabled background-task broadcasting skips identity provisioning, and new bridge messages are deduplicated before remote handlers run (#986).
+
+- Mail messages reject IDN domains that cannot be encoded in `to` or `reply_to` at construction and durable deserialization, instead of consuming delivery retries (#1025).
+
+- **Security:** ordinary public-subdomain nonmembers receive anonymous resource visibility, including after membership removal; an authenticated account can no longer read its private owned resources in that tenant. This also closes the membership-check gap present on `main`. Platform admins holding the uncapped wildcard retain resource-policy bypass access without membership in an active tenant, on both HTTP and `principal_for`; suspended or missing tenants remain denied. Service credentials retain their separately validated tenant access. Fixed single-tenant request grant sources receive the effective tenant, matching worker principal lookups (#1005).
+
+- ID-only Keycloak/OIDC principal lookups use known membership and grant sources, without guessing token-only roles or claims. HTTP authentication and membership freshness retain their existing cache invalidation/TTL semantics: losing membership preserves account authentication and tenant switching; unauthorized tenant operations return 403 (#1005).
+- **Behaviour change:** fallback routes stay behind host routers and mounts added after the builder returns, finalized at startup and before first dispatch for clients without lifespan. Bare mount URLs keep their trailing-slash redirects, query strings and deployment root; fallback-only modules retain discovery order for default login destinations (#1022).
+- **Behaviour change:** fallback routes stay behind host routers and mounts added after the builder returns, finalized at startup and before first dispatch for clients without lifespan. Concurrent finalizations preserve ordinary routes. Bare mount URLs keep their GET/HEAD trailing-slash redirects, query strings and deployment root without overriding ordinary routes' method rejection; fallback-only modules retain discovery order for default login destinations (#1022).
 - Mail attachment deserialization checks the combined base64 size before decoding and decodes each file once; structured `message/*` and `multipart/*` MIME types are rejected. Outbox list queries and API/Inertia responses omit payloads and attachment content (#1006).
 
 - Limit the `smpy update` PyPI cohort to distributions published with the framework; independently released packages such as `simple_module_images` update individually and cannot block framework updates (#984).
 - Named `smpy update` requests keep sibling framework PyPI pins together and refuse partial updates before writes. npm updates respect the host's effective core source, including local overrides of root git sources. First module migration roots explicitly select a configured revision directory when Alembic scans multiple locations (#984).
+- Allow Vite-served fonts and images in the development CSP (#997). Scaffold Vite configs ignore cache-only `node_modules` directories when finding the package-manager install root (#998). Development Vite configs include generated i18n contents in Vite's optimizer cache key so changed files invalidate stale bundles even after a failed start, and watch them to restart a running server with fresh pre-bundled i18n (#1003).
 - Preserve whitespace stripping for legacy Users token keys, and adopt a persisted root after first-run setup migrations so derived reset and verification links survive restarts and agree across workers (#969).
 - Treat blank environment roots as unset, reject blank resolved production roots, and make session signing follow the adopted setup root so post-setup cookies work across workers (#969).
 
@@ -34,11 +99,14 @@ All notable changes to this project are documented in this file. The format is b
 - Removed only the deprecation of `ModuleMeta.requires_framework=None`: `None` permanently means **no version constraint**. The live hosting registration and core public-routes, versioning and resources modules remain. The Makefile's 0.0.49 `SM_TEST_PG_URL` fallback and `SM_VITE_PORT` support are unchanged.
 ### Added
 
+- Modules can register catch-all views with `register_fallback_routes(router)`, mounted at `view_prefix` in dependency order after ordinary routes, host routers and static/SPA mounts. `create_app(..., routers=...)` and `build_host_app(..., routers=...)` keep host routes ahead of fallbacks (#1022).
 - Mail messages support validated file attachments with a 10 MiB combined size cap, SMTP MIME delivery, metadata-only console/fallback logging, durable base64 JSON round-trips, and attachment inspection through `captured_mail`; existing queued messages without attachments remain valid (#1006).
 - Path-filtered production Docker image smoke checks build and boot the root image, then require HTTP 200 from health and a frontend asset found in the rendered page. Failures block `pr-checks` (#1009).
 - Sharing ships a reusable `ShareDialog` and `useShares` hook, with a policy-authorized, tenant-filtered and rate-limited user picker (#990).
 
 ### Changed
+
+- **Behaviour change:** background_tasks derives its default Redis invalidation channel from a race-safe, database-stored `host.installation_id`, shared by web and Celery bootstraps and independent of secret rotation. No new migration or channel env configuration is needed. Explicit channels retain env → DB precedence. Before migrations, default broadcasting waits for setup. A deprecated two-way legacy global channel bridge preserves rolling upgrades until removal in **0.1.0**; global traffic can still cross installations during this transition (#986).
 
 - **Behaviour change:** one root secret signs sessions and derives purpose-separated Users password-reset and email-verification keys with HKDF-SHA256 (#969). No secret env variable is required: an unset root is generated and stored, an explicit `SM_SECRET_KEY` wins and is never copied to the DB, and Docker no longer replaces a stored root at each start. Scaffolds generate only the root. Explicit non-placeholder `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` / `SM_USERS_VERIFICATION_TOKEN_SECRET` overrides keep existing links valid with a deprecation warning until removal in 0.0.50. Without those overrides, outstanding reset/verification links signed with earlier ephemeral or placeholder keys stop working at upgrade; request new links. Old DB users token-secret settings are ignored. Rotating the root invalidates derived links as well as sessions. External identity-provider, SMTP, S3 and Sentry credentials remain separate.
 - **Behaviour change:** `uv run smpy update` updates framework/module pins from PyPI and git, syncs Python and npm lockfiles, then runs `smpy gen`. `smpy package-update` is a deprecated forwarding alias, removed in 0.0.50. In-app `smpy create-module` now wires and installs the workspace member and generates frontend files; its remaining step uses `smpy migrations new <module> -m "init"`, which selects the module's head or creates its first labelled root, followed by `make migrate` and a dev restart. Scaffolded Make aliases use the documented `uv run smpy` surface; existing Python module entry points remain available (#984).

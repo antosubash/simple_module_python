@@ -16,6 +16,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
+from simple_module_core.file_access import (
+    ACTION_PUBLISH,
+    FileAccessPolicyRegistry,
+    validate_owner_module,
+)
+from simple_module_core.permission_denied import PermissionDenied
+from simple_module_core.resources import ACTION_VIEW, ResourcePrincipal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -25,6 +32,7 @@ from file_storage.contracts.schemas import StoredFileOut
 from file_storage.core import constants
 from file_storage.core.scope import PLATFORM_TENANT_ID, owning_tenant, platform_scope
 from file_storage.files import queries
+from file_storage.files.access import FileAccess
 from file_storage.files.deletes import FileStorageDeletes
 from file_storage.files.downloads import (
     Download,
@@ -67,10 +75,15 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         backend: StorageBackend,
         settings: FileStorageSettings,
         aggregate_cache: AggregateCache | None = None,
+        *,
+        policies: FileAccessPolicyRegistry | None = None,
+        principal: ResourcePrincipal | None = None,
     ) -> None:
         self.db = db
         self.backend = backend
         self.settings = settings
+        self.policies = policies if policies is not None else FileAccessPolicyRegistry()
+        self.access = FileAccess(self.policies, principal) if principal is not None else None
         # Optional on purpose. The app-wide cache lives on ``app.state`` and is
         # handed in by ``deps``; a service built directly — a test, a script —
         # gets ``None`` and reads the database every time, which is what a
@@ -81,7 +94,12 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
     # ── Upload ───────────────────────────────────────────────────────
 
     async def upload(
-        self, upload: UploadFile, *, platform: bool = False, public: bool = False
+        self,
+        upload: UploadFile,
+        *,
+        platform: bool = False,
+        public: bool = False,
+        owner_module: str | None = None,
     ) -> StoredFileOut:
         """Validate, stream-hash, persist to backend, and record metadata.
 
@@ -91,6 +109,11 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         settled first: the key is prefixed with it, and a strict install with
         no tenant must fail before an object is written, not after.
         """
+        if owner_module is not None:
+            validate_owner_module(owner_module)
+            entry = self.policies.get(owner_module)
+            if public and (entry is None or not entry.publishable):
+                raise PermissionDenied("resource:publish")
         content_type = upload.content_type or "application/octet-stream"
         self._check_content_type(content_type)
         tenant_id = owning_tenant(self.db, platform=platform)
@@ -136,11 +159,16 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
                 backend=self.backend.backend_id,
                 checksum_sha256=sha.hexdigest(),
                 public=public,
+                owner_module=owner_module,
             )
             async with platform_scope(self.db, platform):
                 self.db.add(row)
                 await self.db.flush()
                 await self.db.refresh(row)
+                if public and owner_module is not None and self.access is not None:
+                    stmt = select(StoredFile).where(col(StoredFile.id) == row.id)
+                    if await self.access.load(self.db, stmt, ACTION_PUBLISH) is None:
+                        raise StoredFileNotFoundError(str(row.id))
         except BaseException:
             try:
                 await self.backend.delete(key)
@@ -159,7 +187,12 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
             raise ContentTypeNotAllowedError(f"Content-Type {content_type!r} not in allow-list.")
 
     async def get(
-        self, file_id: uuid.UUID, *, platform: bool = False, owner: str | None = None
+        self,
+        file_id: uuid.UUID,
+        *,
+        platform: bool = False,
+        owner: str | None = None,
+        action: str = ACTION_VIEW,
     ) -> StoredFile:
         """The bound tenant's file, or with ``platform=True`` a platform file.
 
@@ -167,14 +200,18 @@ class FileStorageService(FileStoragePublic, FileStorageReads, FileStorageDeletes
         needs no tenant bound (anonymous branding requests have none) and only
         ever matches a platform-owned row, so a tenant's file id handed to a
         platform caller — say, pasted into a branding setting — still misses.
-        ``owner`` (``deps.get_owner_scope``) narrows it to one uploader's rows
+        An explicit ``owner`` narrows it to one uploader's rows
         the same way: someone else's file misses like an unknown id (#544).
         """
         stmt = queries.owned_by(select(StoredFile).where(col(StoredFile.id) == file_id), owner)
         if platform:
             stmt = stmt.where(StoredFile.tenant_id == PLATFORM_TENANT_ID)
         async with platform_scope(self.db, platform):
-            row = (await self.db.execute(stmt)).scalar_one_or_none()
+            row = (
+                await self.access.load(self.db, stmt, action)
+                if self.access is not None
+                else (await self.db.execute(stmt)).scalar_one_or_none()
+            )
         if row is None:
             raise StoredFileNotFoundError(str(file_id))
         return row

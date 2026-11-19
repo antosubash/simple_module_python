@@ -4,9 +4,10 @@ AGENTS.md spells out the pipeline:
 
     (ForwardedHost → ProxyHeaders, opt-in; pinned in test_forwarded_host.py)
     (SentryContext, only when Sentry is enabled)
-    CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security → Session
-                  → InertiaMiddleware → <module> → Tenant (opt-in) → Locale
-                  → InertiaLayoutData → RateLimit → Setup → Maintenance
+    CorrelationId → RequestLogging → CORS → BodyLimit → GZip → Security
+                  → <before_session> → Session → InertiaMiddleware → <default module>
+                  → Tenant (opt-in) → Locale → <after_tenant> → InertiaLayoutData
+                  → RateLimit → Setup → Maintenance
                   → CommitBeforeResponse → app
 
 Setup runs before Maintenance: an install that has never been set up has
@@ -147,3 +148,55 @@ def test_tenant_middleware_absent_when_disabled() -> None:
     )
     app = create_app(settings)
     assert "TenantMiddleware" not in _names(app)
+
+
+@pytest.mark.parametrize("multi_tenant", [True, False])
+def test_named_stages_preserve_dependency_order(settings, monkeypatch, multi_tenant):
+    from simple_module_core import ModuleBase, ModuleMeta
+    from simple_module_hosting import add_middleware, app_builder
+
+    class Probe:
+        def __init__(self, app):
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            await self.app(scope, receive, send)
+
+    class BeforeSession(Probe):
+        pass
+
+    class Default(Probe):
+        pass
+
+    class AfterTenant(Probe):
+        pass
+
+    class DependentAfterTenant(Probe):
+        pass
+
+    class First(ModuleBase):
+        meta = ModuleMeta(name="First", depends_on=["Users"])
+
+        def register_middleware(self, app):
+            add_middleware(app, BeforeSession, stage="before_session")
+            add_middleware(app, Default)
+            add_middleware(app, AfterTenant, after="tenant")
+
+    class Second(ModuleBase):
+        meta = ModuleMeta(name="Second", depends_on=["First"])
+
+        def register_middleware(self, app):
+            add_middleware(app, DependentAfterTenant, stage="after_tenant")
+
+    discover = app_builder.discover_modules
+    monkeypatch.setattr(
+        app_builder, "discover_modules", lambda **kw: [*discover(**kw), First(), Second()]
+    )
+    settings = settings.model_copy(update={"multi_tenant": multi_tenant})
+    app = create_app(settings)
+    expected = list(_EXPECTED_MULTI_TENANT if multi_tenant else _EXPECTED_SINGLE_TENANT)
+    expected.insert(expected.index("SessionMiddleware"), "BeforeSession")
+    expected.insert(expected.index("DemoReadOnlyMiddleware"), "Default")
+    index = expected.index("InertiaLayoutDataMiddleware")
+    expected[index:index] = ["DependentAfterTenant", "AfterTenant"]
+    assert _names(app) == tuple(expected)

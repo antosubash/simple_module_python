@@ -21,12 +21,38 @@ from simple_module_core.deprecation import (
 )
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
-_SHIM_MODULES: tuple[str, ...] = ("users.core.token_secrets",)
+_SHIM_MODULES: tuple[str, ...] = (
+    "simple_module_core._auth_providers",
+    "users.core.token_secrets",
+    "api_tokens.core.constants",
+    "audit_log.core.constants",
+    "background_tasks.core.constants",
+    "branding.core.constants",
+    "dashboard.core.constants",
+    "feature_flags.core.constants",
+    "permissions.core.constants",
+    "settings.core.constants",
+    "sharing.core.constants",
+    "users.core.constants",
+    "background_tasks.core.invalidation_channel",
+)
 _EXPECTED = {
+    "ModuleBase._is_auth_provider",
+    "global Redis invalidation channel bridge",
     "Makefile SM_TEST_PG_URL fallback",
     "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
     "SM_USERS_VERIFICATION_TOKEN_SECRET",
     "smpy package-update",
+    "api_tokens PERM_* constants",
+    "audit_log PERM_* constants",
+    "background_tasks PERM_* constants",
+    "branding PERM_* constants",
+    "dashboard PERM_* constants",
+    "feature_flags PERM_* constants",
+    "permissions PERM_* constants",
+    "settings PERM_* constants",
+    "sharing PERM_* constants",
+    "users PERM_* constants",
 }
 
 

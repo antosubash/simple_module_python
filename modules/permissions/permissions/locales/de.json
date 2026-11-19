@@ -20,7 +20,8 @@
     "registry_heading": "Register",
     "registry_hint": "Module deklarieren diese über ModuleBase.register_permissions. Diese Liste wird bei jedem Start aus dem Code neu erstellt.",
     "group_description": "Registrierte Schlüssel",
-    "no_permissions": "Keine Module haben Berechtigungen registriert."
+    "no_permissions": "Keine Module haben Berechtigungen registriert.",
+    "external_roles": "Rollen werden von Ihrem Identitätsanbieter verwaltet. Berechtigungen können hier zugeordnet werden."
   },
   "table": {
     "role": "Rolle",
@@ -70,7 +71,8 @@
     "via_role": "erteilt durch {roles}",
     "direct_toggle_label": "{key} diesem Benutzer direkt erteilen",
     "head_title": "Benutzer bearbeiten",
-    "leave_warning": "Sie haben ungespeicherte Änderungen an diesen Vergaben. Ohne Speichern verlassen?"
+    "leave_warning": "Sie haben ungespeicherte Änderungen an diesen Vergaben. Ohne Speichern verlassen?",
+    "unknown_roles": "Rollen werden von Ihrem Identitätsanbieter verwaltet; geerbte Berechtigungen sind unbekannt."
   },
   "errors": {
     "role_not_found": "Rolle nicht gefunden.",

@@ -42,7 +42,7 @@ def _probe_app(**middleware) -> FastAPI:
     async def probe(request: Request) -> dict[str, str]:
         return {"url": str(request.url_for(_PROBE_NAME)), "host": request.url.hostname or ""}
 
-    return ForwardedHostMiddleware(app, **middleware)  # ty: ignore[invalid-return-type]
+    return ForwardedHostMiddleware(app, **middleware)  # ty: ignore[invalid-explicit-return]
 
 
 async def _get(app, forwarded: str, *, peer: str = _PROXY_IP) -> dict[str, str]:

@@ -37,6 +37,10 @@ COL_KEY: Final = "key"
 COL_VALUE: Final = "value"
 COL_VALUE_TYPE: Final = "value_type"
 
+# Internal metadata shares the table, but is never generic configuration.
+INSTALLATION_ID_KEY: Final = "host.installation_id"
+INTERNAL_SETTING_KEYS: Final = frozenset({INSTALLATION_ID_KEY})
+
 # ── Scopes ───────────────────────────────────────────────────────────
 # Precedence high → low when resolving a key: USER > TENANT > SYSTEM.
 SCOPE_SYSTEM: Final = "system"

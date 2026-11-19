@@ -167,6 +167,14 @@ async def merge_shared_prop_providers(app: Any, request: Request, shared: dict) 
                 continue
             shared[key] = value
 
+    # After the providers, so a module's own value (users) wins.
+    shared.setdefault("homeUrl", default_home_url(app))
+    for key, provider in getattr(app.state, "inertia_shared_replacements", {}).items():
+        if key not in shared:
+            raise KeyError(f"No Inertia shared prop {key!r} to replace")
+        value = provider(request)
+        shared[key] = await value if inspect.isawaitable(value) else value
+
 
 def default_home_url(app: Any) -> str:
     """Where the layouts' "home" links point when no module publishes ``homeUrl``.

@@ -2,7 +2,7 @@
 
 A generic share table for
 [simple_module](https://github.com/antosubash/simple_module_python) apps:
-give one user `view` or `edit` access to one row of another module, with an
+give a user, tenant role or registered subject `view` or `edit` access to one row of another module, with an
 optional expiry, without that module shipping a bespoke share model. It plugs
 into the framework's resource-scoped access (`ResourcePolicy`,
 `OwnedResourcePolicy`, `RequiresResource`), so detail routes, lists and counts
@@ -47,7 +47,7 @@ def register_resource_types(self, registry):
 | `GET /admin/sharing/` | Admin list of every share in the tenant | `sharing.view` |
 
 Shares are tenant-scoped, expired shares never match, and grantees are
-validated through the user directory. See `docs/modules/sharing.md`.
+validated through registered subject providers; user recipients use the user directory. See `docs/modules/sharing.md`.
 
 ## License
 

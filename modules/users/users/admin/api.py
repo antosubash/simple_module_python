@@ -33,7 +33,7 @@ from users.contracts.schemas import (
     UserInvite,
     UserListItem,
 )
-from users.core.constants import PERM_USERS_MANAGE, sanitize_list_filters
+from users.core.constants import Permissions, sanitize_list_filters
 from users.core.exceptions import (
     EmailAlreadyExistsError,
     ExternalUserNoPasswordError,
@@ -47,7 +47,7 @@ _DUPLICATE_EMAIL = "A user with this email already exists."
 
 admin_router = APIRouter(
     prefix="/admin",
-    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
     tags=["users-admin"],
 )
 

@@ -9,9 +9,10 @@ A pluggable **OIDC auth provider** backed by Keycloak. Install it *instead of* [
 | `name` | `Keycloak` |
 | `route_prefix` | `/api/keycloak` |
 | `view_prefix` | `/keycloak` |
+| `provides_auth` | `True` |
 | `depends_on` | `["Auth"]` (optional: `["Settings"]`) |
 
-The module sets the class flag `_is_auth_provider = True`, which is what the auth-provider diagnostics count (see [below](#auth-provider-diagnostics)).
+The module declares `ModuleMeta(provides_auth=True)`, which auth selection and diagnostics count (see [below](#auth-provider-diagnostics)). The legacy module class marker `_is_auth_provider = True` warns once per class and is removed in 0.1.0.
 
 ## The AuthProvider contract
 
@@ -143,9 +144,8 @@ The cache backs this module's [user directory](/framework/user-directory)
 the audit log, dashboard, file storage and the permissions grants screen name
 and count Keycloak users. It knows only users who have signed in at least once;
 roles are `None` (they live in the IdP) and `created_this_month` is `None`.
-`permissions` (role pages) still needs the `users` tables and declares
-`depends_on=["Users"]`, so leave it out of a Keycloak install
-(`SM_MODULES_ENABLED`). `api_tokens` only orders after `Users`: under Keycloak
+`permissions` reads roles through the role directory and no longer needs
+`Users` (#953; see below). `api_tokens` only orders after `Users`: under Keycloak
 its service keys work and personal tokens are refused (the owner's roles live
 in the IdP).
 
@@ -166,12 +166,12 @@ Top-level keys in `keycloak/locales/en.json` (namespace `keycloak`): `login`, `l
 
 ## Auth-provider diagnostics
 
-The framework's module diagnostics (run by `make doctor` and at prod boot) count modules with `_is_auth_provider = True`:
+The framework's module diagnostics (`make doctor` and development boot) count modules declaring `meta.provides_auth=True`:
 
-- **SM020** (error) — more than one auth provider installed (e.g. `users` *and* `keycloak`). Install only one.
+- **SM020** (error) — more than one provider remains active. Set `SM_AUTH_PROVIDER=keycloak` or enable only one. A module object exposing the provider protocol shape without declaring the capability gets an SM020 warning; separate implementation objects are not statically detectable.
 - **SM021** (warning) — no auth provider installed at all.
 
-In production these errors fail boot. So swapping to Keycloak means **removing `simple_module_users`** from the host's dependencies, not running it alongside.
+Before diagnostics and hook registration, auth selection drops other declared providers. Outside development an invalid selection among several providers fails boot. Installing only Keycloak also works; modules that require `Users` must be excluded.
 
 ## Enabling
 
@@ -188,3 +188,14 @@ Then `uv sync --all-packages`. The entry point (`keycloak = "keycloak.module:Key
 Post-login destinations use `host.login_redirect_url` for every provider. The
 default `/dashboard/` falls back to the first other view when Dashboard is absent,
 then `/`. Old per-provider redirect rows are ignored quietly.
+
+## Permission editor and role directory
+
+The Permissions module works with this provider without Users (#953). Its
+[role directory](/framework/user-directory#role-directory) lists distinct
+application role names from the live `role_mapping` values, excluding synthetic
+`tenant:*` roles. The editor maps those names to permissions, which apply to
+verified claim roles through the shared principal builder. Roles are defined and
+assigned in the identity provider, not locally. Cached user accounts do not
+record role membership: arbitrary user role lookups return `None` (unknown),
+while direct per-user grants remain available to platform admins.

@@ -144,7 +144,10 @@ describe('RoleEdit', () => {
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Save role' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/admin/users/');
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute(
+      'href',
+      '/admin/permissions/',
+    );
     // The count is emphasised on its own, the way the deck bolds it.
     expect(screen.getByText('3', { selector: 'b' })).toBeVisible();
     expect(screen.getByText('of 8 granted')).toBeVisible();

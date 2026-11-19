@@ -4,6 +4,7 @@
     "includes": [
       "host/client_app/**",
       "packages/**",
+      "!packages/vite-plugin/dist",
       "modules/*/*/pages/**",
       "modules/*/*/ui/**",
       "modules/*/*/**/components/**",

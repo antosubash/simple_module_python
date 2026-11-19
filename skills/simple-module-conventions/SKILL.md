@@ -132,7 +132,17 @@ Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()
 
 ### 12. Read users through the user directory, never `users.models`
 
-Which module holds the accounts depends on the auth provider (`users` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+Which module holds the accounts depends on the auth provider (`users`, `oidc` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+
+For role catalogs and membership, use `get_role_directory(app)` from
+`simple_module_core.role_directory`: `list_roles(db)` returns name/label/description
+and an optional local UUID; `user_roles(db, user_id)` returns names or `None`
+(unknown). Check `editable` before exposing local role assignment controls.
+Permission mappings use role names and remain editable for external providers.
+OIDC/Keycloak list application names from live `role_mapping` values, exclude
+`tenant:*`, and cannot resolve cached users' claim roles. A missing provider
+lists no roles and reports unknown membership. Never infer claim roles in an
+ID-only `principal_for` lookup.
 
 ### 13. Raise domain exceptions from services
 

@@ -65,7 +65,8 @@ def run_module_registrations(
     """
     resource_type_registry = resource_type_registry or ResourceTypeRegistry()
     for mod in modules:
-        mod.register_menu_items(menu_registry)
+        with menu_registry.admin_surface(mod.meta.admin):
+            mod.register_menu_items(menu_registry)
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
         mod.register_event_handlers(event_bus, app=app)

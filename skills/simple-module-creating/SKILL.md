@@ -28,10 +28,9 @@ same `create_module` as `uv run smpy create-module`, so both produce the same tr
 below (permissions, menu item with `label_key`, `core/constants.py`, CRUD sample,
 `locales/en.json`); the in-repo variant adds workspace-sourced `pyproject.toml`
 metadata and a `LICENSE`. The pages read their text from `locales/en.json`
-through `t(keys.<module>.…)`; the host's `make gen-i18n` (also run by
-`make install` and each dev boot) adds the module to `keys`. A `--standalone`
-module repo gets pages with literal English instead, since it has no host to
-generate `keys`. For a **standalone publishable
+through `t(keys.<module>.…)` using the module-local generated keys. Both in-app
+and standalone scaffolds ship these typed keys; generation refreshes editable
+module catalogs without rewriting installed npm packages. For a **standalone publishable
 package** (its own repo, with CI + PyPI `publish.yml`), use
 `uv run smpy create-module orders`; pass `--standalone` to force the `.github/`
 workflows, then `uv sync` (or `pip install -e ./orders`) to install it into the
@@ -135,15 +134,23 @@ to a PEP 440 framework API range (e.g. `">=1.0,<2.0"`) for published modules.
 component as namespace (`acme.billing` uses `billing`);
 override only for custom directories/namespaces or to opt out.
 
+Declare admin routing once with `ModuleMeta(admin=AdminSurface(prefix="/admin/orders",
+routes="orders.admin.views:router", menu_group="Access",
+menu_group_key="ui.nav_groups.access"))` (import `AdminSurface` from
+`simple_module_core`). It defaults this module's menu URLs below the prefix to
+`ADMIN_SIDEBAR` and its pages to `AdminLayout` after `make gen-pages`. Explicit
+menu/layout choices win. It grants no permissions; guard routes and menu items.
+Omitted `routes` loads `<package>.web.endpoints.admin:router`; hook overrides win.
+
 ## Lifecycle hooks (override only what you need)
 
-In execution order — no-op by default except conventional router discovery:
+In execution order — defaults discover conventional routers and register `ModuleBase.permissions`:
 
 | Hook | Use it for |
 |---|---|
 | `register_settings(app)` | `register_module_settings(app, "<pkg>", SettingsCls, factory)` (from `simple_module_core.module_settings`): DB-hydrated settings on `app.state.<lower_name>` |
 | `register_menu_items(registry)` | Sidebar / navbar entries |
-| `register_permissions(registry)` | `<module>.<action>` strings, grouped |
+| `register_permissions(registry)` | Defaults to the `PermissionCatalogue` on `permissions`; overrides extend with `super()` |
 | `register_feature_flags(registry)` | `FeatureFlagDefinition` constants |
 | `register_event_handlers(bus, app)` | `bus.subscribe(EventCls, handler)` |
 | `register_health_checks(registry)` | Module-owned health probes |
@@ -153,18 +160,40 @@ In execution order — no-op by default except conventional router discovery:
 | `register_exception_handlers(app)` | Module-specific error mapping |
 | `register_middleware(app)` | LIFO — module middleware sorted last wraps outermost |
 | `register_routes(api_router, view_router)` | Default includes `<package>.web.endpoints.api.router` and `.views.router` when present; override for custom layouts or ordering. Existing module import errors propagate. The host applies prefixes and tags once. |
+| `register_admin_routes(admin_router)` | Defaults to the router in `meta.admin = AdminSurface(...)`; legacy `admin_view_prefix` + overrides remain supported. |
+| `register_fallback_routes(router)` | Opt-in catch-all views at `view_prefix`. Finalized at startup and before first dispatch after ordinary routes and mounts, including post-builder host additions and bare mount redirects. Dependency order; first match wins. Fallback-only views retain discovery order for login destinations. Auth/tenant middleware and opt-in CSRF still apply; public access uses `register_public_routes`. |
 | `on_startup(app)` / `on_shutdown(app)` | Async; shutdown runs in reverse order |
+
+Move catch-alls out of the conventional views router into the fallback hook.
+Pass host routers through `create_app(..., routers=(host_router,))` or
+`build_host_app(..., routers=(host_router,))` so they precede fallbacks;
+routers or custom mounts added to the returned app are appended afterward.
+Use dependencies to order overlapping fallback modules; a matched handler's 404
+does not try the next fallback. See `docs/framework/lifecycle.md`.
 
 ## Verify after scaffolding
 
-Boot the host. The diagnostics pass runs **only in development** — warnings/errors print to the boot logs and any ERROR raises `SystemExit`. In **production** the diagnostics pass is skipped; the one thing that fails a production boot is strict module *discovery* (a bad entry point — broken import, missing `meta`, non-`ModuleBase` class), surfaced as `SM001`. So `SM008`/`SM009` are dev-boot / `make doctor` errors, not production-boot blockers; `SM007` (module overrides no hooks) is info-only.
+Boot the host. The diagnostics pass runs **only in development** — warnings/errors print to the boot logs and any ERROR raises `SystemExit`. In **production** the static pass is skipped; strict discovery rejects broken entry points/missing metadata (`SM001`), duplicate meta names (`SM008`, naming both distributions) and missing dependencies (`SM030`). Auth-provider selection and migration checks also run outside development. Lenient discovery warns on duplicates and skips later entries. `SM009` remains a dev-boot / `make doctor` check; `SM007` (module overrides no hooks) is info-only.
+
+Auth modules declare `ModuleMeta(provides_auth=True)` for selection and SM020/SM021.
+The old `_is_auth_provider` module marker warns once per class and is removed in
+0.1.0. SM020 warns on undeclared module objects exposing the provider protocol
+shape; separate provider objects created inside hooks are not statically detectable.
+
+`SM_MODULES_ENABLED` accepts JSON lists of meta names or explicit
+`ep:<entry_point_name>` selectors, case-insensitively. To exclude a broken plugin
+before import, every list item must use `ep:` (for example `ep:background_tasks`).
+Unqualified items always match metadata names; mixed lists load all candidates
+before matching. Unknown explicit selectors fail strict discovery and warn in
+development. Entry points sort by distribution name, entry-point name and target,
+so development keeps a deterministic duplicate winner. See `docs/framework/discovery.md`.
 
 The new module should appear in the registered-modules log line. If it has a view endpoint, visit `<view_prefix>/`. Run `make doctor` for the same diagnostics out of band (orphan pages, coupling, migration drift, locale checks) — see the **simple-module-doctor** skill for the full code list.
 
 ## Pitfalls
 
 - **Forgot the entry point.** Package installs, module silently doesn't load (production strict mode raises `InvalidModuleError`). Verify `[project.entry-points.simple_module]` exists in `pyproject.toml`.
-- **`name=` collides.** Two modules with the same `ModuleMeta.name` raise `SM008` at dev boot / `make doctor` (their lowercased names would also collide as table prefixes in the shared schema).
+- **`name=` collides.** Duplicate `ModuleMeta.name` values raise `InvalidModuleError` with `SM008` in strict discovery; development warns and skips the later entry point. Rename or disable one. Static diagnostics also reject table-prefix collisions in their supplied module list.
 - **Registered the module by hand in host code.** Don't — discovery is entry-point-only; host code never imports module code.
 
 Services raise domain exceptions derived from a per-module base in

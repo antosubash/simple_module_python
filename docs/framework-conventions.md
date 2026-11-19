@@ -460,8 +460,14 @@ The `AuthMiddleware` (in `auth/web/middleware.py`) delegates to the active provi
 API paths (`/api/*`) receive 401 JSON when unauthenticated; view paths receive
 a 302 redirect to the provider's login URL.
 
-Boot-time diagnostic `SM020` fails if multiple auth providers are installed.
-`SM021` warns if none is installed.
+Auth modules declare `ModuleMeta(provides_auth=True)`; selection and SM020/SM021
+use that capability. `SM_AUTH_PROVIDER` selects one when several are installed;
+outside development an invalid selection among several providers refuses boot.
+Static diagnostic `SM020` errors if multiple providers remain and warns if a
+module object exposes the provider protocol shape without declaring it. Separate
+provider objects created inside hooks cannot be detected statically. `SM021`
+warns if none declares the capability. The legacy `_is_auth_provider` module
+marker warns once per class and is removed in 0.1.0.
 
 ### Public routes (anonymous access)
 
@@ -635,7 +641,7 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | SM003 | WARNING | `pages/<name>.tsx` exists but no matching `inertia.render()` call |
 | SM004 | WARNING | `inertia.render("<Module>/<name>")` but no matching `.tsx` |
 | SM007 | INFO | Module defines no `register_*` hooks |
-| SM008 | ERROR | Duplicate module name / schema prefix conflict |
+| SM008 | ERROR (strict/static) / WARNING (lenient discovery) | Duplicate module name (strict discovery names both distributions) / schema prefix conflict |
 | SM009 | ERROR | Framework package directly imports from a plugin module |
 | SM010 | ERROR or WARNING | DB lacks a migration head (WARNING: never migrated) |
 | SM011 | WARNING | Module table missing from a database at head |
@@ -647,7 +653,7 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | SM017 | WARNING | An optional frontend dependency manifest is invalid |
 | SM018 | WARNING | Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint |
 | SM019 | WARNING | Module registers view routes but no menu items or permissions (unreachable in UI) |
-| SM020 | ERROR | Multiple auth provider modules installed |
+| SM020 | ERROR / WARNING | Multiple declared auth providers remain after selection / detectable undeclared provider module |
 | SM021 | WARNING | No auth provider module installed |
 
 Diagnostics run automatically at boot — warnings print to stderr in dev, errors abort startup in production. There's no separate "run diagnostics" step in a scaffolded app: just start the server.

@@ -27,6 +27,7 @@ from simple_module_hosting.middleware import (
     SecurityHeadersMiddleware,
     TenantMiddleware,
 )
+from simple_module_hosting.middleware_config import finalize_middleware
 from simple_module_hosting.session import SessionMiddleware
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import SetupMiddleware
@@ -63,23 +64,22 @@ def build_csp(settings: Settings, csp_registry: CspSourceRegistry) -> str:
     return csp_registry.extend_policy(base)
 
 
-def install_middleware(
+def install_inner_middleware(
     app: FastAPI,
     settings: Settings,
     modules: list,
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
-    csp_registry: CspSourceRegistry,
     rate_limit_store: WindowStore,
 ) -> None:
-    """Install the full middleware pipeline.
+    """Install the inner pipeline and run module middleware hooks.
 
     Order matters: last added = first executed. Execution order:
     (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging →
     (ServerTiming, development only) → CORS → BodyLimit → GZip → Security →
-    Session → InertiaMiddleware → [module] →
-    (Tenant, if multi_tenant) → Locale → InertiaLayoutData →
+    [before_session] → Session → InertiaMiddleware → [default module] →
+    (Tenant, if multi_tenant or default_tenant) → Locale → [after_tenant] → InertiaLayoutData →
     RateLimit → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
@@ -118,7 +118,11 @@ def install_middleware(
         app.add_middleware(TenantMiddleware, fixed=settings.default_tenant)
     for mod in modules:
         mod.register_middleware(app)
-    # Outside every module middleware and the cache guard, so it normalises
+
+
+def install_middleware(app: FastAPI, settings: Settings, csp_registry: CspSourceRegistry) -> None:
+    """Finish outer layers, then apply named stages and host overrides."""
+    # Outside the default/after_tenant stages and cache guard, so it normalises
     # the final response — including redirects a module middleware issues
     # itself (an expired session's login redirect after a DELETE must still
     # become a 303) — while Session, further out, still sees its result.
@@ -185,3 +189,4 @@ def install_middleware(
             trusted_hosts=settings.trusted_proxy,
             allowlist=settings.forwarded_host_allowlist,
         )
+    finalize_middleware(app)

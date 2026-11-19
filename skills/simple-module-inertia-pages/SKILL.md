@@ -25,6 +25,37 @@ uv run smpy gen  # also runs during install/dev/build
 
 Boot regenerates it too; mid-session adds need the manual call before HMR sees them.
 
+## Frontend extensions
+
+To extend another page, ship one optional `<package>/ui/extensions.ts` or `.tsx`
+exporting synchronous `register(registry: ExtensionRegistry)`. Import the type,
+`slots` and any runtime helpers from `@simple-module-py/ui/extensions`.
+`smpy gen` discovers installed/selected modules, including those without pages,
+and emits `registerModuleExtensions` in dependency order. The host calls it with
+`extensions` once before `createInertiaApp`, then wraps Inertia's App in
+`ExtensionsProvider` and `LayoutComponentsProvider`. New scaffolded hosts do this
+already; existing hosts need the wiring described in the frontend extension docs.
+
+- `registry.registerSlot(slots.usersEditPanels, { id, order, permission, component })`
+  supplies a panel receiving `{ userId: string }`.
+- `slots.tenantsSettingsSections` supplies a section receiving `{ tenant: { id, name, slug } }`.
+- Lower order renders first, default zero; ties keep registration order. IDs are
+  unique per slot. Set `fallback` to a skeleton matching a lazy panel's dimensions.
+  Optional permission checks use the current shared auth props
+  and only control visibility; backend routes still enforce permissions/tenancy.
+- `registerLayout('UserMenu' | 'Topbar', component)` replaces default chrome.
+- `registerIcon(name, component)` adds icons; built-in names retain their glyphs.
+- `registerFieldRenderer(control, component)` supplies a settings control receiving
+  `{ field, value, onChange, id }`. Declare the hint with
+  `json_schema_extra={"control": "my_module.control"}`. Unknown hints use defaults;
+  secret fields stay masked until the user starts a new value.
+
+Keep registration entries small and use `React.lazy` for heavy components.
+Slots/field inputs supply Suspense boundaries; lazy chrome supplies its own.
+Register before render, reload the document after editing registrations, and
+translate contribution text using `t(keys...)`. Layouts and field renderers use
+the last registration, so hosts can register after modules to choose replacements.
+
 ## Shared props (no setup needed)
 
 `InertiaLayoutDataMiddleware` prepares these for every page render (lazily: a JSON `/api` call never builds them; code that renders outside `InertiaDep` awaits `resolve_inertia_shared(request)` from `simple_module_hosting.inertia_deps`):
@@ -39,7 +70,11 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 
 **Typing them in TSX.** A page receives its own props as typed component arguments (`export default function Browse({ items }: Props)`). Shared props are typed globally: `usePage().props.auth` is already a `SharedProps['auth']`. Components and layouts that need page props too use `usePageProps<Props>()` from `@simple-module-py/ui` (it returns `Props & SharedProps & { errors }`). Never write `usePage<{ props: X }>().props as unknown as X`; `make lint` rejects `as unknown as` outside tests unless the line carries `// cast-ok: <reason>`.
 
-**A page sets its own layout.** The host applies none by default, so a page with no `Page.layout` renders without the sidebar, header and footer. Signed-in screens end the file with `Browse.layout = [AuthenticatedLayout];` (import from `@simple-module-py/ui/layouts/AuthenticatedLayout`); `/admin/*` pages use `AdminLayout`, public ones `PublicLayout`. The module scaffold generates this.
+Module render keys may be literal `inertia.render("MetaName/Page")`: the hardcoded-string
+checker verifies the module identity and existing TSX file, including nested pages
+and excluding tests. Existing `PAGE_*` constants still work; no new aliases are needed.
+
+**Page layout.** A declared `ModuleMeta.admin = AdminSurface(...)` supplies `AdminLayout` through generated page loaders when the destination is under its prefix. Run `make gen-pages`; existing host resolvers work. Explicit `Page.layout` (including `[]` or `null`) wins. Without a surface or explicit layout, a page renders without the sidebar, header and footer. Signed-in screens end the file with `Browse.layout = [AuthenticatedLayout];` (import from `@simple-module-py/ui/layouts/AuthenticatedLayout`); `/admin/*` pages use `AdminLayout`, public ones `PublicLayout`. The module scaffold generates this.
 
 **`auth.user` is `None` when no `principal_serializer` is registered**, even if the user is authenticated. The framework can't know the shape of your user object. The `auth` module registers the callable during `register_settings(app)` (`modules/auth/auth/module.py`):
 
@@ -104,7 +139,7 @@ The typed client (#504):
 
 - **Translated strings in props built at module scope.** `const labels = { title: t("orders.title") }` freezes against the first render's locale — build per-request translations inside the handler or via shared props.
 - **Imported a page TSX from another page.** Manifest-wired pages break if you import them directly; production builds drop the side-effect imports.
-- **Pages exist but are unreachable in the UI (`SM019`).** A module with a non-empty `view_prefix` and conventional views or a `register_routes` override, but neither `register_menu_items` nor `register_permissions`, ships pages with no sidebar entry and no role-editor visibility. Add a menu item, register permissions, or clear `view_prefix` if it's API-only.
+- **Pages exist but are unreachable in the UI (`SM019`).** A module with a non-empty `view_prefix` and conventional views or a `register_routes` override, but neither `register_menu_items`, `register_permissions` nor a `permissions` catalogue, ships pages with no sidebar entry and no role-editor visibility. Add a menu item, register permissions, or clear `view_prefix` if it's API-only.
 
 ## Related skills
 

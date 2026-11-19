@@ -32,8 +32,7 @@ def captured_mail() -> Iterator[CapturedMail]:
     """Install a recording sender that claims to deliver; yields it.
 
     Installed after any app fixture requested before it has started, so it wins
-    over the ``mail`` module's sender. A ``settings_reloaded`` in the test
-    reinstalls the real one; reinstall with ``install_mail_sender(captured)``.
+    over the ``mail`` module's sender, including after settings reloads.
     """
     captured = CapturedMail()
     install_mail_sender(captured)

@@ -35,11 +35,11 @@
     "button": "Freigeben",
     "title": "Ressource freigeben",
     "description": "Geben Sie anderen Personen Zugriff auf diese Ressource.",
-    "current": "Personen mit Zugriff",
-    "none": "Noch keine Freigaben. Suchen Sie nach einer Person.",
+    "current": "Empfänger mit Zugriff",
+    "none": "Noch keine Freigaben. Suchen Sie nach Empfängern.",
     "loading": "Wird geladen…",
-    "search_label": "Personen finden",
-    "search_placeholder": "Nach Name oder E-Mail suchen",
+    "search_label": "Empfänger suchen",
+    "search_placeholder": "Empfänger suchen",
     "search_min": "Geben Sie mindestens {min} Zeichen ein.",
     "role": "Zugriffsstufe",
     "role_view": "Darf ansehen",
@@ -47,8 +47,16 @@
     "grant": "Hinzufügen",
     "revoke": "Entfernen",
     "revoke_for": "Zugriff für {name} entfernen",
-    "no_candidates": "Keine passenden Personen verfügbar.",
+    "no_candidates": "Keine passenden Empfänger verfügbar.",
     "failed": "Freigaben konnten nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
-    "close": "Schließen"
+    "close": "Schließen",
+    "subject_type": "Empfängertyp"
+  },
+  "subjects": {
+    "user": "Personen",
+    "tenant_role": "Arbeitsbereichsrollen",
+    "owner": "Eigentümer",
+    "admin": "Administratoren",
+    "member": "Mitglieder"
   }
 }

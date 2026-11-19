@@ -1,8 +1,15 @@
 import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { ExtensionRegistry, ExtensionsProvider } from '../extensions';
+import { LayoutComponentsProvider } from './LayoutComponentsProvider';
 
 vi.mock('@inertiajs/react', () => ({
-  usePage: () => ({ url: '/admin/settings', props: {} }),
+  usePage: () => ({
+    url: '/admin/settings',
+    props: {
+      auth: { user: { name: 'Admin', email: 'admin@example.test', roles: [] } },
+    },
+  }),
   Link: ({
     href,
     children,
@@ -36,6 +43,26 @@ vi.mock('./SidebarUserMenu', () => ({ SidebarUserMenu: () => null }));
 import { toast } from 'sonner';
 import { AdminLayout } from './AdminLayout';
 import { AuthenticatedLayout } from './AuthenticatedLayout';
+
+it.each([AdminLayout, AuthenticatedLayout])(
+  'uses registered chrome in the sidebar shell',
+  (Layout) => {
+    const registry = new ExtensionRegistry();
+    registry.registerLayout('Topbar', ({ currentUrl }) => <header>{currentUrl}</header>);
+    registry.registerLayout('UserMenu', ({ user }) => <p>{user.email}</p>);
+    render(
+      <ExtensionsProvider registry={registry}>
+        <LayoutComponentsProvider>
+          <Layout>
+            <p>content</p>
+          </Layout>
+        </LayoutComponentsProvider>
+      </ExtensionsProvider>,
+    );
+    expect(screen.getByText('/admin/settings').tagName).toBe('HEADER');
+    expect(screen.getByText('admin@example.test')).toBeInTheDocument();
+  },
+);
 
 describe('AdminLayout toasts', () => {
   it('renders a toast fired from an admin page', async () => {

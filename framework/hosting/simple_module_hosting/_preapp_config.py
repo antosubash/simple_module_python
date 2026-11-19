@@ -33,6 +33,7 @@ from pydantic_settings import BaseSettings
 from simple_module_core.dotenv import parse_dotenv
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.stored_settings import construct_leniently, parse_stored_value
+from simple_module_db.provider import detect_provider
 from simple_module_db.stored_settings import (
     COL_KEY,
     COL_SCOPE,
@@ -123,6 +124,9 @@ def load_host_overrides(
     the thread makes the caller's loop state irrelevant.
     """
     try:
+        # Parse first: a malformed URL's parser error can quote the password,
+        # while detect_provider raises a credential-free ValueError (#967).
+        detect_provider(database_url)
         with ThreadPoolExecutor(max_workers=1) as pool:
             overrides = pool.submit(lambda: asyncio.run(_read(database_url))).result()
     except Exception as exc:

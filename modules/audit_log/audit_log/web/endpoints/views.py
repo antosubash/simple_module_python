@@ -19,8 +19,8 @@ from audit_log.core.constants import (
     API_PREFIX,
     DEFAULT_PAGE_SIZE,
     PAGE_BROWSE,
-    PERM_VIEW,
     PLATFORM_TENANT_FILTER,
+    Permissions,
 )
 from audit_log.entries.filters import EntryFilters
 from audit_log.entries.resolve import (
@@ -65,7 +65,7 @@ def _type_options(entity_types: list[str], links: AuditLinkRegistry) -> list[dic
 @router.get(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def browse(
     request: Request,

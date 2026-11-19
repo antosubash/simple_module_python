@@ -83,8 +83,7 @@ def _process_lock(app) -> asyncio.Lock:
     return lock
 
 
-async def create_first_administrator(request: Request, data: dict) -> dict:
-    """Create the install's first administrator — the ``users.administrator`` action."""
+async def _administrator_input(data: dict) -> AdministratorIn:
     try:
         payload = AdministratorIn.model_validate(data)
     except PydanticValidationError as exc:
@@ -92,6 +91,17 @@ async def create_first_administrator(request: Request, data: dict) -> dict:
             status_code=422, detail="; ".join(e["msg"] for e in exc.errors())
         ) from exc
     await _validate_password(payload.password, payload.email)
+    return payload
+
+
+async def validate_administrator_input(_request: Request, data: dict) -> None:
+    """Validate the first-run form before any schema changes or DB access."""
+    await _administrator_input(data)
+
+
+async def create_first_administrator(request: Request, data: dict) -> dict:
+    """Create the install's first administrator — the ``users.administrator`` action."""
+    payload = await _administrator_input(data)
 
     async with _process_lock(request.app), request.app.state.sm.db.session_factory() as session:
         await _lock_admin_creation(session)

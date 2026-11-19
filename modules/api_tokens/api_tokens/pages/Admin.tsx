@@ -3,7 +3,6 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Building2, Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -95,5 +94,4 @@ function Admin(props: Props) {
   );
 }
 
-Admin.layout = [AdminLayout];
 export default Admin;

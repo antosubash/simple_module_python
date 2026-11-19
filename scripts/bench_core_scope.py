@@ -21,6 +21,7 @@ from simple_module_db.base import create_module_base
 from simple_module_db.core_scope import scope_core
 from simple_module_db.mixins import MultiTenantMixin, SoftDeleteMixin
 from simple_module_db.scope_predicates import orm_covered, scoped_names, subquery_predicates
+from simple_module_db.scopes import resolve_scopes
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import aliased, configure_mappers, selectinload
 from sqlmodel import Field, Relationship
@@ -88,9 +89,10 @@ def main(number: int = 2000) -> None:
 
     configure_mappers()  # fills model_registry's scoped table names
     current_tenant_id.set("A")
-    preds = subquery_predicates(False, False, "A", False)
-    names = scoped_names(False, False)
-    covered = orm_covered(False, False, "A")
+    scopes = resolve_scopes(None, {})
+    preds = subquery_predicates(scopes)
+    names = scoped_names(scopes)
+    covered = orm_covered(scopes)
 
     def call(stmt: Any) -> Any:
         return scope_core(stmt, preds, names, covered)

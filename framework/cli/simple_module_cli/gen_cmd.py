@@ -40,7 +40,9 @@ def _sync_deps(client: Path, deps: dict[str, dict[str, str]]) -> None:
 def run_generation(project_root: Path | None = None) -> list[str]:
     from simple_module_core import get_module_package_name, select_auth_provider
     from simple_module_core.dotenv import load_dotenv_into_environ
-    from simple_module_hosting._i18n_target import resolve_i18n_types_dir
+    from simple_module_hosting._i18n_modules import module_key_outputs
+    from simple_module_hosting._i18n_target import app_i18n_dir, resolve_i18n_types_dir
+    from simple_module_hosting.admin_surfaces import render_admin_surfaces
     from simple_module_hosting.assets import (
         compute_module_assets,
         framework_assets,
@@ -75,24 +77,6 @@ def run_generation(project_root: Path | None = None) -> list[str]:
         if cache.run(name, lambda: {"version": version, "data": inputs()}, outputs, action):
             changed.append(name)
 
-    assets = [*compute_module_assets(modules), *framework_assets()]
-    page_sources = [p for a in assets for p in source_files(a.package_dir, {".ts", ".tsx"})]
-    run(
-        "pages",
-        lambda: {
-            "assets": render_assets_json(assets),
-            "sources": sorted(str(p) for p in page_sources),
-            "generator": file_hashes(
-                [hosting / "manifest.py", hosting / "assets.py", hosting / "page_globs.py"]
-            ),
-        },
-        [
-            client / f"modules.{n}"
-            for n in ("manifest.json", "generated.ts", "generated.css", "assets.json")
-        ],
-        lambda: write_module_pages_manifest(modules, client),
-    )
-
     target, _ = resolve_i18n_types_dir(root)
     if target is None:
         raise FileNotFoundError("@simple-module-py/i18n not found; run npm install first")
@@ -115,11 +99,47 @@ def run_generation(project_root: Path | None = None) -> list[str]:
                     hosting / "i18n_manifest.py",
                     hosting / "_i18n_build.py",
                     hosting / "_i18n_target.py",
+                    hosting / "_i18n_modules.py",
                 ]
             ),
         },
-        [target / "keys.generated.ts", target / "generated-resources.ts"],
+        [
+            directory / name
+            for directory in {target, app_i18n_dir(root)} - {None}
+            for name in ("keys.generated.ts", "generated-resources.ts")
+        ]
+        + [path for _, path in module_key_outputs(installed)],
         lambda: emit_frontend_types_for_modules(settings, installed, root, strict=True),
+    )
+
+    assets = [*compute_module_assets(modules), *framework_assets()]
+    page_sources = [
+        p
+        for a in assets
+        for p in source_files(a.package_dir, {".ts", ".tsx"})
+        if p.name != "i18n.generated.ts"
+    ]
+    run(
+        "pages",
+        lambda: {
+            "assets": render_assets_json(assets),
+            "admin_surfaces": render_admin_surfaces(modules),
+            "sources": sorted(str(p) for p in page_sources),
+            "generator": file_hashes(
+                [
+                    hosting / "manifest.py",
+                    hosting / "assets.py",
+                    hosting / "page_globs.py",
+                    hosting / "admin_surfaces.py",
+                    hosting / "frontend_extensions.py",
+                ]
+            ),
+        },
+        [
+            client / f"modules.{n}"
+            for n in ("manifest.json", "generated.ts", "generated.css", "assets.json")
+        ],
+        lambda: write_module_pages_manifest(modules, client),
     )
 
     deps = collect_module_js_deps(installed)

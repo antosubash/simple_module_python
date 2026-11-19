@@ -11,18 +11,14 @@ from simple_module_hosting.pagination import lenient_page_params
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse, defer
 
-from background_tasks.core.constants import (
-    PERM_VIEW,
-    PLATFORM_TENANT_FILTER,
-    TaskStatus,
-)
+from background_tasks.core.constants import PLATFORM_TENANT_FILTER, Permissions, TaskStatus
 from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.web.deps import get_background_task_service
 from background_tasks.worker.celery_app import describe_routes
 from background_tasks.worker.fleet_state import poll_workers
 from background_tasks.worker.inspector import redact_broker_url
 
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_VIEW))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(Permissions.VIEW))])
 
 PER_PAGE = 20
 

@@ -63,9 +63,9 @@ class TestSamplePage:
         page = (dest / "my_feature" / "pages" / "Browse.tsx").read_text(encoding="utf-8")
         assert "PageShell" in page
         views = (dest / "my_feature" / "web" / "endpoints" / "views.py").read_text(encoding="utf-8")
-        assert "PAGE_BROWSE" in views
+        assert '"MyFeature/Browse"' in views
         constants = (dest / "my_feature" / "core" / "constants.py").read_text(encoding="utf-8")
-        assert '"MyFeature/Browse"' in constants
+        assert 'VIEW = "my_feature.view"' in constants
         module_py = (dest / "my_feature" / "module.py").read_text(encoding="utf-8")
         assert "register_menu_items" in module_py
 

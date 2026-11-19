@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
+from simple_module_core import AdminSurface
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
@@ -13,13 +14,7 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.setup_steps import SetupRegistry
 
-from users.core.constants import (
-    ADMIN_ROLE_NAME,
-    PERM_USERS_MANAGE,
-    PERM_USERS_SELF_PROFILE,
-    PUBLIC_PATH_PREFIXES,
-    USER_ROLE_NAME,
-)
+from users.core.constants import ADMIN_ROLE_NAME, PUBLIC_PATH_PREFIXES, USER_ROLE_NAME, Permissions
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -44,18 +39,30 @@ _ICON_LOG_OUT = "log-out"
 
 
 class UsersModule(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="Users",
+        provides_auth=True,
         route_prefix="/api/users",
         view_prefix="/users",
         # Sign-in and self-service stay on /users; the management CRUD
         # belongs with the other admin screens. One view_prefix cannot
         # express both, hence the second router.
-        admin_view_prefix="/admin/users",
+        admin=AdminSurface(
+            prefix="/admin/users",
+            routes="users.admin.views:router",
+            menu_group="Access",
+            menu_group_key="ui.nav_groups.access",
+        ),
         depends_on=[_MODULE_DEPENDENCY_AUTH],
         optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
-    _is_auth_provider = True
+
+    def register_principal_builder(self, registry) -> None:
+        from users.core.directory import UsersDirectory
+
+        registry.directory = UsersDirectory()
 
     def register_settings(self, app: FastAPI) -> None:
         from users.core.settings import UsersSettings
@@ -82,11 +89,14 @@ class UsersModule(ModuleBase):
 
         # Other modules read accounts through the directory, never
         # ``users.models`` (GH #501).
+        from simple_module_core.role_directory import set_role_directory
         from simple_module_core.user_directory import set_user_directory
 
         from users.core.directory import UsersDirectory
 
-        set_user_directory(app, UsersDirectory())
+        directory = UsersDirectory()
+        set_user_directory(app, directory)
+        set_role_directory(app, directory)
 
         # The public shell renders a "Sign up" link only when signup is open —
         # /users/register 404s otherwise. Registered here (not in the view
@@ -110,14 +120,12 @@ class UsersModule(ModuleBase):
         import importlib
 
         settings_reloaded = importlib.import_module("settings.contracts.events").SettingsReloaded
-        from users.oauth.providers import build_client_map, provider_buttons
+        from users.core.startup import _build_oauth_clients
 
         async def _rebuild_oauth_clients(event: settings_reloaded) -> None:
             if event.package != "users":
                 return
-            state = app.state.users
-            state.oauth_clients = build_client_map(state.settings)
-            state.oauth_providers = provider_buttons(state.oauth_clients)
+            _build_oauth_clients(app)
             # Same reason: turning demo mode on from the settings UI has to
             # seed the accounts and refresh the cached ids, or the buttons
             # appear on a sign-in page that 404s until the next restart.
@@ -163,12 +171,8 @@ class UsersModule(ModuleBase):
             registry.add_prefix(prefix)
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Users",
-            [PERM_USERS_MANAGE, PERM_USERS_SELF_PROFILE],
-            label_key="users.permission_group",
-        )
-        registry.map_role(USER_ROLE_NAME, [PERM_USERS_SELF_PROFILE])
+        super().register_permissions(registry)
+        registry.map_role(USER_ROLE_NAME, [Permissions.SELF_PROFILE])
 
     def register_setup_steps(self, registry: SetupRegistry) -> None:
         """Gate the app until a local account exists — see ``users.core.setup``."""
@@ -193,10 +197,7 @@ class UsersModule(ModuleBase):
                 url=_URL_USERS_ADMIN,
                 icon=_ICON_USERS,
                 order=100,
-                section=MenuSection.ADMIN_SIDEBAR,
                 roles=[ADMIN_ROLE_NAME],
-                group="Access",
-                group_key="ui.nav_groups.access",
             )
         )
         # Self-service: profile + logout live in the user dropdown.
@@ -268,11 +269,6 @@ class UsersModule(ModuleBase):
         register_oauth_routes(api_router)
 
         view_router.include_router(auth_views)
-
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from users.admin.views import router as admin_views
-
-        admin_router.include_router(admin_views)
 
     async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
         from users.core.data_compatibility import check_data_compatibility

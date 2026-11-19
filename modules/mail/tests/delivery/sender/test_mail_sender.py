@@ -33,7 +33,7 @@ def test_smtp_backend_builds_an_smtp_sender() -> None:
 
 def test_unknown_backend_is_rejected() -> None:
     with pytest.raises(ValueError):
-        MailSettings(backend="carrier-pigeon")
+        build_sender(MailSettings(backend="carrier-pigeon"), development=False)
 
 
 def _smtp() -> SmtpMailSender:
@@ -70,6 +70,29 @@ async def test_send_adds_an_html_alternative(monkeypatch) -> None:
     assert email.get_content_type() == "multipart/alternative"
     parts = {p.get_content_type(): p.get_content().strip() for p in email.iter_parts()}
     assert parts == {"text/plain": "Body", "text/html": "<b>Body</b>"}
+
+
+@pytest.mark.parametrize(
+    "reply_to",
+    [
+        None,
+        "guide@example.com",
+        "Guide <guide@example.com>",
+        '"Doe, Jane" <guide@example.com>',
+        r'"Jane \"JJ\", Doe" <guide@example.com>',
+    ],
+)
+async def test_smtp_reply_to_header(monkeypatch, reply_to) -> None:
+    from email import policy
+    from email.parser import BytesParser
+
+    send = AsyncMock()
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    await _smtp().send(MailMessage("to@test", "Booking", "Confirmed", reply_to=reply_to))
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0].as_bytes())
+    assert email["Reply-To"] == reply_to
+    assert email["From"] == "from@test"
+    assert email["To"] == "to@test"
 
 
 async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
