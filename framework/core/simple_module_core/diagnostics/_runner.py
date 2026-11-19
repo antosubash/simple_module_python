@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import codecs
+import io
 import logging
 import os
+import select
+import stat
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -102,7 +107,9 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
 
     Output is best-effort: backpressure or a closed stderr truncates the report.
     The PID in the key keeps forked serving processes independent of parents.
-    Doctor calls leave ``once`` disabled so every invocation prints a full report.
+    Boot output uses a separate raw descriptor when possible so a blocked daemon
+    writer cannot hold stderr's lock during interpreter shutdown. Doctor calls
+    leave ``once`` disabled so every invocation prints to the current stderr.
     """
     if not diagnostics:
         with suppress(OSError, ValueError):
@@ -128,16 +135,74 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
         + ", ".join(f"{code}={count}" for code, count in sorted(codes.items()))
     )
     report = "".join(f"{d}\n\n" for d in unique) + summary + "\n"
-    _write_report(report)
+    _write_report(report, isolate=once)
 
 
-def _write_report(report: str) -> None:
-    """Use the current text stream; retries could duplicate partially accepted output."""
+def _write_report(report: str, *, isolate: bool = False) -> None:
+    """Isolate boot writes from stderr's lock; abandon output on backpressure."""
     # CliRunner and pytest replace stderr after this module is imported.
     stream = sys.stderr
+    if isolate and isinstance(stream, io.TextIOWrapper):
+        try:
+            fd = stream.fileno()
+        except (OSError, ValueError):
+            pass  # In-memory capture wrappers have no descriptor.
+        else:
+            # dup shares O_NONBLOCK; raw writes never acquire stderr's buffer lock.
+            with suppress(OSError, ValueError):
+                owned_fd = os.dup(fd)
+                try:
+                    encoding = stream.encoding or "utf-8"
+                    encoder = codecs.getincrementalencoder(encoding)(errors="backslashreplace")
+                    data = encoder.encode(report, final=True)
+                    if stat.S_ISFIFO(os.fstat(owned_fd).st_mode):
+                        for record in _pipe_records(
+                            data, encoding, getattr(select, "PIPE_BUF", 512)
+                        ):
+                            if os.write(owned_fd, record) != len(record):
+                                break
+                    else:
+                        remaining = memoryview(data)
+                        while remaining:
+                            written = os.write(owned_fd, remaining)
+                            if written <= 0:
+                                break
+                            remaining = remaining[written:]
+                finally:
+                    os.close(owned_fd)
+            # Do not fall back to a logger that could acquire stderr's lock.
+            return
     try:
         stream.write(report)
         stream.flush()
     except (OSError, ValueError):
         with suppress(OSError, ValueError):
             logger.warning("diagnostics output truncated: stderr not writable")
+
+
+def _pipe_records(data: bytes, encoding: str, limit: int) -> Iterator[bytes]:
+    """Keep encoded newlines and character boundaries, including a single BOM."""
+    decoder = codecs.getincrementaldecoder(encoding)()
+    start = previous = 0
+    boundaries = [0]
+    # Newline bytes can also occur unaligned inside multibyte characters.
+    for end in range(1, len(data) + 1):
+        character = decoder.decode(data[end - 1 : end])
+        if not character:
+            continue
+        if character == "\n":
+            if end - start <= limit:
+                yield data[start:end]
+            else:
+                newline = data[previous:end]
+                stop = max(
+                    boundary for boundary in boundaries if boundary - start <= limit - len(newline)
+                )
+                yield data[start:stop] + newline
+            start = end
+            boundaries = [end]
+        elif end - start <= limit:
+            boundaries.append(end)
+        previous = end
+    if start < len(data):
+        yield data[start : boundaries[-1]]

@@ -153,3 +153,29 @@ def test_closed_stderr_and_closed_fallback_do_not_raise(monkeypatch):
     monkeypatch.setattr(_runner.logger, "info", closed_logger)
     print_diagnostics([finding()])
     print_diagnostics([])
+
+
+def test_boot_file_output_preserves_encoding_deduplication_and_stream(tmp_path, monkeypatch):
+    path = tmp_path / "stderr"
+    with path.open("w", encoding="ascii", errors="backslashreplace") as stream:
+        monkeypatch.setattr(_runner.sys, "stderr", stream)
+        print_diagnostics([finding()], once=True)
+        print_diagnostics([finding()], once=True)
+        stream.write("still open\n")
+    output = path.read_text()
+    assert output.startswith(r"\u26a0 SM003 [WARNING]")
+    assert output.count("Page has no render call") == 1
+    assert output.count("Results:") == 1
+    assert output.endswith("still open\n")
+
+
+def test_boot_descriptor_failure_does_not_retry_on_shared_stderr(tmp_path, monkeypatch):
+    def unavailable(fd):
+        raise OSError(errno.EMFILE, "no descriptors available")
+
+    path = tmp_path / "stderr"
+    with path.open("w") as stream:
+        monkeypatch.setattr(_runner.sys, "stderr", stream)
+        monkeypatch.setattr(_runner.os, "dup", unavailable)
+        print_diagnostics([finding()], once=True)
+    assert path.read_text() == ""

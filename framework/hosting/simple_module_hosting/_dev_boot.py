@@ -40,7 +40,7 @@ __all__ = ["run_dev_boot"]
 
 
 async def print_boot_diagnostics(diagnostics: list[Diagnostic]) -> None:
-    """Bound the lifespan wait without making shutdown join a blocked writer."""
+    """Bound the lifespan wait; boot reports isolate any blocked file-stream lock."""
     writer = threading.Thread(
         target=print_diagnostics, args=(diagnostics,), kwargs={"once": True}, daemon=True
     )
