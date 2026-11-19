@@ -16,6 +16,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@simple-module-py/vite-plugin": "*",
     "@simple-module-py/tsconfig": "*",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.5.0",

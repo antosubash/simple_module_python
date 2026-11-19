@@ -68,7 +68,7 @@ host/client_app/.playwright-cli/*
 /openapi.json
 qa-shots/
 
-host/client_app/.module-tsconfig/
+host/client_app/.module-tsconfig
 
 # Incremental generation cache
 .smpy/gen.json

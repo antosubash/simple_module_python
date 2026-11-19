@@ -1,206 +1,19 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, type Plugin } from 'vite';
-import { loadModuleAssets } from './module-assets.ts';
+import { defineConfig } from 'vite';
+import { simpleModule } from '@simple-module-py/vite-plugin';
 import { viteDevServer } from './vite.dev-url.ts';
-import { i18nGenerated } from './vite.i18n.ts';
 
-// Force every importer (host, workspace module, wheel-installed module)
-// to resolve to one React copy + a single Inertia hook context. Without
-// dedupe, plugin-react fires "can't detect preamble" and `usePage` from
-// a wheel-loaded page lands in a different React realm than the host's.
-const REACT_CORE_DEPS = [
-  'react',
-  'react-dom',
-  'react/jsx-runtime',
-  'react/jsx-dev-runtime',
-  '@inertiajs/react',
-] as const;
+export { findNodeModulesRoot } from '@simple-module-py/vite-plugin';
 
-// Package managers may hoist the install above client_app, so walk up to find it.
-export function findNodeModulesRoot(start: string): string {
-  let dir = start;
-  while (dir !== path.dirname(dir)) {
-    // Vite creates node_modules/.vite even where npm hasn't installed anything.
-    if (fs.existsSync(path.join(dir, 'node_modules', 'vite', 'package.json'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return start;
-}
-const fsRoot = findNodeModulesRoot(import.meta.dirname);
-
-// smpy dev passes the resolved URL through the process environment.
 const { origin: devUrl, port: devPort } = viteDevServer();
 
-const {
-  fsAllow: moduleFsAllow,
-  optimizeEntries: moduleOptimizeEntries,
-  pkgJsonPaths: modulePkgJsonPaths,
-  pagesPrefixes: modulePagesPrefixes,
-  aliases: moduleAliases,
-  npmNames: moduleNpmNames,
-} = loadModuleAssets(import.meta.dirname);
-const fakeWorkspaceImporter = path.join(fsRoot, 'package.json');
-
-// CJS-only deps like `clsx`, `tailwind-merge`, `class-variance-authority`
-// expose named exports only after esbuild's CJS→ESM transform. Vite's
-// optimizer would normally pre-bundle them on first import, but the
-// scanner sometimes misses bare imports inside wheel-installed pages
-// because their importer paths sit outside the project root. Walking
-// host/client_app/package.json + every dep's package.json one level
-// deep and force-including the result keeps the named-import contract
-// for everything pulled in transitively by `@simple-module-py/ui` etc.
-type Pkg = {
-  main?: string;
-  module?: string;
-  exports?: unknown;
-  dependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-};
-
-const pkgCache = new Map<string, Pkg | null>();
-
-function readPackageJSON(pkgJsonPath: string): Pkg | null {
-  let pkg = pkgCache.get(pkgJsonPath);
-  if (pkg !== undefined) return pkg;
-  try {
-    pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as Pkg;
-  } catch {
-    pkg = null;
-  }
-  pkgCache.set(pkgJsonPath, pkg);
-  return pkg;
-}
-
-function findPackageJSON(name: string): string | null {
-  // npm hoists into `fsRoot/node_modules`; that's the only location worth
-  // checking in workspace + flat layouts alike.
-  const candidate = path.join(fsRoot, 'node_modules', name, 'package.json');
-  return fs.existsSync(candidate) ? candidate : null;
-}
-
-function hasTopLevelEntry(pkg: Pkg): boolean {
-  if (pkg.main || pkg.module) return true;
-  const exp = pkg.exports;
-  if (typeof exp === 'string') return true;
-  if (exp && typeof exp === 'object') return '.' in exp;
-  return false;
-}
-
-function collectOptimizeIncludes(): string[] {
-  const includes = new Set<string>([
-    ...REACT_CORE_DEPS,
-    'react-dom/client',
-    'use-sync-external-store',
-    'use-sync-external-store/shim',
-    'use-sync-external-store/shim/with-selector',
-  ]);
-  const visited = new Set<string>();
-  const queue: string[] = [path.join(import.meta.dirname, 'package.json'), ...modulePkgJsonPaths];
-  while (queue.length > 0) {
-    const pkgJsonPath = queue.shift();
-    if (!pkgJsonPath || visited.has(pkgJsonPath)) continue;
-    visited.add(pkgJsonPath);
-    const pkg = readPackageJSON(pkgJsonPath);
-    if (!pkg) continue;
-    // Walk both `dependencies` and `peerDependencies`: a module's pages
-    // routinely import host-provided peer deps (`@inertiajs/react`,
-    // `@simple-module-py/ui`, …) as bare specifiers and we need those
-    // pre-bundled too, not just the deps the module ships its own copy of.
-    for (const block of [pkg.dependencies, pkg.peerDependencies]) {
-      for (const name of Object.keys(block ?? {})) {
-        if (name.startsWith('@types/')) continue;
-        // A sibling module declared as a dep/peer dep is not a node_modules
-        // package — it is aliased to a source directory above. Pre-bundling
-        // it would point the optimizer at raw .tsx with no entry point.
-        if (moduleNpmNames.has(name)) continue;
-        const nested = findPackageJSON(name);
-        if (!nested) continue;
-        const nestedPkg = readPackageJSON(nested);
-        if (!nestedPkg) continue;
-        // Skip packages that ship only sub-paths (`@babel/runtime`); vite
-        // refuses to pre-bundle them and bare imports against them resolve
-        // naturally through Node's normal module-walk anyway.
-        if (hasTopLevelEntry(nestedPkg)) {
-          includes.add(name);
-        }
-        queue.push(nested);
-      }
-    }
-  }
-  return [...includes];
-}
-
-// Cross-package bare imports from module pages (`maplibre-gl`, `pmtiles`,
-// `@inertiajs/react`, …) live in fsRoot/node_modules after `npm install`.
-// But Vite's resolver walks up from the importer looking for node_modules
-// and doesn't always reach fsRoot/node_modules — true for wheel installs
-// under `.venv/.../site-packages/<pkg>/pages/` (outside fsRoot) AND for
-// workspace-member modules at `modules/<name>/<pkg>/pages/` whose upward
-// walk hits intermediate dirs without node_modules before reaching the
-// hoisted workspace root. Resolution fails with: "Failed to resolve import
-// … Does the file exist?".
-//
-// This plugin recovers by retrying any unresolved bare import from a
-// module-pages importer as if the importer lived at fsRoot, which puts
-// fsRoot/node_modules back on the resolver's path. Combined with the
-// `optimizeDeps.include` walk above (module deps + peer deps), dev,
-// dep-scan, and production builds all converge on the host's hoisted copy.
-function moduleBareImportResolver(): Plugin {
-  return {
-    name: 'simple-module:resolve-module-bare-imports',
-    enforce: 'pre',
-    async resolveId(source, importer) {
-      if (!importer) return null;
-      if (
-        source.startsWith('.') ||
-        source.startsWith('/') ||
-        source.startsWith('\0') ||
-        source.startsWith('virtual:')
-      ) {
-        return null;
-      }
-      const importerPath = importer.split('?')[0];
-      if (!modulePagesPrefixes.some((prefix) => importerPath.startsWith(prefix))) {
-        return null;
-      }
-      const resolved = await this.resolve(source, fakeWorkspaceImporter, {
-        skipSelf: true,
-      });
-      return resolved ?? null;
-    },
-  };
-}
-
 export default defineConfig(({ command }) => ({
-  plugins: [i18nGenerated(), moduleBareImportResolver(), react(), tailwindcss()],
+  plugins: [...simpleModule({ root: import.meta.dirname }), react(), tailwindcss()],
   root: import.meta.dirname,
   // The supervisor resolves dotenv once; standalone launches and builds use Vite's loader.
   envDir: command === 'serve' && process.env.SM_DEV_SUPERVISED === '1' ? false : undefined,
-  resolve: {
-    // `#module/<pkg>` -> that module's package directory. Optional sugar for
-    // hand-written imports; modules.generated.css does not rely on it.
-    alias: moduleAliases,
-    dedupe: [...REACT_CORE_DEPS, '@simple-module-py/ui', '@simple-module-py/i18n'],
-  },
-  optimizeDeps: {
-    entries: ['main.tsx', 'pages/**/*.tsx', ...moduleOptimizeEntries],
-    include: collectOptimizeIncludes(),
-    // Vite's dep scanner runs Rolldown against every entry above. When the
-    // entry sits outside the workspace (a wheel-installed module's
-    // pages/, or sometimes even a workspace module's pages/), the upward
-    // node_modules walk from the importer does not always reach the
-    // hoisted node_modules at fsRoot. Adding it to the resolve search is
-    // a NODE_PATH-style fallback, so bare specifiers like `maplibre-gl`
-    // resolve during scan-imports. See GitHub issue #152.
-    rolldownOptions: {
-      resolve: {
-        modules: ['node_modules', path.join(fsRoot, 'node_modules')],
-      },
-    },
-  },
   build: {
     outDir: '../static/dist',
     manifest: true,
@@ -212,8 +25,5 @@ export default defineConfig(({ command }) => ({
     port: devPort,
     strictPort: true,
     origin: devUrl,
-    fs: {
-      allow: [fsRoot, ...moduleFsAllow],
-    },
   },
 }));

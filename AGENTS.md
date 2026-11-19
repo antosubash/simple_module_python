@@ -12,12 +12,12 @@ React pages. There is no host–module API boundary.
 
 Stack: Python 3.12 + FastAPI + SQLModel + Alembic; Inertia.js v3 + React +
 Tailwind 4 + Vite. `uv` workspaces for Python, `npm` workspaces for JS.
-Published as ~23 PyPI packages (`simple_module_*`) and 3 npm packages
+Published as ~23 PyPI packages (`simple_module_*`) and 4 npm packages
 (`@simple-module-py/*`) in lockstep (`docs/release.md`).
 
 Layout: `framework/{core,db,hosting,inertia,testing,cli}` (the framework),
 `modules/<name>` (plugin modules), `host/` (the dev host app and all Alembic
-migrations), `packages/{ui,i18n,tsconfig}` (shared JS), `skills/` (agent skills
+migrations), `packages/{ui,i18n,tsconfig,vite-plugin}` (shared JS), `skills/` (agent skills
 shipped to users via `smpy skills add`), `.claude/skills/` (skills for this repo).
 
 ## Commands
@@ -39,7 +39,7 @@ Everything goes through `make`; the root `Makefile` is the full list
 | `make migrations-roundtrip-pg` | Postgres portability gate (upgrade → downgrade base → upgrade → `alembic check`); CI runs it |
 | `make gen` | Incrementally generate pages, i18n keys, module JS deps and API types; also runs during install/dev/build and `smpy module verify` |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` (gitignored; needed before `tsc`/Vite) |
-| `make gen-i18n` | Regenerate `packages/i18n/src/{keys.generated,generated-resources}.ts` (committed; CI diffs them) |
+| `make gen-i18n` | Regenerate module-local and app-owned i18n keys plus central compatibility files (committed; CI checks freshness) |
 | `make gen-api-types` | Regenerate each module's `pages/api.generated.ts` from its routes (committed; CI diffs via `ci-api-types-fresh`) |
 | `make new-module name=<name>` | Scaffold a module package (see § Adding a module for what it does *not* do) |
 | `make openapi` | Export `openapi.json` for typed clients |
@@ -88,7 +88,7 @@ Run what CI runs, in this order; a red push costs a review cycle.
    `skills/` must be a tracked file (`scripts/check_doc_paths.py`; exceptions in
    `scripts/doc_path_allowlist.txt`).
 3. `make test-py` and `make test-js`.
-4. Touched any `locales/*.json`? `make gen-i18n` and commit the two generated
+4. Touched any `locales/*.json`? `make gen-i18n` and commit the generated
    files; CI runs the generator and fails on a diff. The generator refuses to
    drop a namespace (an unsynced venv looks like a deleted module);
    `make gen-i18n ARGS=--allow-removals` is only for a module you really

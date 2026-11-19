@@ -56,7 +56,8 @@ Supported suffixes: `_zero`, `_one`, `_two`, `_few`, `_many`, `_other`. **Only `
 ## Frontend usage — `useT()`
 
 ```tsx
-import { keys, useT } from '@simple-module-py/i18n';
+import { useT } from '@simple-module-py/i18n';
+import { keys } from './i18n.generated';
 
 export default function Browse({ orders }: Props) {
   const { t } = useT();

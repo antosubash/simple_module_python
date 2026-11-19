@@ -19,6 +19,8 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - One frontend extension registry discovers module `ui/extensions.ts(x)` entries and runs registrations before app startup. Modules can contribute ordered, permission-aware user edit panels and tenant settings sections, replace the user menu/topbar, add navigation icons, and register settings controls selected by a field's `control` hint. Existing defaults remain unchanged without registrations (#956, #957, #966).
+- Portable module-local typed i18n keys and app-owned catalog augmentation. Standalone module scaffolds use translated keys; generation no longer modifies installed npm packages. Central exports and older custom namespace imports remain compatible through app-owned manifest registration (#958).
+- `@simple-module-py/vite-plugin` now owns module asset aliases, hoisted bare-import resolution, dependency optimization and generated-i18n digest invalidation (#959, #1003). Host and app scaffolds use it; existing copied configs remain supported. See [migration instructions](docs/frontend/module-tooling-migration.md).
 
 - Registries expose explicit public-route removal, code role-grant revocation, rate-rule and resource-type replacement, event unsubscription/durable rebinding, and shared Inertia prop replacement. Both app factories accept `customize(app)` after all module registration hooks and before outer middleware assembly. Code revocation leaves explicit DB grants intact; ordinary additions keep their existing behavior (#954).
 - Modules can register custom `ScopeFilter` policies through `simple_module_db.register_scope`, sharing tenant/soft-delete coverage across ORM/Core reads, relationship and mapped secondary tables, and scoped writes. Policies support context variables/callables, independent bypass options, fail-closed handling and optional insert stamping. Built-in tenant and soft-delete semantics are unchanged (#968).
@@ -48,6 +50,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Frontend extension registrations from wheel-installed and out-of-tree modules resolve host npm dependencies during typechecking and builds; extension sources remain checked by module TypeScript projects (#956).
+- CLI-only installs can scaffold modules without hosting installed. Module-local i18n resources compose with app catalogs and shared namespaces without TypeScript interface conflicts. **Behaviour change:** only the app aggregate augments central compatibility keys; standalone modules use their local keys (#958).
 
 - **Behaviour change:** Permissions works with Users, OIDC and Keycloak through a provider-neutral role directory. External role mappings and direct user grants have their own admin entry point; cached claim roles remain explicitly unknown. Users is now only an optional ordering dependency of Permissions (#953).
 

@@ -23,7 +23,12 @@ from simple_module_core import ModuleBase
 from simple_module_core.i18n import PLURAL_CATEGORIES, I18nRegistry
 
 from simple_module_hosting._i18n_build import build_i18n_registry
-from simple_module_hosting._i18n_target import read_resource_keys, resolve_i18n_types_dir
+from simple_module_hosting._i18n_target import (
+    app_i18n_dir,
+    attach_app_i18n,
+    read_resource_keys,
+    resolve_i18n_types_dir,
+)
 from simple_module_hosting.manifest import _write_if_changed
 from simple_module_hosting.settings import Settings
 
@@ -49,6 +54,9 @@ def emit_frontend_types_for_modules(
     """
     registry, _ = build_i18n_registry(settings, installed_modules, project_root)
     emit_frontend_types(registry, project_root, strict=strict, allow_removals=allow_removals)
+    from simple_module_hosting._i18n_modules import emit_module_keys
+
+    emit_module_keys(installed_modules, settings, strict=strict)
 
 
 def emit_frontend_types(
@@ -58,25 +66,11 @@ def emit_frontend_types(
     strict: bool = False,
     allow_removals: bool = False,
 ) -> None:
-    """Write the TS augmentation files into @simple-module-py/i18n if present.
+    """Write an app-owned aggregate, plus monorepo compatibility exports.
 
-    Logs but does not raise on failure — stale types are preferable to a
-    broken boot. Dev-loop only; callers should gate on ``is_development``.
-
-    ``strict=True`` re-raises instead, for a tool whose whole job is this
-    regeneration (``make gen-i18n``). There a swallowed failure only defers the
-    error to a ``tsc`` run several steps removed from the cause. Under strict a
-    missing package directory is an error too, where on the boot path it is the
-    normal shape of a wheel-installed app that ships no i18n workspace.
-
-    The checked-in files are shared by everyone, so a regeneration from a venv
-    missing a module (``uv sync --all-packages`` not run) would silently delete
-    that module's whole namespace (GH #329). When the new emission would drop a
-    namespace the existing file has, ``strict`` raises
-    :class:`NamespaceRemovalError` and the boot path logs a warning and writes
-    nothing, so a dev server never crashes over it. ``allow_removals=True``
-    skips the check, for a namespace that was deleted on purpose or a
-    deliberate ``SM_MODULES_ENABLED`` subset.
+    Strict generation raises on errors and accidental namespace removal. The
+    development boot logs failures so stale types cannot break the running app.
+    Installed npm packages are never rewritten.
     """
     pkg_src, published = resolve_i18n_types_dir(project_root)
     if pkg_src is None:
@@ -87,14 +81,7 @@ def emit_frontend_types(
             )
         return
     resources_path = pkg_src / "generated-resources.ts"
-    # In the monorepo the checked-in file is ours, so a vanished namespace is a
-    # mistake to guard against. A published package's file is the framework's
-    # full catalog: this app has fewer modules by design, so those keys are
-    # carried over instead of treated as removals.
-    extra_keys: frozenset[str] = frozenset()
-    if published:
-        extra_keys = read_resource_keys(resources_path)
-    elif not allow_removals:
+    if not allow_removals:
         dropped = find_dropped_namespaces(
             resources_path, registry.messages(registry.default_locale)
         )
@@ -105,7 +92,12 @@ def emit_frontend_types(
             logger.warning("%s Not writing the generated i18n files.", error)
             return
     try:
-        write_generated_resources(registry, pkg_src, extra_keys=extra_keys)
+        write_generated_resources(registry, pkg_src, augment=published)
+        app_target = app_i18n_dir(project_root)
+        if app_target is not None and app_target != pkg_src:
+            write_generated_resources(registry, app_target, augment=True)
+        if app_target is not None:
+            attach_app_i18n(app_target.parent)
     except Exception:
         if strict:
             raise
@@ -148,14 +140,18 @@ _PLURAL_SUFFIXES: tuple[str, ...] = tuple(f"_{c}" for c in PLURAL_CATEGORIES)
 
 
 def write_generated_resources(
-    registry: I18nRegistry, output_dir: Path, *, extra_keys: Iterable[str] = ()
+    registry: I18nRegistry,
+    output_dir: Path,
+    *,
+    extra_keys: Iterable[str] = (),
+    augment: bool = False,
 ) -> Path:
     """Write both ``generated-resources.ts`` and ``keys.generated.ts``.
 
     Returns the path of the resources file. Both files skip the disk write
     when content matches what's already on disk (to avoid bumping mtimes
     that would trigger spurious Vite HMR). ``extra_keys`` are unioned into the
-    registry's keys (the published package's catalog, for a scaffolded app).
+    registry's keys for callers retaining an additional compatibility catalog.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -164,11 +160,35 @@ def write_generated_resources(
     keys = sorted({*messages.keys(), *extra_keys})
 
     resources_path = output_dir / "generated-resources.ts"
-    if _write_if_changed(resources_path, _render_resources(keys)):
+    resources = _render_resources(keys)
+    if augment:
+        resources = resources.replace("export default {", "const resources = {")
+        resources += (
+            "\nexport default resources;\n"
+            "type AppTranslationResources = typeof resources.translation;\n"
+            "declare module '@simple-module-py/i18n' {\n"
+            "  interface TranslationResources extends AppTranslationResources {}\n}\n"
+        )
+        resources = (
+            "// biome-ignore-all lint/style/useConsistentTypeDefinitions: generated augmentation.\n"
+            "import '@simple-module-py/i18n';\n\n" + resources
+        )
+    if _write_if_changed(resources_path, resources):
         logger.info("Wrote %s (%d keys)", resources_path.name, len(keys))
 
     keys_path = output_dir / "keys.generated.ts"
-    if _write_if_changed(keys_path, _render_keys(keys)):
+    rendered_keys = _render_keys(keys)
+    if augment:
+        rendered_keys = (
+            "import { registerTranslationKeys } from '@simple-module-py/i18n';\n"
+            "import './generated-resources';\n\n"
+            + rendered_keys
+            + "\ntype AppTranslationKeys = typeof keys;\n"
+            "declare module '@simple-module-py/i18n' {\n"
+            "  interface TranslationKeys extends AppTranslationKeys {}\n}\n"
+            "registerTranslationKeys(keys);\n"
+        )
+    if _write_if_changed(keys_path, rendered_keys):
         logger.info("Wrote %s", keys_path.name)
 
     return resources_path
