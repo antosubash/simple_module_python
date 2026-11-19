@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from inspect import Parameter, signature
 from typing import Any, Literal
 
 from fastapi import FastAPI
@@ -115,15 +116,32 @@ def finalize_middleware(app: FastAPI) -> None:
         if replacement is None:
             del layers[index]
         else:
-            options: dict[str, Any] = dict(original.kwargs)
-            options.update(replacement.kwargs)
-            layers[index] = Middleware(
-                replacement.cls,
-                *(replacement.args or original.args),
-                **options,
-            )
+            layers[index] = _merge_replacement(original, replacement)
     app.user_middleware = layers
     config.finalized = True
+
+
+def _merge_replacement(original: Middleware, replacement: Middleware) -> Middleware:
+    if not original.args and not replacement.args:
+        options: dict[str, Any] = dict(original.kwargs)
+        options.update(replacement.kwargs)
+        return Middleware(replacement.cls, **options)
+
+    constructor = signature(original.cls)
+    bound = constructor.bind_partial(None, *original.args, **original.kwargs)
+    bound.arguments.update(constructor.bind_partial(None, *replacement.args).arguments)
+    extra = {}
+    for name, value in replacement.kwargs.items():
+        parameter = constructor.parameters.get(name)
+        if parameter is not None and parameter.kind not in (
+            Parameter.VAR_POSITIONAL,
+            Parameter.VAR_KEYWORD,
+        ):
+            bound.arguments[name] = value
+        else:
+            extra[name] = value
+    # Starlette supplies the wrapped app; the placeholder only binds its parameter.
+    return Middleware(replacement.cls, *bound.args[1:], **(bound.kwargs | extra))
 
 
 def _target_index(layers: list[Middleware], target: type) -> int:

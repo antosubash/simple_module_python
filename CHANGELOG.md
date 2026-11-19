@@ -49,6 +49,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Middleware replacements merge constructor arguments by parameter, so positional overrides of inherited keywords and keyword overrides of inherited positional arguments build without duplicate values and retain unspecified options (#955).
+
 - Frontend extension registrations from wheel-installed and out-of-tree modules resolve host npm dependencies during typechecking and builds; extension sources remain checked by module TypeScript projects (#956).
 
 - **Behaviour change:** Permissions works with Users, OIDC and Keycloak through a provider-neutral role directory. External role mappings and direct user grants have their own admin entry point; cached claim roles remain explicitly unknown. Users is now only an optional ordering dependency of Permissions (#953).

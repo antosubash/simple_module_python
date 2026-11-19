@@ -1,6 +1,7 @@
 """Middleware overrides fail closed and retain the target's position/options."""
 
 import pytest
+from fastapi import FastAPI
 from simple_module_hosting import app_builder
 from simple_module_hosting._body_limit import BodyLimitMiddleware
 from simple_module_hosting._rate_limit import RateLimitMiddleware
@@ -83,6 +84,33 @@ def test_replacement_keeps_position_and_constructor_defaults(settings):
     assert replacement.kwargs["secret_key_provider"]() == settings.secret_key
     assert replacement.kwargs["https_only"] is False
     assert replacement.kwargs["session_cookie"] == "custom"
+
+
+@pytest.mark.parametrize(
+    "original_positional", [False, True], ids=["keyword-to-positional", "positional-to-keyword"]
+)
+def test_replacement_merges_constructor_parameters(original_positional):
+    from simple_module_hosting import replace_middleware
+    from simple_module_hosting.middleware_config import finalize_middleware
+
+    class CustomGZip(GZipMiddleware):
+        pass
+
+    app = FastAPI()
+    if original_positional:
+        app.add_middleware(GZipMiddleware, 500, 4)
+        replacement = Middleware(CustomGZip, minimum_size=1024)
+    else:
+        app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=4)
+        replacement = Middleware(CustomGZip, 1024)
+    replace_middleware(app, GZipMiddleware, replacement)
+    finalize_middleware(app)
+
+    stack = app.build_middleware_stack()
+    while not isinstance(stack, CustomGZip):
+        stack = stack.app
+    assert stack.minimum_size == 1024
+    assert stack.compresslevel == 4
 
 
 def test_missing_target_refused(settings):

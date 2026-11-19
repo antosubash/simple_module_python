@@ -332,9 +332,9 @@ object naming a **subclass of the target**. This is a deliberate contract opt-in
 subclassing does not prove its behavior, so the host must test its implementation
 against the original guarantees. An unrelated ASGI callable or `None` is refused.
 
-The replacement occupies the same position, keeps the target's positional and
-keyword arguments, and overlays explicitly supplied options (replacement
-positional arguments, when supplied, replace the originals). This preserves
+The replacement occupies the same position and merges constructor arguments by
+parameter: explicitly supplied options override inherited values, whether passed
+positionally or by keyword. Unspecified arguments retain their values. This preserves
 session secret/key-provider and environment-dependent `https_only` defaults,
 body/CORS registries, rate stores and security policy options. Replacements must
 accept these constructor arguments. A Session subclass may implement storage
