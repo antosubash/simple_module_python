@@ -133,3 +133,23 @@ def test_external_registration_passes_host_typecheck_and_checks_source(
     entry.write_text(entry.read_text().replace("'external.icon'", "42"))
     assert run_typecheck(module_assets, output, tmp_path) != 0
     assert f"extensions.{suffix}(3,25): error TS2345" in capfd.readouterr().out
+
+
+def test_glob_metacharacters_in_module_paths_are_escaped(tmp_path, monkeypatch):
+    from simple_module_hosting import assets, manifest
+
+    class Example(ModuleBase):
+        meta = ModuleMeta(name="Example")
+
+    package = tmp_path / "plugin[12]" / "example"
+    (package / "ui").mkdir(parents=True)
+    (package / "ui" / "extensions.ts").write_text("export function register(registry) {}")
+    monkeypatch.setattr(manifest.importlib.resources, "files", lambda name: package)
+    monkeypatch.setattr(assets, "framework_assets", list)
+    monkeypatch.setattr(manifest, "framework_assets", list)
+    output = tmp_path / "host" / "client_app"
+    ts = write_module_pages_manifest([Example()], output, repo_root=tmp_path)["generated"]
+    text = ts.read_text()
+    # A literal "[12]" would match sibling plugin1/ and plugin2/ folders.
+    assert "plugin\\\\[12\\\\]" in text
+    assert "plugin[12]" not in text

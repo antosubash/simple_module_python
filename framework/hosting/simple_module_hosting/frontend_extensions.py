@@ -9,6 +9,14 @@ from pathlib import Path
 
 from simple_module_hosting.assets import ModuleAssets
 
+# picomatch (Vite's glob engine) treats these as pattern syntax; a literal path
+# containing one, e.g. ``plugin[12]/``, would otherwise match sibling folders.
+_GLOB_SPECIAL = frozenset("*?[]{}()!+@")
+
+
+def _escape_glob(path: str) -> str:
+    return "".join(f"\\{ch}" if ch in _GLOB_SPECIAL else ch for ch in path)
+
 
 def render_frontend_extensions(assets: Sequence[ModuleAssets], output_dir: Path) -> list[str]:
     imports = ["import type { ExtensionRegistry } from '@simple-module-py/ui/extensions';"]
@@ -30,7 +38,7 @@ def render_frontend_extensions(assets: Sequence[ModuleAssets], output_dir: Path)
         symbol = f"moduleExtensions{len(calls)}"
         imports.append(
             f"const {symbol} = import.meta.glob<(registry: ExtensionRegistry) => void>("
-            f"{json.dumps(path)}, {{ eager: true, import: 'register' }});"
+            f"{json.dumps(_escape_glob(path))}, {{ eager: true, import: 'register' }});"
         )
         calls.append(
             f"  registry.runOnce({json.dumps(asset.name)}, () => "
