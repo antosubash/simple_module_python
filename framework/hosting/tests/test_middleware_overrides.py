@@ -113,6 +113,28 @@ def test_replacement_merges_constructor_parameters(original_positional):
     assert stack.compresslevel == 4
 
 
+def test_forwarding_constructor_keeps_inherited_positionals():
+    from simple_module_hosting import replace_middleware
+    from simple_module_hosting.middleware_config import finalize_middleware
+
+    class ForwardingGZip(GZipMiddleware):
+        def __init__(self, *args, **options):
+            super().__init__(*args, **options)
+
+    class CustomGZip(ForwardingGZip):
+        pass
+
+    app = FastAPI()
+    app.add_middleware(ForwardingGZip, 1024, 4)
+    replace_middleware(app, ForwardingGZip, Middleware(CustomGZip))
+    finalize_middleware(app)
+
+    stack = app.build_middleware_stack()
+    while not isinstance(stack, CustomGZip):
+        stack = stack.app
+    assert (stack.minimum_size, stack.compresslevel) == (1024, 4)
+
+
 def test_missing_target_refused(settings):
     from simple_module_hosting import disable_middleware
     from simple_module_hosting._server_timing import ServerTimingMiddleware

@@ -129,7 +129,10 @@ def _merge_replacement(original: Middleware, replacement: Middleware) -> Middlew
 
     constructor = signature(original.cls)
     bound = constructor.bind_partial(None, *original.args, **original.kwargs)
-    bound.arguments.update(constructor.bind_partial(None, *replacement.args).arguments)
+    if replacement.args:
+        # Only positional overrides replace inherited ones; binding the bare
+        # placeholder would turn a forwarding ``*args`` into ``(None,)``.
+        bound.arguments.update(constructor.bind_partial(None, *replacement.args).arguments)
     extra = {}
     for name, value in replacement.kwargs.items():
         parameter = constructor.parameters.get(name)
