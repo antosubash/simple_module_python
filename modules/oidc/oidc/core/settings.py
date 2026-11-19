@@ -9,15 +9,13 @@ from __future__ import annotations
 
 import os
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.dotenv import env_str
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
-from simple_module_core.redirect_safety import non_empty_redirect
 from simple_module_core.settings_base import DbBackedSettings
 from simple_module_core.stored_settings import field_error
 
-from oidc.core.constants import DEFAULT_LOGIN_REDIRECT_URL
 from oidc.core.presets import get_preset
 
 # Sentinel for "unset by the user" so the preset can supply a default while still
@@ -74,7 +72,6 @@ class OidcSettings(DbBackedSettings):
     # the Settings UI that edits this needs an admin. A stored value still wins.
     roles_claim_path: str = env_str("SM_OIDC_ROLES_CLAIM_PATH", _UNSET)
 
-    login_redirect_url: str = DEFAULT_LOGIN_REDIRECT_URL
     jwks_cache_ttl_seconds: int = Field(
         default=3600, ge=0, json_schema_extra={"requires_restart": True}
     )
@@ -82,11 +79,6 @@ class OidcSettings(DbBackedSettings):
     role_mapping: dict[str, str] = Field(
         default_factory=lambda: {"admin": "admin", "user": "user"},
     )
-
-    @field_validator("login_redirect_url")
-    @classmethod
-    def _non_empty_redirect(cls, value: str) -> str:
-        return non_empty_redirect(value, default=DEFAULT_LOGIN_REDIRECT_URL)
 
     @model_validator(mode="after")
     def _apply_preset(self) -> OidcSettings:

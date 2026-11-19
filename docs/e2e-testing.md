@@ -71,14 +71,14 @@ uv run pytest -m e2e tests/e2e/inertia
 
 ## Configuration
 
-When you write e2e tests, read these environment variables (all optional):
+When you write e2e tests, read these environment variables:
 
 | Variable       | Default                   | Notes                                                        |
 | -------------- | ------------------------- | ------------------------------------------------------------ |
 | `E2E_BASE_URL` | `http://localhost:8000`   | Where the FastAPI host is listening.                         |
 | `E2E_USERNAME` | `admin@example.com`       | Email of the admin user created via `smpy users create-admin`. |
 | `E2E_PASSWORD` | `admin`                   | Password of the above admin user.                            |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | `dev-verify-token-secret-change-me` | Must match the running server's value so locally-minted invite tokens are accepted. |
+| `SM_SECRET_KEY` | unset | For tests that mint tokens locally, set the same root as the running server. These tests skip when it is absent. |
 
 ## Debugging
 

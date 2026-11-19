@@ -44,14 +44,7 @@ class TestCreateModule:
         assert "app.routes" not in text.replace("``app.routes``", "")
 
     async def test_test_file_basename_is_unique_per_module(self, tmp_path):
-        """Two modules in one workspace must not ship same-named test files.
-
-        Without `tests/__init__.py`, pytest's default `prepend` import mode
-        derives a test module's name from its basename alone. Two modules both
-        shipping `tests/test_module.py` therefore collide at collection with
-        "import file mismatch", and a root-level `pytest` — which is what the
-        scaffold's own `make test` runs — reports errors instead of tests.
-        """
+        """Scaffolds keep descriptive module prefixes even though importlib permits repeats."""
         from simple_module_cli.scaffolding import create_module
 
         alpha = create_module(tmp_path / "alpha", name="Alpha")

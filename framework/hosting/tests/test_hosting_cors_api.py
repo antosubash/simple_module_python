@@ -12,7 +12,10 @@ BODY_LIMIT = 1000
 
 
 @pytest.fixture
-def settings(settings: Settings) -> Settings:
+def settings(settings: Settings, monkeypatch) -> Settings:
+    # Live policies hydrate from env/DB rather than the boot Settings object.
+    monkeypatch.setenv("SM_CORS_ALLOW_ORIGINS", '["https://app.example.com"]')
+    monkeypatch.setenv("SM_MAX_REQUEST_BODY_BYTES", str(BODY_LIMIT))
     return settings.model_copy(
         update={"cors_allow_origins": [ALLOWED], "max_request_body_bytes": BODY_LIMIT}
     )

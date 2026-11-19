@@ -33,6 +33,7 @@ from simple_module_core.diagnostics import (
     run_diagnostics,
 )
 from simple_module_core.diagnostics._dependencies import CODE as MISSING_DEPENDENCY_CODE
+from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
 from simple_module_core.diagnostics._i18n import unknown_overrides_for
 from simple_module_core.discovery import (
     discover_modules,
@@ -194,15 +195,20 @@ def main() -> int:
         i18n_extra_sources=extra,
         i18n_unknown_overrides=unknown_overrides,
         database_dialect=_database_dialect(),
+        existing_index_names=sqlite_file_index_names(_database_url()),
     )
     diagnostics.extend(override_findings)
-    diagnostics.extend(migration_diagnostics(modules, _database_url(), find_env_file().parent))
+    diagnostics.extend(migration_diagnostics(modules, _database_url()))
     diagnostics.extend(data_compatibility_diagnostics(modules, _database_url()))
     # A missing dependency only warns at a dev boot, but production refuses
     # to start with it (GH #501), so doctor reports it as what it will be.
     for finding in diagnostics:
         if finding.code == MISSING_DEPENDENCY_CODE:
             finding.level = DiagnosticLevel.ERROR
+    if not diagnostics:
+        noun = "module" if len(modules) == 1 else "modules"
+        print(f"✓ No issues found: {len(modules)} {noun} checked", file=sys.stderr)
+        return 0
     print_diagnostics(diagnostics)
 
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]

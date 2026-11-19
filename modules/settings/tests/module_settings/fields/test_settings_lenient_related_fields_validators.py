@@ -34,19 +34,19 @@ def test_bg_handler_timeout_over_lease_drops_only_the_timeout() -> None:
     stored = {
         "outbox_lease_seconds": _int(100),
         "outbox_handler_timeout_seconds": _int(500),
-        "max_retries": _int(7),
+        "retention_days": _int(7),
     }
     cfg = build_settings(BackgroundTasksSettings, stored, lenient=True)
     assert cfg.outbox_handler_timeout_seconds is None
-    assert (cfg.outbox_lease_seconds, cfg.max_retries) == (100, 7)
+    assert (cfg.outbox_lease_seconds, cfg.retention_days) == (100, 7)
 
 
 def test_bg_handler_timeout_pinned_by_env_drops_the_stored_lease(monkeypatch) -> None:
     monkeypatch.setenv(f"{ENV_PREFIX}OUTBOX_HANDLER_TIMEOUT_SECONDS", "200")
-    stored = {"outbox_lease_seconds": _int(100), "max_retries": _int(7)}
+    stored = {"outbox_lease_seconds": _int(100), "retention_days": _int(7)}
     cfg = build_settings(BackgroundTasksSettings, stored, lenient=True)
     assert cfg.outbox_handler_timeout_seconds == 200
-    assert cfg.max_retries == 7
+    assert cfg.retention_days == 7
     assert cfg.outbox_lease_seconds != 100
 
 
@@ -86,17 +86,15 @@ def test_host_default_locale_unsupported_drops_only_the_stored_locale() -> None:
     assert cfg.maintenance_message == "Keep me"
 
 
-def test_users_placeholder_secret_in_production_is_located_and_still_refused(monkeypatch) -> None:
+def test_users_production_settings_need_no_separate_token_secrets(monkeypatch) -> None:
     monkeypatch.setenv("SM_ENVIRONMENT", "production")
-    stored = {"reset_password_token_lifetime_seconds": _int(99)}
-    with pytest.raises(ValidationError) as exc:
-        build_settings(UsersSettings, stored, lenient=True)
-    err = exc.value.errors()[0]
-    assert err["loc"] == ("reset_password_token_secret",)
-    assert set(err["ctx"][RELATED_FIELDS_CTX]) == {
-        "reset_password_token_secret",
-        "verification_token_secret",
+    stored = {
+        "reset_password_token_lifetime_seconds": _int(99),
+        "reset_password_token_secret": _str("old-db-key"),
     }
+    cfg = build_settings(UsersSettings, stored, lenient=True)
+    assert cfg.reset_password_token_lifetime_seconds == 99
+    assert "reset_password_token_secret" not in cfg.model_dump()
 
 
 def test_keycloak_missing_config_in_production_is_located_and_still_refused(monkeypatch) -> None:

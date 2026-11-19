@@ -1,6 +1,6 @@
 """SameSite/HttpOnly invariants for the framework's session cookie.
 
-CLAUDE.md treats SameSite=Lax as the CSRF defence — there is no explicit
+AGENTS.md treats SameSite=Lax as the CSRF defence — there is no explicit
 token middleware. If a future Starlette upgrade silently switched the
 default to ``None`` (used to be the case on older versions), CSRF
 protection would evaporate without any test catching it.

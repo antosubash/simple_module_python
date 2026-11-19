@@ -18,17 +18,6 @@ def test_retention_days_rejects_values_outside_supported_range(retention_days: i
         BackgroundTasksSettings(retention_days=retention_days)
 
 
-@pytest.mark.parametrize("max_retries", [0, 100])
-def test_max_retries_accepts_supported_boundaries(max_retries: int) -> None:
-    assert BackgroundTasksSettings(max_retries=max_retries).max_retries == max_retries
-
-
-@pytest.mark.parametrize("max_retries", [-1, 101, 999_999_999])
-def test_max_retries_rejects_values_outside_supported_range(max_retries: int) -> None:
-    with pytest.raises(ValidationError):
-        BackgroundTasksSettings(max_retries=max_retries)
-
-
 def test_soft_time_limit_must_be_below_hard_limit() -> None:
     ok = BackgroundTasksSettings(task_soft_time_limit=50, task_time_limit=100)
     assert (ok.task_soft_time_limit, ok.task_time_limit) == (50, 100)
@@ -71,7 +60,7 @@ async def test_hydration_drops_the_stored_soft_limit(db_session, caplog, monkeyp
     monkeypatch.setenv("SM_BG_TASKS_TASK_TIME_LIMIT", "50")
     store = SettingsStore(SettingService(db_session))
     await store.set_override("background_tasks", "task_soft_time_limit", "100", "int")
-    await store.set_override("background_tasks", "max_retries", "7", "int")
+    await store.set_override("background_tasks", "retention_days", "7", "int")
 
     with caplog.at_level(logging.ERROR, logger="simple_module_core.settings_hydrate"):
         cfg = await hydrate_settings(
@@ -79,7 +68,7 @@ async def test_hydration_drops_the_stored_soft_limit(db_session, caplog, monkeyp
         )
 
     assert (cfg.task_time_limit, cfg.task_soft_time_limit) == (50, None)
-    assert cfg.max_retries == 7  # the module's other overrides survive
+    assert cfg.retention_days == 7  # the module's other overrides survive
     assert "task_soft_time_limit" in caplog.text
 
 

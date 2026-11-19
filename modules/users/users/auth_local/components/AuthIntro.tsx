@@ -53,7 +53,6 @@ export function AuthIntro({ heading, body, checks = [], children }: AuthIntroPro
           {checks.map((check, index) => (
             // Index-keyed: a fixed prop for the life of the render, and
             // nothing forbids a caller repeating a line.
-            // biome-ignore lint/suspicious/noArrayIndexKey: see above
             <li key={index} className={CHECK_ROW}>
               <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-primary-700" />
               {check}

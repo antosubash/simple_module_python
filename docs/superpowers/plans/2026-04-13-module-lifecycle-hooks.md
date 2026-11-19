@@ -238,7 +238,7 @@ class ModuleBase(ABC):
           - register_menu_items(registry)
           - register_permissions(registry)
           - register_feature_flags(registry)
-          - register_event_handlers(bus)
+          - register_event_handlers(bus, app)
           - register_health_checks(registry)
 
         Phase 5: Database
@@ -286,7 +286,7 @@ class ModuleBase(ABC):
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         """Declare feature flags this module exposes."""
 
-    def register_event_handlers(self, bus: EventBus) -> None:
+    def register_event_handlers(self, bus: EventBus, app) -> None:
         """Subscribe to events published by other modules."""
 
     def register_health_checks(self, registry: HealthRegistry) -> None:
@@ -605,7 +605,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_menu_items(menu_registry)
         mod.register_permissions(perm_registry)
         mod.register_feature_flags(ff_registry)
-        mod.register_event_handlers(event_bus)
+        mod.register_event_handlers(event_bus, app)
         mod.register_health_checks(health_registry)
 
     logger.info(

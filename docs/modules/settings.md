@@ -50,9 +50,9 @@ from settings.contracts import SettingsDep
 
 @router.get("/check")
 async def check(settings: SettingsDep) -> dict:
-    if await settings.get_bool("orders.beta", default=False):
+    if await settings.get_bool("checkout.beta", default=False):
         ...
-    timeout_ms = await settings.get_int("orders.timeout_ms", default=5000)
+    timeout_ms = await settings.get_int("checkout.timeout_ms", default=5000)
 ```
 
 `SettingsDep` resolves a request-scoped `SettingsAccessor` bound to the current `user_id` + `tenant_id`. Lookups follow **USER → TENANT → SYSTEM → default** precedence.
@@ -69,23 +69,39 @@ async def check(settings: SettingsDep) -> dict:
 
 ### Register a setting definition (so admins can see defaults)
 
+Define module-owned settings as typed fields. The field default and description
+appear in the module editor at `/admin/settings/`.
+
 ```python
-from settings.contracts import SettingsRegistry, SettingDefinition
+from dataclasses import dataclass
+
+from fastapi import FastAPI
+from pydantic import Field
+from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.module_settings import register_module_settings
+from simple_module_core.settings_base import DbBackedSettings
+
+
+class OrdersSettings(DbBackedSettings):
+    beta: bool = Field(default=False, description="Enable the new checkout flow.")
+
+
+@dataclass
+class OrdersServices:
+    settings: OrdersSettings
 
 
 class OrdersModule(ModuleBase):
-    def register_settings(self, app):
-        registry: SettingsRegistry = app.state.sm.settings_registry
-        registry.add_definition(
-            SettingDefinition(
-                key="orders.beta",
-                default="false",
-                description="Enable the new checkout flow.",
-            )
-        )
+    meta = ModuleMeta(name="Orders")
+
+    def register_settings(self, app: FastAPI) -> None:
+        register_module_settings(app, "orders", OrdersSettings, OrdersServices)
 ```
 
-The browse UI uses these definitions to render meaningful empty states for unset keys.
+Read the hydrated setting as `request.app.state.orders.settings.beta`. Register
+scoped generic K/V keys separately with `app.state.settings.registry.add`
+and a `SettingDefinition`, as in the next example. Modules using that
+registry must declare a dependency on `Settings`.
 
 ### Tenant-overridable keys
 
@@ -98,14 +114,18 @@ there; a request acting for no tenant gets 403. The `tenants` module renders
 these keys at `/tenants/settings`.
 
 ```python
+from settings.contracts import SettingDefinition
+
+
 async def check_logo(request, tenant_id: str, value: str) -> None:
     if value and not await tenant_owns_file(request.app, tenant_id, value):
         raise LookupError("unknown file")  # -> 404; ValueError -> 422
 
 
-registry.add(
+# In the consuming module's register_settings hook:
+app.state.settings.registry.add(
     SettingDefinition(
-        key="orders.checkout_note",
+        key="tenant_branding.logo",
         tenant_overridable=True,
         check=check_logo,
     )
@@ -210,8 +230,8 @@ Unique constraint on `(scope, scope_id, key)`.
 
 ## Lifecycle (boot + reload)
 
-1. **`register_settings`** (each module) — calls `register_module_settings(app, package, cls, services_factory)`. The settings module records the entry in a process-global registry; `app.state.<package>` is populated with pydantic defaults so even modules that boot before hydrate has run see usable values.
-2. **`on_startup` (settings module)** — opens a session and calls `hydrate_settings(cls, store, package)` per registered module, replacing each `app.state.<package>.settings` with a fresh pydantic instance built from DB overrides + defaults.
+1. **`register_settings`** (each module) calls `register_module_settings(app, package, cls, services_factory)`. The framework records the class in the app's registry and calls the factory to populate `app.state.<package>`.
+2. **Boot hydration** replaces each `app.state.<package>.settings` with a fresh instance built from stored overrides and defaults before the module startup hooks run.
 3. **At runtime** — admin saves via `PUT /api/settings/modules/{package}`. `apply_changes_and_reload(app, bus, store, package, changes)` validates the diff against the pydantic class, persists deltas, hot-swaps `app.state.<package>.settings`, publishes `SettingsReloaded(package, changed=(...))`.
 4. **Subscribers** — modules listen for `SettingsReloaded` and rebuild stateful handles (e.g. the SMTP client) when their package matches.
 
@@ -251,4 +271,4 @@ Top-level keys in `settings/locales/en.json`: `browse`, `table`, `scopes`, `valu
 ## Notes
 
 - The K/V store treats `value` as a string and casts on read using `value_type` — that's deliberate: it lets you store anything (including JSON blobs) without a per-type column.
-- `register_module_settings` does **not** require a `services_factory` — pass `None` if you only want hydration without a state container — but the convention is to always have one so dependents can `app.state.<package>.something_else = ...` later.
+- The `services_factory` receives the initial settings instance and returns a container with a writable `.settings` attribute for hydration and reload.

@@ -11,6 +11,8 @@
       timeout: 3s
       retries: 10
 
+  # Invalidation channels use the shared database installation id (no env setup).
+  # Legacy global fan-out remains until 0.1.0 for rolling upgrades.
   # worker/beat reuse the app image — same code, different command. They
   # share the app's SQLite volume; WAL handles the modest concurrency, but
   # move to --db postgres if the task volume grows.
@@ -24,8 +26,7 @@
     environment:
       SM_ENVIRONMENT: production
       SM_DATABASE_URL: sqlite+aiosqlite:////app/data/app.db
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
+      SM_REDIS_URL: redis://redis:6379/0
     working_dir: /app
     volumes:
       - appdata:/app/data
@@ -51,8 +52,7 @@
     environment:
       SM_ENVIRONMENT: production
       SM_DATABASE_URL: sqlite+aiosqlite:////app/data/app.db
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
+      SM_REDIS_URL: redis://redis:6379/0
     working_dir: /app
     volumes:
       - appdata:/app/data

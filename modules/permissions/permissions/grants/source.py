@@ -25,9 +25,6 @@ from cachetools import TTLCache
 from simple_module_core.app_state import get_services
 from simple_module_core.invalidation import Invalidation
 from simple_module_core.singleflight import MISS, SingleFlight, fill
-from sqlalchemy import select
-
-from permissions.models import UserPermission
 
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
@@ -102,11 +99,10 @@ async def direct_grant_source(request: Request, user: Any) -> frozenset[str]:
     async with flight.hold(user_id):
 
         async def read() -> frozenset[str]:
+            from permissions.grants.principal import direct_grants_for
+
             async with request.app.state.sm.db.session_factory() as db:
-                result = await db.execute(
-                    select(UserPermission.permission_key).where(UserPermission.user_id == user_id)
-                )
-                return frozenset(result.scalars().all())
+                return await direct_grants_for(db, user)
 
         def store(keys: frozenset[str]) -> None:
             grants[user_id] = keys

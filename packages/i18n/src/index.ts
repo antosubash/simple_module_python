@@ -13,6 +13,22 @@ import { initReactI18next } from 'react-i18next';
 // Side-effect import: activates `i18next` module augmentation so every
 // consumer of this package gets typed `t()` automatically.
 import './types';
+import { keys as frameworkKeys } from './keys.generated';
+
+/** Extended by generated module keys and the app-owned catalog. */
+// biome-ignore lint/suspicious/noEmptyInterface: consumers augment this interface.
+export interface TranslationResources {}
+
+/** Compatibility key tree extended by the app aggregate. */
+// biome-ignore lint/suspicious/noEmptyInterface: consumers augment this interface.
+export interface TranslationKeys {}
+
+export const keys = { ...frameworkKeys } as typeof frameworkKeys & TranslationKeys;
+
+/** Called by the app-owned aggregate before lazy module pages execute. */
+export function registerTranslationKeys(catalog: object): void {
+  Object.assign(keys, catalog);
+}
 
 type Messages = Record<string, string>;
 
@@ -87,4 +103,3 @@ export function activeLocale(): string | undefined {
 export type { ParseKeys as TranslationKey } from 'i18next';
 export { t } from 'i18next';
 export { useTranslation as useT } from 'react-i18next';
-export { keys } from './keys.generated';

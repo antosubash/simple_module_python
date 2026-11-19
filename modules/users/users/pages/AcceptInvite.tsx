@@ -14,7 +14,7 @@ import { AuthIntro } from '../auth_local/components/AuthIntro';
 import { AuthStateCard } from '../auth_local/components/AuthStateCard';
 import { InviteSummary } from '../auth_local/components/InviteSummary';
 import { PasswordFields } from '../auth_local/components/PasswordFields';
-import { api } from './api';
+import { api } from './api.generated';
 
 interface InvitePreview {
   email: string;

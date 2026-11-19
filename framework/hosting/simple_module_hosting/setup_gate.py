@@ -23,6 +23,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting import migrations
 from simple_module_hosting._deferred_startup import run_deferred_startup
+from simple_module_hosting._secret_key import SecretKeyUnavailableError
 from simple_module_hosting.data_compatibility import DataCompatibilityError
 from simple_module_hosting.path_matching import matches_path, validated_prefixes
 
@@ -53,6 +54,42 @@ _EXEMPT_PREFIXES = validated_prefixes(f"{SETUP_PATH}/", "/static/", "/health/")
 STEP_MIGRATIONS = "host.migrations"
 
 
+async def is_first_run(app, migration: dict | None) -> bool:
+    """Whether this install has never been set up, so boot serves ``/setup``.
+
+    Needs positive evidence on both counts. The database must have no Alembic
+    stamps: a pending step on a database with
+    migration history is a configured install whose schema drifted, and serving
+    the unauthenticated migration endpoint there would run Alembic on a live
+    system. And no other required step may already report complete: a
+    never-migrated database that holds accounts (built with ``create_all``) is
+    not empty either. A step that raises counts as pending, since on a fresh
+    database its tables do not exist yet. An install whose only required step
+    is the migrations step (Keycloak) qualifies (#784).
+    """
+    registry = getattr(app.state.sm, "setup_registry", None)
+    if (
+        not registry
+        or migration is None
+        or migration.get("is_current") is not False
+        or migration.get("current_revision", "") is not None
+    ):
+        return False
+    for step in registry.required_steps:
+        if step.id == STEP_MIGRATIONS:
+            continue
+        try:
+            if await step.is_complete(app):
+                return False
+        except Exception:
+            logger.warning(
+                "Setup step %s raised on a never-migrated database; counting it as pending",
+                step.id,
+                exc_info=True,
+            )
+    return True
+
+
 async def _database_migrated(app) -> bool:
     """Whether the schema is at head.
 
@@ -72,10 +109,13 @@ async def _database_migrated(app) -> bool:
     if not status:
         return True
     if status.get("is_current", True):
-        if getattr(app.state, "deferred_data_compatibility", None):
+        boot = getattr(app.state, "boot_settings", None)
+        if getattr(app.state, "deferred_data_compatibility", None) or getattr(
+            boot, "_secret_key_ephemeral", False
+        ):
             try:
                 await run_deferred_startup(app)
-            except DataCompatibilityError:
+            except (DataCompatibilityError, SecretKeyUnavailableError):
                 return False
         return True
 
@@ -97,7 +137,7 @@ async def _database_migrated(app) -> bool:
         # data compatibility check must keep the gate closed.
         try:
             await run_deferred_startup(app)
-        except DataCompatibilityError:
+        except (DataCompatibilityError, SecretKeyUnavailableError):
             return False
         except Exception:
             logger.exception("Replaying deferred on_startup hooks failed")

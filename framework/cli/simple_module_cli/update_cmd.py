@@ -1,138 +1,64 @@
-"""``smpy update`` — move git-sourced modules to their newest release tag.
-
-Git-sourced modules pinned to a tag are updated group-wise: every module
-sourced from the same repo URL moves to the same new tag (one repo, one
-ref — see the git-module-sources spec §3). The new tag must be a ``v*``
-semver tag satisfying every sibling's declared dependency range.
-Branch-pinned sources re-lock to the newest SHA (dev-mode). Rev-pinned
-sources are left alone. A plain PyPI dependency named via ``NAME``
-delegates to ``uv lock --upgrade-package``.
-"""
-
-from __future__ import annotations
+"""One source-aware manifest update followed by the app's installation flow."""
 
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from simple_module_cli.add_cmd import ExecRunner, _default_exec_runner, post_install
-from simple_module_cli.git_source import (
-    derive_range,
-    list_remote_refs,
-    pick_latest_tag,
-)
-from simple_module_cli.pyproject_edit import (
-    dep_constraint,
-    git_sources,
-    load_pyproject,
-    save_pyproject,
-    write_dependency,
-)
-from simple_module_cli.requirements import rewrite_requirement
-
-__all__ = ["run_sources_update", "update_modules"]
+from simple_module_cli._add_install import ExecRunner, _default_exec_runner, _fail, sync_project
+from simple_module_cli.package_update import run_update as update_manifests
+from simple_module_cli.pypi import Fetcher
+from simple_module_cli.uv_workspace import find_workspace_root, is_workspace_member
 
 
-def _groups(sources: dict[str, dict]) -> dict[str, list[str]]:
-    by_url: dict[str, list[str]] = {}
-    for name, src in sources.items():
-        by_url.setdefault(str(src["git"]), []).append(name)
-    return by_url
-
-
-def run_sources_update(
-    pyproject: Path,
+def run_update(
+    path: Path,
     *,
-    only: str | None,
-    dry_run: bool,
+    only: str | None = None,
+    dry_run: bool = False,
+    include_pre: bool = False,
+    loosen: bool = False,
+    fetcher: Fetcher | None = None,
     git_runner=None,
     exec_runner: ExecRunner | None = None,
 ) -> None:
-    if not pyproject.is_file():
-        typer.echo(f"ERROR: {pyproject} not found.", err=True)
-        raise typer.Exit(code=1)
-    exec_runner = exec_runner or _default_exec_runner
-    git_kwargs = {"run": git_runner} if git_runner else {}
-    doc = load_pyproject(pyproject)
-    sources = git_sources(doc)
-
-    if only and only not in sources:
-        # PyPI-sourced (or path-sourced) name: delegate to uv's resolver.
-        if dep_constraint(doc, only) is None:
-            typer.echo(f"ERROR: {only} is not a dependency of this host.", err=True)
-            raise typer.Exit(code=1)
-        if dry_run:
-            typer.echo(f"Would run: uv lock --upgrade-package {only}")
-            return
-        exec_runner(["uv", "lock", "--upgrade-package", only], pyproject.parent)
-        post_install(pyproject.parent, [], [], exec_runner)
-        return
-
-    changed: list[str] = []
-    relock: list[str] = []
-    for url, names in _groups(sources).items():
-        if only and only not in names:
-            continue
-        tag_pinned = [n for n in names if "tag" in sources[n]]
-        branch_pinned = [n for n in names if "branch" in sources[n]]
-        for name in branch_pinned:
-            typer.echo(f"{name}: tracks branch {sources[name]['branch']!r} — dev-mode re-lock.")
-            relock.append(name)
-        if not tag_pinned:
-            continue
-        tags, _ = list_remote_refs(url, **git_kwargs)
-        constraint = ",".join(c for name in tag_pinned if (c := dep_constraint(doc, name)))
-        candidate = pick_latest_tag(tags, constraint)
-        if candidate is None:
-            continue
-        current = {str(sources[n]["tag"]) for n in tag_pinned}
-        if current == {candidate}:
-            typer.echo(f"{url}: up to date ({candidate}).")
-            continue
-        version = candidate[1:]
-        uv_sources = doc["tool"]["uv"]["sources"]  # exists: git_sources() was non-empty
-        for name in tag_pinned:
-            existing = dep_constraint(doc, name)
-            result = rewrite_requirement(f"{name}{existing}", version) if existing else None
-            if result is not None and result.reason:
-                # Never pin a tag the declared policy forbids (#757).
-                typer.echo(f"{name}: skipped {candidate} ({result.reason})")
-                continue
-            uv_sources[name]["tag"] = candidate
-            updated = result.spec if result is not None else f"{name}{derive_range(version)}"
-            if updated:
-                write_dependency(doc, name, updated[len(name) :], keep_extras_and_marker=True)
-            changed.append(name)
-            typer.echo(f"{name}: → {candidate}")
-
-    if not changed and not relock:
-        if not sources:
-            typer.echo("No git-sourced modules found. For PyPI deps use `smpy package-update`.")
-        return
-    if dry_run:
-        typer.echo("(dry-run) no files written.")
-        return
-    if changed:
-        save_pyproject(pyproject, doc)
-    for name in relock:
-        exec_runner(["uv", "lock", "--upgrade-package", name], pyproject.parent)
-    post_install(pyproject.parent, changed, [], exec_runner)
+    project = (path.parent if path.name == "pyproject.toml" else path).resolve()
+    if not (project / "pyproject.toml").is_file():
+        raise _fail(f"{project / 'pyproject.toml'} not found")
+    root = find_workspace_root(project)
+    if root is not None and (root == project or is_workspace_member(project, project)):
+        project = root
+    relock = update_manifests(
+        project,
+        only=only,
+        dry_run=dry_run,
+        include_pre=include_pre,
+        loosen=loosen,
+        fetcher=fetcher,
+        git_runner=git_runner,
+    )
+    if not dry_run:
+        sync_project(project, exec_runner or _default_exec_runner, upgrade=relock)
 
 
 def update_modules(
     name: Annotated[
         str | None,
-        typer.Argument(help="Module dist name. Omit to update every git-sourced module."),
+        typer.Argument(help="Dependency dist name. Omit to update all framework/module pins."),
     ] = None,
     path: Annotated[
         Path,
         typer.Option("--path", help="Project root or pyproject.toml. Defaults to cwd."),
     ] = Path(),
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Show planned changes without writing.")
+        bool, typer.Option("--dry-run", help="Preview without writing or installing.")
+    ] = False,
+    include_pre: Annotated[
+        bool, typer.Option("--include-pre", help="Include PyPI pre-releases.")
+    ] = False,
+    loosen: Annotated[
+        bool, typer.Option("--loosen", help="Rewrite PyPI constraints to >=<latest>.")
     ] = False,
 ) -> None:
-    """Update git-sourced modules to their newest release tag (group-wise per repo)."""
-    pyproject = path if path.name == "pyproject.toml" else path / "pyproject.toml"
-    run_sources_update(pyproject, only=name, dry_run=dry_run)
+    """Update PyPI and git pins, sync lockfiles, and generate the frontend."""
+    run_update(path, only=name, dry_run=dry_run, include_pre=include_pre, loosen=loosen)

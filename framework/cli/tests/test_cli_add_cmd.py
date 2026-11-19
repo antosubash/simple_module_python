@@ -132,7 +132,49 @@ def test_models_module_prints_migration_reminder(
     repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, True)])
     _, runner = _recorder()
     run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
-    assert "migration" in capsys.readouterr().out.lower()
+    out = capsys.readouterr().out
+    # The same message as create-module's next steps (GH #931).
+    assert 'make migration msg="add blog"' in out
+
+
+@pytest.mark.parametrize("has_frontend", [True, False])
+def test_add_says_to_install_before_restarting_dev_server_for_frontend_apps(
+    make_git_module_repo, host_pyproject, capsys, has_frontend
+) -> None:
+    if has_frontend:
+        (host_pyproject.parent / "client_app").mkdir()
+    repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)])
+    _, runner = _recorder()
+    run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
+    out = capsys.readouterr().out
+    if has_frontend:
+        assert out.index("make install") < out.index("restart")
+    else:
+        assert "make install" not in out
+        assert "restart it" in out
+
+
+@pytest.mark.parametrize("step", ["gen-pages", "sync-js-deps", "gen-i18n"])
+def test_add_reports_frontend_failure_after_writing_dependency(
+    make_git_module_repo, host_pyproject, capsys, step
+) -> None:
+    repo = make_git_module_repo([("simple_module_blog", "0.1.0", None, False)])
+    (host_pyproject.parent / "client_app").mkdir()
+
+    def runner(cmd: list[str], cwd: Path) -> int:
+        return int(cmd[:5] == ["uv", "run", "smpy", "host", step])
+
+    with pytest.raises(typer.Exit):
+        run_add(f"git+{repo.as_uri()}", pyproject=host_pyproject, exec_runner=runner)
+
+    assert "simple_module_blog" in host_pyproject.read_text()
+    err = capsys.readouterr().err
+    command = f"uv run smpy host {step}"
+    if step == "gen-i18n":
+        command += " --skip-if-missing"
+    assert f"`{command}` failed" in err
+    assert "dependencies are already recorded in pyproject.toml" in err
+    assert "rerun the original `smpy add` command" in err
 
 
 def test_no_sync_writes_but_skips_pipeline(make_git_module_repo, host_pyproject) -> None:

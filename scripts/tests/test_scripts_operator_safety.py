@@ -11,31 +11,58 @@ ENTRYPOINT = REPO_ROOT / "docker/entrypoint.sh"
 PASSWORD_ENV = "SM_USERS_BOOTSTRAP_PASSWORD"
 
 
-def _run_entrypoint(tmp_path: Path, **overrides: str) -> subprocess.CompletedProcess[str]:
+def _run_entrypoint(
+    tmp_path: Path, command: list[str] | None = None, **overrides: str
+) -> subprocess.CompletedProcess[str]:
     alembic = tmp_path / "alembic"
     alembic.write_text('#!/bin/sh\necho "migration-stub"\n')
     alembic.chmod(0o755)
     env = {key: value for key, value in os.environ.items() if not key.startswith("SM_")}
     env.update(
         PATH=f"{tmp_path}:{env['PATH']}",
-        SM_SECRET_KEY="test-secret",
-        SM_USERS_RESET_PASSWORD_TOKEN_SECRET="test-reset-secret",
-        SM_USERS_VERIFICATION_TOKEN_SECRET="test-verification-secret",
     )
     env.update(overrides)
     return subprocess.run(
         [
             "sh",
             str(ENTRYPOINT),
-            "sh",
-            "-c",
-            f'printf "%s\\n%s" "$SM_USERS_BOOTSTRAP_PASSWORD_GENERATED" "${PASSWORD_ENV}"',
+            *(
+                command
+                or [
+                    "sh",
+                    "-c",
+                    f'printf "%s\\n%s" "$SM_USERS_BOOTSTRAP_PASSWORD_GENERATED" "${PASSWORD_ENV}"',
+                ]
+            ),
         ],
         env=env,
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def test_scripts_entrypoint_preserves_stored_root_on_restarts(tmp_path: Path):
+    command = [
+        "python",
+        "-c",
+        "from simple_module_hosting._secret_key import ensure_secret_key; "
+        "print(ensure_secret_key('unused', stored='stored-root-key', strict=True))",
+    ]
+    for _ in range(2):
+        result = _run_entrypoint(tmp_path, command=command)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.splitlines()[-1] == "stored-root-key"
+
+
+def test_scripts_entrypoint_keeps_explicit_root(tmp_path: Path):
+    result = _run_entrypoint(
+        tmp_path,
+        command=["sh", "-c", 'printf "%s" "$SM_SECRET_KEY"'],
+        SM_SECRET_KEY="explicit-root",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines()[-1] == "explicit-root"
 
 
 @pytest.mark.parametrize("password", [None, ""])

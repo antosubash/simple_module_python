@@ -14,15 +14,22 @@ group are mounted as named subgroups (e.g. ``smpy host gen-pages``).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from simple_module_cli import _add_install
+from simple_module_cli._project_cli_check import (
+    app_framework_pin,
+    running_cli,
+    warn_if_not_the_apps_cli,
+)
 from simple_module_cli.add_cmd import add_module, run_add
 from simple_module_cli.case import to_kebab_case
+from simple_module_cli.dev_cmd import dev_command
 from simple_module_cli.docker_cmd import docker_app
+from simple_module_cli.gen_cmd import gen_command
 from simple_module_cli.migrations_cmd import migrations_app
 from simple_module_cli.module_cmd import module_app
 from simple_module_cli.new import new_project
@@ -42,7 +49,15 @@ app = typer.Typer(
     add_completion=False,
 )
 
+
+@app.callback()
+def _check_project_cli(ctx: typer.Context) -> None:
+    warn_if_not_the_apps_cli(ctx.invoked_subcommand, resolve_framework_version(), Path.cwd())
+
+
 app.command("new")(new_project)
+app.command("gen")(gen_command)
+app.command("dev")(dev_command)
 app.command("add")(add_module)
 app.command("update")(update_modules)
 app.command("package-update")(package_update)
@@ -60,9 +75,16 @@ def doctor() -> None:
         from simple_module_core.__main__ import main as run_doctor
     except ImportError:
         # The CLI installs on its own (to scaffold); doctor needs a project's framework.
-        typer.echo(
-            "ERROR: smpy doctor needs simple_module_core; run it inside a project.", err=True
-        )
+        if app_framework_pin(Path.cwd()) is None:
+            message = "smpy doctor needs simple_module_core; run it inside a project."
+        else:
+            # Inside an app, this is a global smpy outside the app's venv (GH #929).
+            message = (
+                f"this smpy ({running_cli()}) is not installed in this project's venv, "
+                "so it cannot see the app's modules. Run `uv sync --all-packages`, "
+                "then `uv run smpy doctor`."
+            )
+        typer.echo(f"ERROR: {message}", err=True)
         raise typer.Exit(1) from None
 
     raise typer.Exit(run_doctor())
@@ -126,34 +148,26 @@ def create_host(
     typer.echo("  python main.py")
 
 
-def _app_add_command(target: Path) -> str | None:
-    """``smpy add …`` wiring a module into its app's host, or None outside an app (GH #442)."""
+def _app_host(target: Path) -> Path | None:
+    """Host owning a newly scaffolded workspace member, or None outside an app."""
     root = find_workspace_root(target.parent)
     if root is None:
         return None
     host = root / "host"
     if not (host / "pyproject.toml").is_file() or not is_workspace_member(host, target):
         return None
-    rel = os.path.relpath(target.resolve(), host.resolve())
-    if not rel.startswith("."):
-        rel = f"./{rel}"  # parse_add_spec reads a bare "a/b" as a PyPI requirement
-    # The steps are printed "from the app root", so name the host relative to it.
-    host_arg = host.resolve().relative_to(root.resolve()).as_posix()
-    return f"smpy add {rel} --path {host_arg}"
+    return host
 
 
-def _echo_app_next_steps(add_command: str, slug: str) -> None:
+def _echo_app_next_steps(package: str) -> None:
     """The module lives in an app's workspace: wire it in with the app's own commands.
 
     Never ``uv sync`` inside the module: that syncs the module alone and
     uninstalls the rest of the app from the shared venv (GH #916).
     """
-    typer.echo("\nNext steps (from the app root):")
-    typer.echo(f"  {add_command}   # adds it as {{ workspace = true }}")
-    typer.echo("  make install")
-    typer.echo(f'  make migration msg="add {slug}"')
+    typer.echo("\nNext step (from the app root): generate and review the migration, then apply it:")
+    typer.echo(f'  uv run smpy migrations new {package} -m "init"')
     typer.echo("  make migrate")
-    typer.echo("  make test")
     typer.echo("Then restart `make dev`: modules are discovered at start-up, not on reload.")
 
 
@@ -173,13 +187,16 @@ def create_module(
             "existing repo/host (nested workflows never run there).",
         ),
     ] = False,
+    with_settings: Annotated[
+        bool, typer.Option("--with-settings", help="Include DB-backed settings and services.")
+    ] = False,
 ) -> None:
     """Scaffold a publishable SimpleModule module package."""
     slug = to_kebab_case(name)
     package = slug.replace("-", "_")
     target = dest or Path.cwd() / f"simple_module_{package}"
     # An in-repo module (the documented modules/* layout) gets no .github/ and
-    # keeps the workspace JS configs: nested workflows never run and publish.yml
+    # uses host-generated JS configs: nested workflows never run and publish.yml
     # is a PyPI footgun. --standalone forces the standalone layout for a module
     # that lives in its own repo. See GH #210.
     standalone_mode = standalone or not is_inside_existing_repo(target)
@@ -192,6 +209,7 @@ def create_module(
             name=name,
             framework_version=resolve_framework_version(),
             standalone=standalone_mode,
+            with_settings=with_settings,
         )
     except FileExistsError as exc:
         typer.echo(f"ERROR: {exc}", err=True)
@@ -203,22 +221,22 @@ def create_module(
             "Skipped .github/ workflows: this module is inside an existing repo, "
             "where nested workflows never run. Use --standalone to emit them."
         )
-    add_command = _app_add_command(target)
-    if add_command is not None:
-        _echo_app_next_steps(add_command, slug)
+    host = _app_host(target)
+    if host is not None:
+        run_add(str(target.resolve()), pyproject=host / "pyproject.toml", no_sync=True)
+        _add_install.sync_project(host, _add_install._default_exec_runner)
+        _echo_app_next_steps(package)
     else:
         typer.echo("\nNext steps:")
         typer.echo(f"  cd {target}")
         typer.echo("  uv sync --extra dev")
         typer.echo("  uv run pytest")
-        typer.echo("  npm install")
-        typer.echo("  npm run typecheck")
         typer.echo("  uv run smpy module verify")
-    typer.echo(
-        "\nThe pages ship sample API types (pages/api.generated.ts). Once the host serves "
-        "the module, refresh them after any endpoint change:\n"
-        f"  uv run smpy openapi gen-types --module {package}"
-    )
+        typer.echo(
+            "\nThe pages ship sample API types (pages/api.generated.ts). Once the host serves "
+            "the module, refresh them after any endpoint change:\n"
+            f"  uv run smpy openapi gen-types --module {package}"
+        )
 
 
 discover_and_mount(app)

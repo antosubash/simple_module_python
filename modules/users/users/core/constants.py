@@ -2,6 +2,8 @@
 
 import uuid
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 
 ADMIN_ROLE_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -21,8 +23,20 @@ MAIL_TEMPLATE_RESET = "reset_password.txt"
 MAIL_TEMPLATE_INVITE = "invite.txt"
 
 # Permission identifiers
-PERM_USERS_MANAGE = "users.manage"
-PERM_USERS_SELF_PROFILE = "users.self.profile"
+
+
+class Permissions(PermissionCatalogue, group="Users", label_key="users.permission_group"):
+    MANAGE = "users.manage"
+    SELF_PROFILE = "users.self.profile"
+
+
+deprecate(
+    "users PERM_* constants",
+    remove_in="0.0.50",
+    use="users.core.constants.Permissions",
+)
+PERM_USERS_MANAGE = Permissions.MANAGE
+
 
 # Only the pending redirect belongs to both the anonymous and signed-in session.
 # Locale is a separate cookie; cached principal, OAuth and CSRF state must go.

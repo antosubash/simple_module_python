@@ -26,6 +26,7 @@ from users.auth_local.token_api import (
 )
 from users.contracts.schemas import SelfPasswordChange, UserCreate
 from users.core.settings import UsersSettings
+from users.core.token_secrets import resolve_token_secrets
 from users.models import OAuthAccount, RefreshToken, User, UserAccessToken
 
 
@@ -46,7 +47,12 @@ async def auth_database(tmp_path):
 
 
 def _manager(db, config, adapter=UserDatabaseWithRoles):
-    return UserManager(adapter(db, User, OAuthAccount), SimpleNamespace(), config)
+    return UserManager(
+        adapter(db, User, OAuthAccount),
+        SimpleNamespace(),
+        config,
+        resolve_token_secrets("test-secret-key"),
+    )
 
 
 def _request(app):

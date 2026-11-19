@@ -132,9 +132,6 @@ def test_auth_state_accepts_auth_provider():
         def get_logout_url(self, request):
             return "/logout"
 
-        def get_public_paths(self):
-            return ((), ())
-
         def is_bearer_request(self, request):
             return False
 

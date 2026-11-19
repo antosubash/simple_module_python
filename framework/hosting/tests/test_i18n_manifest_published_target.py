@@ -32,12 +32,12 @@ def test_monorepo_checkout_wins_over_node_modules(tmp_path: Path) -> None:
 
 
 def test_walks_up_to_hoisted_node_modules(tmp_path: Path) -> None:
-    src = _published(tmp_path)
+    _published(tmp_path)
     host = tmp_path / "host"
     host.mkdir()
     found, published = resolve_i18n_types_dir(host)
     assert published is True
-    assert found is not None and found.resolve() == src.resolve()
+    assert found is not None and found.resolve() == (host / "i18n").resolve()
 
 
 def test_neither_present_resolves_to_none(tmp_path: Path) -> None:
@@ -54,21 +54,19 @@ def test_strict_raises_when_neither_exists(tmp_path: Path) -> None:
         emit_frontend_types(_registry("app.k"), tmp_path, strict=True)
 
 
-def test_published_target_merges_published_keys_with_app_keys(tmp_path: Path) -> None:
+def test_published_package_is_immutable_and_app_owns_aggregate(tmp_path: Path) -> None:
     src = _published(tmp_path)
-    (src / "generated-resources.ts").write_text(
-        "export default {\n  translation: {\n    'ui.save': '',\n    'users.title': '',\n"
-        "  },\n} as const;\n"
-    )
-    # App registry has its own namespace and no `users` — must not count as a removal.
+    client = tmp_path / "host/client_app"
+    client.mkdir(parents=True)
+    original = "export default { translation: { 'users.title': '' } } as const;\n"
+    (src / "generated-resources.ts").write_text(original)
     emit_frontend_types(_registry("ui.save", "myapp.title"), tmp_path, strict=True)
-    resources = (src / "generated-resources.ts").read_text()
-    for key in ("ui.save", "users.title", "myapp.title"):
-        assert f"'{key}': ''" in resources
-    keys = (src / "keys.generated.ts").read_text()
-    assert "myapp" in keys and "users" in keys
-
-    # Idempotent: a second run changes nothing.
-    mtime = (src / "keys.generated.ts").stat().st_mtime_ns
+    assert (src / "generated-resources.ts").read_text() == original
+    assert not (src / "keys.generated.ts").exists()
+    aggregate = client / "i18n/keys.generated.ts"
+    assert "myapp.title" in aggregate.read_text()
+    resources = (client / "i18n/generated-resources.ts").read_text()
+    assert "interface TranslationResources" in resources
+    before = aggregate.stat().st_mtime_ns
     emit_frontend_types(_registry("ui.save", "myapp.title"), tmp_path, strict=True)
-    assert (src / "keys.generated.ts").stat().st_mtime_ns == mtime
+    assert aggregate.stat().st_mtime_ns == before

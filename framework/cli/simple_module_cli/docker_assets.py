@@ -30,11 +30,8 @@ _APP_EXTRA_ENV_TOKEN = "{{APP_EXTRA_ENV}}"
 
 # BackgroundTasksSettings refuses a localhost broker when
 # SM_ENVIRONMENT=production, so the app container needs the compose-network
-# broker URLs too — not just worker/beat.
-_APP_BROKER_ENV = (
-    "      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0\n"
-    "      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1\n"
-)
+# Redis URL too — not just worker/beat.
+_APP_REDIS_ENV = "      SM_REDIS_URL: redis://redis:6379/0\n"
 
 
 def _template_root() -> Path:
@@ -76,7 +73,7 @@ def scaffold_docker_assets(target: Path, ctx: ScaffoldCtx, *, flat: bool = False
     compose = (
         _read(templates / f"compose-base-{db}.yml.tpl")
         .replace(_PG_DB_TOKEN, pg_db)
-        .replace(_APP_EXTRA_ENV_TOKEN, _APP_BROKER_ENV if with_tasks else "")
+        .replace(_APP_EXTRA_ENV_TOKEN, _APP_REDIS_ENV if with_tasks else "")
     )
     volumes = ["appdata", "pgdata"] if db == "postgres" else ["appdata"]
     if with_tasks:

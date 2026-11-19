@@ -32,7 +32,6 @@ class OidcAuthProvider(CachePersistence, SessionRenewal):
     """Generic OIDC authentication with issuer-scoped identities."""
 
     name = "oidc"
-    _is_auth_provider = True
 
     def __init__(
         self, settings: OidcSettings | None = None, *, state: OidcState | None = None

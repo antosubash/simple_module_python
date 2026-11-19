@@ -22,7 +22,8 @@ from simple_module_core.resources import ResourcePrincipal
 from sqlalchemy import String, cast, func, inspect, or_
 from sqlmodel import exists, select
 
-from sharing.core.constants import ROLE_IMPLIES, SUBJECT_USER
+from sharing.core.constants import ROLE_IMPLIES
+from sharing.core.subjects import subjects_for
 from sharing.models import ResourceShare
 
 
@@ -94,12 +95,18 @@ def share_exists_for(
         granting_roles = roles_granting(action, roles=roles)
         if not granting_roles or principal.user_id is None:
             return None
+        subjects = [
+            (ResourceShare.subject_type == provider.name)
+            & provider.membership(principal, ResourceShare.subject_id)
+            for provider in subjects_for(principal).all()
+        ]
+        if not subjects:
+            return None
         return exists(
             select(ResourceShare.id).where(
                 ResourceShare.resource_type == resource_type,
                 ResourceShare.resource_id == key,
-                ResourceShare.subject_type == SUBJECT_USER,
-                ResourceShare.subject_id == principal.user_id,
+                or_(*subjects),
                 ResourceShare.role.in_(granting_roles),
                 active_share_clause(),
             )

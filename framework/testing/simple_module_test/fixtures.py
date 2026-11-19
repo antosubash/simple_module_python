@@ -42,15 +42,13 @@ _AUTH_PROVIDER_ENV = "SM_AUTH_PROVIDER"
 def pinned_auth_provider() -> Iterator[str]:
     """Pin ``SM_AUTH_PROVIDER`` to the local-account provider for the suite.
 
-    ``Settings`` reads the repo's ``.env``, and the README tells anyone running
-    Keycloak locally to put ``SM_AUTH_PROVIDER=keycloak`` there. Nearly every
+    A shell may export ``SM_AUTH_PROVIDER=keycloak`` for local development. Nearly every
     test that boots an app expects the ``users`` provider — ``/users/login``,
     the admin pages, the seeded admin in ``authenticated_client`` — and the
     ``Settings(...)`` construction sites are spread across module conftests,
     so pinning it on each one would be a losing game.
 
-    The real environment outranks ``.env`` in pydantic-settings, so setting it
-    here covers every construction site at once. A test that wants a different
+    Setting it here covers every construction site at once. A test that wants a different
     provider can still ``monkeypatch.setenv`` or pass ``auth_provider=`` to
     ``Settings`` directly.
     """
@@ -84,10 +82,8 @@ def settings() -> Settings:
     Individual tests that want the tenant middleware absent construct
     their own ``Settings(multi_tenant=False, ...)`` in the test body.
 
-    ``auth_provider`` is pinned for the same reason as the rest: a developer
-    running Keycloak locally has ``SM_AUTH_PROVIDER=keycloak`` in ``.env``,
-    which would otherwise swap the auth provider out from under every test
-    that expects ``/users/login``.
+    Pin the auth provider and Vite URL even when the developer's shell exports
+    different values. Project dotenv files are ignored by the plugin.
     """
     return Settings(
         database_url=database_url_for_tests(),
@@ -96,6 +92,7 @@ def settings() -> Settings:
         multi_tenant=True,
         tenant_header="X-Tenant-ID",
         auth_provider="users",
+        vite_dev_url="http://localhost:5050",
     )
 
 

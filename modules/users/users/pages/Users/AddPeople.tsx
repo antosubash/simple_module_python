@@ -4,7 +4,6 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SegmentedControl } from '@simple-module-py/ui/components/SegmentedControl';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { CreateUserFields } from './components/CreateUserFields';
 import { InviteFields } from './components/InviteFields';
 import { InviteResults } from './components/InviteResults';
@@ -132,5 +131,4 @@ function AddPeople({
   );
 }
 
-AddPeople.layout = [AdminLayout];
 export default AddPeople;

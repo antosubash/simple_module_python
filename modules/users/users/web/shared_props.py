@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from simple_module_hosting.auth_policy import login_redirect_url
+
 from users.demo.guard import is_demo_session
 
 if TYPE_CHECKING:
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
 
 
 def users_shared_props(request: Request) -> dict:
-    """Whether local self-signup is accepted, whether this is a demo session, and ``homeUrl``.
+    """Signup, configured OAuth buttons, demo-session state and ``homeUrl``.
 
     Runs on every request, so it only reads already-hydrated state. Defaults to
     closed: if settings are missing, the safe answer is "no signup link" rather
@@ -42,14 +44,16 @@ def users_shared_props(request: Request) -> dict:
     )
     props: dict = {
         "signup": {"allowed": bool(getattr(settings, "allow_signup", False))},
+        "oauth_providers": getattr(state, "oauth_providers", []),
         "demo": {
             "active": demo_active,
             "readOnly": demo_active and bool(getattr(settings, "demo_read_only", True)),
         },
     }
-    # Read per request so the startup fallback rewrite and admin edits apply.
+    # Resolve the host destination and absent-Dashboard fallback per request.
     # Omitted when unknown: the client falls back to "/".
-    home_url = getattr(settings, "login_redirect_url", None)
+    host = getattr(request.app.state, "host", None)
+    home_url = login_redirect_url(request.app, "Users") if host is not None else None
     if home_url:
         props["homeUrl"] = home_url
     return props

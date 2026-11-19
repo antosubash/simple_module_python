@@ -32,7 +32,9 @@ class TestSafeNext:
     def test_non_relative_targets_are_rejected(self, raw: str | None) -> None:
         assert safe_next(raw) == "/"
 
-    @pytest.mark.parametrize("raw", ["//evil.example", "/\\evil.example"])
+    @pytest.mark.parametrize(
+        "raw", ["//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example"]
+    )
     def test_off_site_lookalikes_are_rejected(self, raw: str) -> None:
         """Browsers resolve both forms against the remote host, not ours."""
         assert safe_next(raw) == "/"

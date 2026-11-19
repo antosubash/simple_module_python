@@ -5,48 +5,33 @@ from __future__ import annotations
 import importlib.resources
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
-from simple_module_core import ModuleBase, ModuleMeta
+{{SETTINGS_FASTAPI_IMPORT}}from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
-
+{{SETTINGS_IMPORT}}
 from {{PACKAGE_NAME}}.core.constants import (
-{{CONSTANTS_IMPORTS}}
+    API_PREFIX,
+    MENU_ICON,
+    MENU_LABEL,
+    MENU_LABEL_KEY,
+    MENU_ORDER,
+    MENU_URL,
+    VIEW_PREFIX,
+    Permissions,
 )
 
 
 class {{MODULE_NAME}}Module(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="{{MODULE_NAME}}",
         route_prefix=API_PREFIX,
         view_prefix=VIEW_PREFIX,
         depends_on=[],
-        version="0.1.0",
         requires_framework=">=1.0,<2.0",
     )
 
-    def register_settings(self, app: FastAPI) -> None:
-        from {{PACKAGE_NAME}}.core.services import {{MODULE_NAME}}Services
-        from {{PACKAGE_NAME}}.core.settings import {{MODULE_NAME}}Settings
-
-        # Records the class so the host hydrates it from the settings table
-        # (DB → default) and mounts the services on app.state.{{PACKAGE_NAME}}.
-        register_module_settings(
-            app,
-            "{{PACKAGE_NAME}}",
-            {{MODULE_NAME}}Settings,
-            lambda s: {{MODULE_NAME}}Services(settings=s),
-        )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from {{PACKAGE_NAME}}.web.endpoints.api import router as api
-        from {{PACKAGE_NAME}}.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
-
-    def register_menu_items(self, registry: MenuRegistry) -> None:
+{{SETTINGS_HOOK}}    def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
                 label=MENU_LABEL,
@@ -57,27 +42,12 @@ class {{MODULE_NAME}}Module(ModuleBase):
                 section=MenuSection.SIDEBAR,
                 # Mirrors the view router's guard, so the entry never shows
                 # for an account that would 403 on click.
-                permissions=[PERM_{{PACKAGE_NAME_UPPER}}_VIEW],
+                permissions=[Permissions.VIEW],
             )
         )
 
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            PERM_GROUP,
-            [
-                PERM_{{PACKAGE_NAME_UPPER}}_VIEW,
-                PERM_{{PACKAGE_NAME_UPPER}}_CREATE,
-                PERM_{{PACKAGE_NAME_UPPER}}_EDIT,
-                PERM_{{PACKAGE_NAME_UPPER}}_DELETE,
-            ],
-        )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}
-
     def static_mounts(self) -> dict[str, Path]:
-        """Expose pre-built frontend assets when they exist.
+        """Expose optional pre-built static assets, separate from Inertia pages.
 
         Returns an empty dict when ``static/dist/`` hasn't been built yet,
         so ``uv run pytest`` works during development. In production, the

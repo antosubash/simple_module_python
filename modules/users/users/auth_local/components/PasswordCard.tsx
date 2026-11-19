@@ -8,7 +8,7 @@ import { Label } from '@simple-module-py/ui/components/ui/label';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { failureMessage } from '../../ui/utils/failureMessage';
 
 /**

@@ -185,7 +185,7 @@ class TestInviteFlow:
                 "aud": UserManager.verification_token_audience,
                 **claims,
             },
-            users_app.state.users.settings.verification_token_secret,
+            users_app.state.users.token_secrets.verification_token_secret,
             lifetime,
         )
         resp = await anon_client.post(

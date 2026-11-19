@@ -1786,10 +1786,10 @@ import os
 import typer
 from fastapi import FastAPI
 
-from settings.constants import MODULE_PACKAGE
+from settings.core.constants import MODULE_PACKAGE
 from settings.env_vars import env_prefix_for
-from settings.hydrate import value_type_for_field
-from settings.store import SettingsStore
+from simple_module_core.settings_hydrate import value_type_for_field
+from settings.module_settings.store import SettingsStore
 
 app = typer.Typer(help="Settings module administration.", no_args_is_help=True)
 

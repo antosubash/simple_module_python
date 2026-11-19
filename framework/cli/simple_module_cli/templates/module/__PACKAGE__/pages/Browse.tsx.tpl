@@ -1,11 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
+import { useT } from '@simple-module-py/i18n';
+import { keys } from './i18n.generated';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { useApiErrorToast } from '@simple-module-py/ui/hooks/use-api-error-toast';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { api } from './api';
-import type { components } from './api.generated';
+import { api, type components } from './api.generated';
 
 /** The API's DTO, generated from `{{SINGULAR_CLASS}}Out` — the view sends the same shape. */
 type Item = components['schemas']['{{SINGULAR_CLASS}}Out'];

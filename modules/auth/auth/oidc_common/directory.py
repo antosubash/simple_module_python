@@ -12,7 +12,11 @@ from simple_module_core.user_directory import (
     chunked,
     parse_user_ids,
 )
-from simple_module_db.user_directory_sql import name_or_email_contains, to_directory_user
+from simple_module_db.user_directory_sql import (
+    name_or_email_contains,
+    search_rows,
+    to_directory_user,
+)
 from sqlalchemy import String, func, select
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.expression import FunctionElement
@@ -65,13 +69,29 @@ class CacheDirectory:
                     found[key] = to_directory_user(row, key)
         return found
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
-        stmt = select(*self._columns).order_by(self.model.email).limit(limit)
-        if term and term.strip():
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
+        stmt = select(*self._columns).order_by(self.model.email)
+        if exclude_ids:
+            stmt = stmt.where(self.model.id.not_in(list(parse_user_ids(exclude_ids))))
+        # Cache entries represent signed-in users; this provider has no activity flag.
+        if exact_email:
+            stmt = stmt.where(func.lower(self.model.email) == (term or "").strip().lower())
+        elif term and term.strip():
             stmt = stmt.where(
                 name_or_email_contains(self.model.full_name, self.model.email, term.strip())
             )
-        return [to_directory_user(row, str(row.id)) for row in (await db.execute(stmt)).all()]
+        rows = await search_rows(db, stmt, self.model.id, include_ids=include_ids, limit=limit)
+        return [to_directory_user(row, str(row.id)) for row in rows]
 
     def match_ids(self, term: str) -> Any | None:
         return select(_UuidText(self.model.id)).where(

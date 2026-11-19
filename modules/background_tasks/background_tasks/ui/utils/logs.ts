@@ -1,7 +1,7 @@
 // Frontend mirror of the retained-log DTOs (background_tasks/contracts/logs.py).
 
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 
 export interface LogItem {
   id: string;

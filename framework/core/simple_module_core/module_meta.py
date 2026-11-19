@@ -13,6 +13,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from simple_module_core.admin_surface import AdminSurface
+
+
+class _DefaultVersion(str):
+    """Distinguish an omitted version from an explicit fallback value."""
+
+
+_VERSION = _DefaultVersion("1.0.0")
+
 
 @dataclass(frozen=True)
 class ModuleMeta:
@@ -44,15 +53,14 @@ class ModuleMeta:
     works without the other one. Sorted exactly like ``depends_on`` when
     present, so moving an entry here does not change the boot order.
     """
-    version: str = "1.0.0"
+    version: str = _VERSION
     requires_framework: str | None = None
     """PEP 440 specifier for the framework API version this module supports.
 
     Example: ``">=1.0,<2.0"``. When set, the module is rejected at boot if the
     installed ``simple_module_core.FRAMEWORK_API_VERSION`` does not satisfy it.
-    When ``None``, no compatibility check is performed (legacy modules);
-    this bypass is deprecated with ``remove_in="0.1.0"`` (tracked by the
-    deprecation-expiry test; it does not warn at boot).
+    ``None`` permanently means no version constraint; no compatibility check
+    is performed.
     """
     i18n_audience: str = "public"
     """Who this module's locale catalog is shipped to: ``"public"`` or ``"admin"``.
@@ -63,3 +71,15 @@ class ModuleMeta:
     anonymous visitors don't download admin form labels on every public page.
     The catalog is always available server-side (``Translator``) either way.
     """
+
+    admin: AdminSurface | None = None
+    """Opt-in admin routing, menu and page-layout defaults; grants no permissions."""
+
+    provides_auth: bool = False
+    """This module installs an AuthProvider; participates in selection and SM020."""
+
+    def __post_init__(self) -> None:
+        if self.admin is not None:
+            if self.admin_view_prefix and self.admin_view_prefix != self.admin.prefix:
+                raise ValueError("admin_view_prefix conflicts with admin.prefix")
+            object.__setattr__(self, "admin_view_prefix", self.admin.prefix)

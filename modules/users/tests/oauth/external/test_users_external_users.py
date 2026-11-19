@@ -126,7 +126,12 @@ async def test_forgot_password_is_noop_for_external_user(users_app):
 
     async with users_app.state.sm.db.session_factory() as session:
         user_db = UserDatabaseWithRoles(session, User, OAuthAccount)
-        manager = UserManager(user_db, users_app.state.users.mailer, users_app.state.users.settings)
+        manager = UserManager(
+            user_db,
+            users_app.state.users.mailer,
+            users_app.state.users.settings,
+            users_app.state.users.token_secrets,
+        )
 
         sent: list[str] = []
 

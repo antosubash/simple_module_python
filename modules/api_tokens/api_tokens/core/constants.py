@@ -6,6 +6,8 @@ from enum import StrEnum
 from typing import Final
 
 from auth.contracts.tokens import PAT_PREFIX, SERVICE_KEY_PREFIX
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
 
 MODULE_NAME: Final = "ApiTokens"
 MODULE_PACKAGE: Final = "api_tokens"
@@ -43,8 +45,18 @@ MAX_SCOPES: Final = 200
 LAST_USED_WRITE_INTERVAL_SECONDS: Final = 300
 
 PERM_GROUP: Final = "API tokens"
-PERM_USE: Final = "api_tokens.use"
-PERM_MANAGE: Final = "api_tokens.manage"
+
+
+class Permissions(PermissionCatalogue, group=PERM_GROUP, label_key="api_tokens.permission_group"):
+    USE = "api_tokens.use"
+    MANAGE = "api_tokens.manage"
+
+
+deprecate(
+    "api_tokens PERM_* constants", remove_in="0.0.50", use="api_tokens.core.constants.Permissions"
+)
+PERM_USE: Final = Permissions.USE
+PERM_MANAGE: Final = Permissions.MANAGE
 USER_ROLE: Final = "user"
 
 # Roles a service key may never hold: ``admin`` would be the wildcard on a

@@ -30,5 +30,33 @@
     "confirm": "Revoke",
     "cancel": "Cancel",
     "failed": "Failed to revoke the share"
+  },
+  "dialog": {
+    "button": "Share",
+    "title": "Share resource",
+    "description": "Give other people access to this resource.",
+    "current": "Recipients with access",
+    "none": "No shares yet. Search for a recipient to add.",
+    "loading": "Loading…",
+    "search_label": "Find recipients",
+    "search_placeholder": "Search recipients",
+    "search_min": "Type at least {min} characters to search.",
+    "role": "Access level",
+    "role_view": "Can view",
+    "role_edit": "Can edit",
+    "grant": "Add",
+    "revoke": "Remove",
+    "revoke_for": "Remove access for {name}",
+    "no_candidates": "No matching recipients available.",
+    "failed": "Could not update sharing. Please try again.",
+    "close": "Close",
+    "subject_type": "Recipient type"
+  },
+  "subjects": {
+    "user": "People",
+    "tenant_role": "Workspace roles",
+    "owner": "Owners",
+    "admin": "Administrators",
+    "member": "Members"
   }
 }

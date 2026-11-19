@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
@@ -13,19 +11,15 @@ from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 
 from settings.core.constants import (
-    ALL_PERMISSIONS,
     API_PREFIX,
-    LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
     MENU_ORDER,
     MENU_URL,
     MODULE_NAME,
     MODULE_PACKAGE,
-    PERM_GROUP,
-    PERM_TENANT_EDIT,
-    PERM_VIEW,
     VIEW_PREFIX,
+    Permissions,
 )
 
 if TYPE_CHECKING:
@@ -54,6 +48,8 @@ async def _resolve_setting_labels(db: AsyncSession, ids: list[str]) -> dict[str,
 
 
 class SettingsModule(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
@@ -124,23 +120,19 @@ class SettingsModule(ModuleBase):
                 group_key="ui.nav_groups.system",
                 # Mirrors the view router's guard, so the entry is not offered
                 # to accounts whose click would 403.
-                permissions=[PERM_VIEW],
+                permissions=[Permissions.VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
         from simple_module_core.tenancy import TenantRole, tenant_role
 
-        registry.add_group(
-            PERM_GROUP,
-            list(ALL_PERMISSIONS),
-            label_key=f"{LOCALE_NAMESPACE}.permission_group",
-        )
+        super().register_permissions(registry)
         # Tenant owners and admins edit their own tenant's overridable keys
         # (#382). The one permission for it — ``tenants`` no longer ships its
         # own unused ``tenants.settings.manage``. Members get nothing here.
         for role in (TenantRole.OWNER, TenantRole.ADMIN):
-            registry.map_role(tenant_role(role), [PERM_TENANT_EDIT])
+            registry.map_role(tenant_role(role), [Permissions.TENANT_EDIT])
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from simple_module_db.stored_settings import Setting
@@ -154,7 +146,3 @@ class SettingsModule(ModuleBase):
                 label_resolver=_resolve_setting_labels,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}

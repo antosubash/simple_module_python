@@ -15,8 +15,6 @@ import pytest
 from fastapi import FastAPI
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_VIEW, VIEW_PREFIX
 from permissions.grants.source import clear_grants_cache
-from permissions.web.deps import RequiresPermission as ModuleRequiresPermission
-from simple_module_hosting.permissions import RequiresPermission
 from simple_module_test import forge_session_cookie, inertia_headers
 
 _GUARDED = "/api/feature_flags/"
@@ -56,10 +54,6 @@ def _client_for(app: FastAPI, user_id: uuid.UUID) -> httpx.AsyncClient:
         headers=inertia_headers(app),
         cookies={"session": cookie},
     )
-
-
-def test_module_class_is_the_framework_class():
-    assert ModuleRequiresPermission is RequiresPermission
 
 
 async def test_grant_and_revoke_take_effect_on_framework_guarded_route(

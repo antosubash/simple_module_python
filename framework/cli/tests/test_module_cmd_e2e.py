@@ -21,6 +21,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 # Everything the verify-host resolves from PyPI that this repo also owns —
 # point it at the local tree instead so the e2e exercises HEAD.
 _LOCAL_SOURCES = {
+    "simple_module_cli": _REPO_ROOT / "framework" / "cli",
     "simple_module_core": _REPO_ROOT / "framework" / "core",
     "simple_module_db": _REPO_ROOT / "framework" / "db",
     "simple_module_hosting": _REPO_ROOT / "framework" / "hosting",

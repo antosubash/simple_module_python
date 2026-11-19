@@ -24,6 +24,7 @@ configureI18n({
     'permissions.user_edit.cancel_link': 'Cancel',
     'permissions.user_edit.roles_label': 'Roles',
     'permissions.user_edit.no_roles': 'No roles assigned',
+    'permissions.user_edit.unknown_roles': 'Provider roles are unknown',
     'permissions.user_edit.direct_summary': 'Direct grants',
     'permissions.user_edit.effective_summary': 'Effective',
     'permissions.user_edit.legend_direct': 'direct grant',
@@ -95,6 +96,12 @@ const keyRow = (permissionKey: string) =>
   screen.getByText(permissionKey, { selector: 'code' }).closest('label') as HTMLElement;
 
 describe('UserEdit', () => {
+  test('unknown provider roles are not shown as no assigned roles', () => {
+    renderPage({ roles: [], roles_known: false, inherited: [], inherited_by: {} });
+    expect(screen.getByText('Provider roles are unknown')).toBeVisible();
+    expect(screen.queryByText('No roles assigned')).not.toBeInTheDocument();
+  });
+
   test('renders the deck header, subtitle and actions', () => {
     renderPage();
 
@@ -102,7 +109,10 @@ describe('UserEdit', () => {
     expect(
       screen.getByText('Sam Okafor · effective permissions combine role grants and direct grants'),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/admin/users/');
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute(
+      'href',
+      '/admin/permissions/',
+    );
     expect(screen.getByRole('button', { name: 'Save grants' })).toBeInTheDocument();
     // The deck's grants screen has no Reset — only Cancel and Save.
     expect(screen.queryByRole('button', { name: /reset|discard/i })).not.toBeInTheDocument();

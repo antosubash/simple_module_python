@@ -62,7 +62,8 @@ members = ["host", "host"]
     output = capsys.readouterr().out
     assert "17 dependency(ies) across 5 file(s)" in output
     if not dry_run:
-        assert "uv sync" in output and "npm install" in output
+        assert "Run `uv sync`" not in output
+        assert "Run `npm install`" not in output
 
 
 @pytest.mark.parametrize(

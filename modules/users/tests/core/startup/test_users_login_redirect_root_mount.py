@@ -7,19 +7,18 @@ import pytest
 
 def _fallback_url(app, prefixes: dict[str, str]) -> str:
     """Run the login fallback against a Dashboard-less module set (#435)."""
-    from users.core.startup import apply_login_redirect_fallback
+    from simple_module_hosting.auth_policy import login_redirect_url
 
     sm = app.state.sm
     saved_mods, saved_prefixes = sm.modules, dict(sm.view_prefixes)
-    settings = app.state.users.settings
+    settings = app.state.host.settings
     saved_url = settings.login_redirect_url
     object.__setattr__(sm, "modules", tuple(m for m in saved_mods if m.meta.name != "Dashboard"))
     sm.view_prefixes.clear()
     sm.view_prefixes.update(prefixes)
     settings.login_redirect_url = "/dashboard/"
     try:
-        apply_login_redirect_fallback(app, settings, "Users", "/dashboard/")
-        return settings.login_redirect_url
+        return login_redirect_url(app, "Users")
     finally:
         object.__setattr__(sm, "modules", saved_mods)
         sm.view_prefixes.clear()

@@ -11,7 +11,7 @@ Second of four sub-projects. Sub-project 1 (quality pass) has shipped; this buil
 Origin/main added four modules and one refactor that shape this spec:
 
 - **Permissions module (#37)** — separate module at `/permissions` with its own admin UI. Manages role→permission-key assignments and direct per-user permission grants (`UserEdit` page at `/permissions/users/{user_id}`). **Does not overlap with this spec** — roles on the users edit page are still role *membership*, not permission keys. **Add a cross-link** from the users detail page ("Manage permissions →") so admins can jump between the two.
-- **Constants convention (#34)** — permission strings are now module-level constants (`PERM_USERS_MANAGE`). New code here uses those constants, not literals.
+- **Permission catalogue (#1037, supersedes #34)** — new code imports `Permissions` from `users.core.constants` and uses `Permissions.MANAGE`. The old `PERM_USERS_MANAGE` alias is deprecated for removal in 0.0.50.
 - **Protocol drop (#39)** — `IProductService`, `IPermissionService`, `IBackgroundTaskService`, `ISettingService` deleted. `UserService` was never in a Protocol and stays a concrete class; new admin-facing code type-hints against `UserService` directly.
 - **Settings, BackgroundTasks, FileStorage modules (#38, #36, #35)** — independent; no impact on this spec.
 

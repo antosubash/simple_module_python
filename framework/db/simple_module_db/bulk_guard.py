@@ -22,8 +22,10 @@ from typing import Any
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
+from simple_module_db._builtin_scopes import tenant_scope
 from simple_module_db.mixins import MultiTenantMixin
 from simple_module_db.query_filter import strict_configured
+from simple_module_db.scopes import ScopeIsolationError, resolve_scopes
 from simple_module_db.tenancy import TenantIsolationError, current_tenant_id, is_all_tenants
 
 _GUARDED_ATTR = "_sm_bulk_guarded"
@@ -34,6 +36,17 @@ def _mapped_class(mapper: Any) -> type:
 
 
 def _check(session: Session, method: str, classes: Iterable[type]) -> None:
+    classes = tuple(classes)
+    for resolved in resolve_scopes(session, {}, is_write=True):
+        if (
+            resolved.scope is not tenant_scope
+            and resolved.active
+            and any(cls in resolved.scope._classes for cls in classes)
+        ):
+            raise ScopeIsolationError(
+                f"Session.{method}() bypasses scope '{resolved.scope.name}'; "
+                "use session.execute() instead"
+            )
     if is_all_tenants():
         return
     if current_tenant_id.get() is None and not strict_configured(session):

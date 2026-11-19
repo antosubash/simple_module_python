@@ -6,6 +6,8 @@ process but still cover the env → DB override path the CLI wraps.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 #: Set by suite-wide fixtures rather than by any test here, and each one a real
@@ -16,7 +18,9 @@ _FIXTURE_ENV = ("SM_AUTH_PROVIDER", "SM_BG_TASKS_BROADCAST_INVALIDATIONS")
 @pytest.fixture(autouse=True)
 def _isolate_project_root(monkeypatch, tmp_path) -> None:
     # import_from_env reads ``.env`` via find_env_file(); pin it to an empty dir
-    # so no test picks up the developer's real repo ``.env``.
+    # so no test picks up the developer's real repo ``.env``. Link the real host
+    # in, so boot still finds ``host/alembic.ini`` (a missing config refuses boot).
+    (tmp_path / "host").symlink_to(Path(__file__).parents[5] / "host")
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
 
 

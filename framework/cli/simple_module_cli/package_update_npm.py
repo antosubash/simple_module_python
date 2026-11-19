@@ -70,6 +70,18 @@ def load_manifests(directories: list[Path]) -> list[Manifest]:
     return manifests
 
 
+def install_roots(manifests: list[Manifest]) -> list[Path]:
+    """Each independent npm project needs installation; workspaces install their members."""
+    covered = set()
+    for manifest in manifests:
+        patterns = manifest.doc.get("workspaces", [])
+        if isinstance(patterns, dict):
+            patterns = patterns.get("packages", [])
+        for pattern in patterns:
+            covered.update(path.resolve() for path in manifest.path.parent.glob(pattern))
+    return [m.path.parent for m in manifests if m.path.parent not in covered]
+
+
 def _render(manifest: Manifest) -> str:
     match = re.search(r"(?:\r?\n)([ \t]+)\S", manifest.original)
     indent = match[1] if match else None

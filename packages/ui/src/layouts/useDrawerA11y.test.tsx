@@ -1,7 +1,7 @@
+import { DESKTOP_SIDEBAR_QUERY, useDrawerA11y } from '@simple-module-py/ui/layouts/useDrawerA11y';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useCallback, useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DESKTOP_SIDEBAR_QUERY, useDrawerA11y } from './useDrawerA11y';
 
 type Listener = (e: MediaQueryListEvent) => void;
 

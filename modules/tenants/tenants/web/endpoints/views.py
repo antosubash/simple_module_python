@@ -21,10 +21,8 @@ from tenants.core.constants import (
     PAGE_INDEX,
     PAGE_MEMBERS,
     PAGE_SETTINGS,
-    PERM_MEMBERS_MANAGE,
-    PERM_MEMBERS_VIEW,
-    PERM_PLATFORM_MANAGE,
     PERM_TENANT_SETTINGS,
+    Permissions,
 )
 from tenants.resolution.resolver import memberships_for
 from tenants.web.deps import InvitationServiceDep, TenantServiceDep, UserIdDep
@@ -50,7 +48,8 @@ async def index(
             "active_id": getattr(request.state, "tenant_id", None),
             "suspended": bool(getattr(request.state, "tenant_suspended", False)),
             "suspended_name": getattr(request.state, "suspended_tenant_name", None),
-            "can_create": settings.allow_self_service or _perm(request, PERM_PLATFORM_MANAGE),
+            "can_create": settings.allow_self_service
+            or _perm(request, Permissions.PLATFORM_MANAGE),
             "reason": reason,
         },
     )
@@ -59,7 +58,7 @@ async def index(
 @router.get(
     "/members",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MEMBERS_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.MEMBERS_VIEW))],
 )
 async def members(
     request: Request,
@@ -73,7 +72,7 @@ async def members(
     if tenant is None:
         return RedirectResponse("/tenants/?reason=tenant_required", status_code=303)
     can_manage = (
-        _perm(request, PERM_MEMBERS_MANAGE)
+        _perm(request, Permissions.MEMBERS_MANAGE)
         and getattr(request.state, "tenant_role", None) in MANAGER_ROLES
     )
     pending = await invitations.list_pending(tenant.id) if can_manage else []

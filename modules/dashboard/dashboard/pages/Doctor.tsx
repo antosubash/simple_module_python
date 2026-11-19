@@ -2,7 +2,6 @@ import { Head, router } from '@inertiajs/react';
 import { keys, useT } from '@simple-module-py/i18n';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChecksCard } from '../ui/components/doctor/ChecksCard';
@@ -119,5 +118,4 @@ function Doctor(props: DoctorProps) {
   );
 }
 
-Doctor.layout = [AdminLayout];
 export default Doctor;

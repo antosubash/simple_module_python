@@ -129,6 +129,7 @@ def async_database_url() -> str:
     For the outbox dispatcher, whose durable handlers take an ``AsyncSession``.
     """
     url = _resolve_url()
+    detect_provider(url)
     if "+aiosqlite" in url or "+asyncpg" in url:
         return url
     if url.startswith("sqlite://"):

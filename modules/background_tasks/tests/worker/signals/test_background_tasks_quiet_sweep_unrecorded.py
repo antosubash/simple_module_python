@@ -10,7 +10,8 @@ from background_tasks.core.constants import INTERNAL_TASK_SWEEP_OUTBOX
 from background_tasks.models import TaskExecution
 from background_tasks.worker.signals import on_task_failure, on_task_publish, on_task_success
 from sqlalchemy import select
-from test_background_tasks_signals import sync_sqlite  # noqa: F401
+
+from modules.background_tasks.tests.worker.signals.test_background_tasks_signals import sync_sqlite  # noqa: F401
 
 
 def _rows() -> list[TaskExecution]:

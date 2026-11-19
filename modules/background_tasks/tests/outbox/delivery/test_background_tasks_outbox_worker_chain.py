@@ -132,7 +132,7 @@ class TestChainedPublishInAWorker:
 class _NeedsApp:
     meta = SimpleNamespace(name="needs_app", depends_on=[])
 
-    def register_event_handlers(self, bus, app=None) -> None:
+    def register_event_handlers(self, bus, app) -> None:
         app.state.something = True  # AttributeError on None, as in a worker
 
 

@@ -1,5 +1,9 @@
 # QA plan — `InvalidationBus` cross-worker cache invalidation
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 **Date:** 2026-09-19
 **Under test:** PR #330 / issue #318 — `simple_module_core.invalidation`,
 `background_tasks.invalidation`, `users.session_revocation`, and the boot wiring

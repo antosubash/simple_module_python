@@ -1,11 +1,29 @@
 """Stable identifiers for the feature_flags module."""
 
-PERM_FEATURE_FLAGS_VIEW = "feature_flags.view"
-PERM_FEATURE_FLAGS_MANAGE = "feature_flags.manage"
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
+
 # Shown as a heading in the role editor, so it follows the same sentence case
 # as the menu label and the page title rather than reading "Feature Flags"
 # beside them.
 PERM_GROUP = "Feature flags"
+
+
+class Permissions(
+    PermissionCatalogue, group=PERM_GROUP, label_key="feature_flags.permission_group"
+):
+    VIEW = "feature_flags.view"
+    MANAGE = "feature_flags.manage"
+
+
+deprecate(
+    "feature_flags PERM_* constants",
+    remove_in="0.0.50",
+    use="feature_flags.core.constants.Permissions",
+)
+PERM_FEATURE_FLAGS_VIEW = Permissions.VIEW
+PERM_FEATURE_FLAGS_MANAGE = Permissions.MANAGE
+
 
 # Prefix is load-bearing on SQLite, which has no per-module schemas.
 TABLE_OVERRIDE = "feature_flags_override"

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import warnings
-
 import pytest
 from simple_module_inertia.props import (
     Prop,
@@ -10,7 +8,6 @@ from simple_module_inertia.props import (
     as_prop,
     deep_merge,
     defer,
-    lazy,
     merge,
     once,
     optional,
@@ -47,14 +44,6 @@ def test_factories_compose_by_stacking_flags() -> None:
     assert p.merge_mode == "append"
     assert p.match_on == "id"
     assert callable(p.value)
-
-
-def test_lazy_is_a_deprecated_alias_of_optional() -> None:
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        p = lazy(1)
-    assert p.optional is True
-    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
 
 
 async def test_resolve_value_handles_values_callables_and_awaitables() -> None:

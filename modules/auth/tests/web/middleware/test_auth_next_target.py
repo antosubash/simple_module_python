@@ -7,6 +7,7 @@ import pytest
 from auth.core.state import AuthState
 from auth.web.middleware import AuthMiddleware
 from fastapi import FastAPI, Request
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
@@ -26,15 +27,14 @@ class _StubProvider:
     def get_logout_url(self, request):
         return "/stub/logout"
 
-    def get_public_paths(self):
-        return (("/stub/login", "/stub/public/"), ())
-
     def is_bearer_request(self, request):
         return False
 
 
 def _build_app(provider) -> FastAPI:
     app = FastAPI()
+    app.state.public_routes = PublicRouteRegistry()
+    app.state.public_routes.add_prefix("/stub/login")
     app.state.auth = AuthState(auth_provider=provider, principal_resolvers=[])
 
     # /static/ is framework-public, so this reads the session without auth.

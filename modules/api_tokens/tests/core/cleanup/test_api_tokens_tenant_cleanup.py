@@ -13,7 +13,7 @@ from sqlmodel import select
 
 async def test_durable_tenant_cleanup_is_scoped_idempotent_and_transactional(db_session):
     bus = EventBus()
-    ApiTokensModule().register_event_handlers(bus)
+    ApiTokensModule().register_event_handlers(bus, None)
     names = bus.durable.handler_names(TenantDeleted)
     assert len(names) == 1
     subscription = bus.durable.lookup(event_key(TenantDeleted), names[0])

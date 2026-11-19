@@ -1,5 +1,9 @@
 # `simple_module_inertia` Implementation Plan
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the `fastapi-inertia` dependency with our own `simple_module_inertia` package that implements the full Inertia v3 page-object protocol, then move this repo's client to `@inertiajs/react` v3.
