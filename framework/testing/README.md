@@ -4,6 +4,11 @@ Shared pytest fixtures and helpers for writing tests against [simple_module](htt
 
 Fixtures are exposed via a `pytest11` entry point, so installing the package is enough — no `conftest.py` import needed.
 
+The plugin ignores the invoking project's `.env` before collection, while exported
+environment variables and temporary configuration-test files still work. Test imports
+default to `importlib`, allowing repeated basenames. Add support directories to pytest's
+`pythonpath` when using plain helper imports or `pytest_plugins`.
+
 ## Install
 
 ```bash
@@ -46,6 +51,21 @@ async def test_create_order(authenticated_client):
 ```
 
 No fixture imports, no `conftest.py` — the `pytest11` entry point auto-loads them.
+
+To enforce the standard package and test layout, call the public helper from a test:
+
+```python
+from pathlib import Path
+
+from simple_module_test import assert_module_layout
+
+
+def test_orders_layout():
+    assert_module_layout(Path("modules/orders"), "orders")
+```
+
+For standalone module projects use `Path(".")`. Pass named domain directories with
+`domain_areas={"fulfillment"}` and temporary compatibility files with `deprecated_root`.
 
 ## Depends on
 

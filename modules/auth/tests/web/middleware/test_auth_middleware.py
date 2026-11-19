@@ -8,6 +8,7 @@ from auth.contracts.schemas import UserContext
 from auth.core.state import AuthState
 from auth.web.middleware import AuthMiddleware
 from fastapi import FastAPI, Request
+from simple_module_core.public_routes import PublicRouteRegistry
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse
 
@@ -36,9 +37,6 @@ class _StubProvider:
     def get_logout_url(self, request):
         return "/stub/logout"
 
-    def get_public_paths(self):
-        return (("/stub/login", "/stub/public/"), ())
-
     def is_bearer_request(self, request):
         auth = request.headers.get("authorization", "")
         return auth.startswith("Bearer ")
@@ -50,8 +48,11 @@ def _build_app(provider, *, principal_resolvers=None, public_routes=None):
         auth_provider=provider,
         principal_resolvers=list(principal_resolvers or []),
     )
-    if public_routes is not None:
-        app.state.public_routes = public_routes
+    if public_routes is None:
+        public_routes = PublicRouteRegistry()
+        public_routes.add_prefix("/stub/login")
+        public_routes.add_prefix("/stub/public/")
+    app.state.public_routes = public_routes
 
     async def _handler(request: Request, path: str = ""):
         user = getattr(request.state, "user", None)
@@ -163,13 +164,14 @@ async def test_registry_method_scoping_gates_other_verbs():
     assert gated.status_code == 401
 
 
-async def test_no_registry_falls_back_to_provider_paths(unauthenticated_app):
-    """Apps built without a public-routes registry still honor provider paths."""
+async def test_no_registry_keeps_module_paths_gated(unauthenticated_app):
+    """Missing public-route registration must fail closed."""
+    del unauthenticated_app.state.public_routes
     transport = httpx.ASGITransport(app=unauthenticated_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         public = await c.get("/stub/public/data")
         gated = await c.get("/api/protected")
-    assert public.status_code == 200
+    assert public.status_code == 302
     assert gated.status_code == 401
 
 

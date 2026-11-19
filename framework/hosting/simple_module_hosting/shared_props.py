@@ -17,7 +17,7 @@ request.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from simple_module_core.app_state import (
     INERTIA_SHARED_PROVIDERS_STATE_ATTR,
@@ -44,3 +44,18 @@ def register_inertia_shared_provider(app: FastAPI, provider: SharedPropsProvider
         providers = []
         setattr(app.state, INERTIA_SHARED_PROVIDERS_STATE_ATTR, providers)
     providers.append(provider)
+
+
+def replace_inertia_shared_prop(app: FastAPI, key: str, provider: Callable[[Request], Any]) -> None:
+    """Explicitly replace a resolved key, including framework-owned keys.
+
+    The sync/async provider returns the new value for this key. Keys are
+    request-dependent, so a missing target raises KeyError at render time.
+    Replacement failures propagate; they must not silently restore a value
+    the host deliberately replaced.
+    """
+    replacements = getattr(app.state, "inertia_shared_replacements", None)
+    if replacements is None:
+        replacements = {}
+        app.state.inertia_shared_replacements = replacements
+    replacements[key] = provider

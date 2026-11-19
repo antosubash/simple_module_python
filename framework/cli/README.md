@@ -12,26 +12,31 @@ pipx install simple_module_cli
 uvx --from simple_module_cli@latest smpy new my-app
 ```
 
-The package depends only on `typer`, `tomlkit` and `packaging` — installing it does **not** pull in FastAPI, SQLModel, or any other framework runtime.
+The standalone CLI depends on `typer`, `tomlkit`, `packaging`, and `PyYAML`. The Docker worker command uses PyYAML to validate Compose environment entries while preserving the original formatting.
 
 ## Usage
 
 ```bash
-smpy new my-app                       # interactive wizard
-smpy new my-app --yes --preset full   # all built-in modules + background jobs
-smpy create-module my_feature         # scaffold a publishable module package
-smpy create-host bare-host            # scaffold a bare host (no opinionated wiring)
+uv run smpy new my-app                       # interactive wizard
+uv run smpy new my-app --yes --preset full   # all built-in modules + background jobs
+uv run smpy create-module my_feature         # scaffold a publishable module package
+uv run smpy create-host bare-host            # scaffold a bare host (no opinionated wiring)
 ```
 
-Built-in commands: `smpy new`, `smpy create-host`, `smpy create-module`, `smpy package-update`, and `smpy skills {list,add,update}`.
+Built-in commands: `uv run smpy new`, `uv run smpy create-host`, `uv run smpy create-module`, `uv run smpy update`, and `uv run smpy skills {list,add,update}`.
+
+`uv run smpy update` handles PyPI and git pins, syncs lockfiles and generates the
+frontend. `package-update` remains a deprecated alias until 0.0.50. Creating a
+module inside an app workspace also wires and installs it; then use
+`uv run smpy migrations new <module> -m "init"`, review, `make migrate` and restart.
 
 When other framework packages are installed, they contribute additional subcommands via the `simple_module_cli.cli_plugins` entry-point group:
 
 | Package | Commands |
 |---|---|
-| `simple_module_hosting` | `smpy host gen-pages`, `smpy host sync-js-deps` |
-| `simple_module_users`   | `smpy users create-admin` |
-| `simple_module_settings` | `smpy settings import-from-env` |
+| `simple_module_hosting` | `uv run smpy host gen-pages`, `uv run smpy host sync-js-deps` |
+| `simple_module_users`   | `uv run smpy users create-admin` |
+| `simple_module_settings` | `uv run smpy settings import-from-env` |
 
 ## License
 

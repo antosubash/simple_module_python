@@ -20,7 +20,8 @@
     "registry_heading": "Registry",
     "registry_hint": "Modules declare these via ModuleBase.register_permissions — this list is rebuilt from code at every boot.",
     "group_description": "Registered keys",
-    "no_permissions": "No modules have registered any permissions."
+    "no_permissions": "No modules have registered any permissions.",
+    "external_roles": "Roles are managed by your identity provider. Permission mappings can be edited here."
   },
   "table": {
     "role": "Role",
@@ -70,7 +71,8 @@
     "via_role": "granted by {roles}",
     "direct_toggle_label": "Grant {key} directly to this user",
     "head_title": "Edit User",
-    "leave_warning": "You have unsaved changes to these grants. Leave without saving?"
+    "leave_warning": "You have unsaved changes to these grants. Leave without saving?",
+    "unknown_roles": "Roles are managed by your identity provider; inherited permissions are unknown."
   },
   "errors": {
     "role_not_found": "Role not found.",

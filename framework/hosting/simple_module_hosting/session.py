@@ -25,9 +25,11 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping
+from functools import lru_cache
 from typing import Any
 
+from itsdangerous import TimestampSigner
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware as _StarletteSessionMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -114,7 +116,14 @@ _MAX_AGE = re.compile(rb"Max-Age=\d+")
 class SessionMiddleware(_StarletteSessionMiddleware):
     """``SessionMiddleware`` with the cookie window separated from the signature window."""
 
-    def __init__(self, app: ASGIApp, secret_key: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        secret_key: Any,
+        *,
+        secret_key_provider: Callable[[], str] | None = None,
+        **kwargs: Any,
+    ) -> None:
         # The parent's ``max_age`` is what the signer verifies against, so it
         # takes the longer of the two; the cookie's own Max-Age is rewritten on
         # the way out. Silently dropping a caller's value would let a
@@ -128,8 +137,26 @@ class SessionMiddleware(_StarletteSessionMiddleware):
                 "with SESSION_REMEMBER_KEY, or per response with SESSION_COOKIE_MAX_AGE_KEY."
             )
         kwargs.setdefault("session_cookie", SESSION_COOKIE_NAME)
+        if not str(secret_key).strip():
+            raise ValueError("The root secret must not be blank")
+        self._secret_key_provider = secret_key_provider
+        self._signer_for_root = lru_cache(maxsize=1)(TimestampSigner)
         super().__init__(app, secret_key, max_age=SESSION_SIGNATURE_MAX_AGE, **kwargs)
         self._secure = bool(kwargs.get("https_only"))
+
+    @property
+    def signer(self) -> TimestampSigner:
+        # Resolve on both reads and writes: setup may adopt the root mid-request.
+        if self._secret_key_provider is None:
+            return self._signer
+        root = self._secret_key_provider()
+        if not root.strip():
+            raise ValueError("The root secret must not be blank")
+        return self._signer_for_root(root)
+
+    @signer.setter
+    def signer(self, value: TimestampSigner) -> None:
+        self._signer = value
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):

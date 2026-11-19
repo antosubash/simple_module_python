@@ -18,76 +18,47 @@ from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_migration_status
+from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
+from simple_module_hosting._dev_boot import print_boot_diagnostics
+from simple_module_hosting._fallback_routes import finalize_fallback_routes
 from simple_module_hosting._route_guard import guard_included_routers
 from simple_module_hosting._table_coverage import add_table_coverage
 from simple_module_hosting.data_compatibility import check_data_compatibility
-from simple_module_hosting.migrations import migration_status
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.migrations import migration_problem, migration_status
+from simple_module_hosting.setup_gate import is_first_run
 
 logger = logging.getLogger(__name__)
 
 
-async def _is_first_run(app: FastAPI) -> bool:
-    """Whether this install has never been set up, so boot serves ``/setup``.
-
-    Needs positive evidence on both counts. The database must never have been
-    migrated (no ``alembic_version``): a pending step on a database with
-    migration history is a configured install whose schema drifted, and serving
-    the unauthenticated migration endpoint there would run Alembic on a live
-    system. And no other required step may already report complete: a
-    never-migrated database that holds accounts (built with ``create_all``) is
-    not empty either. A step that raises counts as pending, since on a fresh
-    database its tables do not exist yet. An install whose only required step
-    is the migrations step (Keycloak) qualifies (#784).
-    """
-    registry = getattr(app.state.sm, "setup_registry", None)
-    migration = get_migration_status(app)
-    if not registry or migration is None or migration.get("current_revision", "") is not None:
-        return False
-    for step in registry.required_steps:
-        if step.id == STEP_MIGRATIONS:
-            continue
-        try:
-            if await step.is_complete(app):
-                return False
-        except Exception:
-            logger.warning(
-                "Setup step %s raised on a never-migrated database; counting it as pending",
-                step.id,
-                exc_info=True,
-            )
-    return True
-
-
-def build_lifespan(modules: Sequence) -> Callable:
+def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         async with AsyncExitStack() as cleanup:
-            cleanup.push_async_callback(app.state.sm.db.engine.dispose)
+            if dispose_database:
+                cleanup.push_async_callback(app.state.sm.db.engine.dispose)
             # Report first, decide second. On a genuinely fresh install a
             # behind-head database must still boot far enough to serve the wizard —
             # running the migrations is one of the things that wizard does, and
             # check_migrations' RuntimeError would make it unreachable. Anywhere
             # else the original behaviour stands: a schema the code does not match
-            # fails the boot. See _is_first_run for how the two are told apart.
-            app.state.migration = await migration_status(app.state.sm.db.engine)
-            if not app.state.migration["is_current"] and not await _is_first_run(app):
-                raise RuntimeError(
-                    f"Database is {app.state.migration['pending_count']} revision(s) behind "
-                    f"(at {app.state.migration['current_revision']!r}, head is "
-                    f"{app.state.migration['head_revision']!r}). Run: make migrate"
-                )
+            # fails the boot. See is_first_run for how the two are told apart.
+            settings = getattr(app.state.sm, "settings", None)
+            environment = getattr(settings, "environment", None)
+            diagnostics = getattr(app.state.sm, "diagnostics", None)
+            if environment == "development" and diagnostics is not None and diagnostics.results:
+                await print_boot_diagnostics(diagnostics.results)
+            migration = app.state.migration = await migration_status(app.state.sm.db.engine)
+            if migration["is_current"] is None and environment == "development":
+                logger.warning("%s: %s", MIGRATION_DRIFT_CODE, migration_problem(migration))
+            elif not migration["is_current"] and not await is_first_run(app, migration):
+                raise RuntimeError(migration_problem(migration))
 
-            # Only a schema at head can be judged: a first run that stopped part-way
-            # still has pre-upgrade columns, and refusing it would hide the wizard
-            # that finishes the migration. The setup gate runs deferred checks
-            # once the schema is current.
-            migration = app.state.migration
+            # Compatibility checks need the current schema. The setup gate
+            # runs deferred checks once the schema is current.
             if migration["is_current"] and migration.get("current_revision") is not None:
                 await check_data_compatibility(app, modules)
                 await add_table_coverage(app, modules)
@@ -101,7 +72,7 @@ def build_lifespan(modules: Sequence) -> Callable:
             # here is deferred and replayed once the wizard has applied the
             # migrations (run_deferred_startup) rather than aborting the process.
             app.state.deferred_startup = []
-            tolerate = not app.state.migration["is_current"]
+            tolerate = not migration["is_current"]
             for mod in modules:
                 try:
                     await mod.on_startup(app)
@@ -118,8 +89,8 @@ def build_lifespan(modules: Sequence) -> Callable:
                 cleanup.push_async_callback(mod.on_shutdown, app)
             # Here rather than in create_app: the host includes its own routers
             # after create_app returns, and those should be guarded too.
-            settings = getattr(app.state.sm, "settings", None)
-            guard_included_routers(app, warm=getattr(settings, "environment", None) != "testing")
+            finalize_fallback_routes(app)
+            guard_included_routers(app, warm=environment != "testing")
             yield
 
     return lifespan

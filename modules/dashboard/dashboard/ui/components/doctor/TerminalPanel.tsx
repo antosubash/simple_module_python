@@ -73,7 +73,6 @@ export function TerminalPanel({ props }: { props: DoctorProps }) {
         <span
           // A transcript is an ordered list, and two warnings can legitimately
           // carry the same text; position is the identity here.
-          // biome-ignore lint/suspicious/noArrayIndexKey: see above
           key={index}
           className={`truncate ${TONE_CLASS[line.tone]}`}
         >

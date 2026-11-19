@@ -7,11 +7,7 @@ from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_hosting.permissions import RequiresPermission
 
 from feature_flags.contracts.schemas import FeatureFlagView, ToggleRequest
-from feature_flags.core.constants import (
-    PERM_FEATURE_FLAGS_MANAGE,
-    PERM_FEATURE_FLAGS_VIEW,
-    SCOPE_TENANT,
-)
+from feature_flags.core.constants import SCOPE_TENANT, Permissions
 from feature_flags.web.deps import (
     FeatureFlagRegistryDep,
     FeatureFlagServiceDep,
@@ -30,7 +26,7 @@ def _ensure_registered(name: str, registry: FeatureFlagRegistry) -> None:
 @router.get(
     "/",
     response_model=list[FeatureFlagView],
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def list_flags(
     service: FeatureFlagServiceDep,
@@ -42,7 +38,7 @@ async def list_flags(
 @router.get(
     "/{name}",
     response_model=FeatureFlagView,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def get_flag(
     name: str,
@@ -58,7 +54,7 @@ async def get_flag(
 @router.put(
     "/{name}",
     response_model=FeatureFlagView,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def set_override(
     name: str,
@@ -78,7 +74,7 @@ async def set_override(
 @router.delete(
     "/{name}",
     status_code=204,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def clear_override(
     name: str,
@@ -94,7 +90,7 @@ async def clear_override(
     "/tenant/{tenant_id}",
     response_model=list[FeatureFlagView],
     dependencies=[
-        Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW)),
+        Depends(RequiresPermission(Permissions.VIEW)),
         Depends(require_known_tenant),
     ],
 )
@@ -110,7 +106,7 @@ async def list_flags_for_tenant(
     "/tenant/{tenant_id}/{name}",
     response_model=FeatureFlagView,
     dependencies=[
-        Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE)),
+        Depends(RequiresPermission(Permissions.MANAGE)),
         Depends(require_known_tenant),
     ],
 )
@@ -137,7 +133,7 @@ async def set_tenant_override(
 @router.delete(
     "/tenant/{tenant_id}/{name}",
     status_code=204,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def clear_tenant_override(
     tenant_id: str,

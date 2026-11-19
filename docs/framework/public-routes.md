@@ -9,7 +9,7 @@ inbound webhook, a status page) declare those routes through the
 into one `PublicRouteRegistry` at boot, and the middleware consults it on every
 request.
 
-This is the supported replacement for the deprecated `AuthProvider.get_public_paths`
+This replaces the removed `AuthProvider.get_public_paths`
 contract, which is **prefix-only and method-agnostic** — it cannot express
 "expose `GET /api/gis/datasets/{id}/tilejson` but keep `PATCH …/visibility`
 authenticated" because read and write routes share a prefix.
@@ -53,6 +53,25 @@ verb matches.
 `registry.add(route_or_pattern, *, methods=, kind=)` is the general form;
 pass a prebuilt `PublicRoute` or a string.
 
+## Removing an exemption
+
+Use the host's [customize callback](lifecycle.md#host-overrides) after module
+registration:
+
+```python
+def customize(app):
+    app.state.sm.public_routes.remove("/news", kind="exact")
+    app.state.sm.public_routes.remove(r"/api/news/[^/]+$", kind="regex", methods={"GET"})
+```
+
+The pattern is the literal registration string, not a request path to match.
+`kind` defaults to `"prefix"`; all four match kinds are supported. Omitting
+`methods` removes every registration with that pattern and kind. Supplying it
+matches the complete, case-insensitive method set. All duplicate registrations
+of that identity are removed; no match raises `KeyError`. Other overlapping
+exemptions still apply, as do the framework defaults listed below. Removing an
+exemption lets auth gate the route; it does not remove the route itself.
+
 ## Rate limiting anonymous callers
 
 Every anonymous request that matches a public rule is rate-limited per client
@@ -89,10 +108,9 @@ For each request, `AuthMiddleware` treats the path as public if **any** of:
    public.
 2. **`app.state.public_routes`** — the `PublicRouteRegistry` (module hooks +
    `SM_AUTH_PUBLIC_PATHS`). Method-aware.
-3. **`provider.get_public_paths()`** — *deprecated* (removed in 0.1.0). A
-   third-party provider that still implements it is honoured, with one
-   `DeprecationWarning`; `users` and `keycloak` register their login routes in
-   the registry instead. The maintenance gate consults the registry the same way.
+
+The maintenance gate consults the same registry. Providers contribute no public
+paths; register their login routes through the module hook.
 
 A public path still resolves the user when a valid session is present (so a
 public landing page can show "Open Dashboard" to a logged-in visitor) — it just

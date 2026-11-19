@@ -8,6 +8,7 @@ from permissions.models import RolePermission
 from simple_module_core.invalidation import Invalidation
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db.transaction import finalize_session, rollback_session
+from users.core.directory import UsersDirectory
 from users.models import Role
 
 
@@ -24,7 +25,7 @@ async def test_role_overlay_waits_for_commit(db_session, commit, clear):
         db_session.add(RolePermission(role_name="editor", permission_key="test.view"))
         await db_session.commit()
         registry.set_role_overlay("editor", ["test.view"])
-    service = PermissionService(db_session, registry)
+    service = PermissionService(db_session, registry, UsersDirectory())
     await service.set_role_permissions(role_id, [] if clear else ["test.view"])
     assert ("test.view" in registry.role_map.get("editor", [])) is clear
     if commit:

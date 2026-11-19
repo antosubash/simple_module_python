@@ -1,5 +1,9 @@
 # Public Release `v0.0.1` Implementation Plan
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Publish all 14 Python packages to PyPI and 3 JS packages to npm as `v0.0.1`, with a working `smpy new` / `simple-module new` CLI generator that scaffolds a new app consuming these packages.

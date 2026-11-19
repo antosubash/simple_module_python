@@ -41,6 +41,7 @@ async def test_tenants_after_commit_mail(user_client, captured_mail, mail_origin
 
 
 async def test_tenants_relative_mail_skipped(user_client, captured_mail, app, monkeypatch, caplog):
+    monkeypatch.setattr(app.state.host.settings, "public_base_url", "")
     monkeypatch.setattr(app.state.tenants.settings, "public_base_url", "")
     monkeypatch.setattr(app.state.sm.event_bus, "durable_transport", None)
     with caplog.at_level(logging.WARNING):
@@ -50,6 +51,8 @@ async def test_tenants_relative_mail_skipped(user_client, captured_mail, app, mo
     assert response.json()["emailed"] is False
     assert captured_mail.messages == []
     assert "public_base_url" in caplog.text
+    assert "SM_PUBLIC_BASE_URL" in caplog.text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
 
 
 async def test_tenants_console_reports_not_emailed(user_client, mail_origin):
@@ -106,14 +109,16 @@ async def test_tenants_durable_mail(db_session, captured_mail):
     assert url in captured_mail.messages[0].text
 
 
-async def test_tenants_durable_relative_link_skipped(db_session, captured_mail, caplog):
+async def test_tenants_durable_relative_link_skipped(captured_mail, caplog):
     from tenants.invitations.mail import send_invitation_email
 
     event = InvitationCreated("tenant", "Acme", "friend@x.io", "member", "/accept?token=secret")
     with caplog.at_level(logging.WARNING):
-        await send_invitation_email(event, DurableContext(db=db_session, attempt=1))
+        await send_invitation_email(event, DurableContext(db=None, attempt=1))
     assert captured_mail.messages == []
     assert "public_base_url" in caplog.text
+    assert "SM_PUBLIC_BASE_URL" in caplog.text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
 
 
 async def test_tenants_durable_failure_propagates(db_session, captured_mail, monkeypatch):

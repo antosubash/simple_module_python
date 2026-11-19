@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
 import pytest
 import typer
@@ -53,7 +54,7 @@ class TestRunBuild:
         calls = []
         run_build(read_module_info(module_root), runner=ok_runner(calls))
 
-        config = module_root / ".smpy" / "module-build.config.mjs"
+        config = module_root / ".smpy/verify-host/client_app/module-build.config.mjs"
         text = config.read_text(encoding="utf-8")
         assert "assets_src/index.ts" in text
         assert "static/dist" in text
@@ -69,3 +70,36 @@ class TestRunBuild:
         (module_root / "pyproject.toml").write_text(stripped, encoding="utf-8")
         run_build(read_module_info(module_root), runner=ok_runner([]))
         assert "artifacts" in capsys.readouterr().err
+
+
+def test_standalone_static_build_uses_borrowed_toolchain(module_root):
+    from simple_module_cli._module_build import run_build
+    from simple_module_cli._module_host import ensure_verify_host, read_module_info
+
+    info = read_module_info(module_root)
+    host = ensure_verify_host(info)
+    repo = Path(__file__).resolve().parents[3]
+    (host / "client_app/node_modules").symlink_to(repo / "node_modules", target_is_directory=True)
+    assert not (module_root / "package.json").exists()
+
+    def runner(cmd, **kwargs):
+        return subprocess.run(cmd, **kwargs, capture_output=True, text=True, timeout=60)
+
+    run_build(info, runner=runner)
+    bundle = module_root / "my_feature/static/dist/index.js"
+    result = subprocess.run(
+        [
+            "node",
+            "--input-type=commonjs",
+            "-e",
+            "const fs = require('node:fs'), vm = require('node:vm');"
+            "const context = {};"
+            "vm.runInNewContext(fs.readFileSync(process.argv[1], 'utf8'), context);"
+            "if (context.MyFeature.hello !== 'world') process.exit(1);",
+            str(bundle),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

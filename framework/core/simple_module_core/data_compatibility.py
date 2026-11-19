@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from simple_module_core.migration_support import data_upgrade_entry_points
+
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
@@ -17,9 +19,14 @@ class DataCompatibilityIssue:
     upgrade_id: str
     message: str
     severity: Literal["warning", "error"]
+    remediation_text: str | None = None
 
-    def remediation(self) -> str:
-        return f"smpy migrations prepare {self.upgrade_id} --head <host-head-or-label@head>"
+    def remediation(self) -> str | None:
+        if self.remediation_text is not None:
+            return self.remediation_text
+        if len(data_upgrade_entry_points().select(name=self.upgrade_id)) == 1:
+            return f"smpy migrations prepare {self.upgrade_id} --head <host-head-or-label@head>"
+        return None
 
 
 async def collect_data_compatibility(

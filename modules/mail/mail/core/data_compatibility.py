@@ -34,5 +34,10 @@ async def check_data_compatibility(db: AsyncSession) -> list[DataCompatibilityIs
             message="Obsolete system users.mailer/SMTP settings must move to mail.*; "
             "target values win.",
             severity="warning",
+            remediation_text=(
+                "From the host's development environment, run "
+                f"`uv run smpy migrations prepare {UPGRADE_SETTINGS_NAMESPACE} "
+                "--head <host-head-or-label@head>`."
+            ),
         )
     ]

@@ -1,4 +1,4 @@
-"""Guard: the CLI depends only on typer, tomlkit and packaging.
+"""Guard: the CLI depends only on typer, tomlkit, packaging and PyYAML.
 
 If a future change accidentally pulls in simple_module_core, FastAPI,
 SQLModel, or anything else, this test fires immediately.
@@ -23,7 +23,15 @@ def test_simple_module_cli_runtime_deps_are_minimal() -> None:
     manifest = Path(__file__).parents[1] / "pyproject.toml"
     requires = tomllib.loads(manifest.read_text())["project"]["dependencies"]
     names = {_normalize(r) for r in requires}
-    expected = {"typer", "tomlkit", "packaging"}
+    expected = {"typer", "tomlkit", "packaging", "pyyaml"}
     assert names == expected, (
         f"simple_module_cli direct deps drifted; got {sorted(names)}, expected {sorted(expected)}"
     )
+
+
+def test_vendored_migration_support_matches_core() -> None:
+    framework = Path(__file__).resolve().parents[2]
+    vendored = framework / "cli/simple_module_cli/_migration_support.py"
+    core = framework / "core/simple_module_core/migration_support/__init__.py"
+    assert not vendored.is_symlink()
+    assert vendored.read_bytes() == core.read_bytes()

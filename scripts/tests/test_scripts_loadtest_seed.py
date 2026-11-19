@@ -40,4 +40,6 @@ async def test_scripts_loadtest_cookie_uses_resolved_host_key(
     payload = TimestampSigner(env_key or "stored-loadtest-key").unsign(cookie)
     assert json.loads(base64.b64decode(payload)) == {"user_id": "load-user"}
     create_admin.assert_awaited_once()
-    read_overrides.assert_called_once_with(f"sqlite+aiosqlite:///{db_path}", strict=False)
+    read_overrides.assert_called_once_with(
+        f"sqlite+aiosqlite:///{db_path}", strict=False, warn_unavailable=None
+    )

@@ -35,6 +35,7 @@ RUN cd client_app && if [ -f package-lock.json ]; then npm ci; else npm install;
 # Page manifest + generated module imports, the app's i18n keys (module pages
 # read `keys.<module>`, which the published @simple-module-py/i18n lacks), then
 # the production bundle.
+RUN uv run --no-sync python -m simple_module_hosting sync-js-deps --host-client-app=client_app
 RUN uv run python -m simple_module_hosting gen-pages --host-dir=client_app
 RUN uv run python -m simple_module_hosting gen-i18n
 RUN cd client_app && npm run build

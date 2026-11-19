@@ -87,10 +87,13 @@ async def startup(app: FastAPI, module_name: str) -> None:
 
 def install_durable_transport(app: FastAPI) -> None:
     """Make ``bus.publish_durable`` write to this module's outbox (GH #459)."""
+    from simple_module_core.principals import PRINCIPALS_KEY
+
     from background_tasks.core.constants import OutboxMode
     from background_tasks.outbox.sweep import start_sweep
     from background_tasks.outbox.transport import OutboxTransport
     from background_tasks.outbox.worker import use_bus
+    from background_tasks.worker.principals import configure_principals, use_principal_registry
 
     bus = app.state.sm.event_bus
     services = app.state.background_tasks
@@ -106,6 +109,9 @@ def install_durable_transport(app: FastAPI) -> None:
     # An eager in-process dispatch delivers with the app's bus, which already
     # carries every module's durable subscriptions.
     use_bus(bus)
+    configure_principals(app.state.sm.settings)
+    factory = app.state.sm.db.session_factory
+    use_principal_registry(getattr(factory, "kw", {}).get("info", {}).get(PRINCIPALS_KEY))
 
 
 async def start_invalidation_transport(app: FastAPI) -> None:
@@ -122,7 +128,14 @@ async def start_invalidation_transport(app: FastAPI) -> None:
     documented cross-process limit as ``bind_event_bus`` above: a task that
     invalidates a cache should do it through an API call or accept the TTL.
     """
+    from simple_module_hosting.installation import ensure_installation_id
+
+    from background_tasks.core.constants import DEFAULT_INVALIDATION_CHANNEL
     from background_tasks.core.invalidation import RedisInvalidationTransport
+    from background_tasks.core.invalidation_channel import (
+        LEGACY_CHANNEL_BRIDGE,
+        installation_channel,
+    )
 
     services = app.state.background_tasks
     s = services.settings
@@ -134,13 +147,26 @@ async def start_invalidation_transport(app: FastAPI) -> None:
         return
 
     bus = app.state.sm.invalidation
-    transport = RedisInvalidationTransport(bus, s.broker_url, s.invalidation_channel)
+    channel = s.invalidation_channel
+    legacy_channel = None
+    if channel is None:
+        identity = await ensure_installation_id(app.state.sm.settings.database_url)
+        channel = installation_channel(identity)
+        if channel is None:
+            # The host defers failed startup hooks on a fresh database and replays
+            # them after setup migrations. Returning here would never retry.
+            raise RuntimeError("Invalidation broadcasting awaits settings table migrations")
+        legacy_channel = DEFAULT_INVALIDATION_CHANNEL
+        LEGACY_CHANNEL_BRIDGE.warn()
+    transport = RedisInvalidationTransport(
+        bus, s.broker_url, channel, legacy_channel=legacy_channel
+    )
     await transport.start()
     bus.set_transport(transport)
     services.invalidation_transport = transport
     logger.info(
         "BackgroundTasks: invalidation transport on %r for channel(s) %s",
-        s.invalidation_channel,
+        channel,
         ", ".join(bus.channels) or "(none subscribed)",
     )
 

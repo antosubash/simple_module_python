@@ -42,7 +42,7 @@ async def test_api_tokens_user_deleted_cleanup_is_scoped_idempotent_and_transact
     await finalize_session(db_session)
     bus = EventBus()
     # Workers register without an app; inline delivery uses the same durable subscription.
-    ApiTokensModule().register_event_handlers(bus)
+    ApiTokensModule().register_event_handlers(bus, None)
     with tenant_context("first"):
         for _ in range(2):
             await bus.publish_durable_or_inline(UserDeleted(deleted_id), db_session)

@@ -5,7 +5,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.setup_steps import SetupRegistry
 from simple_module_hosting._lifespan import build_lifespan
+from simple_module_hosting.setup_gate import register_migration_step
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
@@ -66,9 +68,7 @@ async def test_hosting_compatibility_before_hydration(
             )
 
 
-async def test_partly_migrated_first_run_defers_the_check(monkeypatch):
-    # A first run that stopped part-way has a revision but pre-upgrade columns:
-    # judging it would refuse the boot and hide the wizard that finishes it.
+async def test_unmigrated_first_run_defers_the_check(monkeypatch):
     events = []
 
     class Module(ModuleBase):
@@ -79,22 +79,21 @@ async def test_partly_migrated_first_run_defers_the_check(monkeypatch):
             return []
 
     async def status(engine):
-        return {"is_current": False, "current_revision": "partial", "pending_count": 3}
-
-    async def first_run(app):
-        return True
+        return {"is_current": False, "current_revision": None, "pending_count": 3}
 
     async def hydrate(app):
         events.append("hydrate")
 
     monkeypatch.setattr("simple_module_hosting._lifespan.migration_status", status)
-    monkeypatch.setattr("simple_module_hosting._lifespan._is_first_run", first_run)
     monkeypatch.setattr("simple_module_hosting._lifespan.hydrate_settings_from_db", hydrate)
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     app = FastAPI()
+    registry = SetupRegistry()
+    register_migration_step(registry)
     app.state.sm = SimpleNamespace(
         db=SimpleNamespace(engine=engine, session_factory=async_sessionmaker(engine)),
         settings=SimpleNamespace(environment="production"),
+        setup_registry=registry,
     )
     async with build_lifespan([Module()])(app):
         assert "check" not in events

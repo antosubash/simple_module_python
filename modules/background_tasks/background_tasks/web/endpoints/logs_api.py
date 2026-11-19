@@ -14,7 +14,7 @@ from background_tasks.core.constants import (
     ADMIN_ROUTER_PREFIX,
     LOG_PER_PAGE,
     MODULE_NAME,
-    PERM_VIEW,
+    Permissions,
 )
 from background_tasks.executions.service import BackgroundTaskService
 from background_tasks.logs.service import LogService
@@ -22,7 +22,7 @@ from background_tasks.web.deps import get_background_task_service, get_log_servi
 
 router = APIRouter(
     prefix=ADMIN_ROUTER_PREFIX,
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
     tags=[f"{MODULE_NAME}-admin"],
 )
 

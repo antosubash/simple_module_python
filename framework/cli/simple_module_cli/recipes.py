@@ -25,8 +25,8 @@ __all__ = [
     "ScaffoldCtx",
 ]
 
-_BG_BROKER_ENV_KEY = "SM_BG_TASKS_BROKER_URL"
-_BG_BROKER_DEFAULT = "redis://redis:6379/0"
+_REDIS_ENV_KEY = "SM_REDIS_URL"
+_REDIS_DEFAULT = "redis://redis:6379/0"
 _MAKEFILE_MARKER = "# --- background_tasks --"
 
 
@@ -49,7 +49,7 @@ def _optional_template_root(name: str) -> Path:
 
 
 class BackgroundTasksRecipe:
-    """Lays down run_worker.py + broker env keys + Make targets.
+    """Lays down run_worker.py + Redis env key + Make targets.
 
     The compose services (redis/worker/beat) and the shared app image come
     from the default Docker assets every scaffold gets — see
@@ -72,7 +72,7 @@ class BackgroundTasksRecipe:
         env_path = target / ".env.example"
         env_text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
         env_path.write_text(
-            set_env_key(env_text, _BG_BROKER_ENV_KEY, _BG_BROKER_DEFAULT),
+            set_env_key(env_text, _REDIS_ENV_KEY, _REDIS_DEFAULT),
             encoding="utf-8",
         )
 

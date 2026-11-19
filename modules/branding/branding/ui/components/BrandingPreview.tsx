@@ -111,7 +111,6 @@ export function BrandingPreview({ brand }: { brand: PreviewBrand }) {
             <div
               // Decorative bars: two menu entries can share a label, and the
               // list is static within a render.
-              // biome-ignore lint/suspicious/noArrayIndexKey: see above
               key={`${label}-${index}`}
               className="h-2 rounded-[3px] bg-white/10"
             />

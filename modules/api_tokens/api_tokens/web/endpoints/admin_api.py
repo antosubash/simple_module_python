@@ -16,7 +16,7 @@ from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
 from api_tokens.contracts.schemas import CreatedToken, ServiceKeyCreate, TokenView
-from api_tokens.core.constants import FORBIDDEN_SERVICE_ROLES, PERM_MANAGE, TokenKind
+from api_tokens.core.constants import FORBIDDEN_SERVICE_ROLES, Permissions, TokenKind
 from api_tokens.credentials.scopes import assignable_roles, assignable_scopes, check_subset
 from api_tokens.credentials.service import ApiTokenService, TokenError
 from api_tokens.web.deps import (
@@ -31,7 +31,7 @@ router = APIRouter(
     dependencies=[
         Depends(require_session_principal),
         Depends(RequiresCsrf()),
-        Depends(RequiresPermission(PERM_MANAGE)),
+        Depends(RequiresPermission(Permissions.MANAGE)),
     ],
 )
 

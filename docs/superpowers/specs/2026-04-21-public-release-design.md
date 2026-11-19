@@ -1,5 +1,9 @@
 # First public release `v0.0.1` — design
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 ## Goal
 
 Publish the `simple_module_python` framework to PyPI **and npm** so third parties can start new projects with a one-line `uvx simple-module new my-app` generator. This is the first public release: everything currently lives as workspace-linked packages in one monorepo.

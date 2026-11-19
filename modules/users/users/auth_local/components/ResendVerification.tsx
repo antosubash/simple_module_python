@@ -3,7 +3,7 @@ import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 
 interface ResendVerificationProps {
   /** Decoded from the dead token. Null when it could not be read at all. */

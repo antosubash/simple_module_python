@@ -51,8 +51,8 @@
   },
   "detail": {
     "head_title": "Aufgabendetails",
-    "description": "Ausführung {id} · Versuch {attempt} von {max}",
-    "attempt": "Versuch {attempt} von {max}",
+    "description": "Ausführung {id} · Versuch {attempt}",
+    "attempt": "Versuch {attempt}",
     "back_button": "Zurück zu den Ausführungen",
     "retry_button": "Aufgabe erneut starten",
     "meta": "Details",

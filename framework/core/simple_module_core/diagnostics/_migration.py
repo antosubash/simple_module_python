@@ -11,8 +11,8 @@ from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 if TYPE_CHECKING:
     from simple_module_core.module import ModuleBase
 
-_CODE_BEHIND = "SM010"
-_MODULE_NAME = "migrations"
+MIGRATION_DRIFT_CODE = "SM010"
+MIGRATION_OWNER = "migrations"
 _SUGGEST_MIGRATE = "Run: make migrate"
 
 
@@ -38,20 +38,20 @@ class MigrationDiagnostics:
             return [
                 Diagnostic(
                     level=DiagnosticLevel.WARNING,
-                    code=_CODE_BEHIND,
+                    code=MIGRATION_DRIFT_CODE,
                     message="Database has never been migrated (no alembic_version)",
-                    module_name=_MODULE_NAME,
+                    module_name=MIGRATION_OWNER,
                     suggestion=_SUGGEST_MIGRATE,
                 )
             ]
         return [
             Diagnostic(
                 level=DiagnosticLevel.ERROR,
-                code=_CODE_BEHIND,
+                code=MIGRATION_DRIFT_CODE,
                 message=(
                     f"Database is behind: missing heads {', '.join(map(repr, sorted(missing)))}"
                 ),
-                module_name=_MODULE_NAME,
+                module_name=MIGRATION_OWNER,
                 suggestion=_SUGGEST_MIGRATE,
             )
         ]
@@ -67,9 +67,9 @@ class MigrationDiagnostics:
         return [
             Diagnostic(
                 level=DiagnosticLevel.ERROR,
-                code=_CODE_BEHIND,
+                code=MIGRATION_DRIFT_CODE,
                 message=(f"Database at revision {current_revision!r}, expected {head_revision!r}"),
-                module_name=_MODULE_NAME,
+                module_name=MIGRATION_OWNER,
                 suggestion=_SUGGEST_MIGRATE,
             )
         ]
@@ -89,7 +89,7 @@ class MigrationDiagnostics:
                     f"Table '{table}' is declared in models but missing from the migrated "
                     "database, so no migration creates it"
                 ),
-                module_name=_MODULE_NAME,
+                module_name=MIGRATION_OWNER,
                 suggestion=f'Run: make migration msg="add {table}"',
             )
             for table in sorted(missing)

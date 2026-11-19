@@ -77,7 +77,7 @@ class TestModuleLifecycle:
     async def test_register_event_handlers_default_noop(self):
         mod = DummyModule()
         bus = EventBus()
-        mod.register_event_handlers(bus)
+        mod.register_event_handlers(bus, None)
 
     async def test_register_feature_flags_default_noop(self):
         mod = DummyModule()

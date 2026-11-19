@@ -118,6 +118,7 @@ async def admin_bulk_invite(
                     UserDatabaseWithRoles(checkpoint, User, OAuthAccount),
                     mailer,
                     request.app.state.users.settings,
+                    request.app.state.users.token_secrets,
                 )
                 service = UserService(
                     checkpoint, manager, request.app, actor=invited_by, request=request

@@ -2,6 +2,8 @@ import { createInertiaApp, router } from '@inertiajs/react';
 import { bootI18nFromInitialPage, subscribeI18nToNavigation } from '@simple-module-py/i18n/inertia';
 import { ErrorBoundary } from '@simple-module-py/ui/components/ErrorBoundary';
 import { OfflineBanner } from '@simple-module-py/ui/components/OfflineBanner';
+import { ExtensionsProvider, extensions } from '@simple-module-py/ui/extensions';
+import { LayoutComponentsProvider } from '@simple-module-py/ui/layouts/LayoutComponentsProvider';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
 import { resolveServerHead } from '@simple-module-py/ui/lib/server-head';
 import {
@@ -12,7 +14,10 @@ import {
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import { registerModuleExtensions } from './modules.generated';
 import { resolvePage } from './pages';
+
+registerModuleExtensions(extensions);
 
 // The configured app name is held in the app-title module (Inertia's title
 // callback runs outside React and can't read live page props). It's seeded
@@ -68,7 +73,11 @@ createInertiaApp({
               auth screens too — losing the network on the login page is when
               an unexplained failure is most confusing. */}
           <OfflineBanner />
-          <App {...props} />
+          <ExtensionsProvider>
+            <LayoutComponentsProvider>
+              <App {...props} />
+            </LayoutComponentsProvider>
+          </ExtensionsProvider>
         </ErrorBoundary>
       );
     }

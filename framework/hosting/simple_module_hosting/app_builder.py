@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterable
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from simple_module_core import CspSourceRegistry
 from simple_module_core.audit_links import AuditLinkRegistry
 from simple_module_core.design_packs import DesignPackRegistry
-from simple_module_core.diagnostics import print_diagnostics
 from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
 from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
@@ -16,10 +16,14 @@ from simple_module_core.health import HealthRegistry
 from simple_module_core.invalidation import InvalidationBus
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.principals import build_principal_registry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.resources import ResourceTypeRegistry
 from simple_module_core.services import DiagnosticsState, Services
 from simple_module_core.setup_steps import SetupRegistry
+from simple_module_core.user_directory import get_user_directory
+from simple_module_db.principals import bind_principal_registry
+from simple_module_db.session import DatabaseState
 from simple_module_db.tenant_cleanup import register_tenant_cleanup
 
 from simple_module_hosting._app_boot import (
@@ -32,8 +36,10 @@ from simple_module_hosting._boot_checks import report_tenant_resolution, report_
 from simple_module_hosting._dev_boot import run_dev_boot
 from simple_module_hosting._inertia_setup import setup_inertia
 from simple_module_hosting._lifespan import build_lifespan
+from simple_module_hosting._module_routes import wire_fallback_routes
 from simple_module_hosting._phase_helpers import (
     attach_public_routes,
+    install_inner_middleware,
     install_middleware,
     mount_module_static_dirs,
     register_exception_handlers,
@@ -50,6 +56,7 @@ from simple_module_hosting._settings_registration import (
 )
 from simple_module_hosting.admin_overview import mount_admin_overview
 from simple_module_hosting.health import router as health_router
+from simple_module_hosting.host_settings import HostSettings
 from simple_module_hosting.i18n_manifest import build_i18n_registry
 from simple_module_hosting.i18n_routes import router as i18n_router
 from simple_module_hosting.settings import Settings
@@ -62,7 +69,13 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = _resolve_project_root()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    routers: Iterable[APIRouter] = (),
+    database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
+    customize: Callable[[FastAPI], None] | None = None,
+) -> FastAPI:
     """Build and configure the full FastAPI application.
 
     Boot sequence:
@@ -75,6 +88,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
       7. Inertia setup & exception handlers (register_exception_handlers)
       8. Middleware pipeline (register_middleware)
       9. Routes (register_routes), health endpoints, static files
+      10. Host routers, then module fallback routes (dependency order)
+      11. customize(app), then finish the middleware pipeline
+
+    ``customize`` is synchronous and runs once with app.state.sm available,
+    after every module registration hook and before the outer pipeline consumes
+    registry configuration. Exceptions propagate and abort construction.
+
+    Host routers and mounts, including those added to the returned app before
+    startup or first dispatch, precede fallback routes.
+
+    ``database`` supplies a state or a synchronous factory called once with
+    resolved settings. Both are caller-owned: the caller disposes their engines,
+    including after startup failure. Only the default engine is lifespan-owned.
     """
     # ── Phase 0: Pre-app config read ───────────────────────
     # Phases 1 and 8 below consume settings to build the module list, the
@@ -140,7 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     audit_link_registry = AuditLinkRegistry()
     resource_type_registry = ResourceTypeRegistry()
 
-    lifespan = build_lifespan(modules)
+    lifespan = build_lifespan(modules, dispose_database=database is None)
 
     app = build_fastapi_app(settings, lifespan)
 
@@ -149,11 +175,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mod.register_settings(app)
 
     register_host_settings(app)
+    app.state.host.settings = HostSettings.model_validate(settings.model_dump())
 
     if settings.is_development:
-        settings_diagnostics = check_settings_registration(app, modules)
-        if settings_diagnostics:
-            print_diagnostics(settings_diagnostics)
+        diagnostics_runner = diagnostics_state.runner
+        if diagnostics_runner is not None:
+            diagnostics_state.runner = lambda: [
+                *diagnostics_runner(),
+                *check_settings_registration(app, modules),
+            ]
+        diagnostics_state.results.extend(check_settings_registration(app, modules))
 
     # ── Phase 5: Module registrations ──────────────────────
     csp_registry = CspSourceRegistry()
@@ -194,7 +225,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # ── Phase 6: Initialize database ───────────────────────
-    db_state = init_database(settings, health_registry)
+    db_state = init_database(settings, health_registry, database)
+    principals = build_principal_registry(modules, settings, permissions=perm_registry)
+    principals.directory = get_user_directory(app)
+    bind_principal_registry(db_state.session_factory, principals)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
     inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)
@@ -205,15 +239,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ── Phase 8: Middleware pipeline ───────────────────────
     # Shared with modules via app.state.sm (the users login lockout counts here).
     rate_limit_store = build_store(settings.redis_url)
-    install_middleware(
-        app, settings, modules, menu_registry, perm_registry, csp_registry, rate_limit_store
-    )
+    install_inner_middleware(app, settings, modules, menu_registry, perm_registry, rate_limit_store)
 
     # ── Phase 9: Routes, health, static files ──────────────
-    view_prefixes: dict[str, str] = {}  # discovery order; only modules with view routes
+    view_modules: set[str] = set()
     for mod in modules:
         if wire_module_routes(app, mod):
-            view_prefixes[mod.meta.name] = mod.meta.view_prefix
+            view_modules.add(mod.meta.name)
 
     app.include_router(health_router)
     app.include_router(i18n_router)  # /i18n/set-locale — LocaleSwitcher posts here
@@ -223,6 +255,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     mount_host_static(app, _PROJECT_ROOT)
 
     mount_module_static_dirs(app, modules)
+
+    for router in routers:
+        app.include_router(router)
+    for mod in modules:
+        if wire_fallback_routes(app, mod):
+            view_modules.add(mod.meta.name)
+    view_prefixes = {  # discovery order across ordinary and fallback-only modules
+        mod.meta.name: mod.meta.view_prefix for mod in modules if mod.meta.name in view_modules
+    }
 
     app.state.sm = Services(
         settings=settings,
@@ -246,6 +287,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         rate_limit_store=rate_limit_store,
         resource_types=resource_type_registry,
     )
+    if customize is not None:
+        customize(app)
+    install_middleware(app, settings, csp_registry)
     if settings.is_development:
         report_unguarded_routes(app, diagnostics_state)  # SM031
     return app

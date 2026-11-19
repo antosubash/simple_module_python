@@ -1,5 +1,11 @@
 # Audit Log Module Implementation Plan
 
+> **Permission API update (#1037):** This historical plan shows `PERM_VIEW`.
+> Current code imports `Permissions` from `audit_log.core.constants` and uses
+> `Permissions.VIEW`; attach the catalogue to `ModuleBase.permissions` instead of
+> repeating the registration list. The imported legacy constant is deprecated
+> for removal in 0.0.50.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Automatically track field-level changes to all SQLModel entities across the framework, persisted atomically in an audit_log table, with a filterable admin UI.

@@ -12,10 +12,7 @@ from {{PACKAGE_NAME}}.contracts.schemas import (
 )
 from {{PACKAGE_NAME}}.core.constants import (
     NOT_FOUND_DETAIL,
-    PERM_{{PACKAGE_NAME_UPPER}}_CREATE,
-    PERM_{{PACKAGE_NAME_UPPER}}_DELETE,
-    PERM_{{PACKAGE_NAME_UPPER}}_EDIT,
-    PERM_{{PACKAGE_NAME_UPPER}}_VIEW,
+    Permissions,
 )
 from {{PACKAGE_NAME}}.web.deps import get_{{SINGULAR}}_service
 from {{PACKAGE_NAME}}.web.service import {{SINGULAR_CLASS}}Service
@@ -26,7 +23,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=list[{{SINGULAR_CLASS}}Out],
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def list_items(
     service: {{SINGULAR_CLASS}}Service = Depends(get_{{SINGULAR}}_service),
@@ -37,7 +34,7 @@ async def list_items(
 @router.get(
     "/{item_id}",
     response_model={{SINGULAR_CLASS}}Out,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def get_item(
     item_id: int,
@@ -53,7 +50,7 @@ async def get_item(
     "/",
     response_model={{SINGULAR_CLASS}}Out,
     status_code=201,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_CREATE))],
+    dependencies=[Depends(RequiresPermission(Permissions.CREATE))],
 )
 async def create_item(
     data: {{SINGULAR_CLASS}}Create,
@@ -65,7 +62,7 @@ async def create_item(
 @router.put(
     "/{item_id}",
     response_model={{SINGULAR_CLASS}}Out,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_EDIT))],
+    dependencies=[Depends(RequiresPermission(Permissions.EDIT))],
 )
 async def update_item(
     item_id: int,
@@ -81,7 +78,7 @@ async def update_item(
 @router.delete(
     "/{item_id}",
     status_code=204,
-    dependencies=[Depends(RequiresPermission(PERM_{{PACKAGE_NAME_UPPER}}_DELETE))],
+    dependencies=[Depends(RequiresPermission(Permissions.DELETE))],
 )
 async def delete_item(
     item_id: int,

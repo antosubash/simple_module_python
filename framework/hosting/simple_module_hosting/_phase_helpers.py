@@ -31,6 +31,7 @@ from simple_module_hosting._middleware_pipeline import (  # noqa: F401  (re-expo
     COMPRESSION_LEVEL,
     COMPRESSION_MIN_BYTES,
     build_csp,
+    install_inner_middleware,
     install_middleware,
     session_cookie_is_secure,
 )

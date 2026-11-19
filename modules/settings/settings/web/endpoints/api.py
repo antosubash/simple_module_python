@@ -23,10 +23,6 @@ from settings.core.constants import (
     ERR_SETTING_EXISTS,
     ERR_SETTING_NOT_FOUND,
     ERR_UNKNOWN_TENANT,
-    PERM_CREATE,
-    PERM_DELETE,
-    PERM_EDIT,
-    PERM_VIEW,
     QP_SCOPE,
     QP_SCOPE_ID,
     QP_TENANT_ID,
@@ -36,6 +32,7 @@ from settings.core.constants import (
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
     STATUS_UNPROCESSABLE,
+    Permissions,
 )
 from settings.core.service import SettingService
 from settings.core.tenant_scope import (
@@ -50,12 +47,12 @@ router = APIRouter()
 # Module permissions exist (settings.view / .create / .edit / .delete) but the
 # endpoints used to be unauthenticated relative to the role map — any logged-in
 # user could read or rewrite system settings (including secrets like
-# ``reset_password_token_secret``). Each route now gates on the relevant
+# ``oauth_google_client_secret``). Each route now gates on the relevant
 # permission via the wildcard map.
-_VIEW = [Depends(RequiresPermission(PERM_VIEW))]
-_CREATE = [Depends(RequiresPermission(PERM_CREATE))]
-_EDIT = [Depends(RequiresPermission(PERM_EDIT))]
-_DELETE = [Depends(RequiresPermission(PERM_DELETE))]
+_VIEW = [Depends(RequiresPermission(Permissions.VIEW))]
+_CREATE = [Depends(RequiresPermission(Permissions.CREATE))]
+_EDIT = [Depends(RequiresPermission(Permissions.EDIT))]
+_DELETE = [Depends(RequiresPermission(Permissions.DELETE))]
 
 
 def _not_found() -> HTTPException:

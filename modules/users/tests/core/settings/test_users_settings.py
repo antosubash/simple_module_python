@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 
 class TestUsersSettingsDefaults:
@@ -25,13 +24,6 @@ class TestUsersSettingsDefaults:
         s = UsersSettings()
         assert s.cookie_name == "sm_auth"
 
-    def test_dev_token_secrets(self):
-        from users.core.settings import UsersSettings
-
-        s = UsersSettings()
-        assert "dev" in s.reset_password_token_secret
-        assert "dev" in s.verification_token_secret
-
     def test_cookie_samesite_default(self):
         from users.core.settings import UsersSettings
 
@@ -50,11 +42,11 @@ class TestUsersSettingsDefaults:
         with pytest.raises(ValidationError):
             UsersSettings(cookie_samesite="sideways")
 
-    def test_bootstrap_email_default_empty(self):
+    def test_account_links_default_to_inheriting_host(self):
         from users.core.settings import UsersSettings
 
         s = UsersSettings()
-        assert s.bootstrap_email == ""
+        assert s.base_url == ""
 
 
 class TestUsersSettingsDbOverrides:
@@ -95,71 +87,8 @@ class TestUsersSettingsDbOverrides:
         assert s.allow_signup is False
 
 
-class TestTokenSecretProductionGuard:
-    def test_placeholder_secrets_ok_in_development(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "development")
-        from users.core.settings import UsersSettings
+def test_production_needs_no_separate_token_secrets(monkeypatch):
+    monkeypatch.setenv("SM_ENVIRONMENT", "production")
+    from users.core.settings import UsersSettings
 
-        UsersSettings()  # must not raise
-
-    def test_placeholder_secrets_ok_in_testing(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "testing")
-        from users.core.settings import UsersSettings
-
-        UsersSettings()  # must not raise
-
-    def test_placeholder_reset_secret_rejected_in_production(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        from users.core.settings import UsersSettings
-
-        with pytest.raises(ValidationError, match="RESET_PASSWORD_TOKEN_SECRET"):
-            UsersSettings(
-                verification_token_secret="not-a-placeholder-value-just-for-test",
-            )
-
-    def test_placeholder_verify_secret_rejected_in_production(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        from users.core.settings import UsersSettings
-
-        with pytest.raises(ValidationError, match="VERIFICATION_TOKEN_SECRET"):
-            UsersSettings(
-                reset_password_token_secret="not-a-placeholder-value-just-for-test",
-            )
-
-    def test_real_secrets_accepted_in_production(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        from users.core.settings import UsersSettings
-
-        s = UsersSettings(
-            reset_password_token_secret="real-reset-secret",
-            verification_token_secret="real-verify-secret",
-        )
-        assert s.reset_password_token_secret == "real-reset-secret"
-        assert s.verification_token_secret == "real-verify-secret"
-
-
-class TestLoginRedirectUrl:
-    """A blanked ``login_redirect_url`` must never reach a consumer.
-
-    Nothing stops an admin clearing it in the generic module-settings editor,
-    and every consumer treats it as a destination — the login view hands it to
-    Inertia (``router.visit("")`` reloads the current page), while the Keycloak
-    and OAuth callbacks put it directly into a ``Location`` header. Normalising
-    on the settings class covers all three, since hydration and
-    ``apply_changes_and_reload`` both reconstruct through it.
-    """
-
-    def test_blank_falls_back_to_the_default(self):
-        from users.core.settings import UsersSettings
-
-        assert UsersSettings(login_redirect_url="").login_redirect_url == "/dashboard/"
-
-    def test_whitespace_only_falls_back_to_the_default(self):
-        from users.core.settings import UsersSettings
-
-        assert UsersSettings(login_redirect_url="   ").login_redirect_url == "/dashboard/"
-
-    def test_a_real_value_is_left_alone(self):
-        from users.core.settings import UsersSettings
-
-        assert UsersSettings(login_redirect_url="/home/").login_redirect_url == "/home/"
+    assert UsersSettings().require_verification is True

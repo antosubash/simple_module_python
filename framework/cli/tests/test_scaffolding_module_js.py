@@ -1,21 +1,22 @@
-"""Tests for the module scaffold's JS config: tsconfig paths + npm version pins."""
+"""Module scaffolds borrow the host toolchain instead of duplicating JS config."""
 
 from __future__ import annotations
 
 import pytest
 
 
-class TestModuleTsconfig:
-    async def test_tsconfig_resolves_ui_from_node_modules(self, tmp_path):
-        """In a workspace, @simple-module-py/ui hoists to the root node_modules."""
-        from simple_module_cli.scaffolding import create_module
+@pytest.mark.parametrize("variant", ["standalone", "workspace", "framework_repo"])
+def test_module_needs_no_frontend_configs(tmp_path, variant):
+    from simple_module_cli.scaffolding import create_module
 
-        dest = tmp_path / "simple-module-my-feature"
-        create_module(dest, name="MyFeature", standalone=False)
-
-        tsconfig = (dest / "tsconfig.json").read_text(encoding="utf-8")
-        assert "../../node_modules/@simple-module-py/ui/src/*" in tsconfig
-        assert "packages/ui/src" not in tsconfig
+    dest = create_module(
+        tmp_path / "orders",
+        name="orders",
+        standalone=variant == "standalone",
+        framework_repo=variant == "framework_repo",
+    )
+    assert not (dest / "package.json").exists()
+    assert not (dest / "tsconfig.json").exists()
 
 
 class TestFrameworkVersionSubstitution:
@@ -24,9 +25,6 @@ class TestFrameworkVersionSubstitution:
 
         dest = tmp_path / "simple-module-my-feature"
         create_module(dest, name="MyFeature", framework_version="0.0.27")
-        # The npm-side {{FRAMEWORK_VERSION}} consumer lands with the standalone
-        # overlay; here we prove the version threads through create_module by
-        # way of the pyproject pin it already applies.
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
         assert "simple_module_core==0.0.27" in pyproject
 
@@ -47,7 +45,7 @@ class TestStandaloneCi:
         create_module(dest, name="MyFeature", standalone=True)
 
         ci = (dest / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        assert "npm run typecheck" in ci
+        assert "npm run typecheck" not in ci
         assert "smpy module verify" in ci
         pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
         assert "simple_module_cli" in pyproject
@@ -65,80 +63,11 @@ class TestSamplePage:
         page = (dest / "my_feature" / "pages" / "Browse.tsx").read_text(encoding="utf-8")
         assert "PageShell" in page
         views = (dest / "my_feature" / "web" / "endpoints" / "views.py").read_text(encoding="utf-8")
-        assert "PAGE_BROWSE" in views
+        assert '"MyFeature/Browse"' in views
         constants = (dest / "my_feature" / "core" / "constants.py").read_text(encoding="utf-8")
-        assert '"MyFeature/Browse"' in constants
+        assert 'VIEW = "my_feature.view"' in constants
         module_py = (dest / "my_feature" / "module.py").read_text(encoding="utf-8")
-        assert "view_prefix=VIEW_PREFIX" in module_py
-        assert 'VIEW_PREFIX = "/my-feature"' in constants
         assert "register_menu_items" in module_py
-
-
-class TestStandaloneOverlay:
-    async def test_standalone_tsconfig_uses_local_node_modules(self, tmp_path):
-        from simple_module_cli.scaffolding import create_module
-
-        dest = tmp_path / "simple-module-my-feature"
-        create_module(dest, name="MyFeature", standalone=True)
-
-        tsconfig = (dest / "tsconfig.json").read_text(encoding="utf-8")
-        assert "./node_modules/@simple-module-py/ui/src/*" in tsconfig
-        assert "../../node_modules" not in tsconfig
-
-    async def test_standalone_package_json_has_devdeps_and_typecheck(self, tmp_path):
-        from simple_module_cli.scaffolding import create_module
-
-        dest = tmp_path / "simple-module-my-feature"
-        create_module(dest, name="MyFeature", standalone=True, framework_version="0.0.27")
-
-        pkg = (dest / "package.json").read_text(encoding="utf-8")
-        assert '"typecheck": "tsc --noEmit"' in pkg
-        assert '"@simple-module-py/ui": "0.0.27"' in pkg
-        assert '"@simple-module-py/tsconfig": "0.0.27"' in pkg
-        assert '"typescript"' in pkg
-
-    async def test_standalone_ships_the_types_its_tsconfig_declares(self, tmp_path):
-        """The shared base.json sets ``types: ["vite/client", "node"]``, so a
-        standalone module that doesn't depend on `vite` and `@types/node` fails
-        its own CI `npm run typecheck` with TS2688 "Cannot find type definition
-        file for 'node'/'vite/client'" on the very first run."""
-        import json
-        from pathlib import Path
-
-        from simple_module_cli.scaffolding import create_module
-
-        dest = tmp_path / "simple-module-my-feature"
-        create_module(dest, name="MyFeature", standalone=True)
-
-        base = json.loads(
-            (Path(__file__).parents[3] / "packages" / "tsconfig" / "base.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        declared = base.get("compilerOptions", {}).get("types", [])
-        # "vite/client" is shipped by `vite`; "node" by `@types/node`.
-        providers = {"vite/client": "vite", "node": "@types/node"}
-        pkg = json.loads((dest / "package.json").read_text(encoding="utf-8"))
-        dev_deps = pkg.get("devDependencies", {})
-        for entry in declared:
-            provider = providers.get(entry)
-            assert provider is not None, f"no known provider for tsconfig type {entry!r}"
-            assert provider in dev_deps, (
-                f"base.json declares types {entry!r} but the standalone module "
-                f"scaffold does not depend on {provider!r}"
-            )
-
-    async def test_in_repo_keeps_workspace_configs(self, tmp_path):
-        from simple_module_cli.scaffolding import create_module
-
-        dest = tmp_path / "simple-module-my-feature"
-        create_module(dest, name="MyFeature", standalone=False)
-
-        tsconfig = (dest / "tsconfig.json").read_text(encoding="utf-8")
-        assert "../../node_modules/@simple-module-py/ui/src/*" in tsconfig
-        pkg = (dest / "package.json").read_text(encoding="utf-8")
-        assert "typecheck" not in pkg
-        assert not (dest / ".github").exists()
 
 
 class TestPageLayout:

@@ -12,12 +12,12 @@ React pages. There is no host–module API boundary.
 
 Stack: Python 3.12 + FastAPI + SQLModel + Alembic; Inertia.js v3 + React +
 Tailwind 4 + Vite. `uv` workspaces for Python, `npm` workspaces for JS.
-Published as ~23 PyPI packages (`simple_module_*`) and 3 npm packages
+Published as ~23 PyPI packages (`simple_module_*`) and 4 npm packages
 (`@simple-module-py/*`) in lockstep (`docs/release.md`).
 
 Layout: `framework/{core,db,hosting,inertia,testing,cli}` (the framework),
 `modules/<name>` (plugin modules), `host/` (the dev host app and all Alembic
-migrations), `packages/{ui,i18n,tsconfig}` (shared JS), `skills/` (agent skills
+migrations), `packages/{ui,i18n,tsconfig,vite-plugin}` (shared JS), `skills/` (agent skills
 shipped to users via `smpy skills add`), `.claude/skills/` (skills for this repo).
 
 ## Commands
@@ -27,18 +27,19 @@ Everything goes through `make`; the root `Makefile` is the full list
 
 | Command | Purpose |
 |---|---|
-| `make install` | `uv sync --all-packages` + `npm install` |
-| `make dev` | Shared Docker stack up (needs the sibling `../dev-services` checkout) + `gen-pages` + API (:8000) and Vite (:5050). Without that stack, run `make dev-api` and `make dev-ui` |
+| `make install` | `uv sync --all-packages` + `npm install` + `smpy gen` |
+| `make dev` | Shared Docker stack up (needs the sibling `../dev-services` checkout), then `smpy dev`: generation + API (:8000) + Vite (first free port from 5050). Without Docker, run `uv run smpy dev` |
 | `make test` / `make test-py` / `make test-js` | Pytest (SQLite, e2e/perf excluded; parallel via `pytest-xdist`, `-n $(PYTEST_WORKERS) --dist loadgroup`, default 4 workers, `PYTEST_WORKERS=0` for serial) then Vitest |
-| `make test-py-pg` | Pytest on Postgres (`SM_TEST_PG_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
+| `make test-py-pg` | Pytest on Postgres (`SM_TEST_DATABASE_URL`, default db `sm_test`); parallel like `test-py`, each xdist worker creates its own `sm_test_gw<N>` database (role needs `CREATEDB`); not in `pr-checks` |
 | `make test-e2e` | Playwright smoke tests against a running `make dev` |
-| `make lint` | Every CI lint check: Ruff format + Ruff + `ty` + Biome + per-workspace `tsc`, package metadata/README, locale files, doc paths, i18n and API-type freshness, file-size cap, no test sleeps, no double casts, no raw `fetch`, hardcoded strings, CI parity, untranslated strings |
+| `make lint` | Every CI lint check: Ruff format + Ruff + `ty` + Biome + host/module `tsc`, package metadata/README, locale files, doc paths, i18n and API-type freshness, file-size cap, no test sleeps, no double casts, no raw `fetch`, hardcoded strings, CI parity, untranslated strings |
 | `make doctor` | Module diagnostics (`SM0xx`) |
 | `make migrate` / `make downgrade` / `make migration-history` | Alembic `upgrade heads` / `-1` / history |
 | `make migration LABEL=<branch_label> msg="..."` | Autogenerate on the selected branch (`--head <branch_label>@head`); `LABEL` is required |
 | `make migrations-roundtrip-pg` | Postgres portability gate (upgrade → downgrade base → upgrade → `alembic check`); CI runs it |
+| `make gen` | Incrementally generate pages, i18n keys, module JS deps and API types; also runs during install/dev/build and `smpy module verify` |
 | `make gen-pages` | Regenerate `host/client_app/modules.{manifest.json,generated.ts,generated.css}` (gitignored; needed before `tsc`/Vite) |
-| `make gen-i18n` | Regenerate `packages/i18n/src/{keys.generated,generated-resources}.ts` (committed; CI diffs them) |
+| `make gen-i18n` | Regenerate module-local and app-owned i18n keys plus central compatibility files (committed; CI checks freshness) |
 | `make gen-api-types` | Regenerate each module's `pages/api.generated.ts` from its routes (committed; CI diffs via `ci-api-types-fresh`) |
 | `make new-module name=<name>` | Scaffold a module package (see § Adding a module for what it does *not* do) |
 | `make openapi` | Export `openapi.json` for typed clients |
@@ -62,12 +63,12 @@ repo root via `host/alembic.ini`, so it shares `.env`/`SM_DATABASE_URL` with the
   worker/beat.
 - **Sandboxed sessions have no Docker.** Launch API + Vite directly per
   `.claude/skills/running-the-stack/SKILL.md` (spare ports, SQLite file DB,
-  `smpy users create-admin`). `make kill` runs `pkill -f vite` and kills other
-  projects' servers, so kill by port instead.
-- If a repo-root `.env` exists, read it (don't copy values) and move it aside
-  for `make test-py`, then restore it: the `settings` fixture does not pin
-  `vite_dev_url`, so a `.env` value leaks into a dashboard test that asserts
-  Vite on `:5050`. Never export `SM_ENVIRONMENT=production` in a shell that
+  `smpy users create-admin`). Use `uv run smpy dev --port 8201` for a spare
+  API port; Vite is chosen automatically, or pin it with `--vite-port 5201`.
+  Ctrl-C/SIGTERM stops only the process groups this supervisor started.
+  `make kill` prints this stop guidance; it never searches by process name or port.
+- The test plugin ignores project dotenv files; leave `.env` in place.
+  Never export `SM_ENVIRONMENT=production` in a shell that
   runs pytest: production validators (localhost broker, placeholder secrets)
   abort the test plugin.
 - The invalidation tests need `redis-server` on `PATH` or `SM_TEST_REDIS_URL`;
@@ -77,15 +78,17 @@ repo root via `host/alembic.ini`, so it shares `.env`/`SM_DATABASE_URL` with the
 
 Run what CI runs, in this order; a red push costs a review cycle.
 
-1. `make gen-pages` once per fresh checkout (generated frontend files are
-   gitignored; `tsc` and Vite fail without them).
+1. `make gen` once per fresh checkout and after route/catalog changes.
+   Page manifests are gitignored; commit regenerated i18n keys and API types.
+   The incremental cache is local to the checkout; CI freshness targets still
+   run generators unconditionally. `tsc` and Vite need the generated files.
 2. `make lint`. `ruff format --check .` also formats Python fences inside
    `.md` files, so run `uv run ruff format docs/` after editing docs. Every
    backticked repo path in `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/` and
    `skills/` must be a tracked file (`scripts/check_doc_paths.py`; exceptions in
    `scripts/doc_path_allowlist.txt`).
 3. `make test-py` and `make test-js`.
-4. Touched any `locales/*.json`? `make gen-i18n` and commit the two generated
+4. Touched any `locales/*.json`? `make gen-i18n` and commit the generated
    files; CI runs the generator and fails on a diff. The generator refuses to
    drop a namespace (an unsynced venv looks like a deleted module);
    `make gen-i18n ARGS=--allow-removals` is only for a module you really
@@ -110,11 +113,13 @@ js-lint (`biome ci --error-on-warnings`, plus the untranslated check),
 js-typecheck (plus `make ci-api-types-fresh`), js-build (`make ci-css-build`),
 migrations-roundtrip-pg, doctor (`make ci-doctor`: migrate a throwaway SQLite
 DB, `alembic check`, then `make doctor`), e2e-smoke, perf-guards,
-file-size-check, package-build. CI calls the same `make ci-*` targets as
+file-size-check, package-build, docker-smoke (`make ci-docker-smoke`: build and
+boot the production image, check health and a rendered asset; path-filtered on PRs).
+CI calls the same `make ci-*` targets as
 `make lint` (`make ci-check-ci-parity` enforces it), with
 `UV_SYNC_FLAGS=--locked` so a stale `uv.lock` fails: commit `uv.lock` whenever a
-`pyproject.toml` changes (`make install` stays unlocked). `make ci-css-build`
-and `make ci-docs-build` are in CI but not in `make lint` (slow).
+`pyproject.toml` changes (`make install` stays unlocked). `make ci-css-build`,
+`make ci-docs-build` and `make ci-docker-smoke` are in CI but not in `make lint` (slow).
 `.github/workflows/postgres-tests.yml` runs `make test-py-pg` nightly, on
 demand and on PRs touching `framework/db`, `framework/testing`,
 `modules/{tenants,users,background_tasks,file_storage}` or `host/migrations`;
@@ -131,9 +136,20 @@ absent), and the host calls each `register_*` hook in that order
 (`docs/framework/discovery.md`). Outside development a missing `depends_on`
 target fails the boot (`MissingDependencyError`, `SM030`); selecting
 `keycloak` drops `Users`, so modules needing it must be left out.
+Auth modules declare `ModuleMeta(provides_auth=True)` for selection and SM020;
+the legacy `_is_auth_provider` marker warns once per class (removal 0.1.0).
+Duplicate meta names raise `InvalidModuleError` (`SM008`) outside development,
+naming both distributions; development warns and skips the later entry point.
+Allowlists accept explicit `ep:<entry_point_name>` selectors as well as meta
+names. Only lists containing solely explicit selectors skip other plugins before
+import; unqualified names always match metadata and require loading candidates.
+Unknown explicit selectors fail strict discovery and warn in development.
+Entry points sort by distribution name, entry-point name and target before load,
+making the development duplicate winner deterministic.
 
 **Two names per module.** `ModuleMeta.name` (scaffold default: PascalCase,
-`FeatureFlags`) keys Inertia render paths, `depends_on` and `SM_MODULES_ENABLED`.
+`FeatureFlags`) keys Inertia render paths and `depends_on`; `SM_MODULES_ENABLED`
+accepts this name or `ep:<entry_point_name>`, case-insensitively.
 The Python package name (`feature_flags`) keys the i18n namespace,
 `app.state.<package>` and table prefixes. Don't swap them: `keys.<ns>` breaks if
 the namespace is the meta name.
@@ -155,16 +171,16 @@ modules/<name>/<name>/
 Other root directories are allowed only as named domain areas, listed per module
 in `DOMAIN_AREAS` in the layout test. Area `__init__.py` files hold only a
 docstring. Private helpers stay in their area with a leading underscore. Tests
-mirror `tests/<area>/<feature>/`, with no `__init__.py`, unique `test_<name>_*.py`
-basenames, no top-level `test_*.py`, and `conftest.py` at `tests/` root. JS
-tests stay in `tests-js/`.
+mirror `tests/<area>/<feature>/`, with no `__init__.py`, no top-level
+`test_*.py`, and `conftest.py` at `tests/` root. Importlib mode allows repeated
+basenames. JS tests stay in `tests-js/`.
 
 `gen-pages` writes `modules.generated.css` with an `@import` per CSS file that
 exists. A `@theme` inside a cascade layer is inert and an unlayered rule beats
 every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 (`SM022`/`SM023`). See `docs/module-authoring.md` § Styling.
 
-**Lifecycle hooks** on `ModuleBase` (all no-op by default; order and examples in
+**Lifecycle hooks** on `ModuleBase` (no-op except conventional routes/locales; order and examples in
 `docs/framework/lifecycle.md`): `register_settings`, `register_menu_items`,
 `register_permissions`, `register_feature_flags`, `register_event_handlers`,
 `register_invalidations`, `register_health_checks`, `register_public_routes`,
@@ -172,18 +188,33 @@ every Tailwind utility, so keep tokens in `theme.css` and rules in `styles.css`
 `register_setup_steps`, `register_csp_sources`, `register_design_packs`,
 `register_audit_links`, `register_resource_types`, `register_exception_handlers`,
 `register_middleware`, `register_routes(api_router, view_router)`,
-`register_admin_routes(admin_router)` (only with `ModuleMeta.admin_view_prefix`),
+`register_admin_routes(admin_router)` (with `ModuleMeta.admin` or `admin_view_prefix`),
+then `register_fallback_routes(router)` after framework routes, static/SPA mounts
+and host routers (dependency order, first match wins; uses `view_prefix`),
+then host `customize(app)` (`create_app` / `build_host_app`, with `app.state.sm`
+available, before the outer middleware pipeline is finalized),
 then async `check_data_compatibility(db)` (read-only upgrade checks before
 settings hydration; an `error` refuses boot outside development), then async
 `on_startup` / `on_shutdown` (reverse order). Non-hook overrides: `locale_dirs()`,
 `db_extensions()`, `template_dirs()`, `static_mounts()`, `spa_mounts()`.
 
+By default, `register_routes` includes `<package>.web.endpoints.{api,views}.router`
+when present; import failures inside existing endpoints still fail boot.
+`locale_dirs()` discovers `<package>/locales` using the package name as namespace.
+`route_prefix` and `view_prefix` default to `""`; declare them explicitly to
+mount under a prefix. Omitted `version` comes from the owning distribution
+(fallback `1.0.0` without metadata). Explicit versions and hook overrides win.
+Keep existing prefixes when adopting conventional routes so URLs do not change.
+Catch-all views belong in `register_fallback_routes`, which defaults to no-op.
+Pass host routers to `create_app(..., routers=...)` or `build_host_app(..., routers=...)`
+so they precede fallbacks. Routes and mounts added to the returned app before
+startup or first dispatch also stay ahead of fallbacks.
+
 Rules that go with them:
 
-- A module gets one view router per prefix. All-admin modules point
-  `view_prefix` at `/admin/<name>`; modules with both public and admin pages set
-  `admin_view_prefix` and use `register_admin_routes`. A prefix is a URL
-  convention, not a permission: guard every route.
+- A module gets one view router per prefix. Declare `ModuleMeta(admin=AdminSurface(...))`
+  for admin routing/menu/layout defaults. Legacy `admin_view_prefix` and
+  `register_admin_routes` remain supported. Guard every route explicitly.
 - `register_public_routes` exempts routes from `AuthMiddleware`, method-aware
   (`registry.add_regex(r"…/tilejson$", methods={"GET"})`):
   `docs/framework/public-routes.md`.
@@ -203,6 +234,8 @@ Rules that go with them:
   durable handler must not commit `ctx.db`. `docs/framework/events.md`.
 - Users: read accounts through `get_user_directory(app)`
   (`simple_module_core.user_directory`), never `users.models` outside `users`.
+  Read roles through `get_role_directory(app)` (`simple_module_core.role_directory`);
+  `editable` describes local role assignment, not permission mapping edits.
   `DirectoryUser.roles is None` means unknown (Keycloak), not none. Recent
   activity: `get_activity_feed(app)`. `docs/framework/user-directory.md`.
 - Menus: `MenuRegistry.add_provider(fn)` for per-request items; permissions:
@@ -213,13 +246,21 @@ Rules that go with them:
 request: `(ForwardedHost if trusted proxy + allowlist) → (ProxyHeaders if
 SM_TRUSTED_PROXY) → (SentryContext if Sentry is enabled) → CorrelationId →
 RequestLogging → (ServerTiming, development only) → CORS → BodyLimit → GZip →
-SecurityHeaders → Session → InertiaMiddleware → <module middleware> → (Tenant:
-multi_tenant, or fixed to default_tenant) → Locale → InertiaLayoutData →
+SecurityHeaders → <before_session> → Session → InertiaMiddleware → <default module middleware> →
+(Tenant: multi_tenant, or fixed to default_tenant) → Locale → <after_tenant> → InertiaLayoutData →
 RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
 (`framework/hosting/tests/test_middleware_order.py` pins it). Rules that follow:
 
 - Modules at the same dependency tier: the one that sorts later wraps outermost.
   Use `depends_on` to order, never names.
+- `register_middleware(app)` keeps its signature. Use
+  `simple_module_hosting.add_middleware(app, cls, stage="before_session"|"default"|"after_tenant")`
+  or `after="tenant"` (inside both Tenant and Locale); ordinary
+  `app.add_middleware` stays in the default tier. In `customize(app)`,
+  `replace_middleware(app, Target, Middleware(Subclass, ...))` preserves the
+  target's position and constructor defaults. Replacements must subclass the
+  target and honor its security contract. `disable_middleware` permits only
+  GZip, RequestLogging and ServerTiming; see `docs/framework/middleware.md`.
 - Any `X-Inertia` response is forced `private, no-store`; to cache a public
   page, set `Cache-Control`/ETag on the *document* response only.
 - `RateLimit` runs after auth, so by default it throttles only anonymous
@@ -234,13 +275,17 @@ RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
 
 Detail: `docs/framework/middleware.md`, `docs/framework/request-guards.md`.
 
-**Admin section.** Admin screens live under `/admin/*`, register into
-`MenuSection.ADMIN_SIDEBAR` and render in `AdminLayout`, all three together.
-`SidebarLayout` renders the menu its `menuKey` names, so a page left on
-`AuthenticatedLayout` after its item moved shows a sidebar without it.
-`group=` sub-clusters inside a sidebar (`Access`, `Appearance`, `System`).
-`/admin` itself ships with `simple_module_hosting`; old URLs 301 from
-`host/routes_legacy.py`. `/api/*` paths never move.
+**Admin section.** Prefer `ModuleMeta(admin=AdminSurface(prefix="/admin/<name>",
+routes="<package>.admin.views:router", menu_group="Access",
+menu_group_key="ui.nav_groups.access"))`. The base admin hook loads that router
+(omitted target: `<package>.web.endpoints.admin:router`). This supplies the prefix,
+`MenuSection.ADMIN_SIDEBAR`/group defaults for this module's menu URLs under it,
+and `AdminLayout` for its pages without an explicit layout. `make gen-pages`
+applies layouts through generated loaders, including in existing host resolvers.
+Explicit menu sections, nonempty groups/keys and page layouts win. The surface
+implies no permission: routes and menu items still declare their own guards.
+Existing explicit wiring remains supported unchanged. `/admin` itself ships
+with `simple_module_hosting`; `/api/*` paths never move.
 
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
 `modules/<pkg>/<pkg>/pages/<Page>.tsx`; host pages under
@@ -256,10 +301,12 @@ by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 `simple-module-page-perf` skill.
 
 **CSRF.** Baseline is `SameSite=Lax` on the session cookie, so a same-site
-request needs no token. Defence in depth: `RequiresCsrf` router dependency +
-`get_csrf_token(request)` as a view prop, echoed as `X-CSRF-Token`
-(`simple_module_hosting.csrf`). The session cookie is `Secure` outside
-development and testing.
+request needs no token. For defence in depth, declare the `RequiresCsrf` router
+dependency (`simple_module_hosting.csrf`). Signed-in Inertia pages share the
+current `csrfToken`, including partial reloads; the generated `api` client
+echoes it as `X-CSRF-Token` on same-origin mutations. No per-page token props or
+manual headers are needed. Anonymous auth forms explicitly expose their token.
+The session cookie is `Secure` outside development and testing.
 
 ## Database
 
@@ -319,8 +366,12 @@ development and testing.
   `DeclarativeBase`/`Mapped[...]` in module code.
 - **No magic strings in non-test Python** (`scripts/check_hardcoded_strings.py`):
   `RequiresPermission(...)`, `registry.map_role(...)`, `registry.add_group(...)`
-  items, `inertia.render(...)` keys and `depends_on=[...]` entries must be
-  constants from `core/constants.py`: `PERM_*`, role names, `_PAGE_*`, `_MODULE_*`.
+  items and `depends_on=[...]` entries use named constants from `core/constants.py`
+  or `PermissionCatalogue` members. Attach the catalogue to `ModuleBase.permissions`
+  for default registration; custom hooks extend it via `super()`. Literal module
+  `inertia.render("MetaName/Page")` keys are allowed when the checker verifies the
+  owning module name and existing TSX page (nested pages supported, tests excluded).
+  Existing `PAGE_*` constants remain supported; new aliases are unnecessary.
 - **300-line cap** on `.py`/`.ts`/`.tsx`, tests included, untracked files
   included (`scripts/check_file_size.py`). Exempt: shadcn components under
   `packages/ui/src/components/ui/**`, generated i18n files,
@@ -329,7 +380,8 @@ development and testing.
   `SM_DATABASE_URL`, `SM_REDIS_URL` and `SM_USERS_BOOTSTRAP_*`;
   `SM_ENVIRONMENT`/`SM_DEBUG`/`SM_VITE_DEV_URL` describe the process. Do not
   add new configuration as env vars. Host settings: precedence
-  **env → DB → default**, and env must keep winning. `host/main.py` must call
+  **env → DB → default**, and env must keep winning. `host/main.py` uses
+  `build_host_app()` from `simple_module_hosting.host`, which calls
   `merge_host_settings()`, not `Settings()`: `create_app` reads some fields
   before the lifespan opens the DB, and every such field is marked
   restart-required (`test_build_time_settings_marked.py`). `SM_SECRET_KEY` is
@@ -366,8 +418,9 @@ development and testing.
   `AuditLink.for_model(Model, url_template=…, …)` (a table-name `entity_type`
   silently never matches); `register_design_packs` slugs must match
   `^[a-z0-9][a-z0-9-]*$` and the host must still import the CSS.
-- **i18n.** Ship `<package>/locales/<lang>.json`, declare in `locale_dirs()` with
-  the lowercase package name as namespace; `{"browse": {"title": "X"}}` becomes
+- **i18n.** Ship `<package>/locales/<lang>.json`; the default `locale_dirs()` discovers
+  it with the lowercase package name as namespace. Override only for custom paths
+  or namespaces; `{"browse": {"title": "X"}}` becomes
   `<ns>.browse.title`; plurals use CLDR suffixes (`_one`, `_other`). Menu items
   set `label_key`/`group_key` beside `label`/`group` (an unresolved key falls
   back to the literal, silently); group headers use `ui.nav_groups.*`.
@@ -390,8 +443,11 @@ development and testing.
 - **JS tests** go in `modules/<m>/tests-js/*.test.ts(x)`, `packages/**` or
   `host/client_app/**`; Vitest collects nothing else. Biome (single quotes,
   2 spaces, width 100) lints `host/client_app`, `packages`, module `pages/`, `ui/`
-  and legacy `components/` dirs; `tsc` runs per workspace, and a module with
-  `.tsx` but no `tsconfig.json` fails `make ci-js-typecheck`.
+  and legacy `components/` dirs. `smpy host typecheck` uses host-generated module
+  configs unless an authored `tsconfig.json` overrides them. Packages retain their
+  own configs. Ordinary modules need neither frontend config file. CI typecheck
+  rejects uninstalled workspace modules with frontend sources; frontend builds
+  use `--installed-only` to allow intentional exclusions.
 - **`ty` rules.** SQLModel false positives (`unresolved-attribute`,
   `unsupported-operator`, `unknown-argument`, `no-matching-overload`) are
   ignored globally in `pyproject.toml`; don't re-enable them.
@@ -408,6 +464,10 @@ There is **one scaffolder**: `make new-module name=<name>` runs
 `simple_module_cli.scaffolding.create_module(..., framework_repo=True)`, the same
 templates `smpy create-module` / `smpy new` use
 (`framework/cli/simple_module_cli/templates/module/`). Change a convention there, once.
+
+Settings plumbing is opt-in: `smpy create-module --with-settings` or
+`make new-module name=<name> ARGS=--with-settings` adds DB-backed settings,
+a services container and `register_settings`; the default omits them.
 
 It generates a CRUD sample (model, DTOs, service, REST + Inertia endpoints,
 Browse/Create/Edit pages, `locales/en.json`, tests) that passes `make lint`,
@@ -440,7 +500,7 @@ Unlisted test directories are silently never collected.
 environment. The table with triggers and fixes is
 `docs/reference/diagnostic-codes.md`. **Production does not run the suite.**
 What fails a production boot is strict discovery (a bad entry point, missing
-`meta`, or a missing `depends_on` target), the auth-provider check
+`meta`, duplicate meta names, or a missing `depends_on` target), the auth-provider check
 (`SM020`), placeholder secrets, a localhost Celery broker, the `SM010`
 migration check (except on a never-migrated first run, which goes to `/setup`),
 overlapping `spa_mounts` (`SM032`) and an `error` from a module's
@@ -448,7 +508,7 @@ overlapping `spa_mounts` (`SM032`) and an `error` from a module's
 before shipping. Codes that change how you write code: `SM003`/`SM004`
 render-key mismatch, `SM009` framework→plugin import, `SM011` table missing from
 migrations, `SM012` settings not on `app.state`, `SM013`–`SM016` locale drift,
-`SM017` module pages without `package.json`/`tsconfig.json`, `SM018` Inertia
+`SM017` invalid optional frontend dependency manifests, `SM018` Inertia
 call to `/api`, `SM019` views with no menu item or permission, `SM022`/`SM023`
 CSS in the wrong file, `SM024` unique key without `tenant_id`, `SM028` heavy
 import in `tasks.py`, `SM031` `/api` route with no permission/`Authenticated()`
@@ -458,9 +518,12 @@ gate and not public, `SM034` `subscribe_durable` without `name=`.
 
 `simple_module_test` (`framework/testing/`, auto-loaded via `pytest11`) provides
 app-level fixtures to every test directory; the root `conftest.py` is thin.
+It ignores project dotenv files before collection and defaults to importlib mode.
+Test support directories are listed explicitly in pytest's `pythonpath` setting.
 `docs/testing/fixtures.md`.
 
-- `settings`: in-memory SQLite, `multi_tenant=True`, `auth_provider="users"`.
+- `settings`: in-memory SQLite, `multi_tenant=True`, `auth_provider="users"`,
+  `vite_dev_url="http://localhost:5050"`.
   `SM_TEST_DATABASE_URL=postgresql+asyncpg://…` switches the whole suite to
   Postgres; `make test-py-pg` uses `-p no:anyio` because an asyncpg connection
   cannot cross event loops.

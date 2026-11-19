@@ -619,7 +619,7 @@ Expected: FAIL — publishing the event has no effect (no subscriber yet); the "
 In `modules/users/users/module.py`, add this method to the `UsersModule` class (place it after `register_settings`). Keep the `EventBus`/`FastAPI` types behind `TYPE_CHECKING` — `FastAPI` is already imported there; add `EventBus` to that block:
 
 ```python
-def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
     """Rebuild the OAuth client cache when the users settings reload.
 
     Routes mount at construction (before DB hydration), so the cache is the

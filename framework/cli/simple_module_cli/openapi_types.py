@@ -3,8 +3,8 @@
 Each module's ``/api`` operations (its first OpenAPI tag is ``ModuleMeta.name``)
 are cut out of the host's in-memory schema, with only the component schemas
 they reach, and run through ``openapi-typescript``. The result lands in
-``<package>/pages/api.generated.ts``, which ``pages/api.ts`` feeds to
-``createApi<paths>()`` from ``@simple-module-py/ui``.
+``<package>/pages/api.generated.ts``, exporting types and an ``api`` client
+created with ``createApi<paths>()`` from ``@simple-module-py/ui``.
 
 Standard library only: the CLI package carries no framework dependencies
 (``test_no_framework_deps``); the caller hands in the schema and module list.
@@ -178,7 +178,12 @@ def render(
         if result.returncode != 0 or not out.is_file():
             raise GenTypesError(f"{_TOOL} failed for {target.package}:\n{result.stderr.strip()}")
         body = out.read_text(encoding="utf-8")
-    return _HEADER.format(name=target.name, package=target.package) + body
+    return (
+        _HEADER.format(name=target.name, package=target.package)
+        + "import { createApi } from '@simple-module-py/ui/lib/api';\n\n"
+        + body
+        + "\nexport const api = createApi<paths>();\n"
+    )
 
 
 def generate(

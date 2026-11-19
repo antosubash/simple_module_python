@@ -32,15 +32,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["{{PACKAGE_NAME}}"]
 exclude = ["**/*.test.*", "**/*.spec.*", "**/test-dom.tsx", "**/page-tests/**"]
-# Ship the built frontend bundle inside the wheel when present. static/dist/
-# is gitignored, so it needs an explicit artifacts entry — run
-# `smpy module build` before `uv build` to populate it. (artifacts, unlike
-# force-include, tolerates the directory not existing yet, so a fresh
-# scaffold/clone still `uv sync`s.)
+# Ship optional prebuilt static assets; Inertia pages are built by the host.
+# static/dist/ is gitignored, so it needs an explicit artifacts entry.
+# Unlike force-include, artifacts tolerates the directory not existing yet.
 artifacts = ["{{PACKAGE_NAME}}/static/dist/"]
-
-# package.json lives at the module root so npm workspaces see it; copying it
-# into <pkg>/ lets the host discover JS deps via importlib.resources after a
-# pip install.
-[tool.hatch.build.targets.wheel.force-include]
-"package.json" = "{{PACKAGE_NAME}}/package.json"

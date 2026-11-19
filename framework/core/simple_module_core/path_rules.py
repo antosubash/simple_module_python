@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 __all__ = ["KIND_EXACT", "KIND_PREFIX", "KIND_REGEX", "PathRuleSet"]
 
@@ -36,8 +36,11 @@ class _Entry[T]:
     methods: frozenset[str] | None
     enabled: Callable[[], bool] | None
     regex: re.Pattern[str] | None = field(default=None)
+    excluded_methods: frozenset[str] = frozenset()
 
     def matches(self, method: str, path: str) -> bool:
+        if method.upper() in self.excluded_methods:
+            return False
         if self.methods is not None and method.upper() not in self.methods:
             return False
         if self.kind == KIND_EXACT:
@@ -73,17 +76,7 @@ class PathRuleSet[T]:
         methods: Iterable[str] | None = None,
         enabled: Callable[[], bool] | None = None,
     ) -> None:
-        if kind not in _KINDS:
-            raise ValueError(f"Unknown match kind {kind!r}; expected one of {_KINDS}")
-        method_set = None if methods is None else frozenset(m.upper() for m in methods)
-        entry = _Entry(
-            kind,
-            pattern,
-            value,
-            method_set,
-            enabled,
-            re.compile(pattern) if kind == KIND_REGEX else None,
-        )
+        entry = _make_entry(kind, pattern, value, methods, enabled)
         for other in self._entries:
             if other.kind == kind and other.pattern == pattern and _overlap(other, entry):
                 logger.warning(
@@ -94,6 +87,46 @@ class PathRuleSet[T]:
                 )
                 break
         self._entries.append(entry)
+
+    def replace(
+        self,
+        kind: str,
+        pattern: str,
+        value: T,
+        *,
+        methods: Iterable[str] | None = None,
+        enabled: Callable[[], bool] | None = None,
+    ) -> None:
+        """Replace overlapping method scopes for one literal kind/pattern.
+
+        Unaffected methods keep their rules and order. None replaces every
+        method scope. Validate first; a missing target raises KeyError.
+        """
+        entry = _make_entry(kind, pattern, value, methods, enabled)
+        targets = [
+            old
+            for old in self._entries
+            if old.kind == kind
+            and old.pattern == pattern
+            and _overlap(old, entry)
+            and (entry.methods is None or bool(entry.methods - old.excluded_methods))
+        ]
+        if not targets:
+            raise KeyError(f"No {self._what} for {kind} {pattern!r}, methods={entry.methods}")
+        entries = []
+        for old in self._entries:
+            if old is targets[0]:
+                entries.append(entry)
+            if old not in targets:
+                entries.append(old)
+            elif entry.methods is not None:
+                if old.methods is None:
+                    entries.append(
+                        replace(old, excluded_methods=old.excluded_methods | entry.methods)
+                    )
+                elif remaining := old.methods - entry.methods:
+                    entries.append(replace(old, methods=remaining))
+        self._entries = entries
 
     def match(self, method: str, path: str) -> T | None:
         """The value of the most specific enabled rule for *method* + *path*."""
@@ -119,3 +152,22 @@ class PathRuleSet[T]:
 
 def _overlap(a: _Entry, b: _Entry) -> bool:
     return a.methods is None or b.methods is None or bool(a.methods & b.methods)
+
+
+def _make_entry[T](
+    kind: str,
+    pattern: str,
+    value: T,
+    methods: Iterable[str] | None,
+    enabled: Callable[[], bool] | None,
+) -> _Entry[T]:
+    if kind not in _KINDS:
+        raise ValueError(f"Unknown match kind {kind!r}; expected one of {_KINDS}")
+    return _Entry(
+        kind,
+        pattern,
+        value,
+        None if methods is None else frozenset(m.upper() for m in methods),
+        enabled,
+        re.compile(pattern) if kind == KIND_REGEX else None,
+    )

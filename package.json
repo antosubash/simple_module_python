@@ -11,7 +11,7 @@
     "build": "npm run --workspace host/client_app build",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit -p host/client_app/tsconfig.json",
+    "typecheck": "uv run --project host smpy host typecheck --host-dir=host/client_app",
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {

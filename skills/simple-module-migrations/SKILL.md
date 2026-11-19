@@ -13,7 +13,7 @@ description: Use when generating, applying, or reviewing Alembic migrations in a
 host/                          # the host project (in the repo root)
 ├── alembic.ini                # script_location = %(here)s/migrations
 ├── migrations/
-│   ├── env.py                 # framework template
+│   ├── env.py                 # delegates to framework runner
 │   └── versions/              # ALL revisions live here, regardless of owning module
 │       ├── 77162e7b184b_initial_schema.py    # bundles the bootstrap modules
 │       ├── 70786227af4c_add_audit_log_tables.py   # branch_labels=("audit_log",)
@@ -21,27 +21,36 @@ host/                          # the host project (in the repo root)
 └── pyproject.toml             # depends on each installed module
 ```
 
-Alembic always runs from the repo root with `-c host/alembic.ini`, so it shares
-the app's `.env` / `SM_DATABASE_URL`. `host/migrations/env.py` resolves the URL
-from `Settings()` (converting the async driver to a sync one for migrations).
+In the framework workspace, run Alembic from the repo root with
+`-c host/alembic.ini` so it shares the app's `.env` / `SM_DATABASE_URL`.
+Scaffolded hosts use a root-level `alembic.ini`. Boot, Doctor, and
+`smpy migrations prepare` look for `alembic.ini` before `host/alembic.ini`
+at the discovered project root. Set `SM_PROJECT_ROOT` to override discovery,
+or pass a cwd-relative `--config` to `prepare`.
 
 ## How autogenerate sees every module
 
 The host's `host/migrations/env.py` (scaffolded by `smpy create-host`) calls:
 
 ```python
-from simple_module_db import (
-    build_module_metadata,
-    make_include_object,
-    make_process_revision_directives,
-    render_item,
-)
+from alembic import context
+from simple_module_hosting.migrations_env import run_migrations
 
-target_metadata = build_module_metadata()  # imports every installed module's <pkg>.models
-include_object = make_include_object(target_metadata)
-process_revision_directives = make_process_revision_directives(target_metadata)
-# context.configure(..., render_item=render_item)
+run_migrations(context)
 ```
+
+The public runner owns metadata discovery, async-to-sync URL conversion, offline
+and online execution, module extensions, logging and all autogenerate hooks.
+It honors `config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE]` from
+`simple_module_hosting.migrations` before settings (the setup wizard's locked
+connection target). Replace older copied environments with this call to receive
+framework fixes; keep revisions and application customizations in the host.
+
+The matching host entry point uses `build_host_app(__file__, routers=("routes:router",))`
+from `simple_module_hosting.host`. It publishes the project root and loads dotenv
+before importing settings, then calls `merge_host_settings()`, configures logging
+and builds the app. Use router import strings to preserve that ordering; do not
+replace the merged settings with `Settings()` when customizing host boot.
 
 `build_module_metadata()` walks the `simple_module` entry-point group, imports each module's `models` submodule (a missing `models` module is skipped; a missing dependency inside it raises), and merges every module's per-module `MetaData` into one unified `MetaData`. `make_include_object(metadata)` allowlists only tables owned by installed modules — any host-owned tables (and `alembic_version`) outside the module system are preserved untouched. So one autogenerate call covers every installed module in a single pass; editable installs and wheels behave identically.
 
@@ -57,7 +66,7 @@ All module tables live in the **host's single shared schema** on both Postgres a
 #     or install a packaged one and `uv sync --all-packages`)
 
 # 2. Generate the migration (runs alembic from the repo root, autogenerate)
-make migration msg="add orders module"
+uv run smpy migrations new orders -m "add orders module"
 
 # 3. Review the generated file (see "Branch labels" below)
 # 4. Apply
@@ -68,7 +77,11 @@ make migrate
 
 ### Branch labels — set on the FIRST revision per module
 
-Each new module's first revision should set a `branch_labels` tuple matching the module name, lowercased. Autogenerate does **not** add this — you edit the file by hand before applying:
+`uv run smpy migrations new <module> -m "..."` selects `<module>@head` when the
+label exists, or creates a first root with `--head base --branch-label <module>`.
+It resolves flat and workspace configs and runs from the app root. Review the
+revision before `make migrate`: autogenerate sees every installed module. If you
+use Alembic directly, set the first revision's label yourself:
 
 ```python
 # host/migrations/versions/70786227af4c_add_audit_log_tables.py
@@ -78,7 +91,7 @@ branch_labels = ("audit_log",)  # ← add by hand on this first revision
 depends_on = None
 ```
 
-Why: the label is a named target for that revision (`upgrade audit_log@head`, the module column in the Doctor). It does **not** isolate the module: autogenerate chains the revision off the current head, so history is one linear chain and `downgrade audit_log@base` walks the **entire chain beneath it, other modules included**. Never use it as a per-module rollback.
+Why: the label is a named target for that revision (`upgrade audit_log@head`, the module column in the Doctor). A label by itself does **not** isolate the module: in an existing linear history `downgrade audit_log@base` walks the **entire chain beneath it, other modules included**. Never use it as a per-module rollback.
 
 To remove one module's schema:
 
@@ -99,14 +112,30 @@ make migrate
 
 No branch label on subsequent revisions. The diff covers every installed module — review the generated file to confirm only the intended module's tables changed.
 
+For a data upgrade, register its ID in the `simple_module.data_upgrades`
+entry-point group. The target is a no-argument callable returning a
+`(branch_label, python_source)` tuple with self-contained `upgrade()` and
+`downgrade()` functions. With exactly one matching installed registration and
+no explicit remediation text, the compatibility check suggests preparing a
+revision. Run `uv run smpy migrations prepare <upgrade-id> --head <host-head-or-label@head>`
+in the host's development environment, then review and apply the revision.
+
 ## Diagnostics
 
 | Code | When |
 |---|---|
-| **SM010** (error) | DB revision is behind migration head |
-| **SM011** (warning) | Module declares a table that has no entry in migration history — usually means you added a model and forgot to autogenerate |
+| **SM010** (error or warning) | DB is behind a head or migration state cannot be verified |
+| **SM011** (warning) | Database is at every migration head but lacks a table declared by a module — usually means you added a model and forgot to autogenerate |
 
-SM010/SM011 are **not** emitted at boot or by `make doctor`. They only surface when a caller passes `migration_state=` / `module_tables=` / `migrated_tables=` to `run_diagnostics(...)` — e.g. a CI job asserting migration health. The boot-time guard is separate: `check_migrations()` (in the lifespan) raises a plain `RuntimeError` — not an SM code — in **both dev and prod** if the DB is behind head. Operationally the rule is unchanged: deploy the migration before the code that depends on it.
+`make doctor` runs migration diagnostics: SM010 checks the database against all
+migration heads; SM011 checks table coverage only once the database is at every
+head. If the database or revision history cannot be read, Doctor reports an
+SM010 warning rather than checking table coverage. Development boot also checks
+table coverage at head. A behind-head database refuses boot unless the install
+qualifies for first-run setup.
+An unknown state produces an `SM010` warning in development and refuses boot in
+other environments. Only verified first runs can apply migrations through
+`/setup`. Apply upgrade migrations before deploying the code that needs them.
 
 ## Pitfalls
 

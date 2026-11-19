@@ -15,6 +15,7 @@ from background_tasks.outbox.dispatch import dispatch
 from simple_module_core import DurableContext
 from simple_module_core.durable_events import event_key, serialize_event
 from simple_module_core.events import Event
+from sqlalchemy import event
 
 API = "/api/background_tasks/admin/outbox"
 VIEW = "/admin/background-tasks/outbox"
@@ -28,11 +29,11 @@ class ReportReady(Event):
     report_id: str
 
 
-async def _seed(app, *, status: OutboxStatus, handler: str = "h", attempts: int = 0):
+async def _seed(app, *, status: OutboxStatus, handler: str = "h", attempts: int = 0, payload=None):
     now = datetime.now(UTC)
     row = OutboxMessage(
         event_key=event_key(ReportReady),
-        payload=serialize_event(ReportReady(report_id="r1")),
+        payload=payload if payload is not None else serialize_event(ReportReady(report_id="r1")),
         handler_name=handler,
         status=status,
         attempts=attempts,
@@ -48,6 +49,48 @@ async def _seed(app, *, status: OutboxStatus, handler: str = "h", attempts: int 
 
 
 class TestList:
+    @pytest.mark.parametrize("url", [API, VIEW])
+    async def test_list_omits_attachment_payloads(self, app, authenticated_client, url):
+        await _seed(
+            app,
+            status=OutboxStatus.PENDING,
+            payload={
+                "message": {
+                    "to": "a@test",
+                    "subject": "Hi",
+                    "text": "Body",
+                    "html": None,
+                    "attachments": [
+                        {
+                            "filename": "secret.txt",
+                            "content_type": "text/plain",
+                            "content": "c2VjcmV0LWF0dGFjaG1lbnQ=",
+                        }
+                    ],
+                }
+            },
+        )
+        queries = []
+
+        def record_query(conn, cursor, statement, parameters, context, executemany):
+            queries.append(statement)
+
+        engine = app.state.sm.db.engine.sync_engine
+        event.listen(engine, "before_cursor_execute", record_query)
+        try:
+            resp = await authenticated_client.get(url, headers=INERTIA_HEADERS)
+        finally:
+            event.remove(engine, "before_cursor_execute", record_query)
+        assert resp.status_code == 200
+        body = resp.json()
+        items = body["items"] if url == API else body["props"]["messages"]
+        assert len(items) == 1
+        assert "payload" not in items[0]
+        assert "c2VjcmV0LWF0dGFjaG1lbnQ=" not in resp.text
+        outbox_queries = [q for q in queries if "background_tasks_outbox" in q]
+        assert outbox_queries
+        assert all("background_tasks_outbox.payload" not in q for q in outbox_queries)
+
     async def test_lists_undelivered_rows_with_counts(self, app, authenticated_client):
         await _seed(app, status=OutboxStatus.PENDING)
         dead = await _seed(app, status=OutboxStatus.DEAD, attempts=8)

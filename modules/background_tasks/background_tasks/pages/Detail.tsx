@@ -19,11 +19,9 @@ import { retryExecution } from '../ui/utils/retry';
 
 interface Props {
   execution: TaskDetail;
-  /** Configured retry ceiling — the denominator in "attempt 2 of 3". */
-  max_retries: number;
 }
 
-function Detail({ execution, max_retries: maxRetries }: Props) {
+function Detail({ execution }: Props) {
   const { t } = useT();
   const { can } = usePermissions();
   const retryable = RETRYABLE_STATUSES.has(execution.status) && can('background_tasks.manage');
@@ -60,7 +58,6 @@ function Detail({ execution, max_retries: maxRetries }: Props) {
             {t(keys.background_tasks.detail.description, {
               id: execution.id,
               attempt,
-              max: maxRetries,
             })}
           </span>
         }
@@ -90,7 +87,7 @@ function Detail({ execution, max_retries: maxRetries }: Props) {
         <div className="mb-3.5 flex items-center justify-between gap-3 lg:hidden">
           <StatusPill status={execution.status} className="px-3 py-1 text-xs" />
           <span className="text-[13px] text-muted-foreground">
-            {t(keys.background_tasks.detail.attempt, { attempt, max: maxRetries })}
+            {t(keys.background_tasks.detail.attempt, { attempt })}
           </span>
         </div>
 

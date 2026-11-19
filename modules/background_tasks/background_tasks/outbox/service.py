@@ -65,10 +65,11 @@ class OutboxService:
         where = [OutboxMessage.status.in_(statuses), *self.scope.conditions()]
         found = await paginate(
             self.db,
-            select(OutboxMessage)
+            select(*(getattr(OutboxMessage, field) for field in OutboxItem.model_fields))
             .where(*where)
             .order_by(col(OutboxMessage.created_at).desc(), col(OutboxMessage.id)),
             PageParams(page=page, per_page=per_page),
+            scalars=False,
         )
         return OutboxListResponse(
             items=[OutboxItem.model_validate(r) for r in found.items],
