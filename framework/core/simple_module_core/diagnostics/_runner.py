@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import sys
@@ -102,7 +103,9 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
 
     Output is best-effort: backpressure or a closed stderr truncates the report.
     The PID in the key keeps forked serving processes independent of parents.
-    Doctor calls leave ``once`` disabled so every invocation prints a full report.
+    Boot output uses a separate file stream when possible so a blocked daemon
+    writer cannot hold stderr's lock during interpreter shutdown. Doctor calls
+    leave ``once`` disabled so every invocation prints to the current stderr.
     """
     if not diagnostics:
         with suppress(OSError, ValueError):
@@ -128,13 +131,27 @@ def print_diagnostics(diagnostics: list[Diagnostic], *, once: bool = False) -> N
         + ", ".join(f"{code}={count}" for code, count in sorted(codes.items()))
     )
     report = "".join(f"{d}\n\n" for d in unique) + summary + "\n"
-    _write_report(report)
+    _write_report(report, isolate=once)
 
 
-def _write_report(report: str) -> None:
-    """Use the current text stream; retries could duplicate partially accepted output."""
+def _write_report(report: str, *, isolate: bool = False) -> None:
+    """Never retry partial output; isolate boot file writes from stderr's lock."""
     # CliRunner and pytest replace stderr after this module is imported.
     stream = sys.stderr
+    if isolate and isinstance(stream, io.TextIOWrapper):
+        try:
+            fd = stream.fileno()
+        except (OSError, ValueError):
+            pass  # In-memory capture wrappers have no descriptor.
+        else:
+            # Own the buffer, not the file flags: dup shares O_NONBLOCK with stderr.
+            with (
+                suppress(OSError, ValueError),
+                os.fdopen(os.dup(fd), "w", encoding=stream.encoding, errors=stream.errors) as out,
+            ):
+                out.write(report)
+            # Do not fall back to a logger that could acquire stderr's lock.
+            return
     try:
         stream.write(report)
         stream.flush()
