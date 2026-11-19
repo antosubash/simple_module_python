@@ -9,6 +9,10 @@ if TYPE_CHECKING:
     from simple_module_hosting.errors import render_error_page as render_error_page
     from simple_module_hosting.logging import correlation_id as correlation_id
     from simple_module_hosting.logging import setup_logging as setup_logging
+    from simple_module_hosting.middleware_config import MiddlewareStage as MiddlewareStage
+    from simple_module_hosting.middleware_config import add_middleware as add_middleware
+    from simple_module_hosting.middleware_config import disable_middleware as disable_middleware
+    from simple_module_hosting.middleware_config import replace_middleware as replace_middleware
     from simple_module_hosting.settings import Settings as Settings
     from simple_module_hosting.shared_props import SharedPropsProvider as SharedPropsProvider
     from simple_module_hosting.shared_props import (
@@ -19,18 +23,26 @@ if TYPE_CHECKING:
     )
 
 __all__ = [
+    "MiddlewareStage",
     "Settings",
     "SharedPropsProvider",
+    "add_middleware",
     "correlation_id",
     "create_app",
+    "disable_middleware",
     "merge_host_settings",
     "register_inertia_shared_provider",
     "render_error_page",
     "replace_inertia_shared_prop",
+    "replace_middleware",
     "setup_logging",
 ]
 
 _EXPORT_MODULES = {
+    "MiddlewareStage": "middleware_config",
+    "add_middleware": "middleware_config",
+    "disable_middleware": "middleware_config",
+    "replace_middleware": "middleware_config",
     "Settings": "settings",
     "SharedPropsProvider": "shared_props",
     "correlation_id": "logging",

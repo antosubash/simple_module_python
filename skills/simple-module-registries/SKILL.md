@@ -39,6 +39,22 @@ a module that sorts last still precedes later hook phases.
   `simple_module_hosting`. The sync/async provider returns one value. Explicit
   replacement runs last and can replace framework keys; ordinary providers
   still keep the first key. Missing dynamic keys fail at render time.
+- Middleware (#955): `replace_middleware(app, Target, Middleware(Subclass, ...))`
+  from `simple_module_hosting`, in `customize`. The explicit Starlette object
+  must name a subclass honoring the target's ASGI/security contract; constructor
+  defaults and position are preserved. `disable_middleware(app, Target)` allows
+  only GZip, RequestLogging and ServerTiming (compression/observability).
+  Auth, Session, SecurityHeaders, BodyLimit, RateLimit and every other layer
+  cannot be disabled. Missing or duplicate targets fail boot.
+
+Module `register_middleware(self, app)` keeps its signature. Ordinary
+`app.add_middleware` stays in the existing tier outside Tenant/Locale. Use
+`simple_module_hosting.add_middleware(app, cls, stage="before_session")` for
+transport work before Session, or `after="tenant"` / `stage="after_tenant"`
+for tenant and locale context before layout permissions resolve. `stage="default"`
+is the existing tier. Dependency order/LIFO applies within each stage. These
+helpers must run in registration or `customize`, before assembly is finalized.
+See `docs/framework/middleware.md` for replacement contracts and the stage table.
 
 Missing removal/replacement targets raise `KeyError`. Plain additions preserve
 existing accumulation, first-wins or duplicate rejection. Override existing

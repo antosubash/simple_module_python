@@ -4,37 +4,13 @@ Starlette's `app.add_middleware(...)` is **LIFO**. The last middleware added is 
 
 ## Installation order (inside `create_app`)
 
-The actual `add_middleware` call order (in `install_middleware`) is the
-**reverse** of execution order, because the first added wraps innermost:
-
-```python
-# Added first → executed last (closest to the app)
-app.add_middleware(CommitBeforeResponseMiddleware)
-app.add_middleware(MaintenanceMiddleware)
-app.add_middleware(RateLimitMiddleware, ...)
-app.add_middleware(InertiaLayoutDataMiddleware, ...)
-app.add_middleware(LocaleMiddleware, ...)
-
-if settings.multi_tenant:
-    app.add_middleware(TenantMiddleware, ...)
-
-for module in discovered_modules:
-    module.register_middleware(app)  # each module may add 0+ middleware
-
-app.add_middleware(InertiaMiddleware)  # wraps every module middleware
-
-app.add_middleware(SessionMiddleware, secret_key=...)
-app.add_middleware(SecurityHeadersMiddleware, ...)
-app.add_middleware(GZipMiddleware, minimum_size=...)
-app.add_middleware(BodyLimitMiddleware, ...)
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(CorrelationIdMiddleware)
-
-if settings.trusted_proxy:
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=...)
-# ForwardedHost is added after ProxyHeaders so it runs first (still sees the proxy peer)
-# Added last → executed first (outermost wrapper)
-```
+`create_app` installs the inner layers first and invokes each module's
+`register_middleware(app)` hook in dependency order. Host `customize(app)` runs
+with `app.state.sm` available, after all registration hooks. The framework then
+installs the outer layers, inserts middleware assigned to named stages and
+applies explicit replacements/disables. Starlette builds the ASGI stack on first
+use. With no declarations, the existing middleware classes, options and execution
+order are unchanged.
 
 ## Execution order (per request)
 
@@ -43,9 +19,13 @@ ForwardedHost               (only if SM_TRUSTED_PROXY and a forwarded-host allow
   ↓
 ProxyHeaders                (only if SM_TRUSTED_PROXY is set)
   ↓
+SentryContext               (only if Sentry is enabled)
+  ↓
 CorrelationId
   ↓
 RequestLogging
+  ↓
+ServerTiming                (development only)
   ↓
 CORS                        (preflights answered here, before auth / rate limit)
   ↓
@@ -55,19 +35,25 @@ GZip
   ↓
 SecurityHeaders
   ↓
+<before_session module middleware>
+  ↓
 Session
   ↓
 InertiaMiddleware           (303 / fragment 409 / empty-200 back / Vary / no-store)
   ↓
-<module middleware>        ← in whatever order each module installed them
+<default module middleware> (existing tier; includes Auth)
   ↓
-Tenant                      (only if SM_MULTI_TENANT=true)
+Tenant                      (multi_tenant, or fixed to default_tenant)
   ↓
 Locale
+  ↓
+<after_tenant module middleware>
   ↓
 InertiaLayoutData
   ↓
 RateLimit                   (429 for anonymous public-route traffic)
+  ↓
+Setup                       (first-run wizard takes precedence over maintenance)
   ↓
 Maintenance
   ↓
@@ -181,7 +167,7 @@ page's `frame-ancestors 'none'` is only weaker in browsers without CSP level 2.
 
 ### `SessionMiddleware`
 
-Starlette's built-in signed-cookie sessions. Cookie name is `session`; attributes are `HttpOnly`, `SameSite=Lax`. `SameSite=Lax` is the baseline CSRF defence: browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form submission from another origin is unauthenticated. Modules wanting defence in depth opt into the session-bound token check in `simple_module_hosting.csrf` — `RequiresCsrf` as a router dependency, `get_csrf_token(request)` exposed as a view prop, and callers echoing it as `X-CSRF-Token` on unsafe methods.
+The framework's wrapper around Starlette's signed-cookie sessions. Cookie name is `session`; attributes are `HttpOnly`, `SameSite=Lax`. `SameSite=Lax` is the baseline CSRF defence: browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form submission from another origin is unauthenticated. Modules wanting defence in depth opt into the session-bound token check in `simple_module_hosting.csrf` — `RequiresCsrf` as a router dependency, `get_csrf_token(request)` exposed as a view prop, and callers echoing it as `X-CSRF-Token` on unsafe methods.
 
 ### `TenantMiddleware` *(opt-in)*
 
@@ -256,9 +242,9 @@ Pure ASGI rather than `BaseHTTPMiddleware`, because the hook point is the `send`
 ## Inertia protocol responses
 
 `InertiaMiddleware` comes from `simple_module_inertia` and runs just inside
-`Session`, outside every module middleware, so it
-also normalises redirects a module middleware issues (an expired session's
-login redirect after a `DELETE`).
+`Session`, outside the default and after_tenant stages. It also normalises
+redirects issued by middleware in those stages (an expired session's login
+redirect after a `DELETE`).
 For requests carrying `X-Inertia`, it converts 302 and 307 redirects after
 PUT, PATCH, DELETE or QUERY into 303 responses. A redirect containing a
 `#fragment` becomes an empty 409 with `X-Inertia-Redirect`, except for
@@ -270,17 +256,129 @@ needs checking. A positive Content-Length or a streaming first chunk passes
 through immediately. Both Inertia and HTML responses receive `Vary: X-Inertia`;
 existing Vary fields are retained and matched without case sensitivity.
 
+## Module middleware stages
+
+The hook stays `register_middleware(self, app)`. Existing
+`app.add_middleware(...)` calls keep the default tier. To select a stage, use
+`add_middleware` from `simple_module_hosting` with the same constructor arguments
+as Starlette:
+
+```python
+from simple_module_hosting import add_middleware
+
+
+def register_middleware(self, app):
+    add_middleware(app, TenantAuditMiddleware, after="tenant")
+    # Equivalent: stage="after_tenant"
+```
+
+| Stage | Request position | Available context / intended use |
+| --- | --- | --- |
+| `before_session` | Inside SecurityHeaders, immediately outside Session | Correlation ID and body protection; transport work that must precede session loading. No session, user, tenant or locale yet. |
+| `default` (default) | Inside InertiaMiddleware, outside Tenant | Session; existing auth and module middleware. User availability depends on dependency order within this tier. |
+| `after_tenant` / `after="tenant"` | Inside Tenant **and Locale**, before InertiaLayoutData | Session, resolved user, `request.state.tenant_id`, tenant ContextVar and `request.state.locale`. Layout permissions/shared props have not resolved yet. |
+
+When Tenant is disabled, `after_tenant` still runs inside Locale; it does not
+create a tenant context. A resolved tenant may be `None`, including anonymous
+multi-tenant requests. Middleware must still honor tenant isolation.
+
+Use either `stage` or `after="tenant"`; unknown values and conflicting selectors
+raise `ValueError` at registration. The `before_session` stage sits outside the
+Inertia adapter, so a middleware that short-circuits there owns its response's
+protocol/cache semantics. Prefer `default` or `after_tenant` for page responses.
+All stages remain inside BodyLimit and SecurityHeaders.
+
 ## Module middleware ordering
 
-When two modules at the **same dependency tier** both call `app.add_middleware(...)` in their `register_middleware` hook, the framework invokes their hooks in topological order with a stable tiebreaker (module name). Because `add_middleware` is LIFO, the module that sorts **later** wraps its middleware **outermost** — so it runs **first** on the request.
+Hooks run in topological dependency order, with a stable module-name tiebreaker.
+**Within each stage**, Starlette's LIFO rule applies: middleware registered later
+wraps outermost and executes first on requests. Thus when `beta` depends on
+`alpha` and both register in `after_tenant`, requests run
+`Tenant → Locale → beta.mw → alpha.mw → InertiaLayoutData → … → app`.
+The response reverses that order. Multiple additions from one hook also use LIFO.
+Use `ModuleMeta.depends_on` for relative order; do not depend on names.
 
-Concretely, if modules `alpha` and `beta` both register middleware:
+## Replacing or disabling a layer
 
-- `alpha` runs first (alphabetical tiebreaker, no `depends_on`).
-- `beta.register_middleware` runs last, so its middleware is the outermost wrap.
-- On a request: `beta.mw → alpha.mw → tenant → locale → inertia → … → app`.
+Use the host's `customize(app)` callback, with helpers from
+`simple_module_hosting`. For example, `ServerSideSession` is a host-owned
+subclass of the framework's `SessionMiddleware` that implements server-side
+storage and accepts the original constructor options:
 
-If you need a specific relative order, express it with `ModuleMeta.depends_on`. **Do not rely on names** — another module could be installed tomorrow that sorts differently.
+```python
+from simple_module_hosting import disable_middleware, replace_middleware
+from simple_module_hosting.host import build_host_app
+from simple_module_hosting.session import SessionMiddleware
+from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
+
+
+def customize(app):
+    replace_middleware(
+        app,
+        SessionMiddleware,
+        Middleware(ServerSideSession, store=session_store),
+    )
+    disable_middleware(app, GZipMiddleware)
+
+
+app = build_host_app(__file__, customize=customize)
+```
+
+Targets are the exact installed class, not a string or a name match. This also
+works for a module-owned layer such as Auth without a framework import of that
+module. A replacement must be an explicit `starlette.middleware.Middleware`
+object naming a **subclass of the target**. This is a deliberate contract opt-in:
+subclassing does not prove its behavior, so the host must test its implementation
+against the original guarantees. An unrelated ASGI callable or `None` is refused.
+
+The replacement occupies the same position, keeps the target's positional and
+keyword arguments, and overlays explicitly supplied options (replacement
+positional arguments, when supplied, replace the originals). This preserves
+session secret/key-provider and environment-dependent `https_only` defaults,
+body/CORS registries, rate stores and security policy options. Replacements must
+accept these constructor arguments. A Session subclass may implement storage
+independently by overriding `__init__` and `__call__`.
+
+Every replacement must preserve its target's request/response contract:
+
+- **Session:** establish a mutable `scope["session"]` before HTTP/WebSocket
+  consumers; load, persist and clear it across requests using an unforgeable
+  cookie/session identifier. Honor expiry, remember-me and revocation state;
+  do not resurrect cleared sessions. Keep HttpOnly, SameSite=Lax (or stricter)
+  and the supplied `https_only` setting, since these underpin CSRF protection.
+  Preserve session-bound CSRF values and login's clearing/rotation behavior.
+  Tracking access/modification flags preserves cookieless public-file responses.
+- **SecurityHeaders:** preserve CSP/nonce handling, dynamic registered sources,
+  HSTS policy and the remaining security headers, including short circuits.
+- **BodyLimit:** enforce the registered per-path byte ceilings, including streams.
+- **RateLimit:** honor registered budgets, identity selection and error behavior.
+- **Auth (module-owned):** resolve principals and enforce public-route exemptions
+  and unauthenticated rejection before tenant/layout/route consumers.
+- Other layers retain their documented ASGI, context and response behavior,
+  especially tenancy, Inertia cache protection and commit-before-response.
+
+`disable_middleware` has a closed allowlist:
+
+| Allowed target | Why disabling is supported |
+| --- | --- |
+| `GZipMiddleware` | Compression only; a proxy can compress responses instead. |
+| `RequestLoggingMiddleware` | Observability only; the host can supply access logs. Correlation IDs remain. |
+| `ServerTimingMiddleware` | Development timing only; no request authorization or response protection. |
+
+**Every other target refuses disabling**, including Session, SecurityHeaders,
+BodyLimit, RateLimit and module Auth. Setup, Maintenance, Tenant and Inertia
+cannot be disabled through this API either; their existing settings and module
+selection semantics are unchanged. Replacing a layer requires the subclass
+contract above even for the three optional layers.
+
+Overrides must target exactly one installed layer. Missing targets raise
+`KeyError`; duplicate installed targets or multiple overrides of the same target
+raise `ValueError`. This includes requesting development-only ServerTiming in a
+testing/production app. Stage insertion and overrides are finalized after
+`customize`, before any request, so failures refuse app construction. The helpers
+refuse later changes with `RuntimeError`; configure each app separately. Direct
+mutation of `app.user_middleware` is not the supported override API.
 
 ## Writing a module middleware
 

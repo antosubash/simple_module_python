@@ -18,6 +18,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Module middleware can target `before_session`, `default` or `after_tenant` stages (`after="tenant"` runs inside Tenant and Locale). Host `customize(app)` can replace middleware with an explicit subclass implementation while retaining its position and constructor defaults. Only GZip, RequestLogging and ServerTiming can be disabled; security layers refuse disabling. Existing hook signatures and the default pipeline remain unchanged (#955).
+
 - One frontend extension registry discovers module `ui/extensions.ts(x)` entries and runs registrations before app startup. Modules can contribute ordered, permission-aware user edit panels and tenant settings sections, replace the user menu/topbar, add navigation icons, and register settings controls selected by a field's `control` hint. Existing defaults remain unchanged without registrations (#956, #957, #966).
 
 - Registries expose explicit public-route removal, code role-grant revocation, rate-rule and resource-type replacement, event unsubscription/durable rebinding, and shared Inertia prop replacement. Both app factories accept `customize(app)` after all module registration hooks and before outer middleware assembly. Code revocation leaves explicit DB grants intact; ordinary additions keep their existing behavior (#954).
