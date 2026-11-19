@@ -1,11 +1,14 @@
 # Publishing simple_module_python
 
-This repo publishes **22 Python packages** to PyPI and **3 JS packages** to npm in one lockstep version bump. Releases are driven entirely from GitHub Actions — no tokens live on your laptop.
+This repo publishes **22 Python packages** to PyPI and **4 JS packages** to npm in one lockstep version bump. Releases are driven entirely from GitHub Actions — no tokens live on your laptop.
 
 - **Python packages** (`simple_module_*`) → [pypi.org](https://pypi.org)
 - **JS packages** (`@simple-module-py/*`) → [npmjs.com](https://www.npmjs.com)
 - **Auth**: OIDC Trusted Publishing on both PyPI and npm — no long-lived tokens
 - **Entry point**: Actions → `release` → Run workflow
+
+The Vite plugin ships compiled JavaScript and declarations. The release build
+installs npm tooling before packing; the workspace prepare hook builds the plugin.
 
 ## TL;DR — already set up? Cut a release in 3 clicks
 
@@ -49,7 +52,7 @@ npm publishes also use OIDC Trusted Publishing (no `NPM_TOKEN` secret). On
 
 1. Sign in as the owner.
 2. Create the `@simple-module-py` organization (Settings → "Create a new organization"). This is a one-time step.
-3. For *each* of the 3 npm packages (`@simple-module-py/ui`, `/i18n`, `/tsconfig`), open the package's **Settings → Trusted Publisher** page and add a GitHub Actions publisher:
+3. For *each* of the 4 npm packages (`@simple-module-py/ui`, `/i18n`, `/tsconfig`, `/vite-plugin`), open the package's **Settings → Trusted Publisher** page and add a GitHub Actions publisher:
    - **Repository**: `antosubash/simple_module_python`
    - **Workflow filename**: `release.yml`
    - **Environment**: `npm`
@@ -87,7 +90,7 @@ Both should pass locally. CI should be green on every PR into `main`.
 
 ### Step 2. Pick a version
 
-Every workspace package bumps in lockstep to the same version — `scripts/bump_version.py` walks every `framework/*`, `modules/*`, and `packages/*` manifest. The 22 PyPI + 3 npm packages are then published. We follow a relaxed SemVer during the 0.x phase:
+Every workspace package bumps in lockstep to the same version — `scripts/bump_version.py` walks every `framework/*`, `modules/*`, and `packages/*` manifest. The 22 PyPI + 4 npm packages are then published. We follow a relaxed SemVer during the 0.x phase:
 
 | Situation | Input |
 |---|---|
@@ -115,7 +118,7 @@ What happens:
 - `resolve` computes the final version and shares it with every downstream job.
 - `checks` calls `pr.yml` (`workflow_call`) on the dispatched commit, so the `pr-checks` aggregate must be green. `build` needs it: nothing is built or published from a red commit.
 - `preflight` checks every PyPI matrix project via `https://pypi.org/pypi/<name>/json`. Both publish jobs require it. A 404 blocks publishing unless that exact package name is listed in **pending_publishers**. Unconfirmed absent projects are listed with a pointer to this guide; other registry errors always block publishing. The public API cannot verify Trusted Publisher configuration or see pending publishers, so this input is your confirmation that each listed project has a correctly configured pending publisher. Its first upload through this workflow creates the project.
-- `build` rewrites every version, runs `uv build --all-packages` (a wheel + sdist for every buildable workspace package) plus the 3 npm tarballs, and uploads them as artifacts.
+- `build` rewrites every version, runs `uv build --all-packages` (a wheel + sdist for every buildable workspace package) plus the 4 npm tarballs, and uploads them as artifacts.
 - `publish-pypi` fans out 22 parallel jobs (the matrix package list), each filtering the artifact set down to one package and publishing its wheel+sdist pair via OIDC Trusted Publishing. Existing distributions are skipped using the publish action’s `skip-existing` option, so a retry can fill in a missing wheel or sdist.
 - `publish-npm` fans out 3 parallel jobs publishing `@simple-module-py/*` tarballs via OIDC Trusted Publishing. Each job verifies the tarball's `package.json` is actually scoped to `@simple-module-py/*` before invoking `npm publish`. It queries the exact version from the tarball: HTTP 200 skips it, 404 publishes it, and any other HTTP or network error fails the job.
 - `finalize` re-applies the bump (the shared `.github/actions/bump-version` action, also used by `build`), cuts the CHANGELOG, commits `release: vX.Y.Z` and tags that commit (so the tag is exactly the published source), merges the latest `origin/main` into it, then pushes main and the tag atomically. Unrelated merges are preserved and the tag stays an ancestor of main; a merge conflict or rejected push stops finalization without partially updating the remote refs. Packages have already been published at this point; resolve the failure and re-run failed jobs.

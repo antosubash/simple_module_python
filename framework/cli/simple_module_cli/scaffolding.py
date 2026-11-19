@@ -214,9 +214,7 @@ def create_module(
     for ``make new-module`` and implies no ``.github/``. Wiring the repo's
     pyproject files is :mod:`simple_module_cli.framework_repo`'s job.
 
-    ``standalone=True`` overlays pages with literal English: the base pages use
-    ``t(keys.<package>.…)``
-    (GH #918), and a module repo has no host whose ``gen-i18n`` adds its keys.
+    Every layout ships portable module-local translation keys (#958).
     """
     dest = Path(dest)
     existed_before = dest.exists()
@@ -269,7 +267,6 @@ def create_module(
         # Explicit roots render optional overlays skipped by the base pass.
         for overlay, enabled in (
             ("settings", with_settings),
-            ("standalone", standalone),
             ("framework_repo", framework_repo),
         ):
             if enabled:
@@ -279,6 +276,12 @@ def create_module(
                     substitutions=substitutions,
                     path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
                 )
+        from simple_module_hosting._i18n_modules import write_module_keys
+
+        write_module_keys(
+            {package_name: dest / package_name / "locales"},
+            dest / package_name / "pages/i18n.generated.ts",
+        )
         if not standalone:
             shutil.rmtree(dest / ".github", ignore_errors=True)
         if _should_pin_framework_version(framework_version):

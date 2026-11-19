@@ -42,7 +42,7 @@ gen:
 gen-pages:
 	uv run --project host smpy host gen-pages --host-dir=host/client_app
 
-# Regenerate packages/i18n/src/{generated-resources,keys.generated}.ts from every
+# Regenerate app-owned, module-local and central compatibility i18n files from every
 # installed module's locales/, plus host/locales and the hosting package's ui_locales — without
 # booting the app. Pass flags with ARGS, e.g. `make gen-i18n ARGS=--allow-removals`.
 gen-i18n:
@@ -186,11 +186,11 @@ ci-docs-build:
 # Compares content before/after regeneration rather than `git diff`, so a locally
 # regenerated-but-unstaged file passes and a stale one fails (CI checks out clean).
 ci-i18n-fresh:
-	@before=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
+	@before=$$(find packages/i18n/src modules host/client_app/i18n -type f \( -name '*generated.ts' -o -name 'generated-resources.ts' \) | sort | xargs cat | sha256sum); \
 	uv run --project host python scripts/gen_i18n.py || exit 1; \
-	after=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
+	after=$$(find packages/i18n/src modules host/client_app/i18n -type f \( -name '*generated.ts' -o -name 'generated-resources.ts' \) | sort | xargs cat | sha256sum); \
 	if [ "$$before" != "$$after" ]; then \
-		echo "packages/i18n/src was stale and has been regenerated: run 'make gen-i18n' and commit the result"; \
+		echo "i18n files were stale and have been regenerated: run 'make gen-i18n' and commit the result"; \
 		exit 1; \
 	fi
 

@@ -590,10 +590,10 @@ Declare the sibling in the Python module dependencies so discovery orders it
 correctly. No npm peer declaration is required. The alias resolves to source
 and is excluded from pre-bundling.
 
-Note this is the one part of module frontend wiring that *does* depend on the
-host's `vite.config.ts`, because the import lives in your source rather than in
-a generated file. Apps scaffolded before this shipped need the alias block added
-— see the CHANGELOG entry for the diff.
+The versioned `@simple-module-py/vite-plugin` reads the generated asset manifest
+and configures aliases for both JS and CSS. Upgrade the package with the rest of
+the framework to receive resolver fixes. Older copied Vite configs continue to
+work; adopt the plugin using the [migration guide](frontend/module-tooling-migration.md).
 
 ## Styling
 

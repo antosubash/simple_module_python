@@ -28,10 +28,9 @@ same `create_module` as `uv run smpy create-module`, so both produce the same tr
 below (permissions, menu item with `label_key`, `core/constants.py`, CRUD sample,
 `locales/en.json`); the in-repo variant adds workspace-sourced `pyproject.toml`
 metadata and a `LICENSE`. The pages read their text from `locales/en.json`
-through `t(keys.<module>.…)`; the host's `make gen-i18n` (also run by
-`make install` and each dev boot) adds the module to `keys`. A `--standalone`
-module repo gets pages with literal English instead, since it has no host to
-generate `keys`. For a **standalone publishable
+through `t(keys.<module>.…)` using the module-local generated keys. Both in-app
+and standalone scaffolds ship these typed keys; generation refreshes editable
+module catalogs without rewriting installed npm packages. For a **standalone publishable
 package** (its own repo, with CI + PyPI `publish.yml`), use
 `uv run smpy create-module orders`; pass `--standalone` to force the `.github/`
 workflows, then `uv sync` (or `pip install -e ./orders`) to install it into the

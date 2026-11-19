@@ -25,6 +25,7 @@ from pathlib import Path
 from simple_module_core import ModuleBase, get_module_package_name
 
 from simple_module_hosting._generated_files import _write_if_changed
+from simple_module_hosting._i18n_target import app_i18n_import
 from simple_module_hosting.admin_surfaces import render_admin_surfaces
 from simple_module_hosting.assets import (
     compute_module_assets,
@@ -192,7 +193,7 @@ def write_module_pages_manifest(
         lines.append(f"  {json.dumps(name)}: {glob},")
     lines.append("};")
     lines.append("")
-    generated_text = "\n".join(lines)
+    generated_text = app_i18n_import(output_dir) + "\n".join(lines)
 
     # Rendered from the richer asset record rather than pages_map, so that a
     # module shipping CSS but no pages/ still contributes its stylesheets.

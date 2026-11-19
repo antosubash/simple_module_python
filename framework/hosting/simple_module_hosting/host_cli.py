@@ -109,9 +109,9 @@ def gen_i18n(
 ) -> None:
     """Regenerate the typed i18n key files (keys.generated.ts) without booting the app.
 
-    Writes into packages/i18n/src in the monorepo, else into the installed
-    @simple-module-py/i18n package under node_modules. Fails loudly if neither
-    exists, unless --skip-if-missing is set.
+    Writes app-owned aggregates and editable module-local keys. The framework
+    repo also retains its central compatibility exports. Installed npm packages
+    are never rewritten. Requires an i18n install unless --skip-if-missing is set.
     """
     from simple_module_hosting._project_root import resolve_project_root
     from simple_module_hosting.i18n_manifest import (
