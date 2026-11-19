@@ -24,6 +24,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from simple_module_hosting._error_negotiation import _wants_json
 from simple_module_hosting._request_guard_responses import send_guard_response
+from simple_module_hosting._request_policy import request_policy
 
 logger = logging.getLogger("simple_module.request_guard")
 
@@ -50,7 +51,9 @@ class BodyLimitMiddleware:
         override = None
         if self.registry is not None:
             override = self.registry.limit_for(scope["method"], scope["path"], scope.get("app"))
-        return self.max_bytes if override is None else override
+        policy = request_policy(scope)
+        default = self.max_bytes if policy is None else policy.max_bytes
+        return default if override is None else override
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":

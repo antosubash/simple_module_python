@@ -1,6 +1,6 @@
 """Owner- and resource-scoped task status (#536, #709).
 
-Mounted apart from the admin router because it carries no ``PERM_VIEW`` gate:
+Mounted apart from the admin router because it carries no ``Permissions.VIEW`` gate:
 owners and resource viewers may follow a job without being task operators. It
 is marked ``Authenticated()`` (SM031); the visibility check lives in the
 handler, and every refusal is a 404 so the route does not reveal which task
@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from background_tasks.contracts.schemas import TaskStatusDTO
-from background_tasks.core.constants import MODULE_NAME, PERM_VIEW, STATUS_ROUTER_PREFIX
+from background_tasks.core.constants import MODULE_NAME, STATUS_ROUTER_PREFIX, Permissions
 from background_tasks.models import TaskExecution, dto_columns, newest_first
 
 router = APIRouter(prefix=STATUS_ROUTER_PREFIX, tags=[f"{MODULE_NAME}-status"])
@@ -34,7 +34,7 @@ _NOT_FOUND = "Task not found"
 
 
 async def _visible(request: Request, row: TaskExecution, user_id: str, db: RequestSession) -> bool:
-    if grants(await ensure_resolved_permissions(request), PERM_VIEW):
+    if grants(await ensure_resolved_permissions(request), Permissions.VIEW):
         return True
     if bool(getattr(request.app.state.sm.settings, "multi_tenant", False)):
         tenant_id = current_tenant_id.get()

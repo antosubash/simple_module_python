@@ -161,23 +161,26 @@ def test_background_tasks_adds_worker_services_on_same_image(tmp_path: Path) -> 
     assert not (target / "docker" / "worker.Dockerfile").exists()
 
 
-def test_app_service_gets_broker_urls_with_background_tasks(tmp_path: Path) -> None:
+@pytest.mark.parametrize("db", ["sqlite", pytest.param("postgres", id="pg")])
+def test_services_get_one_redis_url_with_background_tasks(tmp_path: Path, db: str) -> None:
     # BackgroundTasksSettings fails production boot on a localhost broker,
     # so the *app* container needs the compose-network broker too.
     yaml = pytest.importorskip("yaml")
     target = tmp_path / "demo"
-    _create(target, selected=["users", "background_tasks"])
+    _create(target, selected=["users", "background_tasks"], db=db)
     data = yaml.safe_load((target / "docker-compose.yml").read_text())
-    app_env = data["services"]["app"]["environment"]
-    assert app_env["SM_BG_TASKS_BROKER_URL"] == "redis://redis:6379/0"
-    assert app_env["SM_BG_TASKS_RESULT_BACKEND"] == "redis://redis:6379/1"
+    for name in ("app", "worker", "beat"):
+        env = data["services"][name]["environment"]
+        assert env["SM_REDIS_URL"] == "redis://redis:6379/0"
+        assert "SM_BG_TASKS_BROKER_URL" not in env
+        assert "SM_BG_TASKS_RESULT_BACKEND" not in env
     # ...and a plain app must not carry background-tasks config.
     plain = tmp_path / "plain"
     _create(plain)
     plain_env = yaml.safe_load((plain / "docker-compose.yml").read_text())["services"]["app"][
         "environment"
     ]
-    assert "SM_BG_TASKS_BROKER_URL" not in plain_env
+    assert "SM_REDIS_URL" not in plain_env
 
 
 def test_compose_parses_as_yaml_in_every_shape(tmp_path: Path) -> None:

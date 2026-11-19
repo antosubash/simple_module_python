@@ -61,26 +61,26 @@ class TestNpmNameDiscovery:
             json.dumps({"name": "totally-unrelated"}), encoding="utf-8"
         )
 
-        assert compute_module_assets([mod])[0].npm_name is None
+        assert compute_module_assets([mod])[0].npm_name == "@simple-module-py/stray-mod"
 
     async def test_module_without_package_json(self, make_importable_module):
-        """A Python-only module contributes no npm identity — and must not crash."""
+        """A module without JS config derives its alias from its Python package."""
         from simple_module_hosting.assets import compute_module_assets
 
         mod, pkg = make_importable_module("nojs_mod", "NoJs")
         (pkg / "styles.css").write_text(".z { color: red; }\n", encoding="utf-8")
 
-        assert compute_module_assets([mod])[0].npm_name is None
+        assert compute_module_assets([mod])[0].npm_name == "@simple-module-py/nojs-mod"
 
     async def test_malformed_package_json_is_ignored(self, make_importable_module):
-        """A broken package.json degrades to "no npm name", never to a boot failure."""
+        """A broken package.json falls back to the Python package identity."""
         from simple_module_hosting.assets import compute_module_assets
 
         mod, pkg = make_importable_module("broken_mod", "Broken")
         (pkg / "pages").mkdir()
         (pkg / "package.json").write_text("{not json", encoding="utf-8")
 
-        assert compute_module_assets([mod])[0].npm_name is None
+        assert compute_module_assets([mod])[0].npm_name == "@simple-module-py/broken-mod"
 
 
 class TestNpmAliasContract:

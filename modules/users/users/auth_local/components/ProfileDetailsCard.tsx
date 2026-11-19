@@ -8,7 +8,7 @@ import { apiResult } from '@simple-module-py/ui/lib/api';
 import { initials } from '@simple-module-py/ui/lib/initials';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { failureMessage } from '../../ui/utils/failureMessage';
 import type { ProfileUser } from './profile-user';
 

@@ -1,8 +1,8 @@
 # Hi-Fi deck gap analysis — auth-screens-02-07
 
-> **Superseded:** Guidance below to implement `get_public_paths()` is obsolete. Use
-> `ModuleBase.register_public_routes` and the method-aware `PublicRouteRegistry`;
-> see [Public routes](../../../framework/public-routes.md). The legacy shim is removed in 0.1.0.
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
 
 Generated 2026-09-02 from the cached deck (fetched 2026-08-19) vs main @ a8ab6bb. Read-only findings; decisions live in ../2026-09-03-hifi-pages-design.md.
 

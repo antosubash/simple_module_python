@@ -1,5 +1,9 @@
 # Admin User CRUD Implementation Plan
 
+> **Permission API update (#1037):** Current guards use `Permissions.MANAGE`
+> from `users.core.constants`. The `PERM_USERS_MANAGE` alias in this historical
+> plan is deprecated for removal in 0.0.50.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let an admin create, edit, and delete users directly from the `/users/admin` page (today it can only invite).

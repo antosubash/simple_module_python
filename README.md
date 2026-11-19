@@ -31,8 +31,8 @@ Inside the app, use its own CLI with `uv run smpy …`:
 | Command | What it does |
 |---|---|
 | `uv run smpy add <spec>` | Add a module from PyPI, a `git+` URL or a local path |
-| `uv run smpy create-module <name>` | Scaffold a publishable module package |
-| `uv run smpy update` / `package-update` | Update git-sourced modules / the `simple_module_*` pins |
+| `uv run smpy create-module <name>` | Scaffold a module; wire and install it inside an app workspace |
+| `uv run smpy update` | Update PyPI/git framework and module pins, sync lockfiles and generate |
 | `uv run smpy users create-admin` | Create (or with `--force`, reset) an admin |
 | `uv run smpy doctor` | Check installed modules and database compatibility |
 | `uv run smpy skills add` | Install the agent skills for this framework into the project |
@@ -186,8 +186,8 @@ docs/          # VitePress site: guide, framework, database, frontend, testing, 
 
 | Command | What it does |
 |---|---|
-| `make install` | Install Python (`uv sync --all-packages`) and JS (`npm install`) deps |
-| `make dev` | Shared Docker stack + `gen-pages` + API and Vite dev servers |
+| `make install` | Install Python (`uv sync --all-packages`) and JS (`npm install`) deps, then run `smpy gen` |
+| `make dev` | Shared Docker stack + `smpy dev`: generation, API (:8000) and Vite (first free port from 5050) |
 | `make dev-api` / `make dev-ui` | Just the API (:8000, reloads on `.py` and locale changes) / just Vite (:5050) |
 | `make test` | `make test-py` (pytest, parallel) then `make test-js` (Vitest) |
 | `make test-py-pg` | The pytest suite on Postgres |
@@ -196,10 +196,11 @@ docs/          # VitePress site: guide, framework, database, frontend, testing, 
 | `make doctor` | Module diagnostics (`SM0xx`): orphan pages, render mismatches, coupling, migration drift, locale drift, … |
 | `make migrate` | Apply pending Alembic migrations (`upgrade heads`) |
 | `make migration LABEL=<label> msg="..."` | Autogenerate a migration on one branch of the history |
+| `make gen` | Incrementally prepare pages, i18n keys, module JS dependencies and API types |
 | `make gen-pages` / `gen-i18n` / `gen-api-types` | Regenerate the page manifest / i18n keys / typed API clients |
 | `make new-module name=<name>` | Scaffold a new module |
 | `make worker` / `make beat` | Celery worker / beat for `background_tasks` |
-| `make kill` | Stop any running dev servers (ports 8000, 5050, 5173) |
+| `make kill` | Print stop guidance: Ctrl-C or SIGTERM the `smpy dev` supervisor to clean up its children |
 | `make docker-build` / `docker-app` | Build the default app image / run it standalone on port 8000 |
 | `make docker-up` / `docker-down` | `docker-up` brings up the shared dev-services stack (Postgres/Redis/MinIO); `docker-down` stops only this repo's worker/beat (SQLite needs no Docker) |
 
@@ -322,7 +323,7 @@ Turn on **Allow signup** in the Users settings at `/admin/settings/`; the `/user
 
 ### Switching to SMTP
 
-Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Users only needs its public link base: set `base_url` (default `http://localhost:8000`) in the Users settings at `/admin/settings/`. The users module no longer reads `SM_USERS_BASE_URL`.
+Outgoing mail is configured in the `mail` module (admin UI at `/admin/settings/`, under Mail), not through `SM_USERS_*` variables. Blank `users.base_url` (the default) inherits `host.public_base_url`; an explicit Users origin overrides it. Set the host origin in Settings or through `SM_PUBLIC_BASE_URL`. When both origins are blank, copied links remain relative and account emails are skipped with an ERROR log naming the setting to configure. Public reset and verification responses stay the same for existing and unknown addresses. The users module no longer reads `SM_USERS_BASE_URL`.
 
 ## Architecture
 

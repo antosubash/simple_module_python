@@ -90,17 +90,20 @@ a round trip on an open socket, not a connect.
 
 
 class RedisInvalidationTransport:
-    """Publishes to, and listens on, one Redis pub/sub channel.
+    """Publishes and listens on a channel plus an optional rolling-upgrade bridge.
 
     Satisfies ``simple_module_core.invalidation.InvalidationTransport``
     structurally — no import of the Protocol at runtime, so this file costs
     nothing when the bus is unused.
     """
 
-    def __init__(self, bus: InvalidationBus, url: str, channel: str) -> None:
+    def __init__(
+        self, bus: InvalidationBus, url: str, channel: str, *, legacy_channel: str | None = None
+    ) -> None:
         self._bus = bus
         self._url = url
         self._channel = channel
+        self._channels = tuple(dict.fromkeys(c for c in (channel, legacy_channel) if c))
         self._client = None
         self._listener: asyncio.Task | None = None
         self._warned = False
@@ -142,7 +145,8 @@ class RedisInvalidationTransport:
         if self._client is None:
             raise RuntimeError("RedisInvalidationTransport.start() was not called")
         async with asyncio.timeout(PUBLISH_TIMEOUT_SECONDS):
-            await self._client.publish(self._channel, message)
+            for channel in self._channels:
+                await self._client.publish(channel, message)
 
     async def stop(self) -> None:
         """Cancel the listener and close the client."""
@@ -175,7 +179,7 @@ class RedisInvalidationTransport:
             try:
                 pubsub = self._client.pubsub()
                 async with asyncio.timeout(SUBSCRIBE_TIMEOUT_SECONDS):
-                    await pubsub.subscribe(self._channel)
+                    await pubsub.subscribe(*self._channels)
                 await self._warm_publish_connection()
                 if self._warned:
                     logger.info("Invalidation listener reconnected to %r", self._channel)

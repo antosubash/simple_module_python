@@ -9,8 +9,8 @@ any token, whatever it was scoped to.
 
 So the rule is fail-closed and decided per route, from its dependency tree:
 
-* A route whose tree holds a **permission gate** (``RequiresPermission``, the
-  auth module's ``require_permission``) admits tokens — the gate, capped at
+* A route whose tree holds a **permission gate** (``RequiresPermission`` or
+  another explicitly marked permission gate) admits tokens — the gate, capped at
   the token's scopes, is what decides.
 * A **page** route (anything rendering through Inertia, and every route on a
   module's view router) refuses tokens even when gated: tokens are API
@@ -27,8 +27,8 @@ So the rule is fail-closed and decided per route, from its dependency tree:
 
 Installed once as an app-wide dependency by ``create_app``, so it covers every
 ``APIRoute`` — module routers, host routes and framework routes alike. Gates
-mark themselves with :data:`TOKEN_GATE_ATTR` (duck-typed, so the auth
-module's ``require_permission`` can mark itself without framework code
+mark themselves with :data:`TOKEN_GATE_ATTR` (duck-typed, so module-owned
+permission dependencies can mark themselves without framework code
 importing a module — SM009). An unscoped principal (a browser session, an
 identity provider's bearer token) is never affected.
 """

@@ -24,8 +24,8 @@ def check_settings_registration(app: FastAPI, modules: list) -> list[Diagnostic]
     """SM012: warn if a module overrides register_settings but added nothing to app.state.
 
     Must run after Phase 4 (register_settings) and therefore can't join the
-    Phase 2 diagnostics pass; returning a list lets the caller route it through
-    the same ``print_diagnostics`` sink.
+    Phase 2 diagnostics pass; the caller retains these findings for Doctor and
+    the serving process's startup report.
     """
     diagnostics: list[Diagnostic] = []
     for mod in modules:

@@ -6,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import delete, select
 from tenants.models import Membership, Tenant
+from tenants.resolution.resolver import forget
 from tenants.web.endpoints.api import router
 
 
@@ -65,20 +66,22 @@ async def test_members_api_rejects_invalid_pagination(tenant_client, query):
 
 
 async def test_empty_roster_and_lenient_page_parameters(app, tenant_client):
-    async with tenant_client("owner") as (client, tenant_id, _):
+    async with tenant_client("owner") as (client, tenant_id, user_id):
         props = (
             await client.get(
                 "/tenants/members?page=oops&per_page=-1", headers={"X-Inertia": "true"}
             )
         ).json()["props"]
         assert props["pagination"] == {"page": 1, "per_page": 1, "total": 1}
-        # Keep the already-authorized request's membership cache warm to exercise
-        # an empty roster independently of the tenant access gate.
+        # A raw DB delete keeps the existing membership cache warm until invalidated.
         async with app.state.sm.db.session_factory() as db:
             await db.execute(delete(Membership).where(Membership.tenant_id == tenant_id))
             await db.commit()
-        data = (await client.get("/api/tenants/current/members?page=999")).json()
-        assert data == {"items": [], "total": 0, "page": 1, "per_page": 25, "pages": 1}
+        response = await client.get("/api/tenants/current/members?page=999")
+        assert response.status_code == 200
+        assert response.json() == {"items": [], "total": 0, "page": 1, "per_page": 25, "pages": 1}
+        forget(user_id)
+        assert (await client.get("/api/tenants/current/members?page=999")).status_code == 403
 
 
 def test_members_openapi_preserves_typed_items():

@@ -26,6 +26,7 @@ class RoleOut(SQLModel):
 
     id: uuid.UUID
     name: str
+    label: str = ""
     description: str | None = None
 
 
@@ -57,6 +58,7 @@ class UserPermissionsOut(SQLModel):
 
     user: UserOut
     roles: list[str]
+    roles_known: bool = True
     direct: list[str]
     """Keys granted directly to this user."""
     inherited: list[str]

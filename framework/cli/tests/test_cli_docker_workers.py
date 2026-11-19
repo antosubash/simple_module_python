@@ -78,6 +78,9 @@ def test_generated_worker(project, monkeypatch):
     assert 'SM_BG_TASKS_INCLUDE_MODULES: "geo,other"' in service
     assert "    # Worker queue override\n" in service
     env = yaml.safe_load(service)["services"]["worker-geo"]["environment"]
+    assert env["SM_REDIS_URL"] == "redis://redis:6379/0"
+    assert "SM_BG_TASKS_BROKER_URL" not in env
+    assert "SM_BG_TASKS_RESULT_BACKEND" not in env
     for key in ("SM_BG_TASKS_WORKER_QUEUES", "SM_BG_TASKS_INCLUDE_MODULES"):
         monkeypatch.setenv(key, env[key])
     monkeypatch.delenv("SM_BG_TASKS_EXCLUDE_MODULES", raising=False)

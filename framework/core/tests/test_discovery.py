@@ -144,7 +144,9 @@ class _FakeEntryPoint:
 
     def __init__(self, name: str, target):
         self.name = name
+        self.value = "example.module:Module"
         self._target = target
+        self.dist = None
 
     def load(self):
         return (

@@ -16,6 +16,7 @@ export {
 export { SectionTitle } from './components/SectionTitle';
 export { SegmentedControl, type SegmentedOption } from './components/SegmentedControl';
 export { StatCard } from './components/StatCard';
+export * from './extensions';
 export { useApiErrorToast } from './hooks/use-api-error-toast';
 export { useOnline } from './hooks/use-online';
 export { useRelativeTime } from './hooks/use-relative-time';
@@ -26,6 +27,7 @@ export { AppLayout } from './layouts/AppLayout';
 export { AuthCardShell } from './layouts/AuthCardShell';
 export { AuthenticatedLayout } from './layouts/AuthenticatedLayout';
 export { AuthSplitAside } from './layouts/AuthSplitAside';
+export { LayoutComponentsProvider } from './layouts/LayoutComponentsProvider';
 export { PublicLayout } from './layouts/PublicLayout';
 export { SidebarLayout } from './layouts/SidebarLayout';
 export {

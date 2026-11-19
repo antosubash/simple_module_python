@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.resources
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
@@ -33,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 class FileStorageModule(ModuleBase):
+    permissions = constants.Permission
+
     meta = ModuleMeta(
         name=constants.MODULE_PASCAL,
         route_prefix=constants.ROUTE_PREFIX_API,
@@ -57,7 +57,7 @@ class FileStorageModule(ModuleBase):
             lambda s: FileStorageServices(settings=s),
         )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from file_storage.core.tenant_deletion import register_tenant_deletion
 
         register_tenant_deletion(bus, app)
@@ -131,17 +131,8 @@ class FileStorageModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            constants.MODULE_DISPLAY_NAME,
-            [
-                constants.Permission.UPLOAD,
-                constants.Permission.DOWNLOAD,
-                constants.Permission.DELETE,
-                constants.Permission.MANAGE,
-            ],
-            label_key=f"{constants.LOCALE_NAMESPACE}.permission_group",
-        )
-        read_write = [constants.Permission.UPLOAD, constants.Permission.DOWNLOAD]
+        super().register_permissions(registry)
+        read_write: list[str] = [constants.Permission.UPLOAD, constants.Permission.DOWNLOAD]
         # Deleting is an organisation-admin act (#383). The platform ``user``
         # role used to carry it too, which — every account holds ``user`` —
         # would hand it straight back to each tenant member.
@@ -189,10 +180,6 @@ class FileStorageModule(ModuleBase):
                 default_enabled=False,
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {constants.LOCALE_NAMESPACE: base}
 
     async def on_startup(self, app: FastAPI) -> None:
         """Build the storage backend and probe its backing resource.

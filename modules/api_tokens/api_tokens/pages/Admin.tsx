@@ -3,7 +3,6 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { InlineBanner } from '@simple-module-py/ui/components/InlineBanner';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Button } from '@simple-module-py/ui/components/ui/button';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { Building2, Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -14,7 +13,7 @@ import { TokenPagination } from '../ui/components/TokenPagination';
 import { TokenTable } from '../ui/components/TokenTable';
 import { useTokenActions } from '../ui/components/useTokenActions';
 import type { CreatePayload, TokenFormProps } from '../ui/types';
-import { api, csrfHeaders } from './api';
+import { api } from './api.generated';
 
 interface Props extends TokenFormProps {
   roles: string[];
@@ -28,14 +27,12 @@ function Admin(props: Props) {
   // An audit-log link lands here as ?token=<id>; mark that row.
   const highlightId =
     typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('token');
-  const headers = csrfHeaders(props.csrf_token);
   const actions = useTokenActions({
-    create: (body) => apiResult(api.POST('/api/api_tokens/admin/service-keys', { body, headers })),
+    create: (body) => apiResult(api.POST('/api/api_tokens/admin/service-keys', { body })),
     revoke: (id) =>
       apiResult(
         api.POST('/api/api_tokens/admin/tokens/{token_id}/revoke', {
           params: { path: { token_id: id } },
-          headers,
         }),
       ),
   });
@@ -97,5 +94,4 @@ function Admin(props: Props) {
   );
 }
 
-Admin.layout = [AdminLayout];
 export default Admin;

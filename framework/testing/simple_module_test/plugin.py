@@ -50,14 +50,19 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_load_initial_conftests(early_config, parser, args) -> None:
-    """Give each xdist worker its own Postgres database.
+    """Isolate configuration and give each xdist worker its own Postgres database.
 
     Every Postgres test drops and recreates ``public``. This runs before any
     conftest is imported (``pytest_configure`` runs after), so a conftest or
     test helper that reads the URL at import time already sees the worker's.
     """
+    from simple_module_test._dotenv import isolate_project_dotenv
     from simple_module_test.database import isolate_worker_database
 
+    isolate_project_dotenv(early_config)
+    if not any(arg == "--import-mode" or arg.startswith("--import-mode=") for arg in args):
+        args.insert(0, "--import-mode=importlib")
+        early_config.known_args_namespace.importmode = "importlib"
     isolate_worker_database()
 
 

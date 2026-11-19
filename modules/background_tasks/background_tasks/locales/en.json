@@ -51,8 +51,8 @@
   },
   "detail": {
     "head_title": "Task detail",
-    "description": "execution {id} · attempt {attempt} of {max}",
-    "attempt": "attempt {attempt} of {max}",
+    "description": "execution {id} · attempt {attempt}",
+    "attempt": "attempt {attempt}",
     "back_button": "Back to executions",
     "retry_button": "Retry task",
     "meta": "Details",

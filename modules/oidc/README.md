@@ -154,7 +154,6 @@ and tenant-claim trust read the live settings state.
 | `email_claim` | `email` | Display email; only generic OIDC literal `email_verified=true` attests ownership. Entra never attests it. |
 | `roles_claim_path` | `roles` for Entra, otherwise empty | Dotted claim path to role list. |
 | `role_mapping` | admin/user map to themselves | External roles to application roles; `tenant:*` roles are filtered on login and restored sessions. |
-| `login_redirect_url` | `/dashboard/` | Blank values normalize to the default. Saved deep links must be local paths. |
 | `jwks_cache_ttl_seconds` | 3600 | Last-good signing keys retained on outage; unknown keys share a 30-second fetch cooldown. |
 
 ## Login, sessions and logout
@@ -200,3 +199,7 @@ Alternatively scope active modules with `SM_MODULES_ENABLED`.
 
 See [the full configuration reference](../../docs/modules/oidc.md)
 for every setting, its environment support, tenancy policy and deployment limits.
+
+Post-login destinations use `host.login_redirect_url` for every provider. The
+default `/dashboard/` falls back to the first other view when Dashboard is absent,
+then `/`. Old per-provider redirect rows are ignored quietly.

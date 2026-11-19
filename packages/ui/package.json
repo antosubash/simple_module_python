@@ -22,6 +22,10 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
+    "./extensions": {
+      "types": "./src/extensions.tsx",
+      "default": "./src/extensions.tsx"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
@@ -33,6 +37,10 @@
     "./components/*": {
       "types": "./src/components/*.tsx",
       "default": "./src/components/*.tsx"
+    },
+    "./layouts/useDrawerA11y": {
+      "types": "./src/layouts/useDrawerA11y.ts",
+      "default": "./src/layouts/useDrawerA11y.ts"
     },
     "./layouts/*": {
       "types": "./src/layouts/*.tsx",

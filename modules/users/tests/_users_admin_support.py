@@ -48,5 +48,6 @@ def _build_service(session, users_app_empty):
         user_db,
         users_app_empty.state.users.mailer,
         users_app_empty.state.users.settings,
+        users_app_empty.state.users.token_secrets,
     )
     return UserService(session, manager)

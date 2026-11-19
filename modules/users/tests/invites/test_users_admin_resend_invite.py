@@ -187,7 +187,7 @@ class TestInviteTokenClaims:
 
         payload = jwt.decode(
             token,
-            users_app.state.users.settings.verification_token_secret,
+            users_app.state.users.token_secrets.verification_token_secret,
             algorithms=["HS256"],
             audience="fastapi-users:verify",
         )

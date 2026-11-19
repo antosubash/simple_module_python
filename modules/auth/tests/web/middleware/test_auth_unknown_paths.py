@@ -13,6 +13,7 @@ from auth.contracts.schemas import UserContext
 from auth.core.state import AuthState
 from auth.web.middleware import AuthMiddleware
 from fastapi import APIRouter, FastAPI
+from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_core.redirect_safety import SESSION_NEXT_KEY
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
@@ -36,15 +37,14 @@ class _Provider:
     def get_logout_url(self, request):
         return "/stub/logout"
 
-    def get_public_paths(self):
-        return (("/stub/login",), ())
-
     def is_bearer_request(self, request):
         return request.headers.get("authorization", "").startswith("Bearer ")
 
 
 def _build(user: UserContext | None = None) -> FastAPI:
     app = FastAPI()
+    app.state.public_routes = PublicRouteRegistry()
+    app.state.public_routes.add_prefix("/stub/login")
     app.state.auth = AuthState(auth_provider=_Provider(user), principal_resolvers=[])
 
     async def ok():

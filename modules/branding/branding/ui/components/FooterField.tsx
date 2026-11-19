@@ -75,7 +75,6 @@ export function FooterField({ text, onTextChange, links, onChange, disabled }: F
           <span
             // Index-keyed on purpose: rows have no id and nothing enforces href
             // uniqueness, so a value-derived key would collide on duplicates.
-            // biome-ignore lint/suspicious/noArrayIndexKey: see above
             key={index}
             className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-[12.5px]"
           >

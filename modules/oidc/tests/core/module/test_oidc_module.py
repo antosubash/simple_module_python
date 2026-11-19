@@ -12,7 +12,7 @@ def test_oidc_module_meta():
     assert mod.meta.name == "Oidc"
     assert mod.meta.depends_on == ["Auth"]
     assert mod.meta.optional_depends_on == ["Settings"]
-    assert mod._is_auth_provider is True
+    assert mod.meta.provides_auth is True
 
 
 def test_oidc_provider_satisfies_protocol():

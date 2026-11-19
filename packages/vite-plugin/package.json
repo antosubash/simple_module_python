@@ -1,0 +1,48 @@
+{
+  "name": "@simple-module-py/vite-plugin",
+  "version": "0.0.47",
+  "description": "Vite integration for SimpleModule assets, module imports and generated i18n",
+  "keywords": [
+    "simple-module",
+    "vite",
+    "vite-plugin"
+  ],
+  "homepage": "https://github.com/antosubash/simple_module_python#readme",
+  "bugs": "https://github.com/antosubash/simple_module_python/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antosubash/simple_module_python.git",
+    "directory": "packages/vite-plugin"
+  },
+  "license": "MIT",
+  "author": "Anto Subash <antosubash@live.com>",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@simple-module-py/tsconfig": "0.0.47",
+    "@types/node": "^26.5.0",
+    "typescript": "^7.0.2"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build"
+  }
+}

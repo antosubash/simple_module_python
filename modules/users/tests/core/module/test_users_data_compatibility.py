@@ -32,6 +32,9 @@ async def test_users_semantic_token_compatibility(access_type, refresh_type, tok
             if incompatible:
                 assert issues[0].upgrade_id == "users.hashed_bearer_tokens_v1"
                 assert issues[0].severity == "error"
+                assert "uv run smpy migrations prepare users.hashed_bearer_tokens_v1 --head" in (
+                    issues[0].remediation_text or ""
+                )
             if token:
                 assert await db.scalar(text("SELECT token FROM users_access_token")) == token
     finally:

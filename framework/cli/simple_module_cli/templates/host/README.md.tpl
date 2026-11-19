@@ -23,7 +23,7 @@ python main.py
 Dev UI + API together (when you have a `client_app/` alongside this file):
 
 ```bash
-make dev    # if you ship a Makefile; otherwise run vite + uvicorn in two shells
+make dev    # runs uv run smpy dev (API + Vite with automatic port selection)
 ```
 
 Apps scaffolded by `smpy new` also ship Docker assets — `make docker-up`

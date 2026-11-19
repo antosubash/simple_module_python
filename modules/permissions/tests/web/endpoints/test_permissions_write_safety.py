@@ -15,13 +15,14 @@ from permissions.web.endpoints.api import router as api_router
 from permissions.web.endpoints.views import router as view_router
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.tenancy import TenantRole, tenant_role
-from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
+from simple_module_core.user_directory import DirectoryUser
 from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
+from users.core.directory import UsersDirectory
 from users.models import Role
 
 
-class _Directory(NullUserDirectory):
+class _Directory(UsersDirectory):
     def __init__(self, users):
         self.users = {user.id: user for user in users}
 
@@ -55,6 +56,7 @@ async def writes(db_session):
     app.add_middleware(SessionMiddleware, secret_key="test-only")
     app.state.sm = SimpleNamespace(permissions=registry)
     app.state.user_directory = directory
+    app.state.role_directory = directory
 
     @app.middleware("http")
     async def authenticate(request, call_next):

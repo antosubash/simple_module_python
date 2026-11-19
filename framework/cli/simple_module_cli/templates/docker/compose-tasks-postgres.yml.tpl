@@ -11,6 +11,8 @@
       timeout: 3s
       retries: 10
 
+  # Invalidation channels use the shared database installation id (no env setup).
+  # Legacy global fan-out remains until 0.1.0 for rolling upgrades.
   # worker/beat reuse the app image — same code, different command.
   worker:
     build:
@@ -22,8 +24,7 @@
     environment:
       SM_ENVIRONMENT: production
       SM_DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/{{PG_DB}}"
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
+      SM_REDIS_URL: redis://redis:6379/0
     working_dir: /app
     volumes:
       - appdata:/app/data
@@ -51,8 +52,7 @@
     environment:
       SM_ENVIRONMENT: production
       SM_DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/{{PG_DB}}"
-      SM_BG_TASKS_BROKER_URL: redis://redis:6379/0
-      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/1
+      SM_REDIS_URL: redis://redis:6379/0
     working_dir: /app
     volumes:
       - appdata:/app/data

@@ -10,6 +10,7 @@ from typing import Any
 import tomlkit
 from tomlkit.items import Array
 
+from simple_module_cli.pins import FRAMEWORK_DISTRIBUTIONS
 from simple_module_cli.requirements import parse_requirement, rewrite_requirement
 from simple_module_cli.uv_workspace import is_workspace_member
 
@@ -33,8 +34,8 @@ def normalize(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def _is_sm_package(name: str) -> bool:
-    return normalize(name).startswith("simple-module-")
+def is_framework_package(name: str) -> bool:
+    return normalize(name).replace("-", "_") in FRAMEWORK_DISTRIBUTIONS
 
 
 def _dep_name(spec: str) -> str | None:
@@ -105,14 +106,18 @@ def _dependency_arrays(doc: tomlkit.TOMLDocument):
                 yield deps
 
 
-def collect_sm_deps(doc: tomlkit.TOMLDocument, local: set[str]) -> list[str]:
+def collect_sm_deps(
+    doc: tomlkit.TOMLDocument, local: set[str], only: str | None = None
+) -> list[str]:
+    if only and is_framework_package(only):
+        only = None  # Framework packages publish in lockstep.
     return [
         name
         for deps in _dependency_arrays(doc)
         for raw in deps
         if isinstance(raw, str)
         and (name := _dep_name(raw))
-        and _is_sm_package(name)
+        and (normalize(name) == normalize(only) if only else is_framework_package(name))
         and normalize(name) not in local
     ]
 
@@ -124,9 +129,12 @@ def process_file(
     cache: dict[str, str | None],
     loosen: bool = False,
     local: set[str],
+    only: str | None = None,
 ) -> tuple[list[Change], list[Skip], tomlkit.TOMLDocument | None]:
     changes: list[Change] = []
     skips: list[Skip] = []
+    if only and is_framework_package(only):
+        only = None
 
     for deps in _dependency_arrays(doc):
         for idx, raw in enumerate(deps):
@@ -134,7 +142,9 @@ def process_file(
                 continue
             dep_str = raw
             name = _dep_name(dep_str)
-            if not name or not _is_sm_package(name):
+            if not name or not (
+                normalize(name) == normalize(only) if only else is_framework_package(name)
+            ):
                 continue
             if normalize(name) in local:
                 skips.append(Skip(path, name, "workspace/local source"))

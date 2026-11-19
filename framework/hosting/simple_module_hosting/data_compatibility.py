@@ -29,7 +29,9 @@ async def check_data_compatibility(app: FastAPI, modules: Sequence[ModuleBase]) 
         raise DataCompatibilityError("Could not check module data compatibility") from exc
     errors = []
     for issue in issues:
-        message = f"{issue.upgrade_id}: {issue.message} Prepare: {issue.remediation()}"
+        message = f"{issue.upgrade_id}: {issue.message}"
+        if remediation := issue.remediation():
+            message += f"\n{remediation}"
         logger.warning(message)
         if issue.severity == "error":
             errors.append(message)

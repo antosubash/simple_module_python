@@ -10,7 +10,8 @@ from file_storage import tasks
 from file_storage.core.object_reaper import reap_objects
 from file_storage.models import StoredFile
 from simple_module_db import tenant_context
-from test_file_storage_upload_tasks import worker  # noqa: F401
+
+from modules.file_storage.tests.core.worker.test_file_storage_upload_tasks import worker  # noqa: F401
 
 
 def test_reconcile_spares_live_recent_and_foreign_objects(worker):  # noqa: F811

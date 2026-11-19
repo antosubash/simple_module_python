@@ -45,7 +45,7 @@ fires `on_after_verify` followed by `on_after_update`, then signs the user in.
 | `POST /api/users/auth/token/refresh` | `RefreshRequest` (refresh_token) | rotates a refresh token into a new pair (old one revoked atomically; reuse of a revoked token revokes its family) |
 | `DELETE /api/users/auth/token` | `RefreshRequest` (refresh_token) | revokes a refresh token (idempotent) |
 | `GET /api/users/auth/{provider}/login` | — | OAuth: redirect to the IdP (`provider` ∈ configured set) |
-| `GET /api/users/auth/{provider}/callback` | `?code=&state=` | OAuth: find-or-create user, set cookie, 303 to `login_redirect_url` |
+| `GET /api/users/auth/{provider}/callback` | — | OAuth: completes sign-in, sets the auth cookie and redirects with 303 to the saved safe deep link or `host.login_redirect_url` |
 
 ### Self-service endpoints
 
@@ -97,7 +97,7 @@ Admin (`users.manage`) — served from the module's `admin_view_prefix`, `/admin
 
 The separate Create and Invite pages merged into `AddPeople`. Their old paths survive as 307 redirects carrying the mode: `GET /admin/users/invite` → `/admin/users/add?mode=invite`, and `GET /admin/users/create` → `/admin/users/add?mode=create`.
 
-These pages moved out of `/users/admin` when the admin screens were gathered under `/admin` — the pre-move URLs still 301 for now, but link to the new ones. The `/api/users/admin/*` endpoints below are a separate contract and did **not** move.
+These pages live under `/admin/users`. The `/api/users/admin/*` endpoints below are a separate contract and did **not** move.
 
 ## Public contracts
 
@@ -182,22 +182,21 @@ Two pre-seeded roles get fixed UUIDs so other modules can reference them safely:
 
 ## Settings
 
-DB-backed via `register_module_settings`. Two values are read **only** from the env at module import time because they bootstrap token signing before the DB is reachable:
+DB-backed via `register_module_settings`. Password-reset and email-verification
+signing keys are derived from the resolved host root key with HKDF-SHA256 and
+distinct purpose labels. No separate secret configuration is required. The keys
+live in runtime state rather than editable DB settings.
 
-| Env var | Default | Purpose |
-|---|---|---|
-| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | `dev-reset-token-secret-change-me` | password-reset token signing |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | `dev-verify-token-secret-change-me` | email-verify token signing |
+Explicit non-placeholder legacy token-secret environment overrides remain supported
+with a deprecation warning until 0.0.50. Without them, outstanding links signed
+with an earlier key stop working on upgrade; request a new link.
 
-Both **must** be replaced with non-placeholder values in production — the boot-time check refuses to start otherwise.
-
-Everything else is DB-backed (initial values are pydantic defaults; edit under Users at `/admin/settings/`):
+Edit the remaining settings under Users at `/admin/settings/`:
 
 | Field | Default |
 |---|---|
 | `allow_signup` | `False` |
 | `require_verification` | `True` |
-| `login_redirect_url` | `"/dashboard/"` (if the Dashboard module isn't installed, auto-falls back to the first other module that exposes view routes, or `/` only as a last resort) |
 | `reset_password_token_lifetime_seconds` | `3600` |
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
 | `bearer_token_lifetime_seconds` | `900` (15 min) |
@@ -205,9 +204,8 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `refresh_token_family_max_age_days` | `90` (≥ 1) — absolute age from the first token; requires a new login after expiry |
 | `cookie_name` | `"sm_auth"` |
 | `cookie_max_age_seconds` | `1_209_600` (14 days) |
-| `cookie_secure` | `True` (flipped to `False` in dev at startup) |
 | `cookie_samesite` | `"lax"` |
-| `base_url` | `"http://localhost:8000"` |
+| `base_url` | `""` — inherit `host.public_base_url`; an explicit users origin wins. Both blank: copied links remain relative and account emails are skipped with an ERROR log naming `host.public_base_url` / `SM_PUBLIC_BASE_URL`. Public reset and verification responses remain unchanged. |
 | `mail_template_dirs` | `[]` — ordered absolute template directories, restart required; see [Overriding auth email templates](#overriding-auth-email-templates) |
 | `login_rate_limit_failures` | `5` — failures from one IP for one username before that source is throttled for the window |
 | `login_rate_limit_window_seconds` | `300` — the window for both lockout tiers |
@@ -215,7 +213,6 @@ Everything else is DB-backed (initial values are pydantic defaults; edit under U
 | `login_lockout_account_failures` | `10` (≥ 1) — failures for one account, from anywhere, before it locks |
 | `auth_rate_limit_attempts` | `10` |
 | `auth_rate_limit_window_seconds` | `300` |
-| `bootstrap_email`, `bootstrap_password`, `bootstrap_user_email`, `bootstrap_user_password` | `""` — see [Bootstrap](#bootstrap-the-first-admin) |
 | `demo_mode` | `False` — see [Demo mode](#demo-mode-hosting-a-showcase-instance) |
 | `demo_admin_email` | `"demo-admin@example.com"` — blank to stop offering the admin demo |
 | `demo_user_email` | `"demo-user@example.com"` — blank to stop offering the standard-user demo |
@@ -535,6 +532,68 @@ Built-in provider keys (the `{provider}` URL segment):
 
 A single dispatcher pair (`/api/users/auth/{provider}/login` + `/callback`) serves every provider; the client is resolved per request from the cache. The `/callback` returns a 303 redirect (not the stock fastapi-users 204) so Inertia lands on a real page, with the auth cookie attached. Find-or-create + email association goes through `UserManager.oauth_callback` (`associate_by_email` and `is_verified_by_default` both follow whether the provider proved the email; Microsoft never does unless the opt-in below is on); state CSRF uses the signed session cookie. Linked accounts are stored in `users_oauth_account`. A **newly provisioned** OAuth account is marked external (see below); an existing password account linked by email keeps its password and is left unchanged.
 
+### Custom providers
+
+Modules that depend on Users can register a named factory through `users.contracts`.
+Register in the module's `register_settings` hook, after registering its own
+DB-backed settings. Factories run after settings hydration at startup and on
+every Users settings reload. They receive the app, read its current settings,
+and return an `OAuthProvider`, or `None` when disabled or incomplete. The registry
+belongs to the app and survives settings replacement; never patch `oauth_clients`
+or `oauth_providers` directly.
+
+For example, a module wrapping a separate GitHub application can register:
+
+```python
+from httpx_oauth.clients.github import GitHubOAuth2
+from pydantic import SecretStr
+from simple_module_core.settings_base import DbBackedSettings
+from users.contracts import OAuthProvider, register_oauth_provider
+
+
+class StaffSettings(DbBackedSettings):
+    enabled: bool = False
+    client_id: str = ""
+    client_secret: SecretStr = SecretStr("")
+
+
+def staff_provider(app):
+    settings = app.state.staff.settings
+    secret = settings.client_secret.get_secret_value()
+    if not settings.enabled or not settings.client_id or not secret:
+        return None
+    return OAuthProvider("staff", "Staff GitHub", GitHubOAuth2(settings.client_id, secret))
+
+
+# Inside your module's register_settings(app), after its settings registration:
+register_oauth_provider(app, "staff", staff_provider, label_key="staff.login.github", icon="key")
+```
+
+Use your module's normal `register_module_settings` registration to mount
+`app.state.staff.settings`; credentials follow the DB-backed secret-field rules,
+with no new environment variables. Supply `staff.login.github` in the module's
+locales (for example, `{"login": {"github": "Staff GitHub"}}`). `label_key`
+translates the provider name inside the existing “Continue with {name}” button;
+without it, the factory's `display_name` is used. Optional `icon` is a shared
+UI `NavIcon` name.
+
+Names must be lowercase URL segments containing letters, digits, `_` or `-`,
+starting with a letter or digit. Duplicate names, including the four built-ins,
+raise `ValueError`; the returned descriptor must use its registered name.
+The example uses `/api/users/auth/staff/login` and
+`/api/users/auth/staff/callback`. A factory returning `None` removes both its
+client and button at the next rebuild. If your module reloads its own settings,
+publish a Users `SettingsReloaded` event after those settings have been hydrated
+to trigger a rebuild too.
+
+The normal state, PKCE and account-linking checks still apply. A custom name uses
+the generic client's `get_id_email` identity with an unverified email by default;
+this example does not enable GitHub's built-in verified-email policy under a new
+name. A provider needing verified identity claims supplies its own
+`OAuthProvider.get_identity` implementation; never assert email proof solely
+because an email address was returned. Provisioning and trusted-domain settings
+continue to accept only their documented built-in provider names.
+
 ### Microsoft sign-in
 
 Microsoft uses OpenID Connect on the tenant's v2.0 endpoints (`https://login.microsoftonline.com/<tenant>/oauth2/v2.0/…`), built from `oauth_microsoft_tenant` with no discovery fetch at boot. Each login stores a PKCE verifier (S256) and a nonce in the session next to the state; the callback sends the verifier to the token endpoint and validates the returned ID token: RS256 signature against Entra's JWKS, the exact issuer `https://login.microsoftonline.com/<tid>/v2.0`, `aud` (and `azp`) equal to the client id, `exp`/`iat`, and the nonce. A tenant GUID also requires `tid` to equal it; `organizations` refuses personal accounts and `consumers` accepts only them. A failed check refuses the sign-in with `OAUTH_PROVIDER_ERROR`.
@@ -614,6 +673,11 @@ Every password-credential path guards against external users, server-side:
 In the admin UI, the user list and edit page show an **"External · SSO"** badge, and the password-reset action is hidden with an explanation. Disable / enable, role assignment, and delete work the same as for any other user.
 
 ## UsersAuthProvider
+
+`UsersModule` declares `ModuleMeta(provides_auth=True)` for provider selection
+and SM020/SM021 diagnostics. Third-party providers should declare this field
+on their owning module. The legacy `_is_auth_provider` module marker warns
+once per class and is removed in 0.1.0. See [Discovery](/framework/discovery).
 
 `UsersAuthProvider` (registered on `app.state.auth.auth_provider` in `register_settings`) is the `AuthProvider` the auth module's `AuthMiddleware` delegates to. On each request `resolve_user`:
 
@@ -706,6 +770,10 @@ Components (under `pages/Users/components/`):
 
 ## Notes
 
-- `cookie_secure` is automatically flipped to `False` in dev (`SM_ENVIRONMENT=development`) so login works over plain HTTP. Don't override it in non-dev environments.
+- `host.session_cookie_secure` governs session and users auth cookies together. Unset permits HTTP in development/testing and enables Secure elsewhere; restart after changing it.
 - `ThroughputLimiter` (register, forgot-password, accept-invite, verify-token, `/me/password`) counts in-process, so with N workers its budget is up to N times the configured one. Password-login lockout does not have that limit — see [Login lockout](#login-lockout).
 - The unique functional `lower(email)` index serves case-insensitive lookups on Postgres and enforces one account per address regardless of letter case; on SQLite the lookup uses `LOWER(email) = ?`.
+
+Post-login destinations use `host.login_redirect_url` for every provider. The
+default `/dashboard/` falls back to the first other view when Dashboard is absent,
+then `/`. Old per-provider redirect rows are ignored quietly.

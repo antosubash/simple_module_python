@@ -1,17 +1,15 @@
-"""A Keycloak app boots with its directory, and refuses modules that need Users.
+"""A Keycloak app boots strictly with every module, Permissions included (#953).
 
-Selecting ``keycloak`` drops ``Users``. Outside development the host sorts
-modules strictly, so ``permissions`` (role pages still depend on ``Users``)
-fails the boot instead of booting against empty ``users_*`` tables (GH #501).
-``api_tokens`` only orders after ``Users``, so it boots (service keys work).
+Selecting ``keycloak`` drops ``Users``. Since #953 ``permissions`` reads roles
+through the role-directory contract and depends only on ``Auth``, so a strict
+(non-development) boot no longer refuses it. The user and role directories both
+come from Keycloak.
 """
 
 from __future__ import annotations
 
-import pytest
 from keycloak.identity.directory import KeycloakDirectory
-from keycloak_test_modules import keycloak_modules_enabled
-from simple_module_core.exceptions import MissingDependencyError
+from simple_module_core.role_directory import MappedRoleDirectory, get_role_directory
 from simple_module_core.user_directory import get_user_directory
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
@@ -28,24 +26,20 @@ def _settings(environment: str, modules_enabled: list[str] | None = None) -> Set
     )
 
 
-def test_non_development_refuses_every_module_that_needs_users():
-    with pytest.raises(MissingDependencyError) as exc:
-        create_app(_settings("testing"))
-    assert ("Permissions", "Users") in exc.value.missing
-    assert all(name != "ApiTokens" for name, _dep in exc.value.missing)
-    assert {dep for _name, dep in exc.value.missing} == {"Users"}
-
-
-def test_without_them_the_app_boots_with_the_keycloak_directory():
-    app = create_app(_settings("testing", keycloak_modules_enabled()))
-    assert isinstance(get_user_directory(app), KeycloakDirectory)
+def test_non_development_boots_every_module_without_users():
+    app = create_app(_settings("testing"))
     names = {m.meta.name for m in app.state.sm.modules}
-    assert {"AuditLog", "Dashboard", "FileStorage"} <= names
-    assert "ApiTokens" in names
-    assert not names & {"Users", "Permissions"}
+    assert "Users" not in names
+    assert {"Permissions", "ApiTokens", "AuditLog", "Dashboard", "FileStorage"} <= names
 
 
-def test_development_only_warns(monkeypatch, caplog):
+def test_directories_come_from_keycloak():
+    app = create_app(_settings("testing"))
+    assert isinstance(get_user_directory(app), KeycloakDirectory)
+    assert isinstance(get_role_directory(app), MappedRoleDirectory)
+
+
+def test_development_does_not_warn_about_permissions(monkeypatch, caplog):
     # The dev-boot pass writes the frontend's generated files into the source
     # tree; with this module set that would clobber the workspace's copies.
     import simple_module_hosting.app_builder as app_builder
@@ -54,4 +48,4 @@ def test_development_only_warns(monkeypatch, caplog):
     app = create_app(_settings("development"))
     names = {m.meta.name for m in app.state.sm.modules}
     assert "Permissions" in names
-    assert any("'Permissions' depends on 'Users'" in r.getMessage() for r in caplog.records)
+    assert not any("depends on 'Users'" in r.getMessage() for r in caplog.records)

@@ -15,8 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from simple_module_core.crypto import derive_key
 
 logger = logging.getLogger(__name__)
 # Browsers drop a cookie over 4096 bytes, and a dropped session cookie means a
@@ -28,7 +27,7 @@ _COOKIE_OVERHEAD_BYTES = 200
 
 def _fernet(app: Any, info: bytes) -> Fernet:
     secret = app.state.sm.settings.secret_key
-    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=info).derive(secret.encode())
+    key = derive_key(secret, info)
     return Fernet(base64.urlsafe_b64encode(key))
 
 

@@ -20,10 +20,10 @@ from settings.core.constants import (
     API_TENANT_CURRENT_KEY_PATH,
     API_TENANT_CURRENT_PATH,
     ERR_SETTING_NOT_FOUND,
-    PERM_TENANT_EDIT,
     STATUS_NO_CONTENT,
     STATUS_NOT_FOUND,
     STATUS_UNPROCESSABLE,
+    Permissions,
 )
 from settings.core.service import SettingService
 from settings.core.tenant_scope import (
@@ -35,7 +35,7 @@ from settings.core.tenant_scope import (
 from settings.core.tenant_view import TenantSettingView, list_for_tenant
 from settings.web.deps import get_setting_service
 
-router = APIRouter(dependencies=[Depends(RequiresPermission(PERM_TENANT_EDIT))])
+router = APIRouter(dependencies=[Depends(RequiresPermission(Permissions.TENANT_EDIT))])
 
 
 @router.get(API_TENANT_CURRENT_PATH, response_model=list[TenantSettingView])

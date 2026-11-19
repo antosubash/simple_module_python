@@ -28,7 +28,6 @@ class KeycloakAuthProvider(CachePersistence, SessionRenewal):
     """OIDC auth provider backed by Keycloak."""
 
     name = "keycloak"
-    _is_auth_provider = True
 
     def __init__(
         self, settings: KeycloakSettings | None = None, *, state: KeycloakState | None = None

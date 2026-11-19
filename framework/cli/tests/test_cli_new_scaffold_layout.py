@@ -9,8 +9,10 @@ modules/, and the Makefile / root-pyproject quality-gate plumbing
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -30,7 +32,9 @@ def test_sm_new_default_scaffolds_sample_hello_module(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert (target / "modules" / "hello" / "pyproject.toml").is_file()
     assert (target / "modules" / "hello" / "hello" / "module.py").is_file()
-    assert (target / "modules/hello/hello/core/settings.py").is_file()
+    assert not (
+        target / "modules/hello/hello/core/settings.py"
+    ).exists()  # opt-in via --with-settings (#981)
     assert (target / "modules/hello/hello/web/endpoints/api.py").is_file()
     assert (target / "modules/hello/tests/web/crud/test_hello_crud.py").is_file()
 
@@ -142,45 +146,49 @@ def test_sm_new_makefile_has_quality_gate_targets(tmp_path: Path) -> None:
     assert "upgrade head\n" not in makefile  # the buggy singular form is gone
 
 
-def test_sm_new_makefile_kill_is_port_scoped(tmp_path: Path) -> None:
-    """Regression #461: `make kill` must free only this app's ports, never
-    pkill every uvicorn/vite (other apps, vitest) on the machine."""
+def test_sm_new_makefile_cleanup_does_not_search_for_processes(tmp_path: Path) -> None:
+    """Cleanup belongs to the supervisor, never a name/port process search."""
     from simple_module_cli.app_project import create_app_project
 
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[])
     makefile = (target / "Makefile").read_text()
     assert "pkill" not in makefile
-    assert "lsof -ti:$(API_PORT),$(VITE_PORT)" in makefile
+    assert "lsof" not in makefile
+    assert "Ctrl-C" in makefile
     assert "--port $(API_PORT)" in makefile
-    assert "SM_VITE_DEV_URL" in makefile
+    assert "s/^SM_VITE_DEV_URL=" not in makefile
 
 
 @pytest.mark.parametrize("flat", [False, True])
-def test_sm_new_makefile_generates_i18n_before_dev(tmp_path: Path, flat: bool) -> None:
-    """GH #946: wait for i18n generation, then start dev even if it fails."""
+def test_sm_new_makefile_uses_unified_commands(tmp_path: Path, flat: bool) -> None:
+    """Install/build prepare all artifacts; dev delegates to the process owner."""
     from simple_module_cli.app_project import create_app_project
 
     if shutil.which("make") is None:
         pytest.skip("make is not installed")
     target = tmp_path / "demo"
     create_app_project(target, name="demo", db="sqlite", tenancy=False, selected=[], flat=flat)
-    makefile = target / "Makefile"
-    assert "simple_module_hosting gen-i18n" in makefile.read_text()
-    makefile.rename(target / "Scaffold.mk")
-    makefile.write_text(
-        "include Scaffold.mk\n"
-        "gen-pages:\n\t@echo generated-pages\n"
-        "gen-i18n:\n\t@echo attempted-i18n\n\t@false\n"
-        "dev-api:\n\t@echo started-api\n"
-        "dev-ui:\n\t@echo started-ui\n"
-    )
-    result = subprocess.run(["make", "-j2", "dev"], cwd=target, capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
-    assert "warning: gen-i18n failed" in result.stderr
-    for server in ("started-api", "started-ui"):
-        assert result.stdout.index("generated-pages") < result.stdout.index(server)
-        assert result.stdout.index("attempted-i18n") < result.stdout.index(server)
+    actions = {
+        "install": "uv run smpy gen",
+        "build": "uv run smpy gen",
+        "dev": "uv run smpy dev",
+        "doctor": "uv run smpy doctor",
+        "gen-pages": "uv run smpy host gen-pages",
+        "gen-i18n": "uv run smpy host gen-i18n",
+        "sync-js-deps" if flat else "sync-module-deps": "uv run smpy host sync-js-deps",
+    }
+    for action, command in actions.items():
+        result = subprocess.run(["make", "-n", action], cwd=target, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert command in result.stdout
+        if action == "dev":
+            assert "uv run smpy dev" in result.stdout
+            assert "uvicorn" not in result.stdout
+        elif action in ("install", "build"):
+            assert "uv run smpy gen" in result.stdout
+            if action == "build":
+                assert result.stdout.index("smpy gen") < result.stdout.index("npm run build")
 
 
 def test_host_template_makefile_has_no_pkill() -> None:
@@ -210,11 +218,11 @@ def test_sm_new_root_pyproject_has_dev_tooling_and_config(tmp_path: Path) -> Non
     assert data["tool"]["ty"]["rules"]["missing-union-attribute"] == "ignore"
 
 
-def test_sm_new_generated_app_passes_its_own_ruff(tmp_path: Path) -> None:
+@pytest.mark.parametrize("with_settings", [False, True])
+def test_sm_new_generated_app_passes_its_own_lint(tmp_path: Path, with_settings: bool) -> None:
     """Regression #201: a freshly scaffolded app must pass its own `make lint`
-    ruff gate out of the box. Templates are excluded from the framework's own
-    ruff, so violations in generated code only surface against the scaffold's
-    shipped ruff config — this test runs it end to end."""
+    gate out of the box, including a new module with optional settings. Run
+    the shipped Makefile against local framework/tools without a network install."""
     ruff = shutil.which("ruff")
     if ruff is None:
         pytest.skip("ruff not installed")
@@ -225,6 +233,24 @@ def test_sm_new_generated_app_passes_its_own_ruff(tmp_path: Path) -> None:
         app, ["new", "demo", "--yes", "--db", "sqlite", "--no-install", "--dest", str(target)]
     )
     assert result.exit_code == 0, result.output
+
+    from simple_module_cli.scaffolding import create_module
+
+    create_module(
+        target / "modules" / "orders", "orders", standalone=False, with_settings=with_settings
+    )
+    # Use the already-installed checkout tools and framework, without resolving
+    # another environment or downloading packages into the generated app.
+    env = {
+        **os.environ,
+        "VIRTUAL_ENV": sys.prefix,
+        "UV_PROJECT_ENVIRONMENT": sys.prefix,
+        "UV_NO_SYNC": "1",
+    }
+    lint = subprocess.run(
+        ["make", "lint"], cwd=target, env=env, capture_output=True, text=True, timeout=90
+    )
+    assert lint.returncode == 0, lint.stdout + lint.stderr
 
     fmt = subprocess.run(
         [ruff, "format", "--check", "."], cwd=target, capture_output=True, text=True

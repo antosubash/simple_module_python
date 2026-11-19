@@ -2,32 +2,27 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
-
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
 
 from audit_log.core.constants import (
-    ALL_PERMISSIONS,
     API_PREFIX,
-    LOCALE_NAMESPACE,
     MENU_ICON,
     MENU_LABEL,
     MENU_ORDER,
     MENU_URL,
     MODULE_NAME,
     MODULE_PACKAGE,
-    PERM_GROUP,
-    PERM_VIEW,
     VIEW_PREFIX,
+    Permissions,
 )
 
 
 class AuditLogModule(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name=MODULE_NAME,
         route_prefix=API_PREFIX,
@@ -43,13 +38,6 @@ class AuditLogModule(ModuleBase):
             app, MODULE_PACKAGE, AuditLogSettings, lambda s: AuditLogServices(settings=s)
         )
 
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from audit_log.web.endpoints.api import router as api
-        from audit_log.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
-
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
@@ -63,15 +51,8 @@ class AuditLogModule(ModuleBase):
                 group_key="ui.nav_groups.system",
                 # Mirrors the view route's guard — the same ungated-menu bug
                 # this module already shipped before the filter existed.
-                permissions=[PERM_VIEW],
+                permissions=[Permissions.VIEW],
             )
-        )
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            PERM_GROUP,
-            list(ALL_PERMISSIONS),
-            label_key=f"{LOCALE_NAMESPACE}.permission_group",
         )
 
     async def on_startup(self, app: FastAPI) -> None:
@@ -93,7 +74,3 @@ class AuditLogModule(ModuleBase):
         app.state.sm.db.audit_callback = None
         app.state.sm.db.refuse_unaudited_dml = False
         set_activity_feed(app, None)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {LOCALE_NAMESPACE: base}

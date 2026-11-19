@@ -102,7 +102,8 @@ async def test_pages_render_with_their_props(actor):
         props = page.json()["props"]
         assert "feature_flags.view" in props["scopes"]
         assert "*" not in props["scopes"]
-        assert props["csrf_token"]
+        assert props["csrfToken"]
+        assert "csrf_token" not in props
 
         admin = await a.client.get("/admin/api-tokens/", headers=INERTIA_HEADERS)
         assert admin.status_code == 200, admin.text

@@ -21,10 +21,9 @@ from users.core.constants import (
     USER_ROLE_ID,
     USER_ROLE_NAME,
 )
-from users.core.settings import UsersSettings
 from users.models import Role, User, UserRole
 
-# Maps a UsersSettings attribute to the env var that seeds it on first boot.
+# Maps each provisioning credential to its documented environment variable.
 # Shared between the bootstrap function and the test fixture that isolates it.
 BOOTSTRAP_ENV_KEYS: dict[str, str] = {
     "bootstrap_email": "SM_USERS_BOOTSTRAP_EMAIL",
@@ -215,16 +214,15 @@ def _read_dotenv_bootstrap_vars() -> dict[str, str]:
     return {k: v for k, v in parse_dotenv().items() if k in wanted}
 
 
-def resolve_bootstrap_credentials(settings: UsersSettings) -> dict[str, str]:
+def resolve_bootstrap_credentials() -> dict[str, str]:
     """Resolve the four bootstrap fields with the same precedence everywhere.
 
-    Order: ``UsersSettings`` (test overrides) → ``os.environ`` (docker/systemd)
-    → ``.env`` file (documented dev path). Used by both the boot-time admin
-    seeder and the dev-only login-page quick-fill so the two stay in lockstep.
+    Order: ``os.environ`` (docker/systemd) → ``.env`` file (documented dev path). Used by both the
+    boot-time admin seeder and the dev-only login-page quick-fill so the two stay in lockstep.
     """
     dotenv_vars = _read_dotenv_bootstrap_vars()
     return {
-        attr: getattr(settings, attr) or os.environ.get(env_key) or dotenv_vars.get(env_key, "")
+        attr: os.environ.get(env_key) or dotenv_vars.get(env_key, "")
         for attr, env_key in BOOTSTRAP_ENV_KEYS.items()
     }
 
@@ -241,8 +239,7 @@ async def bootstrap_admin_from_env(app: FastAPI) -> None:
     ``SM_USERS_BOOTSTRAP_USER_EMAIL`` + ``SM_USERS_BOOTSTRAP_USER_PASSWORD`` —
     useful in dev for testing non-admin flows alongside the admin account.
     """
-    settings: UsersSettings = app.state.users.settings
-    resolved = resolve_bootstrap_credentials(settings)
+    resolved = resolve_bootstrap_credentials()
     email = resolved["bootstrap_email"]
     password = resolved["bootstrap_password"]
     user_email = resolved["bootstrap_user_email"]

@@ -75,6 +75,8 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { Suspense } from 'react';
+import { useExtensions } from '../extensions';
 
 const ICON_MAP = {
   activity: Activity,
@@ -162,9 +164,18 @@ export type NavIconName = keyof typeof ICON_MAP;
  * their space would keep the indent without the glyph.
  */
 export function NavIcon({ name, className = 'w-5 h-5' }: { name: string; className?: string }) {
-  if (!(name in ICON_MAP)) {
-    return <span aria-hidden="true" className={className} />;
+  const registry = useExtensions();
+  const Icon = Object.hasOwn(ICON_MAP, name)
+    ? ICON_MAP[name as NavIconName]
+    : registry.getIcon(name);
+  const empty = <span aria-hidden="true" className={className} />;
+  if (!Icon) {
+    if (import.meta.env.DEV) console.warn(`Unknown navigation icon: ${name}`);
+    return empty;
   }
-  const Icon = ICON_MAP[name as NavIconName];
-  return <Icon aria-hidden="true" className={className} strokeWidth={1.5} />;
+  return (
+    <Suspense fallback={empty}>
+      <Icon aria-hidden="true" className={className} strokeWidth={1.5} />
+    </Suspense>
+  );
 }

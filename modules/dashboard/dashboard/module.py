@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
-
-from fastapi import APIRouter
+from simple_module_core import AdminSurface
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
 
-from dashboard.core.constants import PERM_GROUP, PERM_VIEW
+from dashboard.core.constants import Permissions
 
 _URL_DASHBOARD = "/dashboard/"
 _URL_DOCTOR = "/admin/doctor/"
@@ -19,37 +15,22 @@ _ICON_DOCTOR = "stethoscope"
 
 
 class DashboardModule(ModuleBase):
+    # Administrative data: only admin (wildcard) or explicit grants; never
+    # map user/tenant roles here, including single-tenant installs (#464).
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="Dashboard",
         route_prefix="/api/dashboard",
         view_prefix="/dashboard",
         # The dashboard itself is an app screen; Doctor is an admin one.
-        admin_view_prefix="/admin/doctor",
+        admin=AdminSurface(
+            prefix="/admin/doctor",
+            routes="dashboard.web.endpoints.views:admin_router",
+            menu_group="System",
+        ),
         i18n_audience="admin",
     )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from dashboard.web.endpoints.api import router as api
-        from dashboard.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
-
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from dashboard.web.endpoints.views import admin_router as doctor_views
-
-        admin_router.include_router(doctor_views)
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        # Administrative data (user counts, installed modules, system info):
-        # ``admin`` holds it through ``*`` and no other role is mapped — not
-        # even ``user`` on a single-tenant install, or any self-registered
-        # account could read it (#464). Grant it to a role in the role editor.
-        registry.add_group(
-            PERM_GROUP,
-            [PERM_VIEW],
-            label_key="dashboard.permission_group",
-        )
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
@@ -69,13 +50,8 @@ class DashboardModule(ModuleBase):
                 url=_URL_DOCTOR,
                 icon=_ICON_DOCTOR,
                 order=220,
-                section=MenuSection.ADMIN_SIDEBAR,
-                group="System",
                 # Mirrors the view route's admin-only guard — without it the
                 # entry shows for every signed-in account and 403s on click.
                 roles=["admin"],
             )
         )
-
-    def locale_dirs(self) -> dict[str, Path]:
-        return {"dashboard": Path(str(importlib.resources.files(__package__) / "locales"))}

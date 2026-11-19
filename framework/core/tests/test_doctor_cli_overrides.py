@@ -9,8 +9,9 @@ from simple_module_core import __main__ as doctor
 
 
 class _Mod(ModuleBase):
-    meta = ModuleMeta(name="users")
-    _is_auth_provider = True
+    # This fake has no source package, even when pytest gives this test an importlib name.
+    __module__ = "_doctor_cli_test_module"
+    meta = ModuleMeta(name="users", provides_auth=True)
 
     def __init__(self, locales):
         self._locales = locales
@@ -42,6 +43,8 @@ def _run_doctor(tmp_path, monkeypatch, overrides: dict | str) -> int:
 
 
 def test_doctor_cli_reports_success_with_module_count(tmp_path, monkeypatch, capsys):
+    # The temp project has no Alembic config, which is itself an SM010 finding.
+    monkeypatch.setattr(doctor, "migration_diagnostics", lambda *_args: [])
     assert _run_doctor(tmp_path, monkeypatch, {}) == 0
     captured = capsys.readouterr()
     assert captured.out == ""

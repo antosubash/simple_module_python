@@ -14,19 +14,14 @@ from simple_module_hosting.permissions import RequiresPermission
 from simple_module_inertia import InertiaResponse
 
 from tenants.contracts.schemas import TenantView
-from tenants.core.constants import (
-    PAGE_ADMIN,
-    PERM_PLATFORM_MANAGE,
-    PERM_PLATFORM_VIEW,
-    TenantStatus,
-)
+from tenants.core.constants import PAGE_ADMIN, Permissions, TenantStatus
 from tenants.web.deps import TenantServiceDep
 
 views = APIRouter()
 api = APIRouter(prefix="/admin")
 
-_VIEW = [Depends(RequiresPermission(PERM_PLATFORM_VIEW))]
-_MANAGE = [Depends(RequiresPermission(PERM_PLATFORM_MANAGE))]
+_VIEW = [Depends(RequiresPermission(Permissions.PLATFORM_VIEW))]
+_MANAGE = [Depends(RequiresPermission(Permissions.PLATFORM_MANAGE))]
 _PAGE_SIZE = 50
 
 

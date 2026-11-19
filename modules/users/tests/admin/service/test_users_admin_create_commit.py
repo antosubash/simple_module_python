@@ -5,9 +5,13 @@ from background_tasks.models import OutboxMessage
 from simple_module_db import transaction
 from sqlalchemy import event
 from sqlmodel import select
-from test_users_deletion_events import PausedUserTransport, record_user_event
 from users.contracts.events import UserCreated, UserInvited
 from users.models import User
+
+from modules.users.tests.admin.service.test_users_deletion_events import (
+    PausedUserTransport,
+    record_user_event,
+)
 
 
 @pytest.mark.parametrize("operation,event_type", [("invite", UserInvited), ("create", UserCreated)])

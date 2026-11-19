@@ -1,7 +1,4 @@
 {
   "name": "@simple-module/oidc",
-  "private": true,
-  "version": "0.0.47",
-  "type": "module",
-  "dependencies": {}
+  "private": true
 }

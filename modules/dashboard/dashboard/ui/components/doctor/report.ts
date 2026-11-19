@@ -1,5 +1,8 @@
 import type { DoctorProps } from './types';
 
+/** Placeholder for an unavailable figure, matching Doctor's backend. */
+export const NO_VALUE = '—';
+
 /** Section headings, translated by the caller. */
 export interface ReportLabels {
   title: string;
@@ -39,7 +42,7 @@ export function buildDoctorReport(props: DoctorProps, labels: ReportLabels): str
   const lines: string[] = [
     labels.title,
     `${labels.checks}: ${tally} · ` +
-      `modules ${stats.modules_loaded} · pending migrations ${stats.pending_migrations} · ` +
+      `modules ${stats.modules_loaded} · pending migrations ${stats.pending_migrations ?? NO_VALUE} · ` +
       `python ${stats.python_version}`,
     '',
   ];

@@ -8,6 +8,7 @@ import time
 
 from auth.oidc_common.session import sign_in, stale_callback
 from fastapi import APIRouter, HTTPException, Request
+from simple_module_hosting.auth_policy import login_redirect_url
 from starlette.responses import RedirectResponse
 
 from oidc.core.constants import (
@@ -51,7 +52,7 @@ async def oidc_callback(request: Request):
         request,
         SESSION_STATE_KEY,
         SESSION_USER_KEY,
-        request.app.state.oidc.settings.login_redirect_url,
+        login_redirect_url(request.app, "Oidc"),
     )
     if stale is not None:
         return stale
@@ -108,7 +109,7 @@ async def oidc_callback(request: Request):
         user=user_ctx,
         expires_at=expires_at,
         authority=provider._session_authority,
-        redirect=s.login_redirect_url,
+        redirect=login_redirect_url(request.app, "Oidc"),
         user_key=SESSION_USER_KEY,
         identity_key=SESSION_IDENTITY_KEY,
         identity=identity,

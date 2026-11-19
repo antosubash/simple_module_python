@@ -1,20 +1,22 @@
 # Your first module
 
-A stage-by-stage walk-through: from `smpy create-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
+A stage-by-stage walk-through: from `uv run smpy create-module` to a working Orders module with custom fields, validation, a menu entry, and a test.
 
-Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on disk created by `smpy new`.
+Assumes you've completed the [Quickstart](/guide/quickstart) and have an app on disk created by `uv run smpy new`.
 
 ## 1. Scaffold
 
 ```bash
-smpy create-module orders --dest modules/orders
-smpy add ../modules/orders --path host
-make install
+uv run smpy create-module orders --dest modules/orders
 ```
 
-This creates `modules/orders/` with a working CRUD implementation against a single-field `Order` table. `smpy add` adds `simple_module_orders` to `host/pyproject.toml` as a uv workspace source (`{ workspace = true }`) and syncs the whole workspace from the app root (`uv sync --all-packages`). If the host has a `client_app`, it runs `uv run smpy host gen-pages` and `uv run smpy host sync-js-deps`, followed by `uv run smpy host gen-i18n` when the i18n package is installed. Run `make install` from the app root to link the module's pages and generate its i18n keys before restarting `make dev`.
-
-`create-module` prints the appropriate `smpy add` command. In a `smpy new --flat` app, wire the module with `smpy add ./modules/orders`. See [project structure](/guide/project-structure) for the generated file layout.
+This creates `modules/orders/` with working CRUD against a single-field `Order`
+table. Inside an app workspace it also adds `simple_module_orders` to
+`host/pyproject.toml` as a workspace source, runs `uv sync --all-packages` and
+`npm install` from the app root, then `uv run smpy gen`. The printed next step
+is a migration; applying it and restarting `make dev` finishes installation.
+In a flat app, wire the standalone module with `uv run smpy add ./modules/orders`,
+then run `make install`. See [project structure](/guide/project-structure).
 
 New modules put shared settings and constants in `core/`, HTTP code in `web/`,
 and reusable frontend code in `ui/`. Root lookup paths (`models.py`, `contracts/`,
@@ -104,13 +106,13 @@ class OrderUpdate(SQLModel):
 ## 4. Generate a migration
 
 ```bash
-make migration msg="add orders tables"
+uv run smpy migrations new orders -m "add orders tables"
 ```
 
-Open `host/migrations/versions/XXXX_add_orders_tables.py` and eyeball it (`make migration` runs Alembic from the host dir):
+Open `host/migrations/versions/XXXX_add_orders_tables.py` and eyeball it (the CLI resolves the host config and keeps the app root as its working directory):
 
 - It should create the `orders_order` table.
-- Add `branch_labels = ("orders",)` to the revision to give it a named target. The label does not isolate the module: `alembic downgrade orders@base` rolls back the whole chain beneath it, other modules included. See [Removing one module's schema](/database/migrations#removing-one-modules-schema).
+- The command creates a first root labelled `orders`, or selects `orders@head` for later revisions. The label does not isolate the module: `alembic downgrade orders@base` rolls back the whole chain beneath it, other modules included. See [Removing one module's schema](/database/migrations#removing-one-modules-schema).
 
 Apply:
 
@@ -161,13 +163,9 @@ Note the absence of `self.session.commit()`. The per-request `get_db` dependency
 
 ```python
 # modules/orders/orders/module.py
-from fastapi import FastAPI, APIRouter
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.permissions import PermissionRegistry
-
-from orders.web.endpoints.api import router as api_router
-from orders.web.endpoints.views import router as view_router
 
 
 class OrdersModule(ModuleBase):
@@ -200,17 +198,10 @@ class OrdersModule(ModuleBase):
                 group="Content",
             )
         )
-
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from orders.web.endpoints.api import router as api
-        from orders.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
 ```
 
 - `MenuItem` takes `label` (the displayed string) and `url` (the link target). Translation is handled in the React layer via `useT()` — not on the menu definition. Pre-filter visibility via `roles=[...]` if the entry should only show for specific roles.
-- `route_prefix` / `view_prefix` from `ModuleMeta` already prefix the routers (`/api/orders` and `/orders`) — `register_routes` should mount the inner routers without re-adding the prefix.
+- The default `register_routes` discovers the conventional API and view routers. `route_prefix` / `view_prefix` from `ModuleMeta` mount them at `/api/orders` and `/orders`; no route hook override is needed.
 
 ## 7. Enforce permissions on endpoints
 
@@ -290,7 +281,7 @@ export default function Browse({ orders }: { orders: OrderOut[] }) {
 }
 ```
 
-Translations (`orders/locales/en.json`). `keys.orders.*` is generated from this file by `make gen-i18n`, which `make install`, `make build` and every dev boot run, so a new key needs one of them before `tsc` sees it:
+Translations (`orders/locales/en.json`). `keys.orders.*` is generated from this file by `uv run smpy gen`, which `make install`, `make build` and `uv run smpy dev` run (direct dev boots also refresh keys), so a new key needs one of them before `tsc` sees it:
 
 ```json
 {

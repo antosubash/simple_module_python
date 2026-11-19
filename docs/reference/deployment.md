@@ -7,7 +7,7 @@ A production deployment is one FastAPI process (plus optional Celery workers) be
 Before serving traffic:
 
 - [ ] `SM_ENVIRONMENT` set to something other than `development`/`testing` (those two are the only values treated as non-prod).
-- [ ] `SM_SECRET_KEY` is a strong random value (not the default).
+- [ ] Root signing key is persisted in the database, or pinned with a strong `SM_SECRET_KEY`.
 - [ ] `SM_DATABASE_URL` points at Postgres (`postgresql+asyncpg://`), not SQLite.
 - [ ] `alembic upgrade heads` run against the production DB.
 - [ ] Frontend built (`npm run build` → `static/dist/`) and bundled into the image — outside `development`/`testing`, the app renders assets from the Vite manifest, not a dev server (see [Static assets](#static-assets)).
@@ -31,24 +31,23 @@ make docker-app             # build ./Dockerfile and run it on :8000
 make docker-compose-app     # same image via the `app` service in docker-compose.yml
 ```
 
-`docker/entrypoint.sh` runs `alembic upgrade heads` and fills in any unset
-production secret (`SM_SECRET_KEY`, `SM_USERS_RESET_PASSWORD_TOKEN_SECRET`,
-`SM_USERS_VERIFICATION_TOKEN_SECRET`) with an ephemeral random value so a bare
-`docker run` boots — set them yourself for anything that must survive a
-restart. It also seeds `admin@example.com` with a randomly generated password
+`docker/entrypoint.sh` runs `alembic upgrade heads` before app startup. The host
+then generates and stores the root key when unset, so sessions and derived users
+token keys survive restarts on the same database volume. An explicit
+`SM_SECRET_KEY` still wins. The entrypoint also seeds `admin@example.com` with a randomly generated password
 logged by the users module only when the first admin is created, unless
 `SM_USERS_BOOTSTRAP_EMAIL` / `_PASSWORD` say otherwise. Store generated credentials securely and restrict access to logs.
 The seed only lands while the users table is empty, so it never overwrites an
 existing account; credentials generated on later starts do not reset passwords.
 An explicit `changeme` password is refused in production. The checklist above still applies: that image is a demo/local
-target, not a production deployment (SQLite, ephemeral secrets).
+target, not a production deployment (SQLite).
 
 That image carries no Celery: the build passes
 `--no-install-package simple-module-background-tasks`, so the module has no
 entry point to discover and the web process needs no broker at all. Background
 jobs are the `worker` / `beat` services in `docker-compose.yml`
 (`docker/worker.Dockerfile`), which is where a second process and a Redis
-belong. Drop that flag and set `SM_BG_TASKS_BROKER_URL` / `_RESULT_BACKEND` to
+belong. Drop that flag and set `SM_REDIS_URL` to the Redis service URL to
 put tasks back in the web image.
 
 ### Scaffolded apps
@@ -65,6 +64,14 @@ put tasks back in the web image.
 ```bash
 make docker-up   # builds the image, applies migrations, serves on :8000
 ```
+
+With background tasks selected, app, worker and beat each receive only
+`SM_REDIS_URL=redis://redis:6379/0` for Redis connectivity. It seeds the Celery
+broker and result backend, leases and shared rate limiting. `smpy docker add-worker`
+copies this wiring from the existing worker. Use `SM_BG_TASKS_BROKER_URL` and
+`SM_BG_TASKS_RESULT_BACKEND` only when per-field overrides are needed, such as
+an AMQP broker with a non-Redis result backend. Production still refuses
+localhost broker or result-backend URLs.
 
 The compose file pins `SM_ENVIRONMENT=production` for the app service — a container has no Vite dev server, so development mode would emit asset tags pointing at nothing.
 
@@ -182,7 +189,7 @@ The flag is the `session_cookie_secure` host setting (`SM_SESSION_COOKIE_SECURE`
 Rotate the secret by:
 
 1. Deploying with a new `SM_SECRET_KEY`.
-2. Expected behavior: existing sessions become invalid. Users sign back in.
+2. Existing sessions and derived reset/verification links become invalid. Users sign back in or request a new link.
 
 There's no built-in key-rollover mechanism — if you need zero-downtime session rotation, fork `SessionMiddleware` to accept a list of keys (first = active, rest = verify-only).
 
@@ -286,7 +293,7 @@ Each release is deployable on its own. Each rollback goes to a compatible previo
 ## Disaster recovery
 
 - **DB backups** — Postgres point-in-time recovery via WAL archiving. Standard RDS / Cloud SQL options cover this.
-- **Secrets** — `SM_SECRET_KEY` must be recoverable from your secrets manager. Rotating it invalidates all sessions but doesn't break anything else.
+- **Secrets** — back up the database containing the generated root key, or keep an explicit `SM_SECRET_KEY` recoverable from your secrets manager. Rotating the root invalidates sessions, derived reset/verification links and encrypted OIDC refresh tokens.
 - **Sessions** — lost sessions mean users re-login; acceptable.
 - **Uploads** — the `file_storage` module's `filesystem` backend is ephemeral. For production, point it at S3 or a network filesystem and back that up independently.
 

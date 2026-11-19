@@ -2,7 +2,7 @@
 
 The ``users_app`` fixture builds a full FastAPI app via ``create_app`` but
 with an in-memory SQLite database, seeded roles, and test-friendly settings
-(no mail sender installed, signup disabled by default, short secrets).
+(no mail sender installed, signup disabled by default, derived token keys).
 
 The ``anon_client`` gives a plain httpx client.
 The ``admin_client`` gives a client with a signed local-user session cookie
@@ -18,7 +18,7 @@ import httpx
 import pytest
 
 # Bare import, not relative: tests/ has no __init__.py, so these are
-# top-level modules on pytest's sys.path — same mechanism as the
+# top-level modules on pytest's explicit pythonpath — same mechanism as the
 # _middleware_support plugin loaded at the bottom of this file.
 from _users_app_builders import (
     ALICE,

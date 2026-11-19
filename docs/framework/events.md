@@ -45,7 +45,7 @@ class InvoicesModule(ModuleBase):
         ...
     )
 
-    def register_event_handlers(self, bus: EventBus) -> None:
+    def register_event_handlers(self, bus: EventBus, app) -> None:
         bus.subscribe(OrderPlaced, self._on_order_placed)
 
     async def _on_order_placed(self, event: OrderPlaced) -> None:
@@ -128,7 +128,7 @@ If you want a handler to see several event types, subscribe it to each one expli
 If you need durable delivery across processes, use [durable delivery](#durable-delivery) below. The older pattern — a handler that enqueues a Celery task — still works, but loses the event if the process dies between the commit and the enqueue:
 
 ```python
-def register_event_handlers(self, bus: EventBus) -> None:
+def register_event_handlers(self, bus: EventBus, app) -> None:
     bus.subscribe(OrderPlaced, self._enqueue_invoice)
 
 
@@ -144,7 +144,7 @@ async def _enqueue_invoice(self, event: OrderPlaced) -> None:
 from simple_module_core import DurableContext
 
 
-def register_event_handlers(self, bus: EventBus, app=None) -> None:
+def register_event_handlers(self, bus: EventBus, app) -> None:
     bus.subscribe_durable(OrderPlaced, create_invoice, name=INVOICE_HANDLER)
 
 
@@ -195,6 +195,10 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 - Events must be `@dataclass` classes serialisable to JSON; `UUID`, `datetime`,
   `Enum`, `Decimal` and nested dataclasses round-trip. This is checked when you
   subscribe.
+- Events containing `simple_module_core.mail.MailMessage` also preserve its
+  attachments: content bytes are stored as base64 in the JSON payload and
+  restored before delivery. Old message payloads without `attachments` remain
+  valid. See [mail attachments](/modules/mail#attachments) for an `.ics` example.
 - The worker builds its own bus by calling every module's
   `register_event_handlers(bus, None)` — subscribe durably *before* any early
   `return` taken when `app is None`.
@@ -203,6 +207,32 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 another module could provide one; `background_tasks` is the shipped
 implementation — see [its docs](/modules/background_tasks#durable-events-outbox)
 for the outbox, retries, the admin page and the worker side.
+
+## Removing and replacing subscriptions
+
+The host's [customize callback](lifecycle.md#host-overrides) can call:
+
+```python
+bus.unsubscribe(OrderPlaced, send_receipt)
+bus.unsubscribe_durable(OrderPlaced, name=INVOICE_HANDLER)
+bus.replace_durable(OrderPlaced, replacement_invoice_handler, name=OTHER_HANDLER)
+```
+
+`unsubscribe` removes that callable from the in-process bus, affecting both
+`publish` and future `publish_nowait` calls. Already scheduled calls continue.
+Durable removal and replacement identify the exact event type and stable name;
+a missing handler or subscription raises `KeyError`. `replace_durable` validates
+the new handler before rebinding, preserving subscription order. Plain durable
+subscription still rejects a different handler using an existing name. The
+underlying registry also exposes `bus.durable.remove` and `bus.durable.replace`.
+Explicit names remain required for overrides; `subscribe_durable` without
+`name=` retains its warning and SM034 diagnostic.
+
+Replacement retains the event/name identity, so outstanding deliveries run the
+new handler. Removal does not delete outbox rows: outstanding deliveries will
+retry as unknown handlers and may become dead. Workers construct their own bus
+without `create_app`, so apply the same durable overrides in their registration
+path too; a web `customize` callback alone does not change a worker's bus.
 
 ## Testing
 

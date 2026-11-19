@@ -100,14 +100,12 @@ def test_every_field_reads_its_prefixed_name(monkeypatch: pytest.MonkeyPatch) ->
     """Not just the two broker URLs — the class has a single rule now."""
     monkeypatch.setenv("SM_BG_TASKS_TASK_DEFAULT_QUEUE", "reports")
     monkeypatch.setenv("SM_BG_TASKS_RETENTION_DAYS", "45")
-    monkeypatch.setenv("SM_BG_TASKS_MAX_RETRIES", "7")
     monkeypatch.setenv("SM_BG_TASKS_TASK_ALWAYS_EAGER", "true")
 
     settings = BackgroundTasksSettings()
 
     assert settings.task_default_queue == "reports"
     assert settings.retention_days == 45
-    assert settings.max_retries == 7
     assert settings.task_always_eager is True
 
 

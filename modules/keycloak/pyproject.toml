@@ -44,6 +44,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["keycloak"]
 
+# Preserve the published @simple-module/keycloak alias.
 [tool.hatch.build.targets.wheel.force-include]
 "package.json" = "keycloak/package.json"
 

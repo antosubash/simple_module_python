@@ -19,6 +19,7 @@ def _build_service(session, users_app):
         user_db,
         users_app.state.users.mailer,
         users_app.state.users.settings,
+        users_app.state.users.token_secrets,
     )
     return UserService(session, manager)
 
@@ -99,6 +100,7 @@ async def test_to_list_item_includes_created_at(users_app):
             user_db,
             users_app.state.users.mailer,
             users_app.state.users.settings,
+            users_app.state.users.token_secrets,
         )
         svc = UserService(session, manager)
         item = await svc.get_list_item(user.id)

@@ -6,6 +6,8 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from simple_module_hosting.public_urls import public_origin
+
 from users.core.settings import UsersSettings
 
 #: Returns the live application name (e.g. from the branding module) so emails
@@ -55,11 +57,12 @@ def build_mailer(
     app_name_provider: AppNameProvider | None = None,
     *,
     template_dirs: Sequence[str | Path] = (),
+    base_url_provider: Callable[[], str] | None = None,
 ) -> Mailer:
     from users.mailer.templated import TemplatedMailer
 
     return TemplatedMailer(
-        base_url=settings.base_url,
+        base_url=base_url_provider or public_origin(None, settings.base_url),
         app_name_provider=app_name_provider,
         template_dirs=template_dirs,
     )

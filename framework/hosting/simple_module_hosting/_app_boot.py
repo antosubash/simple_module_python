@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -14,7 +15,7 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.query_stats import install_query_stats
-from simple_module_db.session import init_db
+from simple_module_db.session import DatabaseState, init_db
 
 from simple_module_hosting._db_health import register_database_check
 from simple_module_hosting._openapi import (
@@ -56,6 +57,8 @@ def build_fastapi_app(settings: Settings, lifespan) -> FastAPI:
     )
 
     install_openapi_filter(app)  # AuthMiddleware reads openapi_url: anonymous iff served
+    # Module settings register before the complete Services container exists.
+    app.state.boot_settings = settings
     app.state.openapi_url = API_OPENAPI_URL if serve_openapi else None
     return app
 
@@ -80,12 +83,21 @@ def log_registration_summary(
     )
 
 
-def init_database(settings: Settings, health_registry: HealthRegistry):
-    db_state = init_db(
-        settings.database_url,
-        echo=settings.debug,
-        **database_options(settings),
-    )
+def init_database(
+    settings: Settings,
+    health_registry: HealthRegistry,
+    database: DatabaseState | Callable[[Settings], DatabaseState] | None = None,
+) -> DatabaseState:
+    if database is None:
+        db_state = init_db(
+            settings.database_url,
+            echo=settings.debug,
+            **database_options(settings),
+        )
+    elif isinstance(database, DatabaseState):
+        db_state = database
+    else:
+        db_state = database(settings)
     # Multi-tenant installs fail closed: a tenant-scoped query with no tenant
     # context raises instead of reading every tenant's rows.
     db_state.tenant_strict = settings.multi_tenant
@@ -106,6 +118,8 @@ def init_database(settings: Settings, health_registry: HealthRegistry):
 
 def mount_host_static(app: FastAPI, project_root: Path) -> None:
     static_dir = project_root / "host" / _STATIC_DIR_NAME
+    if not static_dir.is_dir():
+        static_dir = project_root / _STATIC_DIR_NAME
     if static_dir.is_dir():
         static = PrecompressedStaticFiles(directory=static_dir)
         app.mount(_STATIC_MOUNT_PATH, static, name=_STATIC_DIR_NAME)

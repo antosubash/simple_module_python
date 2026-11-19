@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
+from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
 from simple_module_core.user_directory import set_user_directory
 
 from oidc.core.constants import (
@@ -22,18 +21,23 @@ from oidc.core.constants import (
 )
 
 if TYPE_CHECKING:
-    from fastapi import APIRouter, FastAPI
+    from fastapi import FastAPI
 
 
 class OidcModule(ModuleBase):
     meta = ModuleMeta(
         name="Oidc",
+        provides_auth=True,
         route_prefix="/api/oidc",
         view_prefix="/oidc",
         depends_on=[_MODULE_AUTH],
         optional_depends_on=[_MODULE_SETTINGS],
     )
-    _is_auth_provider = True
+
+    def register_principal_builder(self, registry) -> None:
+        from oidc.identity.directory import OidcDirectory
+
+        registry.directory = OidcDirectory()
 
     def register_settings(self, app: FastAPI) -> None:
         from oidc.core.settings import OidcSettings
@@ -49,6 +53,7 @@ class OidcModule(ModuleBase):
         )
 
         set_user_directory(app, OidcDirectory())
+        set_role_directory(app, MappedRoleDirectory(lambda: app.state.oidc.settings.role_mapping))
         app.state.auth.auth_provider = OidcAuthProvider(
             app.state.oidc.settings, state=app.state.oidc
         )
@@ -66,13 +71,6 @@ class OidcModule(ModuleBase):
             )
         )
 
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from oidc.web.endpoints.api import router as api
-        from oidc.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
-
     def register_public_routes(self, registry) -> None:
         for path in (LOGIN_PATH, LOGGED_OUT_PATH, AUTH_LOGIN_PATH, AUTH_CALLBACK_PATH):
             registry.add_exact(path, methods={"GET"})
@@ -82,6 +80,3 @@ class OidcModule(ModuleBase):
         from oidc.core.runtime import initialize
 
         await initialize(app)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        return {"oidc": Path(str(importlib.resources.files(__package__) / "locales"))}

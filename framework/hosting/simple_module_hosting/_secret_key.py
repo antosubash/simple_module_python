@@ -13,28 +13,11 @@ deliberate rotation of the env var.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import os
 import secrets
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-
-from simple_module_db.stored_settings import (
-    COL_KEY,
-    COL_SCOPE,
-    COL_SCOPE_ID,
-    COL_VALUE,
-    COL_VALUE_TYPE,
-    SCOPE_SYSTEM,
-    SYSTEM_SCOPE_ID,
-    VALUE_TYPE_STRING,
-    settings_table_clause,
-    settings_table_exists_on,
-)
-from sqlalchemy import and_, insert, select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import NullPool
 
 from simple_module_hosting._preapp_config import HOST_PACKAGE
 
@@ -51,7 +34,7 @@ def _generate() -> str:
 
 
 def assert_not_placeholder(settings) -> None:
-    """Refuse to boot production still signing sessions with the shipped key.
+    """Refuse production signing with a blank root or the shipped key.
 
     The ``BootstrapSettings`` validator can only see whether the placeholder
     was supplied *explicitly*. This sees the key the app will actually use,
@@ -62,6 +45,10 @@ def assert_not_placeholder(settings) -> None:
 
     from simple_module_hosting.bootstrap_settings import PLACEHOLDER_SECRET_KEY
 
+    if not settings.secret_key.strip():
+        if settings.environment not in NON_PROD_ENVIRONMENTS:
+            raise ValueError("SM_SECRET_KEY resolved to an empty or whitespace-only root")
+        settings.secret_key = _generate()
     if settings.environment in NON_PROD_ENVIRONMENTS:
         return
     if settings.secret_key != PLACEHOLDER_SECRET_KEY:
@@ -73,20 +60,6 @@ def assert_not_placeholder(settings) -> None:
     )
 
 
-_T = settings_table_clause()
-# The one row this module reads and writes: SYSTEM scope, key ``host.secret_key``.
-_ROW = and_(
-    _T.c[COL_SCOPE] == SCOPE_SYSTEM,
-    _T.c[COL_SCOPE_ID] == SYSTEM_SCOPE_ID,
-    _T.c[COL_KEY] == _KEY,
-)
-
-
-async def _fetch(conn) -> str | None:
-    row = (await conn.execute(select(_T.c[COL_VALUE]).where(_ROW))).first()
-    return row[0] if row else None
-
-
 class SecretKeyUnavailableError(RuntimeError):
     """No key could be resolved and an ephemeral one is not safe here.
 
@@ -96,64 +69,9 @@ class SecretKeyUnavailableError(RuntimeError):
 
 
 async def _ensure(database_url: str) -> str | None:
-    """Return the stored key, storing a generated one first if needed.
+    from simple_module_hosting._stored_identity import ensure_stored_identity
 
-    ``None`` means one thing only: the settings table does not exist yet, i.e.
-    a confirmed fresh install. Every other failure raises.
-    """
-    engine = create_async_engine(database_url, poolclass=NullPool)
-    try:
-        async with engine.connect() as conn:
-            if not await settings_table_exists_on(conn):
-                return None
-            existing = await _fetch(conn)
-            if existing:
-                return existing
-
-        # Insert, then re-read. Two workers booting together can both find
-        # nothing above; the unique constraint on (scope, scope_id, key) lets
-        # exactly one insert win, and the loser reads the winner's row rather
-        # than keeping the key it generated. Returning the locally generated
-        # value here instead of re-reading is the bug the concurrency test
-        # exists to catch.
-        #
-        # Insert-then-catch rather than an upsert because SQLite and Postgres
-        # spell that differently (INSERT OR IGNORE vs ON CONFLICT DO NOTHING)
-        # and this has to work on both.
-        # `with` nested inside `async with`, not combined into one statement:
-        # contextlib.suppress is a sync context manager and does not implement
-        # the async protocol, so `async with engine.begin(), suppress(...)`
-        # raises TypeError at runtime.
-        value = _generate()
-        async with engine.begin() as conn:
-            if existing == "":
-                # A blank row would otherwise defeat the insert forever and
-                # leave every boot on an ephemeral key. Repair it in place; the
-                # ``value = ''`` guard lets exactly one concurrent worker win.
-                await conn.execute(
-                    update(_T).where(_ROW, _T.c[COL_VALUE] == "").values({COL_VALUE: value})
-                )
-            else:
-                with contextlib.suppress(IntegrityError):
-                    await conn.execute(
-                        insert(_T).values(
-                            {
-                                COL_SCOPE: SCOPE_SYSTEM,
-                                COL_SCOPE_ID: SYSTEM_SCOPE_ID,
-                                COL_KEY: _KEY,
-                                COL_VALUE: value,
-                                COL_VALUE_TYPE: VALUE_TYPE_STRING,
-                            }
-                        )
-                    )
-
-        async with engine.connect() as conn:
-            stored = await _fetch(conn)
-    finally:
-        await engine.dispose()
-    if not stored:
-        raise RuntimeError("the stored secret key is still missing after writing it")
-    return stored
+    return await ensure_stored_identity(database_url, _KEY, _generate)
 
 
 def ensure_secret_key(
@@ -162,6 +80,7 @@ def ensure_secret_key(
     env_value: str | None = None,
     stored: str | None = None,
     strict: bool = False,
+    on_ephemeral: Callable[[], None] | None = None,
 ) -> str:
     """Return the key to sign sessions with, generating one if needed.
 
@@ -178,18 +97,21 @@ def ensure_secret_key(
 
     ``stored`` is the value the caller already read from the settings table,
     if any; a non-empty one is returned without touching the database again.
+    ``on_ephemeral`` marks a generated fallback for post-migration persistence.
     """
     if env_value is None:
         env_value = os.environ.get(ENV_SECRET_KEY)
-    if env_value:
+    if env_value and env_value.strip():
         return env_value
     # Already read by the caller's pre-app select: skip the extra round trip.
-    if stored:
+    if stored and stored.strip():
         return stored
 
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
             resolved = pool.submit(lambda: asyncio.run(_ensure(database_url))).result()
+        if resolved is not None and not resolved.strip():
+            raise ValueError("SM_SECRET_KEY resolved to an empty or whitespace-only root")
     except Exception as exc:
         if strict:
             raise SecretKeyUnavailableError(
@@ -203,9 +125,28 @@ def ensure_secret_key(
     if resolved:
         return resolved
 
+    if on_ephemeral is not None:
+        on_ephemeral()
     logger.warning(
         "No SM_SECRET_KEY set and the key could not be stored (database "
         "unreachable or not yet migrated). Using an ephemeral key — sessions "
         "will not survive a restart until setup completes."
     )
     return _generate()
+
+
+async def persist_pending_secret_key(app) -> None:
+    """Replace a first-run ephemeral root with the database's winning stored key."""
+    settings = getattr(app.state, "boot_settings", None)
+    if settings is None or not settings._secret_key_ephemeral:
+        return
+    try:
+        resolved = await _ensure(settings.database_url)
+        if not resolved or not resolved.strip():
+            raise RuntimeError("the settings table is still missing after migrations")
+    except Exception as exc:
+        raise SecretKeyUnavailableError(
+            "Could not persist the root secret after migrations"
+        ) from exc
+    settings.secret_key = app.state.sm.settings.secret_key = resolved
+    settings._secret_key_ephemeral = False

@@ -1,5 +1,6 @@
 """SimpleModule Core - Module system, menu, permissions, events, and diagnostics."""
 
+from simple_module_core.admin_surface import AdminSurface
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry, LabelResolver
 from simple_module_core.body_limits import BodyLimitRegistry
 from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
@@ -53,7 +54,8 @@ from simple_module_core.invalidation import (
 )
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.permissions import PermissionCatalogue, PermissionRegistry
+from simple_module_core.principals import PrincipalRegistry
 from simple_module_core.public_routes import PublicRoute, PublicRouteRegistry
 from simple_module_core.resources import (
     ResourcePolicy,
@@ -71,6 +73,7 @@ __all__ = [
     "DEFAULT_AUTH_PROVIDER",
     "FRAMEWORK_API_VERSION",
     "TENANT_ROLE_PREFIX",
+    "AdminSurface",
     "AuditLink",
     "AuditLinkRegistry",
     "BodyLimitRegistry",
@@ -110,7 +113,9 @@ __all__ = [
     "ModuleError",
     "ModuleMeta",
     "NotFoundError",
+    "PermissionCatalogue",
     "PermissionRegistry",
+    "PrincipalRegistry",
     "PublicRoute",
     "PublicRouteRegistry",
     "ResourcePolicy",

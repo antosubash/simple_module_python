@@ -7,14 +7,11 @@ page through a registered Inertia shared-props provider.
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.public_routes import PublicRouteRegistry
 
 from branding.core import constants
@@ -25,6 +22,8 @@ if TYPE_CHECKING:
 
 
 class BrandingModule(ModuleBase):
+    permissions = constants.Permissions
+
     meta = ModuleMeta(
         name="Branding",
         route_prefix=constants.ROUTE_PREFIX,
@@ -61,13 +60,6 @@ class BrandingModule(ModuleBase):
 
         subscribe(bus, app)
 
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            "Branding",
-            [constants.PERM_VIEW, constants.PERM_MANAGE],
-            label_key="branding.permission_group",
-        )
-
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:
         """Let a logged-out visitor fetch the logo and favicon.
 
@@ -92,7 +84,7 @@ class BrandingModule(ModuleBase):
                 section=MenuSection.ADMIN_SIDEBAR,
                 group="Appearance",
                 group_key="ui.nav_groups.appearance",
-                permissions=[constants.PERM_VIEW],
+                permissions=[constants.Permissions.VIEW],
             )
         )
 
@@ -116,7 +108,3 @@ class BrandingModule(ModuleBase):
         from branding.web.shared_props import branding_shared_props
 
         register_inertia_shared_provider(app, branding_shared_props)
-
-    def locale_dirs(self) -> dict[str, Path]:
-        base = Path(str(importlib.resources.files(__package__) / "locales"))
-        return {constants.PACKAGE: base}

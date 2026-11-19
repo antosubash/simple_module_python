@@ -40,11 +40,8 @@ async def _seed(app, tenant_id: str | None, status: OutboxStatus = OutboxStatus.
 
 @pytest.fixture
 def tenant_admins_may_manage(app) -> None:
-    """Grant the tenant admin role the outbox permissions, as the role editor could."""
-    registry = app.state.sm.permissions
-    role_map = dict(registry.role_map)
-    role_map[tenant_role(TenantRole.ADMIN)] = [PERM_VIEW, PERM_MANAGE]
-    registry._role_map_cache = role_map
+    """Register outbox permissions for the tenant admin role."""
+    app.state.sm.permissions.map_role(tenant_role(TenantRole.ADMIN), [PERM_VIEW, PERM_MANAGE])
 
 
 async def test_tenant_member_without_grant_is_forbidden(tenant_client):

@@ -134,10 +134,10 @@ class TestSecretMaskingIsTypeAware:
     declared type gates the match.
     """
 
-    def _field(self, cls, name: str):
+    def _field(self, cls, name: str, **values):
         from settings.module_settings.discovery import _field_view
 
-        return _field_view(name, cls(), "SM_USERS_", frozenset())
+        return _field_view(name, cls(**values), "SM_USERS_", frozenset())
 
     def test_an_int_named_like_a_secret_is_not_masked(self):
         from users.core.settings import UsersSettings
@@ -151,7 +151,9 @@ class TestSecretMaskingIsTypeAware:
         from settings.module_settings.discovery import SECRET_MASK
         from users.core.settings import UsersSettings
 
-        field = self._field(UsersSettings, "reset_password_token_secret")
+        field = self._field(
+            UsersSettings, "oauth_google_client_secret", oauth_google_client_secret="private"
+        )
         assert field.is_secret is True
         assert field.value == SECRET_MASK
 

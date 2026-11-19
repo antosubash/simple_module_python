@@ -27,10 +27,10 @@ async def _link(admin_client, users_app) -> str:
 
 
 @pytest.mark.anyio
-async def test_unconfigured_falls_back_to_the_serving_origin(admin_client, users_app):
-    assert _STOCK == "http://localhost:8000"
+async def test_unconfigured_keeps_links_relative(admin_client, users_app):
+    assert _STOCK == ""
     link = await _link(admin_client, users_app)
-    assert link.startswith("http://testserver/users/reset-password?token="), link
+    assert link.startswith("/users/reset-password?token="), link
 
 
 @pytest.mark.anyio
