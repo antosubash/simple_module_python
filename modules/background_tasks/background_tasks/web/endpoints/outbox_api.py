@@ -13,16 +13,15 @@ from background_tasks.contracts.outbox import OutboxItem, OutboxListResponse
 from background_tasks.core.constants import (
     ADMIN_ROUTER_PREFIX,
     MODULE_NAME,
-    PERM_MANAGE,
-    PERM_VIEW,
     OutboxStatus,
+    Permissions,
 )
 from background_tasks.outbox.service import OutboxService
 from background_tasks.web.deps import get_outbox_service
 
 router = APIRouter(
     prefix=f"{ADMIN_ROUTER_PREFIX}/outbox",
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
     tags=[f"{MODULE_NAME}-admin"],
 )
 
@@ -40,7 +39,7 @@ async def list_outbox(
 @router.post(
     "/{message_id}/retry",
     response_model=OutboxItem,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def retry_outbox_message(
     message_id: uuid.UUID, service: OutboxService = Depends(get_outbox_service)
@@ -52,7 +51,7 @@ async def retry_outbox_message(
 @router.delete(
     "/{message_id}",
     status_code=204,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def discard_outbox_message(
     message_id: uuid.UUID, service: OutboxService = Depends(get_outbox_service)

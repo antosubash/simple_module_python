@@ -33,6 +33,7 @@ from pydantic_settings import BaseSettings
 from simple_module_core.dotenv import parse_dotenv
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.stored_settings import construct_leniently, parse_stored_value
+from simple_module_db.provider import detect_provider
 from simple_module_db.stored_settings import (
     COL_KEY,
     COL_SCOPE,
@@ -123,6 +124,9 @@ def load_host_overrides(
     the thread makes the caller's loop state irrelevant.
     """
     try:
+        # Parse first: a malformed URL's parser error can quote the password,
+        # while detect_provider raises a credential-free ValueError (#967).
+        detect_provider(database_url)
         with ThreadPoolExecutor(max_workers=1) as pool:
             overrides = pool.submit(lambda: asyncio.run(_read(database_url))).result()
     except Exception as exc:
@@ -239,11 +243,18 @@ def merge_host_settings(
     # The stored key rode along in the read above (it is a ``host.*`` row), so
     # an established install opens no second connection for it.
     stored_key = overrides.get(SECRET_KEY_FIELD, (None, None))[0]
+    ephemeral = False
+
+    def mark_ephemeral() -> None:
+        nonlocal ephemeral
+        ephemeral = True
+
     secret_key = ensure_secret_key(
         bootstrap.database_url,
         env_value=bootstrap.secret_key if "secret_key" in bootstrap.model_fields_set else None,
         stored=stored_key,
         strict=strict,
+        on_ephemeral=mark_ephemeral,
     )
     # database_url is passed explicitly: BootstrapSettings.__init__ resolves
     # relative sqlite paths against the discovered project root, and
@@ -255,4 +266,6 @@ def merge_host_settings(
     # longer validates (a Literal narrowed in an upgrade) falls back to its
     # default with a WARNING instead of taking down every worker — and with
     # them the admin UI that could fix the row (#497).
-    return construct_leniently(Settings, stored, fixed=fixed)
+    settings = construct_leniently(Settings, stored, fixed=fixed)
+    settings._secret_key_ephemeral = ephemeral
+    return settings

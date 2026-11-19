@@ -88,10 +88,10 @@ class TestRichModuleContent:
         assert "label_key=MENU_LABEL_KEY" in module_py
         assert "register_settings" not in module_py
         assert "app.state.orders =" not in module_py
-        assert "PAGE_BROWSE," in views
-        assert 'render("Orders/' not in views
+        assert '"Orders/Browse"' in views
+        assert "RequiresPermission(Permissions.VIEW)" in views
         assert '"orders.view"' not in module_py
-        assert 'PERM_ORDERS_VIEW = "orders.view"' in (pkg / "core" / "constants.py").read_text()
+        assert 'VIEW = "orders.view"' in (pkg / "core" / "constants.py").read_text()
 
     def test_locale_catalog_carries_the_menu_key(self, orders: Path):
         data = json.loads((orders / "orders" / "locales" / "en.json").read_text())
@@ -124,9 +124,10 @@ class TestFrameworkRepoVariant:
             assert "const { t } = useT();" in content
             assert "t(keys.orders." in content
 
-    def test_standalone_variant_keeps_literal_pages_and_no_workspace_sources(self, tmp_path: Path):
+    def test_standalone_variant_ships_local_keys_without_workspace_sources(self, tmp_path: Path):
         dest = create_module(tmp_path / "m", name="orders")
-        assert "keys." not in (dest / "orders" / "pages" / "Browse.tsx").read_text()
+        assert "t(keys.orders." in (dest / "orders/pages/Browse.tsx").read_text()
+        assert (dest / "orders/pages/i18n.generated.ts").is_file()
         assert "tool.uv.sources" not in (dest / "pyproject.toml").read_text()
         assert not (dest / "LICENSE").exists()
 

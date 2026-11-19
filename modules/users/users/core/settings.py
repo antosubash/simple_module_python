@@ -3,31 +3,22 @@
 Most fields hydrate from the DB after boot, with pydantic defaults filling in
 until then. Runtime changes go through ``settings.module_settings.reload.apply_changes_and_reload``.
 
-The two token-secret fields read ``SM_USERS_*`` at import time as a bootstrap
-path: a fresh production deploy needs to clear the validator below before any
-DB-backed settings can be seeded, otherwise the two paths deadlock.
+Token signing keys live in runtime state, derived from the resolved host root key.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.dotenv import env_str
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.settings_base import DbBackedSettings
-from simple_module_core.stored_settings import field_error
 
 from users.accounts.session_version_cache import SESSION_VERSION_TTL_SECONDS
 from users.core.oauth_settings import OAuthSettings
 
 logger = logging.getLogger("users.settings")
-
-_PLACEHOLDER_RESET_SECRET = "dev-reset-token-secret-change-me"
-_PLACEHOLDER_VERIFY_SECRET = "dev-verify-token-secret-change-me"
 
 DEFAULT_REFRESH_TOKEN_FAMILY_MAX_AGE_DAYS = 90
 
@@ -47,18 +38,6 @@ class _UsersCoreSettings(DbBackedSettings):
     allow_signup: bool = False
     require_verification: bool = True
 
-    # Token secrets — MUST be set in production. Dev default is a deterministic
-    # placeholder that's obvious in logs so it can't be mistaken for a real key.
-    # Resolved at module-import time so ``info.default`` stays serializable
-    # for the settings admin UI.
-    reset_password_token_secret: str = env_str(
-        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
-        _PLACEHOLDER_RESET_SECRET,
-    )
-    verification_token_secret: str = env_str(
-        "SM_USERS_VERIFICATION_TOKEN_SECRET",
-        _PLACEHOLDER_VERIFY_SECRET,
-    )
     reset_password_token_lifetime_seconds: int = 60 * 60  # 1 hour
     verification_token_lifetime_seconds: int = 60 * 60 * 24 * 7  # 7 days
 
@@ -168,40 +147,6 @@ class _UsersCoreSettings(DbBackedSettings):
                 "writable administrator session. Set demo_read_only=True unless this "
                 "instance's database is disposable.",
                 self.demo_admin_email,
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _forbid_placeholder_token_secrets_in_production(self) -> _UsersCoreSettings:
-        """Fail boot if the reset/verify token secrets are still placeholders.
-
-        Both are HMAC keys for fastapi-users JWTs. A well-known default lets
-        an attacker mint password-reset or email-verification tokens for any
-        user. The environment is read from ``SM_ENVIRONMENT`` (host setting)
-        so this check has no runtime coupling to the hosting package.
-        """
-        env = os.environ.get("SM_ENVIRONMENT", "development")
-        if env in NON_PROD_ENVIRONMENTS:
-            return self
-        bad = []
-        if self.reset_password_token_secret == _PLACEHOLDER_RESET_SECRET:
-            bad.append(("reset_password_token_secret", "RESET_PASSWORD_TOKEN_SECRET"))
-        if self.verification_token_secret == _PLACEHOLDER_VERIFY_SECRET:
-            bad.append(("verification_token_secret", "VERIFICATION_TOKEN_SECRET"))
-        if bad:
-            names = ", ".join(label for _, label in bad)
-            # Located on the first placeholder field. Dropping a stored
-            # placeholder falls back to the same placeholder, so lenient boot
-            # still refuses: the check cannot be sidestepped.
-            raise field_error(
-                type(self),
-                bad[0][0],
-                "placeholder_token_secret",
-                f"users.{names} must be set to non-default value(s) when "
-                f"SM_ENVIRONMENT={env!r}. Generate with "
-                "`python -c 'import secrets; print(secrets.token_urlsafe(48))'`.",
-                value="",
-                related=["reset_password_token_secret", "verification_token_secret"],
             )
         return self
 

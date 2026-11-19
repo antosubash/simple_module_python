@@ -105,6 +105,7 @@ async def test_real_users_login_cookie_is_anonymous_after_provider_switch(
     from users.accounts.manager import UserManager
     from users.accounts.provider import UsersAuthProvider, clear_session_version_cache
     from users.core.settings import UsersSettings
+    from users.core.token_secrets import resolve_token_secrets
     from users.models import OAuthAccount, Role, User
 
     role = Role(name="admin")
@@ -122,7 +123,9 @@ async def test_real_users_login_cookie_is_anonymous_after_provider_switch(
     @app.post("/login")
     async def login(request: Request):
         adapter = UserDatabaseWithRoles(db_session, User, OAuthAccount)
-        await UserManager(adapter, SimpleNamespace(), config).on_after_login(user, request)
+        await UserManager(
+            adapter, SimpleNamespace(), config, resolve_token_secrets("test-secret-key")
+        ).on_after_login(user, request)
         ctx = await app.state.auth.auth_provider.resolve_user(request)
         return {"roles": ctx.roles}
 

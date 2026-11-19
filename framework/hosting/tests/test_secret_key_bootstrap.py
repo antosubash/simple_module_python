@@ -14,7 +14,9 @@ from pathlib import Path
 
 import pytest
 from _hosting_settings_db import seed_settings_db, unmigrated_db_url
+from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting._secret_key import ensure_secret_key
+from simple_module_hosting.bootstrap_settings import BootstrapSettings
 
 
 @pytest.fixture
@@ -49,6 +51,26 @@ def test_concurrent_boots_converge_on_one_key(fresh_db_url: str) -> None:
 def test_env_wins(monkeypatch: pytest.MonkeyPatch, fresh_db_url: str) -> None:
     monkeypatch.setenv("SM_SECRET_KEY", "explicit-key-from-environment")
     assert ensure_secret_key(fresh_db_url) == "explicit-key-from-environment"
+
+
+@pytest.mark.parametrize("root", ["", " \t\n"])
+@pytest.mark.parametrize("stored", [None, "stored-root"])
+def test_blank_env_root_is_unset(monkeypatch, fresh_db_url, root, stored):
+    monkeypatch.setenv("SM_SECRET_KEY", root)
+    key = ensure_secret_key(fresh_db_url, stored=stored, strict=True)
+    if stored is None:
+        assert len(key.strip()) >= 40
+    else:
+        assert key == stored
+
+
+def test_production_merge_ignores_blank_env_root(monkeypatch, fresh_db_url):
+    monkeypatch.setenv("SM_SECRET_KEY", " \t\n")
+    settings = merge_host_settings(
+        BootstrapSettings(_env_file=None, environment="production", database_url=fresh_db_url)
+    )
+    assert len(settings.secret_key.strip()) >= 40
+    assert settings.secret_key == ensure_secret_key(fresh_db_url, strict=True)
 
 
 def test_env_value_is_not_persisted(monkeypatch: pytest.MonkeyPatch, fresh_db_url: str) -> None:

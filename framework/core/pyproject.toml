@@ -22,11 +22,13 @@ classifiers = [
 ]
 dependencies = [
     "babel>=2.14,<3",
+    "cryptography>=42",
     "fastapi>=0.140,<0.163",
     "packaging>=23.0,<27",
     "pydantic>=2.0,<3",
     "pydantic-settings>=2.0,<3",
-    "pyee>=12.0,<15",
+    "pyee>=12.0,<17",
+    "sqlmodel>=0.0.22,<0.1",
 ]
 
 [project.urls]

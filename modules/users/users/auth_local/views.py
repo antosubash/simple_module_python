@@ -204,7 +204,9 @@ async def verify_page(request: Request, inertia: InertiaDep, token: str = "") ->
     # Deliberately ignores expiry: an expired verification link is exactly
     # when the address is worth recovering, so "Resend verification" can offer
     # to send another one there instead of asking for it to be retyped.
-    claims = decode_verify_token(token, users_settings.verification_token_secret)
+    claims = decode_verify_token(
+        token, request.app.state.users.token_secrets.verification_token_secret
+    )
     return await inertia.render(
         _PAGE_VERIFY_EMAIL,
         {

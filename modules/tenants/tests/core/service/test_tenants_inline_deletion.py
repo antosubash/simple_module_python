@@ -23,7 +23,7 @@ from tenants.models import Tenant
 async def test_inline_deletion_purges_rows_atomically(db_session, rollback):
     bus = EventBus()
     for module in (ApiTokensModule(), SharingModule(), FeatureFlagsModule()):
-        module.register_event_handlers(bus)
+        module.register_event_handlers(bus, None)
     register_tenant_cleanup(bus)
     for tenant_id in ("deleted", "retained"):
         db_session.add(Tenant(id=tenant_id, slug=tenant_id, name=tenant_id))

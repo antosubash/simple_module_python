@@ -11,8 +11,7 @@ from simple_module_core import __main__ as doctor
 class _Mod(ModuleBase):
     # This fake has no source package, even when pytest gives this test an importlib name.
     __module__ = "_doctor_cli_test_module"
-    meta = ModuleMeta(name="users")
-    _is_auth_provider = True
+    meta = ModuleMeta(name="users", provides_auth=True)
 
     def __init__(self, locales):
         self._locales = locales

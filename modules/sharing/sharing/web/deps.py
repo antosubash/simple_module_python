@@ -7,20 +7,24 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request
 from simple_module_core.user_directory import get_user_directory
 from simple_module_db.deps import get_db
+from simple_module_hosting.i18n_deps import TranslatorDep
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sharing.contracts import get_subject_registry
 from sharing.core.audience import Audience
 from sharing.core.service import SharingError, SharingService
 
 
 async def get_sharing_service(
-    request: Request, db: AsyncSession = Depends(get_db)
+    request: Request, translator: TranslatorDep, db: AsyncSession = Depends(get_db)
 ) -> SharingService:
     return SharingService(
         db,
         request.app.state.sm.resource_types,
         get_user_directory(request.app),
         Audience(request.app, db),
+        get_subject_registry(request.app),
+        translate=translator.t,
     )
 
 

@@ -17,7 +17,7 @@ import {
   VIEW_INDEX,
   type WorkerSnapshot,
 } from '../ui/utils/constants';
-import { api } from './api';
+import { api } from './api.generated';
 
 interface Props {
   /** Deferred: undefined until the broker poll (up to ~1s) answers. */

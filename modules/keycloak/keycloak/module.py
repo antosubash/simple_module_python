@@ -19,15 +19,20 @@ _MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 
 class KeycloakModule(ModuleBase):
+    def register_principal_builder(self, registry) -> None:
+        from keycloak.identity.directory import KeycloakDirectory
+
+        registry.directory = KeycloakDirectory()
+
     meta = ModuleMeta(
         name="Keycloak",
+        provides_auth=True,
         route_prefix="/api/keycloak",
         view_prefix="/keycloak",
         depends_on=[_MODULE_DEPENDENCY_AUTH],
         # Ordering only: settings registration is the framework's (#500).
         optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
-    _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
         from keycloak.core.settings import KeycloakSettings
@@ -46,11 +51,15 @@ class KeycloakModule(ModuleBase):
         )
 
         # Other modules read accounts through the directory (GH #501).
+        from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
         from simple_module_core.user_directory import set_user_directory
 
         from keycloak.identity.directory import KeycloakDirectory
 
         set_user_directory(app, KeycloakDirectory())
+        set_role_directory(
+            app, MappedRoleDirectory(lambda: app.state.keycloak.settings.role_mapping)
+        )
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:
         for prefix in PUBLIC_PATH_PREFIXES:

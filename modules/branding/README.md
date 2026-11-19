@@ -4,14 +4,14 @@ Customisable application branding for [simple_module_python](https://github.com/
 
 An administrator can set the **application name**, **logo** (plus an optional
 **dark-background variant**), **favicon** and **primary brand colour** from the
-admin UI (`/branding`), and those values are
+admin UI (`/admin/branding`), and those values are
 applied everywhere the framework would otherwise show the default identity —
 the sidebar/header logo and name, the browser tab title, the favicon, and the
 primary accent colour.
 
 ## Screenshots
 
-The admin page at `/branding`, and the same app rebranded as "Acme Analytics"
+The admin page at `/admin/branding`, and the same app rebranded as "Acme Analytics"
 (custom logo + name + primary colour) across the sidebar and dashboard:
 
 | Admin page | Branding applied | Across the app |
@@ -37,7 +37,7 @@ modules to be installed too.
 ## Usage
 
 1. Sign in as an admin and open **Branding** in the sidebar (or visit
-   `/branding`).
+   `/admin/branding`).
 2. Set the application name, pick a primary colour, and upload a logo and/or
    favicon. Changes apply immediately across the app.
 

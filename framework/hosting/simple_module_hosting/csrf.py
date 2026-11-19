@@ -5,14 +5,13 @@ cookie: browsers don't attach it to cross-site POSTs, so a forged form
 submit arrives unauthenticated. Modules that want defence in depth (or must
 satisfy a stricter audit) opt into a token check per router::
 
-    from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+    from simple_module_hosting.csrf import RequiresCsrf
 
     router = APIRouter(dependencies=[Depends(RequiresCsrf())])
 
-    # expose the token to the frontend, e.g. as an Inertia prop:
-    await inertia.render("MyModule/Page", {"csrf_token": get_csrf_token(request)})
-
-Callers send the token back as ``X-CSRF-Token`` on POST/PUT/PATCH/DELETE.
+Signed-in Inertia pages share ``csrfToken`` automatically, including partial
+reloads. The generated API client sends its current value as ``X-CSRF-Token``
+on same-origin POST/PUT/PATCH/DELETE; page code needs no token plumbing.
 Safe methods are never checked. Apps that mount no ``SessionMiddleware``
 (bare unit-test apps) are exempt — without a session there is nothing to
 bind a token to.

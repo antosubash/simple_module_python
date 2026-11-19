@@ -19,7 +19,7 @@ from users.core.constants import ADMIN_ROLE_NAME
 
 logger = logging.getLogger("users.settings")
 
-# The ``{provider}`` URL segments ``users.oauth.providers.build_clients`` can serve.
+# Built-in names accepted by the provisioning settings (custom factories are separate).
 OAUTH_PROVIDER_NAMES = frozenset({"google", "github", "microsoft", "oidc"})
 OAUTH_PROVISIONING_GROUP = "OAuth provisioning"
 # Providers whose directory the domain's owner controls: a pinned Entra tenant,

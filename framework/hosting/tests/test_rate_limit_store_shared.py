@@ -83,7 +83,7 @@ async def test_peek_falls_back_when_redis_down() -> None:
 
 def test_services_default_store() -> None:
     factory = Services.__dataclass_fields__["rate_limit_store"].default_factory
-    assert isinstance(factory(), InProcessWindowStore)  # ty: ignore[call-non-callable]
+    assert isinstance(factory(), InProcessWindowStore)  # ty: ignore[not-callable]
 
 
 async def test_create_app_shares_one_store(app) -> None:

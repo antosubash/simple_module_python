@@ -2,15 +2,32 @@
 
 Centralised so `register_permissions`, endpoint guards, and tests all
 reference the same literal. Other modules that need to check one of these
-permissions should import the constant rather than duplicating the string.
+permissions should use Permissions members rather than duplicating the string.
 """
 
 from __future__ import annotations
 
+from simple_module_core.deprecation import deprecate
+from simple_module_core.permissions import PermissionCatalogue
+
 PERMISSION_GROUP = "Permissions"
 
-PERM_VIEW = "permissions.view"
-PERM_MANAGE = "permissions.manage"
+
+class Permissions(
+    PermissionCatalogue, group=PERMISSION_GROUP, label_key="permissions.permission_group"
+):
+    VIEW = "permissions.view"
+    MANAGE = "permissions.manage"
+
+
+deprecate(
+    "permissions PERM_* constants",
+    remove_in="0.0.50",
+    use="permissions.core.constants.Permissions",
+)
+PERM_VIEW = Permissions.VIEW
+PERM_MANAGE = Permissions.MANAGE
+
 
 # Durable handler name (outbox key); pinned to the original import-path default.
 USER_CLEANUP_HANDLER = "permissions.user_cleanup.purge_user_grants"

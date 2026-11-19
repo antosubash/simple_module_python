@@ -1,5 +1,9 @@
 # Pluggable Auth + Keycloak Module Implementation Plan
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the auth layer swappable — framework users install either `users` (local credentials) or a new `keycloak` module (Keycloak OIDC), both implementing the same `AuthProvider` contract. Mobile clients get bearer-token support regardless of provider.

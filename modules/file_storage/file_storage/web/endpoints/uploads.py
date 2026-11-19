@@ -45,7 +45,7 @@ from file_storage.multipart.support import (
     UploadNotFoundError,
     total_parts,
 )
-from file_storage.web.deps import get_event_bus, get_file_storage_service
+from file_storage.web.deps import get_authorized_file_storage_service, get_event_bus
 from file_storage.web.endpoints.upload_errors import (
     bad_part,
     busy,
@@ -62,7 +62,7 @@ router = APIRouter(dependencies=[Depends(RequiresPermission(constants.Permission
 
 
 async def get_upload_service(
-    files: FileStorageService = Depends(get_file_storage_service),
+    files: FileStorageService = Depends(get_authorized_file_storage_service),
 ) -> UploadSessionService:
     return UploadSessionService(files)
 

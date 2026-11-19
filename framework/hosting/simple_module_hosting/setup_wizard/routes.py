@@ -34,6 +34,8 @@ from simple_module_inertia import InertiaResponse
 from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.setup_wizard.composition import migration_follow_up, run_follow_up
 from simple_module_hosting.setup_wizard.payloads import connection_status, steps_payload
 
 logger = logging.getLogger(__name__)
@@ -75,12 +77,17 @@ async def setup_index(
     # steps, so an optional one would render with a checkmark whatever its
     # predicate says.
     pending = {s.id for s in await registry.incomplete_all(request.app)}
+    follow_up = await migration_follow_up(request)
+    setup_error = request.session.pop("setup_error", None)
+    if setup_error:
+        setup_error["message"] = translator.t("hosting.setup.migrations.follow_up_failed")
 
     response = await inertia.render(
         _PAGE_WIZARD,
         {
             "checks": await connection_status(request),
-            "steps": steps_payload(registry, pending, translator.t),
+            "steps": steps_payload(registry, pending, translator.t, follow_up),
+            "setupError": setup_error,
             "csrfToken": get_csrf_token(request),
         },
     )
@@ -130,6 +137,11 @@ async def run_step_action(step_id: str, request: Request) -> dict:
         raise HTTPException(status_code=409, detail="This setup step is already complete.")
 
     data = await _read_form(request)
+    follow_up = await migration_follow_up(request) if step_id == STEP_MIGRATIONS else None
+    if follow_up and follow_up.action and follow_up.action.validate_before_migrations:
+        await follow_up.action.validate_before_migrations(request, data)
     result = await step.action.handler(request, data)
+    if follow_up and await run_follow_up(request, follow_up, data):
+        return {"step": step_id, "result": result or {}, "redirect": "/setup"}
     logger.info("Setup: ran the action for step %s", step_id)
     return {"step": step_id, "result": result or {}}

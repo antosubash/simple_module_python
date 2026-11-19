@@ -11,8 +11,9 @@ import html
 import importlib.resources
 from string import Template
 
-from simple_module_core.deprecation import deprecated
 from simple_module_core.redirect_safety import safe_next as _safe_next
+
+__all__ = ["render_unlock_page"]
 
 _TEMPLATE = Template(
     (importlib.resources.files(__package__) / "templates" / "unlock.html").read_text(
@@ -22,9 +23,6 @@ _TEMPLATE = Template(
 
 _DEFAULT_MESSAGE = "This site is not public yet. Enter the password to continue."
 _ERROR_BLOCK = '<p class="error" role="alert">{message}</p>'
-
-
-# Existing imports keep a dated wrapper; rendering uses the canonical helper.
 
 
 def render_unlock_page(
@@ -39,11 +37,3 @@ def render_unlock_page(
         error=_ERROR_BLOCK.format(message=html.escape(error)) if error else "",
         next_url=html.escape(_safe_next(next_url), quote=True),
     )
-
-
-__all__ = ["render_unlock_page", "safe_next"]
-
-
-@deprecated(remove_in="0.1.0", use="simple_module_core.redirect_safety.safe_next")
-def safe_next(raw: str | None, *, fallback: str = "/") -> str:
-    return _safe_next(raw, fallback=fallback)

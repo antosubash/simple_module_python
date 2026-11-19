@@ -6,11 +6,17 @@ import ast
 from typing import TYPE_CHECKING
 
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.menu import MenuItem, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_db import independent_session
 
-from permissions.core.constants import _MODULE_AUTH, _MODULE_USERS, USER_CLEANUP_HANDLER
+from permissions.core.constants import (
+    _MODULE_AUTH,
+    _MODULE_USERS,
+    USER_CLEANUP_HANDLER,
+    Permissions,
+)
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -40,15 +46,39 @@ async def _resolve_role_permission_labels(_db: AsyncSession, ids: list[str]) -> 
 
 
 class PermissionsModule(ModuleBase):
+    permissions = Permissions
+
+    def register_principal_builder(self, registry) -> None:
+        from permissions.grants.principal import role_overlays
+
+        registry.role_overlays = role_overlays
+
     meta = ModuleMeta(
         name="Permissions",
         route_prefix="/api/permissions",
         view_prefix="/admin/permissions",
-        depends_on=[_MODULE_AUTH, _MODULE_USERS],
+        depends_on=[_MODULE_AUTH],
+        optional_depends_on=[_MODULE_USERS],
         i18n_audience="admin",
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_menu_items(self, registry) -> None:
+        from permissions.core.constants import Permissions
+
+        registry.add(
+            MenuItem(
+                label="Permissions",
+                label_key="permissions.browse.title",
+                url="/admin/permissions/",
+                icon="shield-check",
+                section=MenuSection.ADMIN_SIDEBAR,
+                group="Access",
+                group_key="ui.nav_groups.access",
+                permissions=[Permissions.MANAGE],
+            )
+        )
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.user_events import UserDeleted
 
         from permissions.grants.user_cleanup import purge_user_grants
@@ -75,17 +105,13 @@ class PermissionsModule(ModuleBase):
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        from permissions.core.constants import PERM_MANAGE, PERM_VIEW, PERMISSION_GROUP
+        from permissions.grants.principal import direct_grants_for
         from permissions.grants.source import direct_grant_source
 
-        registry.add_group(
-            PERMISSION_GROUP,
-            [PERM_VIEW, PERM_MANAGE],
-            label_key="permissions.permission_group",
-        )
+        super().register_permissions(registry)
         # Direct per-user grants join the framework's one resolution, so every
         # module's RequiresPermission, the menu and the frontend honour them.
-        registry.add_grant_source(direct_grant_source)
+        registry.add_grant_source(direct_grant_source, session_source=direct_grants_for)
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         """Let another worker's grant change drop this worker's cached grants."""

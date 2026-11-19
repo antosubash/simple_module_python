@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from simple_module_core import _i18n_translator, invalidation, menu
+from simple_module_core import _i18n_translator, _invalidation_message, invalidation, menu
 from simple_module_db import listeners
 from simple_module_hosting import setup_gate
 
@@ -32,7 +32,7 @@ def test_audit_identity_failure_warns_once_and_omits_key(monkeypatch, caplog):
 
 
 def test_invalidation_decoder_warns_once_and_drops_payload(monkeypatch, caplog):
-    monkeypatch.setattr(invalidation, "_decode_failure_warned", False)
+    monkeypatch.setattr(_invalidation_message, "_decode_failure_warned", False)
     for _ in range(2):
         assert invalidation.Invalidation.from_wire("invalid json") is None
     _assert_warning(caplog, "Ignoring undecodable invalidation message")

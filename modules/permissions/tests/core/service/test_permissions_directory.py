@@ -22,7 +22,7 @@ class _IdpDirectory(NullUserDirectory):
         user = DirectoryUser(id=str(_UID), email="idp@example.com", full_name="Ida")
         return {str(_UID): user} if str(_UID) in ids else {}
 
-    async def search(self, db, term, *, limit):
+    async def search(self, db, term, *, limit, **_filters):
         self.searches.append((term, limit))
         return [DirectoryUser(id=str(_UID), email="idp@example.com")]
 

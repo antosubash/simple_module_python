@@ -8,6 +8,11 @@ workflow the host developer uses, and the API-version / semver rules.
 
 ## Anatomy of a module package
 
+Optional frontend registration entries can contribute page panels, replace layout
+chrome, add menu icons and supply settings controls through one typed registry.
+See [Frontend extension points](frontend/extensions.md) for registration, slot
+contracts, lazy loading and the host startup wiring.
+
 ```text
 modules/<name>/
 ├── pyproject.toml
@@ -18,7 +23,7 @@ modules/<name>/
 │   ├── core/                     # constants.py, settings.py, services.py, errors.py
 │   ├── web/                      # deps.py, service.py (or services/), private schemas
 │   │   └── endpoints/            # api.py, views.py
-│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── pages/                    # Inertia pages, generated API client + types
 │   ├── locales/                  # <lang>.json
 │   ├── ui/                       # components/, hooks/, utils/ (when needed)
 │   └── tasks.py, theme.css, styles.css  # optional root lookup files
@@ -185,38 +190,59 @@ The default `locale_dirs()` discovers `<package>/locales` under the lowercase
 last package component (`acme.billing` uses `billing`); override only for custom
 directories/namespaces or to opt out.
 
+The scaffold declares one `Permissions(PermissionCatalogue, group=...)` enum in
+its constants and sets `permissions = Permissions` on the module. The base
+permission hook registers every member; guards reference the same string enum.
+Override the hook only to add behavior, calling `super()` to retain catalogue
+registration. See [Permissions](framework/permissions.md). Render literal
+`"MetaName/Page"` keys directly: the hardcoded-string checker verifies the owning
+module and TSX file, so new `PAGE_*` aliases are unnecessary. Existing constants
+and explicit registration hooks remain supported.
+
 ### Administrative screens
 
-Admin pages belong under `/admin/*`, in `MenuSection.ADMIN_SIDEBAR`, rendered
-by `AdminLayout`. Do all three or none — `SidebarLayout` renders whichever
-menu its `menuKey` names, so a page still on `AuthenticatedLayout` after its
-menu entry moved shows a sidebar that no longer lists it.
-
-If your module is administrative end to end, that is just a prefix:
+Declare administrative routing and presentation once with `AdminSurface`:
 
 ```python
-class MyModule(ModuleBase):
-    meta = ModuleMeta(name="MyModule", view_prefix="/admin/my-module")
-```
+from simple_module_core import AdminSurface, ModuleBase, ModuleMeta
 
-If it serves both public and admin pages — as `users` does, with sign-in at
-`/users/login` and management at `/admin/users` — one `view_prefix` cannot
-express both. Declare a second mount point and fill it from
-`register_admin_routes`:
 
-```python
 class MyModule(ModuleBase):
     meta = ModuleMeta(
         name="MyModule",
         view_prefix="/my-module",  # public pages
-        admin_view_prefix="/admin/my-module",  # admin pages
+        admin=AdminSurface(
+            prefix="/admin/my-module",
+            routes="my_module.admin.views:router",
+            menu_group="Access",
+            menu_group_key="ui.nav_groups.access",
+        ),
     )
-
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from my_module.admin.views import router as admin_views
-
-        admin_router.include_router(admin_views)
 ```
+
+The base `register_admin_routes` imports that router. Omit `routes` to use
+`<package>.web.endpoints.admin:router`, or override the hook for custom wiring.
+The surface supplies `admin_view_prefix`; conflicting explicit prefixes fail at
+construction. Prefixes must start with `/` and have no trailing slash.
+
+Menu items registered by this module, including per-request providers, inherit
+`MenuSection.ADMIN_SIDEBAR` and the surface's group only when their URL is the
+prefix or lies below it. Explicit sections and nonempty groups/translation keys
+win. Public items and other modules are unaffected. Declare each item's URL,
+label and guards as usual; the surface creates no menu items or permissions.
+
+After `make gen-pages`, module page loaders supply `AdminLayout` for pages with
+no explicit layout when the destination URL lies under the surface. This works
+with existing host page resolvers and follows Inertia navigation between public
+and admin URLs. Explicit page layouts (including `[]` or `null`) win. Customize
+`layout` with a JS `module:NamedExport` pair; the default is
+`@simple-module-py/ui/layouts/AdminLayout:AdminLayout`.
+
+Existing `admin_view_prefix` + `register_admin_routes`, explicit menu sections
+and `Page.layout` remain supported unchanged. All-admin modules can keep their
+existing `view_prefix="/admin/..."` wiring, or put their admin router in a
+surface and leave their ordinary view router empty. Do not mount the same router
+through both hooks.
 
 The prefix is a URL convention, not a permission: nothing under `/admin` is
 gated automatically. Guard these routes with the same dependencies you would
@@ -564,10 +590,10 @@ Declare the sibling in the Python module dependencies so discovery orders it
 correctly. No npm peer declaration is required. The alias resolves to source
 and is excluded from pre-bundling.
 
-Note this is the one part of module frontend wiring that *does* depend on the
-host's `vite.config.ts`, because the import lives in your source rather than in
-a generated file. Apps scaffolded before this shipped need the alias block added
-— see the CHANGELOG entry for the diff.
+The versioned `@simple-module-py/vite-plugin` reads the generated asset manifest
+and configures aliases for both JS and CSS. Upgrade the package with the rest of
+the framework to receive resolver fixes. Older copied Vite configs continue to
+work; adopt the plugin using the [migration guide](frontend/module-tooling-migration.md).
 
 ## Styling
 
@@ -773,6 +799,26 @@ configured install behind head must be migrated by its operator before boot.
 Every `/setup` mutation also carries the session's CSRF token
 (`simple_module_hosting.csrf`); the wizard page sends it for you.
 
+**A first-run form can combine migrations with the next required step.** Set
+`SetupAction.validate_before_migrations` to an async `(request, data)` validator
+to opt in. It must validate all inputs without reading or writing the schema;
+raise `HTTPException(422, detail=...)` for invalid input. The Users action reuses
+its email validator and password policy here. On a positively verified
+never-migrated database, the wizard displays that action's fields on the
+migration step and validates them before running the existing locked migration
+action. It then invokes the follow-up handler only if its step is still pending.
+The handler must retain its own validation, lock and transactional re-check.
+Neither validation nor selection runs the follow-up handler before migration.
+
+Migration failures retain the migration form and existing error handling. If
+migrations succeed but the follow-up fails, they stay applied: the wizard
+returns to the remaining step's form with a translated recovery error. Exception
+details remain in server logs; submitted credentials are never stored in the
+session. Existing migration history disables composition, keeping the explicit
+migration step (and its CLI-only upgrade guard). With no opted-in next step,
+including Keycloak/OIDC installs, setup remains migrate-only. This composition
+uses the setup registry; the framework never imports the contributing module.
+
 **An action that creates something unique must re-check under a lock.** The
 step check runs before your handler and outside its transaction, so two
 concurrent requests can both pass it. `users.core.setup_action` shows the pattern:
@@ -803,17 +849,24 @@ module's JSON mutation surface, opt into the framework's session-bound token
 check instead of rolling your own:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+from simple_module_hosting.csrf import RequiresCsrf
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
-
-# expose the token to your pages as a view prop:
-await inertia.render("MyModule/Page", {"csrf_token": get_csrf_token(request)})
 ```
 
-Frontend callers echo the token back as `X-CSRF-Token` on
-`POST`/`PUT`/`PATCH`/`DELETE`. Safe methods are never checked, and bare test
-apps without `SessionMiddleware` are exempt, so unit tests need no ceremony.
+That dependency is the module's only CSRF wiring. Signed-in Inertia pages
+receive the session's `csrfToken` shared prop, including partial reloads with
+`only` or `except`. The generated `api` client reads the current token on every
+same-origin `POST`/`PUT`/`PATCH`/`DELETE`, including after login/logout, and sends
+`X-CSRF-Token`. Do not add a per-page token prop or manual headers.
+
+Import `{ api }` from `./api.generated`; `smpy openapi gen-types --module <pkg>`
+(`make gen-api-types` in this repo) generates both the client and its types in
+one file. Keep a separate `api.ts` only for custom client logic; regeneration
+leaves it alone. Anonymous pages do not receive the authenticated shared token;
+anonymous authentication forms explicitly expose their session token instead.
+Safe methods are never checked, and bare test apps without `SessionMiddleware`
+are exempt, so unit tests need no ceremony.
 
 ## Prop types (Inertia v3)
 

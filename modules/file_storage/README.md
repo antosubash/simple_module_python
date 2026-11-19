@@ -64,7 +64,7 @@ async def attach_receipt(
     return {"file_id": record.id}
 ```
 
-Backend and S3 credentials are configured from the admin UI at **/settings/modules → FileStorage** (DB-backed settings); switch `backend` to `s3` and fill in `s3_bucket`, `s3_region`, `s3_endpoint_url` (for MinIO/R2), `s3_access_key_id`, and `s3_secret_access_key`.
+Backend and S3 credentials are configured from the admin UI at **/admin/settings/modules → FileStorage** (DB-backed settings); switch `backend` to `s3` and fill in `s3_bucket`, `s3_region`, `s3_endpoint_url` (for MinIO/R2), `s3_access_key_id`, and `s3_secret_access_key`.
 
 ## Depends on
 

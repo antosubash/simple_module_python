@@ -240,7 +240,9 @@ Entry values are plain Celery [beat entries](https://docs.celeryq.dev/en/stable/
 
 Beat persists its schedule (`celery.beat:PersistentScheduler`) so it survives restarts.
 
-The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.worker.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Except for the DB-only `execution_tracking` and `track_publish` fields, precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers. If the database cannot be read the worker starts from env and defaults and logs a warning.
+The worker and beat read the same DB-backed settings the web process does: `scripts/run_worker.py` (and the copy `smpy new` scaffolds) calls `background_tasks.worker.runner.build_runner_celery()`, which hydrates `BackgroundTasksSettings` from the database at boot exactly as the web lifespan does. Except for the DB-only `execution_tracking` and `track_publish` fields, precedence is env → DB → default: an `SM_BG_TASKS_*` variable that is set wins over a stored value for the same field, and the database supplies everything the environment leaves unset. So an admin-edited queue or time limit reaches the worker after a restart, unless the deployment pins that field in its environment. Because the web process behaves identically, this adds no new trust boundary; still, treat write access to these settings as control of the workers.
+
+Startup first calls `merge_host_settings()`. Its default strict mode (outside development and testing) can refuse startup if stored host settings or the session key cannot be read or initialized. Only after that succeeds does the worker load module settings: if that read fails, it logs a warning and falls back to environment/defaults. That fallback does not cover an earlier host-settings failure.
 
 ## Routing and queues
 
@@ -265,7 +267,15 @@ A worker normally imports every module's `tasks.py`. To keep a light worker from
 | `SM_BG_TASKS_INCLUDE_MODULES` | always import these packages |
 | `SM_BG_TASKS_EXCLUDE_MODULES` | never import these packages (wins over everything) |
 
-Order: exclude, then include, then the queue overlap; with all three empty every module loads. The filter covers both Celery autodiscovery and the eager beat-schedule import. `make worker` passes `-Q $SM_BG_TASKS_WORKER_QUEUES` when the variable is set, so the worker also only consumes those queues. Leave these unset on the web process and on beat: the web process only publishes (it needs every module's routes, which come from `task_config`, not `tasks.py`), and beat must see every schedule.
+Order: exclude, then include, then the queue overlap; with all three empty every module loads. The filter covers both Celery autodiscovery and the eager beat-schedule import.
+
+The **framework repo's** `make worker` also passes `-Q` with the normalized `SM_BG_TASKS_WORKER_QUEUES` list when it is set, restricting queue consumption. The **scaffolded app's** `make worker` does not pass `-Q`: the variable filters module imports only. To restrict consumption there too, pass the same queues explicitly, for example:
+
+```bash
+SM_BG_TASKS_WORKER_QUEUES=gpu,default uv run celery -A scripts.run_worker:celery worker -l info -Q gpu,default
+```
+
+Leave these variables unset on the web process and on beat: the web process only publishes (it needs every module's routes, which come from `task_config`, not `tasks.py`), and beat must see every schedule.
 
 A publisher that never imported a task can still enqueue it by name: `enqueue_after_commit(db, "reports.build", report_id)` sends it with `send_task`, routed by `task_config`.
 
@@ -324,7 +334,7 @@ from orders.contracts.events import OrderPlaced
 
 
 class InvoicesModule(ModuleBase):
-    def register_event_handlers(self, bus, app=None) -> None:
+    def register_event_handlers(self, bus, app) -> None:
         # Before any `if app is None: return` — the worker registers with app=None.
         bus.subscribe_durable(OrderPlaced, create_invoice)
 
@@ -606,7 +616,7 @@ DB-backed; defaults are in `BackgroundTasksSettings`. Several are marked `requir
 | `log_sink_level` | `"INFO"` | restart required; lowest level kept |
 | `log_retention_days` | `7` | how long to keep log lines; range 1-3650 |
 
-Bootstrap env-var equivalents (`SM_BG_TASKS_*`) only seed pydantic defaults at first boot — once a value lives in the DB, it's authoritative.
+For fields with `SM_BG_TASKS_*` equivalents, precedence is env → DB → default on each process start: an explicitly set environment value keeps winning over the DB. `execution_tracking` and `track_publish` are DB-only. Restart workers after changing restart-required settings; see [Running workers](#running-workers) for startup failure and fallback behavior.
 
 ## Permissions
 

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from simple_module_core.data_compatibility import DataCompatibilityIssue
     from simple_module_core.events import EventBus
+    from simple_module_core.invalidation import InvalidationBus
 
 
 class MailModule(ModuleBase):
@@ -46,7 +47,7 @@ class MailModule(ModuleBase):
             )
         )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         # Before the ``app is None`` return: the outbox worker builds modules
         # without an app and still has to send durable mail.
         from mail.delivery.runtime import resolve_sender_from_db
@@ -60,11 +61,31 @@ class MailModule(ModuleBase):
         from mail.delivery.runtime import install_app_sender
 
         async def _reinstall(event: SettingsReloaded) -> None:
+            from mail.core.transports import get_mail_transport
+
             if event.package != c.MODULE_PACKAGE:
-                return
+                transport = get_mail_transport(
+                    app.state.mail.settings.backend,
+                    development=app.state.sm.settings.environment == "development",
+                )
+                if event.package != transport.package:
+                    return
             install_app_sender(app)
 
         bus.subscribe(SettingsReloaded, _reinstall)
+
+    def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
+        from settings.core.invalidation import CHANNEL
+        from simple_module_core.invalidation_refresh import InvalidationRefresh
+
+        from mail.delivery.runtime import install_app_sender
+
+        async def retry_failed_sender(key: str | None) -> None:
+            # Hydration can succeed while construction fails, leaving no later change event.
+            if app.state.mail.sender_failed:
+                install_app_sender(app)
+
+        self._refresh = InvalidationRefresh(bus, CHANNEL, retry_failed_sender)
 
     async def check_data_compatibility(self, db: Any) -> list[DataCompatibilityIssue]:
         from mail.core.data_compatibility import check_data_compatibility
@@ -75,7 +96,11 @@ class MailModule(ModuleBase):
         from mail.delivery.runtime import install_app_sender
 
         install_app_sender(app)
+        if hasattr(self, "_refresh"):
+            self._refresh.start()
 
     async def on_shutdown(self, app: FastAPI) -> None:
+        if hasattr(self, "_refresh"):
+            await self._refresh.stop()
         install_mail_sender(None)
         install_mail_resolver(None)

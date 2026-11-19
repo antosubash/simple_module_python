@@ -5,10 +5,19 @@ Module-pages manifest tests live in ``test_module_pages_manifest.py``.
 
 from __future__ import annotations
 
+import tomllib
+
 import pytest
 
 
 class TestCreateHost:
+    async def test_host_installs_its_own_cli_for_gen_and_dev(self, tmp_path):
+        from simple_module_cli.scaffolding import create_host
+
+        create_host(tmp_path / "host", name="demo", modules=[], framework_version="0.0.47")
+        data = tomllib.loads((tmp_path / "host/pyproject.toml").read_text())
+        assert "simple_module_cli==0.0.47" in data["dependency-groups"]["dev"]
+
     async def test_creates_expected_backend_files(self, tmp_path):
         """create_host writes the full backend + frontend scaffold."""
         from simple_module_cli.scaffolding import create_host
@@ -175,77 +184,4 @@ class TestCreateHost:
         assert (tmp_path / "out" / "pyproject.toml").is_file()
         assert "simple_module_dashboard" in (tmp_path / "out" / "pyproject.toml").read_text(
             encoding="utf-8"
-        )
-
-    async def test_scaffold_vite_config_includes_node_paths_fallback(self, tmp_path):
-        """vite.config.ts must add to optimizeDeps.rolldownOptions.resolve.modules
-        with the workspace node_modules so the dep scanner's scan-imports pass can
-        resolve cross-package bare imports from module pages whose importers
-        sit outside the host's client_app (e.g. wheel-installed modules).
-
-        Regression test for GitHub issue #152.
-        """
-        from simple_module_cli.scaffolding import create_host
-
-        dest = tmp_path / "demo"
-        create_host(name="demo", dest=dest, modules=[])
-
-        vite_config = (dest / "client_app" / "vite.config.ts").read_text(encoding="utf-8")
-
-        # The scanner fallback must be configured under optimizeDeps so it
-        # applies to both dev pre-bundling and `vite build`'s pre-bundle pass.
-        # Vite 8 scans with Rolldown; `esbuildOptions` is deprecated (GH #900).
-        assert "rolldownOptions" in vite_config, "must configure optimizeDeps.rolldownOptions"
-        assert "modules: ['node_modules', path.join(fsRoot, 'node_modules')]" in vite_config, (
-            "vite.config.ts must add the workspace node_modules to "
-            "optimizeDeps.rolldownOptions.resolve.modules (GH issue #152)."
-        )
-        # The seeded path must reference fsRoot — the dir that contains the
-        # hoisted node_modules — not a hardcoded literal that breaks in
-        # flat-vs-workspace layouts.
-        assert "fsRoot" in vite_config, (
-            "the resolve fallback must reference fsRoot (not a hardcoded literal) so the "
-            "fallback works in both flat and workspace layouts (GH issue #152)."
-        )
-        assert "node_modules" in vite_config, (
-            "the resolve fallback must include 'node_modules' (GH issue #152)."
-        )
-
-    async def test_scaffold_vite_resolver_does_not_skip_workspace_modules(self, tmp_path):
-        """The moduleBareImportResolver plugin must NOT short-circuit on
-        ``fsRootPrefix`` containment.
-
-        In an npm-workspaces scaffold, ``fsRoot`` resolves to the workspace
-        root, which means workspace-member modules at ``modules/<name>/`` sit
-        *under* ``fsRoot``. An early-return gating on ``fsRootPrefix`` skips
-        them, leaving cross-package bare imports (`maplibre-gl`, `pmtiles`,
-        ...) unresolved during dev-mode resolveId.
-
-        The plugin should guard only on the module-pages prefix set — the
-        condition that actually identifies module-page importers regardless of
-        whether they sit inside or outside ``fsRoot``.
-
-        Regression test for GitHub issue #156.
-        """
-        from simple_module_cli.scaffolding import create_host
-
-        dest = tmp_path / "demo"
-        create_host(name="demo", dest=dest, modules=[])
-
-        vite_config = (dest / "client_app" / "vite.config.ts").read_text(encoding="utf-8")
-
-        # The resolver must still exist — the fix shouldn't remove the plugin.
-        assert "moduleBareImportResolver" in vite_config, (
-            "vite.config.ts must register the cross-package bare-import resolver."
-        )
-        # The buggy early-return must be gone (GH issue #156).
-        assert "startsWith(fsRootPrefix)" not in vite_config, (
-            "vite.config.ts must not early-return on fsRootPrefix containment — "
-            "in npm-workspaces mode workspace-member module pages live under "
-            "fsRoot and would be incorrectly skipped (GH issue #156)."
-        )
-        # The workspace-root re-resolution must still run.
-        assert "fakeWorkspaceImporter" in vite_config, (
-            "vite.config.ts must re-resolve unresolved bare imports against the "
-            "workspace root so hoisted node_modules wins (GH issue #156)."
         )

@@ -11,6 +11,7 @@ from settings.contracts.schemas import SettingCreate, SettingScope
 from settings.core._managed_keys import ModuleKeyError
 from settings.core._unique_write import DuplicateSettingError
 from settings.core.constants import ERR_SETTING_EXISTS
+from settings.core.exceptions import InternalKeyError
 from settings.core.service import SettingService
 from settings.core.tenant_scope import tenant_write_error
 
@@ -32,6 +33,6 @@ async def create_from_form(
         await service.create(data)
     except DuplicateSettingError:
         return redirect_back_with_errors(request, {"key": ERR_SETTING_EXISTS})
-    except ModuleKeyError as exc:
+    except (ModuleKeyError, InternalKeyError) as exc:
         return redirect_back_with_errors(request, {"key": str(exc)})
     return RedirectResponse(redirect_to, status_code=303)

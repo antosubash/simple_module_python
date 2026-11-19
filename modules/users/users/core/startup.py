@@ -47,7 +47,7 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
 
     _build_mailer(app, state, s)
     _build_limiters(state, s)
-    _build_oauth_clients(state, s)
+    _build_oauth_clients(app)
 
     from simple_module_hosting.auth_policy import session_cookie_is_secure
 
@@ -110,8 +110,9 @@ def _build_limiters(state, s) -> None:
     )
 
 
-def _build_oauth_clients(state, s) -> None:
-    from users.oauth.providers import build_client_map, provider_buttons
+def _build_oauth_clients(app: FastAPI) -> None:
+    from users.oauth.registry import build_registered_providers
 
-    state.oauth_clients = build_client_map(s)
-    state.oauth_providers = provider_buttons(state.oauth_clients)
+    clients, buttons = build_registered_providers(app)
+    app.state.users.oauth_clients = clients
+    app.state.users.oauth_providers = buttons

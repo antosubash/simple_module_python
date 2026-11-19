@@ -8,7 +8,7 @@ import { LOGIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { useState } from 'react';
 import { AuthField } from '../auth_local/components/AuthField';
 import { ResetLinkSent } from '../auth_local/components/ResetLinkSent';
-import { api } from './api';
+import { api } from './api.generated';
 
 interface Props {
   /** How long the emailed link stays usable — straight from settings. */

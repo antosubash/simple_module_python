@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from simple_module_core.permissions import PermissionCatalogue
+
 # The role vocabulary lives in core so other modules can map ``tenant:<role>``
 # onto their permissions without depending on this module (#380).
 from simple_module_core.tenancy import TENANT_ROLE_PREFIX, tenant_role
@@ -46,20 +48,25 @@ MANAGER_ROLES = frozenset({MembershipRole.OWNER, MembershipRole.ADMIN})
 # Permissions. ``tenants.*`` within the active tenant; ``tenants.platform.*``
 # spans tenants and is granted to no tenant role — only the platform admin
 # (wildcard) or an explicit role grant.
-PERM_MEMBERS_VIEW = "tenants.members.view"
-PERM_MEMBERS_MANAGE = "tenants.members.manage"
+
+
+class Permissions(PermissionCatalogue, group=DISPLAY_NAME, label_key="tenants.permission_group"):
+    MEMBERS_VIEW = "tenants.members.view"
+    MEMBERS_MANAGE = "tenants.members.manage"
+    PLATFORM_VIEW = "tenants.platform.view"
+    PLATFORM_MANAGE = "tenants.platform.manage"
+
+
 # Owned and mapped by ``settings`` (#382); named here for the page guard and
 # the sidebar entry only.
 PERM_TENANT_SETTINGS = "settings.tenant.edit"
-PERM_PLATFORM_VIEW = "tenants.platform.view"
-PERM_PLATFORM_MANAGE = "tenants.platform.manage"
 
 ROLE_PERMISSIONS: dict[MembershipRole, list[str]] = {
     # Tenant settings are ``settings.tenant.edit``, which the settings module
     # owns and maps onto owner + admin itself (#382).
-    MembershipRole.OWNER: [PERM_MEMBERS_VIEW, PERM_MEMBERS_MANAGE],
-    MembershipRole.ADMIN: [PERM_MEMBERS_VIEW, PERM_MEMBERS_MANAGE],
-    MembershipRole.MEMBER: [PERM_MEMBERS_VIEW],
+    MembershipRole.OWNER: [Permissions.MEMBERS_VIEW, Permissions.MEMBERS_MANAGE],
+    MembershipRole.ADMIN: [Permissions.MEMBERS_VIEW, Permissions.MEMBERS_MANAGE],
+    MembershipRole.MEMBER: [Permissions.MEMBERS_VIEW],
 }
 
 PAGE_INDEX = "Tenants/Index"

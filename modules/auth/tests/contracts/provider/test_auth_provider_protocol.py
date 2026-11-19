@@ -21,9 +21,6 @@ class _FakeProvider:
     def get_logout_url(self, request: Request) -> str:
         return "/fake/logout"
 
-    def get_public_paths(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        return (("/fake/login",), ())
-
     def is_bearer_request(self, request: Request) -> bool:
         return False
 

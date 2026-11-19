@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
+from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
 from simple_module_core.user_directory import set_user_directory
 
 from oidc.core.constants import (
@@ -26,12 +27,17 @@ if TYPE_CHECKING:
 class OidcModule(ModuleBase):
     meta = ModuleMeta(
         name="Oidc",
+        provides_auth=True,
         route_prefix="/api/oidc",
         view_prefix="/oidc",
         depends_on=[_MODULE_AUTH],
         optional_depends_on=[_MODULE_SETTINGS],
     )
-    _is_auth_provider = True
+
+    def register_principal_builder(self, registry) -> None:
+        from oidc.identity.directory import OidcDirectory
+
+        registry.directory = OidcDirectory()
 
     def register_settings(self, app: FastAPI) -> None:
         from oidc.core.settings import OidcSettings
@@ -47,6 +53,7 @@ class OidcModule(ModuleBase):
         )
 
         set_user_directory(app, OidcDirectory())
+        set_role_directory(app, MappedRoleDirectory(lambda: app.state.oidc.settings.role_mapping))
         app.state.auth.auth_provider = OidcAuthProvider(
             app.state.oidc.settings, state=app.state.oidc
         )

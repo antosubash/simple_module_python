@@ -14,7 +14,7 @@ modules/<name>/
 │   ├── core/                     # constants.py, settings.py, services.py, errors.py
 │   ├── web/                      # deps.py, service.py (or services/), private schemas
 │   │   └── endpoints/            # api.py, views.py
-│   ├── pages/                    # Inertia pages, api.ts, api.generated.ts
+│   ├── pages/                    # Inertia pages, generated API client + types
 │   ├── locales/                  # <lang>.json
 │   ├── ui/                       # components/, hooks/, utils/ (when needed)
 │   └── tasks.py, theme.css, styles.css  # optional root lookup files
@@ -195,13 +195,15 @@ Module settings should:
 - `SM012` diagnostic fires if `register_settings` is overridden but no `app.state.<module_lower>` entry is added.
 
 ```python
-class UsersModule(ModuleBase):
+class SiteLockModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
         from simple_module_core.module_settings import register_module_settings
-        from users.core.settings import UsersSettings
-        from users.core.state import UsersState
+        from site_lock.core.settings import SiteLockSettings
+        from site_lock.core.state import SiteLockState
 
-        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
+        register_module_settings(
+            app, "site_lock", SiteLockSettings, lambda s: SiteLockState(settings=s)
+        )
 ```
 
 Details: [settings](framework/settings.md).
@@ -450,7 +452,7 @@ or `simple-module-keycloak` (Keycloak OIDC). Both implement the `AuthProvider`
 protocol from `auth.contracts.provider`.
 
 **Module authors never import from `users` or `keycloak` directly.** Use only:
-- `from auth.web.deps import CurrentUser, require_permission`
+- `from auth.web.deps import CurrentUser` and `from simple_module_hosting.permissions import RequiresPermission`
 - `from auth.contracts.schemas import UserContext`
 
 The `AuthMiddleware` (in `auth/web/middleware.py`) delegates to the active provider's
@@ -458,8 +460,14 @@ The `AuthMiddleware` (in `auth/web/middleware.py`) delegates to the active provi
 API paths (`/api/*`) receive 401 JSON when unauthenticated; view paths receive
 a 302 redirect to the provider's login URL.
 
-Boot-time diagnostic `SM020` fails if multiple auth providers are installed.
-`SM021` warns if none is installed.
+Auth modules declare `ModuleMeta(provides_auth=True)`; selection and SM020/SM021
+use that capability. `SM_AUTH_PROVIDER` selects one when several are installed;
+outside development an invalid selection among several providers refuses boot.
+Static diagnostic `SM020` errors if multiple providers remain and warns if a
+module object exposes the provider protocol shape without declaring it. Separate
+provider objects created inside hooks cannot be detected statically. `SM021`
+warns if none declares the capability. The legacy `_is_auth_provider` module
+marker warns once per class and is removed in 0.1.0.
 
 ### Public routes (anonymous access)
 
@@ -610,10 +618,10 @@ class OrderPlaced(Event):
     total: Decimal
 ```
 
-Subscribe in `register_event_handlers(bus)`:
+Subscribe in `register_event_handlers(bus, app)`:
 
 ```python
-def register_event_handlers(self, bus: EventBus) -> None:
+def register_event_handlers(self, bus: EventBus, app) -> None:
     bus.subscribe(OrderPlaced, self._on_order_placed)
 ```
 
@@ -633,7 +641,7 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | SM003 | WARNING | `pages/<name>.tsx` exists but no matching `inertia.render()` call |
 | SM004 | WARNING | `inertia.render("<Module>/<name>")` but no matching `.tsx` |
 | SM007 | INFO | Module defines no `register_*` hooks |
-| SM008 | ERROR | Duplicate module name / schema prefix conflict |
+| SM008 | ERROR (strict/static) / WARNING (lenient discovery) | Duplicate module name (strict discovery names both distributions) / schema prefix conflict |
 | SM009 | ERROR | Framework package directly imports from a plugin module |
 | SM010 | ERROR or WARNING | DB lacks a migration head (WARNING: never migrated) |
 | SM011 | WARNING | Module table missing from a database at head |
@@ -645,7 +653,7 @@ Dispatch keys on the **exact** event class (`module.qualname`), not its MRO — 
 | SM017 | WARNING | An optional frontend dependency manifest is invalid |
 | SM018 | WARNING | Inertia `router.{post,patch,put,delete}()` in a page targets a JSON `/api/*` endpoint |
 | SM019 | WARNING | Module registers view routes but no menu items or permissions (unreachable in UI) |
-| SM020 | ERROR | Multiple auth provider modules installed |
+| SM020 | ERROR / WARNING | Multiple declared auth providers remain after selection / detectable undeclared provider module |
 | SM021 | WARNING | No auth provider module installed |
 
 Diagnostics run automatically at boot — warnings print to stderr in dev, errors abort startup in production. There's no separate "run diagnostics" step in a scaffolded app: just start the server.

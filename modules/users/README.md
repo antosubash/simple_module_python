@@ -81,7 +81,7 @@ Full detail, including the `demo_read_only = false` warning, is in
 
 ## Social sign-in (Google, GitHub, Microsoft, OIDC)
 
-OAuth providers are configured in the admin UI at **/settings/modules → Users**
+OAuth providers are configured in the admin UI at **/admin/settings/modules → Users**
 (no environment variables). Each provider activates once its client id **and**
 secret are set; the secret is masked in the UI. Changes apply live — no restart.
 

@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
 
 from feature_flags.core.constants import (
     AUDIT_LINK_LABEL,
@@ -18,12 +17,10 @@ from feature_flags.core.constants import (
     MENU_LABEL,
     MENU_ORDER,
     MENU_URL,
-    PERM_FEATURE_FLAGS_MANAGE,
-    PERM_FEATURE_FLAGS_VIEW,
-    PERM_GROUP,
     QP_OVERRIDE,
     TENANT_CLEANUP_HANDLER,
     VIEW_PREFIX,
+    Permissions,
 )
 
 if TYPE_CHECKING:
@@ -60,6 +57,8 @@ async def _resolve_override_labels(db: AsyncSession, ids: list[str]) -> dict[str
 
 
 class FeatureFlagsModule(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="FeatureFlags",
         route_prefix="/api/feature_flags",
@@ -67,7 +66,7 @@ class FeatureFlagsModule(ModuleBase):
         i18n_audience="admin",
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
         from feature_flags.core.tenant_cleanup import purge_tenant_data
@@ -98,7 +97,7 @@ class FeatureFlagsModule(ModuleBase):
                 group_key="ui.nav_groups.system",
                 # Mirrors the view router's guard. Without it the entry shows
                 # for every signed-in account and 403s on click.
-                permissions=[PERM_FEATURE_FLAGS_VIEW],
+                permissions=[Permissions.VIEW],
             )
         )
 
@@ -121,16 +120,6 @@ class FeatureFlagsModule(ModuleBase):
                 label_key=AUDIT_LINK_LABEL_KEY,
                 label_resolver=_resolve_override_labels,
             )
-        )
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            PERM_GROUP,
-            [
-                PERM_FEATURE_FLAGS_VIEW,
-                PERM_FEATURE_FLAGS_MANAGE,
-            ],
-            label_key="feature_flags.permission_group",
         )
 
     async def on_startup(self, app: FastAPI) -> None:

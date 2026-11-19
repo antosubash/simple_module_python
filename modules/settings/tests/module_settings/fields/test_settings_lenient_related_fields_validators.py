@@ -86,17 +86,15 @@ def test_host_default_locale_unsupported_drops_only_the_stored_locale() -> None:
     assert cfg.maintenance_message == "Keep me"
 
 
-def test_users_placeholder_secret_in_production_is_located_and_still_refused(monkeypatch) -> None:
+def test_users_production_settings_need_no_separate_token_secrets(monkeypatch) -> None:
     monkeypatch.setenv("SM_ENVIRONMENT", "production")
-    stored = {"reset_password_token_lifetime_seconds": _int(99)}
-    with pytest.raises(ValidationError) as exc:
-        build_settings(UsersSettings, stored, lenient=True)
-    err = exc.value.errors()[0]
-    assert err["loc"] == ("reset_password_token_secret",)
-    assert set(err["ctx"][RELATED_FIELDS_CTX]) == {
-        "reset_password_token_secret",
-        "verification_token_secret",
+    stored = {
+        "reset_password_token_lifetime_seconds": _int(99),
+        "reset_password_token_secret": _str("old-db-key"),
     }
+    cfg = build_settings(UsersSettings, stored, lenient=True)
+    assert cfg.reset_password_token_lifetime_seconds == 99
+    assert "reset_password_token_secret" not in cfg.model_dump()
 
 
 def test_keycloak_missing_config_in_production_is_located_and_still_refused(monkeypatch) -> None:

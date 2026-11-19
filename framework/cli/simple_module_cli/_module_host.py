@@ -12,7 +12,10 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+import tomlkit
 import typer
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 from simple_module_cli.scaffolding import create_host, resolve_framework_version
 
@@ -71,7 +74,26 @@ def ensure_verify_host(info: ModuleInfo, *, fresh: bool = False) -> Path:
             framework_version=resolve_framework_version(),
         )
         _wire_module_dep(host_dir / "pyproject.toml", info.pypi_name)
+    _ensure_host_cli(host_dir / "pyproject.toml")
     return host_dir
+
+
+def _ensure_host_cli(path: Path) -> None:
+    """Cached hosts predating smpy gen also need the CLI in their own venv."""
+    doc = tomlkit.parse(path.read_text(encoding="utf-8"))
+    groups = doc.setdefault("dependency-groups", {})
+    current = groups.get("dev", [])
+    wanted = [
+        dep
+        for dep in current
+        if not (
+            isinstance(dep, str) and canonicalize_name(Requirement(dep).name) == "simple-module-cli"
+        )
+    ]
+    wanted.append(f"simple_module_cli=={resolve_framework_version()}")
+    if list(current) != wanted:
+        groups["dev"] = wanted
+        path.write_text(tomlkit.dumps(doc), encoding="utf-8")
 
 
 def _wire_module_dep(pyproject_path: Path, pypi_name: str) -> None:

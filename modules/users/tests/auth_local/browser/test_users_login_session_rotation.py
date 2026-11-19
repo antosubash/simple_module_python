@@ -68,7 +68,9 @@ async def test_sign_in_rotates_session_and_page_token(users_app, anon_client, me
         async with users_app.state.sm.db.session_factory() as db:
             adapter = UserDatabaseWithRoles(db, User)
             user = await adapter.get_by_email("invite@example.com")
-            manager = UserManager(adapter, None, users_app.state.users.settings)
+            manager = UserManager(
+                adapter, None, users_app.state.users.settings, users_app.state.users.token_secrets
+            )
             token = manager.mint_invite_token(user)
         response = await anon_client.post(
             "/api/users/auth/accept-invite", json={"token": token, "password": "NewSecurePass1!"}

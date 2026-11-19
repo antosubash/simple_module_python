@@ -7,7 +7,6 @@ import { Card, CardContent } from '@simple-module-py/ui/components/ui/card';
 import { Input } from '@simple-module-py/ui/components/ui/input';
 import { useLeaveGuard } from '@simple-module-py/ui/hooks/useLeaveGuard';
 import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
-import { USERS_ADMIN_PATH } from '@simple-module-py/ui/lib/auth-routes';
 import { Search } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
@@ -85,9 +84,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
       <PageShell
         title={t(keys.permissions.edit.title, { role: role.name })}
         description={role.description ?? t(keys.permissions.edit.description)}
-        // Roles are managed from the Users screen's Roles tab; this path sits
-        // outside /users, so the shell is told where the page belongs.
-        section={USERS_ADMIN_PATH}
+        section="/admin/permissions/"
         actions={
           <>
             <Button
@@ -100,7 +97,7 @@ function RoleEdit({ role, assigned, groups }: Props) {
               {t(keys.permissions.edit.reset_button)}
             </Button>
             <Button asChild variant="outline" className="max-lg:min-h-11">
-              <Link href={USERS_ADMIN_PATH}>{t(keys.permissions.edit.cancel_link)}</Link>
+              <Link href="/admin/permissions/">{t(keys.permissions.edit.cancel_link)}</Link>
             </Button>
             <Button
               type="submit"

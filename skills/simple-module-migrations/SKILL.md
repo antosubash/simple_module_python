@@ -66,7 +66,7 @@ All module tables live in the **host's single shared schema** on both Postgres a
 #     or install a packaged one and `uv sync --all-packages`)
 
 # 2. Generate the migration (runs alembic from the repo root, autogenerate)
-make migration msg="add orders module"
+uv run smpy migrations new orders -m "add orders module"
 
 # 3. Review the generated file (see "Branch labels" below)
 # 4. Apply
@@ -77,7 +77,11 @@ make migrate
 
 ### Branch labels — set on the FIRST revision per module
 
-Each new module's first revision should set a `branch_labels` tuple matching the module name, lowercased. Autogenerate does **not** add this — you edit the file by hand before applying:
+`uv run smpy migrations new <module> -m "..."` selects `<module>@head` when the
+label exists, or creates a first root with `--head base --branch-label <module>`.
+It resolves flat and workspace configs and runs from the app root. Review the
+revision before `make migrate`: autogenerate sees every installed module. If you
+use Alembic directly, set the first revision's label yourself:
 
 ```python
 # host/migrations/versions/70786227af4c_add_audit_log_tables.py
@@ -87,7 +91,7 @@ branch_labels = ("audit_log",)  # ← add by hand on this first revision
 depends_on = None
 ```
 
-Why: the label is a named target for that revision (`upgrade audit_log@head`, the module column in the Doctor). It does **not** isolate the module: autogenerate chains the revision off the current head, so history is one linear chain and `downgrade audit_log@base` walks the **entire chain beneath it, other modules included**. Never use it as a per-module rollback.
+Why: the label is a named target for that revision (`upgrade audit_log@head`, the module column in the Doctor). A label by itself does **not** isolate the module: in an existing linear history `downgrade audit_log@base` walks the **entire chain beneath it, other modules included**. Never use it as a per-module rollback.
 
 To remove one module's schema:
 
@@ -121,11 +125,14 @@ in the host's development environment, then review and apply the revision.
 | Code | When |
 |---|---|
 | **SM010** (error or warning) | DB is behind a head or migration state cannot be verified |
-| **SM011** (warning) | Module declares a table that has no entry in migration history — usually means you added a model and forgot to autogenerate |
+| **SM011** (warning) | Database is at every migration head but lacks a table declared by a module — usually means you added a model and forgot to autogenerate |
 
-`make doctor` checks migration state and reports missing module tables once the
-database is at head. Boot also checks table coverage at head. A behind-head
-database refuses boot unless the install qualifies for first-run setup.
+`make doctor` runs migration diagnostics: SM010 checks the database against all
+migration heads; SM011 checks table coverage only once the database is at every
+head. If the database or revision history cannot be read, Doctor reports an
+SM010 warning rather than checking table coverage. Development boot also checks
+table coverage at head. A behind-head database refuses boot unless the install
+qualifies for first-run setup.
 An unknown state produces an `SM010` warning in development and refuses boot in
 other environments. Only verified first runs can apply migrations through
 `/setup`. Apply upgrade migrations before deploying the code that needs them.

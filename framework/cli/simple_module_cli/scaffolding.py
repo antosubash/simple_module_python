@@ -24,7 +24,6 @@ from typing import TypeGuard
 from simple_module_cli._lint_tooling import (
     MODEL_CONFIG_TY_IGNORE,
     TY_REQUIREMENT,
-    module_constants_import,
 )
 
 # The template engine lives in _templating.py; the private names are imported
@@ -215,9 +214,7 @@ def create_module(
     for ``make new-module`` and implies no ``.github/``. Wiring the repo's
     pyproject files is :mod:`simple_module_cli.framework_repo`'s job.
 
-    ``standalone=True`` overlays pages with literal English: the base pages use
-    ``t(keys.<package>.…)``
-    (GH #918), and a module repo has no host whose ``gen-i18n`` adds its keys.
+    Every layout ships portable module-local translation keys (#958).
     """
     dest = Path(dest)
     existed_before = dest.exists()
@@ -251,7 +248,6 @@ def create_module(
             "{{SINGULAR}}": singular,
             "{{SINGULAR_UPPER}}": singular.upper(),
             "{{SINGULAR_CLASS}}": to_pascal_case(singular),
-            "{{CONSTANTS_IMPORTS}}": module_constants_import(package_name.upper()),
             "{{MODEL_CONFIG_TY_IGNORE}}": MODEL_CONFIG_TY_IGNORE if framework_repo else "",
             # npm-side pin for @simple-module-py/* devDependencies; "*" when the
             # caller skips pinning (mirrors _should_pin_framework_version).
@@ -271,7 +267,6 @@ def create_module(
         # Explicit roots render optional overlays skipped by the base pass.
         for overlay, enabled in (
             ("settings", with_settings),
-            ("standalone", standalone),
             ("framework_repo", framework_repo),
         ):
             if enabled:

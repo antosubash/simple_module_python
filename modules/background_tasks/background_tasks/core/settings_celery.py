@@ -18,7 +18,6 @@ from simple_module_core.settings_hydrate import RELATED_FIELDS_CTX
 from background_tasks.core.config_guards import parse_task_routes
 from background_tasks.core.constants import (
     DEFAULT_BROKER_URL,
-    DEFAULT_INVALIDATION_CHANNEL,
     DEFAULT_PURGE_INTERVAL_SECONDS,
     DEFAULT_QUEUE,
     DEFAULT_RESULT_BACKEND,
@@ -145,9 +144,10 @@ class CelerySettingsFields(LogSinkFields, WorkerDatabaseSettings):
     broadcast_invalidations: bool = Field(
         default=True, json_schema_extra={"requires_restart": True, "group": "Celery"}
     )
-    invalidation_channel: str = Field(
-        default=DEFAULT_INVALIDATION_CHANNEL,
+    invalidation_channel: str | None = Field(
+        default=None,
         min_length=1,
+        description="Leave unset to derive the channel from the database installation ID.",
         json_schema_extra={"requires_restart": True, "group": "Celery"},
     )
 

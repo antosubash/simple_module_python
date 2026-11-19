@@ -11,7 +11,7 @@ enforce the same rule and give the same 404/403 answers (GH #526).
 | Piece | Package | Role |
 |---|---|---|
 | `ResourcePolicy` | `simple_module_core.resources` | Protocol: `filter(principal, action, stmt)` and `can(principal, action, obj)` |
-| `ResourcePrincipal` | `simple_module_core.resources` | `user_id` + the request's resolved permission set |
+| `ResourcePrincipal` | `simple_module_core.resources` | `user_id`, resolved permissions, live roles/tenant and trusted module context |
 | `ResourceType`, `ResourceTypeRegistry` | `simple_module_core.resources` | What `register_resource_types` declares; read at `app.state.sm.resource_types` |
 | `OwnedResourcePolicy`, `select_by_id`, `load_authorized` | `simple_module_db.resource_policy` | The stock owner / public / shared policy |
 | `RequiresResource`, `resource_principal` | `simple_module_hosting.resource_deps` | FastAPI dependencies |
@@ -19,6 +19,16 @@ enforce the same rule and give the same 404/403 answers (GH #526).
 
 Actions are plain strings; `ACTION_VIEW`, `ACTION_EDIT`, `ACTION_DELETE` and
 `ACTION_SHARE` are provided. `view` is special: it decides 404 versus 403.
+
+## Replacing a resource type
+
+Use `app.state.sm.resource_types.replace(ResourceType(...))` in the host's
+[customize callback](lifecycle.md#host-overrides). The new type's name selects
+the existing entry. Policy, ID selector and share-role declarations are replaced
+together after the same validation as `register`; invalid input leaves the old
+type intact. A missing name raises `KeyError`. Plain `register` continues to
+reject duplicate names with `ResourceTypeError`. Previously retained type
+objects are not mutated; consumers should look up the registry entry.
 
 ## `filter` is the authority, `can` is a fast path
 

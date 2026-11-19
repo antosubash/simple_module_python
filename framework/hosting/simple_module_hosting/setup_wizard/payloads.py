@@ -14,6 +14,7 @@ from fastapi import Request
 
 from simple_module_hosting._db_health import CHECK_DATABASE
 from simple_module_hosting.health import run_health_check
+from simple_module_hosting.setup_gate import STEP_MIGRATIONS
 
 # A health-check *name*, not an import: the check exists only when the
 # background_tasks module registered it, and is skipped otherwise.
@@ -89,7 +90,7 @@ def _action_payload(action, render) -> dict:
     }
 
 
-def steps_payload(registry, pending_ids: set[str], translate=None) -> list[dict]:
+def steps_payload(registry, pending_ids: set[str], translate=None, follow_up=None) -> list[dict]:
     """Shape the registered steps for the wizard, resolving their catalog keys.
 
     Steps are contributed by arbitrary modules, so their titles arrive as
@@ -104,13 +105,28 @@ def steps_payload(registry, pending_ids: set[str], translate=None) -> list[dict]
     out: list[dict] = []
     for step in registry.all_steps:
         pending = step.id in pending_ids
+        action = _action_payload(step.action, render) if pending and step.action else None
+        if follow_up:
+            if step.id == follow_up.id:
+                pending, action = True, None
+            elif step.id == STEP_MIGRATIONS:
+                action = _action_payload(follow_up.action, render)
+                action["title"] = render(follow_up.title_key, follow_up.title)
+                description = render(follow_up.description_key, follow_up.description)
+                note = render(
+                    "hosting.setup.migrations.combined_note", "The database will be set up first."
+                )
+                action["description"] = f"{description} {note}".strip()
+                action["submitLabel"] = render(
+                    "hosting.setup.migrations.combined_submit", "Set up install"
+                )
         out.append(
             {
                 "id": step.id,
                 "title": render(step.title_key, step.title),
                 "description": render(step.description_key, step.description),
                 "complete": not pending,
-                "action": _action_payload(step.action, render) if pending and step.action else None,
+                "action": action,
             }
         )
     return out

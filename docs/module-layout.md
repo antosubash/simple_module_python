@@ -44,7 +44,7 @@ checkers, not a framework runtime lookup.
 | `task_config.py` | `modules/background_tasks/background_tasks/worker/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
 | `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
-| `pages/api.ts`, `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py:130` selects the root pages directory for generation; `framework/cli/simple_module_cli/templates/module/__PACKAGE__/pages/api.ts.tpl:8` consumes the generated types. |
+| `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
 | `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
 | `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
 | `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/plugins.py:41` loads CLI plugins. |
@@ -86,7 +86,7 @@ Declare a new multi-feature domain area in its `DOMAIN_AREAS` map when needed.
 
 | Path | Holds |
 | --- | --- |
-| `pages/` | Real Inertia pages, plus `api.ts` and `api.generated.ts`. Keep page names and render keys stable. |
+| `pages/` | Real Inertia pages, plus the generated client and types in `api.generated.ts` (`api.ts` only for custom client logic). Keep page names and render keys stable. |
 | `ui/components/<feature>/` | Reusable components grouped by feature. Shared components may sit directly in `ui/components/`. |
 | `ui/hooks/`, `ui/utils/` | Hooks and plain TypeScript helpers. |
 | `modules/<name>/tests-js/` | All new JS tests and their support; Vitest collects here. |
@@ -236,28 +236,28 @@ One module per PR; no logic changes in a move PR.
 7. Review the diff as moves and import rewrites only. Verify wheel contents,
    UI scanning and module lookup paths. Keep logic changes in another PR.
 
-## Migration status (2026-11-05)
+## Migration status (2026-11-18)
 
 Counts refer to the source package root and direct `tests/test_*.py` files;
-cache directories are ignored. Shim files left at old paths are counted separately. Update this table
+cache directories are ignored. The old layout shims have been removed (#989). Update this table
 when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
 | --- | ---: | ---: | --- |
-| api_tokens | 3 (+4 shims) | 0 | follows this layout |
+| api_tokens | 3 | 0 | follows this layout |
 | audit_log | 3 | 0 | follows this layout |
-| auth | 3 (+4 shims) | 0 | follows this layout |
-| background_tasks | 4 (+10 shims) | 0 | follows this layout |
-| branding | 2 (+6 shims) | 0 | follows this layout |
+| auth | 3 | 0 | follows this layout |
+| background_tasks | 4 | 0 | follows this layout |
+| branding | 2 | 0 | follows this layout |
 | dashboard | 2 | 0 | follows this layout |
-| feature_flags | 3 (+1 shim) | 0 | follows this layout |
-| file_storage | 4 (+7 shims) | 0 | follows this layout |
-| keycloak | 3 (+5 shims) | 0 | follows this layout |
-| mail | 2 (+2 shims) | 0 | follows this layout |
-| oidc | 3 (+3 shims) | 0 | follows this layout |
-| permissions | 3 (+2 shims) | 0 | follows this layout |
-| settings | 4 (+8 shims, +3 deprecated re-exports) | 0 | follows this layout |
-| sharing | 3 (+3 shims) | 0 | follows this layout |
-| site_lock | 2 (+1 shim) | 0 | follows this layout |
-| tenants | 3 (+6 shims) | 0 | follows this layout |
-| users | 3 (+7 shims) | 0 | follows this layout |
+| feature_flags | 3 | 0 | follows this layout |
+| file_storage | 4 | 0 | follows this layout |
+| keycloak | 3 | 0 | follows this layout |
+| mail | 2 | 0 | follows this layout |
+| oidc | 3 | 0 | follows this layout |
+| permissions | 3 | 0 | follows this layout |
+| settings | 4 | 0 | follows this layout |
+| sharing | 3 | 0 | follows this layout |
+| site_lock | 2 | 0 | follows this layout |
+| tenants | 3 | 0 | follows this layout |
+| users | 3 | 0 | follows this layout |
