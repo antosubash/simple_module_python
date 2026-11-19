@@ -4,6 +4,8 @@ import {
   type I18nPageBlock,
   subscribeI18nToNavigation,
 } from '@simple-module-py/i18n/inertia';
+import { ExtensionsProvider, extensions } from '@simple-module-py/ui/extensions';
+import { LayoutComponentsProvider } from '@simple-module-py/ui/layouts/LayoutComponentsProvider';
 import { formatTitle, setTitleAppName } from '@simple-module-py/ui/lib/app-title';
 import { resolveServerHead } from '@simple-module-py/ui/lib/server-head';
 import {
@@ -13,7 +15,10 @@ import {
 } from '@simple-module-py/ui/lib/spa-links';
 import { initTheme } from '@simple-module-py/ui/lib/theme';
 import { createRoot } from 'react-dom/client';
+import { registerModuleExtensions } from './modules.generated';
 import { resolvePage } from './pages';
+
+registerModuleExtensions(extensions);
 
 createInertiaApp({
   title: (title) => formatTitle(title),
@@ -44,7 +49,13 @@ createInertiaApp({
       nativePrefixes = readNativePrefixes(event.detail.page.props);
     });
     startSpaLinkInterception({ exclude: (url) => isExcluded(url, nativePrefixes) });
-    createRoot(el).render(<App {...props} />);
+    createRoot(el).render(
+      <ExtensionsProvider>
+        <LayoutComponentsProvider>
+          <App {...props} />
+        </LayoutComponentsProvider>
+      </ExtensionsProvider>,
+    );
   },
   progress: {
     color: '#4B5563',

@@ -3,6 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { EmptyState } from '@simple-module-py/ui/components/EmptyState';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { Card } from '@simple-module-py/ui/components/ui/card';
+import { Slot, slots } from '@simple-module-py/ui/extensions';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import { Settings2 } from 'lucide-react';
 import { type TenantSetting, TenantSettingRow } from '../ui/components/TenantSettingRow';
@@ -41,6 +42,7 @@ function Settings({ tenant, settings }: Props) {
             ))}
           </Card>
         )}
+        <Slot name={slots.tenantsSettingsSections} props={{ tenant }} />
       </PageShell>
     </>
   );

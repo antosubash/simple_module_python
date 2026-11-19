@@ -8,6 +8,11 @@ workflow the host developer uses, and the API-version / semver rules.
 
 ## Anatomy of a module package
 
+Optional frontend registration entries can contribute page panels, replace layout
+chrome, add menu icons and supply settings controls through one typed registry.
+See [Frontend extension points](frontend/extensions.md) for registration, slot
+contracts, lazy loading and the host startup wiring.
+
 ```text
 modules/<name>/
 ├── pyproject.toml

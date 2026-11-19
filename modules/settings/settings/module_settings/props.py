@@ -51,6 +51,7 @@ def serialize(views: list[ModuleSettingsView]) -> list[dict[str, Any]]:
                     "choices": f.choices,
                     "input_type": f.input_type or f.type,
                     "nullable": f.nullable,
+                    "control": f.control,
                 }
                 for f in v.fields
             ],

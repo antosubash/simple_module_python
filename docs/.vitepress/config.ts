@@ -166,6 +166,7 @@ export default defineConfig({
             { text: "Inertia basics", link: "/frontend/inertia" },
             { text: "Pages & discovery", link: "/frontend/pages" },
             { text: "Shared props & layout", link: "/frontend/shared-props" },
+            { text: "Extension points", link: "/frontend/extensions" },
             { text: "Fast pages", link: "/frontend/performance" },
           ],
         },
