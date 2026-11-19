@@ -196,7 +196,7 @@ def _field_view(
         choices=choices_for(info),
         input_type=input_type,
         nullable=nullable,
-        control=extra.get("control") if isinstance(extra.get("control"), str) else None,
+        control=control if isinstance(control := extra.get("control"), str) else None,
     )
 
 
