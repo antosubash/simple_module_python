@@ -276,12 +276,6 @@ def create_module(
                     substitutions=substitutions,
                     path_rewrites={_PACKAGE_PATH_TOKEN: package_name},
                 )
-        from simple_module_hosting._i18n_modules import write_module_keys
-
-        write_module_keys(
-            {package_name: dest / package_name / "locales"},
-            dest / package_name / "pages/i18n.generated.ts",
-        )
         if not standalone:
             shutil.rmtree(dest / ".github", ignore_errors=True)
         if _should_pin_framework_version(framework_version):

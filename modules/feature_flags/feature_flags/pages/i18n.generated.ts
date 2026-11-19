@@ -62,53 +62,51 @@ export const keys = {
   },
 } as const;
 
-type ModuleTranslationKeys = typeof keys;
 type ModuleTranslationResources = {
-  'feature_flags.audit.override': '';
-  'feature_flags.browse.audit_note': '';
-  'feature_flags.browse.cancel': '';
-  'feature_flags.browse.description': '';
-  'feature_flags.browse.empty_description': '';
-  'feature_flags.browse.empty_title': '';
-  'feature_flags.browse.go': '';
-  'feature_flags.browse.scope_custom': '';
-  'feature_flags.browse.scope_label': '';
-  'feature_flags.browse.scope_system': '';
-  'feature_flags.browse.tenant_id_label': '';
-  'feature_flags.browse.tenant_id_placeholder': '';
-  'feature_flags.browse.title': '';
-  'feature_flags.browse.view_history': '';
-  'feature_flags.browse.viewing_system': '';
-  'feature_flags.browse.viewing_tenant': '';
-  'feature_flags.confirm.cancel': '';
-  'feature_flags.confirm.disable_action': '';
-  'feature_flags.confirm.disable_title': '';
-  'feature_flags.confirm.enable_action': '';
-  'feature_flags.confirm.enable_title': '';
-  'feature_flags.confirm.scope_system': '';
-  'feature_flags.confirm.scope_tenant': '';
-  'feature_flags.nav.feature_flags': '';
-  'feature_flags.permission_group': '';
-  'feature_flags.table.actions': '';
-  'feature_flags.table.clear_override': '';
-  'feature_flags.table.description': '';
-  'feature_flags.table.disabled': '';
-  'feature_flags.table.effective': '';
-  'feature_flags.table.enabled': '';
-  'feature_flags.table.following_default': '';
-  'feature_flags.table.following_system': '';
-  'feature_flags.table.name': '';
-  'feature_flags.table.off': '';
-  'feature_flags.table.on': '';
-  'feature_flags.table.overridden': '';
-  'feature_flags.table.system': '';
-  'feature_flags.toasts.cleared': '';
-  'feature_flags.toasts.disabled': '';
-  'feature_flags.toasts.enabled': '';
-  'feature_flags.toasts.toggle_failed': '';
+  readonly 'feature_flags.audit.override': '';
+  readonly 'feature_flags.browse.audit_note': '';
+  readonly 'feature_flags.browse.cancel': '';
+  readonly 'feature_flags.browse.description': '';
+  readonly 'feature_flags.browse.empty_description': '';
+  readonly 'feature_flags.browse.empty_title': '';
+  readonly 'feature_flags.browse.go': '';
+  readonly 'feature_flags.browse.scope_custom': '';
+  readonly 'feature_flags.browse.scope_label': '';
+  readonly 'feature_flags.browse.scope_system': '';
+  readonly 'feature_flags.browse.tenant_id_label': '';
+  readonly 'feature_flags.browse.tenant_id_placeholder': '';
+  readonly 'feature_flags.browse.title': '';
+  readonly 'feature_flags.browse.view_history': '';
+  readonly 'feature_flags.browse.viewing_system': '';
+  readonly 'feature_flags.browse.viewing_tenant': '';
+  readonly 'feature_flags.confirm.cancel': '';
+  readonly 'feature_flags.confirm.disable_action': '';
+  readonly 'feature_flags.confirm.disable_title': '';
+  readonly 'feature_flags.confirm.enable_action': '';
+  readonly 'feature_flags.confirm.enable_title': '';
+  readonly 'feature_flags.confirm.scope_system': '';
+  readonly 'feature_flags.confirm.scope_tenant': '';
+  readonly 'feature_flags.nav.feature_flags': '';
+  readonly 'feature_flags.permission_group': '';
+  readonly 'feature_flags.table.actions': '';
+  readonly 'feature_flags.table.clear_override': '';
+  readonly 'feature_flags.table.description': '';
+  readonly 'feature_flags.table.disabled': '';
+  readonly 'feature_flags.table.effective': '';
+  readonly 'feature_flags.table.enabled': '';
+  readonly 'feature_flags.table.following_default': '';
+  readonly 'feature_flags.table.following_system': '';
+  readonly 'feature_flags.table.name': '';
+  readonly 'feature_flags.table.off': '';
+  readonly 'feature_flags.table.on': '';
+  readonly 'feature_flags.table.overridden': '';
+  readonly 'feature_flags.table.system': '';
+  readonly 'feature_flags.toasts.cleared': '';
+  readonly 'feature_flags.toasts.disabled': '';
+  readonly 'feature_flags.toasts.enabled': '';
+  readonly 'feature_flags.toasts.toggle_failed': '';
 };
 
 declare module '@simple-module-py/i18n' {
   interface TranslationResources extends ModuleTranslationResources {}
-  interface TranslationKeys extends ModuleTranslationKeys {}
 }

@@ -19,7 +19,7 @@ import { keys as frameworkKeys } from './keys.generated';
 // biome-ignore lint/suspicious/noEmptyInterface: consumers augment this interface.
 export interface TranslationResources {}
 
-/** Compatibility key tree extended by module and app generation. */
+/** Compatibility key tree extended by the app aggregate. */
 // biome-ignore lint/suspicious/noEmptyInterface: consumers augment this interface.
 export interface TranslationKeys {}
 

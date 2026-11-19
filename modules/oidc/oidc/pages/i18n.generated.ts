@@ -20,17 +20,15 @@ export const keys = {
   },
 } as const;
 
-type ModuleTranslationKeys = typeof keys;
 type ModuleTranslationResources = {
-  'oidc.login.manual': '';
-  'oidc.login.redirecting': '';
-  'oidc.logout.message': '';
-  'oidc.logout.sign_in_again': '';
-  'oidc.logout.title': '';
-  'oidc.nav.logout': '';
+  readonly 'oidc.login.manual': '';
+  readonly 'oidc.login.redirecting': '';
+  readonly 'oidc.logout.message': '';
+  readonly 'oidc.logout.sign_in_again': '';
+  readonly 'oidc.logout.title': '';
+  readonly 'oidc.nav.logout': '';
 };
 
 declare module '@simple-module-py/i18n' {
   interface TranslationResources extends ModuleTranslationResources {}
-  interface TranslationKeys extends ModuleTranslationKeys {}
 }

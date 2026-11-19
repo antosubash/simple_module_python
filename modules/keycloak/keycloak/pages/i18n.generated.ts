@@ -31,26 +31,24 @@ export const keys = {
   },
 } as const;
 
-type ModuleTranslationKeys = typeof keys;
 type ModuleTranslationResources = {
-  'keycloak.errors.callback_failed': '';
-  'keycloak.errors.invalid_state': '';
-  'keycloak.errors.token_validation_failed': '';
-  'keycloak.login.body_generic': '';
-  'keycloak.login.body_prefix': '';
-  'keycloak.login.body_suffix': '';
-  'keycloak.login.manual': '';
-  'keycloak.login.progress_label': '';
-  'keycloak.login.redirecting': '';
-  'keycloak.login.title': '';
-  'keycloak.logout.back_to_site': '';
-  'keycloak.logout.message': '';
-  'keycloak.logout.sign_in_again': '';
-  'keycloak.logout.title': '';
-  'keycloak.nav.logout': '';
+  readonly 'keycloak.errors.callback_failed': '';
+  readonly 'keycloak.errors.invalid_state': '';
+  readonly 'keycloak.errors.token_validation_failed': '';
+  readonly 'keycloak.login.body_generic': '';
+  readonly 'keycloak.login.body_prefix': '';
+  readonly 'keycloak.login.body_suffix': '';
+  readonly 'keycloak.login.manual': '';
+  readonly 'keycloak.login.progress_label': '';
+  readonly 'keycloak.login.redirecting': '';
+  readonly 'keycloak.login.title': '';
+  readonly 'keycloak.logout.back_to_site': '';
+  readonly 'keycloak.logout.message': '';
+  readonly 'keycloak.logout.sign_in_again': '';
+  readonly 'keycloak.logout.title': '';
+  readonly 'keycloak.nav.logout': '';
 };
 
 declare module '@simple-module-py/i18n' {
   interface TranslationResources extends ModuleTranslationResources {}
-  interface TranslationKeys extends ModuleTranslationKeys {}
 }

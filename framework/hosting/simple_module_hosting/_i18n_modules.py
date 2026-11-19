@@ -39,13 +39,12 @@ def write_module_keys(
     registry.load()
     keys = sorted(registry.messages(default_locale))
     source = "import '@simple-module-py/i18n';\n\n" + _render_keys(keys)
-    source += "\ntype ModuleTranslationKeys = typeof keys;\n"
-    source += "type ModuleTranslationResources = {\n"
-    source += "".join(f"  '{key}': '';\n" for key in keys)
+    source += "\ntype ModuleTranslationResources = {\n"
+    source += "".join(f"  readonly '{key}': '';\n" for key in keys)
     source += (
         "};\n\ndeclare module '@simple-module-py/i18n' {\n"
         "  interface TranslationResources extends ModuleTranslationResources {}\n"
-        "  interface TranslationKeys extends ModuleTranslationKeys {}\n}\n"
+        "}\n"
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     _write_if_changed(output, source)

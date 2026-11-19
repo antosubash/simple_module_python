@@ -50,6 +50,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Frontend extension registrations from wheel-installed and out-of-tree modules resolve host npm dependencies during typechecking and builds; extension sources remain checked by module TypeScript projects (#956).
+- CLI-only installs can scaffold modules without hosting installed. Module-local i18n resources compose with app catalogs and shared namespaces without TypeScript interface conflicts. **Behaviour change:** only the app aggregate augments central compatibility keys; standalone modules use their local keys (#958).
 
 - **Behaviour change:** Permissions works with Users, OIDC and Keycloak through a provider-neutral role directory. External role mappings and direct user grants have their own admin entry point; cached claim roles remain explicitly unknown. Users is now only an optional ordering dependency of Permissions (#953).
 
