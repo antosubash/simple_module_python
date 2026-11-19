@@ -1,6 +1,6 @@
 {
   "name": "@simple-module-py/vite-plugin",
-  "version": "0.0.47",
+  "version": "0.0.48",
   "description": "Vite integration for SimpleModule assets, module imports and generated i18n",
   "keywords": [
     "simple-module",
@@ -37,7 +37,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@simple-module-py/tsconfig": "0.0.47",
+    "@simple-module-py/tsconfig": "0.0.48",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   },

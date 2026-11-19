@@ -14,6 +14,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.0.48] — 2026-11-19
+
 - Migrate the remaining module permissions to `PermissionCatalogue`, preserving keys, registry metadata, role mappings and deprecated imported constants; no behaviour change (#1037).
 
 ### Added
@@ -2089,7 +2091,8 @@ Initial public release. All 12 Python packages publish to PyPI and all 3 JS pack
 - PyPI Trusted Publishing workflow (`.github/workflows/release.yml`) for zero-secret releases.
 - npm Trusted Publishing for all three JS packages.
 
-[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.47...HEAD
+[Unreleased]: https://github.com/antosubash/simple_module_python/compare/v0.0.48...HEAD
+[0.0.48]: https://github.com/antosubash/simple_module_python/compare/v0.0.47...v0.0.48
 [0.0.47]: https://github.com/antosubash/simple_module_python/compare/v0.0.46...v0.0.47
 [0.0.46]: https://github.com/antosubash/simple_module_python/compare/v0.0.45...v0.0.46
 [0.0.45]: https://github.com/antosubash/simple_module_python/compare/v0.0.44...v0.0.45
