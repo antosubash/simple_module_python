@@ -76,6 +76,13 @@ class SetupAction:
     fields: list[SetupField] = field(default_factory=list)
     submit_label: str = "Continue"
     submit_label_key: str = ""
+    validate_before_migrations: Callable[..., Awaitable[None]] | None = None
+    """Opt into one first-run form with migrations, as the next required step.
+
+    Takes ``(request, data)`` and must validate without reading or writing the
+    schema. A failure prevents migrations. The handler still validates and
+    re-checks its own completion under its transaction lock after migration.
+    """
 
 
 @dataclass

@@ -13,8 +13,8 @@ pip install simple_module_permissions
 ## What it provides
 
 - `Role` and `Permission` SQLModel tables, seeded from module-registered defaults.
-- Direct user-level grants feed the framework's permission resolution through a grant source, so `simple_module_hosting.permissions.RequiresPermission` (re-exported as `permissions.web.deps.RequiresPermission`, deprecated for removal in 0.1.0) and `auth.web.deps.require_permission(...)` both honour them.
-- Admin UI for assigning roles/permissions to users, reached through the users admin area at `/users/admin`; role and user editors live at `/permissions/roles/{id}/edit` and `/permissions/users/{id}/edit`.
+- Direct user-level grants feed the framework's permission resolution through a grant source, so `simple_module_hosting.permissions.RequiresPermission` honours them.
+- Provider-neutral admin UI for role permission mappings and direct user grants at `/admin/permissions/`; role and user editors live at `/admin/permissions/roles/{id}/edit` and `/admin/permissions/users/{id}/edit`.
 - `register_permissions(self, registry)` hook — every module declares its permission strings at boot via `registry.add_group(...)`; the registry dedupes and persists them.
 
 ## Usage
@@ -46,11 +46,11 @@ router = APIRouter()
 async def list_orders(): ...
 ```
 
-Admin flow: navigate to `/users/admin`, create a role, assign permissions, assign the role to users.
+Admin flow: open `/admin/permissions/` to edit role permission mappings or direct user grants. Users manages local role membership; OIDC and Keycloak manage membership in the identity provider.
 
 ## Depends on
 
-- `simple_module_core`, `simple_module_db`, `simple_module_hosting`, `simple_module_users`
+- `simple_module_core`, `simple_module_db`, `simple_module_hosting` (Users is optional)
 
 ## License
 

@@ -16,16 +16,24 @@ if TYPE_CHECKING:
     from simple_module_core.audit_links import AuditLinkRegistry
     from simple_module_core.events import EventBus
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.rate_limit import RateLimitRegistry
 
 
 class SharingModule(ModuleBase):
+    permissions = c.Permissions
+
     meta = ModuleMeta(
         name=c.MODULE_NAME,
         route_prefix=c.API_PREFIX,
         view_prefix=c.VIEW_PREFIX,
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_principal_builder(self, registry) -> None:
+        from sharing.contracts.subjects import get_subject_registry
+
+        get_subject_registry(registry)
+
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from simple_module_core.tenant_events import TenantDeleted
 
         from sharing.core.tenant_cleanup import purge_tenant_data
@@ -49,21 +57,25 @@ class SharingModule(ModuleBase):
                 section=MenuSection.ADMIN_SIDEBAR,
                 group=c.MENU_GROUP,
                 group_key=c.MENU_GROUP_KEY,
-                permissions=[c.PERM_VIEW],
+                permissions=[c.Permissions.VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            c.PERM_GROUP,
-            [c.PERM_SHARE, c.PERM_VIEW, c.PERM_MANAGE],
-            label_key=f"{c.LOCALE_NAMESPACE}.permission_group",
-        )
+        super().register_permissions(registry)
         # Sharing what you own is an ordinary user action; the resource's
         # policy (``can("share")``) is what actually decides.
-        registry.map_role(c.USER_ROLE, [c.PERM_SHARE])
+        registry.map_role(c.USER_ROLE, [c.Permissions.SHARE])
         for role in TenantRole:
-            registry.map_role(tenant_role(role), [c.PERM_SHARE])
+            registry.map_role(tenant_role(role), [c.Permissions.SHARE])
+
+    def register_rate_limits(self, registry: RateLimitRegistry) -> None:
+        from simple_module_core.rate_limit import RateLimitRule
+
+        registry.add_exact(
+            c.CANDIDATES_URL,
+            RateLimitRule(c.CANDIDATES_RATE, key="user", methods=frozenset({"GET"})),
+        )
 
     def register_audit_links(self, registry: AuditLinkRegistry) -> None:
         from sharing.models import ResourceShare

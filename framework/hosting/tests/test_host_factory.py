@@ -21,6 +21,8 @@ def test_factory_loads_environment_before_imports_and_merges_settings(tmp_path, 
     root = tmp_path / "project"
     host = root / "host" if layout == "workspace" else root
     host.mkdir(parents=True)
+    if layout == "workspace":
+        (root / "pyproject.toml").write_text('[tool.uv.workspace]\nmembers = ["host"]\n')
     templates = (
         Path(__file__).resolve().parents[2] / "cli/simple_module_cli/templates/host/templates"
     )
@@ -90,8 +92,7 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
     from fastapi import APIRouter, FastAPI
     from simple_module_hosting.host import build_host_app
 
-    # A flat app may itself be named host; use the shared root discovery rules.
-    root = tmp_path / "host"
+    root = tmp_path / "project"
     root.mkdir()
     (root / ".env.example").touch()
     (root / ".env").write_text("HOST_FACTORY_MARKER=loaded\n")
@@ -107,9 +108,11 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
     )
     app = FastAPI()
 
-    def create(received):
+    def create(received, *, routers=()):
         assert received is settings
         events.append("app")
+        for router in routers:
+            app.include_router(router)
         return app
 
     monkeypatch.setattr("simple_module_hosting.create_app", create)
@@ -131,16 +134,65 @@ def test_factory_root_and_router_order(tmp_path, monkeypatch, settings, override
         if override == "environment_dot":
             expected_root_env += "/."
         monkeypatch.setenv(
-            "SM_PROJECT_ROOT", "host" if override == "relative_environment" else expected_root_env
+            "SM_PROJECT_ROOT",
+            "project" if override == "relative_environment" else expected_root_env,
         )
         kwargs["project_root"] = tmp_path / "ignored"
-    result = build_host_app(root / "main.py", routers=(first, second), **kwargs)
+    entry = root / "main.py" if override == "inferred" else tmp_path / "other/host/main.py"
+    result = build_host_app(entry, routers=(first, second), **kwargs)
     assert result is app
     assert events == ["logging", "app"]
     assert Path.cwd() == root
     assert os.environ["SM_PROJECT_ROOT"] == expected_root_env
     assert os.environ["HOST_FACTORY_MARKER"] == "loaded"
     assert list(app.openapi()["paths"]) == ["/first", "/second"]
+
+
+@pytest.mark.parametrize("layout", ["repo", "flat", "flat-named-host", "workspace"])
+@pytest.mark.parametrize("cwd_marker", [False, True])
+def test_factory_entry_file_root_mounts_static_without_markers(
+    tmp_path, monkeypatch, settings, layout, cwd_marker
+):
+    from fastapi import FastAPI
+    from simple_module_hosting._app_boot import mount_host_static
+    from simple_module_hosting.host import build_host_app
+
+    root = tmp_path / ("host" if layout == "flat-named-host" else "app")
+    host = root if layout.startswith("flat") else root / "host"
+    if not layout.startswith("flat"):
+        root.mkdir()
+        (root / "pyproject.toml").write_text('[tool.uv.workspace]\nmembers = ["host"]\n')
+    static = host / "static"
+    (static / "dist").mkdir(parents=True)
+    (static / "dist/x.js").write_text("console.log('ok');")
+    entry = host / "main.py"
+    entry.touch()
+    if layout != "repo":
+        (host / "alembic.ini").touch()
+    cwd = tmp_path / "unrelated" if cwd_marker else root
+    cwd.mkdir(exist_ok=True)
+    if cwd_marker:
+        (cwd / ".git").mkdir()
+        (tmp_path / ".env.example").touch()
+    monkeypatch.chdir(cwd)
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.delenv("SM_PROJECT_ROOT", raising=False)
+    monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda: settings)
+    monkeypatch.setattr("simple_module_hosting.logging.setup_logging", lambda **kwargs: None)
+
+    def create(_settings, *, routers=()):
+        app = FastAPI()
+        mount_host_static(app, Path(os.environ["SM_PROJECT_ROOT"]))
+        return app
+
+    monkeypatch.setattr("simple_module_hosting.create_app", create)
+    app = build_host_app(entry)
+
+    assert Path(os.environ["SM_PROJECT_ROOT"]) == root
+    assert Path.cwd() == root
+    mount = next(route for route in app.routes if route.path == "/static")
+    assert Path(mount.app.directory) == static
+    assert (Path(mount.app.directory) / "dist/x.js").is_file()
 
 
 def test_existing_package_exports_are_preserved():
@@ -174,7 +226,13 @@ def test_factory_builds_the_same_runtime_as_create_app(tmp_path, monkeypatch, se
     def marker():
         return "ok"
 
-    actual = build_host_app(tmp_path / "main.py", routers=(router,))
+    def customize(app):
+        assert "/api/factory-only" in app.openapi()["paths"]
+        app.state.sm.public_routes.remove("/setup", kind="exact")
+
+    actual = build_host_app(tmp_path / "main.py", routers=(router,), customize=customize)
+    assert expected.state.sm.public_routes.matches("GET", "/setup")
+    assert not actual.state.sm.public_routes.matches("GET", "/setup")
     assert actual.state.sm.settings is settings
     assert [type(m) for m in actual.state.sm.modules] == [
         type(m) for m in expected.state.sm.modules
@@ -183,3 +241,21 @@ def test_factory_builds_the_same_runtime_as_create_app(tmp_path, monkeypatch, se
     assert actual.openapi()["paths"].keys() - expected.openapi()["paths"].keys() == {
         "/api/factory-only"
     }
+
+
+@pytest.mark.parametrize(
+    ("manifest", "member"),
+    [
+        ('[tool.uv.workspace]\nmembers = ["host"]\n', True),
+        ('[tool.uv.workspace ]\nmembers = ["host"]\n', True),
+        ('[tool.uv."workspace"]\nmembers = ["host"]\n', True),
+        ("# [tool.uv.workspace]\n[project]\nname = 'x'\n", False),
+        ("not = [valid", False),
+    ],
+)
+def test_workspace_membership_parses_the_manifest(tmp_path, manifest, member):
+    from simple_module_hosting.host import _is_workspace_member
+
+    (tmp_path / "host").mkdir()
+    (tmp_path / "pyproject.toml").write_text(manifest)
+    assert _is_workspace_member(tmp_path / "host") is member

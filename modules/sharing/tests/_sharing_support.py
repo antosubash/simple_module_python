@@ -57,8 +57,30 @@ class FakeDirectory:
     ) -> dict[str, DirectoryUser]:
         return {i: self.users[i] for i in ids if i in self.users}
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
-        return list(self.users.values())[:limit]
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
+        term = (term or "").strip().lower()
+        return [
+            u
+            for u in self.users.values()
+            if (include_ids is None or u.id in include_ids)
+            and u.id not in exclude_ids
+            and (not active_only or u.is_active)
+            and (
+                u.email.lower() == term
+                if exact_email
+                else term in u.email.lower() or term in (u.full_name or "").lower()
+            )
+        ][:limit]
 
     def match_ids(self, term: str) -> Any | None:
         return None

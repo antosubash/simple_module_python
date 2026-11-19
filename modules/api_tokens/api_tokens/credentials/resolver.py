@@ -30,7 +30,7 @@ from starlette.requests import Request
 from api_tokens.core.constants import (
     FORBIDDEN_SERVICE_ROLES,
     LAST_USED_WRITE_INTERVAL_SECONDS,
-    PERM_USE,
+    Permissions,
     TokenKind,
 )
 from api_tokens.credentials.format import hash_token, is_well_formed
@@ -78,7 +78,7 @@ async def _personal(db: Any, directory: UserDirectory, token: ApiToken) -> UserC
     # ``api_tokens.use`` (which also takes away listing and revoking them)
     # retires every token they own, checked against their live, tenant-aware
     # permissions on each request (``lacks_required_permission``).
-    principal.required_permission = PERM_USE
+    principal.required_permission = Permissions.USE
     return principal
 
 

@@ -7,14 +7,22 @@ from pathlib import Path
 
 {{SETTINGS_FASTAPI_IMPORT}}from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-{{SETTINGS_IMPORT}}from simple_module_core.permissions import PermissionRegistry
-
+{{SETTINGS_IMPORT}}
 from {{PACKAGE_NAME}}.core.constants import (
-{{CONSTANTS_IMPORTS}}
+    API_PREFIX,
+    MENU_ICON,
+    MENU_LABEL,
+    MENU_LABEL_KEY,
+    MENU_ORDER,
+    MENU_URL,
+    VIEW_PREFIX,
+    Permissions,
 )
 
 
 class {{MODULE_NAME}}Module(ModuleBase):
+    permissions = Permissions
+
     meta = ModuleMeta(
         name="{{MODULE_NAME}}",
         route_prefix=API_PREFIX,
@@ -34,19 +42,8 @@ class {{MODULE_NAME}}Module(ModuleBase):
                 section=MenuSection.SIDEBAR,
                 # Mirrors the view router's guard, so the entry never shows
                 # for an account that would 403 on click.
-                permissions=[PERM_{{PACKAGE_NAME_UPPER}}_VIEW],
+                permissions=[Permissions.VIEW],
             )
-        )
-
-    def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            PERM_GROUP,
-            [
-                PERM_{{PACKAGE_NAME_UPPER}}_VIEW,
-                PERM_{{PACKAGE_NAME_UPPER}}_CREATE,
-                PERM_{{PACKAGE_NAME_UPPER}}_EDIT,
-                PERM_{{PACKAGE_NAME_UPPER}}_DELETE,
-            ],
         )
 
     def static_mounts(self) -> dict[str, Path]:

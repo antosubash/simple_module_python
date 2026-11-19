@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
+from simple_module_core.role_directory import NullRoleDirectory, RoleDirectory, get_role_directory
 from simple_module_core.user_directory import DirectoryUser, NullUserDirectory, UserDirectory
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +28,6 @@ from permissions.models import RolePermission, UserPermission
 
 if TYPE_CHECKING:
     from simple_module_core.permissions import PermissionRegistry
-    from users.contracts.roles import Role
 
 
 def _user_out(user: DirectoryUser) -> UserOut:
@@ -42,7 +43,7 @@ class PermissionService(RegistrySyncMixin):
 
     * roles — applied to every user holding that role
     * users — granted directly on top of (or independent of) roles, read
-      through the app's user directory (GH #501); roles are ``users``' table.
+      through the app's user directory; role names come from its role directory.
     """
 
     def __init__(
@@ -53,12 +54,20 @@ class PermissionService(RegistrySyncMixin):
         app: FastAPI | None = None,
         *,
         request: Request | None = None,
+        role_directory: RoleDirectory | None = None,
     ) -> None:
         self.app = app
         self.request = request
         self.db = db
         self.registry = registry
         self.directory: UserDirectory = directory or NullUserDirectory()
+        self.role_directory = role_directory or (
+            get_role_directory(app)
+            if app is not None
+            else directory
+            if isinstance(directory, RoleDirectory)
+            else NullRoleDirectory()
+        )
 
     # ── Registry read-outs ─────────────────────────────────────
 
@@ -72,11 +81,16 @@ class PermissionService(RegistrySyncMixin):
 
     # ── Role helpers ───────────────────────────────────────────
 
-    async def _load_roles(self) -> list[Role]:
-        from users.contracts.roles import Role
-
-        result = await self.db.execute(select(Role).order_by(Role.name))
-        return list(result.scalars().all())
+    async def _load_roles(self) -> list[RoleOut]:
+        return [
+            RoleOut(
+                id=r.id or uuid.uuid5(uuid.NAMESPACE_URL, f"simple-module:role:{r.name}"),
+                name=r.name,
+                label=r.label,
+                description=r.description,
+            )
+            for r in await self.role_directory.list_roles(self.db)
+        ]
 
     async def list_roles_with_counts(self) -> list[tuple[RoleOut, int]]:
         roles = await self._load_roles()
@@ -84,13 +98,10 @@ class PermissionService(RegistrySyncMixin):
             select(RolePermission.role_name, func.count()).group_by(RolePermission.role_name)
         )
         counts = dict(counts_result.all())
-        return [(RoleOut.model_validate(r), counts.get(r.name, 0)) for r in roles]
+        return [(r, counts.get(r.name, 0)) for r in roles]
 
     async def get_role(self, role_id: uuid.UUID) -> RoleOut | None:
-        from users.contracts.roles import Role
-
-        role = await self.db.get(Role, role_id)
-        return RoleOut.model_validate(role) if role is not None else None
+        return next((r for r in await self._load_roles() if r.id == role_id), None)
 
     async def get_role_permissions(self, role_id: uuid.UUID) -> RolePermissionsOut | None:
         role = await self.get_role(role_id)
@@ -156,8 +167,11 @@ class PermissionService(RegistrySyncMixin):
     # ── User helpers ───────────────────────────────────────────
 
     async def _get_user(self, user_id: uuid.UUID) -> DirectoryUser | None:
-        found = await self.directory.get_many(self.db, [str(user_id)], with_roles=True)
-        return found.get(str(user_id))
+        found = await self.directory.get_many(self.db, [str(user_id)])
+        user = found.get(str(user_id))
+        if user is None:
+            return None
+        return replace(user, roles=await self.role_directory.user_roles(self.db, str(user_id)))
 
     async def get_user_direct_keys(self, user_id: uuid.UUID) -> list[str]:
         """Keys granted directly to *user_id* (roles excluded)."""
@@ -193,6 +207,7 @@ class PermissionService(RegistrySyncMixin):
         return UserPermissionsOut(
             user=_user_out(user),
             roles=sorted(role_names),
+            roles_known=user.roles is not None,
             direct=sorted(direct),
             inherited=sorted(inherited),
             inherited_by=self._resolve_role_sources(role_names),
@@ -240,6 +255,7 @@ class PermissionService(RegistrySyncMixin):
         return UserPermissionsOut(
             user=_user_out(user),
             roles=sorted(role_names),
+            roles_known=user.roles is not None,
             direct=sorted(wanted),
             inherited=sorted(inherited),
             inherited_by=self._resolve_role_sources(role_names),

@@ -39,7 +39,7 @@ async def record_user_event(event, ctx):
 def cleanup_bus(durable=False):
     bus = EventBus()
     for module in (TenantsModule(), SharingModule(), PermissionsModule()):
-        module.register_event_handlers(bus)
+        module.register_event_handlers(bus, None)
     if durable:
         bus.durable_transport = PausedUserTransport()
     return bus

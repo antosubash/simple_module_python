@@ -20,12 +20,11 @@ from feature_flags.core.constants import (
     AUDIT_LOG_VIEW_URL,
     MENU_URL,
     PAGE_BROWSE,
-    PERM_FEATURE_FLAGS_MANAGE,
-    PERM_FEATURE_FLAGS_VIEW,
     QP_TENANT_ID,
     SCOPE_SYSTEM,
     SCOPE_TENANT,
     SYSTEM_SCOPE_ID,
+    Permissions,
 )
 from feature_flags.web.deps import (
     FeatureFlagRegistryDep,
@@ -67,7 +66,7 @@ def _scope_args(tenant_id: str | None) -> dict[str, str]:
     "/",
     response_model=None,
     dependencies=[
-        Depends(RequiresPermission(PERM_FEATURE_FLAGS_VIEW)),
+        Depends(RequiresPermission(Permissions.VIEW)),
         Depends(require_known_tenant),
     ],
 )
@@ -96,7 +95,7 @@ async def browse(
     "/{name}/toggle",
     response_model=None,
     dependencies=[
-        Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE)),
+        Depends(RequiresPermission(Permissions.MANAGE)),
         Depends(require_known_tenant),
     ],
 )
@@ -118,7 +117,7 @@ async def toggle_action(
 @router.post(
     "/{name}/clear",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_FEATURE_FLAGS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def clear_action(
     name: str,

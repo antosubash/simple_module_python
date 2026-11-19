@@ -2,13 +2,33 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any
 
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.user_directory import DirectoryUser, chunked, parse_user_ids
 from sqlalchemy import or_
 from sqlalchemy.sql.elements import ColumnElement
 
 from simple_module_db.search import LIKE_ESCAPE_CHAR, like_contains_pattern
+
+
+async def search_rows(
+    db: Any,
+    stmt: Any,
+    id_column: Any,
+    *,
+    include_ids: Collection[str] | None,
+    limit: int,
+) -> list[Any]:
+    """Bound allowed-id parameters and merge email-ordered search results."""
+    if include_ids is None:
+        return list((await db.execute(stmt.limit(limit))).all())
+    rows = []
+    for chunk in chunked(list(parse_user_ids(include_ids))):
+        # SQL merges the best previous rows with this chunk using the database collation.
+        wanted = [*chunk, *(row.id for row in rows)]
+        rows = list((await db.execute(stmt.where(id_column.in_(wanted)).limit(limit))).all())
+    return rows
 
 
 def name_or_email_contains(full_name: Any, email: Any, term: str) -> ColumnElement[bool]:

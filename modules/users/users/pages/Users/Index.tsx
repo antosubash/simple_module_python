@@ -4,7 +4,6 @@ import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { SegmentedControl } from '@simple-module-py/ui/components/SegmentedControl';
 import { Button } from '@simple-module-py/ui/components/ui/button';
 import { Input } from '@simple-module-py/ui/components/ui/input';
-import { AdminLayout } from '@simple-module-py/ui/layouts/AdminLayout';
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Filters, IndexFilters } from '../../admin/components/IndexFilters';
@@ -185,5 +184,4 @@ function Index({
   );
 }
 
-Index.layout = [AdminLayout];
 export default Index;

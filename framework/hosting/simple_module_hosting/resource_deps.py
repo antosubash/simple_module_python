@@ -35,7 +35,11 @@ from simple_module_core.resources import ResourcePolicy, ResourcePrincipal
 from simple_module_db.deps import get_db
 from simple_module_db.resource_policy import load_authorized
 
-from simple_module_hosting.permissions import RequiresPermission, ensure_resolved_permissions
+from simple_module_hosting.permissions import (
+    RequiresPermission,
+    _resource_principal_for,
+    ensure_resolved_permissions,
+)
 from simple_module_hosting.token_guard import GATE_PERMISSION, TOKEN_GATE_ATTR
 
 RESOURCE_PERMISSION_PREFIX = "resource:"
@@ -55,11 +59,16 @@ async def resource_principal(request: Request) -> ResourcePrincipal:
     user = getattr(request.state, "user", None)  # resolution may demote a stale token
     if user is None:
         return ResourcePrincipal(user_id=None)
-    user_id = getattr(user, "id", None)
-    return ResourcePrincipal(
-        user_id=str(user_id) if user_id is not None else None,
-        permissions=frozenset(held),
-    )
+    principal = getattr(request.state, "resource_principal", None)
+    if principal is None:
+        user_id = getattr(user, "id", None)
+        principal = ResourcePrincipal(
+            user_id=str(user_id) if user_id is not None else None,
+            permissions=frozenset(held),
+            roles=frozenset(getattr(user, "roles", None) or ()),
+            tenant_id=getattr(request.state, "tenant_id", None),
+        )
+    return _resource_principal_for(request, principal)
 
 
 class RequiresResource:

@@ -29,6 +29,28 @@ What actually happens when you run `uvicorn main:app`:
 
 On shutdown, `on_shutdown` hooks run in **reverse** order.
 
+## Custom database state
+
+Both builders accept `database=state` or
+`database=lambda settings: make_database(settings)`. The factory runs once
+during app construction with resolved settings and returns a `DatabaseState`,
+which becomes `app.state.sm.db`. This supports custom engines, `async_creator`
+connections and session routing to read replicas without creating the default
+application engine. See [Database engines and ownership](/database/tuning#supplying-an-engine-and-session-factory)
+for the session-factory contract.
+
+Injected states and factory results are caller-owned: lifespan shutdown and
+startup-failure cleanup leave their engines open. Dispose them in the caller
+after the app stops. Without `database`, the framework creates and disposes
+the engine as before.
+
+`build_host_app` still merges stored host settings before invoking `create_app`,
+and `create_app()` without explicit settings does the same. These preliminary
+settings reads and CLI/Alembic operations use the configured database URL;
+database injection replaces the application's runtime state. For a connection
+available only through a custom creator, pass explicit resolved `Settings` to
+`create_app(settings, database=...)` to avoid the preliminary settings read.
+
 ## Strict mode vs. lenient mode
 
 Discovery and diagnostics behave differently based on `SM_ENVIRONMENT`:

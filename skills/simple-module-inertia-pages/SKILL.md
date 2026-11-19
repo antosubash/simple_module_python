@@ -20,10 +20,41 @@ The namespace is **`ModuleMeta.name`** — by default the PascalCase of the modu
 After adding or renaming a `.tsx`, regenerate the manifest:
 
 ```bash
-smpy host gen-pages --host-dir=client_app
+uv run smpy gen  # also runs during install/dev/build
 ```
 
 Boot regenerates it too; mid-session adds need the manual call before HMR sees them.
+
+## Frontend extensions
+
+To extend another page, ship one optional `<package>/ui/extensions.ts` or `.tsx`
+exporting synchronous `register(registry: ExtensionRegistry)`. Import the type,
+`slots` and any runtime helpers from `@simple-module-py/ui/extensions`.
+`smpy gen` discovers installed/selected modules, including those without pages,
+and emits `registerModuleExtensions` in dependency order. The host calls it with
+`extensions` once before `createInertiaApp`, then wraps Inertia's App in
+`ExtensionsProvider` and `LayoutComponentsProvider`. New scaffolded hosts do this
+already; existing hosts need the wiring described in the frontend extension docs.
+
+- `registry.registerSlot(slots.usersEditPanels, { id, order, permission, component })`
+  supplies a panel receiving `{ userId: string }`.
+- `slots.tenantsSettingsSections` supplies a section receiving `{ tenant: { id, name, slug } }`.
+- Lower order renders first, default zero; ties keep registration order. IDs are
+  unique per slot. Set `fallback` to a skeleton matching a lazy panel's dimensions.
+  Optional permission checks use the current shared auth props
+  and only control visibility; backend routes still enforce permissions/tenancy.
+- `registerLayout('UserMenu' | 'Topbar', component)` replaces default chrome.
+- `registerIcon(name, component)` adds icons; built-in names retain their glyphs.
+- `registerFieldRenderer(control, component)` supplies a settings control receiving
+  `{ field, value, onChange, id }`. Declare the hint with
+  `json_schema_extra={"control": "my_module.control"}`. Unknown hints use defaults;
+  secret fields stay masked until the user starts a new value.
+
+Keep registration entries small and use `React.lazy` for heavy components.
+Slots/field inputs supply Suspense boundaries; lazy chrome supplies its own.
+Register before render, reload the document after editing registrations, and
+translate contribution text using `t(keys...)`. Layouts and field renderers use
+the last registration, so hosts can register after modules to choose replacements.
 
 ## Shared props (no setup needed)
 
@@ -39,7 +70,11 @@ Boot regenerates it too; mid-session adds need the manual call before HMR sees t
 
 **Typing them in TSX.** A page receives its own props as typed component arguments (`export default function Browse({ items }: Props)`). Shared props are typed globally: `usePage().props.auth` is already a `SharedProps['auth']`. Components and layouts that need page props too use `usePageProps<Props>()` from `@simple-module-py/ui` (it returns `Props & SharedProps & { errors }`). Never write `usePage<{ props: X }>().props as unknown as X`; `make lint` rejects `as unknown as` outside tests unless the line carries `// cast-ok: <reason>`.
 
-**A page sets its own layout.** The host applies none by default, so a page with no `Page.layout` renders without the sidebar, header and footer. Signed-in screens end the file with `Browse.layout = [AuthenticatedLayout];` (import from `@simple-module-py/ui/layouts/AuthenticatedLayout`); `/admin/*` pages use `AdminLayout`, public ones `PublicLayout`. The module scaffold generates this.
+Module render keys may be literal `inertia.render("MetaName/Page")`: the hardcoded-string
+checker verifies the module identity and existing TSX file, including nested pages
+and excluding tests. Existing `PAGE_*` constants still work; no new aliases are needed.
+
+**Page layout.** A declared `ModuleMeta.admin = AdminSurface(...)` supplies `AdminLayout` through generated page loaders when the destination is under its prefix. Run `make gen-pages`; existing host resolvers work. Explicit `Page.layout` (including `[]` or `null`) wins. Without a surface or explicit layout, a page renders without the sidebar, header and footer. Signed-in screens end the file with `Browse.layout = [AuthenticatedLayout];` (import from `@simple-module-py/ui/layouts/AuthenticatedLayout`); `/admin/*` pages use `AdminLayout`, public ones `PublicLayout`. The module scaffold generates this.
 
 **`auth.user` is `None` when no `principal_serializer` is registered**, even if the user is authenticated. The framework can't know the shape of your user object. The `auth` module registers the callable during `register_settings(app)` (`modules/auth/auth/module.py`):
 
@@ -79,11 +114,11 @@ Inertia's `router.post(...)` / `.patch(...)` / `.put(...)` / `.delete(...)` expe
 Two fixes, in preference order:
 
 1. **Stay Inertia-native** — point the call at a *view* endpoint (under `view_prefix`, e.g. `/orders/...`) that returns `RedirectResponse(..., status_code=303)`. Inertia follows the redirect and re-renders the page.
-2. **Need the JSON payload back** — call the `/api/*` endpoint through the module's typed client, `pages/api.ts`, instead of Inertia's `router` or a raw `fetch()`:
+2. **Need the JSON payload back** — call the `/api/*` endpoint through the module's typed client, `pages/api.generated.ts`, instead of Inertia's `router` or a raw `fetch()`:
 
 ```tsx
 import { apiResult } from "@simple-module-py/ui/lib/api";
-import { api } from "./api"; // export const api = createApi<paths>();
+import { api } from "./api.generated";
 
 const result = await apiResult(api.POST("/api/orders/", { body: payload }));
 if (!result.ok) return setError(result.detail ?? t(keys.orders.errors.generic));
@@ -94,9 +129,9 @@ result.data; // typed from the route's response_model
 
 The typed client (#504):
 
-- **Types are generated.** `pages/api.generated.ts` comes from the module's routes — run `smpy openapi gen-types --module <pkg>` (`make gen-api-types` in the framework repo) after changing an endpoint or DTO, and commit it. Never edit it. A route without `response_model` (or a return annotation) generates an `unknown` body.
+- **Client and types are generated together.** `pages/api.generated.ts` comes from the module's routes — `smpy gen` refreshes existing files after endpoint/DTO changes; run `smpy openapi gen-types --module <pkg>` once to opt in (`make gen-api-types` in the framework repo), and commit it. Import `api` from it; a separate `api.ts` is only for custom client logic and is never overwritten by generation. Never edit the generated file. A route without `response_model` (or a return annotation) generates an `unknown` body.
 - **One result shape.** `apiResult(...)` resolves to `{ ok, status, data, detail, fieldErrors, error }`: `detail` is the server's string `detail` (a message or a stable code), `fieldErrors` maps a 422's last `loc` element to its `msg`, and a network failure is `status: 0` — it never throws. `useApiErrorToast(fallbackKey)` toasts `detail ?? t(fallbackKey)`.
-- **CSRF is automatic.** Signed-in sessions get a `csrfToken` shared prop; the client sends it as `X-CSRF-Token` on POST/PUT/PATCH/DELETE to the same origin, so `RequiresCsrf` routes just work. Anonymous pages get no token.
+- **CSRF is automatic.** Signed-in sessions get a `csrfToken` shared prop; the client sends it as `X-CSRF-Token` on POST/PUT/PATCH/DELETE to the same origin, so declaring `RequiresCsrf` is the module's only CSRF step. The token survives `only`/`except` partial reloads and is read afresh per call after login/logout; do not pin a page token in manual headers. Anonymous pages get no shared token; anonymous authentication forms expose their session token explicitly.
 - **Off-schema calls** (another module's route, a server-supplied URL, multipart uploads, `/setup/*`) use `apiFetch<T>(url, { method, json })` — same conventions and result shape, untyped.
 - **Reuse generated DTOs** for prop types: `type Item = components["schemas"]["OrderOut"]` (see *Typing them in TSX* above for how props are typed).
 
@@ -104,7 +139,7 @@ The typed client (#504):
 
 - **Translated strings in props built at module scope.** `const labels = { title: t("orders.title") }` freezes against the first render's locale — build per-request translations inside the handler or via shared props.
 - **Imported a page TSX from another page.** Manifest-wired pages break if you import them directly; production builds drop the side-effect imports.
-- **Pages exist but are unreachable in the UI (`SM019`).** A module with a non-empty `view_prefix` and conventional views or a `register_routes` override, but neither `register_menu_items` nor `register_permissions`, ships pages with no sidebar entry and no role-editor visibility. Add a menu item, register permissions, or clear `view_prefix` if it's API-only.
+- **Pages exist but are unreachable in the UI (`SM019`).** A module with a non-empty `view_prefix` and conventional views or a `register_routes` override, but neither `register_menu_items`, `register_permissions` nor a `permissions` catalogue, ships pages with no sidebar entry and no role-editor visibility. Add a menu item, register permissions, or clear `view_prefix` if it's API-only.
 
 ## Related skills
 

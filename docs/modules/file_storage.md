@@ -77,7 +77,7 @@ request may render twice; both write identical bytes.
 
 `StoredFile.public` (default `false`) opts a file into anonymous serving.
 Set it with `public=true` on upload or `PATCH /files/{id}`; both need
-`file_storage.upload`, so anyone who may add files may publish them. `StoredFileOut` carries
+`file_storage.upload`, so anyone who may add untagged files may publish those files. Tagged files also require their module policy to allow publication. `StoredFileOut` carries
 `public` and, while public, `public_url` (`/api/file-storage/public/{id}/{filename}`),
 so consumers never build the URL themselves — an `<img src>` on a public page
 can use it, or `.../public/{id}/thumbnail?w=256`.
@@ -117,6 +117,102 @@ Serving rules:
   (`media_types.is_active_content`).
 - Presigning backends (S3) answer with a `302` to the presigned URL, cached
   for at most half the signature's TTL; filesystem backends stream.
+
+### Module-private files (#999)
+
+A module can set `owner_module` through `FileStorageService.upload(...,
+owner_module=...)`. This tag is deliberately absent from the generic upload and
+PATCH request schemas: a client cannot choose or remove a module's policy.
+Migration `f999a1b2c3d4` adds the nullable column on the `file_storage` branch;
+existing rows remain untagged and retain uploader / `file_storage.manage` access,
+including the uploader's ability to publish.
+
+Registration lives in `simple_module_core.file_access`, which imports no storage
+module. Register once from `register_settings(app)`; the registry belongs to that
+app, survives settings hydration, and rejects duplicate or malformed tags.
+A consumer may declare `optional_depends_on=[_MODULE_FILE_STORAGE]` (where the
+constant is `"FileStorage"`) and register even if storage is absent. If its policy
+uses the public `StoredFile` model contract, defer that import until the optional
+package is available, as below. Use `depends_on` when storage is mandatory.
+
+A trade-licence example lets its uploader and holders of `guides.review` read the
+file, and forbids publishing for everyone, including admins:
+
+```python
+from simple_module_core.file_access import register_file_access_policy
+from simple_module_db.resource_policy import OwnedResourcePolicy
+
+from guides.core.constants import FILE_OWNER_LICENCE, PERM_REVIEW
+
+
+# In the consuming ModuleBase subclass:
+def register_settings(self, app):
+    try:
+        from file_storage.contracts import StoredFile
+    except ModuleNotFoundError as exc:
+        if exc.name != "file_storage":
+            raise
+        return
+    register_file_access_policy(
+        app,
+        FILE_OWNER_LICENCE,  # e.g. "guides.licence"
+        OwnedResourcePolicy(StoredFile.created_by, bypass_perm=PERM_REVIEW),
+        publishable=False,
+    )
+```
+
+Upload through the module's service while its request tenant and uploader are
+bound, passing the same tag before any file becomes visible:
+
+```python
+stored = await files.upload(upload, owner_module=FILE_OWNER_LICENCE)
+```
+
+Here `files` is the service supplied by `file_storage.web.deps.get_file_storage_service`.
+Trusted service callers remain responsible for their own authorization. The
+registry-backed service refuses `public=True` for a never-publishable or unknown
+tag before writing bytes. A service constructed directly should receive the
+app's registry via `policies=file_access_policies(app)` when publishing tagged
+uploads. Uploads with a tag may be stored privately before its policy is loaded;
+generic routes hide them until the matching policy is registered. Services
+constructed with `principal=` also check the publish action on tagged public
+uploads and compensate the backend write if authorization fails.
+
+Policies implement the existing `ResourcePolicy` protocol and receive the
+request's resolved `ResourcePrincipal` (including token scope limits). Their
+`filter(principal, action, stmt)` narrows SELECTs over `StoredFile`; use
+`ACTION_VIEW`, `ACTION_DELETE` from `simple_module_core.resources` and
+`ACTION_PUBLISH` from `simple_module_core.file_access`. Unpublishing uses
+`ACTION_EDIT`. As with `RequiresResource`, SQL filtering is authoritative;
+a false `can()` result falls back to the action filter, allowing EXISTS/share
+policies. Filters must preserve the incoming statement and agree with `can()`.
+The example's stock policy also permits deletion and unpublishing by the owner
+or reviewer; implement action-specific filters if only the owner may delete.
+
+Generic route permissions (`file_storage.download`, `.upload`, `.delete`) still
+apply. A tagged file's policy replaces the uploader/manage row scope; manage is
+not an implicit bypass. A policy can grant a reviewer access to someone else's
+file without granting manage. Tenant and soft-delete filters remain in force.
+Invisible metadata, downloads, thumbnails and mutations return 404; an action
+denied on a visible file returns 403. Bulk deletion skips inaccessible or
+action-denied rows. Lists, pagination totals, browse facets and byte totals are
+filtered in SQL before returning any data. Policy-filtered aggregate results
+are not shared through the tenant-wide aggregate cache.
+
+Unknown tags fail closed, including after removing the owning module. With
+`publishable=False`, publish attempts by readers return 403, and by callers who
+cannot read the file return 404. Unpublishing remains available to principals
+allowed `ACTION_EDIT`. Already-public rows under such a policy remain flagged
+public in metadata, but every anonymous public route (named URLs and thumbnails
+included) returns 404. No automatic data rewrite occurs. Previously cached bytes
+and issued object-store URLs retain their existing cache/signature lifetime.
+
+For a publishable tagged file, anonymous serving additionally requires the
+policy's `ACTION_VIEW` filter to admit `ResourcePrincipal(user_id=None)`; setting
+`public=True` alone does not bypass a module's read policy. A publishable policy
+can admit anonymous view requests itself; the public lookup still requires
+`public=True`. Anonymous lookups always use an anonymous principal even when
+the browser has a signed-in session.
 
 ### Range requests
 
@@ -193,6 +289,7 @@ New settings: `direct_upload_threshold_bytes`, `max_direct_upload_bytes`, `multi
 
 ```python
 from file_storage.contracts import (
+    StoredFile,
     StoredFileOut,
     StoredFileListOut,
     FileUploaded,
@@ -208,6 +305,7 @@ from file_storage.contracts import (
 
 | Class | Purpose |
 |---|---|
+| `StoredFile` | Public table-model contract for constructing resource policies. |
 | `StoredFileOut` | File metadata: `id`, `key`, `filename`, `content_type`, `size_bytes`, `backend`, `checksum_sha256`, `uploaded_by`, `created_at`, `public`, `public_url`. |
 | `StoredFileListOut` | `items`, `total`, `page`, `per_page`. |
 | `FileUploaded` (event) | `file_id`, `key`, `backend`, `size_bytes`, `uploaded_by`. Topic: `file_storage.file.uploaded`. |
@@ -473,15 +571,13 @@ every tenant member). With `multi_tenant` off the install is the only tenant,
 so `on_startup` maps `file_storage.delete` onto `user` and ordinary users keep
 deleting their files.
 
-**Ownership.** Every authenticated route — list, get, download, thumbnail,
-publish/unpublish, delete, bulk delete and the browse screen — acts only on the
-files the caller uploaded (`created_by` is their user id), unless they hold
-`file_storage.manage`. Someone else's file answers `404`, exactly like an
-unknown id, and the browse screen's type and uploader filters list only the
-caller's own rows (the usage figure stays bucket-wide, as the quota is). The
-scope is passed explicitly by the endpoints (`web.deps.get_owner_scope`) to the
-service's `owner=` argument; internal callers such as branding and reapers
-pass none and stay unscoped, and anonymous `public` serving is unaffected.
+**Ownership.** Untagged files retain uploader / `file_storage.manage` access
+on every authenticated route. Tagged files use their registered module policy,
+as described in [Module-private files](#module-private-files-999). Generic
+services resolve the request's resource principal; trusted service callers
+(such as branding and reapers) remain responsible for their own authorization.
+Counts, facets and displayed byte totals include only visible rows; quota
+admission still measures all files in the tenant.
 
 ## Menu
 
@@ -503,7 +599,7 @@ from file_storage.contracts import FileUploaded
 
 
 class MyModule(ModuleBase):
-    def register_event_handlers(self, bus):
+    def register_event_handlers(self, bus, app):
         bus.subscribe(FileUploaded, self._on_uploaded)
 
     async def _on_uploaded(self, event: FileUploaded) -> None: ...

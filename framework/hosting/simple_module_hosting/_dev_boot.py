@@ -10,11 +10,19 @@ path.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import threading
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from simple_module_core.diagnostics import DiagnosticLevel, print_diagnostics, run_diagnostics
+from simple_module_core.diagnostics import (
+    Diagnostic,
+    DiagnosticLevel,
+    print_diagnostics,
+    run_diagnostics,
+)
 from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
 
 from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
@@ -26,8 +34,21 @@ if TYPE_CHECKING:
     from simple_module_hosting.settings import Settings
 
 logger = logging.getLogger(__name__)
+_OUTPUT_TIMEOUT = 2.0
 
 __all__ = ["run_dev_boot"]
+
+
+async def print_boot_diagnostics(diagnostics: list[Diagnostic]) -> None:
+    """Bound the lifespan wait without making shutdown join a blocked writer."""
+    writer = threading.Thread(
+        target=print_diagnostics, args=(diagnostics,), kwargs={"once": True}, daemon=True
+    )
+    writer.start()
+    with suppress(TimeoutError):
+        async with asyncio.timeout(_OUTPUT_TIMEOUT):
+            while writer.is_alive():
+                await asyncio.sleep(0.01)
 
 
 def run_dev_boot(
@@ -62,10 +83,11 @@ def run_dev_boot(
     )
     diagnostics = diagnostics_state.rerun()
     errors = [d for d in diagnostics if d.level == DiagnosticLevel.ERROR]
-    if diagnostics:
-        print_diagnostics(diagnostics)
     if errors:
+        print_diagnostics(diagnostics, once=True)
         raise SystemExit(f"Module diagnostics: {len(errors)} error(s). Fix before continuing.")
+
+    # Nonfatal findings print in lifespan, never in a generator/reloader supervisor.
 
     _write_pages_manifest(modules, project_root)
     emit_frontend_types_for_modules(settings, installed_modules, project_root)

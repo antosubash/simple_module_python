@@ -18,6 +18,7 @@ from simple_module_core.settings_hydrate import (
 )
 
 from settings.core.invalidation import reload_on_commit
+from settings.module_settings._field_meta import choices_for
 from settings.module_settings.store import SettingsStore
 
 
@@ -133,6 +134,19 @@ async def apply_changes_and_reload(
 
     merged.update(diff)
     validated = cls(**merged)
+    # Dynamic registries expose choices through the same metadata as the UI.
+    # Check normalized values; existing field validators may accept other spellings.
+    for name in diff:
+        value = getattr(validated, name)
+        choices = choices_for(cls.model_fields[name])
+        if choices and value not in choices:
+            error = ValueError(
+                f"Unknown choice for {name}: {value!r}; choices: {', '.join(choices)}"
+            )
+            raise ValidationError.from_exception_data(
+                cls.__name__,
+                [{"type": "value_error", "loc": (name,), "input": value, "ctx": {"error": error}}],
+            )
     dumped_all = validated.model_dump()
 
     # A json field stores what validated, not what was sent: a field validator

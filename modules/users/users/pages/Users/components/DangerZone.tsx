@@ -8,7 +8,7 @@ import { Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { adminFailureMessage } from '../../../ui/utils/failureMessage';
-import { api } from '../../api';
+import { api } from '../../api.generated';
 
 interface Props {
   userId: string;

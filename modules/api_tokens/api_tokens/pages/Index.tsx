@@ -14,23 +14,21 @@ import { TokenPagination } from '../ui/components/TokenPagination';
 import { TokenTable } from '../ui/components/TokenTable';
 import { useTokenActions } from '../ui/components/useTokenActions';
 import { type CreatePayload, type TokenFormProps, tokenStatus } from '../ui/types';
-import { api, csrfHeaders } from './api';
+import { api } from './api.generated';
 
 /** Your own personal access tokens: list, create (secret shown once), revoke. */
 function Index(props: TokenFormProps) {
   const { t } = useT();
   const [creating, setCreating] = useState(false);
-  const headers = csrfHeaders(props.csrf_token);
   const actions = useTokenActions({
-    create: (body) => apiResult(api.POST('/api/api_tokens/tokens/', { body, headers })),
+    create: (body) => apiResult(api.POST('/api/api_tokens/tokens/', { body })),
     revoke: (id) =>
       apiResult(
         api.POST('/api/api_tokens/tokens/{token_id}/revoke', {
           params: { path: { token_id: id } },
-          headers,
         }),
       ),
-    revokeAll: () => apiResult(api.POST('/api/api_tokens/tokens/revoke-all', { headers })),
+    revokeAll: () => apiResult(api.POST('/api/api_tokens/tokens/revoke-all')),
   });
   // Unseen pages may still contain live tokens.
   const hasLive =

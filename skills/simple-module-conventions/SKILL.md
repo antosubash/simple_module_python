@@ -52,16 +52,18 @@ root lookup files in place and put non-page frontend code in `ui/`. See
 from simple_module_core.module_settings import register_module_settings
 
 
-class UsersModule(ModuleBase):
+class SiteLockModule(ModuleBase):
     def register_settings(self, app: FastAPI) -> None:
-        from users.core.settings import UsersSettings  # a DbBackedSettings subclass
-        from users.core.state import UsersState
+        from site_lock.core.settings import SiteLockSettings  # a DbBackedSettings subclass
+        from site_lock.core.state import SiteLockState
 
-        register_module_settings(app, "users", UsersSettings, lambda s: UsersState(settings=s))
+        register_module_settings(
+            app, "site_lock", SiteLockSettings, lambda s: SiteLockState(settings=s)
+        )
 ```
 
-- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env.
-- Import from the framework, not the plugin: `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers). `settings.registration` / `settings.module_registry` / `settings.hydrate` are deprecated re-exports.
+- Settings are DB-backed: subclass `simple_module_core.settings_base.DbBackedSettings` (no env source). The host hydrates every registered class from the settings table (env → DB → default) before `on_startup`; this works even with the `settings` admin module disabled. Only secrets and process wiring read env. The optional host root secret is resolved before module registration; Users derives purpose-specific token keys from it, outside editable DB settings.
+- Import from the framework, not the plugin: `simple_module_core.module_settings`, `simple_module_core.settings_hydrate`, `simple_module_db.stored_settings` (`Setting`, `hydrate_settings_sync` for workers).
 - Shared account/invitation origins use `simple_module_hosting.public_urls.public_origin`: blank module origins inherit `host.public_base_url`; never derive emailed links from request Host. All auth providers use host cookie-security and post-login policy. Body/rate/CORS host guards reload live through immutable policy snapshots; module rules still apply.
 - Cross-module reads are discouraged by convention (no enforcement) — go through the registry or event bus instead.
 - The state attribute key is the lowercase package name or the lowercased `meta.name` — the diagnostics check accepts either. For module package `auth` with `meta.name="Auth"`, `app.state.auth` works either way.
@@ -97,12 +99,12 @@ export function useProductSchema() {
 Starlette's default `SameSite=Lax` session cookie isn't attached to cross-site POST/PUT/DELETE, so forged form-submits are unauthenticated — plain Inertia forms need nothing extra. A module that wants a real token check on its JSON mutations uses the framework primitive instead of rolling its own:
 
 ```python
-from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
+from simple_module_hosting.csrf import RequiresCsrf
 
 router = APIRouter(dependencies=[Depends(RequiresCsrf())])
 ```
 
-Signed-in sessions receive the token as the `csrfToken` shared prop, and the module's typed client (`pages/api.ts`: `createApi<paths>()` from `@simple-module-py/ui/lib/api`) echoes it as `X-CSRF-Token` on unsafe same-origin calls — page code adds nothing. Call `/api/*` from pages through that client (types from `smpy openapi gen-types`), not raw `fetch()`; `apiFetch` covers routes outside the module's schema.
+Signed-in sessions receive the token as the `csrfToken` shared prop, and the module's typed client (`api` exported by `pages/api.generated.ts`) echoes it as `X-CSRF-Token` on unsafe same-origin calls — page code adds nothing. The shared token is included even in `only`/`except` partial reloads, and the client reads its current value on every call after login/logout. Anonymous authentication forms must expose their session token explicitly. Call `/api/*` from pages through that client (types from `smpy openapi gen-types`), not raw `fetch()`; `apiFetch` covers routes outside the module's schema.
 
 Safe methods are never checked, and bare test apps without `SessionMiddleware` are exempt.
 
@@ -130,7 +132,17 @@ Build a `MailMessage(to, subject, text)` and send it with `current_mail_sender()
 
 ### 12. Read users through the user directory, never `users.models`
 
-Which module holds the accounts depends on the auth provider (`users` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+Which module holds the accounts depends on the auth provider (`users`, `oidc` or `keycloak`). To name, look up, search or count users, use `get_user_directory(app)` from `simple_module_core.user_directory`: `get_many(db, ids, with_roles=...)`, `search(db, term, limit=...)`, `match_ids(term)` (a subquery) and `stats(db, active_window=...)`. Name a user with `DirectoryUser.label`. `roles is None` means the provider does not know them (Keycloak) — refuse anything that needs roles rather than treating the user as role-less. Importing `users.models` from another module silently queries an empty table under Keycloak.
+
+For role catalogs and membership, use `get_role_directory(app)` from
+`simple_module_core.role_directory`: `list_roles(db)` returns name/label/description
+and an optional local UUID; `user_roles(db, user_id)` returns names or `None`
+(unknown). Check `editable` before exposing local role assignment controls.
+Permission mappings use role names and remain editable for external providers.
+OIDC/Keycloak list application names from live `role_mapping` values, exclude
+`tenant:*`, and cannot resolve cached users' claim roles. A missing provider
+lists no roles and reports unknown membership. Never infer claim roles in an
+ID-only `principal_for` lookup.
 
 ### 13. Raise domain exceptions from services
 

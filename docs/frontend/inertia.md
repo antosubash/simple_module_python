@@ -266,24 +266,22 @@ Anonymous pages never do (nothing is minted into their session, so a public
 page stays cacheable and never hands one visitor's token to the next), and an
 API-token principal renders as anonymous. The typed API client below reads the
 prop and sends the header itself, only to the page's own origin, so page code
-never handles the token. A page may still receive its own token prop (the
-api_tokens pages do) and pin it per call with `headers`.
+never handles the token. The shared token is always included in authenticated
+partial reloads, and the client reads it afresh on each call after login/logout.
+Anonymous authentication forms explicitly expose their own session token.
 
 ## JSON calls from pages
 
 Each module calls its `/api/*` routes through a typed client (#504):
 
-```ts
-// <pkg>/pages/api.ts
-import { createApi } from '@simple-module-py/ui/lib/api';
-import type { paths } from './api.generated';
-
-export const api = createApi<paths>();
-```
+`smpy openapi gen-types --module <pkg>` (`make gen-api-types` in the framework
+repo) generates `pages/api.generated.ts`, exporting `api` alongside the types.
+Keep a separate `api.ts` only when it adds custom client logic; regeneration
+does not touch it.
 
 ```tsx
 import { apiResult } from '@simple-module-py/ui/lib/api';
-import { api } from './api';
+import { api } from './api.generated';
 
 const result = await apiResult(
   api.POST('/api/tenants/{tenant_id}/switch', { params: { path: { tenant_id: id } } }),

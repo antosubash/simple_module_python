@@ -42,6 +42,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["feature_flags"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"package.json" = "feature_flags/package.json"
+
 [tool.uv.sources]
 simple_module_core = { workspace = true }
 simple_module_db = { workspace = true }

@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core import AdminSurface
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
@@ -46,17 +47,24 @@ def _tenant_members() -> TenantMembers:
 
     from tenants.models import Membership
 
-    async def members(db: Any, tenant_id: str, user_ids: Collection[str]) -> set[str]:
-        wanted = list(dict.fromkeys(user_ids))
-        stmt = select(Membership.user_id).where(
-            Membership.tenant_id == tenant_id, col(Membership.user_id).in_(wanted)
-        )
+    async def members(db: Any, tenant_id: str, user_ids: Collection[str] | None) -> set[str]:
+        stmt = select(Membership.user_id).where(Membership.tenant_id == tenant_id)
+        if user_ids is not None:
+            stmt = stmt.where(col(Membership.user_id).in_(list(dict.fromkeys(user_ids))))
         return set((await db.execute(stmt)).scalars())
 
     return members
 
 
 class TenantsModule(ModuleBase):
+    permissions = c.Permissions
+
+    def register_principal_builder(self, registry) -> None:
+        from tenants.resolution.principal import membership_role, tenant_active
+
+        registry.membership_role = membership_role
+        registry.tenant_active = tenant_active
+
     # ModuleBase instances are built per app. register_settings runs before
     # register_routes/register_menu_items, so _app is set when those hooks read it.
     _app: FastAPI | None = None
@@ -68,7 +76,12 @@ class TenantsModule(ModuleBase):
         name=c.DISPLAY_NAME,
         route_prefix="/api/tenants",
         view_prefix="/tenants",
-        admin_view_prefix="/admin/tenants",
+        admin=AdminSurface(
+            prefix="/admin/tenants",
+            routes="tenants.web.endpoints.admin:views",
+            menu_group="Access",
+            menu_group_key="ui.nav_groups.access",
+        ),
         # Auth: its middleware must have set request.state.user before the
         # resolver runs. Settings: ordering only, since registering settings
         # is the framework's (#500).
@@ -76,7 +89,7 @@ class TenantsModule(ModuleBase):
         optional_depends_on=[c._MODULE_SETTINGS],
     )
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         from tenants.contracts.events import InvitationCreated
         from tenants.invitations.mail import send_invitation_email
 
@@ -135,11 +148,6 @@ class TenantsModule(ModuleBase):
         if self._settings_available():
             view_router.include_router(settings_router)
 
-    def register_admin_routes(self, admin_router: APIRouter) -> None:
-        from tenants.web.endpoints.admin import views as admin_views
-
-        admin_router.include_router(admin_views)
-
     def register_menu_items(self, registry: MenuRegistry) -> None:
         registry.add(
             MenuItem(
@@ -159,7 +167,7 @@ class TenantsModule(ModuleBase):
                 icon="users",
                 order=91,
                 section=MenuSection.SIDEBAR,
-                permissions=[c.PERM_MEMBERS_VIEW],
+                permissions=[c.Permissions.MEMBERS_VIEW],
             )
         )
         if self._settings_available():
@@ -181,24 +189,12 @@ class TenantsModule(ModuleBase):
                 url="/admin/tenants/",
                 icon="briefcase",
                 order=105,
-                section=MenuSection.ADMIN_SIDEBAR,
-                permissions=[c.PERM_PLATFORM_VIEW],
-                group="Access",
-                group_key="ui.nav_groups.access",
+                permissions=[c.Permissions.PLATFORM_VIEW],
             )
         )
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        registry.add_group(
-            c.DISPLAY_NAME,
-            [
-                c.PERM_MEMBERS_VIEW,
-                c.PERM_MEMBERS_MANAGE,
-                c.PERM_PLATFORM_VIEW,
-                c.PERM_PLATFORM_MANAGE,
-            ],
-            label_key="tenants.permission_group",
-        )
+        super().register_permissions(registry)
         for role, perms in c.ROLE_PERMISSIONS.items():
             registry.map_role(c.tenant_role(role), perms)
 

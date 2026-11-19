@@ -17,7 +17,7 @@ from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 
 from permissions.contracts.schemas import RolePermissionsUpdate, UserPermissionsUpdate
-from permissions.core.constants import PERM_MANAGE
+from permissions.core.constants import Permissions
 from permissions.core.service import PermissionService
 from permissions.core.write_safety import PermissionWriteRefused
 from permissions.web.deps import (
@@ -27,14 +27,30 @@ from permissions.web.deps import (
 
 router = APIRouter()
 
-_ADMIN_URL = "/admin/users/"
+_ADMIN_URL = "/admin/permissions/"
 # Form-error key the edit pages read to show why a save was refused (#687).
 _REFUSAL_FIELD = "permissions"
 
 
-@router.get("/", response_model=None)
-async def browse() -> RedirectResponse:
-    return RedirectResponse(_ADMIN_URL, status_code=307)
+@router.get(
+    "/", response_model=None, dependencies=[Depends(RequiresPermission(Permissions.MANAGE))]
+)
+async def browse(
+    inertia: InertiaDep,
+    q: str | None = None,
+    service: PermissionService = Depends(get_permission_service),
+) -> InertiaResponse:
+    roles = await service.list_roles_with_counts()
+    users = await service.list_users_with_counts(search=q)
+    return await inertia.render(
+        "Permissions/Browse",
+        {
+            "roles": [{**r.model_dump(mode="json"), "count": n} for r, n in roles],
+            "users": [{**u.model_dump(mode="json"), "count": n} for u, n in users],
+            "query": q or "",
+            "roles_editable": service.role_directory.editable,
+        },
+    )
 
 
 # ── Role edit ──────────────────────────────────────────────────
@@ -43,7 +59,7 @@ async def browse() -> RedirectResponse:
 @router.get(
     "/roles/{role_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def edit_role(
     role_id: uuid.UUID,
@@ -68,7 +84,7 @@ async def edit_role(
 @router.put(
     "/roles/{role_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def update_role(
     role_id: uuid.UUID,
@@ -93,7 +109,7 @@ async def update_role(
 @router.get(
     "/users/{user_id}/edit",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def edit_user(
     user_id: uuid.UUID,
@@ -110,6 +126,7 @@ async def edit_user(
         {
             "user": assignment.user.model_dump(mode="json"),
             "roles": assignment.roles,
+            "roles_known": assignment.roles_known,
             "direct": assignment.direct,
             "inherited": assignment.inherited,
             "inherited_by": assignment.inherited_by,
@@ -121,7 +138,7 @@ async def edit_user(
 @router.put(
     "/users/{user_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def update_user(
     user_id: uuid.UUID,

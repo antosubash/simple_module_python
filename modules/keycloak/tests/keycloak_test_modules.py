@@ -1,9 +1,9 @@
 """The module set a Keycloak test app boots with.
 
 Selecting ``keycloak`` drops ``Users``, and outside development a module whose
-``depends_on`` is not loaded refuses to boot (GH #501). ``permissions`` (role
-pages) still depends on ``Users``, so a Keycloak install leaves it out — and so
-do these tests, rather than booting in a lenient mode production never uses.
+``depends_on`` is not loaded refuses to boot (GH #501). Since #953 no shipped
+module depends on ``Users`` any more (``permissions`` reads roles through the
+role directory), but the filter stays for out-of-tree modules that do.
 """
 
 from __future__ import annotations

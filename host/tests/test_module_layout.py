@@ -25,13 +25,6 @@ DOMAIN_AREAS: dict[str, frozenset[str]] = {
     "users": frozenset({"accounts", "admin", "auth_local", "demo", "invites", "mailer", "oauth"}),
 }
 
-# Plain re-export shims (#500) that predate the layout: public compat paths kept
-# at the root until their own 0.1.0 deprecation expires (host/tests/test_deprecation_expiry.py),
-# then deleted together with the entry here.
-DEPRECATED_ROOT: dict[str, frozenset[str]] = {
-    "settings": frozenset({"hydrate.py", "module_registry.py", "registration.py"}),
-}
-
 
 @pytest.mark.parametrize("module", sorted(p.name for p in MODULES.iterdir() if p.is_dir()))
 def test_module_root_layout(module: str) -> None:
@@ -39,5 +32,4 @@ def test_module_root_layout(module: str) -> None:
         MODULES / module,
         module,
         domain_areas=DOMAIN_AREAS.get(module, frozenset()),
-        deprecated_root=DEPRECATED_ROOT.get(module, frozenset()),
     )

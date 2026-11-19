@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from simple_module_cli.package_update import run_update
-from simple_module_cli.update_cmd import run_sources_update
+from simple_module_cli.update_cmd import run_update as update_and_sync
 
 
 @pytest.mark.parametrize(("version", "yanked"), [("0.0.43rc1", False), ("0.0.43", True)])
@@ -69,7 +69,7 @@ def test_git_update_preserves_policy_on_repeated_runs(
 
     for attempt in range(2):
         before = path.read_bytes()
-        run_sources_update(
+        update_and_sync(
             path, only=None, dry_run=False, git_runner=git_runner, exec_runner=lambda *a: 0
         )
         data = tomllib.loads(path.read_text())

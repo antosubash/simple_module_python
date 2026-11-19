@@ -7,7 +7,6 @@ app = build_host_app(__file__, routers=("host.routes:router",))
 from simple_module_core.menu import MenuItem, MenuSection  # noqa: E402
 
 from host.e2e_inertia import mount_if_development as mount_e2e_inertia_if_development  # noqa: E402
-from host.routes_legacy import router as legacy_router  # noqa: E402
 
 repo_url = "https://github.com/antosubash/simple_module_python"
 app.state.sm.menu_registry.add_many(
@@ -28,9 +27,6 @@ app.state.sm.menu_registry.add_many(
 )
 # Fixture pages for tests/e2e/inertia/; development only.
 mount_e2e_inertia_if_development(app, app.state.sm.settings)
-# Mounted last: its catch-all {path:path} routes must not shadow a real
-# route that happens to share a legacy prefix.
-app.include_router(legacy_router)
 
 if __name__ == "__main__":
     import uvicorn

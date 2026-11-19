@@ -81,16 +81,6 @@ def test_default_roles_remain_view_and_edit():
     assert roles_granting(ACTION_SHARE) == ()
 
 
-@pytest.mark.parametrize("subset", [(ACTION_VIEW,), (ACTION_EDIT,), ()])
-def test_legacy_subsets_warn_and_translate_to_roles(subset):
-    with pytest.warns(DeprecationWarning, match="shareable_actions.*0.1.0"):
-        resource = declaration(shareable_actions=subset)
-    ResourceTypeRegistry().register(resource)
-    assert tuple(resource.share_roles) == subset
-    if ACTION_EDIT in subset:
-        assert resource.share_roles[ACTION_EDIT] == (ACTION_VIEW, ACTION_EDIT)
-
-
 @pytest.fixture
 async def custom_env(db_session, request):
     await create_note_table(await db_session.connection())
@@ -199,10 +189,14 @@ async def test_empty_mapping_refuses_default_grants(custom_env):
 
 
 @pytest.mark.parametrize("subset", [(ACTION_VIEW,), (ACTION_EDIT,), ()])
-async def test_legacy_subset_still_controls_grants(custom_env, subset):
+async def test_role_subset_controls_grants(custom_env, subset):
     service, note, _ = custom_env
-    with pytest.warns(DeprecationWarning):
-        resource = declaration(shareable_actions=subset)
+    resource = declaration(
+        share_roles={
+            role: (ACTION_VIEW,) if role == ACTION_VIEW else (ACTION_VIEW, ACTION_EDIT)
+            for role in subset
+        }
+    )
     registry = ResourceTypeRegistry()
     registry.register(resource)
     service.registry = registry
@@ -215,12 +209,6 @@ async def test_legacy_subset_still_controls_grants(custom_env, subset):
                 with pytest.raises(SharingError) as exc:
                     await service.grant(ResourcePrincipal(OWNER), grant_data(note, role=role))
                 assert exc.value.status_code == 422
-
-
-def test_explicit_roles_take_precedence_over_legacy_subset():
-    with pytest.warns(DeprecationWarning):
-        resource = declaration(share_roles=ROLES, shareable_actions=(ACTION_VIEW,))
-    assert resource.share_roles == ROLES
 
 
 @pytest.mark.parametrize("role", ["Manager", "x" * 33, "has-dash", "", "manager\n"])

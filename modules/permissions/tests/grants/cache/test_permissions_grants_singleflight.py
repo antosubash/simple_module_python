@@ -28,7 +28,7 @@ async def test_grants_coalesce_and_discard_invalidated_reads(invalidate, expired
             keys = ["secret.view"] if reads == 1 else []
             started.set()
             await release.wait()
-            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: keys))
+            return SimpleNamespace(scalars=lambda: keys)
 
     @asynccontextmanager
     async def session():
@@ -71,7 +71,7 @@ async def test_grants_stop_retrying_under_continuous_invalidation():
             # Every read races an invalidation for some other user.
             grants.apply_invalidation(Invalidation(grants.CHANNEL, key=str(uuid.uuid4())))
             keys = [f"read-{reads}"]
-            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: keys))
+            return SimpleNamespace(scalars=lambda: keys)
 
     @asynccontextmanager
     async def session():

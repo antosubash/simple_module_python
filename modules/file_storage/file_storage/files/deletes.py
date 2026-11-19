@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from simple_module_core.resources import ACTION_DELETE, ACTION_VIEW
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,7 @@ from file_storage.models import StoredFile
 
 if TYPE_CHECKING:
     from file_storage.contracts.service import StorageBackend
+    from file_storage.files.access import FileAccess
 
 # Keep the original logger name so existing log filters keep matching.
 _logger = logging.getLogger("file_storage.service")
@@ -33,11 +35,17 @@ class FileStorageDeletes:
 
     db: AsyncSession
     backend: StorageBackend
+    access: FileAccess | None
 
     if TYPE_CHECKING:
 
         async def get(
-            self, file_id: uuid.UUID, *, platform: bool = False, owner: str | None = None
+            self,
+            file_id: uuid.UUID,
+            *,
+            platform: bool = False,
+            owner: str | None = None,
+            action: str = ACTION_VIEW,
         ) -> StoredFile: ...
 
     async def delete_many(
@@ -53,6 +61,8 @@ class FileStorageDeletes:
         if not file_ids:
             return []
         stmt = queries.owned_by(select(StoredFile).where(StoredFile.id.in_(list(file_ids))), owner)
+        if self.access is not None:
+            stmt = self.access.apply(self.access.apply(stmt), ACTION_DELETE)
         rows = list((await self.db.execute(stmt)).scalars().all())
         if not rows:
             return []
@@ -100,7 +110,7 @@ class FileStorageDeletes:
         # One scope around read + write: its opening flush runs before the
         # platform row is touched, so the guard never sees that change.
         async with platform_scope(self.db, platform):
-            row = await self.get(file_id, platform=platform, owner=owner)
+            row = await self.get(file_id, platform=platform, owner=owner, action=ACTION_DELETE)
             # Soft-delete in DB first; if the backend delete fails afterwards we
             # still have a row marked deleted that can be reaped by a janitor.
             row.is_deleted = True

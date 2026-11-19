@@ -1,0 +1,138 @@
+"""The image smoke gate must catch missing assets and clean up failed boots."""
+
+import io
+import signal
+import subprocess
+from email.message import Message
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPHandler
+from urllib.response import addinfourl
+
+import pytest
+
+from scripts import ci_docker_smoke as smoke
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        (
+            '<script src="/static/dist/assets/app-123.js"></script>',
+            "/static/dist/assets/app-123.js",
+        ),
+        ("<link href='/static/dist/app.css?v=1&amp;x=2'>", "/static/dist/app.css?v=1&x=2"),
+        ('<script src="http://localhost:5050/app.js"></script>', None),
+    ],
+)
+def test_extract_built_asset(html, expected):
+    if expected is None:
+        with pytest.raises(RuntimeError, match="/static/dist"):
+            smoke.first_asset(html)
+    else:
+        assert smoke.first_asset(html) == expected
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        None,
+        "warming",
+        "asset",
+        "redirected_asset",
+        "html_asset",
+        "empty_asset",
+        "missing",
+        "health",
+        "redirected_health",
+        "run",
+        "signal",
+    ],
+)
+def test_smoke_checks_http_and_always_removes_container(monkeypatch, capsys, failure):
+    commands = []
+    requests = []
+    failed = failure not in (None, "warming")
+
+    def docker(args, **kwargs):
+        commands.append(args)
+        if args[1] == "run" and failure == "run":
+            raise subprocess.CalledProcessError(1, args)
+        stdout = "127.0.0.1:49153\n" if args[1] == "port" else "container-id\n"
+        return subprocess.CompletedProcess(args, 0, stdout)
+
+    def http_open(self, request):
+        url = request.full_url
+        requests.append(url)
+        assert request.timeout > 0
+        if url.endswith("/health") and failure == "signal":
+            smoke.terminate(signal.SIGTERM, None)
+        if url.endswith("/health") and failure == "health":
+            raise URLError("not ready")
+        if failure == "warming" and len(requests) == 1:
+            raise URLError("starting")
+        if url.endswith("app.js") and failure == "asset":
+            raise HTTPError(url, 404, "Not Found", {}, None)
+        body = (
+            b"<html>No bundle</html>"
+            if failure == "missing"
+            else (b'<script src="/static/dist/assets/app.js"></script>')
+        )
+        headers = Message()
+        headers["Content-Type"] = "text/html; charset=utf-8"
+        status = 200
+        if url.endswith("app.js"):
+            if failure == "html_asset":
+                body = b"<html>Login required</html>"
+            else:
+                headers.replace_header("Content-Type", "text/javascript; charset=utf-8")
+                body = b"console.log('ok');"
+            if failure == "empty_asset":
+                body = b""
+        if (
+            url.endswith("/")
+            or (url.endswith("app.js") and failure == "redirected_asset")
+            or (url.endswith("/health") and failure == "redirected_health")
+        ):
+            status = 302
+            headers["Location"] = "/setup"
+        response = addinfourl(io.BytesIO(body), headers, url, status)
+        response.msg = "OK"
+        return response
+
+    monkeypatch.setattr(smoke.subprocess, "run", docker)
+    monkeypatch.setattr(HTTPHandler, "http_open", http_open)
+    ticks = iter([0, 0, 121])
+    monkeypatch.setattr(smoke.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(smoke.time, "sleep", lambda _: None)
+
+    if failure == "signal":
+        with pytest.raises(SystemExit):
+            smoke.main()
+    else:
+        assert smoke.main() == (1 if failed else 0)
+
+    assert commands[-1][1:3] == ["rm", "-f"]
+    assert any(command[1] == "logs" for command in commands) == failed
+    if failure in ("redirected_asset", "redirected_health"):
+        assert requests.count("http://127.0.0.1:49153/setup") == (
+            1 if failure == "redirected_asset" else 0
+        )
+    if not failed:
+        expected = [
+            "http://127.0.0.1:49153/health",
+            "http://127.0.0.1:49153/",
+            "http://127.0.0.1:49153/setup",
+            "http://127.0.0.1:49153/static/dist/assets/app.js",
+        ]
+        if failure == "warming":
+            expected.insert(0, "http://127.0.0.1:49153/health")
+        assert requests == expected
+        assert "passed" in capsys.readouterr().out
+
+
+def test_http_requires_exactly_200(monkeypatch):
+    response = addinfourl(io.BytesIO(b"unexpected"), {}, "http://127.0.0.1/", 201)
+    response.msg = "Created"
+    monkeypatch.setattr(HTTPHandler, "http_open", lambda *args: response)
+    with pytest.raises(RuntimeError, match="201"):
+        smoke.get("http://127.0.0.1/")

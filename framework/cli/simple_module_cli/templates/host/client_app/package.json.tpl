@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "uv run --no-sync python -m simple_module_hosting typecheck --host-dir . --installed-only && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@simple-module-py/vite-plugin": "{{FRAMEWORK_VERSION}}",
     "@simple-module-py/tsconfig": "{{FRAMEWORK_VERSION}}",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^26.5.0",

@@ -103,25 +103,24 @@ async def test_lifetime_is_capped_by_the_setting(app, actor):
         assert ok.status_code == 201
 
 
-async def test_require_permission_admin_shortcut_skips_tokens():
-    """``auth.web.deps.require_permission`` admits an admin session but not an admin token."""
+async def test_permission_gate_caps_admin_tokens():
+    """An admin session passes; the same admin's token is capped at its scopes."""
     from auth.contracts.schemas import UserContext
-    from auth.web.deps import require_permission
+    from simple_module_hosting.permissions import RequiresPermission
 
-    check = require_permission("x.write").dependency
-    translator = SimpleNamespace(t=lambda key, **_: key)
+    check = RequiresPermission("x.write")
 
-    def request() -> Request:
+    def request(user) -> Request:
         req = Request({"type": "http", "app": SimpleNamespace(state=SimpleNamespace())})
-        req.state.resolved_permissions = set()  # what the capped resolution produced
+        req.state.user = user
         return req
 
     session_admin = UserContext(id="1", email="a@b", name="A", roles=["admin"])
-    assert await check(request(), translator, session_admin) is None
+    assert await check(request(session_admin)) is None
 
     token_admin = UserContext(
         id="1", email="a@b", name="A", roles=["admin"], auth_kind="pat", scopes=["y.read"]
     )
     with pytest.raises(HTTPException) as exc:
-        await check(request(), translator, token_admin)
+        await check(request(token_admin))
     assert exc.value.status_code == 403

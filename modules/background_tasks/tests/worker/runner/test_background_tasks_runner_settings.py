@@ -109,11 +109,26 @@ def test_stored_invalid_task_routes_do_not_stop_the_worker(db_url: str, caplog) 
 def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypatch) -> None:
     """GH #490: the entry point scaffolded apps use must hydrate from the DB."""
     from background_tasks.executions import tenant_context
+    from background_tasks.worker import celery_app, principals
     from background_tasks.worker.runner import build_runner_celery
     from simple_module_core import leases
     from simple_module_db.leases import DbLeaseBackend
+    from simple_module_hosting.installation import load_installation_id
+
+    configs = []
+    real_build = celery_app.build_celery
+
+    def capture_config(settings):
+        configs.append(settings)
+        return real_build(settings)
+
+    monkeypatch.setattr(celery_app, "build_celery", capture_config)
+    monkeypatch.setenv("SM_BG_TASKS_BROADCAST_INVALIDATIONS", "true")
+    monkeypatch.delenv("SM_BG_TASKS_INVALIDATION_CHANNEL", raising=False)
 
     # The runner sets process-wide state; don't leak it into later tests.
+    for name in ("_host_settings", "_app_registry", "_revision"):
+        monkeypatch.setattr(principals, name, getattr(principals, name))
     monkeypatch.setattr(tenant_context, "_default_tenant", tenant_context._default_tenant)
     monkeypatch.setattr(leases, "_backend", leases._backend)
     for name in ("_tenant_strict", "_default_tenant"):
@@ -127,6 +142,9 @@ def test_shared_runner_builds_celery_from_db_settings(db_url, tmp_path, monkeypa
     celery = build_runner_celery()
 
     assert celery.conf.task_default_queue == "from-db"
+    identity = load_installation_id(db_url.replace("sqlite://", "sqlite+aiosqlite://"))
+    assert identity
+    assert configs[0].invalidation_channel == f"simple_module.invalidation.{identity}"
     # GH #539: task bodies share the web process's leases (no Redis here: the table).
     assert isinstance(leases.get_leases(), DbLeaseBackend)
 

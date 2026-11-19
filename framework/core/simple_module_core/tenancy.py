@@ -80,15 +80,16 @@ async def tenant_exists(app: Any, tenant_id: str) -> bool | None:
     return bool(await check(tenant_id))
 
 
-TenantMembers = Callable[[Any, str, Collection[str]], Awaitable[Collection[str]]]
+TenantMembers = Callable[[Any, str, Collection[str] | None], Awaitable[Collection[str]]]
 """``async (db, tenant_id, user_ids) -> the subset of user_ids that are members``.
 
 ``db`` is the caller's ``AsyncSession`` (typed ``Any``: core is SQLAlchemy-free),
-so the lookup joins the request's unit of work instead of opening a second one."""
+so the lookup joins the request's unit of work instead of opening a second one.
+``user_ids=None`` requests all members (for directory-side filtering)."""
 
 
 async def tenant_member_ids(
-    app: Any, db: Any, tenant_id: str, user_ids: Collection[str]
+    app: Any, db: Any, tenant_id: str, user_ids: Collection[str] | None
 ) -> set[str] | None:
     """Which of *user_ids* belong to *tenant_id*, or ``None`` when nobody can say.
 
@@ -97,12 +98,12 @@ async def tenant_member_ids(
     reveal or act on accounts outside the active tenant (``sharing`` resolving
     a grantee) asks through this without importing that module. ``None`` means
     no membership store is installed; callers on a multi-tenant app treat it
-    as "nobody" (fail closed).
+    as "nobody" (fail closed). ``user_ids=None`` requests all members.
     """
     check: TenantMembers | None = get_tenant_members(app)
     if check is None:
         return None
-    if not user_ids:
+    if user_ids is not None and not user_ids:
         return set()
     return set(await check(db, tenant_id, user_ids))
 

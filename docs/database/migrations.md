@@ -75,7 +75,7 @@ The history is **not** a single linear chain. It has several roots and several h
 
 | Head | Owning module | Label Alembic reports |
 |---|---|---|
-| `e480d7dd348f` | users (OAuth link profile, #877) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
+| `f999a1b2c3d4` | file_storage (module-owned file access, #999) | `api_tokens`, `background_tasks`, `file_storage`, `users` |
 | `b8d4f2a6c901` | audit_log | `audit_log` |
 | `f1a9c3d7b2e4` | tenants | `tenants` |
 | `d263ea727663` | framework (`sm_lease`) | `leases` |
@@ -92,7 +92,7 @@ A module's first migration sets `branch_labels = ("<module_name>",)`. Alembic **
 
 The declared `branch_labels` are `auth` (added by `a738c2e4f601`), `audit_log`, `api_tokens`, `background_tasks`, `keycloak`, `tenants`, `sharing`, `leases`, `users` (added by `a625f0b7c912`), `oidc` (added by `c9d2e4f6a810`) and `file_storage` (added by `f5b1c3e8a207`). The graph carries these defects; they are documented rather than rewritten, because changing labels on revisions that installed databases already applied is not worth the risk:
 
-- `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore really a users revision.
+- `51b2058d8afd_api_tokens_initial` sits in the middle of the trunk, so every revision above it (file_storage, background_tasks including the outbox, and the users revisions through `c8e4f1a2b6d9`) reports the `api_tokens` label. The `api_tokens` head is therefore a shared-trunk revision, currently owned by file_storage.
 - `keycloak` branches off a users revision, so a Keycloak-only install still builds the users schema.
 - `settings`, `permissions` and `feature_flags` have no label of their own. `users` and `file_storage` gained labels late (`a625f0b7c912`, `f5b1c3e8a207`), so their earlier revisions stay unlabelled and report `api_tokens`.
 

@@ -8,50 +8,24 @@ import {
   SelectValue,
 } from '@simple-module-py/ui/components/ui/select';
 import { Switch } from '@simple-module-py/ui/components/ui/switch';
-import { useState } from 'react';
+import {
+  type SettingsFieldMeta,
+  type SettingsFieldRendererProps,
+  useExtensions,
+} from '@simple-module-py/ui/extensions';
+import { Suspense, useState } from 'react';
 import { JsonInput } from './JsonInput';
 
-export type FieldType = 'bool' | 'int' | 'float' | 'string' | 'json';
-
-export type FieldMeta = {
-  name: string;
-  type: FieldType;
-  value: unknown;
-  default: unknown;
-  description: string;
-  is_secret: boolean;
-  requires_restart: boolean;
-  group: string | null;
-  env_var: string;
-  /** The field's SM_* env var is present in the process environment. */
-  env_set?: boolean;
-  /** The declaring settings class reads env at all (declares an `env_prefix`). */
-  env_readable?: boolean;
-  /** A stored setting overrides this field. */
-  db_override?: boolean;
-  /** Where the live value came from. Mirrors hydrate_settings' precedence. */
-  source?: 'db' | 'env' | 'default';
-  /** Closed set of accepted values, or null when the field is free text. */
-  choices?: string[] | null;
-  /** Editor control: `type` with an `X | None` unwrapped to `X`. */
-  input_type?: FieldType;
-  /** `null` is a valid value; an empty input sends it. */
-  nullable?: boolean;
-};
-
+export type { FieldType } from '@simple-module-py/ui/extensions';
+export type FieldMeta = SettingsFieldMeta;
 const UNSET = '__unset__';
-
-type Props = {
-  field: FieldMeta;
-  onChange: (name: string, value: unknown) => void;
-  value: unknown;
-  id?: string;
-};
+type Props = SettingsFieldRendererProps;
 
 /** A stored override is the one thing on this screen someone put there. */
 const OVERRIDDEN = 'border-primary ring-[3px] ring-primary/10';
 
 export function FieldInput({ field, onChange, value, id }: Props) {
+  const registry = useExtensions();
   const { t } = useT();
   const [revealed, setRevealed] = useState(false);
   const highlight = field.db_override ? OVERRIDDEN : '';
@@ -88,6 +62,15 @@ export function FieldInput({ field, onChange, value, id }: Props) {
           {t(keys.settings.modules_form.set_new_value)}
         </button>
       </div>
+    );
+  }
+
+  const Renderer = field.control ? registry.getFieldRenderer(field.control) : undefined;
+  if (Renderer) {
+    return (
+      <Suspense fallback={null}>
+        <Renderer field={field} value={value} onChange={onChange} id={id} />
+      </Suspense>
     );
   }
 

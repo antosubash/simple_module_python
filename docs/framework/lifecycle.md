@@ -25,15 +25,58 @@ register_csp_sources
 register_design_packs
 register_audit_links
 register_resource_types
+register_principal_builder  (all modules, after database initialization)
 register_exception_handlers
 register_middleware
 register_routes
 register_admin_routes       (only when meta.admin_view_prefix is set)
+-- framework routes, static/SPA mounts, host routers
+register_fallback_routes    (all modules, in dependency order)
+-- customize(app)           (host callback; finish outer middleware afterwards)
 -- check_data_compatibility (async, before module settings hydration)
 -- on_startup (async, after middleware is installed)
 ```
 
 On shutdown, `on_shutdown` runs in **reverse** dependency order.
+
+`register_principal_builder(registry)` installs app-free user-directory,
+membership-role and persisted-role providers in a framework `PrincipalRegistry`.
+The web host binds it to its session factory after database initialization;
+workers call it alongside `register_permissions` using the same selected modules,
+without running settings hooks or building an app. See
+[principals outside requests](/framework/permissions#principals-outside-requests).
+
+## Host overrides
+
+`create_app(settings, customize=customize)` and
+`build_host_app(__file__, customize=customize)` accept a synchronous callable
+receiving the app. It runs once, after **all** module registration hooks,
+including exception handlers, middleware, ordinary/admin routes and fallback
+routes. `app.state.sm` and the request registries on `app.state` are available.
+The framework finishes the outer middleware pipeline only after the callback;
+requests and lifespan startup have not begun. Callback errors abort construction.
+
+```python
+def customize(app):
+    app.state.sm.public_routes.remove("/news", kind="exact")
+    app.state.sm.permissions.revoke_role("tenant:member", "news.publish")
+
+
+app = build_host_app(__file__, customize=customize)
+```
+
+Use this point for registry overrides rather than a host module that happens to
+sort last: module dependency order only orders a phase, and later phases can
+still register entries. The callback changes existing registry objects in place;
+do not replace `app.state.sm` or swap registry objects already referenced by
+middleware. All six registry overrides are effective here: public routes,
+code role grants, rate rules (`app.state.rate_limit_rules`), resource types,
+event subscriptions and shared Inertia props. Plain additions retain their
+existing first-wins, accumulation or duplicate-rejection behavior. Removing or
+replacing an unknown entry raises `KeyError` (shared-prop keys are dynamic, so
+that check occurs at render time). This callback is not a startup hook: DB
+settings hydrate later and workers do not construct a web app. Apply durable
+subscription overrides consistently in worker registrations as well.
 
 ## `register_settings(app)`
 
@@ -112,12 +155,12 @@ if flags.is_enabled("orders.new_checkout", tenant_id=request.state.tenant_id):
     ...
 ```
 
-## `register_event_handlers(bus, app=None)`
+## `register_event_handlers(bus, app)`
 
-Subscribe to events on the in-process `EventBus`. Handlers can be sync or async; the bus awaits async ones.
+Subscribe to events on the in-process `EventBus`. Handlers can be sync or async; the bus awaits async ones. The `app` argument is required: the host passes its app and workers pass `None`.
 
 ```python
-def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
     from orders.contracts.events import OrderPlaced
 
     bus.subscribe(OrderPlaced, self._on_order_placed)
@@ -128,7 +171,7 @@ async def _on_order_placed(self, event: OrderPlaced) -> None: ...
 
 Handlers are keyed by the exact event type and run concurrently on publish. See [Events](/framework/events).
 
-`app` is optional. Take it when a handler needs `app.state.sm.db.session_factory` to persist on the framework's engine rather than building its own. The framework inspects your signature and calls the one-argument form `(self, bus)` when that is what you declared, so modules written before `app` existed keep working unchanged.
+Use `app.state.sm.db.session_factory` when a handler needs to persist on the framework's engine. Subscribe durable handlers before returning early for `app is None`, so workers can deliver them.
 
 ## `register_invalidations(bus, app)`
 
@@ -205,7 +248,10 @@ While any required step is incomplete, `SetupMiddleware` redirects to the
 wizard at `/setup`. A step can provide a `SetupAction` to complete it in the
 browser; its action runs only while that step is pending. Without an action,
 the step must be completed out of band. Registering nothing opts out of the
-gate. See [First-run setup steps](../module-authoring.md#first-run-setup-steps)
+gate. An action can supply `validate_before_migrations` to combine its form
+with the preceding migration step on a never-migrated install: inputs are
+validated before migrations, and the handler runs only if still pending
+afterward. See [First-run setup steps](../module-authoring.md#first-run-setup-steps)
 for action fields, translations and concurrency rules.
 
 ## `register_csp_sources(registry)`
@@ -268,14 +314,21 @@ Handlers are registered on the main `app`, so they apply globally. Keep them tig
 
 ## `register_middleware(app)`
 
-Install ASGI middleware. Starlette's `add_middleware` is **LIFO** — the last middleware added runs first. Modules' middleware runs *between* the framework's built-in middleware and the app itself. See [Middleware pipeline](/framework/middleware) for ordering rules.
+Install ASGI middleware. The hook signature is unchanged. Starlette's
+`add_middleware` is **LIFO** — the last middleware added runs first. Ordinary
+`app.add_middleware` stays outside Tenant and Locale. The hosting helper accepts
+`stage="before_session"`, `stage="default"` or `stage="after_tenant"`;
+`after="tenant"` aliases the last, inside both Tenant and Locale. See
+[Middleware pipeline](/framework/middleware) for stage contracts and host overrides.
 
 ```python
 def register_middleware(self, app: FastAPI) -> None:
     app.add_middleware(OrdersRateLimitMiddleware, rate=10)
 ```
 
-When two modules at the same dependency tier both add middleware, the module that sorts **later** wraps outermost (executes first).
+Within each stage, the module that registers later in dependency order wraps
+outermost (executes first). Host overrides run through `customize(app)` after
+registration and before middleware stages and replacements are finalized.
 
 ## `register_routes(api_router, view_router)`
 
@@ -302,6 +355,46 @@ when mounting these routers. Do not repeat the prefixes in the hook. Both
 prefixes default to `""`, preserving absolute paths registered by existing
 modules. Declare prefixes explicitly in metadata, and retain existing values
 when adopting conventional routers so URLs do not change.
+
+## `register_fallback_routes(router)`
+
+Use this opt-in hook for catch-all pages such as `/{slug}` or
+`/{slug}/{page}`. It is a no-op by default: move catch-all routes out of the
+conventional views router and include them here instead.
+
+```python
+def register_fallback_routes(self, router: APIRouter) -> None:
+    from orders.web.endpoints.fallback import router as fallback
+
+    router.include_router(fallback)
+```
+
+The host applies `ModuleMeta.view_prefix` once, just like ordinary views;
+do not repeat it in the hook. Fallback routes are page routes, excluded from
+OpenAPI and subject to the same API-token restrictions as ordinary views.
+Auth and tenant middleware still run; CSRF dependencies remain opt-in.
+Declare anonymous access through `register_public_routes` as usual. Avoid
+broad public exemptions that would also exempt existing protected routes.
+
+`create_app` calls this hook after every ordinary module and admin router,
+framework route (including health, setup and admin), static/SPA mount and host
+router. Pass host routers as `create_app(settings, routers=(host_router,))`,
+or use `build_host_app(..., routers=(host_router,))`, which also accepts import
+strings. Routers and mounts added to the returned app before startup or first
+dispatch also stay ahead of fallbacks. The host finalizes ordering at lifespan
+startup and before the first dispatch, including for clients that skip lifespan.
+Finish composing the app before serving requests.
+
+Fallback hooks run in the same topological dependency order as ordinary hooks,
+after all ordinary routes are mounted. The first matching route wins, including
+between fallback modules; use `depends_on` / `optional_depends_on` to express
+ordering rather than relying on names. A handler returning 404 does not retry
+later fallbacks. Static and SPA mounts likewise retain ownership of their
+prefixes, including missing files. Bare mount prefixes redirect to the trailing
+slash before fallbacks, preserving query strings and deployment `root_path`;
+explicit ordinary routes at the bare prefix still win. Modules with only fallback
+views retain their discovery order when choosing the default login destination.
+No route-priority setting or host import of the fallback module is needed.
 
 ## `locale_dirs()`
 
@@ -446,7 +539,7 @@ class OrdersModule(ModuleBase):
     def register_menu_items(self, registry): ...
     def register_permissions(self, registry): ...
     def register_feature_flags(self, registry): ...
-    def register_event_handlers(self, bus, app=None): ...
+    def register_event_handlers(self, bus, app): ...
     def register_invalidations(self, bus, app): ...
     def register_health_checks(self, registry): ...
     def register_public_routes(self, registry): ...
@@ -461,6 +554,7 @@ class OrdersModule(ModuleBase):
     def register_exception_handlers(self, app): ...
     def register_middleware(self, app): ...
     def register_admin_routes(self, admin_router): ...
+    def register_fallback_routes(self, router): ...
 
     async def on_startup(self, app): ...
     async def on_shutdown(self, app): ...

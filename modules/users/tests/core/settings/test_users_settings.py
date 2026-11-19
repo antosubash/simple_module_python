@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 
 class TestUsersSettingsDefaults:
@@ -24,13 +23,6 @@ class TestUsersSettingsDefaults:
 
         s = UsersSettings()
         assert s.cookie_name == "sm_auth"
-
-    def test_dev_token_secrets(self):
-        from users.core.settings import UsersSettings
-
-        s = UsersSettings()
-        assert "dev" in s.reset_password_token_secret
-        assert "dev" in s.verification_token_secret
 
     def test_cookie_samesite_default(self):
         from users.core.settings import UsersSettings
@@ -95,44 +87,8 @@ class TestUsersSettingsDbOverrides:
         assert s.allow_signup is False
 
 
-class TestTokenSecretProductionGuard:
-    def test_placeholder_secrets_ok_in_development(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "development")
-        from users.core.settings import UsersSettings
+def test_production_needs_no_separate_token_secrets(monkeypatch):
+    monkeypatch.setenv("SM_ENVIRONMENT", "production")
+    from users.core.settings import UsersSettings
 
-        UsersSettings()  # must not raise
-
-    def test_placeholder_secrets_ok_in_testing(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "testing")
-        from users.core.settings import UsersSettings
-
-        UsersSettings()  # must not raise
-
-    def test_placeholder_reset_secret_rejected_in_production(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        from users.core.settings import UsersSettings
-
-        with pytest.raises(ValidationError, match="RESET_PASSWORD_TOKEN_SECRET"):
-            UsersSettings(
-                verification_token_secret="not-a-placeholder-value-just-for-test",
-            )
-
-    def test_placeholder_verify_secret_rejected_in_production(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        from users.core.settings import UsersSettings
-
-        with pytest.raises(ValidationError, match="VERIFICATION_TOKEN_SECRET"):
-            UsersSettings(
-                reset_password_token_secret="not-a-placeholder-value-just-for-test",
-            )
-
-    def test_real_secrets_accepted_in_production(self, monkeypatch):
-        monkeypatch.setenv("SM_ENVIRONMENT", "production")
-        from users.core.settings import UsersSettings
-
-        s = UsersSettings(
-            reset_password_token_secret="real-reset-secret",
-            verification_token_secret="real-verify-secret",
-        )
-        assert s.reset_password_token_secret == "real-reset-secret"
-        assert s.verification_token_secret == "real-verify-secret"
+    assert UsersSettings().require_verification is True

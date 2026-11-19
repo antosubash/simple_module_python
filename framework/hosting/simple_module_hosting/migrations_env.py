@@ -9,6 +9,7 @@ from pathlib import Path
 from simple_module_core.discovery import discover_modules
 from simple_module_db import (
     build_module_metadata,
+    detect_provider,
     ensure_db_extensions,
     make_include_object,
     make_process_revision_directives,
@@ -55,6 +56,7 @@ def run_migrations(context) -> None:
         database_url = (
             config.attributes.get(ALEMBIC_DATABASE_URL_ATTRIBUTE) or Settings().database_url
         )
+        detect_provider(database_url)
         url = database_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
         logger.info(
             "Migrating %s (cwd=%s)", make_url(url).render_as_string(hide_password=True), Path.cwd()

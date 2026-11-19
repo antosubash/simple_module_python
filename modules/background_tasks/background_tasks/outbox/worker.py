@@ -21,7 +21,6 @@ both.
 
 from __future__ import annotations
 
-import inspect
 import logging
 import threading
 from typing import Any
@@ -29,6 +28,7 @@ from typing import Any
 from simple_module_core.events import EventBus
 from simple_module_db import init_db
 from simple_module_db.listeners import attach_session_listeners
+from simple_module_db.principals import bind_principal_registry
 from simple_module_db.query_filter import bind_engine_policy
 from simple_module_db.tenant_cleanup import register_tenant_cleanup
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
@@ -40,6 +40,7 @@ from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
 from background_tasks.outbox.loop import run_on_worker_loop, stop_worker_loop, worker_loop_cache
 from background_tasks.outbox.transport import WorkerOutboxTransport
+from background_tasks.worker.principals import configure_principals, principal_revision
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,13 @@ def worker_session_factory() -> async_sessionmaker[Any]:
     url = sync_db.async_database_url()
     policy = sync_db.engine_tenancy()
     options = sync_db.database_options()
-    key = (url, policy.tenant_strict, policy.default_tenant_id, tuple(sorted(options.items())))
+    key = (
+        url,
+        policy.tenant_strict,
+        policy.default_tenant_id,
+        tuple(sorted(options.items())),
+        principal_revision(),
+    )
     cache = worker_loop_cache()
     cached: tuple[Any, async_sessionmaker[Any], AsyncEngine] | None = cache.get(_ENGINE_KEY)
     if cached is not None and cached[0] == key:
@@ -79,6 +86,9 @@ def worker_session_factory() -> async_sessionmaker[Any]:
     )
     attach_session_listeners(state.sync_session_class)
     bind_engine_policy(state.engine.sync_engine, policy)
+    from background_tasks.worker.principals import worker_principal_registry
+
+    bind_principal_registry(state.session_factory, worker_principal_registry())
     cache[_ENGINE_KEY] = (key, state.session_factory, state.engine)
     return state.session_factory
 
@@ -102,18 +112,6 @@ def use_bus(bus: EventBus | None) -> None:
     _bus_override = bus
 
 
-def _register(module: Any, bus: EventBus) -> None:
-    hook = module.register_event_handlers
-    params = inspect.signature(hook).parameters
-    accepts_app = "app" in params or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
-    )
-    if accepts_app:
-        hook(bus, app=None)
-    else:
-        hook(bus)
-
-
 def build_worker_bus() -> EventBus:
     """An ``EventBus`` carrying every installed module's subscriptions."""
     from simple_module_core.discovery import discover_modules, topological_sort
@@ -125,7 +123,7 @@ def build_worker_bus() -> EventBus:
     # module set the web process refuses is reported there, not here.
     for module in topological_sort(discover_modules()):
         try:
-            _register(module, bus)
+            module.register_event_handlers(bus, app=None)
         except Exception:
             # One module's handler wiring needing the app must not stop every
             # other module's durable events from being delivered. Logged once
@@ -157,6 +155,7 @@ def reset_worker_state() -> None:
     with _lock:
         _bus = None
         _bus_override = None
+    configure_principals(None)
     stop_worker_loop(_dispose_cached)
 
 

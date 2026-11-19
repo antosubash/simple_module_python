@@ -13,10 +13,9 @@ Env vars:
 Token-minting helpers
 ---------------------
 :func:`mint_verify_token` builds a fastapi-users verify/invite token signed
-with the dev-default secret (or whatever ``SM_USERS_VERIFICATION_TOKEN_SECRET``
-is set to).  The server verifies tokens with the same secret, so minting
-locally is equivalent to what the ConsoleMailer would have logged — without
-needing to scrape server stdout.
+with the key derived from the same explicit ``SM_SECRET_KEY`` as the server.
+Minting locally is equivalent to what the ConsoleMailer would have logged,
+without needing to scrape server stdout.
 """
 
 from __future__ import annotations
@@ -60,21 +59,24 @@ def browser_context_args(browser_context_args, base_url):
 
 
 @pytest.fixture(scope="session")
-def reset_token_secret() -> str:
-    """The same secret the server uses to sign password-reset JWTs."""
-    return os.environ.get(
-        "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
-        "dev-reset-token-secret-change-me",
-    )
+def token_secrets():
+    """Local token minting needs the same explicit root as the running server."""
+    from users.core.token_secrets import resolve_token_secrets
+
+    root = os.environ.get("SM_SECRET_KEY")
+    if not root:
+        pytest.skip("Local token minting requires the server's SM_SECRET_KEY")
+    return resolve_token_secrets(root)
 
 
 @pytest.fixture(scope="session")
-def verify_token_secret() -> str:
-    """The same secret the server uses to sign verify/invite JWTs."""
-    return os.environ.get(
-        "SM_USERS_VERIFICATION_TOKEN_SECRET",
-        "dev-verify-token-secret-change-me",
-    )
+def reset_token_secret(token_secrets) -> str:
+    return token_secrets.reset_password_token_secret
+
+
+@pytest.fixture(scope="session")
+def verify_token_secret(token_secrets) -> str:
+    return token_secrets.verification_token_secret
 
 
 # ---------------------------------------------------------------------------

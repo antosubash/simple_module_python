@@ -12,7 +12,7 @@ def test_keycloak_module_meta():
     assert mod.meta.name == "Keycloak"
     assert mod.meta.depends_on == ["Auth"]
     assert mod.meta.optional_depends_on == ["Settings"]
-    assert mod._is_auth_provider is True
+    assert mod.meta.provides_auth is True
 
 
 def test_keycloak_provider_satisfies_protocol():

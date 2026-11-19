@@ -36,6 +36,49 @@ env:
     host/pyproject.toml
 
 jobs:
+  docker-changes:
+    name: Docker smoke path filter
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+      - uses: dorny/paths-filter@v4
+        if: github.event_name == 'pull_request'
+        id: filter
+        with:
+          # Use git so release.yml can reuse this workflow with contents: read.
+          token: ''
+          filters: |
+            docker:
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'docker/**'
+              - 'framework/**'
+              - 'modules/**'
+              - 'packages/**'
+              - 'host/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'scripts/ci_docker_smoke.py'
+              - 'scripts/tests/test_ci_docker_smoke.py'
+              - 'Makefile'
+              - '.github/workflows/pr.yml'
+
+  docker-smoke:
+    name: Production Docker smoke
+    needs: docker-changes
+    if: github.event_name != 'pull_request' || needs.docker-changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - run: make ci-docker-smoke
+
   python-lint:
     name: Python lint & format
     runs-on: ubuntu-latest
@@ -420,8 +463,6 @@ jobs:
           # manifest instead of pointing at the Vite dev server.
           SM_ENVIRONMENT: production
           SM_SECRET_KEY: ci-perf-secret-key-not-a-real-secret-000000000000
-          SM_USERS_RESET_PASSWORD_TOKEN_SECRET: ci-perf-reset-secret-000000000000000000
-          SM_USERS_VERIFICATION_TOKEN_SECRET: ci-perf-verify-secret-00000000000000000
           SM_USERS_BOOTSTRAP_EMAIL: admin@example.com
           SM_USERS_BOOTSTRAP_PASSWORD: admin
           # Keycloak excluded (SM020: one auth provider). BackgroundTasks
@@ -490,6 +531,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs:
+      - docker-changes
+      - docker-smoke
       - python-lint
       - python-typecheck
       - python-tests

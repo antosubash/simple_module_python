@@ -69,8 +69,8 @@ class SecurityHeadersMiddleware:
         In development the browser fetches ``@vite/client``, ``main.tsx``, and
         React Refresh from the Vite origin (default ``http://localhost:5050``),
         and opens a WebSocket there for HMR. Those fail under the prod CSP,
-        so we widen ``script-src*``/``connect-src``/``style-src`` for that
-        origin only (including the ``ws://`` equivalent for HMR).
+        so we allow scripts, styles, fonts and images from that origin,
+        plus connections to it (including the ``ws://`` equivalent for HMR).
         """
         ws_url = vite_dev_url.replace("http://", "ws://").replace("https://", "wss://")
         return (
@@ -78,8 +78,8 @@ class SecurityHeadersMiddleware:
             f"script-src 'self' 'unsafe-inline' 'unsafe-eval' {vite_dev_url}; "
             f"script-src-elem 'self' 'unsafe-inline' {vite_dev_url}; "
             f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com {vite_dev_url}; "
-            "img-src 'self' data: blob:; "
-            "font-src 'self' https://fonts.gstatic.com data:; "
+            f"img-src 'self' data: blob: {vite_dev_url}; "
+            f"font-src 'self' https://fonts.gstatic.com data: {vite_dev_url}; "
             f"connect-src 'self' {vite_dev_url} {ws_url}; "
             "worker-src 'self' blob:; "
             "child-src 'self' blob:; "

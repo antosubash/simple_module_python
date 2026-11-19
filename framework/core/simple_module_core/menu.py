@@ -5,12 +5,15 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Awaitable, Callable, Iterable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from starlette.requests import Request
+
+    from simple_module_core.admin_surface import AdminSurface
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +46,7 @@ class MenuItem:
     """
     icon: str = ""
     order: int = 0
-    section: MenuSection = MenuSection.SIDEBAR
+    section: MenuSection | None = None
     requires_auth: bool = True
     roles: list[str] = field(default_factory=list)
     """Empty list = visible to all authenticated users."""
@@ -73,6 +76,13 @@ class MenuItem:
     header in the order they already sort by ``order``; the group's own position
     is set by the lowest-ordered item that belongs to it."""
 
+    _default_section: bool = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_default_section", self.section is None)
+        if self.section is None:
+            object.__setattr__(self, "section", MenuSection.SIDEBAR)
+
 
 MenuProvider = Callable[["Request"], "Awaitable[Iterable[MenuItem]] | Iterable[MenuItem]"]
 """Per-request source of menu items; sync or async."""
@@ -83,19 +93,32 @@ class MenuRegistry:
 
     def __init__(self) -> None:
         self._items: list[MenuItem] = []
+        self._admin_surface: AdminSurface | None = None
         self._sorted: list[MenuItem] | None = None
         self._providers: list[MenuProvider] = []
         self._failed_providers: set[int] = set()
+
+    @contextmanager
+    def admin_surface(self, surface: AdminSurface | None):
+        """Scope admin menu defaults to one module's registration hook."""
+        previous = self._admin_surface
+        self._admin_surface = surface
+        try:
+            yield
+        finally:
+            self._admin_surface = previous
 
     def _invalidate(self) -> None:
         self._sorted = None
 
     def add(self, item: MenuItem) -> None:
-        self._items.append(item)
+        self._items.append(self._admin_surface.menu_defaults(item) if self._admin_surface else item)
         self._invalidate()
 
     def add_many(self, items: list[MenuItem]) -> None:
-        self._items.extend(items)
+        self._items.extend(
+            [self._admin_surface.menu_defaults(i) for i in items] if self._admin_surface else items
+        )
         self._invalidate()
 
     def remove(self, predicate: Callable[[MenuItem], bool]) -> int:
@@ -114,6 +137,15 @@ class MenuRegistry:
         translated, ordered and grouped like static items. A provider that
         raises is logged and contributes nothing.
         """
+        if surface := self._admin_surface:
+            original = provider
+
+            async def provider(request):
+                result = original(request)
+                if inspect.isawaitable(result):
+                    result = await result
+                return [surface.menu_defaults(item) for item in result]
+
         self._providers.append(provider)
 
     async def collect_provider_items(self, request: Request) -> list[MenuItem]:
@@ -204,7 +236,7 @@ class MenuRegistry:
             # asking for all of them, matching how route guards compose.
             if item.permissions and not granted.issuperset(item.permissions):
                 continue
-            result[item.section.value].append(
+            result[(item.section or MenuSection.SIDEBAR).value].append(
                 {
                     "label": render(item.label_key, item.label),
                     "url": item.url,

@@ -29,7 +29,6 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
-from simple_module_core.deprecation import deprecate
 from simple_module_core.permissions import grants
 
 ACTION_VIEW = "view"
@@ -39,10 +38,6 @@ ACTION_EDIT = "edit"
 ACTION_DELETE = "delete"
 ACTION_SHARE = "share"
 """Granting someone else access; the ``sharing`` module checks it on the granter."""
-
-_SHAREABLE_ACTIONS = deprecate(
-    "ResourceType.shareable_actions", remove_in="0.1.0", use="ResourceType.share_roles"
-)
 
 _TYPE_NAME = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 # A share role id is stored in a 32-character column (``sharing`` ``ROLE_MAX``).
@@ -56,10 +51,21 @@ class ResourcePrincipal:
     ``permissions`` is the request's resolved set (roles, grant sources, token
     scope cap) — the same set ``RequiresPermission`` reads, so a bypass
     permission is honoured or refused exactly as the door would.
+
+    ``roles`` and ``tenant_id`` are the live identity facts loaded by HTTP or
+    ``principal_for``, separate from permission scopes. ``context`` contains
+    trusted module extensions installed through the principal builder.
     """
 
     user_id: str | None
     permissions: frozenset[str] = frozenset()
+
+    roles: frozenset[str] = field(default=frozenset(), kw_only=True)
+    tenant_id: str | None = field(default=None, kw_only=True)
+    # Trusted extensions installed by module principal-builder hooks, never claims.
+    context: Mapping[str, Any] = field(
+        default_factory=dict, kw_only=True, compare=False, hash=False
+    )
 
     def has(self, permission: str | None) -> bool:
         """Whether this principal holds *permission* (wildcard included).
@@ -99,31 +105,15 @@ class ResourceType:
     implies (each must include ``view``; checked at registration). ``None``
     means the ``sharing`` module's default view/edit roles. Pass the same
     mapping to ``sharing``'s ``share_exists_for(..., roles=...)``.
-    ``shareable_actions`` is deprecated in favour of ``share_roles``.
     """
 
     name: str
     policy: ResourcePolicy
     select_by_id: StatementForId
-    #: Deprecated role allowlist; retained for view/edit subsets until 0.1.0.
-    shareable_actions: tuple[str, ...] | None = None
     #: Role ids mapped to their implied actions; None uses sharing's view/edit default.
     share_roles: Mapping[str, tuple[str, ...]] | None = field(
         default=None, kw_only=True, hash=False
     )
-
-    def __post_init__(self) -> None:
-        if self.shareable_actions is not None:
-            _SHAREABLE_ACTIONS.warn(stacklevel=3)
-            if self.share_roles is None:
-                object.__setattr__(
-                    self,
-                    "share_roles",
-                    {
-                        role: (ACTION_VIEW,) if role == ACTION_VIEW else (ACTION_VIEW, role)
-                        for role in self.shareable_actions
-                    },
-                )
 
 
 class ResourceTypeError(ValueError):
@@ -140,11 +130,23 @@ class ResourceTypeRegistry:
         self._types: dict[str, ResourceType] = {}
 
     def register(self, resource_type: ResourceType) -> None:
+        if resource_type.name in self._types:
+            raise ResourceTypeError(f"Resource type {resource_type.name!r} is registered twice")
+        self._validate(resource_type)
+        self._types[resource_type.name] = resource_type
+
+    def replace(self, resource_type: ResourceType) -> None:
+        """Replace an existing type by name, validating before changing it."""
+        if resource_type.name not in self._types:
+            raise KeyError(f"Resource type {resource_type.name!r} is not registered")
+        self._validate(resource_type)
+        self._types[resource_type.name] = resource_type
+
+    @staticmethod
+    def _validate(resource_type: ResourceType) -> None:
         name = resource_type.name
         if not _TYPE_NAME.match(name):
             raise ResourceTypeError(f"Resource type name {name!r} must look like 'module.thing'")
-        if name in self._types:
-            raise ResourceTypeError(f"Resource type {name!r} is registered twice")
         if resource_type.share_roles is not None:
             for role, actions in resource_type.share_roles.items():
                 if not isinstance(role, str) or not _ROLE_ID.fullmatch(role):
@@ -156,7 +158,6 @@ class ResourceTypeRegistry:
                     raise ResourceTypeError(
                         f"Resource type {name!r} share role {role!r} must include {ACTION_VIEW!r}"
                     )
-        self._types[name] = resource_type
 
     def get(self, name: str) -> ResourceType | None:
         return self._types.get(name)

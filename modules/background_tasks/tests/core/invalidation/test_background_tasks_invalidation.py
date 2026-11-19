@@ -34,11 +34,11 @@ class _FakePubSub:
         self.subscribed: list[str] = []
         self.closed = False
 
-    async def subscribe(self, channel: str) -> None:
+    async def subscribe(self, *channels: str) -> None:
         if self._subscribe_error is not None:
             error, self._subscribe_error = self._subscribe_error, None
             raise error
-        self.subscribed.append(channel)
+        self.subscribed.extend(channels)
 
     async def get_message(self, ignore_subscribe_messages: bool = False, timeout=None):
         """A frame if one is scripted, else ``None`` after the poll interval.
@@ -248,7 +248,7 @@ class TestSettings:
 
     def test_the_channel_is_namespaced_and_overridable(self, monkeypatch):
         monkeypatch.delenv("SM_BG_TASKS_INVALIDATION_CHANNEL", raising=False)
-        assert BackgroundTasksSettings().invalidation_channel == "simple_module.invalidation"
+        assert BackgroundTasksSettings().invalidation_channel is None
         monkeypatch.setenv("SM_BG_TASKS_INVALIDATION_CHANNEL", "app-two.invalidation")
         assert BackgroundTasksSettings().invalidation_channel == "app-two.invalidation"
 
@@ -281,6 +281,10 @@ class TestModuleGate:
 class _StubApp:
     def __init__(self, bus: InvalidationBus, settings: BackgroundTasksSettings) -> None:
         from background_tasks.core.services import BackgroundTasksServices
+
+        # These transport tests use an explicit channel; database derivation has its own suite.
+        if settings.invalidation_channel is None:
+            settings.invalidation_channel = "test.invalidation"
 
         class _Sm:
             invalidation = bus

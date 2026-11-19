@@ -16,6 +16,7 @@ from simple_module_core._module_conventions import (
 from simple_module_core._request_hooks import RequestHooksMixin
 from simple_module_core.data_compatibility import DataCompatibilityIssue
 from simple_module_core.module_meta import ModuleMeta
+from simple_module_core.permission_catalogue import PermissionCatalogue
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -28,12 +29,10 @@ if TYPE_CHECKING:
     from simple_module_core.invalidation import InvalidationBus
     from simple_module_core.menu import MenuRegistry
     from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.principals import PrincipalRegistry
     from simple_module_core.resources import ResourceTypeRegistry
     from simple_module_core.setup_steps import SetupRegistry
     from simple_module_core.spa_mount import SpaMount
-
-
-EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN = "0.1.0"
 
 
 class ModuleBase(RequestHooksMixin, ABC):
@@ -49,6 +48,7 @@ class ModuleBase(RequestHooksMixin, ABC):
     """
 
     meta: ModuleMeta
+    permissions: type[PermissionCatalogue] | None = None
 
     def register_settings(self, app: FastAPI) -> None:
         """Load module-specific settings and store on ``app.state``.
@@ -75,29 +75,50 @@ class ModuleBase(RequestHooksMixin, ABC):
                 target.include_router(import_module(f"{package}.{suffix}").router)
 
     def register_admin_routes(self, admin_router: APIRouter) -> None:
-        """Register admin-only view routes, mounted at ``meta.admin_view_prefix``.
+        """Load the declared admin router. Explicit overrides remain supported.
 
-        Only for modules serving both public and admin pages (see
-        ``ModuleMeta.admin_view_prefix``); all-admin modules point
-        ``view_prefix`` at ``/admin/...``. Nothing is gated automatically:
-        the prefix is a URL convention, not a permission.
+        Routes must declare their own guards: the surface grants no permission.
+        Legacy admin_view_prefix without a surface keeps the no-op default.
+        """
+        if self.meta.admin is not None:
+            target = self.meta.admin.routes or (
+                f"{get_module_package_name(self)}.web.endpoints.admin:router"
+            )
+            package, separator, name = target.partition(":")
+            if not separator or not package or not name:
+                raise ValueError("AdminSurface.routes must be python.module:router")
+            admin_router.include_router(getattr(import_module(package), name))
+
+    def register_fallback_routes(self, router: APIRouter) -> None:
+        """Register last-resort view routes, mounted at ``meta.view_prefix``.
+
+        Called after ordinary module, framework and host routers and static/SPA
+        mounts, in dependency order (first match wins). Auth, tenant middleware
+        and explicitly declared CSRF dependencies apply as usual. Public paths
+        still need ``register_public_routes``. Nothing is discovered by default.
         """
 
     def register_menu_items(self, registry: MenuRegistry) -> None:
         """Contribute menu items visible in the UI."""
 
     def register_permissions(self, registry: PermissionRegistry) -> None:
-        """Declare permissions this module uses."""
+        """Register ``permissions`` when declared; overrides may extend via super()."""
+        if self.permissions is not None:
+            registry.add_catalogue(self.permissions)
+
+    def register_principal_builder(self, registry: PrincipalRegistry) -> None:
+        """Install app-free directory, membership and persisted-role providers.
+
+        Called in both web and worker processes; must not depend on app state.
+        """
 
     def register_feature_flags(self, registry: FeatureFlagRegistry) -> None:
         """Declare feature flags this module exposes."""
 
-    def register_event_handlers(self, bus: EventBus, app: FastAPI | None = None) -> None:
+    def register_event_handlers(self, bus: EventBus, app: FastAPI | None) -> None:
         """Subscribe to events published by other modules.
 
-        The optional ``app=None`` compatibility default has
-        ``remove_in="0.1.0"``. Overrides own the call, so the base class cannot
-        reliably warn when callers omit it. Pass ``app`` through to handlers
+        Pass ``app`` explicitly, or ``None`` in workers. Pass it through to handlers
         that need ``app.state.sm.db.session_factory`` to persist on the
         framework's engine instead of building their own.
         """

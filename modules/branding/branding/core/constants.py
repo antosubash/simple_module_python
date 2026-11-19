@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 from typing import Final
 
+from simple_module_core.deprecation import deprecate
 from simple_module_core.design_packs import SLUG_RE
+from simple_module_core.permissions import PermissionCatalogue
 
 ROUTE_PREFIX: Final = "/api/branding"
 VIEW_PREFIX: Final = "/admin/branding"
@@ -25,8 +27,19 @@ _MODULE_FILE_STORAGE: Final = "FileStorage"
 # asserts the literal matches this constant.
 _PAGE_MANAGE: Final = "Branding/Manage"
 
-PERM_VIEW: Final = "branding.view"
-PERM_MANAGE: Final = "branding.manage"
+
+class Permissions(PermissionCatalogue, group="Branding", label_key="branding.permission_group"):
+    VIEW = "branding.view"
+    MANAGE = "branding.manage"
+
+
+deprecate(
+    "branding PERM_* constants",
+    remove_in="0.0.50",
+    use="branding.core.constants.Permissions",
+)
+PERM_VIEW: Final = Permissions.VIEW
+
 
 # A #rrggbb hex colour (single source of truth for both the settings and the
 # update-DTO validators).

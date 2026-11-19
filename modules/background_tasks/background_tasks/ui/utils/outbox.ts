@@ -3,7 +3,7 @@
 import { keys, t } from '@simple-module-py/i18n';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 
 export const OUTBOX_STATUS = {
   PENDING: 'pending',
@@ -39,7 +39,6 @@ export interface OutboxMessage {
   id: string;
   event_key: string;
   handler_name: string;
-  payload: Record<string, unknown>;
   tenant_id: string | null;
   status: OutboxStatus;
   attempts: number;

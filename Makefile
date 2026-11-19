@@ -1,4 +1,4 @@
-.PHONY: install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages worker beat worker-docker
+.PHONY: gen install install-py install-js dev dev-api dev-ui build test test-py test-py-pg test-js test-e2e bench memray-run memray-flamegraph loadtest loadtest-seed loadtest-memray bench-nav lint doctor migrate migration downgrade migration-history migrations-roundtrip-pg docker-up docker-down kill new-module gen-pages openapi gen-i18n docker-build docker-app docker-compose-app sync-module-deps ci-python-lint ci-python-typecheck ci-js-lint ci-js-typecheck ci-check-file-size ci-check-test-sleeps ci-check-no-double-cast ci-check-no-raw-fetch ci-check-hardcoded-strings ci-check-ci-parity ci-check-untranslated ci-check-metadata ci-check-locales ci-doc-paths ci-docs-build ci-i18n-fresh ci-api-types-fresh gen-api-types ci-css-build ci-doctor ci-build-packages ci-docker-smoke worker beat worker-docker
 
 # UV_SYNC_FLAGS is empty locally; CI passes --locked so a stale uv.lock fails the build.
 UV_SYNC_FLAGS ?=
@@ -7,6 +7,7 @@ UV_SYNC_FLAGS ?=
 install:
 	uv sync $(UV_SYNC_FLAGS) --all-packages
 	npm install
+	$(MAKE) gen
 
 # Install (granular — used by CI so Python jobs don't pull npm and vice versa)
 install-py:
@@ -16,10 +17,8 @@ install-js:
 	npm ci
 
 # Development
-dev: docker-up gen-pages
-	$(MAKE) gen-i18n || echo "warning: gen-i18n failed; continuing with dev startup" >&2
-	@echo "Starting API and UI dev servers..."
-	$(MAKE) -j2 dev-api dev-ui
+dev: docker-up
+	uv run --project host smpy dev $(ARGS)
 
 dev-api:
 	uv run --project host uvicorn host.main:app --reload --reload-include '*locales/*.json' --port 8000
@@ -36,11 +35,14 @@ openapi:
 gen-api-types:
 	uv run --project host smpy openapi gen-types $(ARGS)
 
+gen:
+	uv run --project host smpy gen
+
 # Regenerate host/client_app/modules.{manifest.json,generated.ts,generated.css} from installed modules.
 gen-pages:
 	uv run --project host smpy host gen-pages --host-dir=host/client_app
 
-# Regenerate packages/i18n/src/{generated-resources,keys.generated}.ts from every
+# Regenerate app-owned, module-local and central compatibility i18n files from every
 # installed module's locales/, plus host/locales and the hosting package's ui_locales — without
 # booting the app. Pass flags with ARGS, e.g. `make gen-i18n ARGS=--allow-removals`.
 gen-i18n:
@@ -52,7 +54,7 @@ sync-module-deps:
 	uv run --project host smpy host sync-js-deps --host-client-app=host/client_app
 
 # Build
-build:
+build: gen
 	npm run build
 
 # Testing
@@ -155,17 +157,8 @@ ci-js-lint:
 	npx biome ci --error-on-warnings .
 
 ci-js-typecheck: gen-pages
-	npx tsc --noEmit -p host/client_app/tsconfig.json
-	@# Fail if a module ships .tsx files but has no tsconfig.json — otherwise
-	@# the type-check would silently skip the module. See SM017 in `make doctor`.
-	@for dir in modules/*/; do \
-		if [ -n "$$(find "$$dir" -name '*.tsx' -print -quit 2>/dev/null)" ] \
-			&& [ ! -f "$${dir}tsconfig.json" ]; then \
-			echo "error: $$dir has .tsx pages but no tsconfig.json — add one so tsc covers it"; \
-			exit 1; \
-		fi; \
-	done
-	@for cfg in modules/*/tsconfig.json packages/*/tsconfig.json framework/*/tsconfig.json; do \
+	uv run --project host smpy host typecheck --host-dir=host/client_app
+	@for cfg in packages/*/tsconfig.json framework/*/tsconfig.json; do \
 		[ -f "$$cfg" ] || continue; \
 		echo "tsc -p $$cfg"; \
 		npx tsc --noEmit -p "$$cfg" || exit 1; \
@@ -193,11 +186,11 @@ ci-docs-build:
 # Compares content before/after regeneration rather than `git diff`, so a locally
 # regenerated-but-unstaged file passes and a stale one fails (CI checks out clean).
 ci-i18n-fresh:
-	@before=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
+	@before=$$(find packages/i18n/src modules host/client_app/i18n -type f \( -name '*generated.ts' -o -name 'generated-resources.ts' \) | sort | xargs cat | sha256sum); \
 	uv run --project host python scripts/gen_i18n.py || exit 1; \
-	after=$$(find packages/i18n/src -type f | sort | xargs cat | sha256sum); \
+	after=$$(find packages/i18n/src modules host/client_app/i18n -type f \( -name '*generated.ts' -o -name 'generated-resources.ts' \) | sort | xargs cat | sha256sum); \
 	if [ "$$before" != "$$after" ]; then \
-		echo "packages/i18n/src was stale and has been regenerated: run 'make gen-i18n' and commit the result"; \
+		echo "i18n files were stale and have been regenerated: run 'make gen-i18n' and commit the result"; \
 		exit 1; \
 	fi
 
@@ -217,6 +210,10 @@ ci-api-types-fresh:
 # is not part of `lint`.
 ci-css-build:
 	uv run pytest framework/cli/tests/test_module_css_build.py
+
+# Builds and boots the production image; deliberately outside the lint loop.
+ci-docker-smoke:
+	python3 scripts/ci_docker_smoke.py
 
 # Enforce a max of 300 lines per .py/.ts/.tsx file.
 # Exempts vendored shadcn components under packages/ui/src/components/ui/**.
@@ -317,13 +314,9 @@ new-module:                 ## Scaffold a new module (usage: make new-module nam
 	@# Replace the scaffold's sample types with what the module's routes emit.
 	-uv run --project host smpy openapi gen-types --module $(name)
 
-# Kill dev servers
+# The dev supervisor, rather than process-name/port searches, owns cleanup.
 kill:
-	@echo "Stopping dev servers..."
-	@-pkill -f "uvicorn host.main" 2>/dev/null
-	@-pkill -f "vite" 2>/dev/null
-	@-lsof -ti:8000,5050,5173 | xargs kill -9 2>/dev/null
-	@echo "Ports 8000, 5050, 5173 freed."
+	@echo "Stop smpy dev with Ctrl-C (or send SIGTERM to its PID); it cleans up both process groups."
 
 # Docker — the default app image (./Dockerfile). Standalone: SQLite inside the
 # container, no Postgres or Redis needed. Both run targets honour SM_APP_PORT

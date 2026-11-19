@@ -11,6 +11,9 @@ Edit deployment settings such as mail credentials, feature flags and storage
 backends in the admin UI. The tables below cover the framework, bundled modules
 and repository tools. See [Configuration](/guide/configuration) for an overview.
 
+The root signing key is generated and stored when `SM_SECRET_KEY` is unset.
+Users reset and verification keys are derived from it; no secret env variable is required.
+
 ## Framework
 
 | Variable | Default | Notes |
@@ -19,10 +22,10 @@ and repository tools. See [Configuration](/guide/configuration) for an overview.
 | `SM_REDIS_URL` | unset | Enables shared Redis rate limits and leases and seeds both the Celery broker and result backend. Without it the host uses in-process rate limits and database-backed leases. |
 | `SM_ENVIRONMENT` | `development` | `development` and `testing` bypass production secret checks. Any value other than `development` enables strict module discovery. |
 | `SM_DEBUG` | `false` | Enables debug mode, including tracebacks in HTTP responses. |
-| `SM_VITE_DEV_URL` | `http://localhost:5050` | Vite HMR origin for development. Scaffolded apps also derive the Vite dev server port and origin from this URL. |
-| `SM_VITE_PORT` | `5050` | Vite dev server port in this repository's own host. Set `SM_VITE_DEV_URL` to match when changing it. |
+| `SM_VITE_DEV_URL` | `http://localhost:5050` | Vite HMR origin for development. Host and scaffolded Vite configs derive their port and origin from this URL. `smpy dev` supplies its selected URL to both children. |
+| `SM_VITE_PORT` | unset | Deprecated Vite-only fallback when `SM_VITE_DEV_URL` is absent: `SM_VITE_PORT=5201 npm run dev` still works. Prefer `uv run smpy dev --port 8201 --vite-port 5201` to keep API and Vite URLs aligned; direct API launches need their matching `SM_VITE_DEV_URL`. |
 | `SM_SECRET_KEY` | generated when unset | Session signing key. If unset, the framework reuses the stored key or generates and saves one. A fresh DB without the settings table uses a temporary key until persistence is possible. An explicit key wins and stays out of the DB. Production rejects the literal placeholder `change-me-in-production`. |
-| `SM_MODULES_ENABLED` | unset | JSON array of module names. Unset loads all installed modules. An empty array loads none. |
+| `SM_MODULES_ENABLED` | unset | JSON array of metadata names or explicit `ep:<entry_point_name>` selectors. Unset loads all installed modules. An empty array loads none. |
 | `SM_PROJECT_ROOT` | discovered | Overrides project-root discovery for `.env` and relative SQLite paths. Otherwise discovery walks up from the working directory and stops at repository or home-directory boundaries. |
 
 The repository's Docker entrypoint generates and exports a process-local
@@ -35,9 +38,15 @@ stable key when using that entrypoint and sharing sessions across restarts or re
 export SM_MODULES_ENABLED='["Users","Dashboard"]'
 ```
 
-Use the module's `ModuleMeta.name`. Matching is case-insensitive. Include any
-required dependencies and restart after changing the allow-list. A
-comma-separated string fails settings validation.
+Use `ModuleMeta.name` or an explicit `ep:<entry_point_name>` selector,
+case-insensitively. Unqualified items always match metadata names. Include any
+required dependencies and restart after changing the allow-list. To skip
+disabled plugins before import, every item must use `ep:` (for example
+`["ep:auth","ep:users","ep:background_tasks"]`). Mixed lists are supported,
+but discovery loads all candidates to resolve any unqualified metadata name.
+An `ep:` selector with no installed entry point fails strict discovery and
+warns in development; unknown metadata names only warn.
+See [Discovery](/framework/discovery). A comma-separated string fails settings validation.
 
 ## Host settings (`HostSettings`)
 
@@ -126,8 +135,6 @@ settings editor. The variables below seed accounts or supply signing secrets.
 | `SM_USERS_BOOTSTRAP_PASSWORD_GENERATED` | unset | Internal entrypoint marker. `1` logs generated credentials when the bootstrap admin is created. |
 | `SM_USERS_BOOTSTRAP_USER_EMAIL` | unset | Optionally seeds a second account without admin privileges. |
 | `SM_USERS_BOOTSTRAP_USER_PASSWORD` | unset | Password paired with the second account's email. |
-| `SM_USERS_RESET_PASSWORD_TOKEN_SECRET` | dev placeholder | HMAC key for password-reset tokens. Supply a non-placeholder value in production. |
-| `SM_USERS_VERIFICATION_TOKEN_SECRET` | dev placeholder | HMAC key for email-verification tokens. Supply a non-placeholder value in production. |
 
 The Users setting `oauth_microsoft_discovery_url` is honored only when
 `SM_ENVIRONMENT` is explicitly `development` or `testing`.
@@ -178,7 +185,7 @@ their startup configuration. See [Background tasks](/modules/background_tasks).
 | `SM_BG_TASKS_TASK_ALWAYS_EAGER` | `false` | Execute tasks synchronously in the calling process. |
 | `SM_BG_TASKS_TASK_EAGER_PROPAGATES` | `true` | Reraise task exceptions in eager mode. |
 | `SM_BG_TASKS_BROADCAST_INVALIDATIONS` | `true` | Broadcast cache invalidations across processes when the broker uses Redis. |
-| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation` | Redis Pub/Sub channel for invalidation messages. |
+| `SM_BG_TASKS_INVALIDATION_CHANNEL` | `simple_module.invalidation.<installation_id>` | Optional explicit channel; env wins over a DB override. Otherwise derived from the stable system-scoped `host.installation_id` row. The default also publishes/listens on the legacy global channel until 0.1.0 for rolling upgrades; see [invalidation](../framework/invalidation.md). |
 | `SM_BG_TASKS_DB_POOL_SIZE` | `2` | Pool size for each worker engine. |
 | `SM_BG_TASKS_DB_MAX_OVERFLOW` | `3` | Overflow connections per worker engine. |
 | `SM_BG_TASKS_DB_RECYCLE` | `1800` | Worker connection recycling interval in seconds. |
