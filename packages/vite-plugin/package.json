@@ -38,7 +38,7 @@
   "dependencies": {},
   "devDependencies": {
     "@simple-module-py/tsconfig": "0.0.47",
-    "@types/node": "^26.5.0",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   },
   "scripts": {
