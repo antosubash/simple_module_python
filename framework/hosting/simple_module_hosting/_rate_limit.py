@@ -39,6 +39,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from simple_module_hosting._rate_limit_keys import KEY_IP, KEY_USER_OR_IP, rule_bucket, rule_key
 from simple_module_hosting._request_guard_responses import send_guard_response
+from simple_module_hosting._request_policy import request_policy
 from simple_module_hosting.path_matching import matches_path, validated_prefixes
 from simple_module_hosting.public_access import is_public
 
@@ -66,11 +67,16 @@ class RateLimitMiddleware:
         self.store = store if store is not None else InProcessWindowStore()
 
     def _policy(self, scope: Scope) -> tuple[str, RateSpec, str] | None:
+        policy = request_policy(scope)
+        public_rate = self.public_rate if policy is None else policy.public_rate
+        authenticated_rate = (
+            self.authenticated_rate if policy is None else policy.authenticated_rate
+        )
         authed = scope.get("state", {}).get("user") is not None
         if authed:
-            if self.authenticated_rate is None:
+            if authenticated_rate is None:
                 return None
-            return "auth", self.authenticated_rate, KEY_USER_OR_IP
+            return f"auth:{authenticated_rate.period}", authenticated_rate, KEY_USER_OR_IP
         registry = get_public_routes(scope["app"])
         rule = registry.match(scope["method"], scope["path"]) if registry is not None else None
         flag = scope.get("state", {}).get("auth_public")
@@ -88,9 +94,9 @@ class RateLimitMiddleware:
             # this counter (one request would count twice, periods would mix).
             bucket = f"public:{rule_bucket(rule.kind, rule.pattern, rule.methods)}"
             return (bucket, spec, KEY_IP) if spec is not None else None
-        if self.public_rate is None:
+        if public_rate is None:
             return None
-        return "public", self.public_rate, KEY_IP
+        return f"public:{public_rate.period}", public_rate, KEY_IP
 
     def _rule(self, scope: Scope) -> tuple[str, RateLimitRule] | None:
         registry = get_rate_limit_rules(scope["app"])

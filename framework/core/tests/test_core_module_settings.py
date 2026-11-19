@@ -6,9 +6,12 @@ being enabled at all: the registry is created on ``app.state`` on first use.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
 from fastapi import FastAPI
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
+from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import (
     MODULE_SETTINGS_STATE_ATTR,
     ModuleSettingsRegistry,
@@ -21,13 +24,13 @@ from simple_module_core.settings_base import DbBackedSettings
 
 
 class _OrdersSettings(DbBackedSettings):
-    page_size: int = 20
+    page_size: int = Field(default=20, description="Order page size.")
     webhook_signing: SecretStr | None = None
 
 
+@dataclass
 class _Services:
-    def __init__(self, settings: _OrdersSettings) -> None:
-        self.settings = settings
+    settings: _OrdersSettings
 
 
 def test_registry_is_created_lazily_on_app_state() -> None:
@@ -44,7 +47,15 @@ def test_registry_is_created_lazily_on_app_state() -> None:
 def test_register_without_the_settings_plugin_mounts_services() -> None:
     app = FastAPI()
 
-    register_module_settings(app, "orders", _OrdersSettings, _Services, manage_url="/orders/cfg")
+    class OrdersModule(ModuleBase):
+        meta = ModuleMeta(name="Orders")
+
+        def register_settings(self, app: FastAPI) -> None:
+            register_module_settings(
+                app, "orders", _OrdersSettings, _Services, manage_url="/orders/cfg"
+            )
+
+    OrdersModule().register_settings(app)
 
     registry = get_module_settings_registry(app)
     assert registry is not None

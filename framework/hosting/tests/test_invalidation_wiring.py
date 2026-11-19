@@ -109,6 +109,8 @@ class _StubApp:
     def __init__(self, bus: InvalidationBus, settings) -> None:
         from background_tasks.core.services import BackgroundTasksServices
 
+        if settings.invalidation_channel is None:
+            settings.invalidation_channel = "test.invalidation"
         self.state = _StubState()
         self.state.sm = _StubSm(bus)
         self.state.background_tasks = BackgroundTasksServices(settings=settings)

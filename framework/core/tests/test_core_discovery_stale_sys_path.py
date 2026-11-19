@@ -20,6 +20,8 @@ class _EntryPoint:
     def __init__(self, name: str, module: str, exc: Exception) -> None:
         self.name = name
         self.module = module
+        self.value = f"{module}:Module"
+        self.dist = None
         self._exc = exc
 
     def load(self):

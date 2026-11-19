@@ -80,7 +80,6 @@ class UsersAuthProvider:
     """Cookie + bearer auth provider using fastapi-users' DatabaseStrategy."""
 
     name = "users"
-    _is_auth_provider = True
 
     async def resolve_user(self, request: Request) -> UserContext | None:
         # An ``Authorization`` header is an explicit claim, and it decides the

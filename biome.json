@@ -4,6 +4,7 @@
     "includes": [
       "host/client_app/**",
       "packages/**",
+      "!packages/vite-plugin/dist",
       "modules/*/*/pages/**",
       "modules/*/*/ui/**",
       "modules/*/*/**/components/**",
@@ -17,7 +18,8 @@
       "!**/*.generated.ts",
       "!host/client_app/modules.manifest.json",
       "!host/client_app/modules.generated.css",
-      "!host/client_app/modules.assets.json"
+      "!host/client_app/modules.assets.json",
+      "!host/client_app/.module-tsconfig"
     ],
     "ignoreUnknown": true
   },

@@ -1,5 +1,10 @@
 # Background Tasks Worker Status Page Implementation Plan
 
+> **Permission API update (#1037):** The permission constants in this historical
+> plan are deprecated for removal in 0.0.50. Current code imports `Permissions`
+> from `background_tasks.core.constants` and uses `Permissions.VIEW` and
+> `Permissions.MANAGE`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a read-only `/admin/background-tasks/workers` sub-page to the `background_tasks` module that surfaces Celery worker presence (hostname, queues, active task count, pool size, total processed) via `celery.control.inspect()`, with a manual Refresh button and no auto-polling.

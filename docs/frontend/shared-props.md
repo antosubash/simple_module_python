@@ -185,3 +185,28 @@ returned dict is merged after the built-in props. Reserved keys cannot be
 overwritten; provider failures are logged and skipped.
 
 On the client, a module-specific shared prop is read with `usePageProps<{ flags: Flags }>()`; props every app needs belong in `SharedProps` (`packages/ui/src/types.ts`).
+
+### Explicit host replacements
+
+In the host's [customize callback](../framework/lifecycle.md#host-overrides),
+use `replace_inertia_shared_prop` from `simple_module_hosting`:
+
+```python
+from simple_module_hosting import replace_inertia_shared_prop
+
+
+def customize(app):
+    replace_inertia_shared_prop(app, "branding", lambda request: {"appName": "Host"})
+```
+
+The sync or async callable returns the value for one key, not a props dict.
+Replacements run after built-in props, normal providers and the default
+`homeUrl`, so an explicitly replaced key wins even over a later normal
+provider. A second explicit replacement of the same key wins. Ordinary
+providers still cannot overwrite existing keys. Framework keys such as `auth`
+may also be replaced explicitly; the host owns the replacement's contract.
+This only changes the page payload, not backend permission checks.
+
+Provider keys are request-dependent and cannot be validated at boot. A missing
+replacement target raises `KeyError` when shared props resolve; replacement
+provider failures also propagate instead of restoring the old value silently.

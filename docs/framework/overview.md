@@ -15,7 +15,7 @@ The framework has **no knowledge of any specific plugin module**. Diagnostic `SM
 
 What actually happens when you run `uvicorn main:app`:
 
-1. **`create_app(settings)`** is invoked (in `main.py` via FastAPI's lifespan).
+1. **`build_host_app(__file__, routers=("routes:router",))`** in the host entry point loads dotenv, merges host settings and configures logging, then invokes `create_app(settings)`. FastAPI runs the lifespan when the app starts.
 2. **Framework singletons** are constructed:
    `Settings`, `DatabaseState` (engines per provider), `EventBus`, `MenuRegistry`, `PermissionRegistry`, `FeatureFlagRegistry`, `HealthRegistry`, `I18nRegistry`. They are bundled into a frozen `Services` dataclass and attached to `app.state.sm`.
 3. **Discovery** — `discover_modules()` reads Python entry points under the `simple_module` group, imports each one, validates it's a `ModuleBase` subclass with a non-null `meta`, and topologically sorts by `ModuleMeta.depends_on`.
@@ -28,6 +28,28 @@ What actually happens when you run `uvicorn main:app`:
 9. App is ready to serve.
 
 On shutdown, `on_shutdown` hooks run in **reverse** order.
+
+## Custom database state
+
+Both builders accept `database=state` or
+`database=lambda settings: make_database(settings)`. The factory runs once
+during app construction with resolved settings and returns a `DatabaseState`,
+which becomes `app.state.sm.db`. This supports custom engines, `async_creator`
+connections and session routing to read replicas without creating the default
+application engine. See [Database engines and ownership](/database/tuning#supplying-an-engine-and-session-factory)
+for the session-factory contract.
+
+Injected states and factory results are caller-owned: lifespan shutdown and
+startup-failure cleanup leave their engines open. Dispose them in the caller
+after the app stops. Without `database`, the framework creates and disposes
+the engine as before.
+
+`build_host_app` still merges stored host settings before invoking `create_app`,
+and `create_app()` without explicit settings does the same. These preliminary
+settings reads and CLI/Alembic operations use the configured database URL;
+database injection replaces the application's runtime state. For a connection
+available only through a custom creator, pass explicit resolved `Settings` to
+`create_app(settings, database=...)` to avoid the preliminary settings read.
 
 ## Strict mode vs. lenient mode
 

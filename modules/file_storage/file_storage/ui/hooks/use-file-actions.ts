@@ -3,7 +3,7 @@ import { keys, useT } from '@simple-module-py/i18n';
 import { apiResult } from '@simple-module-py/ui/lib/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { RELOAD_PROPS } from '../utils/constants';
 import type { StoredFile } from '../utils/types';
 

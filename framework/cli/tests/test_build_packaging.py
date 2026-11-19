@@ -85,3 +85,10 @@ def test_sdist_is_self_contained(built_artifacts: tuple[Path, Path]) -> None:
     assert any("simple_module_cli/templates/" in n for n in names), (
         "sdist does not include simple_module_cli/templates/*"
     )
+
+
+def test_wheel_ships_shared_migration_resolver(built_artifacts: tuple[Path, Path]) -> None:
+    _, wheel = built_artifacts
+    with zipfile.ZipFile(wheel) as zf:
+        source = zf.read("simple_module_cli/_migration_support.py")
+        assert b"def resolve_alembic_ini(" in source

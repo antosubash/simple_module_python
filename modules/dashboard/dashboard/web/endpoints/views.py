@@ -18,7 +18,7 @@ from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
-from dashboard.core.constants import PERM_VIEW
+from dashboard.core.constants import Permissions
 from dashboard.web.stats import fetch_dashboard_stats
 
 router = APIRouter()
@@ -56,7 +56,7 @@ async def dashboard(
     without it gets the welcome and no numbers (``can_view_stats`` false).
     """
     props: dict = {"welcome": t.t("dashboard.home.welcome_message")}
-    can_view = grants(resolved_permissions_for(request), PERM_VIEW)
+    can_view = grants(resolved_permissions_for(request), Permissions.VIEW)
     props["can_view_stats"] = can_view
     if can_view:
         props.update(await fetch_dashboard_stats(db, request.app))

@@ -63,9 +63,18 @@ class CorsPolicyRegistry:
     ) -> None:
         self._rules.add(KIND_REGEX, pattern, policy, enabled=enabled)
 
-    def match(self, method: str, path: str) -> CorsPolicy | None:
+    def match(
+        self, method: str, path: str, *, fallback: tuple[str, CorsPolicy] | None = None
+    ) -> CorsPolicy | None:
         """The governing policy for this request, or ``None`` (no CORS headers)."""
-        return self._rules.match(method, path)
+        found = self._rules.match_entry(method, path)
+        if fallback is not None:
+            prefix, policy = fallback
+            if path.startswith(prefix) and (
+                found is None or (found[0] == KIND_PREFIX and len(found[1]) < len(prefix))
+            ):
+                return policy
+        return None if found is None else found[2]
 
     def __len__(self) -> int:
         return len(self._rules)

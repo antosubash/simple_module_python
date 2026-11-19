@@ -1,5 +1,9 @@
 # Site Lock: optional site-wide password gate
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 **Date:** 2026-08-05
 **Status:** approved-to-implement (proceeding under an active `/goal` directive)
 
@@ -30,7 +34,7 @@ request.
   gated view route — but the design below does not need to, because the
   middleware runs *before* `AuthMiddleware` and so never reaches that check.
 - DB-backed per-module settings go through
-  `settings.registration.register_module_settings(app, package, cls, factory)`,
+  `simple_module_core.module_settings.register_module_settings(app, package, cls, factory)`,
   hydrate at startup, and hot-swap through
   `settings.reload.apply_changes_and_reload` which publishes `SettingsReloaded`.
 - `settings/_module_settings.py` masks any field whose name matches

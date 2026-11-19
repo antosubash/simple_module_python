@@ -1,5 +1,9 @@
 # Settings mechanism moves into the framework (#500)
 
+> **Compatibility update (#989):** Historical examples below may use APIs that have
+> been removed. Follow [deprecations](/framework/deprecations#removed-early-989)
+> for current imports, permission gates, public routes and required event-hook arguments.
+
 Approved 2026-10-21.
 
 ## Problem

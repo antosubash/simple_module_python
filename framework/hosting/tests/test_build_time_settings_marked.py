@@ -72,4 +72,18 @@ def test_every_marked_field_is_read_at_build_time(build_time_fields: set[str]) -
 
 def test_runtime_fields_stay_unmarked() -> None:
     """Maintenance mode flips live — that is the point of storing it in the DB."""
-    assert not ({"maintenance_mode", "maintenance_message"} & _marked())
+    live = {
+        "maintenance_mode",
+        "maintenance_message",
+        "login_redirect_url",
+        "max_request_body_bytes",
+        "rate_limit_public",
+        "rate_limit_authenticated",
+        "cors_allow_origins",
+        "cors_allow_credentials",
+        "cors_allow_methods",
+        "cors_allow_headers",
+        "cors_expose_headers",
+        "cors_max_age",
+    }
+    assert not (live & _marked())

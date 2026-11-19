@@ -22,8 +22,6 @@ from users.models import User
 _pw = PasswordHelper()
 
 _INERTIA_HEADERS = {"X-Inertia": "true", "X-Inertia-Version": "1.0"}
-_RESET_SECRET = "test-reset-secret-32-bytes-xxxxx"
-_VERIFY_SECRET = "test-verify-secret-32-bytes-xxxxx"
 _RESET_AUDIENCE = "fastapi-users:reset"
 _VERIFY_AUDIENCE = "fastapi-users:verify"
 
@@ -72,7 +70,9 @@ class TestForgotPasswordProps:
 # ---------------------------------------------------------------------------
 
 
-def _reset_token(user: User, *, lifetime_seconds: int, fingerprint: str | None = None) -> str:
+def _reset_token(
+    user: User, secret: str, *, lifetime_seconds: int, fingerprint: str | None = None
+) -> str:
     """Mint a reset token the way ``forgot_password`` does.
 
     ``password_fgpt`` is a hash *of the stored hash*, which is how the token
@@ -85,16 +85,20 @@ def _reset_token(user: User, *, lifetime_seconds: int, fingerprint: str | None =
             "password_fgpt": fingerprint or _pw.hash(user.hashed_password),
             "aud": _RESET_AUDIENCE,
         },
-        _RESET_SECRET,
+        secret,
         lifetime_seconds,
     )
 
 
 class TestResetPasswordProps:
     @pytest.mark.anyio
-    async def test_expired_token_renders_the_expired_card(self, anon_client, users_db):
+    async def test_expired_token_renders_the_expired_card(self, anon_client, users_db, users_app):
         user = await _make_user(users_db, "expired-reset@example.com")
-        token = _reset_token(user, lifetime_seconds=-60)
+        token = _reset_token(
+            user,
+            users_app.state.users.token_secrets.reset_password_token_secret,
+            lifetime_seconds=-60,
+        )
         props = _props(
             await anon_client.get(f"/users/reset-password?token={token}", headers=_INERTIA_HEADERS)
         )
@@ -102,9 +106,15 @@ class TestResetPasswordProps:
         assert props["email"] is None
 
     @pytest.mark.anyio
-    async def test_live_token_carries_the_address_to_sign_in_with(self, anon_client, users_db):
+    async def test_live_token_carries_the_address_to_sign_in_with(
+        self, anon_client, users_db, users_app
+    ):
         user = await _make_user(users_db, "live-reset@example.com")
-        token = _reset_token(user, lifetime_seconds=3600)
+        token = _reset_token(
+            user,
+            users_app.state.users.token_secrets.reset_password_token_secret,
+            lifetime_seconds=3600,
+        )
         props = _props(
             await anon_client.get(f"/users/reset-password?token={token}", headers=_INERTIA_HEADERS)
         )
@@ -112,12 +122,17 @@ class TestResetPasswordProps:
         assert props["email"] == "live-reset@example.com"
 
     @pytest.mark.anyio
-    async def test_a_spent_link_is_already_dead(self, anon_client, users_db):
+    async def test_a_spent_link_is_already_dead(self, anon_client, users_db, users_app):
         """ "Reset links … work once" has to be true on the page, not only in
         the endpoint: a fingerprint that no longer matches the stored hash
         means the password already changed."""
         user = await _make_user(users_db, "spent-reset@example.com")
-        token = _reset_token(user, lifetime_seconds=3600, fingerprint=_pw.hash("something-else"))
+        token = _reset_token(
+            user,
+            users_app.state.users.token_secrets.reset_password_token_secret,
+            lifetime_seconds=3600,
+            fingerprint=_pw.hash("something-else"),
+        )
         props = _props(
             await anon_client.get(f"/users/reset-password?token={token}", headers=_INERTIA_HEADERS)
         )
@@ -146,14 +161,14 @@ class TestResetPasswordProps:
 
 class TestVerifyEmailProps:
     @pytest.mark.anyio
-    async def test_expired_token_still_yields_the_address(self, anon_client):
+    async def test_expired_token_still_yields_the_address(self, anon_client, users_app):
         token = generate_jwt(
             {
                 "sub": str(uuid.uuid4()),
                 "email": "stale@example.com",
                 "aud": _VERIFY_AUDIENCE,
             },
-            _VERIFY_SECRET,
+            users_app.state.users.token_secrets.verification_token_secret,
             -60,
         )
         props = _props(
@@ -182,7 +197,7 @@ class TestVerifyEmailProps:
 class TestInvitePreviewProps:
     @pytest.mark.anyio
     async def test_inviter_and_expiry_surface_when_the_claims_are_present(
-        self, anon_client, users_db
+        self, anon_client, users_db, users_app
     ):
         user = await _make_user(users_db, "invitee@example.com")
         token = generate_jwt(
@@ -192,7 +207,7 @@ class TestInvitePreviewProps:
                 "aud": _VERIFY_AUDIENCE,
                 "invited_by": "Dana Scully",
             },
-            _VERIFY_SECRET,
+            users_app.state.users.token_secrets.verification_token_secret,
             3600,
         )
         props = _props(
@@ -204,11 +219,13 @@ class TestInvitePreviewProps:
         assert expires_at > datetime.now(UTC)
 
     @pytest.mark.anyio
-    async def test_a_token_minted_without_the_claim_is_tolerated(self, anon_client, users_db):
+    async def test_a_token_minted_without_the_claim_is_tolerated(
+        self, anon_client, users_db, users_app
+    ):
         user = await _make_user(users_db, "no-inviter@example.com")
         token = generate_jwt(
             {"sub": str(user.id), "email": user.email, "aud": _VERIFY_AUDIENCE},
-            _VERIFY_SECRET,
+            users_app.state.users.token_secrets.verification_token_secret,
             3600,
         )
         props = _props(
@@ -243,7 +260,7 @@ class TestAcceptInviteFullName:
 
         token = generate_jwt(
             {"sub": str(user.id), "email": user.email, "aud": _VERIFY_AUDIENCE},
-            _VERIFY_SECRET,
+            users_app.state.users.token_secrets.verification_token_secret,
             3600,
         )
         resp = await anon_client.post(

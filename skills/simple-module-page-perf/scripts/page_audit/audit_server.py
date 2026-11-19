@@ -24,7 +24,7 @@ _DB = re.compile(r'\bdb;dur=([\d.]+);desc="(\d+) quer')
 _GZIP_LEVEL = 5  # what the framework's GZipMiddleware uses
 _TOP_PROPS = 5
 # Shared props every page carries; reported apart from the page's own props.
-SHARED_PROPS = ("auth", "menus", "i18n", "errors", "flash", "csrf_token", "branding")
+SHARED_PROPS = ("auth", "menus", "i18n", "errors", "flash", "csrfToken", "branding")
 
 
 @dataclass(slots=True)

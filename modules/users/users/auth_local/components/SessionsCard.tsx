@@ -8,7 +8,7 @@ import { describeUserAgent } from '@simple-module-py/ui/lib/user-agent';
 import { LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '../../pages/api';
+import { api } from '../../pages/api.generated';
 import { failureMessage } from '../../ui/utils/failureMessage';
 
 interface Props {

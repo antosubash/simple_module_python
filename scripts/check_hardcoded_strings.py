@@ -6,7 +6,7 @@ Violation patterns — checked only in non-test, non-constants .py files:
   - RequiresPermission("...")       → use a PERM_* constant
   - registry.map_role("...", ...)   → use a ROLE_NAME constant
   - registry.add_group(..., [...])  → permission items must be constants
-  - inertia.render("Module/Page")   → use a _PAGE_* constant
+  - inertia.render("Module/Page")   → verify module identity + an existing TSX page
   - depends_on=[..., "Module", ...] → use a _MODULE_* constant
 
 Usage:
@@ -18,36 +18,10 @@ from __future__ import annotations
 
 import argparse
 import ast
-import re
 import subprocess
 import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-
-# Each rule is (pattern, message). The pattern is matched against each line;
-# a match is a violation unless the file is excluded.
-_RULES: list[tuple[re.Pattern[str], str]] = [
-    (
-        re.compile(r'RequiresPermission\s*\(\s*"[a-z_]+\.[a-z_]+"'),
-        "permission string literal in RequiresPermission() — use a PERM_* constant",
-    ),
-    (
-        re.compile(r'registry\.map_role\s*\(\s*"[a-z_]+"'),
-        "role name literal in registry.map_role() — use a ROLE_NAME constant",
-    ),
-    (
-        re.compile(r'registry\.add_group\s*\([^)]*"[a-z_]+\.[a-z_]+"'),
-        "permission string literal in registry.add_group() — use a PERM_* constant",
-    ),
-    (
-        re.compile(r'inertia\.render\s*\(\s*"[A-Z][A-Za-z]+/[A-Za-z/]+"'),
-        "Inertia page identifier literal in render() — use a _PAGE_* constant",
-    ),
-    (
-        re.compile(r'depends_on\s*=\s*\[[^\]]*"[A-Z][A-Za-z]+"'),
-        "module name literal in depends_on — use a _MODULE_* constant",
-    ),
-]
 
 # Files whose path contains any of these substrings are skipped entirely.
 _SKIP_PATH_PARTS = ("tests/", "test_", "/constants.py", "scripts/")
@@ -58,60 +32,121 @@ def _should_skip(path: Path, root: Path) -> bool:
     return any(part in rel for part in _SKIP_PATH_PARTS)
 
 
-def _docstring_lines(source: str) -> set[int]:
-    """Return line numbers that are module/class/function docstrings.
+def _literal(node: ast.AST | None) -> str | None:
+    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
 
-    The earlier implementation flagged *every* line that contained a string
-    token, which silently disabled the rules: a real ``RequiresPermission(
-    "users.manage")`` call always has a string on the same line as the
-    function name, so the line was excluded. We only want to skip docstring
-    bodies — strings that sit on their own as the first statement of a
-    module, class, or function.
-    """
-    inside: set[int] = set()
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return inside
 
-    def _maybe_record(node: ast.AST) -> None:
-        body = getattr(node, "body", None)
-        if not body:
-            return
-        first = body[0]
-        if not isinstance(first, ast.Expr):
-            return
-        value = first.value
-        if isinstance(value, ast.Constant) and isinstance(value.value, str):
-            end = getattr(first, "end_lineno", first.lineno)
-            inside.update(range(first.lineno, end + 1))
-
-    for node in ast.walk(tree):
-        if isinstance(
-            node,
-            (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
-        ):
-            _maybe_record(node)
-    return inside
+def _page_exists(path: Path, component: str) -> bool:
+    """Validate against the owning package, without importing application code."""
+    parts = component.split("/")
+    if any(p in {"", ".", ".."} for p in parts) or "\\" in component:
+        return False
+    if component.endswith((".test", ".spec")):
+        return False
+    for parent in path.resolve().parents:
+        if not (parent / "pages").is_dir():
+            continue
+        module_file = parent / "module.py"
+        if not module_file.is_file():
+            # Host pages have bare keys, unlike module pages.
+            return parent.name == "client_app" and (parent / "pages" / f"{component}.tsx").is_file()
+        try:
+            module_tree = ast.parse(module_file.read_text())
+            constants: dict[str, str] = {}
+            for source in (parent / "constants.py", parent / "core" / "constants.py", module_file):
+                if not source.is_file():
+                    continue
+                for node in ast.parse(source.read_text()).body:
+                    if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                        target, value = node.targets[0], _literal(node.value)
+                    elif isinstance(node, ast.AnnAssign):
+                        target, value = node.target, _literal(node.value)
+                    else:
+                        continue
+                    if isinstance(target, ast.Name) and value is not None:
+                        constants[target.id] = value
+            for node in ast.walk(module_tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if not isinstance(node.func, ast.Name) or node.func.id != "ModuleMeta":
+                    continue
+                for kw in node.keywords:
+                    if kw.arg != "name":
+                        continue
+                    name = _literal(kw.value)
+                    if isinstance(kw.value, ast.Name):
+                        name = constants.get(kw.value.id)
+                    elif isinstance(kw.value, ast.Attribute):
+                        name = constants.get(kw.value.attr)
+                    if name == parts[0] and len(parts) > 1:
+                        return (parent / "pages" / ("/".join(parts[1:]) + ".tsx")).is_file()
+        except (OSError, SyntaxError):
+            return False
+        return False
+    return False
 
 
 def _check_file(path: Path) -> list[tuple[int, str, str]]:
-    """Return a list of (line_number, line, message) violations."""
-    violations: list[tuple[int, str, str]] = []
+    """Check actual calls, including multiline and single-quoted arguments."""
     try:
         source = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return violations
-    docstring_lines = _docstring_lines(source)
-    for lineno, line in enumerate(source.splitlines(), start=1):
-        stripped = line.strip()
-        if stripped.startswith("#") or lineno in docstring_lines:
+        tree = ast.parse(source)
+    except (OSError, SyntaxError):
+        return []
+    lines = source.splitlines()
+    violations: list[tuple[int, str, str]] = []
+
+    def report(node: ast.AST, message: str) -> None:
+        violations.append((node.lineno, lines[node.lineno - 1].rstrip(), message))
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
             continue
-        for pattern, message in _RULES:
-            if pattern.search(line):
-                violations.append((lineno, line.rstrip(), message))
-                break
-    return violations
+        func = node.func
+        name = (
+            func.id
+            if isinstance(func, ast.Name)
+            else func.attr
+            if isinstance(func, ast.Attribute)
+            else ""
+        )
+        first = node.args[0] if node.args else None
+        if name == "RequiresPermission" and _literal(first) is not None:
+            report(
+                node,
+                "permission literal in RequiresPermission() — use a catalogue or PERM_* constant",
+            )
+        elif name == "map_role" and _literal(first) is not None:
+            report(node, "role name literal in registry.map_role() — use a ROLE_NAME constant")
+        elif name == "add_group" and len(node.args) > 1:
+            if any(_literal(n) is not None for n in ast.walk(node.args[1])):
+                report(
+                    node,
+                    "permission literal in add_group() — use a catalogue or PERM_* constant",
+                )
+        elif (
+            name == "render"
+            and isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "inertia"
+        ):
+            component = first or next(
+                (kw.value for kw in node.keywords if kw.arg == "component"), None
+            )
+            value = _literal(component)
+            if value is not None and "/" in value and not _page_exists(path, value):
+                report(
+                    node,
+                    "unverified Inertia page — use an existing Module/Page or a _PAGE_* constant",
+                )
+        for kw in node.keywords:
+            if (
+                kw.arg in {"depends_on", "optional_depends_on"}
+                and isinstance(kw.value, (ast.List, ast.Tuple))
+                and any(_literal(n) is not None for n in kw.value.elts)
+            ):
+                report(node, "module name literal in depends_on — use a _MODULE_* constant")
+    return sorted(violations)
 
 
 def _list_git_tracked_files(root: Path) -> list[Path]:

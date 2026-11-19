@@ -17,8 +17,15 @@ modules/<name>/
   tests/           Python tests mirroring package areas
   tests-js/        Vitest tests, when needed
   docs/            module-specific documentation, when needed
-  README.md, LICENSE, pyproject.toml, package.json, tsconfig.json
+  README.md, LICENSE, pyproject.toml
 ```
+
+Modules need no frontend config files by default. The host generates TypeScript
+projects; an authored `tsconfig.json` in the project root or Python package
+overrides them. Declare extra JS dependencies in an optional dependency-only
+`package.json` inside the Python package, then run `smpy host sync-js-deps` for
+those packaged extras, including editable installs. Existing module-root npm
+workspace manifests remain supported.
 
 ## Package root: lookup paths
 
@@ -37,15 +44,16 @@ checkers, not a framework runtime lookup.
 | `task_config.py` | `modules/background_tasks/background_tasks/worker/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
 | `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
-| `pages/api.ts`, `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py:130` selects the root pages directory for generation; `framework/cli/simple_module_cli/templates/module/__PACKAGE__/pages/api.ts.tpl:8` consumes the generated types. |
-| `locales/` | The scaffold's `framework/cli/simple_module_cli/templates/module/__PACKAGE__/module.py.tpl:88` resolves the root directory in `locale_dirs()`; `framework/core/simple_module_core/module.py:210` documents the hook contract. |
+| `pages/api.generated.ts` | `framework/cli/simple_module_cli/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
+| `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
 | `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
 | `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/plugins.py:41` loads CLI plugins. |
 
 Other root files and folders are legacy exceptions, tracked explicitly by
 `host/tests/test_module_layout.py:1`. Keep named lookup paths pinned with tests
-that load them as their consumer does. Generated wheel metadata such as
-`package.json` is packaging output, not another source area.
+that load them as their consumer does. An optional dependency-only
+`package.json` may live inside the Python package so it ships automatically; it is
+metadata, not another source area.
 
 ## Areas
 
@@ -78,7 +86,7 @@ Declare a new multi-feature domain area in its `DOMAIN_AREAS` map when needed.
 
 | Path | Holds |
 | --- | --- |
-| `pages/` | Real Inertia pages, plus `api.ts` and `api.generated.ts`. Keep page names and render keys stable. |
+| `pages/` | Real Inertia pages, plus the generated client and types in `api.generated.ts` (`api.ts` only for custom client logic). Keep page names and render keys stable. |
 | `ui/components/<feature>/` | Reusable components grouped by feature. Shared components may sit directly in `ui/components/`. |
 | `ui/hooks/`, `ui/utils/` | Hooks and plain TypeScript helpers. |
 | `modules/<name>/tests-js/` | All new JS tests and their support; Vitest collects here. |
@@ -87,7 +95,7 @@ Tailwind scans `ui/`, pages and legacy root `components/` on wheel-installed
 modules, including nested source directories hidden by a venv's ignore file.
 The asset manifest exposes `ui`; the pages manifest still contains only
 `pages/`. Biome covers `ui/**`; the untranslated-string and double-cast checks
-already recurse throughout the package. Module tsconfig includes recurse too.
+already recurse throughout the package. Generated module TypeScript projects recurse too.
 Both host and scaffold `client_app/module-assets.ts` readers also register UI
 source prefixes for Vite's bare-import fallback and dependency scan. Existing
 hosts must update that reader when adopting UI sources; upgrading Python
@@ -118,15 +126,16 @@ tests/
 
 Mirror package ownership, using `tests/<area>/<feature>/test_<module>_*.py`.
 Keep module-wide `conftest.py` at `tests/` root. Do not add `__init__.py` in test
-directories. Basenames must be globally unique: default pytest import mode
-loads non-package tests by basename, even when they live in different folders.
+directories. The `simple_module_test` plugin defaults to pytest's
+`--import-mode=importlib`, so basenames may repeat across folders and modules.
+This repo sets that mode explicitly in its root pytest configuration too.
 The root-layout test refuses a `test_*.py` directly under `tests/`.
 
 A helper shared by several test folders stays at `tests/` root as
-`_<module>_support.py`. The root `conftest.py` puts that directory on
-`sys.path`, so `from _<module>_support import ...` keeps working from nested
-folders; a module that has helpers needs that `conftest.py` even when it holds
-no fixtures.
+`_<module>_support.py`. Importlib mode does not add test directories to
+`sys.path`: list helper directories in `[tool.pytest.ini_options].pythonpath`
+relative to the project root. This also lets `pytest_plugins` in conftests
+import support modules. Keep helper module names distinct across those directories.
 
 The root `pyproject.toml:137` lists `modules/<name>/tests` in `testpaths`, and
 `framework/cli/simple_module_cli/framework_repo.py` wires that root. Pytest
@@ -174,22 +183,26 @@ the root-layout test's `DEPRECATED_ROOT` map until removed.
 
 ## Downstream modules
 
-A module created with `smpy create-module` already follows this layout. The
-check that keeps it that way lives in this repo's
-[`host/tests/test_module_layout.py`](https://github.com/antosubash/simple_module_python/blob/main/host/tests/test_module_layout.py),
-which an app or a standalone module repo does not have. To keep the same ratchet:
+A module created with `smpy create-module` already follows this layout. Install
+`simple_module_test` and call its public `assert_module_layout` helper from a
+test instead of copying this repository's implementation:
 
-1. Copy that test into your own tests, for example `tests/test_module_layout.py`. <!-- path-check: ignore -->
-2. Point `MODULES` at your modules directory (`modules/` in a `smpy new` app). The
-   copy computes it with `parents[2]`, which is right for `host/tests/`; from
-   `tests/test_module_layout.py` use `parents[1]`. <!-- path-check: ignore -->
-   A standalone module repo has the package at its root, with no `modules/<name>/`
-   level, so change the `package`, `pyproject.toml` and `tests/` paths in the test too.
-3. Replace `DOMAIN_AREAS` with your own modules' named areas, and empty
-   `DEPRECATED_ROOT` unless you keep root-level shims.
+```python
+from pathlib import Path
 
-`ALLOWED_ROOT` is the root lookup list in [Package root](#package-root-lookup-paths);
-keep the two in step when you upgrade the framework.
+from simple_module_test import assert_module_layout
+
+
+def test_orders_layout():
+    assert_module_layout(Path("modules/orders"), "orders", domain_areas={"fulfillment"})
+```
+
+The first argument is the module project directory containing its Python package,
+`pyproject.toml` and `tests/`. In a standalone module repository use `Path(".")`.
+Omit `domain_areas` for modules with only the standard areas; `deprecated_root`
+accepts temporary root-level compatibility files. The helper checks root entries,
+CLI registration and test layout (no root test files or test package initializers),
+without requiring globally unique test basenames.
 
 ## Moving an existing module
 
@@ -209,7 +222,7 @@ One module per PR; no logic changes in a move PR.
    `subscribe_durable(..., name=<constant>)`, and a moved durable event class
    needs a data migration. `host/tests/test_durable_wire_names.py` freezes both.
 3. Move tests to matching areas/features, keep root `conftest.py`, remove test
-   package initializers and prefix each basename with the module name.
+   package initializers; importlib mode permits repeated basenames.
    JS tests remain in `tests-js/`.
 4. Add external-import shims with a removal release two releases ahead; alias shims are
    auto-discovered by the expiry test (re-export shims are registered by hand),
@@ -223,28 +236,28 @@ One module per PR; no logic changes in a move PR.
 7. Review the diff as moves and import rewrites only. Verify wheel contents,
    UI scanning and module lookup paths. Keep logic changes in another PR.
 
-## Migration status (2026-11-05)
+## Migration status (2026-11-18)
 
 Counts refer to the source package root and direct `tests/test_*.py` files;
-cache directories are ignored. Shim files left at old paths are counted separately. Update this table
+cache directories are ignored. The old layout shims have been removed (#989). Update this table
 when a later module PR moves files.
 
 | Module | Root `.py` files | Flat `tests/test_*.py` | State |
 | --- | ---: | ---: | --- |
-| api_tokens | 3 (+4 shims) | 0 | follows this layout |
+| api_tokens | 3 | 0 | follows this layout |
 | audit_log | 3 | 0 | follows this layout |
-| auth | 3 (+4 shims) | 0 | follows this layout |
-| background_tasks | 4 (+10 shims) | 0 | follows this layout |
-| branding | 2 (+6 shims) | 0 | follows this layout |
+| auth | 3 | 0 | follows this layout |
+| background_tasks | 4 | 0 | follows this layout |
+| branding | 2 | 0 | follows this layout |
 | dashboard | 2 | 0 | follows this layout |
-| feature_flags | 3 (+1 shim) | 0 | follows this layout |
-| file_storage | 4 (+7 shims) | 0 | follows this layout |
-| keycloak | 3 (+5 shims) | 0 | follows this layout |
-| mail | 2 (+2 shims) | 0 | follows this layout |
-| oidc | 3 (+3 shims) | 0 | follows this layout |
-| permissions | 3 (+2 shims) | 0 | follows this layout |
-| settings | 4 (+8 shims, +3 deprecated re-exports) | 0 | follows this layout |
-| sharing | 3 (+3 shims) | 0 | follows this layout |
-| site_lock | 2 (+1 shim) | 0 | follows this layout |
-| tenants | 3 (+6 shims) | 0 | follows this layout |
-| users | 3 (+7 shims) | 0 | follows this layout |
+| feature_flags | 3 | 0 | follows this layout |
+| file_storage | 4 | 0 | follows this layout |
+| keycloak | 3 | 0 | follows this layout |
+| mail | 2 | 0 | follows this layout |
+| oidc | 3 | 0 | follows this layout |
+| permissions | 3 | 0 | follows this layout |
+| settings | 4 | 0 | follows this layout |
+| sharing | 3 | 0 | follows this layout |
+| site_lock | 2 | 0 | follows this layout |
+| tenants | 3 | 0 | follows this layout |
+| users | 3 | 0 | follows this layout |

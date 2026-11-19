@@ -61,8 +61,10 @@ class RequestHooksMixin:
     def register_middleware(self, app: FastAPI) -> None:
         """Add middleware to the application.
 
-        Called after core middleware (session, security headers) positioning
-        is established but before the app starts.
+        ``app.add_middleware`` keeps the default tier, outside Tenant/Locale.
+        ``simple_module_hosting.add_middleware(app, cls, after="tenant")``
+        runs inside both; ``stage="before_session"`` runs outside Session.
+        The hook signature and dependency/LIFO ordering remain unchanged.
         """
 
     def register_exception_handlers(self, app: FastAPI) -> None:

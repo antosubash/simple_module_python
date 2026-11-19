@@ -1,7 +1,7 @@
 # --- background_tasks ----------------------------------------------------
 .PHONY: worker beat worker-docker
 
-worker:                     ## Run a Celery worker locally against $(SM_BG_TASKS_BROKER_URL)
+worker:                     ## Run a Celery worker locally against $(SM_REDIS_URL)
 	uv run celery -A scripts.run_worker:celery worker -l info
 
 beat:                       ## Run the Celery beat scheduler locally

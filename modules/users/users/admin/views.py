@@ -18,7 +18,7 @@ from starlette.responses import RedirectResponse
 from users.admin.linked_sign_ins import linked_sign_ins_for
 from users.admin.recent_activity import recent_activity_for
 from users.admin.service import UserService
-from users.core.constants import PERM_USERS_MANAGE, sanitize_list_filters
+from users.core.constants import Permissions, sanitize_list_filters
 from users.core.exceptions import UserNotFoundError
 from users.core.roles_cache import get_roles_cache
 from users.mailer import mailer_delivers
@@ -43,7 +43,7 @@ async def _roles_payload(app) -> list[dict[str, str]]:
 @router.get(
     "/",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def admin_index(
     request: Request,
@@ -106,7 +106,7 @@ async def admin_index(
 @router.get(
     "/add",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def admin_add_people_page(
     request: Request,
@@ -146,7 +146,7 @@ async def admin_add_people_page(
 @router.get(
     "/invite",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def admin_invite_redirect() -> RedirectResponse:
     """Old invite URL — the flow merged into /admin/users/add."""
@@ -156,7 +156,7 @@ async def admin_invite_redirect() -> RedirectResponse:
 @router.get(
     "/create",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def admin_create_redirect() -> RedirectResponse:
     """Old create URL — the flow merged into /admin/users/add."""
@@ -166,7 +166,7 @@ async def admin_create_redirect() -> RedirectResponse:
 @router.get(
     "/{user_id}",
     response_model=None,
-    dependencies=[Depends(RequiresPermission(PERM_USERS_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def admin_edit_page(
     user_id: str,

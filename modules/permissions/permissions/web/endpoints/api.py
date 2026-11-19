@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from simple_module_hosting.permissions import RequiresPermission
 
 from permissions.contracts.schemas import (
     PermissionGroupOut,
@@ -13,10 +14,9 @@ from permissions.contracts.schemas import (
     UserPermissionsOut,
     UserPermissionsUpdate,
 )
-from permissions.core.constants import PERM_MANAGE, PERM_VIEW
+from permissions.core.constants import Permissions
 from permissions.core.service import PermissionService
 from permissions.web.deps import (
-    RequiresPermission,
     assigned_by,
     get_permission_service,
 )
@@ -27,7 +27,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=list[PermissionGroupOut],
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def list_registered(
     service: PermissionService = Depends(get_permission_service),
@@ -42,7 +42,7 @@ async def list_registered(
 @router.get(
     "/roles/{role_id}",
     response_model=RolePermissionsOut,
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def get_role_permissions(
     role_id: uuid.UUID,
@@ -57,7 +57,7 @@ async def get_role_permissions(
 @router.put(
     "/roles/{role_id}",
     response_model=RolePermissionsOut,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def set_role_permissions(
     role_id: uuid.UUID,
@@ -77,7 +77,7 @@ async def set_role_permissions(
 @router.get(
     "/users/{user_id}",
     response_model=UserPermissionsOut,
-    dependencies=[Depends(RequiresPermission(PERM_VIEW))],
+    dependencies=[Depends(RequiresPermission(Permissions.VIEW))],
 )
 async def get_user_permissions(
     user_id: uuid.UUID,
@@ -92,7 +92,7 @@ async def get_user_permissions(
 @router.put(
     "/users/{user_id}",
     response_model=UserPermissionsOut,
-    dependencies=[Depends(RequiresPermission(PERM_MANAGE))],
+    dependencies=[Depends(RequiresPermission(Permissions.MANAGE))],
 )
 async def set_user_permissions(
     user_id: uuid.UUID,

@@ -22,6 +22,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from simple_module_core._module_conventions import get_module_package_name
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ def find_expression_indexes(tables: Iterable[Any]) -> list[tuple[str, str]]:
 
 def module_all_tables(mod: ModuleBase) -> list[Any]:
     """Every table declared in the module's ``models`` submodule."""
-    pkg = type(mod).__module__.rsplit(".", 1)[0]
+    pkg = get_module_package_name(mod)
     try:
         models = importlib.import_module(f"{pkg}.models")
     except ModuleNotFoundError:

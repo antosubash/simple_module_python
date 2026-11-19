@@ -38,15 +38,14 @@ delivery guarantees wants a Celery task, not this.
 from __future__ import annotations
 
 import inspect
-import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from simple_module_core._invalidation_message import WIRE_VERSION, Invalidation
+
 logger = logging.getLogger(__name__)
-_decode_failure_warned = False
 
 __all__ = [
     "WIRE_VERSION",
@@ -56,77 +55,11 @@ __all__ = [
     "InvalidationTransport",
 ]
 
-WIRE_VERSION = 1
-"""Bumped when :meth:`Invalidation.to_wire` changes shape.
-
-A message carrying any other version is dropped rather than guessed at, so a
-rolling deploy in which half the workers run new code degrades to "no
-cross-process invalidation between the two halves" instead of to a decode
-exception in the listener loop.
-"""
+RECENT_MESSAGE_LIMIT = 1024
 
 type InvalidationHandler = Callable[["Invalidation"], Awaitable[None] | None]
 """Sync or async. The caches this exists for are plain dicts, so demanding
 ``async def`` for a one-line ``pop`` would be ceremony."""
-
-
-@dataclass(frozen=True, slots=True)
-class Invalidation:
-    """One "this cached thing changed" notice.
-
-    Deliberately not a :class:`~simple_module_core.events.Event`: a domain event
-    describes something that happened in the business ("an order was placed")
-    and its handlers may do anything, while this describes something that
-    stopped being true in a *cache* and its handlers may only forget. Sharing
-    the type would invite a handler that writes to the database on a message
-    that carries no delivery guarantee.
-    """
-
-    #: Who cares. Convention is ``<module>.<cache>`` — ``users.session_version``.
-    channel: str
-    #: Which entry, or ``None`` for "the whole channel". A string because it has
-    #: to survive JSON; a consumer keyed by something else converts on the way
-    #: back in (see ``users.accounts.session_revocation``).
-    key: str | None = None
-    #: The publishing process's :attr:`InvalidationBus.origin`. Lets a bus
-    #: ignore its own broadcast coming back off the transport, which it has
-    #: already applied locally.
-    origin: str = ""
-
-    def to_wire(self) -> str:
-        """JSON, because a transport is free to be anything that moves text."""
-        return json.dumps(
-            {"v": WIRE_VERSION, "channel": self.channel, "key": self.key, "origin": self.origin}
-        )
-
-    @classmethod
-    def from_wire(cls, message: str | bytes) -> Invalidation | None:
-        """Parse a wire message, or ``None`` when it isn't one of ours.
-
-        Returns rather than raises on anything unexpected. A Redis database is
-        routinely shared — with another app, with a stray ``redis-cli publish``,
-        with the previous version of this code — and a listener loop that dies
-        on one malformed payload takes cross-process invalidation down for the
-        life of the process. Decode exceptions warn once per process with a
-        traceback; unsupported shapes remain ordinary shared-database traffic.
-        """
-        try:
-            data = json.loads(message)
-            if not isinstance(data, dict) or data.get("v") != WIRE_VERSION:
-                logger.debug("Ignoring invalidation message with unknown shape: %r", message)
-                return None
-            channel = data["channel"]
-            key = data.get("key")
-            if not isinstance(channel, str) or not isinstance(key, str | None):
-                logger.debug("Ignoring invalidation message with bad field types: %r", message)
-                return None
-            return cls(channel=channel, key=key, origin=str(data.get("origin") or ""))
-        except Exception:
-            global _decode_failure_warned
-            if not _decode_failure_warned:
-                _decode_failure_warned = True
-                logger.warning("Ignoring undecodable invalidation message", exc_info=True)
-            return None
 
 
 @runtime_checkable
@@ -162,6 +95,7 @@ class InvalidationBus:
         self.origin = origin or uuid.uuid4().hex
         self._handlers: dict[str, list[InvalidationHandler]] = {}
         self._transport: InvalidationTransport | None = None
+        self._recent_ids: dict[tuple[str, str], None] = {}
 
     # ── subscription ───────────────────────────────────────
 
@@ -184,17 +118,14 @@ class InvalidationBus:
     def set_transport(self, transport: InvalidationTransport) -> None:
         """Install the shared backend.
 
-        Replacing one is almost certainly a mistake, so it says so. The bus can
-        only forget the old transport's reference — it cannot stop the listener
-        that transport is running, and two live listeners on one channel deliver
-        every remote message to this bus twice. Whoever owns the transport has to
-        ``stop()`` the old one; ``background_tasks`` does that in ``on_shutdown``.
+        The owner must stop the old listener; replacing this reference cannot
+        release its resources. ``background_tasks`` does that in ``on_shutdown``.
         """
         if self._transport is not None:
             logger.warning(
                 "Replacing invalidation transport %s with %s — the old one's listener "
                 "is not stopped by this call and will keep delivering, so every remote "
-                "message will be applied twice",
+                "legacy message may be applied twice",
                 type(self._transport).__name__,
                 type(transport).__name__,
             )
@@ -222,7 +153,7 @@ class InvalidationBus:
         outright failure. Logged at error, because the operator needs to know
         the fan-out is silently degraded to per-process.
         """
-        invalidation = Invalidation(channel=channel, key=key, origin=self.origin)
+        invalidation = Invalidation(channel, key, self.origin, uuid.uuid4().hex)
         await self._dispatch(invalidation)
         transport = self._transport
         if transport is None:
@@ -242,13 +173,21 @@ class InvalidationBus:
         Called by the transport. Messages this process published are dropped —
         :meth:`publish` already ran the handlers, and running them twice would
         be harmless for a ``pop`` but is not a property a handler should have to
-        have.
+        have. Recent message IDs also suppress duplicate bridge deliveries.
         """
         invalidation = Invalidation.from_wire(message)
         if invalidation is None:
             return
         if invalidation.origin and invalidation.origin == self.origin:
             return
+        if invalidation.message_id:
+            identity = (invalidation.origin, invalidation.message_id)
+            if identity in self._recent_ids:
+                return
+            # Record before dispatch: async handlers may yield to another delivery.
+            self._recent_ids[identity] = None
+            if len(self._recent_ids) > RECENT_MESSAGE_LIMIT:
+                del self._recent_ids[next(iter(self._recent_ids))]
         await self._dispatch(invalidation)
 
     async def _dispatch(self, invalidation: Invalidation) -> None:

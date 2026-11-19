@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.resources
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
@@ -14,22 +12,27 @@ from simple_module_core.public_routes import PublicRouteRegistry
 from keycloak.core.constants import PUBLIC_PATH_PREFIXES
 
 if TYPE_CHECKING:
-    from fastapi import APIRouter, FastAPI
+    from fastapi import FastAPI
 
 _MODULE_DEPENDENCY_AUTH = "Auth"
 _MODULE_DEPENDENCY_SETTINGS = "Settings"
 
 
 class KeycloakModule(ModuleBase):
+    def register_principal_builder(self, registry) -> None:
+        from keycloak.identity.directory import KeycloakDirectory
+
+        registry.directory = KeycloakDirectory()
+
     meta = ModuleMeta(
         name="Keycloak",
+        provides_auth=True,
         route_prefix="/api/keycloak",
         view_prefix="/keycloak",
         depends_on=[_MODULE_DEPENDENCY_AUTH],
         # Ordering only: settings registration is the framework's (#500).
         optional_depends_on=[_MODULE_DEPENDENCY_SETTINGS],
     )
-    _is_auth_provider = True
 
     def register_settings(self, app: FastAPI) -> None:
         from keycloak.core.settings import KeycloakSettings
@@ -48,11 +51,15 @@ class KeycloakModule(ModuleBase):
         )
 
         # Other modules read accounts through the directory (GH #501).
+        from simple_module_core.role_directory import MappedRoleDirectory, set_role_directory
         from simple_module_core.user_directory import set_user_directory
 
         from keycloak.identity.directory import KeycloakDirectory
 
         set_user_directory(app, KeycloakDirectory())
+        set_role_directory(
+            app, MappedRoleDirectory(lambda: app.state.keycloak.settings.role_mapping)
+        )
 
     def register_public_routes(self, registry: PublicRouteRegistry) -> None:
         for prefix in PUBLIC_PATH_PREFIXES:
@@ -71,13 +78,6 @@ class KeycloakModule(ModuleBase):
             )
         )
 
-    def register_routes(self, api_router: APIRouter, view_router: APIRouter) -> None:
-        from keycloak.web.endpoints.api import router as api
-        from keycloak.web.endpoints.views import router as views
-
-        api_router.include_router(api)
-        view_router.include_router(views)
-
     async def on_startup(self, app: FastAPI) -> None:
         from keycloak.identity.jwks import JWKSCache
 
@@ -93,6 +93,3 @@ class KeycloakModule(ModuleBase):
             )
             provider = app.state.auth.auth_provider
             provider.jwks_cache = state.jwks_cache
-
-    def locale_dirs(self) -> dict[str, Path]:
-        return {"keycloak": Path(str(importlib.resources.files(__package__) / "locales"))}

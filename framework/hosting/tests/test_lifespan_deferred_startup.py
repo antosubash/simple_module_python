@@ -39,7 +39,7 @@ async def _boot(app, modules, *, is_current: bool, first_run: bool):
     status = {"is_current": is_current, "pending_count": 0 if is_current else 1}
     with (
         patch("simple_module_hosting._lifespan.migration_status", AsyncMock(return_value=status)),
-        patch("simple_module_hosting._lifespan._is_first_run", AsyncMock(return_value=first_run)),
+        patch("simple_module_hosting._lifespan.is_first_run", AsyncMock(return_value=first_run)),
         patch("simple_module_hosting._lifespan.hydrate_settings_from_db", AsyncMock()),
     ):
         async with build_lifespan(modules)(app):
@@ -62,7 +62,7 @@ async def test_failing_hook_is_deferred_then_replayed_on_unmigrated_first_run():
             patch(
                 "simple_module_hosting._lifespan.migration_status", AsyncMock(return_value=status)
             ),
-            patch("simple_module_hosting._lifespan._is_first_run", AsyncMock(return_value=True)),
+            patch("simple_module_hosting._lifespan.is_first_run", AsyncMock(return_value=True)),
         ):
             async with build_lifespan([good, bad])(app):
                 await capture(app)

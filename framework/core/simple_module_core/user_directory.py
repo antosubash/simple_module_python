@@ -86,8 +86,24 @@ class UserDirectory(Protocol):
         """
         ...
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
-        """Users whose name or email contains *term* (all users when empty)."""
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
+        """Users matching *term*, with every filter applied before *limit*.
+
+        ``include_ids=None`` is unrestricted; an empty collection matches nobody.
+        ``active_only`` excludes disabled accounts too. ``exact_email`` matches
+        only the complete email (case insensitive), never a name or substring.
+        Defaults preserve the unrestricted name/email search.
+        """
         ...
 
     def match_ids(self, term: str) -> Any | None:
@@ -114,7 +130,17 @@ class NullUserDirectory:
     ) -> dict[str, DirectoryUser]:
         return {}
 
-    async def search(self, db: Any, term: str | None, *, limit: int) -> list[DirectoryUser]:
+    async def search(
+        self,
+        db: Any,
+        term: str | None,
+        *,
+        limit: int,
+        include_ids: Collection[str] | None = None,
+        exclude_ids: Collection[str] = (),
+        active_only: bool = False,
+        exact_email: bool = False,
+    ) -> list[DirectoryUser]:
         return []
 
     def match_ids(self, term: str) -> Any | None:

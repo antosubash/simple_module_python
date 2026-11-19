@@ -113,12 +113,16 @@ class TestProviderIsRegistered:
 
 class TestHomeUrlSharedProp:
     def test_reflects_login_redirect_url(self) -> None:
-        request = _request(SimpleNamespace(settings=SimpleNamespace(login_redirect_url="/home/")))
+        request = _request(SimpleNamespace())
+        request.app.state.host = SimpleNamespace(
+            settings=SimpleNamespace(login_redirect_url="/home/")
+        )
         assert users_shared_props(request)["homeUrl"] == "/home/"
 
     def test_tracks_runtime_edits(self) -> None:
         settings = SimpleNamespace(login_redirect_url="/a/")
-        request = _request(SimpleNamespace(settings=settings))
+        request = _request(SimpleNamespace())
+        request.app.state.host = SimpleNamespace(settings=settings)
         settings.login_redirect_url = "/b/"
         assert users_shared_props(request)["homeUrl"] == "/b/"
 

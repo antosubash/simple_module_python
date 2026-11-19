@@ -13,7 +13,7 @@ from file_storage.backends import (
     registered_backends,
     unregister_backend,
 )
-from file_storage.contracts.service import ConfigurationError, StorageBackend
+from file_storage.contracts import ConfigurationError, NotSupportedError, StorageBackend
 from file_storage.core import constants
 from file_storage.core.settings import FileStorageSettings
 
@@ -47,7 +47,7 @@ class _DummyBackend:
     async def presigned_get_url(
         self, key: str, ttl_seconds: int, **_: str | None
     ) -> str:  # pragma: no cover
-        raise NotImplementedError
+        raise NotSupportedError
 
 
 def test_builtin_backends_are_registered():

@@ -131,10 +131,10 @@ class TestLoginPage:
         Assigning the attribute here would bypass pydantic and test nothing,
         so this goes through the real path.
         """
-        from users.core.settings import UsersSettings
+        from simple_module_hosting.host_settings import HostSettings
 
         app = anon_client._transport.app
-        app.state.users.settings = UsersSettings(login_redirect_url="")
+        app.state.host.settings = HostSettings(login_redirect_url="")
         resp = await anon_client.get(
             "/users/login",
             headers={"X-Inertia": "true", "X-Inertia-Version": "1.0"},
@@ -281,15 +281,13 @@ async def test_login_redirect_fallback_without_dashboard(users_app):
     no_dash = tuple(m for m in original if m.meta.name != "Dashboard")
     assert len(no_dash) < len(original), "test setup: Dashboard should exist"
 
-    settings = users_app.state.users.settings
+    settings = users_app.state.host.settings
     settings.login_redirect_url = "/dashboard/"
     object.__setattr__(sm, "modules", no_dash)
     try:
-        from users.module import UsersModule
+        from simple_module_hosting.auth_policy import login_redirect_url
 
-        mod = UsersModule()
-        await mod.on_startup(users_app)
-        url = settings.login_redirect_url
+        url = login_redirect_url(users_app, "Users")
         assert url != "/", "must not fall back to / (may 404)"
         assert url.startswith("/"), "must be an absolute path"
         assert url.endswith("/"), "must have trailing slash"

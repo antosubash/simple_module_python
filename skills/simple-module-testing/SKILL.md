@@ -103,7 +103,7 @@ make test-e2e                         # in another terminal
 
 Env vars they read (defaults in parens): `E2E_BASE_URL` (`http://localhost:8000`), `E2E_USERNAME` (`admin@example.com`), `E2E_PASSWORD` (`admin`), `E2E_USER_ID` (optional — enables the password-reset test).
 
-Token-minting helpers in `tests/e2e/conftest.py` use the same `SM_USERS_VERIFICATION_TOKEN_SECRET` as the server, so you don't need to scrape the console mail log to grab a verify link.
+Token-minting helpers in `tests/e2e/conftest.py` derive keys from the same explicit `SM_SECRET_KEY` as the server (token-minting tests skip without it), so you don't need to scrape the console mail log to grab a verify link.
 
 ## Module-test layout
 
@@ -117,9 +117,15 @@ modules/orders/
     └── web/crud/test_orders_crud.py  # imports orders.web.service
 ```
 
-Tests mirror `tests/<area>/<feature>/`, have no `__init__.py`, and use globally
-unique `test_<module>_*.py` basenames. Keep shared fixtures at `modules/<name>/tests/conftest.py`.
+Tests mirror `tests/<area>/<feature>/` and have no `__init__.py`. The plugin
+defaults to importlib mode, so `test_*.py` basenames may repeat. Keep shared fixtures at `modules/<name>/tests/conftest.py`.
 Pytest recurses from the tests root; JS tests stay in `tests-js/`.
+
+The plugin ignores project dotenv files; leave `.env` in place. Exported environment
+variables still apply. Add support directories explicitly to pytest's `pythonpath` for
+plain helper imports and `pytest_plugins`. To enforce layout, call the public
+`simple_module_test.assert_module_layout(project_dir, package_name)` helper from a test;
+pass `domain_areas` for named domain directories.
 
 The directory must be listed in the root `pyproject.toml` under `[tool.pytest.ini_options].testpaths` for `make test` to pick it up. Both `smpy create-module` and `make new-module name=<name>` add this entry (via `simple_module_cli.framework_repo.update_root_pyproject`); if you scaffolded a module by hand, add it.
 

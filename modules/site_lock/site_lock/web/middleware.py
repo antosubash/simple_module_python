@@ -18,6 +18,7 @@ import secrets
 from urllib.parse import quote
 
 from simple_module_core.app_state import get_auth_provider
+from simple_module_core.redirect_safety import safe_next
 from simple_module_hosting.path_matching import matches_path, validated_prefixes
 from starlette.requests import Request
 from starlette.responses import (
@@ -29,7 +30,7 @@ from starlette.responses import (
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from site_lock.core import constants as c
-from site_lock.web.page import render_unlock_page, safe_next
+from site_lock.web.page import render_unlock_page
 
 logger = logging.getLogger(__name__)
 

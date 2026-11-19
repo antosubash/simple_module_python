@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
-import { keys, useT } from '@simple-module-py/i18n';
+import { useT } from '@simple-module-py/i18n';
+import { keys } from './i18n.generated';
 import { PageShell } from '@simple-module-py/ui/components/PageShell';
 import { AuthenticatedLayout } from '@simple-module-py/ui/layouts/AuthenticatedLayout';
 import type { components } from './api.generated';

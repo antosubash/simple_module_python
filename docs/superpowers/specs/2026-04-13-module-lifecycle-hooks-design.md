@@ -245,7 +245,7 @@ This is a warning (not an error) — a module might legitimately override `regis
    8. register_menu_items(registry)
    9. register_permissions(registry)
   10. register_feature_flags(registry)
-  11. register_event_handlers(bus)
+  11. register_event_handlers(bus, app)
   12. register_health_checks(registry)
 
  Phase 5: Database

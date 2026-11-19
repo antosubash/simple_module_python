@@ -54,4 +54,4 @@ def test_make_build_generates_i18n_keys_first() -> None:
     for layout in ("workspace", "host"):
         text = (_TEMPLATES / layout / "Makefile").read_text(encoding="utf-8")
         build = re.search(r"^build:(.*)$", text, re.MULTILINE)
-        assert build and "gen-i18n" in build.group(1), layout
+        assert build and "gen" in build.group(1), layout

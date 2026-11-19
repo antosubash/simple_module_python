@@ -86,11 +86,13 @@ class TestPrintDiagnostics:
         assert "SM001" in captured.err
         assert "Results: 1 error(s)" in captured.err
 
-    async def test_empty_is_quiet(self, capsys):
+    async def test_empty_logs_success_without_printing(self, capsys, caplog):
+        caplog.set_level("INFO", logger="simple_module_core.diagnostics._runner")
         print_diagnostics([])
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
+        assert "✓ No module diagnostics issues found" in caplog.messages
 
 
 class TestAuthProviderDiagnostics:
@@ -99,12 +101,10 @@ class TestAuthProviderDiagnostics:
         from simple_module_core.module import ModuleBase, ModuleMeta
 
         class FakeUsers(ModuleBase):
-            meta = ModuleMeta(name="Users")
-            _is_auth_provider = True
+            meta = ModuleMeta(name="Users", provides_auth=True)
 
         class FakeKeycloak(ModuleBase):
-            meta = ModuleMeta(name="Keycloak")
-            _is_auth_provider = True
+            meta = ModuleMeta(name="Keycloak", provides_auth=True)
 
         diags = ModuleDiagnostics()
         results = diags._check_auth_provider_conflict([FakeUsers(), FakeKeycloak()])
@@ -130,8 +130,7 @@ class TestAuthProviderDiagnostics:
         from simple_module_core.module import ModuleBase, ModuleMeta
 
         class FakeUsers(ModuleBase):
-            meta = ModuleMeta(name="Users")
-            _is_auth_provider = True
+            meta = ModuleMeta(name="Users", provides_auth=True)
 
         class FakeDashboard(ModuleBase):
             meta = ModuleMeta(name="Dashboard")

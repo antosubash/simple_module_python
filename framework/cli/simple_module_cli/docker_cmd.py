@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
+from yaml.nodes import MappingNode, ScalarNode
 
 from simple_module_cli.docker_assets import _read, _template_root
 
@@ -14,9 +16,7 @@ _ENCODING = "utf-8"
 _DEFAULT_BASE = "python:3.12-slim-bookworm"
 _NAME = r"[a-z][a-z0-9-]{0,40}"
 _IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]*"
-_QUEUES = rf"{_IDENTIFIER}(?:,{_IDENTIFIER})*"
-_MODULE = rf"{_IDENTIFIER}(?:\.{_IDENTIFIER})*"
-_MODULES = rf"{_MODULE}(?:,{_MODULE})*"
+_IDENTIFIERS = rf"{_IDENTIFIER}(?:,{_IDENTIFIER})*"
 _APT = r"[a-z0-9][a-z0-9+.-]*"
 _EXTRA = r"[A-Za-z_][A-Za-z0-9_-]*"
 _BASE = (
@@ -25,10 +25,12 @@ _BASE = (
     r"(?::[A-Za-z0-9_][A-Za-z0-9_.-]*)?(?:@sha256:[a-f0-9]{64})?"
 )
 _COMPOSE_FILES = ("compose.yml", "docker-compose.yml")
-_WORKER = re.compile(r"^  worker:\n(?P<body>(?: {4}[^\n]*\n|\n)*)", re.MULTILINE)
+_WORKER = re.compile(
+    r"^  worker:\n(?P<body>(?:(?: {4}[^\n]*|[ \t]*(?:#[^\n]*)?)\n)*)", re.MULTILINE
+)
 _COMMAND_BLOCK = re.compile(r"^    command:\n(?:      [^\n]*\n)*", re.MULTILINE)
 _BUILD_BLOCK = re.compile(r"^    build:\n(?:      [^\n]*\n)*", re.MULTILINE)
-_ENV_HEADER = "    environment:\n"
+_ENV_HEADER = re.compile(r"^    environment:[ \t]*(?:#[^\n]*)?\n", re.MULTILINE)
 _INCLUDE = re.compile(r"^include:[ \t]*(?:#[^\n]*)?$", re.MULTILINE)
 _INCLUDE_ANY = re.compile(r"^include:", re.MULTILINE)
 _MARKER = "  # smpy worker-{name}"
@@ -41,10 +43,8 @@ _APT_FLAG = " \\\n    && apt-get install -y --no-install-recommends "
 _EXTRA_FLAG = " --extra "
 _EMPTY = ""
 _NEWLINE = "\n"
-_ENV_VALUES = (
-    '      SM_BG_TASKS_WORKER_QUEUES: "{queues}"\n'
-    '      SM_BG_TASKS_WORKER_INCLUDE_MODULES: "{modules}"\n'
-)
+_QUEUES_ENV = "SM_BG_TASKS_WORKER_QUEUES"
+_INCLUDE_MODULES_ENV = "SM_BG_TASKS_INCLUDE_MODULES"
 _BUILD_VALUES = "    build:\n      context: .\n      dockerfile: {dockerfile}\n"
 
 docker_app = typer.Typer(help="Manage Docker worker images.", no_args_is_help=True)
@@ -78,6 +78,73 @@ def _include_worker(content: str, name: str) -> str:
     return "include:\n" + entry + _NEWLINE + content
 
 
+def _replace_worker_environment(body: str, queues: str, modules: str) -> str:
+    mapping_error = "Existing worker environment must use a block mapping (KEY: value)."
+    try:
+        worker = yaml.compose(body, Loader=yaml.SafeLoader)
+    except yaml.YAMLError as exc:
+        raise typer.BadParameter(
+            "Cannot copy worker environment: the worker must be valid YAML with local anchors."
+        ) from exc
+    if not isinstance(worker, MappingNode):
+        raise typer.BadParameter(mapping_error)
+    environments = [
+        (key, value)
+        for key, value in worker.value
+        if isinstance(key, ScalarNode) and key.value == "environment"
+    ]
+    if len(environments) != 1:
+        raise typer.BadParameter(mapping_error)
+    env_key, env = environments[0]
+    mark = env_key.start_mark
+    header = _ENV_HEADER.match(body, mark.index - mark.column)
+    if header is None:
+        raise typer.BadParameter(mapping_error)
+    if (
+        isinstance(env, MappingNode)
+        and not env.flow_style
+        and body[env.start_mark.index] not in "&!"
+    ):
+        entries = env.value
+        indent = env.start_mark.column
+    elif isinstance(env, ScalarNode) and env.value == "" and env.start_mark.index < header.end():
+        entries, indent = [], 6
+    else:
+        raise typer.BadParameter(mapping_error)
+
+    overrides = {_QUEUES_ENV: queues}
+    if modules:
+        overrides[_INCLUDE_MODULES_ENV] = modules
+    # Edit only whole entry lines so unrelated YAML and comments keep their original syntax.
+    lines = body.splitlines(keepends=True)
+    for key, value in entries:
+        if not isinstance(key, ScalarNode) or key.tag == "tag:yaml.org,2002:merge":
+            raise typer.BadParameter(mapping_error)
+        if key.value not in overrides:
+            continue
+        start, end = key.start_mark, value.end_mark
+        separator = body[key.end_mark.index : value.start_mark.index]
+        bare = isinstance(value, ScalarNode) and value.value == "" and value.style is None
+        if (
+            not isinstance(value, ScalarNode)
+            or value.style in ("|", ">")
+            or start.column != indent
+            or start.line != end.line
+            or not re.fullmatch(r"[ \t]*:[ \t]*" if bare else r"[ \t]*:[ \t]+", separator)
+            or body[start.index] in "&!"
+            or body[value.start_mark.index] in "&!"
+        ):
+            raise typer.BadParameter(
+                f"Worker environment entry {key.value} must be a simple KEY: value line."
+            )
+        lines[start.line] = _EMPTY
+    insert_at = mark.line + 1
+    lines[insert_at:insert_at] = [
+        f'{" " * indent}{key}: "{value}"\n' for key, value in overrides.items()
+    ]
+    return _EMPTY.join(lines)
+
+
 @docker_app.command(_COMMAND)
 def add_worker(
     name: Annotated[str, typer.Argument(help="Worker image name.")],
@@ -92,7 +159,7 @@ def add_worker(
         list[str] | None, typer.Option("--extras", help="Repeat for each uv extra.")
     ] = None,
     modules: Annotated[
-        str, typer.Option("--modules", help="Comma-separated Python module paths.")
+        str, typer.Option("--modules", help="Comma-separated top-level Python package names.")
     ] = _EMPTY,
     force: Annotated[
         bool, typer.Option("--force", help="Replace an existing worker image.")
@@ -100,10 +167,13 @@ def add_worker(
 ) -> None:
     """Generate a worker image and include its service in the project Compose file."""
     _validate(name, _NAME, "name")
-    _validate(queues, _QUEUES, "queues")
+    _validate(queues, _IDENTIFIERS, "queues")
     _validate(base, _BASE, "base image")
-    if modules:
-        _validate(modules, _MODULES, "modules")
+    if modules and re.fullmatch(_IDENTIFIERS, modules) is None:
+        raise typer.BadParameter(
+            "Invalid --modules: use top-level Python package names (e.g. geo,other).",
+            param_hint="--modules",
+        )
     for package in apt or []:
         _validate(package, _APT, "apt package")
     for extra in extras or []:
@@ -130,15 +200,11 @@ def add_worker(
             "Compose must contain an existing worker service to copy its wiring."
         )
     body = worker.group("body")
-    if not _BUILD_BLOCK.search(body) or _ENV_HEADER not in body:
-        raise typer.BadParameter(
-            "Existing worker must have block-style build and environment mappings."
-        )
+    if not _BUILD_BLOCK.search(body):
+        raise typer.BadParameter("Existing worker must have a block-style build mapping.")
+    body = _replace_worker_environment(body, queues, modules)
     body = _COMMAND_BLOCK.sub(_EMPTY, body)
     body = _BUILD_BLOCK.sub(_BUILD_VALUES.format(dockerfile=dockerfile), body)
-    body = body.replace(
-        _ENV_HEADER, _ENV_HEADER + _ENV_VALUES.format(queues=queues, modules=modules)
-    )
     updated = _include_worker(content, name)
     values = {
         "NAME": name,

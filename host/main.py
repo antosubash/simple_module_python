@@ -1,43 +1,32 @@
 """SimpleModule Host — entry point."""
 
-import os
-from pathlib import Path
+from simple_module_hosting.host import build_host_app
 
-from simple_module_core.dotenv import load_dotenv_into_environ
+app = build_host_app(__file__, routers=("host.routes:router",))
 
-# Publish ``SM_PROJECT_ROOT`` and merge ``.env`` into ``os.environ`` *before*
-# any settings import so framework code reading ``os.environ.get("SM_…")``
-# directly (not via pydantic-settings) sees the same values pydantic does —
-# keeping precedence (real env wins) consistent across the web process, the
-# worker, and one-shot scripts.
-os.environ.setdefault("SM_PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))
-load_dotenv_into_environ(Path(os.environ["SM_PROJECT_ROOT"]) / ".env")
-
-from simple_module_hosting import create_app, merge_host_settings  # noqa: E402
-from simple_module_hosting.logging import setup_logging  # noqa: E402
+from simple_module_core.menu import MenuItem, MenuSection  # noqa: E402
 
 from host.e2e_inertia import mount_if_development as mount_e2e_inertia_if_development  # noqa: E402
-from host.routes import router as host_router  # noqa: E402
-from host.routes_legacy import router as legacy_router  # noqa: E402
 
-# merge_host_settings, not Settings(): log_level and the rest of the host
-# knobs live in the DB now. create_app falls back to this when passed no
-# settings, but it is passed settings here — so the read has to happen at
-# this call site or it never happens in the real host at all.
-settings = merge_host_settings()
-
-setup_logging(
-    level=settings.log_level,
-    json_format=settings.log_format == "json",
+repo_url = "https://github.com/antosubash/simple_module_python"
+app.state.sm.menu_registry.add_many(
+    [
+        MenuItem(
+            label=label,
+            label_key=f"ui.public_nav.{label_key}",
+            url=url,
+            section=MenuSection.NAVBAR,
+            requires_auth=False,
+        )
+        for label, label_key, url in (
+            ("Docs", "docs", f"{repo_url}#readme"),
+            ("Modules", "modules", f"{repo_url}/tree/main/modules"),
+            ("GitHub", "github", repo_url),
+        )
+    ]
 )
-
-app = create_app(settings)
-app.include_router(host_router)
 # Fixture pages for tests/e2e/inertia/; development only.
-mount_e2e_inertia_if_development(app, settings)
-# Mounted last: its catch-all {path:path} routes must not shadow a real
-# route that happens to share a legacy prefix.
-app.include_router(legacy_router)
+mount_e2e_inertia_if_development(app, app.state.sm.settings)
 
 if __name__ == "__main__":
     import uvicorn
@@ -46,5 +35,5 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=settings.is_development,
+        reload=app.state.sm.settings.is_development,
     )

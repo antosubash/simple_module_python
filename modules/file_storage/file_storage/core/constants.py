@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from typing import Final
 
+from simple_module_core.permissions import PermissionCatalogue
+
 # ── Module identity ──────────────────────────────────────────────────
 # ``MODULE_NAME`` is the snake_case package name; ``MODULE_PASCAL`` matches the
 # Inertia page-prefix convention (PascalCase of the module dir). ``meta.name``
@@ -81,11 +83,13 @@ class BackendId:
     S3: Final = "s3"
 
 
-class Permission:
-    UPLOAD: Final = "file_storage.upload"
-    DOWNLOAD: Final = "file_storage.download"
-    DELETE: Final = "file_storage.delete"
-    MANAGE: Final = "file_storage.manage"
+class Permission(
+    PermissionCatalogue, group=MODULE_DISPLAY_NAME, label_key="file_storage.permission_group"
+):
+    UPLOAD = "file_storage.upload"
+    DOWNLOAD = "file_storage.download"
+    DELETE = "file_storage.delete"
+    MANAGE = "file_storage.manage"
 
 
 class Event:

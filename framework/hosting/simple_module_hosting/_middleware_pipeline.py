@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from simple_module_core.app_state import get_body_limits
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_db import CommitBeforeResponseMiddleware
 from simple_module_inertia import InertiaMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -14,11 +13,11 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from simple_module_hosting import sentry
 from simple_module_hosting._body_limit import BodyLimitMiddleware
-from simple_module_hosting._cors import CorsMiddleware, host_policy
+from simple_module_hosting._cors import CorsMiddleware
 from simple_module_hosting._forwarded_host import ForwardedHostMiddleware
 from simple_module_hosting._rate_limit import RateLimitMiddleware
-from simple_module_hosting._route_access import API_PREFIX
 from simple_module_hosting._server_timing import ServerTimingMiddleware
+from simple_module_hosting.auth_policy import session_cookie_is_secure
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_hosting.middleware import (
@@ -28,6 +27,7 @@ from simple_module_hosting.middleware import (
     SecurityHeadersMiddleware,
     TenantMiddleware,
 )
+from simple_module_hosting.middleware_config import finalize_middleware
 from simple_module_hosting.session import SessionMiddleware
 from simple_module_hosting.settings import Settings
 from simple_module_hosting.setup_gate import SetupMiddleware
@@ -64,34 +64,22 @@ def build_csp(settings: Settings, csp_registry: CspSourceRegistry) -> str:
     return csp_registry.extend_policy(base)
 
 
-def session_cookie_is_secure(settings: Settings) -> bool:
-    """Whether the session cookie carries ``Secure`` (#495).
-
-    ``session_cookie_secure`` wins when set; unset, the cookie is ``Secure``
-    everywhere but the non-prod environments, which run over plain HTTP.
-    """
-    if settings.session_cookie_secure is not None:
-        return settings.session_cookie_secure
-    return settings.environment not in NON_PROD_ENVIRONMENTS
-
-
-def install_middleware(
+def install_inner_middleware(
     app: FastAPI,
     settings: Settings,
     modules: list,
     menu_registry: MenuRegistry,
     perm_registry: PermissionRegistry,
-    csp_registry: CspSourceRegistry,
     rate_limit_store: WindowStore,
 ) -> None:
-    """Install the full middleware pipeline.
+    """Install the inner pipeline and run module middleware hooks.
 
     Order matters: last added = first executed. Execution order:
     (ForwardedHost, if trusted_proxy and forwarded_host_allowlist) →
     (ProxyHeaders, if trusted_proxy) → CorrelationId → RequestLogging →
     (ServerTiming, development only) → CORS → BodyLimit → GZip → Security →
-    Session → InertiaMiddleware → [module] →
-    (Tenant, if multi_tenant) → Locale → InertiaLayoutData →
+    [before_session] → Session → InertiaMiddleware → [default module] →
+    (Tenant, if multi_tenant or default_tenant) → Locale → [after_tenant] → InertiaLayoutData →
     RateLimit → Setup → Maintenance → CommitBeforeResponse.
     """
     # Added first, so it is innermost and its send-wrapper is the first to see
@@ -108,8 +96,7 @@ def install_middleware(
     # Auth and locale are available when rendering a rate-limit error page.
     app.add_middleware(
         RateLimitMiddleware,
-        public_rate=settings.rate_limit_public,
-        authenticated_rate=settings.rate_limit_authenticated,
+        public_rate=None,
         store=rate_limit_store,
     )
     app.add_middleware(
@@ -131,7 +118,11 @@ def install_middleware(
         app.add_middleware(TenantMiddleware, fixed=settings.default_tenant)
     for mod in modules:
         mod.register_middleware(app)
-    # Outside every module middleware and the cache guard, so it normalises
+
+
+def install_middleware(app: FastAPI, settings: Settings, csp_registry: CspSourceRegistry) -> None:
+    """Finish outer layers, then apply named stages and host overrides."""
+    # Outside the default/after_tenant stages and cache guard, so it normalises
     # the final response — including redirects a module middleware issues
     # itself (an expired session's login redirect after a DELETE must still
     # become a 303) — while Session, further out, still sees its result.
@@ -139,6 +130,7 @@ def install_middleware(
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
+        secret_key_provider=lambda: app.state.sm.settings.secret_key,
         https_only=session_cookie_is_secure(settings),
     )
     # In dev, relax CSP so the browser can fetch @vite/client, main.tsx, and
@@ -165,16 +157,13 @@ def install_middleware(
     # whole module tier: an oversized body is refused before anything reads it.
     app.add_middleware(
         BodyLimitMiddleware,
-        max_bytes=settings.max_request_body_bytes,
+        max_bytes=0,
         registry=get_body_limits(app),
     )
     # CORS executes between RequestLogging and BodyLimit: preflights are answered
     # before auth, rate limit, setup and maintenance can reject them, and a 413
     # still carries the headers. The host's ``/api/`` policy joins the modules'.
     cors_registry = app.state.cors_policies
-    api_policy = host_policy(settings)
-    if api_policy is not None:
-        cors_registry.add_prefix(API_PREFIX, api_policy)
     app.add_middleware(CorsMiddleware, registry=cors_registry)
     if settings.is_development:
         # Inside RequestLogging, outside everything that does work: its ``app``
@@ -200,3 +189,4 @@ def install_middleware(
             trusted_hosts=settings.trusted_proxy,
             allowlist=settings.forwarded_host_allowlist,
         )
+    finalize_middleware(app)

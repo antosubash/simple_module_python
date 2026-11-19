@@ -17,7 +17,10 @@ from users.models import User
 
 def build_manager(db, app):
     return UserManager(
-        UserDatabaseWithRoles(db, User), app.state.users.mailer, app.state.users.settings
+        UserDatabaseWithRoles(db, User),
+        app.state.users.mailer,
+        app.state.users.settings,
+        app.state.users.token_secrets,
     )
 
 

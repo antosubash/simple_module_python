@@ -9,7 +9,7 @@ import { type DemoAccount, DemoSignIn } from '../auth_local/components/DemoSignI
 import { LoginForm, type OAuthProvider } from '../auth_local/components/LoginForm';
 import { WaitingOnYou } from '../auth_local/components/WaitingOnYou';
 import { signIn } from '../ui/utils/signIn';
-import { api } from './api';
+import { api } from './api.generated';
 
 interface DevAccount {
   label: string;

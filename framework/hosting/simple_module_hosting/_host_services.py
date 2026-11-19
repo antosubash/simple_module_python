@@ -1,21 +1,26 @@
-"""``_HostServices`` container exposed on ``app.state.host``.
-
-Module-scope so the type is stable across ``create_app`` calls — tests
-that build multiple apps in one process can ``isinstance``-check
-``app.state.host`` against the same class object.
-"""
+"""Host settings and their compiled request policy, swapped on hydration/reload."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+from simple_module_hosting._request_policy import RequestGuardPolicy
 from simple_module_hosting.host_settings import HostSettings
 
 __all__ = ["_HostServices"]
 
 
-@dataclass
 class _HostServices:
-    """Container for host-level services exposed on ``app.state.host``."""
+    def __init__(self, settings: HostSettings) -> None:
+        self.settings = settings
 
-    settings: HostSettings
+    @property
+    def settings(self) -> HostSettings:
+        return self._current[0]
+
+    @settings.setter
+    def settings(self, settings: HostSettings) -> None:
+        # Compile before publishing: a failure leaves the previous pair intact.
+        self._current = (settings, RequestGuardPolicy.from_settings(settings))
+
+    @property
+    def request_guards(self) -> RequestGuardPolicy:
+        return self._current[1]

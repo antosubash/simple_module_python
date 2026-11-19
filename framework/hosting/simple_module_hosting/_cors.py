@@ -16,32 +16,8 @@ from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from simple_module_hosting.host_settings import HostSettings
-
-
-def host_policy(settings: HostSettings) -> CorsPolicy | None:
-    """The ``/api/`` policy from ``cors_*`` settings; ``None`` when no origin is set."""
-    # Every field is read even when unset: they are restart-required, and the
-    # build-time-settings guard learns that from the reads.
-    fields = (
-        settings.cors_allow_origins,
-        settings.cors_allow_credentials,
-        settings.cors_allow_methods,
-        settings.cors_allow_headers,
-        settings.cors_expose_headers,
-        settings.cors_max_age,
-    )
-    origins, credentials, methods, headers, expose, max_age = fields
-    if not origins:
-        return None
-    return CorsPolicy(
-        origins=tuple(origins),
-        allow_credentials=credentials,
-        methods=tuple(methods),
-        headers=tuple(headers),
-        expose_headers=tuple(expose),
-        max_age=max_age,
-    )
+from simple_module_hosting._request_policy import host_policy, request_policy  # noqa: F401
+from simple_module_hosting._route_access import API_PREFIX
 
 
 class CorsMiddleware:
@@ -62,14 +38,20 @@ class CorsMiddleware:
                 expose_headers=list(policy.expose_headers),
                 max_age=policy.max_age,
             )
+            if len(self._handlers) >= 32:
+                self._handlers.clear()
             self._handlers[policy] = handler
         return handler
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or len(self.registry) == 0:
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        policy = self.registry.match(scope["method"], scope["path"])
+        snapshot = request_policy(scope)
+        host = snapshot.cors if snapshot is not None else None
+        policy = self.registry.match(
+            scope["method"], scope["path"], fallback=(API_PREFIX, host) if host else None
+        )
         if policy is None:
             await self.app(scope, receive, send)
             return

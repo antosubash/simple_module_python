@@ -30,7 +30,9 @@ def test_vite_config_uses_rolldown_options() -> None:
     """`optimizeDeps.esbuildOptions` is deprecated since Vite moved to Rolldown."""
     config = (_CLIENT_APP / "vite.config.ts").read_text(encoding="utf-8")
     assert "esbuildOptions" not in config
-    assert "rolldownOptions" in config
+    assert "simpleModule(" in config
+    plugin = (_REPO_ROOT / "packages/vite-plugin/src/index.ts").read_text()
+    assert "rolldownOptions" in plugin
 
 
 @pytest.mark.parametrize("flat", [False, True])

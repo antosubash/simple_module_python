@@ -21,31 +21,38 @@ from simple_module_core.deprecation import (
 )
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
-_SHIM_MODULES = (
-    "auth.web.deps",
-    "host.routes_legacy",
-    "permissions.web.deps",
-    "settings.registration",
-    "settings.module_registry",
-    "settings.hydrate",
-    "simple_module_hosting._registrations",
-    "simple_module_core.public_routes",
-    "simple_module_core.versioning",
-    "simple_module_core.resources",
+_SHIM_MODULES: tuple[str, ...] = (
+    "simple_module_core._auth_providers",
+    "users.core.token_secrets",
+    "api_tokens.core.constants",
+    "audit_log.core.constants",
+    "background_tasks.core.constants",
+    "branding.core.constants",
+    "dashboard.core.constants",
+    "feature_flags.core.constants",
+    "permissions.core.constants",
+    "settings.core.constants",
+    "sharing.core.constants",
+    "users.core.constants",
+    "background_tasks.core.invalidation_channel",
 )
 _EXPECTED = {
-    "ResourceType.shareable_actions",
-    "auth.web.deps.require_permission",
-    "host.routes_legacy (pre-/admin view URL redirects)",
-    "permissions.web.deps.invalidate_grants_on_commit",
-    "settings.registration",
-    "settings.module_registry",
-    "settings.hydrate",
-    "AuthProvider.get_public_paths",
-    "register_event_handlers(self, bus) without the app parameter",
-    "simple_module_inertia.props.lazy",
-    "ModuleBase.register_event_handlers app=None default",
-    "ModuleMeta.requires_framework=None compatibility bypass",
+    "ModuleBase._is_auth_provider",
+    "global Redis invalidation channel bridge",
+    "Makefile SM_TEST_PG_URL fallback",
+    "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
+    "SM_USERS_VERIFICATION_TOKEN_SECRET",
+    "smpy package-update",
+    "api_tokens PERM_* constants",
+    "audit_log PERM_* constants",
+    "background_tasks PERM_* constants",
+    "branding PERM_* constants",
+    "dashboard PERM_* constants",
+    "feature_flags PERM_* constants",
+    "permissions PERM_* constants",
+    "settings PERM_* constants",
+    "sharing PERM_* constants",
+    "users PERM_* constants",
 }
 
 
@@ -71,19 +78,14 @@ def _register_all() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         for name in (*_SHIM_MODULES, *_layout_shims()):
             importlib.import_module(name)
-    # Overrides own event-hook calls, so omission cannot warn reliably at the base.
-    from simple_module_core.module import EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN
-
+    # The Makefile fallback is shell, so it is registered here (#985).
+    deprecate("Makefile SM_TEST_PG_URL fallback", remove_in="0.0.49", use="SM_TEST_DATABASE_URL")
+    # CLI alias registers on use so the standalone scaffolder needs no core dependency (#984).
+    deprecate("smpy package-update", remove_in="0.0.50", use="uv run smpy update")
+    # Read by vite.dev-url.ts (repo host and scaffold), so registered here (#983).
     deprecate(
-        "ModuleBase.register_event_handlers app=None default",
-        remove_in=EVENT_HANDLERS_OPTIONAL_APP_REMOVE_IN,
-        use="register_event_handlers(self, bus, app) with an explicit app argument",
+        "SM_VITE_PORT dev-server fallback", remove_in="0.0.49", use="smpy dev / SM_VITE_DEV_URL"
     )
-    # simple_module_inertia is standalone (no core dependency), so it exposes a
-    # constant instead of registering itself.
-    from simple_module_inertia import props
-
-    deprecate("simple_module_inertia.props.lazy", remove_in=props.LAZY_REMOVE_IN, use="optional()")
 
 
 def test_every_known_shim_is_registered() -> None:
