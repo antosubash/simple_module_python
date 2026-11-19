@@ -175,7 +175,7 @@ def bind_current_tenant[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
             finally:
                 _exit(tokens)
 
-        return run_async  # ty: ignore[invalid-return-type]
+        return run_async  # ty: ignore[invalid-explicit-return]
 
     @functools.wraps(fn)
     def run(*args: P.args, **kwargs: P.kwargs) -> R:
