@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from email import policy
+from email.parser import BytesParser
 from unittest.mock import AsyncMock
 
 import pytest
@@ -46,11 +48,15 @@ async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
 
     await _smtp().send(MailMessage(to="to@test", subject="Hi", text="Body"))
 
-    (email,), kwargs = send.call_args
+    (wire,), kwargs = send.call_args
+    email = BytesParser(policy=policy.default).parsebytes(wire)
     assert (email["From"], email["To"], email["Subject"]) == ("from@test", "to@test", "Hi")
     assert email.get_content_type() == "text/plain"
     assert email.get_content().strip() == "Body"
     assert kwargs == {
+        "sender": "from@test",
+        "recipients": ["to@test"],
+        "mail_options": [],
         "hostname": "smtp.test",
         "port": 2525,
         "username": "user",
@@ -66,7 +72,7 @@ async def test_send_adds_an_html_alternative(monkeypatch) -> None:
 
     await _smtp().send(MailMessage(to="to@test", subject="Hi", text="Body", html="<b>Body</b>"))
 
-    (email,), _ = send.call_args
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
     assert email.get_content_type() == "multipart/alternative"
     parts = {p.get_content_type(): p.get_content().strip() for p in email.iter_parts()}
     assert parts == {"text/plain": "Body", "text/html": "<b>Body</b>"}
@@ -83,13 +89,10 @@ async def test_send_adds_an_html_alternative(monkeypatch) -> None:
     ],
 )
 async def test_smtp_reply_to_header(monkeypatch, reply_to) -> None:
-    from email import policy
-    from email.parser import BytesParser
-
     send = AsyncMock()
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
     await _smtp().send(MailMessage("to@test", "Booking", "Confirmed", reply_to=reply_to))
-    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0].as_bytes())
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
     assert email["Reply-To"] == reply_to
     assert email["From"] == "from@test"
     assert email["To"] == "to@test"
@@ -108,9 +111,6 @@ async def test_blank_credentials_are_sent_as_none(monkeypatch) -> None:
 
 @pytest.mark.parametrize("html", [None, "<b>Body</b>"])
 async def test_smtp_attachment_parts_preserve_filename_type_and_bytes(monkeypatch, html) -> None:
-    from email import policy
-    from email.parser import BytesParser
-
     send = AsyncMock()
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
     await _smtp().send(
@@ -133,7 +133,7 @@ async def test_smtp_attachment_parts_preserve_filename_type_and_bytes(monkeypatc
             ],
         )
     )
-    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0].as_bytes())
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
     parts = list(email.iter_attachments())
     assert [
         (p.get_filename(), p.get_content_type(), p.get_payload(decode=True)) for p in parts

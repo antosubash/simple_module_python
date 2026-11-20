@@ -59,7 +59,7 @@ from types import SimpleNamespace
 import httpx
 from mail.contracts import register_mail_transport
 from pydantic import SecretStr
-from simple_module_core.mail import MailMessage
+from simple_module_core.mail import MailMessage, validate_mail_headers
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.settings_base import DbBackedSettings
@@ -96,6 +96,7 @@ class HttpMailSender:
                     "text": message.text,
                     "html": message.html,
                     "reply_to": message.reply_to,
+                    "headers": validate_mail_headers(message.headers),
                 },
             )
             response.raise_for_status()
@@ -146,6 +147,55 @@ await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body
 - `current_mail_sender()` is synchronous and never raises; with nothing installed it returns a console sender that logs only the recipient, subject and attachment metadata (bodies carry one-time tokens).
 - `sender.delivers_email` is `False` for console senders, so a screen can show a link instead of promising an inbox.
 - Code that may run in the outbox worker (no `app`) uses `await resolve_mail_sender(db)`. The module installs a resolver in `register_event_handlers` before its `app is None` return; it hydrates `MailSettings` from the given session. A worker restricted with `SM_MODULES_ENABLED` must therefore list `Mail` (and any module whose durable handler sends mail, such as `Tenants`); without it the tenants invitation handler raises, so the outbox retries the row (and marks it `dead` after its retries) instead of dropping the email.
+
+### Message headers
+
+SMTP generates a UTC `Date` header and a unique `Message-ID` for each outgoing
+message. The ID uses the configured `From`
+mailbox's domain (IDNA-encoded for internationalized domains); if it has no
+parseable domain, Python's `make_msgid` chooses the local host's domain.
+
+Pass `headers: dict[str, str]` for extra headers such as `List-Unsubscribe`:
+
+```python
+await current_mail_sender().send(
+    MailMessage(
+        to="subscriber@example.com",
+        subject="Newsletter",
+        text="This month's news",
+        headers={"List-Unsubscribe": "<https://example.com/unsubscribe>"},
+    )
+)
+```
+
+The default is an empty dictionary, copied at construction. Names must contain
+1–997 printable ASCII characters without spaces or colons. Values cannot contain
+control characters other than horizontal tab, or Unicode line/paragraph separators.
+
+Custom headers describe the message; routing, MIME, authentication and delivery
+trace fields belong to the sender or receiving mail server. The following names
+are rejected case-insensitively: `From`, `To`, `Cc`, `Bcc`, `Subject`, `Reply-To`,
+`Date`, `Message-ID`, `MIME-Version`, `Sender`, `Return-Path`, `Received`,
+`Received-SPF`, `DKIM-Signature`, `Authentication-Results`, `Delivered-To`,
+`Envelope-To`, `Envelope-From`; so are all names beginning with `Content-`,
+`Resent-`, `ARC-`, `X-Original-`, `X-Delivered-` or `X-Envelope-`.
+Invalid headers raise `ValueError` at construction and durable deserialization.
+The dictionary remains mutable despite the frozen message dataclass; SMTP
+revalidates it before sending. SMTP applies headers to the outer MIME message
+and explicitly derives the envelope sender from `From` and recipients from `To`
+only; custom headers cannot redirect delivery.
+
+SMTP serialization preserves unbroken ASCII URLs within the 998-byte line
+limit, so long `List-Unsubscribe` URLs remain usable by mail clients. Non-ASCII
+subjects and display names are encoded unless the envelope requires `SMTPUTF8`.
+UTF-8 header lines are refolded when necessary to stay within the byte limit.
+Console and fallback senders ignore custom headers. Custom transports should
+revalidate them with `validate_mail_headers` before forwarding them through the
+provider's header API, or document when unsupported.
+
+Durable outbox events preserve custom headers; existing queued payloads without
+`headers` load with an empty dictionary. The `captured_mail` fixture exposes
+them as `captured_mail.messages[0].headers`.
 
 ### Reply address
 
