@@ -96,6 +96,7 @@ class HttpMailSender:
                     "text": message.text,
                     "html": message.html,
                     "reply_to": message.reply_to,
+                    "headers": message.headers,
                 },
             )
             response.raise_for_status()
@@ -146,6 +147,39 @@ await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body
 - `current_mail_sender()` is synchronous and never raises; with nothing installed it returns a console sender that logs only the recipient, subject and attachment metadata (bodies carry one-time tokens).
 - `sender.delivers_email` is `False` for console senders, so a screen can show a link instead of promising an inbox.
 - Code that may run in the outbox worker (no `app`) uses `await resolve_mail_sender(db)`. The module installs a resolver in `register_event_handlers` before its `app is None` return; it hydrates `MailSettings` from the given session. A worker restricted with `SM_MODULES_ENABLED` must therefore list `Mail` (and any module whose durable handler sends mail, such as `Tenants`); without it the tenants invitation handler raises, so the outbox retries the row (and marks it `dead` after its retries) instead of dropping the email.
+
+### Message headers
+
+SMTP adds a UTC `Date` header and a unique `Message-ID` to each outgoing message,
+preserving either header if already present. The ID uses the configured `From`
+mailbox's domain (IDNA-encoded for internationalized domains); if it has no
+parseable domain, Python's `make_msgid` chooses the local host's domain.
+
+Pass `headers: dict[str, str]` for extra headers such as `List-Unsubscribe`:
+
+```python
+await current_mail_sender().send(
+    MailMessage(
+        to="subscriber@example.com",
+        subject="Newsletter",
+        text="This month's news",
+        headers={"List-Unsubscribe": "<https://example.com/unsubscribe>"},
+    )
+)
+```
+
+The default is an empty dictionary. Names must be nonempty printable ASCII
+without spaces or colons; names and values cannot contain CR or LF.
+Sender-owned names are rejected case-insensitively: `From`, `To`, `Cc`, `Bcc`,
+`Subject`, `Reply-To`, `Date`, `Message-ID`, every `Content-*` header, and
+`MIME-Version`. Invalid headers raise `ValueError` at construction and durable
+deserialization. SMTP applies custom headers to the outer MIME message.
+Console and fallback senders ignore them. Custom transports should forward
+them through their provider's header API, or document when unsupported.
+
+Durable outbox events preserve custom headers; existing queued payloads without
+`headers` load with an empty dictionary. The `captured_mail` fixture exposes
+them as `captured_mail.messages[0].headers`.
 
 ### Reply address
 

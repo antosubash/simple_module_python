@@ -14,6 +14,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `MailMessage.headers` carries validated custom headers through SMTP and durable outbox delivery. Previously queued payloads without headers remain valid (#1053).
+
+### Fixed
+
+- SMTP mail includes UTC `Date` and unique `Message-ID` headers, using the configured sender's domain when parseable and preserving existing headers (#1053).
+
 ## [0.0.48] — 2026-11-19
 
 - Migrate the remaining module permissions to `PermissionCatalogue`, preserving keys, registry metadata, role mappings and deprecated imported constants; no behaviour change (#1037).

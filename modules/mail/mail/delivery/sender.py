@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 from typing import Any
 
 import aiosmtplib
@@ -11,6 +12,7 @@ from simple_module_core.mail import (
     MailMessage,
     MailSender,
     smtp_address_header,
+    validate_mail_headers,
 )
 
 from mail.core import constants as c
@@ -46,6 +48,17 @@ class SmtpMailSender:
         if message.reply_to is not None:
             email["Reply-To"] = smtp_address_header(message.reply_to)
         email["Subject"] = message.subject
+        if "Date" not in email:
+            email["Date"] = formatdate(localtime=False, usegmt=True)
+        if "Message-ID" not in email:
+            from_header = email["From"]
+            domain = None
+            if not from_header.defects and len(from_header.addresses) == 1:
+                domain = from_header.addresses[0].domain or None
+            email["Message-ID"] = make_msgid(domain=domain)
+        # Revalidate because a frozen dataclass can still contain a mutable dictionary.
+        for name, value in validate_mail_headers(message.headers).items():
+            email[name] = value
         email.set_content(message.text)
         if message.html:
             email.add_alternative(message.html, subtype="html")
