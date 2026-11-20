@@ -17,12 +17,14 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - `MailMessage.headers` carries validated custom headers through SMTP and durable outbox delivery. Routing, MIME, authentication and delivery trace headers are reserved; the SMTP envelope uses only the configured From and message To addresses. Previously queued payloads without headers remain valid (#1053).
+- Users `signup_default_role` selects the existing role granted to local self-signups (default `user`); blank or missing roles grant nothing (#1055).
 
 ### Fixed
 
 - SMTP mail includes UTC `Date` and unique `Message-ID` headers, using the configured sender's domain when parseable (#1053).
 - SMTP preserves long `List-Unsubscribe` URLs within the 998-character line limit without RFC 2047 encoding, while retaining encoded non-ASCII headers and SMTPUTF8 support for internationalized mailboxes (#1053).
 - SMTP refolds long UTF-8 headers to respect the 998-byte wire-line limit (#1053).
+- Store OAuth access and refresh tokens as unbounded TEXT so long Microsoft Entra tokens can sign in on Postgres; migration `a1054e9c7b62` widens both columns (#1054).
 
 ## [0.0.48] — 2026-11-19
 

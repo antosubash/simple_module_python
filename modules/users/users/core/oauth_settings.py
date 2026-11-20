@@ -15,7 +15,7 @@ from pydantic import Field, field_validator, model_validator
 from simple_module_core.environments import NON_PROD_ENVIRONMENTS
 from simple_module_core.settings_base import DbBackedSettings
 
-from users.core.constants import ADMIN_ROLE_NAME
+from users.core._signup_role import _validate_signup_role
 
 logger = logging.getLogger("users.settings")
 
@@ -159,10 +159,9 @@ class OAuthSettings(DbBackedSettings):
     @classmethod
     def _no_admin_provisioning(cls, value: str) -> str:
         """Auto-granting admin to a provider's whole user base is never the intent."""
-        value = value.strip()
-        if value.lower() == ADMIN_ROLE_NAME:
-            raise ValueError("SSO-provisioned accounts cannot get the admin role automatically")
-        return value
+        return _validate_signup_role(
+            value, "SSO-provisioned accounts cannot get the admin role automatically"
+        )
 
     # Addresses on these domains count as verified for that provider only, e.g.
     # ``{"microsoft": ["iiasa.ac.at"]}`` (#878). Exact domains, no subdomains.

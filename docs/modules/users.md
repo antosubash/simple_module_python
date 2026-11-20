@@ -196,6 +196,7 @@ Edit the remaining settings under Users at `/admin/settings/`:
 | Field | Default |
 |---|---|
 | `allow_signup` | `False` |
+| `signup_default_role` | `"user"` — existing role for local self-signup; blank or a missing role grants none |
 | `require_verification` | `True` |
 | `reset_password_token_lifetime_seconds` | `3600` |
 | `verification_token_lifetime_seconds` | `604_800` (7 days) |
@@ -631,8 +632,8 @@ For a site that admits one Entra directory, set `oauth_microsoft_tenant` to that
 With `allow_signup` off, an OAuth sign-in for an identity nobody holds is refused (`OAUTH_SIGNUP_DISABLED`), so opening local signup used to be the only way to let staff get an account on their first SSO sign-in. List the providers that may provision instead:
 
 - `oauth_signup_providers` (for example `["microsoft"]`): a first sign-in through a listed provider creates the account, as an external (SSO-only) user, when the provider proved the email. An unproven email is refused even with `allow_signup` on, so listing a provider never widens what it can do. For Microsoft that means turning on the trusted-tenant policy above; GitHub needs a verified primary email; generic OIDC needs `email_verified: true`.
-- `oauth_signup_default_role`: the role those accounts get, with `allow_signup` on too: a listed provider's accounts never get the `user` role that self-signup grants. Blank (the default) means none: the account signs in but holds no permissions until an admin grants a role. Every account the provider creates gets this role, so name one whose permissions you would give to anyone in that directory; `admin` is refused, and a name with no matching role is logged and grants nothing.
-- Local registration (`POST /api/users/auth/register`, `/users/register`, the "Sign up" links) still follows `allow_signup` alone. Providers that are not listed keep the old rule: they create accounts only with `allow_signup` on, and those accounts get the `user` role.
+- `oauth_signup_default_role`: the role those accounts get, with `allow_signup` on too: a listed provider's accounts use this setting independently of local self-signup's `signup_default_role`. Blank (the default) means none: the account signs in but holds no permissions until an admin grants a role. Every account the provider creates gets this role, so name one whose permissions you would give to anyone in that directory; `admin` is refused, and a name with no matching role is logged and grants nothing.
+- Local registration (`POST /api/users/auth/register`, `/users/register`, the "Sign up" links) still follows `allow_signup` alone. Its `signup_default_role` defaults to `user`; set it to an existing role such as `labeller` to grant that role on signup. The role is looked up, never created: a missing role logs a warning and grants nothing, as with `oauth_signup_default_role`. Blank also grants none, and `admin` is refused. Configure it in the admin settings editor; it applies to new accounts, leaving existing assignments unchanged. Providers that are not listed keep the old rule: they create accounts only with `allow_signup` on, and those accounts get the `user` role.
 
 ### Trusted email domains
 
