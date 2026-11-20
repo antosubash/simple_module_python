@@ -39,7 +39,6 @@ _SHIM_MODULES: tuple[str, ...] = (
 _EXPECTED = {
     "ModuleBase._is_auth_provider",
     "global Redis invalidation channel bridge",
-    "Makefile SM_TEST_PG_URL fallback",
     "SM_USERS_RESET_PASSWORD_TOKEN_SECRET",
     "SM_USERS_VERIFICATION_TOKEN_SECRET",
     "smpy package-update",
@@ -78,14 +77,8 @@ def _register_all() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         for name in (*_SHIM_MODULES, *_layout_shims()):
             importlib.import_module(name)
-    # The Makefile fallback is shell, so it is registered here (#985).
-    deprecate("Makefile SM_TEST_PG_URL fallback", remove_in="0.0.49", use="SM_TEST_DATABASE_URL")
     # CLI alias registers on use so the standalone scaffolder needs no core dependency (#984).
     deprecate("smpy package-update", remove_in="0.0.50", use="uv run smpy update")
-    # Read by vite.dev-url.ts (repo host and scaffold), so registered here (#983).
-    deprecate(
-        "SM_VITE_PORT dev-server fallback", remove_in="0.0.49", use="smpy dev / SM_VITE_DEV_URL"
-    )
 
 
 def test_every_known_shim_is_registered() -> None:

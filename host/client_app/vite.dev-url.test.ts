@@ -12,9 +12,9 @@ for (const [name, resolve] of [
   describe(name, () => {
     it.each([
       [undefined, undefined, 5050],
-      [undefined, '5201', 5201],
+      [undefined, '5201', 5050],
       ['http://localhost:5207', '5201', 5207],
-    ])('resolves URL %s and legacy port %s', (url, port, expected) => {
+    ])('resolves URL %s ignoring removed SM_VITE_PORT %s', (url, port, expected) => {
       vi.stubEnv('SM_VITE_DEV_URL', url);
       vi.stubEnv('SM_VITE_PORT', port);
       expect(resolve()).toEqual({ origin: `http://localhost:${expected}`, port: expected });

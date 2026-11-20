@@ -29,6 +29,10 @@ All notable changes to this project are documented in this file. The format is b
 - Store OAuth access and refresh tokens as unbounded TEXT so long Microsoft Entra tokens can sign in on Postgres; migration `a1054e9c7b62` widens both columns (#1054).
 - **Behaviour change:** When reusing a schema, PostgreSQL test fixtures empty model tables with one `TRUNCATE ... RESTART IDENTITY RESTRICT`, so row-level `DELETE` triggers cannot block between-test resets. Foreign-key references from tables outside the reset list reject the reset, and lock waits fail after five seconds. Unowned public-schema sequences still restart at 1; statement-level `TRUNCATE` triggers still apply (#1052).
 
+### Removed
+
+- **Behaviour change:** removed the Makefile `SM_TEST_PG_URL` fallback and the host/scaffold `SM_VITE_PORT` fallback; both names are now ignored. Use `SM_TEST_DATABASE_URL` for Postgres tests and `uv run smpy dev --port 8201 --vite-port 5201` or `SM_VITE_DEV_URL` for development. Without `SM_VITE_DEV_URL`, Vite defaults to `http://localhost:5050` (#985, #983).
+
 ## [0.0.48] — 2026-11-19
 
 - Migrate the remaining module permissions to `PermissionCatalogue`, preserving keys, registry metadata, role mappings and deprecated imported constants; no behaviour change (#1037).
