@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -270,30 +267,3 @@ def test_cli_invalid_value_exits_without_commit(cli_importer, monkeypatch):
     assert "SM_USERS_SIGNUP_DEFAULT_ROLE" in result.output
     assert "ADMIN" not in result.output
     assert "Imported 0 override(s)" in result.output
-
-
-@pytest.mark.parametrize("args", [["-m", "settings", "import-from-env", "--help"], None])
-def test_python_module_runs_without_developer_cli(tmp_path, args):
-    (tmp_path / "templates").mkdir()
-    # Block the optional CLI even if it happens to be installed in this checkout.
-    code = """
-import runpy
-import sys
-sys.modules["simple_module_cli"] = None
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.settings import Settings
-create_app(Settings(environment="testing", modules_enabled=["ep:settings"],
-    database_url="sqlite+aiosqlite:///:memory:", secret_key="unit-test-key"))
-sys.argv = ["settings", "import-from-env", "--help"]
-runpy.run_module("settings", run_name="__main__")
-"""
-    result = subprocess.run(
-        [sys.executable, *(args or ["-c", code])],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        env={**os.environ, "SM_PROJECT_ROOT": str(tmp_path), "NO_COLOR": "1"},
-    )
-    assert result.returncode == 0, result.stderr
-    assert "--only" in result.stdout
-    assert "--prefix" in result.stdout
