@@ -1,13 +1,54 @@
 """SMTP wire headers and envelopes preserve mailbox syntax and IDN domains."""
 
 from email import policy
-from email.parser import BytesParser
+from email.parser import BytesParser, Parser
 from unittest.mock import AsyncMock
 
 import aiosmtplib
 import pytest
+from aiosmtplib.response import SMTPResponse
 from mail.delivery.sender import SmtpMailSender
 from simple_module_core.mail import MailMessage
+
+
+@pytest.mark.parametrize("supported", [False, True])
+@pytest.mark.parametrize(
+    "from_address, to", [("jäne@example.com", "a@test"), ("a@test", "jäne@example.com")]
+)
+async def test_non_ascii_local_parts_require_smtputf8(
+    monkeypatch, supported, from_address, to
+) -> None:
+    smtp = aiosmtplib.SMTP()
+    monkeypatch.setattr("aiosmtplib.api.SMTP", lambda **kwargs: smtp)
+    monkeypatch.setattr(smtp, "connect", AsyncMock())
+    monkeypatch.setattr(smtp, "quit", AsyncMock())
+    monkeypatch.setattr(smtp, "_ehlo_or_helo_if_needed", AsyncMock())
+    monkeypatch.setattr(
+        smtp, "supports_extension", lambda name: supported and name.lower() == "smtputf8"
+    )
+    mail = AsyncMock()
+    monkeypatch.setattr(smtp, "mail", mail)
+    monkeypatch.setattr(smtp, "_send_recipients", AsyncMock(return_value={}))
+    data = AsyncMock(return_value=SMTPResponse(250, "OK"))
+    monkeypatch.setattr(smtp, "data", data)
+    sender = SmtpMailSender("smtp.test", 25, "", "", from_address, False)
+    message = MailMessage(to, "Grüße", "Body")
+
+    if not supported:
+        with pytest.raises(aiosmtplib.SMTPNotSupported, match="SMTPUTF8"):
+            await sender.send(message)
+        mail.assert_not_awaited()
+        data.assert_not_awaited()
+        return
+
+    await sender.send(message)
+    assert mail.call_args.args[0] == from_address
+    assert "SMTPUTF8" in mail.call_args.kwargs["options"]
+    assert mail.call_args.kwargs["encoding"] == "utf-8"
+    email = Parser(policy=policy.SMTPUTF8).parsestr(data.call_args.args[0].decode("utf-8"))
+    assert email["From"].addresses[0].addr_spec == from_address
+    assert email["To"].addresses[0].addr_spec == to
+    assert email["Subject"] == "Grüße"
 
 
 @pytest.mark.parametrize(
@@ -53,14 +94,12 @@ async def test_idn_domains_are_ascii_in_smtp_headers_and_envelopes(
     display_name,
 ) -> None:
     smtp = aiosmtplib.SMTP()
-    monkeypatch.setattr(smtp, "_ehlo_or_helo_if_needed", AsyncMock())
+    monkeypatch.setattr("aiosmtplib.api.SMTP", lambda **kwargs: smtp)
+    monkeypatch.setattr(smtp, "connect", AsyncMock())
+    monkeypatch.setattr(smtp, "quit", AsyncMock())
     sendmail = AsyncMock(return_value=({}, "OK"))
     monkeypatch.setattr(smtp, "sendmail", sendmail)
 
-    async def send(email, **kwargs):
-        return await smtp.send_message(email)
-
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
     sender = SmtpMailSender("smtp.test", 25, "", "", from_address, False)
     await sender.send(MailMessage(to, "Booking", "Confirmed", reply_to=reply_to))
 
@@ -68,6 +107,7 @@ async def test_idn_domains_are_ascii_in_smtp_headers_and_envelopes(
     assert envelope_from == expected_from
     assert envelope_to == expected_to
     assert "SMTPUTF8" not in sendmail.call_args.kwargs["mail_options"]
+    assert wire.isascii()
     email = BytesParser(policy=policy.default).parsebytes(wire)
     for name in ("From", "To", "Reply-To"):
         assert not email[name].defects

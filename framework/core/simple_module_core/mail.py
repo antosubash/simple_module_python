@@ -18,7 +18,7 @@ import base64
 import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email import policy
 from email.errors import HeaderParseError
 from email.headerregistry import Address, Group
@@ -27,6 +27,8 @@ from typing import Annotated, Any, Protocol, runtime_checkable
 
 from pydantic import BeforeValidator, ConfigDict, field_serializer, field_validator
 from sqlmodel import SQLModel
+
+from simple_module_core._mail_headers import validate_mail_headers
 
 logger = logging.getLogger("simple_module.mail")
 
@@ -160,8 +162,10 @@ class MailMessage:
         Sequence[MailAttachment], BeforeValidator(_check_encoded_attachment_size)
     ] = ()
     reply_to: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "headers", validate_mail_headers(self.headers))
         smtp_address_header(self.to)
         if self.reply_to is not None:
             _validate_reply_to(self.reply_to)

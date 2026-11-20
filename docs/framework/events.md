@@ -198,7 +198,9 @@ await bus.publish_durable(OrderPlaced(order_id=order.id, ...), db)
 - Events containing `simple_module_core.mail.MailMessage` also preserve its
   attachments: content bytes are stored as base64 in the JSON payload and
   restored before delivery. Old message payloads without `attachments` remain
-  valid. See [mail attachments](/modules/mail#attachments) for an `.ics` example.
+  valid. Custom `headers` round-trip too; old payloads without them default to
+  an empty dictionary. See [mail headers](/modules/mail#message-headers) and
+  [mail attachments](/modules/mail#attachments) for examples.
 - The worker builds its own bus by calling every module's
   `register_event_handlers(bus, None)` — subscribe durably *before* any early
   `return` taken when `app is None`.

@@ -1,4 +1,4 @@
-"""Mail metadata travels through the persisted durable outbox (#1006, #1025)."""
+"""Mail metadata travels through the persisted durable outbox (#1006, #1025, #1053)."""
 
 from dataclasses import dataclass
 
@@ -20,8 +20,9 @@ class RegistrationConfirmed(Event):
 
 @pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("legacy_reply_to", [False, True])
+@pytest.mark.parametrize("legacy_headers", [False, True])
 async def test_outbox_delivers_attachments_and_legacy_payload(
-    db_session, db_state, captured_mail, monkeypatch, legacy, legacy_reply_to
+    db_session, db_state, captured_mail, monkeypatch, legacy, legacy_reply_to, legacy_headers
 ) -> None:
     bus = EventBus()
 
@@ -51,21 +52,25 @@ async def test_outbox_delivers_attachments_and_legacy_payload(
                 "Body",
                 attachments=attachments,
                 reply_to="guide@example.com",
+                headers={"List-Unsubscribe": "<https://example.com/unsubscribe>"},
             )
         ),
         db_session,
     )
     row = (await db_session.execute(select(OutboxMessage))).scalar_one()
     assert row.payload["message"]["reply_to"] == "guide@example.com"
+    assert row.payload["message"]["headers"] == {
+        "List-Unsubscribe": "<https://example.com/unsubscribe>"
+    }
+    payload = {**row.payload, "message": dict(row.payload["message"])}
+    if legacy_headers:
+        del payload["message"]["headers"]
     if legacy_reply_to:
-        payload = {**row.payload, "message": dict(row.payload["message"])}
         del payload["message"]["reply_to"]
-        row.payload = payload
     if legacy:
-        payload = {**row.payload, "message": dict(row.payload["message"])}
         del payload["message"]["attachments"]
-        row.payload = payload
-    else:
+    row.payload = payload
+    if not legacy:
         assert row.payload["message"]["attachments"][0]["filename"] == "invite.ics"
         assert isinstance(row.payload["message"]["attachments"][0]["content"], str)
     await db_session.commit()
@@ -76,6 +81,9 @@ async def test_outbox_delivers_attachments_and_legacy_payload(
     message = captured_mail.to("a@test")[0]
     assert message.subject == "Confirmation"
     assert message.reply_to == (None if legacy_reply_to else "guide@example.com")
+    assert message.headers == (
+        {} if legacy_headers else {"List-Unsubscribe": "<https://example.com/unsubscribe>"}
+    )
     if legacy:
         assert message.attachments == ()
     else:
