@@ -128,6 +128,12 @@ before the DB opens. See [Sentry](/framework/sentry).
 Edit signup, OAuth/OIDC sign-in and other Users configuration in the admin
 settings editor. The variables below seed accounts or supply signing secrets.
 
+`signup_default_role` (default `user`) selects an existing role for local
+self-signup; `oauth_signup_default_role` (default blank) selects the role for
+listed SSO provisioning providers. Both are DB-backed settings: blank or missing
+roles grant nothing, missing roles log a warning, and neither creates a role.
+Both refuse `admin`. See [Users provisioning](/modules/users#provisioning-accounts-through-sso).
+
 | Variable | Default | Notes |
 |---|---|---|
 | `SM_USERS_BOOTSTRAP_EMAIL` | unset | Creates the first admin if the users table is empty. |

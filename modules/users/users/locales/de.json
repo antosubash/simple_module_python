@@ -331,7 +331,7 @@
     "error_password_invalid": "Dieses Passwort wird nicht akzeptiert. Versuchen Sie ein längeres, vielfältigeres Passwort.",
     "error_email_invalid": "Geben Sie eine gültige E-Mail-Adresse ein. Reservierte Domains und Testdomains werden nicht akzeptiert.",
     "error_failed": "Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.",
-    "intro": "Die offene Registrierung ist für diese Instanz aktiviert. Neue Konten erhalten die Standardbenutzerrolle. Ein Administrator kann weitere Rollen vergeben.",
+    "intro": "Die offene Registrierung ist für diese Instanz aktiviert. Neue Konten erhalten die konfigurierte Registrierungsrolle. Ein Administrator kann weitere Rollen vergeben.",
     "bullet_verification": "E-Mail-Bestätigung vor der ersten Anmeldung erforderlich",
     "bullet_no_verification": "Sie können sich direkt nach dem Erstellen Ihres Kontos anmelden",
     "bullet_close": "Ein Administrator kann die Registrierung schließen",

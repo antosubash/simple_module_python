@@ -16,6 +16,7 @@ from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_base import DbBackedSettings
 
 from users.accounts.session_version_cache import SESSION_VERSION_TTL_SECONDS
+from users.core.constants import ADMIN_ROLE_NAME, USER_ROLE_NAME
 from users.core.oauth_settings import OAuthSettings
 
 logger = logging.getLogger("users.settings")
@@ -37,6 +38,18 @@ class _UsersCoreSettings(DbBackedSettings):
     # Self-service signup
     allow_signup: bool = False
     require_verification: bool = True
+    signup_default_role: str = Field(
+        default=USER_ROLE_NAME,
+        description="Existing role for local self-signup; blank or missing means no role.",
+    )
+
+    @field_validator("signup_default_role")
+    @classmethod
+    def _signup_role(cls, value: str) -> str:
+        value = value.strip()
+        if value.lower() == ADMIN_ROLE_NAME:
+            raise ValueError("Self-registered accounts cannot get the admin role automatically")
+        return value
 
     reset_password_token_lifetime_seconds: int = 60 * 60  # 1 hour
     verification_token_lifetime_seconds: int = 60 * 60 * 24 * 7  # 7 days
