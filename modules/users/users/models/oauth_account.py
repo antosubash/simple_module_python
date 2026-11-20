@@ -40,9 +40,9 @@ class OAuthAccount(Base, table=True):  # ty: ignore[unsupported-base]
         index=True,
     )
     oauth_name: str = Field(max_length=100, index=True)
-    access_token: str = Field(max_length=1024)
+    access_token: str = Field(sa_type=sa.Text)
     expires_at: int | None = Field(default=None)
-    refresh_token: str | None = Field(default=None, max_length=1024)
+    refresh_token: str | None = Field(default=None, sa_type=sa.Text)
     account_id: str = Field(max_length=320, index=True)
     account_email: str = Field(max_length=320)
     # The IdP's profile, refreshed on every sign-in (#877): who the identity is
