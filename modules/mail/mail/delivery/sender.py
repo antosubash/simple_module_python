@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from email import policy
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 from typing import Any
@@ -69,11 +70,18 @@ class SmtpMailSender:
                 filename=attachment.filename,
             )
 
+        # Never infer the SMTP envelope from custom or trace headers.
+        sender = from_header.addresses[0].addr_spec
+        recipients = [address.addr_spec for address in email["To"].addresses]
+        utf8_required = not (sender.isascii() and all(address.isascii() for address in recipients))
+        wire_policy = policy.SMTPUTF8 if utf8_required else policy.SMTP
+        # Avoid encoded words in long RFC 2369 URLs; bytes bypass aiosmtplib's refolding.
+        wire = email.as_bytes(policy=wire_policy.clone(max_line_length=998, cte_type="7bit"))
         await aiosmtplib.send(
-            email,
-            # Never infer the SMTP envelope from custom or trace headers.
-            sender=from_header.addresses[0].addr_spec,
-            recipients=[address.addr_spec for address in email["To"].addresses],
+            wire,
+            sender=sender,
+            recipients=recipients,
+            mail_options=["SMTPUTF8"] if utf8_required else [],
             hostname=self._host,
             port=self._port,
             username=self._username or None,

@@ -8,7 +8,6 @@ from email.utils import parsedate_to_datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from aiosmtplib.email import flatten_message
 from mail.delivery.sender import SmtpMailSender
 from simple_module_core.mail import MailAttachment, MailMessage
 
@@ -31,8 +30,7 @@ async def test_smtp_date_and_unique_message_id(monkeypatch, from_address, domain
     await sender.send(MailMessage("a@test", "Hi", "Body"))
     await sender.send(MailMessage("a@test", "Hi", "Body"))
     messages = [
-        BytesParser(policy=policy.default).parsebytes(call.args[0].as_bytes())
-        for call in send.call_args_list
+        BytesParser(policy=policy.default).parsebytes(call.args[0]) for call in send.call_args_list
     ]
     for message in messages:
         assert message["Date"] is not None
@@ -89,7 +87,7 @@ async def test_custom_header_delivered_on_outer_message(monkeypatch, attached) -
         else [],
     )
     await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(message)
-    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0].as_bytes())
+    email = BytesParser(policy=policy.default).parsebytes(send.call_args.args[0])
     assert email["List-Unsubscribe"] == "<https://example.com/unsubscribe>"
     assert all(part["List-Unsubscribe"] is None for part in list(email.walk())[1:])
 
@@ -119,7 +117,27 @@ async def test_long_and_non_ascii_header_values_survive_wire_encoding(monkeypatc
     await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(
         MailMessage("a@test", "Hi", "Body", headers={"X-Description": value})
     )
-    wire = flatten_message(send.call_args.args[0], cte_type="7bit")
+    wire = send.call_args.args[0]
     assert all(len(line) <= 998 for line in wire.split(b"\r\n"))
     restored = BytesParser(policy=policy.default).parsebytes(wire)
     assert str(restored["X-Description"]) == value
+
+
+async def test_long_unsubscribe_url_is_unencoded_on_the_wire(monkeypatch) -> None:
+    send = AsyncMock()
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    value = f"<https://example.com/u?token={'a' * 160}>"
+    await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(
+        MailMessage("a@test", "Grüße", "Grüße", headers={"List-Unsubscribe": value})
+    )
+    wire = send.call_args.args[0]
+    headers = wire.split(b"\r\n\r\n", 1)[0]
+    unsubscribe = next(line for line in headers.split(b"\r\n") if line.startswith(b"List-"))
+    assert unsubscribe == f"List-Unsubscribe: {value}".encode("ascii")
+    assert b"=?" not in unsubscribe
+    assert b"Subject: =?utf-8?" in headers
+    assert wire.isascii()
+    restored = BytesParser(policy=policy.default).parsebytes(wire)
+    assert restored["Subject"] == "Grüße"
+    assert restored["List-Unsubscribe"] == value
+    assert restored.get_content().strip() == "Grüße"

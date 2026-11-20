@@ -185,9 +185,9 @@ revalidates it before sending. SMTP applies headers to the outer MIME message
 and explicitly derives the envelope sender from `From` and recipients from `To`
 only; custom headers cannot redirect delivery.
 
-Python's email policy folds long values and encodes non-ASCII text. Currently,
-unbroken ASCII tokens longer than the folding limit can also become encoded
-words; this can make long `List-Unsubscribe` URLs unusable by mail clients.
+SMTP serialization preserves unbroken ASCII URLs within the 998-character line
+limit, so long `List-Unsubscribe` URLs remain usable by mail clients. Non-ASCII
+subjects and display names are encoded unless the envelope requires `SMTPUTF8`.
 Console and fallback senders ignore custom headers. Custom transports should
 revalidate them with `validate_mail_headers` before forwarding them through the
 provider's header API, or document when unsupported.
