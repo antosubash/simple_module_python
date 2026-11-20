@@ -23,13 +23,6 @@ that release either deletes it or moves the date on purpose. A new shim must be
 added to that test's import list. Module-layout aliases are discovered automatically.
 Non-Python fallbacks are registered explicitly by the test.
 
-## Currently scheduled (remove in 0.0.49)
-
-| Shim | Use instead |
-|---|---|
-| Makefile `SM_TEST_PG_URL` fallback | `SM_TEST_DATABASE_URL` |
-| `SM_VITE_PORT` dev-server fallback | `smpy dev --vite-port` or `SM_VITE_DEV_URL` |
-
 ## Removed early (#989)
 
 The shims previously scheduled for 0.1.0 have been removed. Old imports fail;

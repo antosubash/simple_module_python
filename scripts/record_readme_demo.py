@@ -8,20 +8,19 @@ two-pass palette (palettegen / paletteuse) at ``--width`` and ``--fps``.
 Recipe (spare ports, SQLite file DB, from the repo root; see also
 ``.claude/skills/running-the-stack/SKILL.md``)::
 
-    make gen-pages
     export SM_DATABASE_URL=sqlite+aiosqlite:///./demo-tmp.db
     uv run --project host alembic -c host/alembic.ini upgrade heads
     uv run smpy users create-admin --email admin@example.com \\
         --password '<choose-one>' --force
-    SM_VITE_PORT=5203 npm run dev &
-    SM_VITE_DEV_URL=http://localhost:5203 \\
-        uv run --project host uvicorn host.main:app --port 8203 &
+    uv run smpy dev --port 8203 --vite-port 5203 &
+    demo_pid=$!
     curl -fsS http://localhost:8203/health        # wait until 200
     uv run python scripts/record_readme_demo.py \\
         --base-url http://localhost:8203 --email admin@example.com \\
         --password '<choose-one>'
 
-Then kill whatever listens on the two ports and ``rm demo-tmp.db*``. Needs
+Then stop the supervisor with ``kill -TERM "$demo_pid"`` and ``wait "$demo_pid"``
+before removing ``demo-tmp.db*``. Needs
 ``ffmpeg`` on PATH and ``uv run playwright install chromium`` once.
 """
 

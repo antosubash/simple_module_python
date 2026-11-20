@@ -20,7 +20,7 @@ description: Use when launching, restarting, or smoke-testing simple_module_pyth
 | Fixed frontend port if needed | `uv run smpy dev --port 8201 --vite-port 5201` |
 | Shared services + API/frontend | `make dev ARGS="--port 8201"` (requires Docker and the sibling dev-services checkout) |
 
-`smpy dev` runs generation first, chooses the first free Vite port from 5050 (unless pinned), prints both URLs, and passes one `SM_VITE_DEV_URL` to API and Vite. Do not set a separate Vite port env var or edit the Vite config. An explicitly occupied port fails. Direct legacy `dev-api`/`dev-ui` launches need their matching URL supplied manually.
+`smpy dev` runs generation first, chooses the first free Vite port from 5050 (unless pinned), prints both URLs, and passes one `SM_VITE_DEV_URL` to API and Vite. Pin spare ports with `uv run smpy dev --port 8201 --vite-port 5201`. An explicitly occupied port fails. For direct launches, set `SM_VITE_DEV_URL=http://localhost:5201` for both the API and `npm run dev`; the Vite config derives its port and origin from that URL.
 
 ## Ready check
 - Poll `curl -fsS http://localhost:8201/health` until 200, with a deadline; inspect logs on failure.
