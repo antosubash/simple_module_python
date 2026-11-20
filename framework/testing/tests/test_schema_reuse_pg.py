@@ -86,7 +86,6 @@ async def test_a_test_that_changes_the_schema_forces_a_rebuild(engine):
         assert await conn.scalar(text("SELECT to_regclass('reuse_probe_extra')")) is None
 
 
-@pytest.mark.postgres
 async def test_reset_bypasses_delete_row_triggers_and_restarts_identity(engine):
     await _next_test(engine, [])
     child = Table(
@@ -125,7 +124,6 @@ async def test_reset_bypasses_delete_row_triggers_and_restarts_identity(engine):
     assert await _insert(engine) == 1
 
 
-@pytest.mark.postgres
 async def test_reset_restarts_sequences_without_a_table_owner(engine):
     await _next_test(engine, [])
     async with engine.begin() as conn:
