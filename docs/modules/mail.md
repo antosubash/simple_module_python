@@ -59,7 +59,7 @@ from types import SimpleNamespace
 import httpx
 from mail.contracts import register_mail_transport
 from pydantic import SecretStr
-from simple_module_core.mail import MailMessage
+from simple_module_core.mail import MailMessage, validate_mail_headers
 from simple_module_core.module import ModuleBase, ModuleMeta
 from simple_module_core.module_settings import register_module_settings
 from simple_module_core.settings_base import DbBackedSettings
@@ -96,7 +96,7 @@ class HttpMailSender:
                     "text": message.text,
                     "html": message.html,
                     "reply_to": message.reply_to,
-                    "headers": message.headers,
+                    "headers": validate_mail_headers(message.headers),
                 },
             )
             response.raise_for_status()
@@ -150,8 +150,8 @@ await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body
 
 ### Message headers
 
-SMTP adds a UTC `Date` header and a unique `Message-ID` to each outgoing message,
-preserving either header if already present. The ID uses the configured `From`
+SMTP generates a UTC `Date` header and a unique `Message-ID` for each outgoing
+message. The ID uses the configured `From`
 mailbox's domain (IDNA-encoded for internationalized domains); if it has no
 parseable domain, Python's `make_msgid` chooses the local host's domain.
 
@@ -168,14 +168,29 @@ await current_mail_sender().send(
 )
 ```
 
-The default is an empty dictionary. Names must be nonempty printable ASCII
-without spaces or colons; names and values cannot contain CR or LF.
-Sender-owned names are rejected case-insensitively: `From`, `To`, `Cc`, `Bcc`,
-`Subject`, `Reply-To`, `Date`, `Message-ID`, every `Content-*` header, and
-`MIME-Version`. Invalid headers raise `ValueError` at construction and durable
-deserialization. SMTP applies custom headers to the outer MIME message.
-Console and fallback senders ignore them. Custom transports should forward
-them through their provider's header API, or document when unsupported.
+The default is an empty dictionary, copied at construction. Names must contain
+1–997 printable ASCII characters without spaces or colons. Values cannot contain
+control characters other than horizontal tab, or Unicode line/paragraph separators.
+
+Custom headers describe the message; routing, MIME, authentication and delivery
+trace fields belong to the sender or receiving mail server. The following names
+are rejected case-insensitively: `From`, `To`, `Cc`, `Bcc`, `Subject`, `Reply-To`,
+`Date`, `Message-ID`, `MIME-Version`, `Sender`, `Return-Path`, `Received`,
+`Received-SPF`, `DKIM-Signature`, `Authentication-Results`, `Delivered-To`,
+`Envelope-To`, `Envelope-From`; so are all names beginning with `Content-`,
+`Resent-`, `ARC-`, `X-Original-`, `X-Delivered-` or `X-Envelope-`.
+Invalid headers raise `ValueError` at construction and durable deserialization.
+The dictionary remains mutable despite the frozen message dataclass; SMTP
+revalidates it before sending. SMTP applies headers to the outer MIME message
+and explicitly derives the envelope sender from `From` and recipients from `To`
+only; custom headers cannot redirect delivery.
+
+Python's email policy folds long values and encodes non-ASCII text. Currently,
+unbroken ASCII tokens longer than the folding limit can also become encoded
+words; this can make long `List-Unsubscribe` URLs unusable by mail clients.
+Console and fallback senders ignore custom headers. Custom transports should
+revalidate them with `validate_mail_headers` before forwarding them through the
+provider's header API, or document when unsupported.
 
 Durable outbox events preserve custom headers; existing queued payloads without
 `headers` load with an empty dictionary. The `captured_mail` fixture exposes

@@ -31,6 +31,26 @@ class NewsletterReady(Event):
             "content-transfer-encoding",
             "CONTENT-anything",
             "MIME-Version",
+            "Resent-To",
+            "rEsEnT-Date",
+            "Resent-From",
+            "Resent-Cc",
+            "Resent-Bcc",
+            "Resent-Sender",
+            "Sender",
+            "Return-Path",
+            "Received",
+            "Received-SPF",
+            "DKIM-Signature",
+            "ARC-Seal",
+            "arc-anything",
+            "Authentication-Results",
+            "X-Original-To",
+            "X-Original-From",
+            "Delivered-To",
+            "X-Delivered-To",
+            "Envelope-To",
+            "X-Envelope-From",
         )
     ]
     + [
@@ -43,6 +63,8 @@ class NewsletterReady(Event):
         ("", "value"),
         ("X Test", "value"),
         ("X:Test", "value"),
+        ("X" * 998, "value"),
+        *[("X-Test", f"before{control}after") for control in "\x00\v\f\x1b\x7f\x85\u2028\u2029"],
     ],
 )
 @pytest.mark.parametrize("durable", [False, True])

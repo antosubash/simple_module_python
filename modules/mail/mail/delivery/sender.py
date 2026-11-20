@@ -48,14 +48,12 @@ class SmtpMailSender:
         if message.reply_to is not None:
             email["Reply-To"] = smtp_address_header(message.reply_to)
         email["Subject"] = message.subject
-        if "Date" not in email:
-            email["Date"] = formatdate(localtime=False, usegmt=True)
-        if "Message-ID" not in email:
-            from_header = email["From"]
-            domain = None
-            if not from_header.defects and len(from_header.addresses) == 1:
-                domain = from_header.addresses[0].domain or None
-            email["Message-ID"] = make_msgid(domain=domain)
+        email["Date"] = formatdate(localtime=False, usegmt=True)
+        from_header = email["From"]
+        domain = None
+        if not from_header.defects and len(from_header.addresses) == 1:
+            domain = from_header.addresses[0].domain or None
+        email["Message-ID"] = make_msgid(domain=domain)
         # Revalidate because a frozen dataclass can still contain a mutable dictionary.
         for name, value in validate_mail_headers(message.headers).items():
             email[name] = value
@@ -73,6 +71,9 @@ class SmtpMailSender:
 
         await aiosmtplib.send(
             email,
+            # Never infer the SMTP envelope from custom or trace headers.
+            sender=from_header.addresses[0].addr_spec,
+            recipients=[address.addr_spec for address in email["To"].addresses],
             hostname=self._host,
             port=self._port,
             username=self._username or None,

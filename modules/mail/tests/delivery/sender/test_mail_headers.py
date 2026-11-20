@@ -8,6 +8,7 @@ from email.utils import parsedate_to_datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from aiosmtplib.email import flatten_message
 from mail.delivery.sender import SmtpMailSender
 from simple_module_core.mail import MailAttachment, MailMessage
 
@@ -46,17 +47,31 @@ async def test_smtp_date_and_unique_message_id(monkeypatch, from_address, domain
     assert messages[0]["Message-ID"] != messages[1]["Message-ID"]
 
 
-async def test_existing_generated_headers_are_preserved(monkeypatch) -> None:
+@pytest.mark.parametrize("resent", [False, True])
+async def test_smtp_envelope_uses_only_from_and_to(monkeypatch, resent) -> None:
     email = EmailMessage()
-    email["Date"] = "Tue, 01 Jan 2030 00:00:00 +0000"
-    email["Message-ID"] = "<original@example.org>"
+    # Exercise the envelope guard even if future code introduces routing headers.
+    email["Sender"] = "attacker@example.net"
+    email["Cc"] = "copy@example.net"
+    email["Bcc"] = "hidden@example.net"
+    if resent:
+        email["Resent-Date"] = "Tue, 01 Jan 2030 00:00:00 +0000"
+        email["Resent-From"] = "attacker@example.net"
+        email["Resent-To"] = "redirect@example.net"
     monkeypatch.setattr("mail.delivery.sender.EmailMessage", lambda: email)
-    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", AsyncMock())
-    await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(
-        MailMessage("a@test", "Hi", "Body")
+    send = AsyncMock()
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    await SmtpMailSender("smtp.test", 25, "", "", "Platform <sender@bücher.de>", False).send(
+        MailMessage(
+            'Readers: "Doe, Jane" <jane@bücher.de>, second@example.com;',
+            "Hi",
+            "Body",
+            reply_to="reply@example.net",
+            headers={"List-Unsubscribe": "<https://example.com/unsubscribe>"},
+        )
     )
-    assert email.get_all("Date") == ["Tue, 01 Jan 2030 00:00:00 +0000"]
-    assert email.get_all("Message-ID") == ["<original@example.org>"]
+    assert send.call_args.kwargs["sender"] == "sender@xn--bcher-kva.de"
+    assert send.call_args.kwargs["recipients"] == ["jane@xn--bcher-kva.de", "second@example.com"]
 
 
 @pytest.mark.parametrize("attached", [False, True])
@@ -80,7 +95,12 @@ async def test_custom_header_delivered_on_outer_message(monkeypatch, attached) -
 
 
 @pytest.mark.parametrize(
-    "headers", [{"Bcc": "hidden@test"}, {"X-Test": "value\r\nBcc: hidden@test"}]
+    "headers",
+    [
+        {"Bcc": "hidden@test"},
+        {"Resent-To": "attacker@example.net"},
+        {"X-Test": "value\r\nBcc: hidden@test"},
+    ],
 )
 async def test_smtp_rejects_headers_mutated_after_construction(monkeypatch, headers) -> None:
     send = AsyncMock()
@@ -90,3 +110,16 @@ async def test_smtp_rejects_headers_mutated_after_construction(monkeypatch, head
     with pytest.raises(ValueError, match="header"):
         await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(message)
     send.assert_not_awaited()
+
+
+@pytest.mark.parametrize("value", ["Grüße " * 100, "a" * 1500])
+async def test_long_and_non_ascii_header_values_survive_wire_encoding(monkeypatch, value) -> None:
+    send = AsyncMock()
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(
+        MailMessage("a@test", "Hi", "Body", headers={"X-Description": value})
+    )
+    wire = flatten_message(send.call_args.args[0], cte_type="7bit")
+    assert all(len(line) <= 998 for line in wire.split(b"\r\n"))
+    restored = BytesParser(policy=policy.default).parsebytes(wire)
+    assert str(restored["X-Description"]) == value
