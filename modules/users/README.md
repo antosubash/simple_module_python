@@ -112,8 +112,13 @@ Entra-shaped claims (see the users module docs).
 (e.g. `["microsoft"]`) lets those providers create an account on first sign-in
 when they proved the email, while local registration keeps following
 `allow_signup`. `oauth_signup_default_role` is the role those accounts get,
-with signup open too (never the self-signup `user` role); blank (the default)
+with signup open too (independently of the self-signup role); blank (the default)
 means none until an admin grants one, and `admin` is refused.
+
+**Local self-signup role.** `signup_default_role` (default `user`) selects the
+existing role local signups receive. Blank grants none; a missing role logs a
+warning and grants none without creating it. Like the SSO setting, it refuses
+`admin`. Configure it through the DB-backed admin settings editor.
 
 **Trusted email domains.** `oauth_trusted_email_domains` (e.g.
 `{"microsoft": ["iiasa.ac.at"]}`) makes addresses on the listed domains count

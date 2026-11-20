@@ -5,6 +5,16 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.mark.parametrize("role", ["admin", " Admin "])
+def test_local_signup_cannot_grant_admin(role):
+    from pydantic import ValidationError
+    from users.core.settings import UsersSettings
+
+    with pytest.raises(ValidationError) as exc:
+        UsersSettings(signup_default_role=role)
+    assert exc.value.errors()[0]["loc"] == ("signup_default_role",)
+
+
 class TestUsersSettingsDefaults:
     def test_allow_signup_default_false(self):
         from users.core.settings import UsersSettings
