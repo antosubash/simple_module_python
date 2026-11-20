@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file. The format is b
 - SMTP preserves long `List-Unsubscribe` URLs within the 998-character line limit without RFC 2047 encoding, while retaining encoded non-ASCII headers and SMTPUTF8 support for internationalized mailboxes (#1053).
 - SMTP refolds long UTF-8 headers to respect the 998-byte wire-line limit (#1053).
 - Store OAuth access and refresh tokens as unbounded TEXT so long Microsoft Entra tokens can sign in on Postgres; migration `a1054e9c7b62` widens both columns (#1054).
+- **Behaviour change:** When reusing a schema, PostgreSQL test fixtures empty model tables with one `TRUNCATE ... RESTART IDENTITY RESTRICT`, so row-level `DELETE` triggers cannot block between-test resets. Foreign-key references from tables outside the reset list reject the reset, and lock waits fail after five seconds. Unowned public-schema sequences still restart at 1; statement-level `TRUNCATE` triggers still apply (#1052).
 
 ## [0.0.48] — 2026-11-19
 

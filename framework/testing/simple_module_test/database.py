@@ -152,8 +152,8 @@ async def prepare_schema_once(engine: Any, tables: list[Any], build: Any) -> Non
     per-process copy of the first build (``_sqlite_template``), a file one runs
     ``build(engine)``.
     Postgres: when this process already built the schema and the catalog still
-    matches it, delete every row and restart the sequences (~0.03 s) instead of
-    dropping and rebuilding it (~0.25 s). Anything else (the first test, a
+    matches it, empty the tables with one TRUNCATE and restart the sequences
+    instead of dropping and rebuilding it. Anything else (the first test, a
     direct ``reset_schema`` call, a test's own DDL) resets and rebuilds.
     """
     global _reset_for, _built_schema
@@ -181,13 +181,17 @@ async def _fingerprint(engine: Any) -> str:
 
 
 async def _empty_tables(engine: Any, tables: list[Any]) -> None:
-    from sqlalchemy.schema import sort_tables
+    """Empty a reused Postgres schema; SQLite is handled before this call."""
 
     async with engine.begin() as conn:
-        quote = conn.dialect.identifier_preparer.format_table
-        # Children first, so no foreign key refuses a parent's delete.
-        for table in reversed(sort_tables(tables)):
-            await conn.execute(text(f"DELETE FROM {quote(table)}"))
+        # A leaked reader must fail setup instead of waiting forever for TRUNCATE.
+        await conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+        if tables:
+            quote = conn.dialect.identifier_preparer.format_table
+            names = ", ".join(quote(table) for table in tables)
+            # Refuse foreign-key dependants outside the caller's reset boundary.
+            await conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY RESTRICT"))
+        # RESTART IDENTITY excludes unowned sequences; preserve their reset too.
         await conn.execute(_RESTART_SEQUENCES)
 
 
