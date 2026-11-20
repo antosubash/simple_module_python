@@ -8,6 +8,7 @@ def test_public_layout_helper_allows_duplicate_test_basenames(tmp_path):
 
     package = tmp_path / "orders"
     (package / "core").mkdir(parents=True)
+    (package / "__main__.py").touch()
     for area in ("core", "web"):
         tests = tmp_path / "tests" / area / "crud"
         tests.mkdir(parents=True)

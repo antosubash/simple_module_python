@@ -26,7 +26,7 @@ Browse autocomplete offers only declared generic keys (#690).
 ### Register module settings
 
 The pattern (a `DbBackedSettings` subclass + `register_module_settings` from `simple_module_core.module_settings` in `register_settings`) is documented in [Settings & app.state](/framework/settings#module-settings). Registration and boot-time DB hydration belong to the framework since #500 and work with this module disabled. What the settings module adds on top:
-- **Env-var migration**: `smpy settings import-from-env` scans every registered class's `env_prefix` and seeds matching `SM_*` env vars as SYSTEM-scoped rows. Idempotent.
+- **Env-var migration**: `smpy settings import-from-env` imports legacy `SM_*` variables for registered DB settings fields as SYSTEM-scoped rows, with optional module/prefix filters and validation. See [CLI](#cli).
 - **Admin editing**: registered fields appear under that package at `/admin/settings/` with type-aware inputs.
 - **Hot reload**: saving via the admin UI calls `apply_changes_and_reload`, which validates the diff against the pydantic class, persists deltas, swaps the live `app.state.<package>.settings`, and publishes [`SettingsReloaded`](#events) so dependents (SMTP clients, Celery configs, …) can rebuild.
 
@@ -256,7 +256,45 @@ Unique constraint on `(scope, scope_id, key)`.
 
 ## CLI
 
-- `smpy settings import-from-env` — one-shot migration. Walks every module that has registered settings; for each `SM_<PREFIX>_<FIELD>` env var present, writes a SYSTEM-scope row so the value persists without needing the env var any longer. Idempotent — only seeds keys that don't already have a DB override.
+`smpy settings import-from-env` migrates legacy `SM_<PREFIX>_<FIELD>` variables
+to SYSTEM-scope DB overrides. The project `.env` is read first, then process
+variables take precedence. Repeating the command upserts the selected overrides,
+including existing rows. Restart application processes to load the changes.
+
+Production images do not need `simple_module_cli`: use the settings package's
+own entry point with the same arguments:
+
+```bash
+python -m settings import-from-env --only file_storage
+smpy settings import-from-env --only file_storage --only mail
+python -m settings import-from-env --prefix SM_FILE_STORAGE_ --prefix SM_MAIL_
+```
+
+`--only` accepts settings package names case-insensitively (`file_storage`,
+not the display name `FileStorage`). Unknown names fail and list the registered
+packages. `--prefix` matches variable names by prefix (normalized to uppercase).
+Both options are repeatable; their matches are combined, so a variable selected
+by either is eligible. Without filters, all matching registered fields are
+eligible. Prefixes use the historical importer mapping: usually
+`SM_<PACKAGE>_`, with `SM_BG_TASKS_` for `background_tasks` and `SM_` for `host`.
+
+Values are parsed as their stored type, then checked by the settings class's
+field constraints and validators, including model validators across selected
+values and existing DB overrides. Any invalid value aborts the entire import
+before writing, prints per-variable validation errors without values, and exits
+non-zero. Successful output lists each stored `<package>.<field>` without its
+value and ends with the imported count. Failed validation reports a count of zero.
+
+There is no general env-only field marker in `DbBackedSettings` or the settings
+registry; secret-redaction metadata does not mean a field is env-only. The
+importer only accepts fields in registered DB settings classes. Other selected
+`SM_*` variables are reported as skipped (env-only or unknown), including host
+bootstrap/process wiring and Users bootstrap passwords and legacy token secrets,
+which are not registered DB fields. It never creates arbitrary rows for them.
+Some `SM_BG_TASKS_*` fields and registered Keycloak fields **are** DB-hydrated
+in this framework and remain eligible; the importer does not block entire
+prefixes. Env-readable fields still follow env → DB → default precedence: remove
+their legacy env variables after migration if future DB edits should take effect.
 
 ## Inertia pages
 
