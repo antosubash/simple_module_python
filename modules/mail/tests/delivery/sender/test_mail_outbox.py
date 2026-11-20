@@ -62,19 +62,15 @@ async def test_outbox_delivers_attachments_and_legacy_payload(
     assert row.payload["message"]["headers"] == {
         "List-Unsubscribe": "<https://example.com/unsubscribe>"
     }
+    payload = {**row.payload, "message": dict(row.payload["message"])}
     if legacy_headers:
-        payload = {**row.payload, "message": dict(row.payload["message"])}
         del payload["message"]["headers"]
-        row.payload = payload
     if legacy_reply_to:
-        payload = {**row.payload, "message": dict(row.payload["message"])}
         del payload["message"]["reply_to"]
-        row.payload = payload
     if legacy:
-        payload = {**row.payload, "message": dict(row.payload["message"])}
         del payload["message"]["attachments"]
-        row.payload = payload
-    else:
+    row.payload = payload
+    if not legacy:
         assert row.payload["message"]["attachments"][0]["filename"] == "invite.ics"
         assert isinstance(row.payload["message"]["attachments"][0]["content"], str)
     await db_session.commit()
