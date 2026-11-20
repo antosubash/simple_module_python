@@ -281,7 +281,9 @@ eligible. Prefixes use the historical importer mapping: usually
 Values are parsed as their stored type, checked against the store's write schema,
 then checked by the settings class's field constraints and validators, including
 model validators across selected values, existing DB overrides and class defaults.
-Unselected environment/dotenv sources are excluded from batch validation.
+Validation bypasses Pydantic's environment/dotenv sources. Defaults and validators
+that read the process environment directly still run, including the
+`background_tasks` defaults seeded by `SM_REDIS_URL`.
 Any invalid value aborts the entire import
 before writing, prints variable names and validation error types, and exits
 non-zero. Successful output lists each stored `<package>.<field>` without its
@@ -296,8 +298,11 @@ bootstrap/process wiring and Users bootstrap passwords and legacy token secrets,
 which are not registered DB fields. It never creates arbitrary rows for them.
 Some `SM_BG_TASKS_*` fields and registered Keycloak fields **are** DB-hydrated
 in this framework and remain eligible; the importer does not block entire
-prefixes. Env-readable fields still follow env → DB → default precedence: remove
-their legacy env variables after migration if future DB edits should take effect.
+prefixes. Host and env-readable background-task fields still follow
+env → DB → default precedence: remove their legacy env variables after migration
+if future DB edits should take effect. Keycloak reads its bootstrap environment
+values into class defaults at import time; stored DB overrides take precedence
+over those defaults.
 
 ## Inertia pages
 
