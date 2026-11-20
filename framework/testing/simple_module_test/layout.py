@@ -9,6 +9,7 @@ from pathlib import Path
 ALLOWED_ROOT = frozenset(
     {
         "__init__.py",
+        "__main__.py",
         "py.typed",
         "module.py",
         "models.py",

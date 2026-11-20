@@ -88,7 +88,7 @@ When a module declares a `simple_module_cli.cli_plugins` entry point, the CLI mo
 | `uv run smpy host gen-pages` | `simple_module_hosting` | Regenerate `client_app/modules.{manifest.json,generated.ts,generated.css,assets.json}` from the installed modules. Run when you add or remove pages or assets. |
 | `uv run smpy host gen-i18n` | `simple_module_hosting` | Regenerate `keys.generated.ts` and `generated-resources.ts` into the installed `@simple-module-py/i18n/src` directory (or `packages/i18n/src` in the framework repo) without booting the app. Fails if neither exists unless `--skip-if-missing` is set. |
 | `uv run smpy host sync-js-deps` | `simple_module_hosting` | Install module-declared JS deps into the host. Module-root npm workspace manifests are installed by npm automatically; dependency-only manifests inside Python packages need this sync even for editable installs. |
-| `uv run smpy settings import-from-env` | `simple_module_settings` | One-shot migration: read every `SM_<MODULE>_*` env var and seed it as a SYSTEM-scope row in the DB-backed settings store. Idempotent. |
+| `uv run smpy settings import-from-env` | `simple_module_settings` | Validate and upsert legacy env vars as SYSTEM-scope DB settings. Repeat `--only <package>` / `--prefix SM_<PREFIX>_` to filter. Production alternative: `python -m settings import-from-env`. Prints names, never values; skips variables outside registered DB fields. See [Settings CLI](/modules/settings#cli). |
 
 `uv run smpy users create-admin` is contributed by the `users` module as a `uv run smpy users` subcommand:
 

@@ -248,7 +248,16 @@ For env-readable host settings, process variables take precedence over the
 project `.env`, then stored overrides, then defaults. Module settings that
 use `DbBackedSettings` resolve from stored values and defaults. The
 `smpy settings import-from-env` migration command can import legacy
-`SM_<MODULE>_<FIELD>` values into the DB.
+`SM_<MODULE>_<FIELD>` values into the DB. Use repeatable `--only file_storage`
+or `--prefix SM_FILE_STORAGE_` filters to limit the import; matches are additive.
+`--only` uses case-insensitive settings package names and lists known packages
+on an unknown name. In production, `python -m settings import-from-env` accepts
+the same options without installing the developer CLI. The importer prints names
+and the final count, never values; validation failures abort all writes and exit
+non-zero. Only registered DB fields are eligible. Unregistered env-only secrets
+and process wiring are skipped with an explanation; DB-readable background-task
+and Keycloak fields remain eligible. See [Settings CLI](/modules/settings#cli)
+for details and post-import precedence.
 
 ### Repository tools and tests
 

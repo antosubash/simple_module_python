@@ -16,11 +16,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Settings env import supports repeatable `--only` package and `--prefix` filters, prints stored names without values, and runs as `python -m settings import-from-env` without the developer CLI (#1056).
 - `MailMessage.headers` carries validated custom headers through SMTP and durable outbox delivery. Routing, MIME, authentication and delivery trace headers are reserved; the SMTP envelope uses only the configured From and message To addresses. Previously queued payloads without headers remain valid (#1053).
 - Users `signup_default_role` selects the existing role granted to local self-signups (default `user`); blank or missing roles grant nothing (#1055).
 
 ### Fixed
 
+- **Behaviour change:** settings env import validates the entire selected batch before writing and exits non-zero with value-free errors if validation fails. Variables outside registered DB fields, including env-only bootstrap credentials and process wiring, are explicitly skipped; no env-only field marker exists, so DB-readable background-task and Keycloak settings remain eligible. Standalone Typer invocation preserves the `import-from-env` subcommand (#1056).
 - SMTP mail includes UTC `Date` and unique `Message-ID` headers, using the configured sender's domain when parseable (#1053).
 - SMTP preserves long `List-Unsubscribe` URLs within the 998-character line limit without RFC 2047 encoding, while retaining encoded non-ASCII headers and SMTPUTF8 support for internationalized mailboxes (#1053).
 - SMTP refolds long UTF-8 headers to respect the 998-byte wire-line limit (#1053).

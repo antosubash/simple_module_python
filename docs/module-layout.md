@@ -37,6 +37,7 @@ checkers, not a framework runtime lookup.
 | Root entry | Consumer (file:line) and reason |
 | --- | --- |
 | `__init__.py` | Python package import; `framework/hosting/simple_module_hosting/assets.py:117` uses `importlib.resources.files(pkg_name)` to find it. |
+| `__main__.py` | Optional Python module entry point for `python -m <package>` administration commands. |
 | `py.typed` | PEP 561 consumers; `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:33` selects the whole package for the wheel, including this marker. |
 | `module.py` | `framework/core/simple_module_core/discovery.py:80` loads the `simple_module` entry point; the scaffold declares its target in `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:15`. |
 | `models.py` or `models/` | `framework/db/simple_module_db/migrations.py:74` imports the module's models for metadata; `framework/core/simple_module_core/diagnostics/_tenancy.py:94` and `framework/core/simple_module_core/diagnostics/_expression_index.py:52` do the same. A `models/` package must load its tables. |

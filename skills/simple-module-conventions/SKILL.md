@@ -45,6 +45,7 @@ new module settings and their app-state container live in `core/settings.py`
 and `core/services.py`; HTTP dependencies and services live in `web/`. Keep
 root lookup files in place and put non-page frontend code in `ui/`. See
 [Module layout](https://docs.py.simplemodule.dev/module-layout).
+An optional root `__main__.py` provides `python -m <package>` administration.
 
 ### 3. Per-module settings: `register_module_settings` → `app.state.<module>`
 
