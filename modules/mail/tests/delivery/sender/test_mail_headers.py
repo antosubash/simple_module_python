@@ -110,12 +110,15 @@ async def test_smtp_rejects_headers_mutated_after_construction(monkeypatch, head
     send.assert_not_awaited()
 
 
-@pytest.mark.parametrize("value", ["Grüße " * 100, "a" * 1500])
-async def test_long_and_non_ascii_header_values_survive_wire_encoding(monkeypatch, value) -> None:
+@pytest.mark.parametrize("to", ["a@test", "ä@test"])
+@pytest.mark.parametrize("value", ["Grüße " * 100, "a" * 1500, "é" * 700, "😀" * 300])
+async def test_long_and_non_ascii_header_values_survive_wire_encoding(
+    monkeypatch, value, to
+) -> None:
     send = AsyncMock()
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
     await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(
-        MailMessage("a@test", "Hi", "Body", headers={"X-Description": value})
+        MailMessage(to, "Hi", "Body", headers={"X-Description": value})
     )
     wire = send.call_args.args[0]
     assert all(len(line) <= 998 for line in wire.split(b"\r\n"))
@@ -123,20 +126,27 @@ async def test_long_and_non_ascii_header_values_survive_wire_encoding(monkeypatc
     assert str(restored["X-Description"]) == value
 
 
-async def test_long_unsubscribe_url_is_unencoded_on_the_wire(monkeypatch) -> None:
+@pytest.mark.parametrize("to", ["a@test", "ä@test"])
+async def test_long_unsubscribe_url_is_unencoded_on_the_wire(monkeypatch, to) -> None:
     send = AsyncMock()
     monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
-    value = f"<https://example.com/u?token={'a' * 160}>"
+    value = f"<https://example.com/u?token={'a' * 800}>"
     await SmtpMailSender("smtp.test", 25, "", "", "sender@example.com", False).send(
-        MailMessage("a@test", "Grüße", "Grüße", headers={"List-Unsubscribe": value})
+        MailMessage(
+            to,
+            "Grüße",
+            "Grüße",
+            headers={"List-Unsubscribe": value, "X-Description": "😀" * 300},
+        )
     )
     wire = send.call_args.args[0]
     headers = wire.split(b"\r\n\r\n", 1)[0]
     unsubscribe = next(line for line in headers.split(b"\r\n") if line.startswith(b"List-"))
     assert unsubscribe == f"List-Unsubscribe: {value}".encode("ascii")
     assert b"=?" not in unsubscribe
-    assert b"Subject: =?utf-8?" in headers
-    assert wire.isascii()
+    if to.isascii():
+        assert b"Subject: =?utf-8?" in headers
+        assert wire.isascii()
     restored = BytesParser(policy=policy.default).parsebytes(wire)
     assert restored["Subject"] == "Grüße"
     assert restored["List-Unsubscribe"] == value

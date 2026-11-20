@@ -185,9 +185,10 @@ revalidates it before sending. SMTP applies headers to the outer MIME message
 and explicitly derives the envelope sender from `From` and recipients from `To`
 only; custom headers cannot redirect delivery.
 
-SMTP serialization preserves unbroken ASCII URLs within the 998-character line
+SMTP serialization preserves unbroken ASCII URLs within the 998-byte line
 limit, so long `List-Unsubscribe` URLs remain usable by mail clients. Non-ASCII
 subjects and display names are encoded unless the envelope requires `SMTPUTF8`.
+UTF-8 header lines are refolded when necessary to stay within the byte limit.
 Console and fallback senders ignore custom headers. Custom transports should
 revalidate them with `validate_mail_headers` before forwarding them through the
 provider's header API, or document when unsupported.

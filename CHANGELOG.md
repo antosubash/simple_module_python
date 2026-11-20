@@ -22,6 +22,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - SMTP mail includes UTC `Date` and unique `Message-ID` headers, using the configured sender's domain when parseable (#1053).
 - SMTP preserves long `List-Unsubscribe` URLs within the 998-character line limit without RFC 2047 encoding, while retaining encoded non-ASCII headers and SMTPUTF8 support for internationalized mailboxes (#1053).
+- SMTP refolds long UTF-8 headers to respect the 998-byte wire-line limit (#1053).
 
 ## [0.0.48] — 2026-11-19
 

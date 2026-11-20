@@ -21,6 +21,17 @@ from mail.core.settings import MailSettings
 from mail.core.transports import get_mail_transport
 
 
+class _SmtpPolicy(policy.EmailPolicy):
+    """Keep UTF-8 header lines within SMTP's byte limit."""
+
+    def fold_binary(self, name: str, value: Any) -> bytes:
+        folded = super().fold_binary(name, value)
+        if self.utf8 and any(len(line) > 998 for line in folded.split(b"\r\n")):
+            # The stdlib counts characters; UTF-8 needs up to four bytes each.
+            return policy.EmailPolicy.fold_binary(self.clone(max_line_length=998 // 4), name, value)
+        return folded
+
+
 class SmtpMailSender:
     """Delivers through an SMTP server with aiosmtplib."""
 
@@ -74,7 +85,10 @@ class SmtpMailSender:
         sender = from_header.addresses[0].addr_spec
         recipients = [address.addr_spec for address in email["To"].addresses]
         utf8_required = not (sender.isascii() and all(address.isascii() for address in recipients))
-        wire_policy = policy.SMTPUTF8 if utf8_required else policy.SMTP
+        # Typeshed's EmailPolicy constructor self type excludes subclasses.
+        wire_policy = _SmtpPolicy(  # ty: ignore[invalid-argument-type]
+            utf8=utf8_required, linesep="\r\n"
+        )
         # Avoid encoded words in long RFC 2369 URLs; bytes bypass aiosmtplib's refolding.
         wire = email.as_bytes(policy=wire_policy.clone(max_line_length=998, cte_type="7bit"))
         await aiosmtplib.send(
