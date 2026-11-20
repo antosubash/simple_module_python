@@ -2,7 +2,6 @@
 
 import pytest
 import sqlalchemy as sa
-from sqlmodel import Session
 from users.models import OAuthAccount, User
 
 
@@ -15,30 +14,24 @@ def test_oauth_token_columns_are_unbounded_text(name, nullable):
 
 
 @pytest.mark.parametrize("refresh_token", [None, "refresh" * 1024])
-def test_long_oauth_tokens_roundtrip(refresh_token):
-    engine = sa.create_engine("sqlite://")
-    User.metadata.create_all(engine)
+async def test_long_oauth_tokens_roundtrip(db_session, refresh_token):
     user = User(email="long-token@example.com")
-    try:
-        with Session(engine) as session:
-            session.add(user)
-            session.flush()
-            account = OAuthAccount(
-                user_id=user.id,
-                oauth_name="microsoft",
-                account_id="entra-subject",
-                account_email=user.email,
-                access_token="access" * 1024,
-                refresh_token=refresh_token,
-            )
-            session.add(account)
-            session.commit()
-            account_id = account.id
-            session.expunge_all()
+    db_session.add(user)
+    await db_session.flush()
+    account = OAuthAccount(
+        user_id=user.id,
+        oauth_name="microsoft",
+        account_id="entra-subject",
+        account_email=user.email,
+        access_token="access" * 1024,
+        refresh_token=refresh_token,
+    )
+    db_session.add(account)
+    await db_session.commit()
+    account_id = account.id
+    db_session.expunge_all()
 
-            stored = session.get(OAuthAccount, account_id)
+    stored = await db_session.get(OAuthAccount, account_id)
 
-            assert stored.access_token == "access" * 1024
-            assert stored.refresh_token == refresh_token
-    finally:
-        engine.dispose()
+    assert stored.access_token == "access" * 1024
+    assert stored.refresh_token == refresh_token
