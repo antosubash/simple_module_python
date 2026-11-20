@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- **Behaviour change:** PostgreSQL test fixtures empty model tables with one `TRUNCATE ... RESTART IDENTITY CASCADE`, so row-level `DELETE` triggers cannot block between-test resets. Unowned public-schema sequences still restart at 1; statement-level `TRUNCATE` triggers still apply (#1052).
+
 ## [0.0.48] — 2026-11-19
 
 - Migrate the remaining module permissions to `PermissionCatalogue`, preserving keys, registry metadata, role mappings and deprecated imported constants; no behaviour change (#1037).
