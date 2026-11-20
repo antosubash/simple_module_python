@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
-- **Behaviour change:** PostgreSQL test fixtures empty model tables with one `TRUNCATE ... RESTART IDENTITY CASCADE`, so row-level `DELETE` triggers cannot block between-test resets. Unowned public-schema sequences still restart at 1; statement-level `TRUNCATE` triggers still apply (#1052).
+- **Behaviour change:** When reusing a schema, PostgreSQL test fixtures empty model tables with one `TRUNCATE ... RESTART IDENTITY RESTRICT`, so row-level `DELETE` triggers cannot block between-test resets. Foreign-key references from tables outside the reset list reject the reset, and lock waits fail after five seconds. Unowned public-schema sequences still restart at 1; statement-level `TRUNCATE` triggers still apply (#1052).
 
 ## [0.0.48] — 2026-11-19
 

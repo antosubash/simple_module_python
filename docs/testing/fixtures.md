@@ -34,16 +34,18 @@ local `sm_test` database) and runs 4 workers by default. Under xdist each worker
 
 Each test starts with empty tables. The schema is built once per process and
 rebuilt only when changed; Postgres fixtures do not create a separate database
-per test. Between tests, all model tables are emptied in one
-`TRUNCATE <tables> RESTART IDENTITY CASCADE` statement. This bypasses row-level
+per test. When reusing a schema, all model tables are emptied in one
+`TRUNCATE <tables> RESTART IDENTITY RESTRICT` statement. This bypasses row-level
 `DELETE` triggers, including guards that reject deletion of immutable rows.
 Statement-level `TRUNCATE` triggers (including `BEFORE TRUNCATE`) still fire and
 can reject the reset. Public-schema sequences are also reset to 1, including
 sequences not owned by a table column, which `RESTART IDENTITY` does not reset.
-`TRUNCATE` takes exclusive table locks until the reset transaction completes;
-keep using separate databases per xdist worker. SQLite has no `TRUNCATE` and
-the table-emptying fallback uses children-first `DELETE`, so app-defined
-SQLite `DELETE` triggers still apply.
+Foreign-key references from tables outside the model-table list reject the
+reset rather than implicitly emptying those tables. `TRUNCATE` takes exclusive
+table locks until the reset transaction completes; a transaction-local five-second
+lock timeout makes leaked read transactions fail setup rather than hang it.
+Keep using separate databases per xdist worker. The default in-memory SQLite
+fixtures copy a schema template into fresh databases instead of running this reset.
 
 Connections use `NullPool` because pytest-asyncio gives each test
 its own event loop. Use `-p no:anyio` when invoking pytest directly on Postgres;
