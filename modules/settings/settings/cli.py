@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re
 from collections.abc import Mapping, Sequence
 from typing import Annotated
 
 import typer
 from fastapi import FastAPI
 from pydantic import ValidationError
+from pydantic_settings import BaseSettings
 from simple_module_core.dotenv import find_env_file, parse_dotenv
 from simple_module_core.module_settings import module_settings_registry
 from simple_module_core.settings_hydrate import value_type_for_field
 from simple_module_core.stored_settings import parse_stored_value
 
+from settings.contracts.schemas import SettingUpsert, SettingValueType
 from settings.core.env_vars import env_prefix_for
 from settings.module_settings.store import SettingsStore
 
@@ -27,19 +28,49 @@ def settings_commands() -> None:
     """Keep the command group when used standalone or mounted under smpy."""
 
 
-def _validation_message(message: str, environ: Mapping[str, str]) -> str:
-    # Validator messages can interpolate inputs even when include_input=False.
-    values = {
-        variant
-        for raw in environ.values()
-        if raw
-        for normalized in (raw, raw.upper(), raw.lower())
-        for variant in (normalized, repr(normalized))
-    }
-    if not values:
-        return message
-    pattern = "|".join(re.escape(value) for value in sorted(values, key=len, reverse=True))
-    return re.sub(pattern, "[redacted]", message)
+def _validate_import(
+    package: str,
+    cls: type[BaseSettings],
+    existing: dict[str, tuple[str, str]],
+    candidates: dict[str, tuple[str, str]],
+) -> bool:
+    """Check stored payloads and the merged model before any writes."""
+    prefix = env_prefix_for(package)
+    merged = {}
+    valid = True
+    for field_name, (raw, vtype) in {**existing, **candidates}.items():
+        if field_name not in cls.model_fields:
+            continue
+        env_name = f"{prefix}{field_name.upper()}"
+        try:
+            merged[field_name] = parse_stored_value(raw, vtype)
+            if field_name in candidates:
+                SettingUpsert(value=raw, value_type=SettingValueType(vtype))
+        except ValidationError as exc:
+            valid = False
+            for error in exc.errors(include_input=False, include_context=False, include_url=False):
+                typer.echo(f"Error {env_name}: invalid stored value ({error['type']}).", err=True)
+        except ValueError:
+            valid = False
+            typer.echo(f"Error {env_name}: cannot parse as {vtype}.", err=True)
+    if not valid:
+        return False
+    try:
+        # Hydration skips env-pinned fields; imports must validate their future DB values too.
+        # Bypass BaseSettings sources: unselected env/dotenv must not validate this batch.
+        cls.__pydantic_validator__.validate_python(merged, self_instance=cls.__new__(cls))
+    except ValidationError as exc:
+        for error in exc.errors(include_input=False, include_context=False, include_url=False):
+            loc = error["loc"]
+            fields = [str(loc[0])] if loc and loc[0] in cls.model_fields else list(candidates)
+            # Like stored_settings, omit messages: validators can embed transformed secrets.
+            for field_name in fields:
+                typer.echo(
+                    f"Error {prefix}{field_name.upper()}: validation failed ({error['type']}).",
+                    err=True,
+                )
+        return False
+    return True
 
 
 async def import_from_env_impl(
@@ -89,40 +120,9 @@ async def import_from_env_impl(
                 candidates[field_name] = (environ[env_name], value_type_for_field(cls, field_name))
         if not candidates:
             continue
-        merged = {}
-        parse_failed = False
         existing = await store.get_overrides(package)
-        for field_name, (raw, vtype) in existing.items():
-            if field_name in cls.model_fields and field_name not in candidates:
-                try:
-                    merged[field_name] = parse_stored_value(raw, vtype)
-                except ValueError:
-                    typer.echo(
-                        f"Error {package}.{field_name}: existing DB value cannot parse as {vtype}.",
-                        err=True,
-                    )
-                    parse_failed = failed = True
-        for field_name, (raw, vtype) in candidates.items():
-            try:
-                merged[field_name] = parse_stored_value(raw, vtype)
-            except ValueError:
-                typer.echo(
-                    f"Error {prefix}{field_name.upper()}: cannot parse as {vtype}.", err=True
-                )
-                parse_failed = failed = True
-        if parse_failed:
-            continue
-        try:
-            cls(**merged)
-        except ValidationError as exc:
+        if not _validate_import(package, cls, existing, candidates):
             failed = True
-            redactions = {**environ, **{name: raw for name, (raw, _) in existing.items()}}
-            for error in exc.errors(include_input=False, include_context=False, include_url=False):
-                loc = error["loc"]
-                fields = [str(loc[0])] if loc and loc[0] in candidates else list(candidates)
-                message = _validation_message(error["msg"], redactions)
-                for field_name in fields:
-                    typer.echo(f"Error {prefix}{field_name.upper()}: {message}", err=True)
             continue
         pending.extend((package, name, raw, vtype) for name, (raw, vtype) in candidates.items())
 

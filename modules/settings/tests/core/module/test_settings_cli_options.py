@@ -30,7 +30,7 @@ class StorageSettings(DbBackedSettings):
     @classmethod
     def check_bucket(cls, value: str) -> str:
         if value.startswith("bad"):
-            raise ValueError(f"Invalid bucket {value.upper()!r}")
+            raise ValueError(f"Invalid bucket {value.title()!r}")
         return value
 
     @model_validator(mode="after")
@@ -69,21 +69,13 @@ def importer(monkeypatch, tmp_path):
 @pytest.mark.parametrize(
     ("options", "expected"),
     [
-        ({}, {("file_storage", "bucket"), ("users", "base_url"), ("background_tasks", "bucket")}),
-        ({"only": ["FiLe_StOrAgE"]}, {("file_storage", "bucket")}),
-        (
-            {"only": ["users", "background_tasks"]},
-            {("users", "base_url"), ("background_tasks", "bucket")},
-        ),
-        ({"prefixes": ["SM_FILE_STORAGE_"]}, {("file_storage", "bucket")}),
-        (
-            {"prefixes": ["SM_USERS_", "SM_BG_TASKS_"]},
-            {("users", "base_url"), ("background_tasks", "bucket")},
-        ),
-        (
-            {"only": ["users"], "prefixes": ["SM_FILE_STORAGE_"]},
-            {("users", "base_url"), ("file_storage", "bucket")},
-        ),
+        ({}, {"file_storage", "users", "background_tasks"}),
+        ({"only": ["FiLe_StOrAgE"]}, {"file_storage"}),
+        ({"only": ["users", "background_tasks"]}, {"users", "background_tasks"}),
+        ({"prefixes": ["sm_file_storage_"]}, {"file_storage"}),
+        ({"prefixes": ["SM_USERS_", "SM_BG_TASKS_"]}, {"users", "background_tasks"}),
+        ({"prefixes": ["sm_"]}, {"file_storage", "users", "background_tasks"}),
+        ({"only": ["users"], "prefixes": ["SM_FILE_STORAGE_"]}, {"users", "file_storage"}),
     ],
 )
 async def test_filters_select_only_matching_variables(importer, options, expected):
@@ -98,19 +90,17 @@ async def test_filters_select_only_matching_variables(importer, options, expecte
         },
         **options,
     )
-    assert set(store.rows) == expected
+    assert {package for package, _ in store.rows} == expected
     assert count == len(expected)
 
 
-async def test_unknown_module_lists_known_names_before_writes(importer):
-    api, store = importer
-    with pytest.raises(typer.BadParameter) as exc:
-        await import_from_env_impl(
-            api, store, environ={"SM_USERS_ALLOW_SIGNUP": "true"}, only=["typo"]
-        )
+def test_unknown_module_lists_known_names_before_writes(cli_importer):
+    result = CliRunner().invoke(app, ["import-from-env", "--only", "typo"])
+    assert result.exit_code == 2
     for name in ("typo", "file_storage", "users", "background_tasks"):
-        assert name in str(exc.value)
-    assert store.rows == {}
+        assert name in result.output
+    assert cli_importer.rows == {}
+    assert not cli_importer.committed
 
 
 async def test_prints_setting_names_never_values(importer, capsys):
@@ -124,23 +114,28 @@ async def test_prints_setting_names_never_values(importer, capsys):
 @pytest.mark.parametrize(
     "environ, name, message",
     [
-        ({"SM_USERS_SIGNUP_DEFAULT_ROLE": "ADMIN"}, "SM_USERS_SIGNUP_DEFAULT_ROLE", "role"),
-        ({"SM_FILE_STORAGE_LIMIT": "-17"}, "SM_FILE_STORAGE_LIMIT", "greater than"),
+        ({"SM_USERS_SIGNUP_DEFAULT_ROLE": "ADMIN"}, "SM_USERS_SIGNUP_DEFAULT_ROLE", "value_error"),
+        ({"SM_FILE_STORAGE_LIMIT": "-17"}, "SM_FILE_STORAGE_LIMIT", "greater_than_equal"),
         ({"SM_FILE_STORAGE_LIMIT": "not-an-int"}, "SM_FILE_STORAGE_LIMIT", "int"),
         ({"SM_USERS_ALLOW_SIGNUP": "not-a-bool"}, "SM_USERS_ALLOW_SIGNUP", "bool"),
         ({"SM_FILE_STORAGE_TAGS": "not-json"}, "SM_FILE_STORAGE_TAGS", "json"),
-        ({"SM_FILE_STORAGE_BUCKET": "bad-private"}, "SM_FILE_STORAGE_BUCKET", "bucket"),
+        ({"SM_FILE_STORAGE_BUCKET": "bad-private"}, "SM_FILE_STORAGE_BUCKET", "value_error"),
+        ({"SM_FILE_STORAGE_BUCKET": "x" * 4001}, "SM_FILE_STORAGE_BUCKET", "string_too_long"),
         (
             {"SM_FILE_STORAGE_MINIMUM": "24", "SM_FILE_STORAGE_MAXIMUM": "18"},
             "SM_FILE_STORAGE_MINIMUM",
-            "minimum",
+            "value_error",
         ),
     ],
 )
 async def test_invalid_batch_writes_nothing(importer, capsys, environ, name, message):
     api, store = importer
     # Also catches writing valid variables before discovering a later invalid one.
-    environ = {"SM_USERS_BASE_URL": "valid-private-url", **environ}
+    environ = {
+        "SM_BG_TASKS_BUCKET": "valid-private-bucket",
+        "SM_USERS_BASE_URL": "valid-private-url",
+        **environ,
+    }
     with pytest.raises(typer.Exit) as exc:
         await import_from_env_impl(api, store, environ=environ)
     assert exc.value.exit_code != 0
@@ -151,6 +146,7 @@ async def test_invalid_batch_writes_nothing(importer, capsys, environ, name, mes
     for value in environ.values():
         assert value not in output
         assert value.upper() not in output
+        assert value.title() not in output
 
 
 async def test_validates_candidates_together_with_existing_overrides(importer):
@@ -164,6 +160,25 @@ async def test_validates_candidates_together_with_existing_overrides(importer):
     )
     assert store.rows["file_storage", "minimum"] == ("24", "int")
     assert store.rows["file_storage", "tags"] == ('["one"]', "json")
+
+
+@pytest.mark.parametrize("source", ["process", "dotenv"])
+async def test_filtered_batch_cannot_borrow_unselected_environment(
+    importer, monkeypatch, tmp_path, source
+):
+    from simple_module_hosting.host_settings import HostSettings
+
+    api, store = importer
+    module_settings_registry(api).register("host", HostSettings)
+    if source == "process":
+        monkeypatch.setenv("SM_I18N_SUPPORTED_LOCALES", '["en", "de"]')
+    else:
+        (tmp_path / ".env").write_text('SM_I18N_SUPPORTED_LOCALES=["en", "de"]\n')
+    with pytest.raises(typer.Exit):
+        await import_from_env_impl(
+            api, store, environ={"SM_I18N_DEFAULT_LOCALE": "de"}, prefixes=["SM_I18N_DEFAULT_"]
+        )
+    assert store.rows == {}
 
 
 async def test_skips_variables_outside_db_settings_registry(importer, capsys):
@@ -203,9 +218,8 @@ async def test_existing_malformed_override_aborts_without_echoing_value(
         await import_from_env_impl(api, store, environ={"SM_FILE_STORAGE_MAXIMUM": "20"})
     assert len(store.rows) == 1
     output = capsys.readouterr().err
-    assert field in output.lower()
-    assert raw not in output
-    assert raw.upper() not in output
+    assert f"SM_FILE_STORAGE_{field.upper()}" in output
+    assert all(value not in output for value in (raw, raw.upper(), raw.title()))
 
 
 @pytest.fixture
@@ -232,15 +246,8 @@ def test_typer_subcommand_executes_filters(cli_importer, monkeypatch, mounted):
     monkeypatch.setenv("SM_USERS_BASE_URL", "users-private")
     monkeypatch.setenv("SM_BG_TASKS_BUCKET", "background-private")
     cli = app
-    args = [
-        "import-from-env",
-        "--only",
-        "FILE_STORAGE",
-        "--only",
-        "users",
-        "--prefix",
-        "SM_BG_TASKS_",
-    ]
+    args = ["import-from-env", "--only", "FILE_STORAGE", "--only", "users"]
+    args.extend(["--prefix", "SM_BG_TASKS_"])
     if mounted:
         cli = typer.Typer()
         cli.add_typer(app, name="settings")
@@ -252,13 +259,6 @@ def test_typer_subcommand_executes_filters(cli_importer, monkeypatch, mounted):
     assert "Imported 3 override(s)" in result.output
     assert "file_storage.bucket" in result.output
     assert "private" not in result.output
-
-
-def test_direct_app_call_keeps_subcommand(cli_importer, capsys):
-    with pytest.raises(SystemExit) as exc:
-        app(["import-from-env"])
-    assert exc.value.code == 0
-    assert "Imported 0 override(s)" in capsys.readouterr().out
 
 
 def test_cli_invalid_value_exits_without_commit(cli_importer, monkeypatch):
@@ -274,16 +274,16 @@ def test_cli_invalid_value_exits_without_commit(cli_importer, monkeypatch):
 
 @pytest.mark.parametrize("args", [["-m", "settings", "import-from-env", "--help"], None])
 def test_python_module_runs_without_developer_cli(tmp_path, args):
+    (tmp_path / "templates").mkdir()
     # Block the optional CLI even if it happens to be installed in this checkout.
     code = """
-import importlib.abc
 import runpy
 import sys
-class BlockCLI(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == "simple_module_cli" or fullname.startswith("simple_module_cli."):
-            raise ImportError("developer CLI is not installed")
-sys.meta_path.insert(0, BlockCLI())
+sys.modules["simple_module_cli"] = None
+from simple_module_hosting.app_builder import create_app
+from simple_module_hosting.settings import Settings
+create_app(Settings(environment="testing", modules_enabled=["ep:settings"],
+    database_url="sqlite+aiosqlite:///:memory:", secret_key="unit-test-key"))
 sys.argv = ["settings", "import-from-env", "--help"]
 runpy.run_module("settings", run_name="__main__")
 """

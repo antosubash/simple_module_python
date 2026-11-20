@@ -278,12 +278,15 @@ by either is eligible. Without filters, all matching registered fields are
 eligible. Prefixes use the historical importer mapping: usually
 `SM_<PACKAGE>_`, with `SM_BG_TASKS_` for `background_tasks` and `SM_` for `host`.
 
-Values are parsed as their stored type, then checked by the settings class's
-field constraints and validators, including model validators across selected
-values and existing DB overrides. Any invalid value aborts the entire import
-before writing, prints per-variable validation errors without values, and exits
+Values are parsed as their stored type, checked against the store's write schema,
+then checked by the settings class's field constraints and validators, including
+model validators across selected values, existing DB overrides and class defaults.
+Unselected environment/dotenv sources are excluded from batch validation.
+Any invalid value aborts the entire import
+before writing, prints variable names and validation error types, and exits
 non-zero. Successful output lists each stored `<package>.<field>` without its
 value and ends with the imported count. Failed validation reports a count of zero.
+Validator messages are omitted because they can contain submitted values.
 
 There is no general env-only field marker in `DbBackedSettings` or the settings
 registry; secret-redaction metadata does not mean a field is env-only. The
