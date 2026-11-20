@@ -102,7 +102,7 @@ async def test_filters_select_only_matching_variables(importer, options, expecte
     assert count == len(expected)
 
 
-async def test_unknown_module_lists_known_names_before_writes(importer, capsys):
+async def test_unknown_module_lists_known_names_before_writes(importer):
     api, store = importer
     with pytest.raises(typer.BadParameter) as exc:
         await import_from_env_impl(

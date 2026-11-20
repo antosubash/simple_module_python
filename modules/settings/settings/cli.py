@@ -92,7 +92,6 @@ async def import_from_env_impl(
         merged = {}
         parse_failed = False
         existing = await store.get_overrides(package)
-        redactions = {**environ, **{name: raw for name, (raw, _) in existing.items()}}
         for field_name, (raw, vtype) in existing.items():
             if field_name in cls.model_fields and field_name not in candidates:
                 try:
@@ -117,11 +116,12 @@ async def import_from_env_impl(
             cls(**merged)
         except ValidationError as exc:
             failed = True
+            redactions = {**environ, **{name: raw for name, (raw, _) in existing.items()}}
             for error in exc.errors(include_input=False, include_context=False, include_url=False):
                 loc = error["loc"]
                 fields = [str(loc[0])] if loc and loc[0] in candidates else list(candidates)
+                message = _validation_message(error["msg"], redactions)
                 for field_name in fields:
-                    message = _validation_message(error["msg"], redactions)
                     typer.echo(f"Error {prefix}{field_name.upper()}: {message}", err=True)
             continue
         pending.extend((package, name, raw, vtype) for name, (raw, vtype) in candidates.items())
