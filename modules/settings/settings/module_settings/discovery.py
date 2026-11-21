@@ -149,7 +149,6 @@ def _field_view(
     raw_value = getattr(settings, name)
     value_type = value_type_for_field(cls, name)
     input_type, nullable = input_type_for_field(cls, name)
-    named_secret = is_named_secret(name, value_type)
     extra = info.json_schema_extra if isinstance(info.json_schema_extra, dict) else {}
     default = resolve_default(info)
     env_var = f"{prefix}{name.upper()}"
@@ -170,11 +169,7 @@ def _field_view(
     # ``is_secret`` drives the editor's input type and the "reveal" affordance,
     # so it has to be true when *any* of the three readings is being hidden —
     # otherwise the form offers to edit a value it is showing as dots.
-    secret = (
-        typed_secret
-        or named_secret
-        or any(embeds_credential(v) for v in (raw_value, default, raw_env))
-    )
+    secret = any(hidden(v) for v in (raw_value, default, raw_env))
     group = extra.get("group")
     return ModuleSettingField(
         name=name,

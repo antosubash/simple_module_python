@@ -94,29 +94,33 @@ def is_named_secret(name: str, value_type: str | None = None) -> bool:
 
 def _value_holds_secret(value: Any, *, decode_json: bool = False) -> bool:
     """True when *value* holds embedded credentials or secret dict keys."""
-    if isinstance(value, str):
-        if embeds_credential(value):
+    stack: list[Any] = [value]
+    if isinstance(value, str) and (decode_json or value.lstrip()[:1] in {'"', "[", "{"}):
+        try:
+            decoded = json.loads(value)
+        except RecursionError:
             return True
-        if decode_json or value.lstrip()[:1] in {'"', "[", "{"}:
-            try:
-                decoded = json.loads(value)
-            except (ValueError, RecursionError):
-                return False
+        except ValueError:
+            pass
+        else:
             if not isinstance(decoded, (bool, int, float, type(None))):
-                return _value_holds_secret(decoded, decode_json=False)
-        return False
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return any(_value_holds_secret(item, decode_json=False) for item in value)
-    if isinstance(value, dict):
-        return any(
-            (
-                isinstance(k, str)
-                and is_secret_field(k)
-                and not isinstance(v, (bool, int, float, type(None)))
-            )
-            or _value_holds_secret(v, decode_json=False)
-            for k, v in value.items()
-        )
+                stack.append(decoded)
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            if embeds_credential(item):
+                return True
+        elif isinstance(item, (list, tuple, set, frozenset)):
+            stack.extend(item)
+        elif isinstance(item, dict):
+            for k, v in item.items():
+                if (
+                    isinstance(k, str)
+                    and is_secret_field(k)
+                    and not isinstance(v, (bool, int, float, type(None)))
+                ):
+                    return True
+                stack.append(v)
     return False
 
 

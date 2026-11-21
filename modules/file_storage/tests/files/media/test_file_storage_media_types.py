@@ -121,7 +121,9 @@ def test_control_chars_rejected_and_safe_media_type_falls_back():
     assert normalise_media_type(poisoned) is None
     assert is_active_content(poisoned) is True
     assert safe_media_type(poisoned) == "application/octet-stream"
-    assert safe_media_type("Image/PNG; charset=utf-8") == "image/png"
+    assert safe_media_type("Image/PNG; charset=utf-8") == "image/png; charset=utf-8"
+    assert safe_media_type("text/plain; charset=iso-8859-1") == "text/plain; charset=iso-8859-1"
+    assert safe_media_type("image/png; invalid param!") == "image/png"
 
     svc = FileStorageService.__new__(FileStorageService)
     svc.settings = FileStorageSettings()
@@ -129,8 +131,9 @@ def test_control_chars_rejected_and_safe_media_type_falls_back():
         svc._check_content_type(poisoned)
 
 
-async def test_file_body_response_sanitizes_stored_content_type(tmp_path):
+async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_path):
     from file_storage.backends.filesystem import FilesystemBackend
+    from file_storage.files.downloads import presigned_download_url
     from file_storage.files.ranges import file_body_response
     from file_storage.models import StoredFile
     from starlette.requests import Request
@@ -138,16 +141,47 @@ async def test_file_body_response_sanitizes_stored_content_type(tmp_path):
     backend = FilesystemBackend(root=tmp_path)
 
     async def chunks():
-        yield b"abc"
+        yield b"abcdef"
 
-    await backend.put("ab/obj", chunks(), content_type="text/plain", size=3)
-    row = StoredFile(
+    await backend.put("ab/obj", chunks(), content_type="text/plain", size=6)
+    poisoned_row = StoredFile(
         key="ab/obj",
         filename="f.txt",
         content_type="image/png; x=\r\nInjected: 1",
-        size_bytes=3,
+        size_bytes=6,
         backend="filesystem",
     )
     req = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
-    resp = await file_body_response(backend, row, req, headers={}, etag='"e"')
+    resp = await file_body_response(backend, poisoned_row, req, headers={}, etag='"e"')
     assert resp.media_type == "application/octet-stream"
+
+    iso_row = StoredFile(
+        key="ab/obj",
+        filename="f.txt",
+        content_type="Text/Plain; charset=iso-8859-1",
+        size_bytes=6,
+        backend="filesystem",
+    )
+    full = await file_body_response(backend, iso_row, req, headers={}, etag='"e"')
+    assert full.media_type == "text/plain; charset=iso-8859-1"
+
+    ranged_req = Request(
+        {"type": "http", "method": "GET", "path": "/", "headers": [(b"range", b"bytes=0-2")]}
+    )
+    ranged = await file_body_response(backend, iso_row, ranged_req, headers={}, etag='"e"')
+    assert ranged.status_code == 206
+    assert ranged.media_type == "text/plain; charset=iso-8859-1"
+
+    class _PresignBackend:
+        backend_id = "filesystem"
+        supports_presigned_url = True
+
+        async def presigned_get_url(self, key, ttl_seconds, **headers):
+            self.headers = headers
+            return f"https://signed/{key}"
+
+    pb = _PresignBackend()
+    await presigned_download_url(pb, iso_row, 60, attachment=True)
+    assert pb.headers["content_type"] == "text/plain; charset=iso-8859-1"
+    await presigned_download_url(pb, poisoned_row, 60, attachment=True)
+    assert pb.headers["content_type"] == "application/octet-stream"

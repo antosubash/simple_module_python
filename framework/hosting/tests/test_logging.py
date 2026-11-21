@@ -218,6 +218,11 @@ class TestCorrelationIdMiddleware:
         assert cid != bad_header
         assert 0 < len(cid) <= 128
 
+    async def test_accepts_max_length_correlation_id(self, client: httpx.AsyncClient):
+        max_cid = "a" * 128
+        resp = await client.get("/health", headers={"X-Correlation-ID": max_cid})
+        assert resp.headers["x-correlation-id"] == max_cid
+
 
 # ── Request logging middleware (integration) ────────────────────────────
 

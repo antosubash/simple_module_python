@@ -45,7 +45,6 @@ class FilesystemBackend(FilesystemMultipartMixin):
             or key.startswith("/")
             or any(ord(c) < 0x20 or ord(c) == 0x7F for c in key)
             or any(seg in {".", ".."} for seg in key.split("/"))
-            or any(part in {".", ".."} for part in Path(key).parts)
         ):
             raise StorageBackendError(f"Invalid storage key: {key!r}")
         root = self.root.resolve()

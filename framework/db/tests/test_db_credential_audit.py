@@ -187,3 +187,18 @@ def test_json_setting_credential_redaction(key, value, value_type, expected):
         session.add(Setting(key=key, value=value, value_type=value_type))
         record = collect_audit_records(session)[0]
         assert next(c["new"] for c in record.changes if c["field"] == "value") == expected
+
+
+@pytest.mark.parametrize(
+    ("depth", "payload", "expected"),
+    [
+        (600, '{"api_key": "private"}', "[redacted]"),
+        (600, "1", "[" * 600 + "1" + "]" * 600),
+    ],
+)
+def test_deeply_nested_json_audit_redaction_does_not_recurse(depth, payload, expected):
+    nested = "[" * depth + payload + "]" * depth
+    with Session() as session:
+        session.add(Setting(key="custom.deep", value=nested, value_type="json"))
+        record = collect_audit_records(session)[0]
+        assert next(c["new"] for c in record.changes if c["field"] == "value") == expected
