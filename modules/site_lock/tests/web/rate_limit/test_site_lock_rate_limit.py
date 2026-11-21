@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from site_lock.web.rate_limit import AttemptLimiter
 
 
@@ -88,3 +89,25 @@ def test_capacity_sweeps_expired_before_oldest_live_bucket():
     lim.is_blocked("live", now=100)  # Next periodic sweep is at 200.
     lim.record_failure("new", now=102)
     assert set(lim._buckets) == {"live", "new"}
+
+
+@pytest.mark.parametrize("bad_max", [0, -1])
+def test_non_positive_max_buckets_rejected(bad_max: int):
+    with pytest.raises(ValueError, match="max_buckets"):
+        AttemptLimiter(
+            max_failures=1, window_seconds=100, cooldown_seconds=500, max_buckets=bad_max
+        )
+
+
+def test_capacity_one_and_existing_key_update_preserve_bucket():
+    lim = AttemptLimiter(max_failures=2, window_seconds=100, cooldown_seconds=500, max_buckets=1)
+    lim.record_failure("k1", now=1)
+    lim.record_failure("k1", now=2)
+    assert lim.is_blocked("k1", now=3) is True
+
+    lim2 = AttemptLimiter(max_failures=2, window_seconds=100, cooldown_seconds=500, max_buckets=2)
+    lim2.record_failure("a", now=1)
+    lim2.record_failure("b", now=2)
+    lim2.record_failure("a", now=3)
+    assert lim2.is_blocked("a", now=4) is True
+    assert set(lim2._buckets) == {"a", "b"}

@@ -11,6 +11,7 @@ from fastapi_users.jwt import decode_jwt
 
 from users.accounts.manager import UserManager
 from users.contracts.schemas import AcceptInviteRequest
+from users.invites._eligibility import is_invite_eligible
 from users.models import User
 
 
@@ -30,12 +31,7 @@ async def complete_invite(
         parsed_id = manager.parse_id(user_id)
     except (jwt.PyJWTError, KeyError, exceptions.UserNotExists, exceptions.InvalidID):
         raise exceptions.InvalidVerifyToken() from None
-    if (
-        parsed_id != user.id
-        or not user.is_active
-        or user.disabled_at is not None
-        or user.is_external
-    ):
+    if parsed_id != user.id or not is_invite_eligible(user):
         raise exceptions.InvalidVerifyToken()
     if user.is_verified:
         raise exceptions.UserAlreadyVerified()

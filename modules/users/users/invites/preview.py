@@ -20,6 +20,8 @@ from typing import Any
 import jwt
 from fastapi_users.jwt import decode_jwt
 
+from users.invites._eligibility import is_invite_eligible
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,26 +66,18 @@ async def preview_invite(token: str, user_manager: Any) -> dict[str, Any] | None
     invited_by_name = data.get("invited_by") or None
     expires_at = _expires_at(data)
 
-    roles: list[str] = []
     try:
         user = await user_manager.get_by_email(email)
     except Exception:
         return None
 
-    if (
-        str(user.id) != str(data.get("sub"))
-        or not user.is_active
-        or user.disabled_at is not None
-        or user.is_external
-        or user.is_verified
-    ):
+    if str(user.id) != str(data.get("sub")) or not is_invite_eligible(user) or user.is_verified:
         return None
 
     roles = sorted(role.name for role in getattr(user, "roles", []) or [])
     return {
         "email": email,
         "roles": roles,
-        "already_accepted": False,
         "invited_by_name": invited_by_name,
         "expires_at": expires_at,
         # Pre-fills the "Full name" field: an admin who typed the invitee's

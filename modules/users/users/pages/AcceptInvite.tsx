@@ -19,7 +19,6 @@ import { api } from './api.generated';
 interface InvitePreview {
   email: string;
   roles: string[];
-  already_accepted: boolean;
   /** Display name of whoever minted the invite; absent on older tokens. */
   invited_by_name: string | null;
   expires_at: string | null;
@@ -113,11 +112,6 @@ function AcceptInvite({ token, invite, branding }: Props) {
       <h1 className="mb-5 text-[21px] font-bold tracking-tight text-foreground font-display">
         {t(keys.users.accept_invite.heading)}
       </h1>
-      {invite.already_accepted && (
-        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-700">
-          {t(keys.users.accept_invite.already_used)}
-        </p>
-      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthField htmlFor="full_name" label={t(keys.users.common.full_name)}>
           <Input
