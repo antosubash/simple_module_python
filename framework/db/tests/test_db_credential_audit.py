@@ -174,6 +174,7 @@ def test_lease_ownership_value_is_redacted():
         ("host.redis_url", '"redis://:secret@host/4"', "json", "[redacted]"),
         ("custom.dsns", '["postgres://u:pw@db/app"]', "json", "[redacted]"),
         ("custom.cfg", '{"api_key": "secret-val", "ttl": 60}', "json", "[redacted]"),
+        ("custom.cfg_nullable", '"{\\"api_key\\": \\"secret-val\\"}"', "json", "[redacted]"),
         (
             "custom.cfg",
             '{"reset_password_token_lifetime_seconds": 3600}',

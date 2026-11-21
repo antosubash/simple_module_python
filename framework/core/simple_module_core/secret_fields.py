@@ -94,24 +94,25 @@ def is_named_secret(name: str, value_type: str | None = None) -> bool:
 
 def _value_holds_secret(value: Any, *, decode_json: bool = False) -> bool:
     """True when *value* holds embedded credentials or secret dict keys."""
-    stack: list[Any] = [value]
-    if isinstance(value, str) and (decode_json or value.lstrip()[:1] in {'"', "[", "{"}):
-        try:
-            decoded = json.loads(value)
-        except RecursionError:
-            return True
-        except ValueError:
-            pass
-        else:
-            if not isinstance(decoded, (bool, int, float, type(None))):
-                stack.append(decoded)
+    stack: list[tuple[Any, int]] = [(value, 3 if decode_json else 2)]
     while stack:
-        item = stack.pop()
+        item, decodes_left = stack.pop()
         if isinstance(item, str):
             if embeds_credential(item):
                 return True
+            if decodes_left > 0 and (
+                (decode_json and item is value) or item.lstrip()[:1] in {'"', "[", "{"}
+            ):
+                try:
+                    decoded = json.loads(item)
+                except RecursionError:
+                    return True
+                except ValueError:
+                    continue
+                if not isinstance(decoded, (bool, int, float, type(None))):
+                    stack.append((decoded, decodes_left - 1))
         elif isinstance(item, (list, tuple, set, frozenset)):
-            stack.extend(item)
+            stack.extend((elem, decodes_left) for elem in item)
         elif isinstance(item, dict):
             for k, v in item.items():
                 if (
@@ -120,7 +121,7 @@ def _value_holds_secret(value: Any, *, decode_json: bool = False) -> bool:
                     and not isinstance(v, (bool, int, float, type(None)))
                 ):
                     return True
-                stack.append(v)
+                stack.append((v, decodes_left))
     return False
 
 

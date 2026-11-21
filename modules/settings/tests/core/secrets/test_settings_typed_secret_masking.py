@@ -30,6 +30,7 @@ class _TypedSecretCfg(BaseSettings):
     tokens: dict[str, SecretStr] = {}
     nested_cfg: dict[str, str] = {}
     cfg_json: str = ""
+    cfg_nullable: str | None = None
     label: str = "visible"
 
 
@@ -104,20 +105,35 @@ async def test_json_secret_settings_expose_is_secret_and_preserve_mask_echo(
 ):
     await authenticated_client.put(
         URL,
-        json={"cfg_json": '{"api_key":"private"}', "nested_cfg": {"api_key": "private"}},
+        json={
+            "cfg_json": '{"api_key":"private"}',
+            "cfg_nullable": '{"api_key":"private"}',
+            "nested_cfg": {"api_key": "private"},
+        },
     )
     before = await _stored(registered)
     fields = _fields((await authenticated_client.get("/api/settings/modules")).json())
     assert fields["cfg_json"]["is_secret"] is True
     assert fields["cfg_json"]["value"] == SECRET_MASK
+    assert fields["cfg_nullable"]["is_secret"] is True
+    assert fields["cfg_nullable"]["value"] == SECRET_MASK
     assert fields["nested_cfg"]["is_secret"] is True
     assert fields["nested_cfg"]["value"] == SECRET_MASK
 
+    rows = (await authenticated_client.get("/api/settings/")).text
+    assert "private" not in rows
+
     resp = await authenticated_client.put(
         URL,
-        json={"cfg_json": SECRET_MASK, "nested_cfg": SECRET_MASK, "label": "updated"},
+        json={
+            "cfg_json": SECRET_MASK,
+            "cfg_nullable": SECRET_MASK,
+            "nested_cfg": SECRET_MASK,
+            "label": "updated",
+        },
     )
     assert resp.status_code == 200, resp.text
     after = await _stored(registered)
     assert after["cfg_json"] == before["cfg_json"]
+    assert after["cfg_nullable"] == before["cfg_nullable"]
     assert after["nested_cfg"] == before["nested_cfg"]
