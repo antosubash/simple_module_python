@@ -19,6 +19,8 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
+from simple_module_core.leases import get_leases
+from simple_module_core.module import ModuleBase
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._dev_boot import print_boot_diagnostics
@@ -32,6 +34,21 @@ from simple_module_hosting.setup_gate import is_first_run
 logger = logging.getLogger(__name__)
 
 
+async def _shutdown_modules(app: FastAPI, started: list[ModuleBase]) -> None:
+    async with AsyncExitStack() as cleanup:
+        for mod in started:
+            cleanup.push_async_callback(mod.on_shutdown, app)
+
+
+async def _close_resource(resource: object) -> None:
+    close = getattr(resource, "aclose", None)
+    if close is not None:
+        try:
+            await close()
+        except Exception as exc:
+            logger.warning("Could not close %s (%s)", type(resource).__name__, type(exc).__name__)
+
+
 def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
@@ -40,6 +57,13 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
         async with AsyncExitStack() as cleanup:
             if dispose_database:
                 cleanup.push_async_callback(app.state.sm.db.engine.dispose)
+            cleanup.push_async_callback(_close_resource, get_leases())
+            cleanup.push_async_callback(
+                _close_resource, getattr(app.state.sm, "rate_limit_store", None)
+            )
+            started: list[ModuleBase] = []
+            app.state.started_modules = started
+            cleanup.push_async_callback(_shutdown_modules, app, started)
             # Report first, decide second. On a genuinely fresh install a
             # behind-head database must still boot far enough to serve the wizard —
             # running the migrations is one of the things that wizard does, and
@@ -72,6 +96,7 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
             # here is deferred and replayed once the wizard has applied the
             # migrations (run_deferred_startup) rather than aborting the process.
             app.state.deferred_startup = []
+            app.state.deferred_startup_complete = False
             tolerate = not migration["is_current"]
             for mod in modules:
                 try:
@@ -86,7 +111,8 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
                         exc_info=True,
                     )
                     app.state.deferred_startup.append(mod)
-                cleanup.push_async_callback(mod.on_shutdown, app)
+                else:
+                    started.append(mod)
             # Here rather than in create_app: the host includes its own routers
             # after create_app returns, and those should be guarded too.
             finalize_fallback_routes(app)

@@ -96,3 +96,47 @@ async def test_replay_survives_a_failing_hook_and_runs_once():
     assert bad.calls["n"] == 1
     assert ok.calls["n"] == 1
     assert app.state.deferred_startup == []
+
+
+@pytest.mark.parametrize("replay", [False, True])
+async def test_only_successful_hooks_are_shutdown(monkeypatch, replay):
+    from simple_module_hosting import _lifespan
+
+    app = _app()
+    events = []
+
+    def module(name, fail):
+        attempts = 0
+
+        async def start(app):
+            nonlocal attempts
+            attempts += 1
+            if fail and (not replay or attempts == 1 or name == "broken"):
+                raise RuntimeError("no table")
+            events.append("start:" + name)
+
+        async def stop(app):
+            events.append("stop:" + name)
+
+        return SimpleNamespace(meta=SimpleNamespace(name=name), on_startup=start, on_shutdown=stop)
+
+    modules = [module("ready", False), module("deferred", True), module("broken", True)]
+    monkeypatch.setattr(
+        _lifespan, "migration_status", AsyncMock(return_value={"is_current": False})
+    )
+    monkeypatch.setattr(_lifespan, "is_first_run", AsyncMock(return_value=True))
+    monkeypatch.setattr(_lifespan, "hydrate_settings_from_db", AsyncMock())
+    monkeypatch.setattr(
+        "simple_module_hosting._deferred_startup.hydrate_settings_from_db", AsyncMock()
+    )
+    monkeypatch.setattr(
+        "simple_module_hosting._deferred_startup.check_data_compatibility", AsyncMock()
+    )
+    async with build_lifespan(modules)(app):
+        if replay:
+            await run_deferred_startup(app)
+    assert events == (
+        ["start:ready", "start:deferred", "stop:deferred", "stop:ready"]
+        if replay
+        else ["start:ready", "stop:ready"]
+    )

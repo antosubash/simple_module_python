@@ -23,6 +23,7 @@ from typing import Any, ClassVar, Final
 
 from sqlalchemy import and_, func, select, text, update
 from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from sqlmodel import Field
 
@@ -103,10 +104,13 @@ class DbLeaseBackend:
 
     @contextlib.asynccontextmanager
     async def _tx(self) -> AsyncGenerator[tuple[AsyncConnection, datetime]]:
-        async with self._guard(), self._engine.begin() as conn:
-            if self._sqlite:
-                await conn.execute(_SQLITE_WRITE_LOCK)
-            yield conn, await _db_now(conn)
+        try:
+            async with self._guard(), self._engine.begin() as conn:
+                if self._sqlite:
+                    await conn.execute(_SQLITE_WRITE_LOCK)
+                yield conn, await _db_now(conn)
+        except DBAPIError as exc:
+            raise ConnectionError("Database lease backend unavailable") from exc
 
     async def _locked_now(self, conn: AsyncConnection, *where: Any) -> datetime:
         """Lock the matching rows on Postgres, then read the clock (#698).

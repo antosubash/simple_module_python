@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi.encoders import jsonable_encoder
 
-_HTML_ENCODER = json.JSONEncoder()
+_HTML_ENCODER = json.JSONEncoder(allow_nan=False)
 _RESPONSE_ENCODER = json.JSONEncoder(ensure_ascii=False, allow_nan=False, separators=(",", ":"))
 
 

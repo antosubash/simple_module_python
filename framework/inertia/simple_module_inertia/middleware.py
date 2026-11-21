@@ -26,11 +26,17 @@ def _declares_empty_body(headers: MutableHeaders) -> bool:
 
 def add_vary(headers: MutableHeaders) -> None:
     """Add ``X-Inertia`` to ``Vary``, keeping whatever is already listed."""
-    existing = headers.get("vary")
-    if not existing:
-        headers["vary"] = "X-Inertia"
-    elif not any(part.strip().lower() == "x-inertia" for part in existing.split(",")):
-        headers["vary"] = f"{existing}, X-Inertia"
+    tokens: dict[str, str] = {}
+    for line in headers.getlist("vary"):
+        for part in line.split(","):
+            token = part.strip()
+            if token == "*":
+                headers["vary"] = "*"
+                return
+            if token:
+                tokens.setdefault(token.lower(), token)
+    tokens.setdefault("x-inertia", "X-Inertia")
+    headers["vary"] = ", ".join(tokens.values())
 
 
 class InertiaMiddleware:

@@ -37,3 +37,62 @@ async def test_postgres_lock_wait_does_not_consume_ttl(engine, operation):
     async with engine.connect() as conn:
         live = await conn.execute(select(_T.c.expires_at > func.clock_timestamp()).where(row))
         assert live.scalar_one() is True
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "acquire",
+        "refresh",
+        "release",
+        "semaphore_acquire",
+        "semaphore_refresh",
+        "semaphore_release",
+    ],
+)
+@pytest.mark.parametrize("boundary", ["begin", "commit"])
+@pytest.mark.parametrize("error_type", ["dbapi", "operational", "bug"])
+async def test_database_outages_use_backend_unavailable_contract(
+    monkeypatch, operation, boundary, error_type
+):
+    from contextlib import asynccontextmanager
+
+    from sqlalchemy.exc import DBAPIError, OperationalError
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(LeaseRow.metadata.create_all)
+    backend = DbLeaseBackend(engine)
+    original_begin = engine.begin
+    error = (
+        RuntimeError("programming bug")
+        if error_type == "bug"
+        else (OperationalError if error_type == "operational" else DBAPIError)(
+            "query", {}, OSError("connection lost")
+        )
+    )
+
+    @asynccontextmanager
+    async def broken_transaction(_engine):
+        if boundary == "begin":
+            raise error
+        async with original_begin() as conn:
+            yield conn
+            raise error
+
+    monkeypatch.setattr(type(engine), "begin", broken_transaction)
+    args = ["outage", "holder"]
+    if operation == "semaphore_acquire":
+        args.append(2)
+    if "release" not in operation:
+        args.append(10)
+    try:
+        with pytest.raises(RuntimeError if error_type == "bug" else ConnectionError) as caught:
+            await getattr(backend, operation)(*args)
+        if error_type == "bug":
+            assert caught.value is error
+        else:
+            assert caught.value.__cause__ is error
+    finally:
+        await engine.dispose()

@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import weakref
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,14 @@ def _ms(ttl: float) -> int:
     return max(1, int(ttl * 1000))
 
 
+async def _close_client(client: Any) -> None:
+    try:
+        close = getattr(client, "aclose", None) or client.close
+        await close()
+    except Exception as exc:
+        logger.warning("Redis lease client close failed (%s)", type(exc).__name__)
+
+
 class RedisLeaseBackend:
     """Leases shared by every process on one Redis.
 
@@ -109,11 +118,40 @@ class RedisLeaseBackend:
         self._url = url
         self._factory = factory
         self._client: Any = None
-        self._owner: tuple[int, int] | None = None
+        self._pid: int | None = None
+        self._loop: weakref.ReferenceType[asyncio.AbstractEventLoop] | None = None
+        self._closing: set[asyncio.Future] = set()
+
+    def _retire_client(self) -> None:
+        if self._client is None:
+            return
+        loop = self._loop() if self._loop else None
+        close = _close_client(self._client)
+        current = asyncio.get_running_loop()
+        if (
+            self._pid == os.getpid()
+            and loop is not None
+            and loop is not current
+            and loop.is_running()
+        ):
+            pending = asyncio.wrap_future(asyncio.run_coroutine_threadsafe(close, loop))
+        else:
+            pending = current.create_task(close)
+        self._closing.add(pending)
+        pending.add_done_callback(self._closing.discard)
+        self._client = None
+        self._loop = None
 
     def _redis(self) -> Any:
-        owner = (os.getpid(), id(asyncio.get_running_loop()))
-        if self._client is None or self._owner != owner:
+        loop = asyncio.get_running_loop()
+        owner_loop = self._loop() if self._loop else None
+        if (
+            self._client is None
+            or self._pid != os.getpid()
+            or owner_loop is not loop
+            or owner_loop.is_closed()
+        ):
+            self._retire_client()
             if self._factory is not None:
                 self._client = self._factory()
             else:
@@ -129,8 +167,14 @@ class RedisLeaseBackend:
                     # socket, while the 2 s timeouts keep the worst case bounded.
                     retry=Retry(NoBackoff(), 1),
                 )
-            self._owner = owner
+            self._pid = os.getpid()
+            self._loop = weakref.ref(loop)
         return self._client
+
+    async def aclose(self) -> None:
+        self._retire_client()
+        if self._closing:
+            await asyncio.gather(*self._closing)
 
     async def _eval(self, script: str, keys: list[str], *args: Any) -> int:
         from redis.exceptions import ConnectionError as RedisConnectionError

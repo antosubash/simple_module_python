@@ -66,8 +66,6 @@ from simple_module_hosting.tenancy import mode_for
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = _resolve_project_root()
-
 
 def create_app(
     settings: Settings | None = None,
@@ -111,6 +109,7 @@ def create_app(
     # under anything the environment sets. Without it, DB-backed host
     # settings are silently inert at boot.
     settings = settings or merge_host_settings()
+    project_root = _resolve_project_root()
 
     assert_not_placeholder(settings)
 
@@ -134,7 +133,7 @@ def create_app(
 
     # Build the i18n registry up front so diagnostics can validate key parity
     # against host/ui locales, not just module-contributed ones.
-    i18n_registry, i18n_extra = build_i18n_registry(settings, modules, _PROJECT_ROOT)
+    i18n_registry, i18n_extra = build_i18n_registry(settings, modules, project_root)
 
     # ── Phase 2: Run diagnostics (dev only) ────────────────
     # Kept on Services rather than printed and dropped: the Doctor screen
@@ -148,7 +147,7 @@ def create_app(
             i18n_extra=i18n_extra,
             i18n_unknown_overrides=i18n_registry.unknown_override_keys,
             diagnostics_state=diagnostics_state,
-            project_root=_PROJECT_ROOT,
+            project_root=project_root,
         )
 
     # ── Phase 3: Create FastAPI app ────────────────────────
@@ -231,7 +230,7 @@ def create_app(
     bind_principal_registry(db_state.session_factory, principals)
 
     # ── Phase 7: Inertia + exception handlers ──────────────
-    inertia_config = setup_inertia(app, settings, modules, _PROJECT_ROOT)
+    inertia_config = setup_inertia(app, settings, modules, project_root)
     if inertia_config is None:
         raise RuntimeError("Inertia not configured — no template directories available")
     register_exception_handlers(app, modules)
@@ -252,7 +251,7 @@ def create_app(
     mount_setup_wizard(app, setup_registry)  # /setup — what SetupMiddleware redirects to
     mount_admin_overview(app)  # /admin — where the sidebar and AdminLayout badge link
 
-    mount_host_static(app, _PROJECT_ROOT)
+    mount_host_static(app, project_root)
 
     mount_module_static_dirs(app, modules)
 

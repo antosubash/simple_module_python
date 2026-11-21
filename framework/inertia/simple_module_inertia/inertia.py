@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from fastapi import Request
 from jinja2.utils import htmlsafe_json_dumps
@@ -40,7 +41,10 @@ class Inertia:
         self._clear_history = False
         self._preserve_fragment = False
         if self._is_stale():
-            raise InertiaVersionConflictException(url=str(request.url), version=self._version)
+            url = urlsplit(str(request.url))
+            path = url.path or "/"
+            target = f"{path}?{url.query}" if url.query else path
+            raise InertiaVersionConflictException(url=target, version=self._version)
 
     # -- request state ----------------------------------------------------
 
@@ -93,6 +97,8 @@ class Inertia:
     # -- render -----------------------------------------------------------
 
     def _pop_session(self, key: str, default: Any) -> Any:
+        if "session" not in self._request.scope:
+            return default
         session = self._request.session
         return session.pop(key) if key in session else default
 
