@@ -100,17 +100,18 @@ def _value_holds_secret(value: Any, *, decode_json: bool = False) -> bool:
         if isinstance(item, str):
             if embeds_credential(item):
                 return True
-            if decodes_left > 0 and (
-                (decode_json and item is value) or item.lstrip()[:1] in {'"', "[", "{"}
-            ):
+            if (decode_json and item is value) or item.lstrip()[:1] in {'"', "[", "{"}:
                 try:
                     decoded = json.loads(item)
                 except RecursionError:
                     return True
                 except ValueError:
                     continue
-                if not isinstance(decoded, (bool, int, float, type(None))):
-                    stack.append((decoded, decodes_left - 1))
+                if isinstance(decoded, (bool, int, float, type(None))):
+                    continue
+                if decodes_left <= 0:
+                    return True
+                stack.append((decoded, decodes_left - 1))
         elif isinstance(item, (list, tuple, set, frozenset)):
             stack.extend((elem, decodes_left) for elem in item)
         elif isinstance(item, dict):

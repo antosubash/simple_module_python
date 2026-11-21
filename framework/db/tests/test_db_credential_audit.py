@@ -203,3 +203,15 @@ def test_deeply_nested_json_audit_redaction_does_not_recurse(depth, payload, exp
         session.add(Setting(key="custom.deep", value=nested, value_type="json"))
         record = collect_audit_records(session)[0]
         assert next(c["new"] for c in record.changes if c["field"] == "value") == expected
+
+
+def test_decode_budget_exhaustion_fails_closed_in_audit_redaction():
+    import json
+
+    stored_triple_wrapped = json.dumps(json.dumps(json.dumps(json.dumps({"api_key": "private"}))))
+    with Session() as session:
+        session.add(
+            Setting(key="custom.cfg_nullable", value=stored_triple_wrapped, value_type="json")
+        )
+        record = collect_audit_records(session)[0]
+        assert next(c["new"] for c in record.changes if c["field"] == "value") == "[redacted]"

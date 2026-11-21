@@ -137,3 +137,19 @@ async def test_json_secret_settings_expose_is_secret_and_preserve_mask_echo(
     assert after["cfg_json"] == before["cfg_json"]
     assert after["cfg_nullable"] == before["cfg_nullable"]
     assert after["nested_cfg"] == before["nested_cfg"]
+
+
+async def test_triple_encoded_nullable_secret_fails_closed_across_storage_boundary(
+    registered, authenticated_client
+):
+    import json
+
+    triple_wrapped = json.dumps(json.dumps(json.dumps({"api_key": "private"})))
+    resp = await authenticated_client.put(URL, json={"cfg_nullable": triple_wrapped})
+    assert resp.status_code == 200, resp.text
+    fields = _fields((await authenticated_client.get("/api/settings/modules")).json())
+    assert fields["cfg_nullable"]["is_secret"] is True
+    assert fields["cfg_nullable"]["value"] == SECRET_MASK
+
+    rows = (await authenticated_client.get("/api/settings/")).text
+    assert "private" not in rows
