@@ -98,7 +98,7 @@ async def test_an_inertia_write_gets_a_hard_redirect_not_a_raw_403(demo_client):
     )
 
     assert res.status_code == 409
-    assert res.headers["X-Inertia-Location"] == "http://testserver/users/me"
+    assert res.headers["X-Inertia-Location"] == "/users/me"
 
 
 # ── it leaves everyone else alone ───────────────────────────────────────────
@@ -176,3 +176,23 @@ async def test_demo_sessions_stay_read_only_after_demo_mode_is_switched_off(demo
 
     assert res.status_code == 403
     assert res.json()["detail"] == DEMO_READ_ONLY_DETAIL
+
+
+def test_inertia_refusal_uses_only_safe_referer():
+    from users.demo.guard import _refusal
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/write",
+        "scheme": "https",
+        "server": ("app.test", 443),
+        "headers": [
+            (b"host", b"app.test"),
+            (b"x-inertia", b"true"),
+            (b"referer", b"https://evil.test/trap"),
+        ],
+    }
+    assert _refusal(scope).headers["X-Inertia-Location"] == "/"
+    scope["headers"][-1] = (b"referer", b"https://app.test/dashboard?tab=1")
+    assert _refusal(scope).headers["X-Inertia-Location"] == "/dashboard?tab=1"

@@ -228,3 +228,19 @@ async def test_provider_that_raises_is_treated_as_anonymous() -> None:
     async with _client(app) as client:
         response = await client.get("/dashboard/")
     assert response.status_code == 302
+
+
+def test_fingerprint_is_keyed_by_the_application_secret():
+    assert password_fingerprint(PASSWORD, "first") != password_fingerprint(PASSWORD, "second")
+
+
+async def test_secret_rotation_invalidates_unlock_marker():
+    from types import SimpleNamespace
+
+    app = _build_app(SiteLockSettings(enabled=True, password=PASSWORD))
+    app.state.sm = SimpleNamespace(settings=SimpleNamespace(secret_key="first"))
+    async with _client(app) as client:
+        await client.post(c.UNLOCK_PATH, data={"password": PASSWORD})
+        assert (await client.get("/dashboard/")).status_code == 200
+        app.state.sm.settings.secret_key = "second"
+        assert (await client.get("/dashboard/")).status_code == 302

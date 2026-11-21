@@ -69,6 +69,7 @@ async def test_remote_settings_changes_and_clears_reload_and_emit_event(app):
 @pytest.mark.parametrize("commit", [False, True])
 async def test_clearing_module_setting_waits_for_commit(app, commit):
     from settings.web.endpoints.module_api import clear_module_field
+    from simple_module_hosting.i18n_deps import get_translator
     from starlette.requests import Request
 
     original = app.state.users.settings.allow_signup
@@ -86,8 +87,13 @@ async def test_clearing_module_setting_waits_for_commit(app, commit):
 
     app.state.sm.event_bus.subscribe(SettingsReloaded, record)
     async with factory() as db:
+        request = Request({"type": "http", "app": app})
         await clear_module_field(
-            "users", "allow_signup", Request({"type": "http", "app": app}), SettingService(db)
+            "users",
+            "allow_signup",
+            request,
+            await get_translator(request),
+            service=SettingService(db),
         )
         assert app.state.users.settings.allow_signup is not original
         assert received == []

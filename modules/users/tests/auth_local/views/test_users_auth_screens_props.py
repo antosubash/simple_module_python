@@ -26,14 +26,16 @@ _RESET_AUDIENCE = "fastapi-users:reset"
 _VERIFY_AUDIENCE = "fastapi-users:verify"
 
 
-async def _make_user(session, email: str, password: str = "SecurePass1!") -> User:
+async def _make_user(
+    session, email: str, password: str = "SecurePass1!", *, verified: bool = True
+) -> User:
     user = User(
         id=uuid.uuid4(),
         email=email,
         hashed_password=_pw.hash(password),
         is_active=True,
         is_superuser=False,
-        is_verified=True,
+        is_verified=verified,
         full_name="Test User",
     )
     session.add(user)
@@ -199,7 +201,7 @@ class TestInvitePreviewProps:
     async def test_inviter_and_expiry_surface_when_the_claims_are_present(
         self, anon_client, users_db, users_app
     ):
-        user = await _make_user(users_db, "invitee@example.com")
+        user = await _make_user(users_db, "invitee@example.com", verified=False)
         token = generate_jwt(
             {
                 "sub": str(user.id),
@@ -222,7 +224,7 @@ class TestInvitePreviewProps:
     async def test_a_token_minted_without_the_claim_is_tolerated(
         self, anon_client, users_db, users_app
     ):
-        user = await _make_user(users_db, "no-inviter@example.com")
+        user = await _make_user(users_db, "no-inviter@example.com", verified=False)
         token = generate_jwt(
             {"sub": str(user.id), "email": user.email, "aud": _VERIFY_AUDIENCE},
             users_app.state.users.token_secrets.verification_token_secret,

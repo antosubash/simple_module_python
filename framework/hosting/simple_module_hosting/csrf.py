@@ -29,11 +29,33 @@ import secrets
 
 from fastapi import HTTPException, Request
 
-__all__ = ["CSRF_HEADER", "RequiresCsrf", "get_csrf_token", "rotate_csrf_token"]
+__all__ = [
+    "CSRF_HEADER",
+    "RequiresCsrf",
+    "get_csrf_token",
+    "require_browser_origin",
+    "rotate_csrf_token",
+]
 
 CSRF_HEADER = "X-CSRF-Token"
 _SESSION_KEY = "sm_csrf_token"
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+async def require_browser_origin(request: Request) -> None:
+    """Refuse browser mutations the browser itself labels ``cross-site``.
+
+    Origin/Referer are deliberately not compared with ``request.base_url``: behind
+    a TLS-terminating proxy without trusted-proxy handling the app sees
+    ``http://internal`` while the browser sends ``https://app.example``, which
+    would refuse every sign-in and sign-out. Login CSRF is stopped by the session
+    CSRF token (``require_browser_csrf``); this check adds the fetch-metadata
+    refusal for browsers that send it.
+    """
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(status_code=403, detail="Browser request source refused")
 
 
 def get_csrf_token(request: Request) -> str:

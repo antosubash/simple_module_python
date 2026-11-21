@@ -100,14 +100,18 @@ async def upload_file(
             },
         ) from exc
 
-    await bus.publish(
-        FileUploaded(
-            file_id=out.id,
-            key=out.key,
-            backend=out.backend,
-            size_bytes=out.size_bytes,
-            uploaded_by=out.uploaded_by,
-        )
+    register_on_commit(
+        service.db,
+        partial(
+            bus.publish,
+            FileUploaded(
+                file_id=out.id,
+                key=out.key,
+                backend=out.backend,
+                size_bytes=out.size_bytes,
+                uploaded_by=out.uploaded_by,
+            ),
+        ),
     )
     return out
 
@@ -255,7 +259,9 @@ async def bulk_delete_files(
     rows = await service.delete_many(body.ids, drop_object=False)
     for row in rows:
         register_on_commit(service.db, partial(service.drop_object, row))
-        await bus.publish(FileDeleted(file_id=row.id, key=row.key))
+        register_on_commit(
+            service.db, partial(bus.publish, FileDeleted(file_id=row.id, key=row.key))
+        )
     return BulkDeleteResult(deleted=len(rows), ids=[row.id for row in rows])
 
 
@@ -275,4 +281,4 @@ async def delete_file(
     except StoredFileNotFoundError as exc:
         raise not_found(t) from exc
     register_on_commit(service.db, partial(service.drop_object, row))
-    await bus.publish(FileDeleted(file_id=row.id, key=row.key))
+    register_on_commit(service.db, partial(bus.publish, FileDeleted(file_id=row.id, key=row.key)))

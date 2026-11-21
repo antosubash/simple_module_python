@@ -219,3 +219,26 @@ class TestFeatureFlagsModuleLifecycle:
         assert sm.feature_flags.is_enabled("file_storage.public_uploads", tenant_id="acme") is False
         # other tenant: still inherits system
         assert sm.feature_flags.is_enabled("file_storage.public_uploads", tenant_id="other") is True
+
+
+async def test_racing_override_insert_recovers_without_rolling_back_other_writes(
+    db_session, monkeypatch
+):
+    from feature_flags.models import FeatureFlagOverride
+
+    svc = FeatureFlagService(db_session)
+    await svc.set_override("raced", False)
+    await svc.set_override("unrelated", True)
+    find = svc._find
+    calls = 0
+
+    async def miss_once(*args):
+        nonlocal calls
+        calls += 1
+        return None if calls == 1 else await find(*args)
+
+    monkeypatch.setattr(svc, "_find", miss_once)
+    result = await svc.set_override("raced", True)
+    assert result.enabled is True
+    assert {row.name for row in await svc.list_overrides()} == {"raced", "unrelated"}
+    assert await db_session.get(FeatureFlagOverride, result.id) is not None

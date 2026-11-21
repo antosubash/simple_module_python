@@ -70,3 +70,21 @@ def test_expired_keys_are_collected_without_dropping_live_cooldowns():
     assert lim.is_blocked("blocked", now=101)
     lim.is_blocked("visitor", now=700)
     assert not lim._buckets
+
+
+def test_capacity_evicts_oldest_and_remains_bounded():
+    lim = AttemptLimiter(max_failures=1, window_seconds=100, cooldown_seconds=500, max_buckets=2)
+    for i in range(10):
+        lim.record_failure(str(i), now=i)
+        assert len(lim._buckets) <= 2
+    assert list(lim._buckets) == ["8", "9"]
+
+
+def test_capacity_sweeps_expired_before_oldest_live_bucket():
+    lim = AttemptLimiter(max_failures=2, window_seconds=100, cooldown_seconds=500, max_buckets=2)
+    lim.record_failure("live", now=0)
+    lim.record_failure("live", now=0)
+    lim.record_failure("expired", now=1)
+    lim.is_blocked("live", now=100)  # Next periodic sweep is at 200.
+    lim.record_failure("new", now=102)
+    assert set(lim._buckets) == {"live", "new"}

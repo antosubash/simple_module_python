@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from simple_module_hosting.inertia_deps import is_inertia_request
+from simple_module_hosting.redirects import safe_referer_or_root
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -106,11 +107,10 @@ def _refusal(scope: Scope) -> Response:
     explains why. Plain ``fetch`` callers — which is how most of this app
     writes — get the 403 and can show the reason inline.
     """
-    headers = Request(scope).headers
     if is_inertia_request(scope):
         return Response(
             status_code=409,
-            headers={"X-Inertia-Location": headers.get("referer") or "/"},
+            headers={"X-Inertia-Location": safe_referer_or_root(Request(scope))},
         )
     return JSONResponse({"detail": DEMO_READ_ONLY_DETAIL}, status_code=403)
 

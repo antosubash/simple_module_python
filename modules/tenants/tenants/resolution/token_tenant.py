@@ -43,6 +43,7 @@ async def _service_tenant(request: Request, tenant_id: Any) -> str | None:
         tenant = await db.get(Tenant, tenant_id)
     if tenant is None or tenant.status != TenantStatus.ACTIVE:
         request.state.tenant_suspended = tenant is not None
+        _forget_principal(request)
         return None
     return tenant_id
 

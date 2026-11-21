@@ -30,7 +30,12 @@ async def complete_invite(
         parsed_id = manager.parse_id(user_id)
     except (jwt.PyJWTError, KeyError, exceptions.UserNotExists, exceptions.InvalidID):
         raise exceptions.InvalidVerifyToken() from None
-    if parsed_id != user.id:
+    if (
+        parsed_id != user.id
+        or not user.is_active
+        or user.disabled_at is not None
+        or user.is_external
+    ):
         raise exceptions.InvalidVerifyToken()
     if user.is_verified:
         raise exceptions.UserAlreadyVerified()

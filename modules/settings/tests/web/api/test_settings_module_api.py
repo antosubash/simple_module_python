@@ -120,3 +120,23 @@ async def test_invalid_guard_save_keeps_the_previous_snapshot(authenticated_clie
     )
     assert response.status_code == 422
     assert app.state.host.request_guards is previous
+
+
+async def test_clear_required_site_lock_password_preserves_valid_overrides(
+    authenticated_client, app
+):
+    from settings.core.service import SettingService
+    from settings.module_settings.store import SettingsStore
+
+    response = await authenticated_client.put(
+        "/api/settings/modules/site_lock", json={"password": "gate-password", "enabled": True}
+    )
+    assert response.status_code == 200, response.text
+    response = await authenticated_client.delete("/api/settings/modules/site_lock/password")
+    assert response.status_code == 422, response.text
+    assert "gate-password" not in response.text
+    async with app.state.sm.db.session_factory() as db:
+        stored = await SettingsStore(SettingService(db)).get_overrides("site_lock")
+    assert stored["password"][0] == "gate-password"
+    assert stored["enabled"][0] == "True"
+    assert app.state.site_lock.settings.password == "gate-password"

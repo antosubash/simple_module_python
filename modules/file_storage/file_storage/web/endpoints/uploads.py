@@ -9,10 +9,12 @@ the backend holds, which is how a reloaded page resumes.
 from __future__ import annotations
 
 import uuid
+from functools import partial
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from simple_module_core.events import EventBus
+from simple_module_db.callbacks import register_on_commit
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
@@ -221,14 +223,18 @@ async def complete_session(
 
     if created:
         schedule_checksum(request.app, sessions.db, out.id, session.tenant_id)
-        await bus.publish(
-            FileUploaded(
-                file_id=out.id,
-                key=out.key,
-                backend=out.backend,
-                size_bytes=out.size_bytes,
-                uploaded_by=out.uploaded_by,
-            )
+        register_on_commit(
+            sessions.db,
+            partial(
+                bus.publish,
+                FileUploaded(
+                    file_id=out.id,
+                    key=out.key,
+                    backend=out.backend,
+                    size_bytes=out.size_bytes,
+                    uploaded_by=out.uploaded_by,
+                ),
+            ),
         )
     return _out(session, file=out)
 

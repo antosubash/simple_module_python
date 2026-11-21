@@ -126,3 +126,10 @@ class TestPublicPaths:
         registry = PublicRouteRegistry()
         KeycloakModule().register_public_routes(registry)
         assert registry.matches("GET", "/keycloak/logged-out")
+
+
+async def test_cross_site_logout_is_refused(keycloak_client):
+    response = await keycloak_client.post(
+        "/keycloak/logout", headers={"Sec-Fetch-Site": "cross-site"}
+    )
+    assert response.status_code == 403

@@ -94,3 +94,15 @@ async def test_logout_drops_the_sessions_shared_renewal_outcome(oidc_app, flow_c
     assert (await flow_client.post("/oidc/logout")).status_code == 303
     async with independent_session(oidc_app) as db:
         assert (await db.execute(select(RefreshOutcome))).scalars().all() == []
+
+
+async def test_cross_site_logout_is_refused_without_clearing_session(flow_client):
+    flow_client.cookies.set(
+        "session", forge_session_cookie("test-secret-key", {"marker": "retained"})
+    )
+    response = await flow_client.post("/oidc/logout", headers={"Sec-Fetch-Site": "cross-site"})
+    assert response.status_code == 403
+    cookie = response.cookies.get("session") or flow_client.cookies.get("session")
+    assert json.loads(base64.b64decode(TimestampSigner("test-secret-key").unsign(cookie))) == {
+        "marker": "retained"
+    }

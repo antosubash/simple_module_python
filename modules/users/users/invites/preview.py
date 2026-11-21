@@ -68,25 +68,22 @@ async def preview_invite(token: str, user_manager: Any) -> dict[str, Any] | None
     try:
         user = await user_manager.get_by_email(email)
     except Exception:
-        # The token decoded but the account is gone. Showing the address it
-        # was issued for is still more useful than showing nothing; accepting
-        # will fail with a proper message.
-        return {
-            "email": email,
-            "roles": roles,
-            "already_accepted": False,
-            "invited_by_name": invited_by_name,
-            "expires_at": expires_at,
-            "full_name": None,
-        }
+        return None
+
+    if (
+        str(user.id) != str(data.get("sub"))
+        or not user.is_active
+        or user.disabled_at is not None
+        or user.is_external
+        or user.is_verified
+    ):
+        return None
 
     roles = sorted(role.name for role in getattr(user, "roles", []) or [])
     return {
         "email": email,
         "roles": roles,
-        # An invite that has already been used should say so, rather than
-        # presenting a password form that is guaranteed to fail.
-        "already_accepted": bool(getattr(user, "is_verified", False)),
+        "already_accepted": False,
         "invited_by_name": invited_by_name,
         "expires_at": expires_at,
         # Pre-fills the "Full name" field: an admin who typed the invitee's

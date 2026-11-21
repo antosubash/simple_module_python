@@ -73,7 +73,7 @@ async def test_demo_token_inertia_write_uses_existing_refusal(
         },
     )
     assert response.status_code == 409
-    assert response.headers["X-Inertia-Location"] == "http://testserver/admin/users/"
+    assert response.headers["X-Inertia-Location"] == "/admin/users/"
 
 
 @pytest.mark.parametrize("operation", ["login", "refresh"])

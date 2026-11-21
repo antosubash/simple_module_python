@@ -12,6 +12,7 @@ from collections.abc import Callable
 from fastapi import FastAPI
 from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -172,11 +173,19 @@ class FeatureFlagService:
         """Upsert an override at the given scope and mirror it to the registry."""
         existing = await self._find(scope, scope_id, name)
         if existing is None:
-            existing = FeatureFlagOverride(
-                scope=scope, scope_id=scope_id, name=name, enabled=enabled
-            )
-            self.db.add(existing)
-            await self.db.flush()
+            try:
+                async with self.db.begin_nested():
+                    existing = FeatureFlagOverride(
+                        scope=scope, scope_id=scope_id, name=name, enabled=enabled
+                    )
+                    self.db.add(existing)
+                    await self.db.flush()
+            except IntegrityError:
+                existing = await self._find(scope, scope_id, name)
+                if existing is None:
+                    raise
+                existing.enabled = enabled
+                await self.db.flush()
         elif existing.enabled != enabled:
             existing.enabled = enabled
             await self.db.flush()

@@ -7,6 +7,7 @@ masked secrets without clobbering the real value.
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
@@ -16,7 +17,6 @@ from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission
 
 from settings.core.constants import Permissions
-from settings.core.invalidation import reload_on_commit
 from settings.core.service import SettingService
 from settings.module_settings.discovery import (
     SECRET_MASK,
@@ -24,7 +24,11 @@ from settings.module_settings.discovery import (
     overrides_by_package,
 )
 from settings.module_settings.props import serialize
-from settings.module_settings.reload import EnvPinnedError, apply_changes_and_reload
+from settings.module_settings.reload import (
+    EnvPinnedError,
+    apply_changes_and_reload,
+    clear_override_and_reload,
+)
 from settings.module_settings.store import SettingsStore
 from settings.web.deps import get_setting_service
 
@@ -73,6 +77,31 @@ def _strip_mask_sentinels(masked: frozenset[str], changes: dict[str, Any]) -> di
     }
 
 
+@contextmanager
+def _settings_errors(t):
+    """Keep update and reset validation errors safe and field-addressable."""
+    try:
+        yield
+    except ValidationError as exc:
+        # ``exc.errors()`` still leaves ``ctx.error`` holding the raw Python
+        # exception (not JSON-serializable). Round-trip through pydantic's
+        # own JSON encoder to get clean, serializable errors. ``input`` is
+        # dropped: it echoes the submitted value, which may be a secret.
+        clean = json.loads(exc.json(include_url=False, include_input=False))
+        raise HTTPException(status_code=422, detail=clean) from exc
+    except EnvPinnedError as exc:
+        # Shaped like a pydantic 422 so the editor shows it on the field.
+        detail = [
+            {
+                "loc": ["body", name],
+                "msg": t.t("settings.modules_form.env_pinned"),
+                "type": "env_pinned",
+            }
+            for name in exc.fields
+        ]
+        raise HTTPException(status_code=422, detail=detail) from exc
+
+
 @router.get("", dependencies=_VIEW)
 async def list_modules(
     request: Request,
@@ -113,28 +142,13 @@ async def update_module(
 
     store = SettingsStore(service)
     bus = request.app.state.sm.event_bus
-    try:
-        await apply_changes_and_reload(request.app, bus, store, package=package, changes=cleaned)
-    except ValidationError as exc:
-        # ``exc.errors()`` still leaves ``ctx.error`` holding the raw Python
-        # exception (not JSON-serializable). Round-trip through pydantic's
-        # own JSON encoder to get clean, serializable errors. ``input`` is
-        # dropped: it echoes the submitted value, which may be a secret.
-        clean = json.loads(exc.json(include_url=False, include_input=False))
-        raise HTTPException(status_code=422, detail=clean) from exc
-    except EnvPinnedError as exc:
-        # Shaped like a pydantic 422 so the editor shows it on the field.
-        detail = [
-            {
-                "loc": ["body", name],
-                "msg": t.t("settings.modules_form.env_pinned"),
-                "type": "env_pinned",
-            }
-            for name in exc.fields
-        ]
-        raise HTTPException(status_code=422, detail=detail) from exc
-    except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    with _settings_errors(t):
+        try:
+            await apply_changes_and_reload(
+                request.app, bus, store, package=package, changes=cleaned
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return {"ok": True, "changed": sorted(cleaned)}
 
@@ -144,6 +158,7 @@ async def clear_module_field(
     package: str,
     field: str,
     request: Request,
+    t: TranslatorDep,
     service: SettingService = Depends(get_setting_service),
 ) -> Response:
     registry = module_settings_registry(request.app)
@@ -159,8 +174,9 @@ async def clear_module_field(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown field")
 
     store = SettingsStore(service)
-    await store.clear_override(package, field)
-
-    reload_on_commit(request.app, request.app.state.sm.event_bus, store, package)
+    with _settings_errors(t):
+        await clear_override_and_reload(
+            request.app, request.app.state.sm.event_bus, store, package=package, field=field
+        )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

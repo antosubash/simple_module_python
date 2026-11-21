@@ -61,7 +61,8 @@ async def test_send_builds_a_plain_text_message(monkeypatch) -> None:
         "port": 2525,
         "username": "user",
         "password": "pw",
-        "use_tls": True,
+        "use_tls": False,
+        "start_tls": True,
         "timeout": 15.0,
     }
 
@@ -163,3 +164,28 @@ def test_smtp_port_outside_the_tcp_range_is_rejected(port) -> None:
 
     with pytest.raises(ValidationError):
         MailSettings(smtp_port=port)
+
+
+@pytest.mark.parametrize(
+    "port,tls,expected",
+    [
+        (587, True, (False, True)),
+        (465, True, (True, False)),
+        (587, False, (False, False)),
+        (465, False, (False, False)),
+    ],
+)
+async def test_tls_mode_for_send_and_connection(monkeypatch, port, tls, expected):
+    from unittest.mock import MagicMock
+
+    send = AsyncMock()
+    client = AsyncMock()
+    smtp = MagicMock(return_value=client)
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.send", send)
+    monkeypatch.setattr("mail.delivery.sender.aiosmtplib.SMTP", smtp)
+    sender = SmtpMailSender("smtp.test", port, "", "", "from@test", tls)
+    await sender.send(MailMessage("to@test", "Hi", "Body"))
+    await sender.verify_connection()
+    for kwargs in [send.call_args.kwargs, smtp.call_args.kwargs]:
+        assert (kwargs["use_tls"], kwargs.get("start_tls")) == expected
+    client.connect.assert_awaited_once()
