@@ -110,3 +110,44 @@ async def test_public_route_applies_the_rule(authenticated_client, client, ctype
     assert served.status_code == 200
     assert served.headers["content-disposition"].startswith(disposition)
     assert "sandbox" in served.headers["content-security-policy"]
+
+
+def test_control_chars_rejected_and_safe_media_type_falls_back():
+    from file_storage.core.settings import FileStorageSettings
+    from file_storage.files.media_types import safe_media_type
+    from file_storage.files.service import ContentTypeNotAllowedError, FileStorageService
+
+    poisoned = "image/png; x=\r\nInjected: 1"
+    assert normalise_media_type(poisoned) is None
+    assert is_active_content(poisoned) is True
+    assert safe_media_type(poisoned) == "application/octet-stream"
+    assert safe_media_type("Image/PNG; charset=utf-8") == "image/png"
+
+    svc = FileStorageService.__new__(FileStorageService)
+    svc.settings = FileStorageSettings()
+    with pytest.raises(ContentTypeNotAllowedError):
+        svc._check_content_type(poisoned)
+
+
+async def test_file_body_response_sanitizes_stored_content_type(tmp_path):
+    from file_storage.backends.filesystem import FilesystemBackend
+    from file_storage.files.ranges import file_body_response
+    from file_storage.models import StoredFile
+    from starlette.requests import Request
+
+    backend = FilesystemBackend(root=tmp_path)
+
+    async def chunks():
+        yield b"abc"
+
+    await backend.put("ab/obj", chunks(), content_type="text/plain", size=3)
+    row = StoredFile(
+        key="ab/obj",
+        filename="f.txt",
+        content_type="image/png; x=\r\nInjected: 1",
+        size_bytes=3,
+        backend="filesystem",
+    )
+    req = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+    resp = await file_body_response(backend, row, req, headers={}, etag='"e"')
+    assert resp.media_type == "application/octet-stream"

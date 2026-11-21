@@ -32,11 +32,17 @@ def normalise_media_type(content_type: str | None) -> str | None:
     """
     # A comma anywhere, parameters included, splits the header for a browser:
     # ``image/png;x=1,text/html`` is read as ``text/html`` while the part
-    # before ";" looks safe. Quotes would let a parameter hide one.
-    if not content_type or any(c in content_type for c in ',"'):
+    # before ";" looks safe. Quotes would let a parameter hide one, and
+    # control chars must never reach response headers.
+    if not content_type or any(ord(c) < 0x20 or ord(c) == 0x7F or c in ',"' for c in content_type):
         return None
     media = base_type(content_type)
     return media if _MEDIA_TYPE.fullmatch(media) else None
+
+
+def safe_media_type(content_type: str | None) -> str:
+    """Return a validated ``type/subtype`` or ``application/octet-stream``."""
+    return normalise_media_type(content_type) or "application/octet-stream"
 
 
 def is_active_content(content_type: str | None) -> bool:

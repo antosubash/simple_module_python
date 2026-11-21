@@ -205,3 +205,19 @@ async def test_the_prehydration_shell_carries_the_branded_favicon(
     page = await authenticated_client.get("/admin/branding/", follow_redirects=False)
 
     assert f'rel="icon" href="/api/branding/favicon?v={stored_logo.id}"' in page.text
+
+
+async def test_serving_uses_normalized_content_type_and_rejects_control_chars(
+    stored_logo: StoredFile,
+    authenticated_client: httpx.AsyncClient,
+    client: httpx.AsyncClient,
+) -> None:
+    url = await _upload_logo(authenticated_client)
+    stored_logo.content_type = "Image/PNG; charset=utf-8"
+    ok_resp = await client.get(url)
+    assert ok_resp.status_code == 200
+    assert ok_resp.headers["content-type"] == "image/png"
+
+    stored_logo.content_type = "image/png; x=\r\nInjected: 1"
+    bad_resp = await client.get(url)
+    assert bad_resp.status_code == 404

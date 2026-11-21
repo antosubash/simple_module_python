@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import httpx
+import pytest
 from simple_module_hosting.logging import (
     JsonFormatter,
     _CorrelationIdFilter,
@@ -204,6 +205,18 @@ class TestCorrelationIdMiddleware:
         body = resp.json()
         assert body["state"] == "trace-xyz"
         assert body["contextvar"] == "trace-xyz"
+
+    @pytest.mark.parametrize(
+        "bad_header",
+        ["", "   ", "a" * 129, "bad cid spaces", "bad\tcid", "bad<script>"],
+    )
+    async def test_rejects_oversized_or_invalid_incoming_correlation_id(
+        self, client: httpx.AsyncClient, bad_header: str
+    ):
+        resp = await client.get("/health", headers={"X-Correlation-ID": bad_header})
+        cid = resp.headers["x-correlation-id"]
+        assert cid != bad_header
+        assert 0 < len(cid) <= 128
 
 
 # ── Request logging middleware (integration) ────────────────────────────

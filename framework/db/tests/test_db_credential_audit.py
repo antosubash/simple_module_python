@@ -166,3 +166,24 @@ def test_lease_ownership_value_is_redacted():
         session.add(LeaseRow(name="audit", slot=0, holder="private", expires_at=datetime.now(UTC)))
         changes = collect_audit_records(session)[0].changes
         assert next(c["new"] for c in changes if c["field"] == "holder") == "[redacted]"
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "value_type", "expected"),
+    [
+        ("host.redis_url", '"redis://:secret@host/4"', "json", "[redacted]"),
+        ("custom.dsns", '["postgres://u:pw@db/app"]', "json", "[redacted]"),
+        ("custom.cfg", '{"api_key": "secret-val", "ttl": 60}', "json", "[redacted]"),
+        (
+            "custom.cfg",
+            '{"reset_password_token_lifetime_seconds": 3600}',
+            "json",
+            '{"reset_password_token_lifetime_seconds": 3600}',
+        ),
+    ],
+)
+def test_json_setting_credential_redaction(key, value, value_type, expected):
+    with Session() as session:
+        session.add(Setting(key=key, value=value, value_type=value_type))
+        record = collect_audit_records(session)[0]
+        assert next(c["new"] for c in record.changes if c["field"] == "value") == expected

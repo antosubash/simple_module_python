@@ -1,9 +1,12 @@
 """Audit targets and ORM lifecycle regressions (#810, #811)."""
 
+import logging
+
 import pytest
-from _audit_models import AuditTestItem, SoftDeleteItem
+from _audit_models import AuditTestItem, ExcludedModel, SoftDeleteItem
 from simple_module_core.correlation import correlation_id
 from simple_module_db.listeners import current_user_id
+from simple_module_db.writes import hard_delete
 from sqlalchemy import bindparam, delete, select, update
 from sqlalchemy.orm import with_loader_criteria
 
@@ -102,3 +105,35 @@ async def test_orm_primary_key_update_records_old_and_new_key(audited):
     assert record.changes == [{"field": "id", "old": old_id, "new": 999}]
     assert await session.get(AuditTestItem, old_id) is None
     assert await session.get(AuditTestItem, 999) is item
+
+
+async def test_failed_savepoint_clears_pending_audit_before_next_flush(audited):
+    from sqlalchemy.exc import IntegrityError
+
+    _state, session, recorder = audited
+    existing_id = (
+        await session.execute(select(AuditTestItem.id).where(AuditTestItem.value == 1))
+    ).scalar_one()
+    recorder.records.clear()
+
+    with pytest.raises(IntegrityError):
+        async with session.begin_nested():
+            session.add(AuditTestItem(id=existing_id, name="dup", value=99))
+            await session.flush()
+
+    session.add(ExcludedModel(name="excluded"))
+    await session.flush()
+    assert recorder.records == []
+
+
+async def test_hard_delete_excluded_model_skips_entity_deleted_log(audited, caplog):
+    _state, session, _recorder = audited
+    row = ExcludedModel(name="quiet-row")
+    session.add(row)
+    await session.flush()
+
+    with caplog.at_level(logging.INFO, logger="simple_module.db"):
+        await hard_delete(session, row)
+        await session.flush()
+
+    assert [r.message for r in caplog.records if "entity." in r.message] == []

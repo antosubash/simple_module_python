@@ -142,6 +142,7 @@ def attach_session_listeners(session_class: type[Session]) -> None:
         ("after_flush", _mark_session_written),
         ("detached_to_persistent", mark_unverified),
         ("after_flush_postexec", _after_flush_audit),
+        ("after_soft_rollback", _clear_pending_audit),
         ("do_orm_execute", _mark_dml_written),
         ("do_orm_execute", filter_statements),
         # Last: it reads the statement after tenant scoping and guards, and
@@ -163,11 +164,16 @@ def _log_entity_change(obj: object, event_name: str, *, extra: dict[str, object]
     _db_logger.info(event_name, extra=extra)
 
 
+def _clear_pending_audit(session: Session, previous_transaction: object = None) -> None:
+    session.info.pop(_AUDIT_PENDING_KEY, None)
+
+
 def _before_flush_listener(
     session: Session,
     flush_context: object,
     instances: object,
 ) -> None:
+    session.info.pop(_AUDIT_PENDING_KEY, None)
     guard_flush(session)
     guard_scope_flush(session)
     user_id = current_user_id.get()
@@ -237,7 +243,8 @@ def _before_flush_listener(
                 },
             )
         else:
-            _db_logger.info(
+            _log_entity_change(
+                obj,
                 _EVENT_ENTITY_DELETED,
                 extra={
                     "operation": _OP_DELETE,

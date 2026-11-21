@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 
@@ -23,6 +24,15 @@ _EVENT_REQUEST_COMPLETED = "request.completed"
 # Paths that produce noisy, low-value log entries
 _QUIET_EXACT = ("/health",)
 _QUIET_PREFIXES = validated_prefixes("/health/", "/static/")
+_MAX_CORRELATION_ID_LENGTH = 128
+_VALID_CORRELATION_ID = re.compile(r"^[A-Za-z0-9._:/-]+$")
+
+
+def _validated_correlation_id(raw: str | None) -> str:
+    """Return *raw* when bounded and free of control/whitespace chars, else a fresh UUID."""
+    if raw and len(raw) <= _MAX_CORRELATION_ID_LENGTH and _VALID_CORRELATION_ID.fullmatch(raw):
+        return raw
+    return uuid.uuid4().hex
 
 
 class CorrelationIdMiddleware:
@@ -50,7 +60,7 @@ class CorrelationIdMiddleware:
             await self.app(scope, receive, send)
             return
 
-        cid = Headers(scope=scope).get(self.HEADER) or uuid.uuid4().hex
+        cid = _validated_correlation_id(Headers(scope=scope).get(self.HEADER))
         # Skip allocating a Request wrapper — downstream Request(scope).state reads this same dict.
         scope.setdefault("state", {})["correlation_id"] = cid
 

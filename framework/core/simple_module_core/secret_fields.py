@@ -8,6 +8,7 @@ longer depends on the ``settings`` plugin being installed or enabled.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Final, get_args, get_origin
 from urllib.parse import urlsplit
@@ -91,6 +92,34 @@ def is_named_secret(name: str, value_type: str | None = None) -> bool:
     return is_secret_field(name)
 
 
+def _value_holds_secret(value: Any, *, decode_json: bool = False) -> bool:
+    """True when *value* holds embedded credentials or secret dict keys."""
+    if isinstance(value, str):
+        if embeds_credential(value):
+            return True
+        if decode_json or value.lstrip()[:1] in {'"', "[", "{"}:
+            try:
+                decoded = json.loads(value)
+            except (ValueError, RecursionError):
+                return False
+            if not isinstance(decoded, (bool, int, float, type(None))):
+                return _value_holds_secret(decoded, decode_json=False)
+        return False
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_value_holds_secret(item, decode_json=False) for item in value)
+    if isinstance(value, dict):
+        return any(
+            (
+                isinstance(k, str)
+                and is_secret_field(k)
+                and not isinstance(v, (bool, int, float, type(None)))
+            )
+            or _value_holds_secret(v, decode_json=False)
+            for k, v in value.items()
+        )
+    return False
+
+
 def conceals_secret(name: str, value: Any, value_type: str | None = None) -> bool:
     """True if this name/value pair must be masked on the way out.
 
@@ -103,7 +132,7 @@ def conceals_secret(name: str, value: Any, value_type: str | None = None) -> boo
         name in SENSITIVE_KEYS
         or name in _TYPED_SECRET_KEYS
         or is_named_secret(name, value_type)
-        or embeds_credential(value)
+        or _value_holds_secret(value, decode_json=(value_type == "json"))
     )
 
 

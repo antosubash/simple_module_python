@@ -133,7 +133,8 @@ async def _serve(
                 status_code=404, detail="Branding image is unavailable."
             ) from missing
 
-    if normalize_content_type(download.file.content_type) not in ALLOWED_IMAGE_TYPES:
+    media_type = normalize_content_type(download.file.content_type)
+    if media_type not in ALLOWED_IMAGE_TYPES:
         # Uploads are validated, so this is a hand-edited (or pre-validation)
         # setting naming some other file: never serve it as branding.
         logger.warning("Branding %s references non-image file %s.", field, file_id)
@@ -148,7 +149,7 @@ async def _serve(
     row = download.file
     return StreamingResponse(
         download.body,
-        media_type=row.content_type,
+        media_type=media_type,
         headers={
             **_cache_headers(request, file_id, request_tenant),
             "Content-Length": str(row.size_bytes),
