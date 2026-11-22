@@ -131,7 +131,8 @@ def test_control_chars_rejected_and_safe_media_type_falls_back():
         svc._check_content_type(poisoned)
 
 
-async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_path):
+@pytest.mark.parametrize("charset", ["iso-8859-1", '"utf-8"'])
+async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_path, charset):
     from file_storage.backends.filesystem import FilesystemBackend
     from file_storage.files.downloads import presigned_download_url
     from file_storage.files.ranges import file_body_response
@@ -158,19 +159,19 @@ async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_pat
     iso_row = StoredFile(
         key="ab/obj",
         filename="f.txt",
-        content_type="Text/Plain; charset=iso-8859-1",
+        content_type=f"Text/Plain; charset={charset}",
         size_bytes=6,
         backend="filesystem",
     )
     full = await file_body_response(backend, iso_row, req, headers={}, etag='"e"')
-    assert full.media_type == "text/plain; charset=iso-8859-1"
+    assert full.headers["content-type"] == f"text/plain; charset={charset}"
 
     ranged_req = Request(
         {"type": "http", "method": "GET", "path": "/", "headers": [(b"range", b"bytes=0-2")]}
     )
     ranged = await file_body_response(backend, iso_row, ranged_req, headers={}, etag='"e"')
     assert ranged.status_code == 206
-    assert ranged.media_type == "text/plain; charset=iso-8859-1"
+    assert ranged.headers["content-type"] == f"text/plain; charset={charset}"
 
     class _PresignBackend:
         backend_id = "filesystem"
@@ -182,6 +183,26 @@ async def test_downloads_sanitize_control_chars_and_preserve_safe_params(tmp_pat
 
     pb = _PresignBackend()
     await presigned_download_url(pb, iso_row, 60, attachment=True)
-    assert pb.headers["content_type"] == "text/plain; charset=iso-8859-1"
+    assert pb.headers["content_type"] == f"text/plain; charset={charset}"
     await presigned_download_url(pb, poisoned_row, 60, attachment=True)
     assert pb.headers["content_type"] == "application/octet-stream"
+
+
+@pytest.mark.parametrize("parameter", ['charset="utf-8"', 'x="a,b;c"', r'x="a\"b"', 'x=""'])
+def test_quoted_response_parameters_do_not_relax_inline_safety(parameter):
+    from file_storage.files.media_types import safe_media_type
+
+    raw = f"text/plain; {parameter}"
+    assert safe_media_type(raw) == raw
+    assert normalise_media_type(raw) is None
+    assert is_active_content(raw) is True
+
+
+@pytest.mark.parametrize(
+    "parameter",
+    ['x="unclosed', 'x="a"junk', "x=a,text/html", 'x="a",text/html', 'x="a\r\nb"', 'x="a\tb"'],
+)
+def test_malformed_response_parameters_are_not_echoed(parameter):
+    from file_storage.files.media_types import safe_media_type
+
+    assert safe_media_type(f"text/plain; {parameter}") != f"text/plain; {parameter}"

@@ -30,6 +30,9 @@ class _Store:
     def on_commit(self, callback) -> None:
         self.callbacks.append(callback)
 
+    async def lock_package(self, package) -> None:
+        return None
+
     async def get_overrides(self, package):
         return dict(self.rows)
 

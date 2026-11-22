@@ -10,7 +10,7 @@ from settings.contracts.events import SettingsReloaded
 from settings.core.service import SettingService
 from settings.core.services import SettingsServices
 from settings.core.settings import SettingsSettings
-from settings.module_settings.reload import apply_changes_and_reload
+from settings.module_settings.reload import apply_changes_and_reload, clear_override_and_reload
 from settings.module_settings.store import SettingsStore
 from simple_module_core.events import EventBus
 from simple_module_core.module_settings import register_module_settings
@@ -112,3 +112,28 @@ async def test_multiple_settings_edits_in_one_transaction_keep_both(app_and_bus,
     await finalize_session(db_session)
     assert app.state.users.settings.allow_signup is True
     assert app.state.users.settings.smtp_port == 587
+
+
+@pytest.mark.parametrize("operation", ["update", "reset"])
+async def test_settings_write_locks_package_before_reading(
+    app_and_bus, db_session, monkeypatch, operation
+):
+    app, bus = app_and_bus
+    store = SettingsStore(SettingService(db_session))
+    locked = []
+    read = store.get_overrides
+
+    async def lock(package):
+        locked.append(package)
+
+    async def read_after_lock(package):
+        assert locked == ["users"]
+        return await read(package)
+
+    monkeypatch.setattr(store, "lock_package", lock, raising=False)
+    monkeypatch.setattr(store, "get_overrides", read_after_lock)
+    if operation == "update":
+        await apply_changes_and_reload(app, bus, store, package="users", changes={"smtp_port": 587})
+    else:
+        await clear_override_and_reload(app, bus, store, package="users", field="smtp_port")
+    assert locked == ["users"]

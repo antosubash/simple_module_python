@@ -18,12 +18,15 @@ see ``_module_settings._field_view``.
 
 from __future__ import annotations
 
+import hashlib
+
 from simple_module_db.callbacks import OnCommitCallback
 from simple_module_db.stored_settings import (  # noqa: F401  (re-exported, #500)
     SYSTEM_SCOPE_ID,
     get_overrides_sync,
     package_overrides,
 )
+from sqlalchemy import text
 
 from settings.contracts.schemas import SettingScope, SettingUpsert, SettingValueType
 from settings.core.service import SettingService
@@ -44,6 +47,19 @@ class SettingsStore:
 
     def on_commit(self, callback: OnCommitCallback) -> None:
         self._service.db.on_commit(callback)
+
+    async def lock_package(self, package: str) -> None:
+        """Serialize read/validate/write until commit, including absent overrides.
+
+        PostgreSQL's transaction lock also covers resets of a package's last row.
+        SQLite already permits only one writer and needs no advisory SQL.
+        """
+        db = self._service.db
+        if db.get_bind().dialect.name != "postgresql":
+            return
+        digest = hashlib.sha256(f"settings.modules:{package}".encode()).digest()
+        key = int.from_bytes(digest[:8], "big", signed=True)
+        await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
     async def get_overrides(self, package: str) -> dict[str, tuple[str, str]]:
         """Return ``{field_name: (raw_value, value_type)}`` for a package."""

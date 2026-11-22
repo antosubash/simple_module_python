@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Behaviour change:** mail exposes DB-backed `smtp_tls_mode` (`auto`, `starttls`, `implicit`); `auto` retains implicit TLS on 465 and STARTTLS elsewhere. Deployments that previously used implicit TLS on custom ports must select `implicit`; `smtp_tls=false` disables TLS in every mode (#1099).
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
 
 ### Security
@@ -30,6 +31,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
+- Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).
 - Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
 - Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
 - Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).
