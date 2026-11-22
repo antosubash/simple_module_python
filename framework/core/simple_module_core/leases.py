@@ -88,7 +88,7 @@ class LeaseBackend(Protocol):
 
 
 _backend: LeaseBackend = InProcessLeaseBackend()
-_lock = threading.Lock()
+_lock = threading.RLock()
 _listeners: set[Callable[[LeaseBackend], None]] = set()
 
 
@@ -107,9 +107,9 @@ def configure_leases(backend: LeaseBackend | None) -> None:
     global _backend
     with _lock:
         _backend = backend if backend is not None else InProcessLeaseBackend()
-        installed, listeners = _backend, tuple(_listeners)
-    for cb in listeners:
-        cb(installed)
+        installed = _backend
+        for cb in tuple(_listeners):
+            cb(installed)
 
 
 def reset_lease_backend() -> None:

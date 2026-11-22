@@ -218,15 +218,13 @@ async def test_owner_closes_during_scheduling_falls_back_without_leaking_corouti
         await asyncio.wrap_future(
             asyncio.run_coroutine_threadsafe(backend.acquire("one", "owner", 10), owner)
         )
-        original = asyncio.run_coroutine_threadsafe
 
-        def schedule(coro, host):
-            if host is owner:
-                raise RuntimeError("owner closed during scheduling")
-            return original(coro, host)
+        def schedule(callback, *args, **kwargs):
+            raise RuntimeError("owner closed during scheduling")
 
-        monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", schedule)
-        await asyncio.wait_for(backend.aclose(), 0.5)
+        with monkeypatch.context() as patch:
+            patch.setattr(owner, "call_soon_threadsafe", schedule)
+            await asyncio.wait_for(backend.aclose(), 0.5)
     assert clients[0].closed_loop is asyncio.get_running_loop()
     assert clients[0].close_count == 1
 
@@ -250,23 +248,25 @@ async def test_remote_close_can_start_before_scheduler_returns(monkeypatch):
         await asyncio.wrap_future(
             asyncio.run_coroutine_threadsafe(backend.acquire("one", "owner", 10), owner)
         )
-        original = asyncio.run_coroutine_threadsafe
+        original = owner.call_soon_threadsafe
 
-        def schedule(coro, host):
+        def schedule(callback, *args, **kwargs):
             entered, finished = Event(), Event()
 
-            async def enter():
+            def enter():
                 entered.set()
-                await coro
+                try:
+                    callback(*args)
+                finally:
+                    finished.set()
 
-            future = original(enter(), host)
-            future.add_done_callback(lambda done: finished.set())
+            handle = original(enter, **kwargs)
             assert entered.wait(2)
-            # Give the remote coroutine a turn while the scheduling lock is held.
+            # Give the remote callback a turn while the scheduling lock is held.
             finished.wait(0.05)
-            return future
+            return handle
 
-        monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", schedule)
+        monkeypatch.setattr(owner, "call_soon_threadsafe", schedule)
         await asyncio.wait_for(backend.aclose(), 0.5)
     assert clients[0].closed_loop is owner
     assert clients[0].close_count == 1

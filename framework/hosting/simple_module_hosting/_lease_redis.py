@@ -67,6 +67,7 @@ class _ClientRecord:
     closed: bool = False
     future: Future[None] | None = None
     host_ref: weakref.ReferenceType[asyncio.AbstractEventLoop] | None = None
+    task: asyncio.Task[None] | None = None
 
 
 class RedisLeaseBackend:
@@ -102,41 +103,60 @@ class RedisLeaseBackend:
         """Schedule with the lock held, before any other caller can claim the record."""
         if record.closed or (record.future is not None and not record.future.done()):
             return
+        cf: Future[None] = Future()
         record.closing = True
+        record.future = cf
         record.host_ref = weakref.ref(host)
+        record.task = None
 
-        async def close() -> None:
-            # A remote loop can enter this coroutine before scheduling returns.
+        def spawn() -> None:
+            if not cf.set_running_or_notify_cancel():
+                return
             with self._lock:
-                scheduled = future
-            await self._close_record(record, scheduled)
+                if record.closed or record.future is not cf:
+                    if not cf.done():
+                        cf.set_result(None)
+                    return
+                record.task = host.create_task(self._close_record(record, cf))
 
-        coro = close()
         try:
-            future = asyncio.run_coroutine_threadsafe(coro, host)
+            # Allocate the coroutine only after the host actually accepts the handoff.
+            host.call_soon_threadsafe(spawn)
         except RuntimeError:
-            coro.close()
             record.closing = False
-            record.future = record.host_ref = None
+            record.future = record.host_ref = record.task = None
             raise
-        record.future = future
 
-    async def _close_record(self, record: _ClientRecord, future: Future[None]) -> None:
+    async def _close_record(self, record: _ClientRecord, cf: Future[None]) -> None:
         with self._lock:
-            if record.closed or record.future is not future or future.cancelled():
+            if record.closed or record.future is not cf:
+                if not cf.done():
+                    cf.set_result(None)
                 return
         try:
             await _close_client(record.client)
-        except BaseException:
+        except asyncio.CancelledError:
             with self._lock:
-                if record.future is future:
+                if record.future is cf:
                     record.closing = False
-                    record.future = record.host_ref = None
-            raise
+                    record.future = record.host_ref = record.task = None
+                if not cf.done():
+                    cf.set_result(None)
+        except BaseException as exc:
+            with self._lock:
+                if record.future is cf:
+                    record.closing = False
+                    record.future = record.host_ref = record.task = None
+                if not cf.done():
+                    cf.set_exception(exc)
         else:
             with self._lock:
                 record.closed = True
-                self._records.remove(record)
+                if record in self._records:
+                    self._records.remove(record)
+                record.future = record.host_ref = record.task = None
+                if not cf.done():
+                    cf.set_result(None)
 
     def _redis(self) -> Any:
         current, pid = asyncio.get_running_loop(), os.getpid()
@@ -170,11 +190,28 @@ class RedisLeaseBackend:
         while not wrapped.done():
             # Neither a timeout nor cancellation of this waiter cancels the shared close.
             await asyncio.wait({wrapped}, timeout=_CROSS_LOOP_POLL_SECONDS)
-            if not cf.done():
-                host = host_ref() if host_ref else None
-                if host is None or host.is_closed() or not host.is_running():
-                    cf.cancel()
-                    break
+            if cf.done():
+                break
+            host = host_ref() if host_ref else None
+            if host is not None and not host.is_closed():
+                if host.is_running():
+                    continue
+                if not cf.cancel():
+                    # A started close must finish or acknowledge cancellation before retry.
+                    with self._lock:
+                        task = record.task if record.future is cf else None
+                    try:
+                        if task is not None:
+                            host.call_soon_threadsafe(task.cancel)
+                        continue
+                    except RuntimeError:
+                        pass  # The host closed while cancellation was being queued.
+            cf.cancel()
+            with self._lock:
+                if record.future is cf:
+                    record.closing = False
+                    record.future = record.host_ref = record.task = None
+            break
         if wrapped.done() and not wrapped.cancelled():
             error = wrapped.exception()
             if error is not None:

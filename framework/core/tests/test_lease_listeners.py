@@ -57,3 +57,22 @@ def test_concurrent_replacements_are_all_reported():
         assert {id(backend) for backend in seen} == {id(backend) for backend in backends}
     finally:
         _remove_lease_listener(listener)
+
+
+def test_listener_can_read_and_replace_backend_during_notification():
+    initial, final = InProcessLeaseBackend(), InProcessLeaseBackend()
+    seen = []
+
+    def listener(backend):
+        assert get_leases() is backend
+        seen.append(backend)
+        if backend is initial:
+            configure_leases(final)
+
+    _add_lease_listener(listener)
+    try:
+        configure_leases(initial)
+        assert seen == [initial, final]
+        assert get_leases() is final
+    finally:
+        _remove_lease_listener(listener)

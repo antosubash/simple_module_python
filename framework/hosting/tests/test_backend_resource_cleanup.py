@@ -6,7 +6,7 @@ import weakref
 from types import SimpleNamespace
 
 import pytest
-from backend_cleanup_helpers import Client, running_loop
+from backend_cleanup_helpers import Client, make_backend, running_loop
 from fastapi import FastAPI
 from simple_module_core.leases import configure_leases
 from simple_module_hosting import _lifespan
@@ -21,14 +21,7 @@ async def test_window_store_closes_client():
 
 
 def test_lease_backend_replaces_closed_loop_client_and_closes_each():
-    clients = []
-
-    def factory():
-        client = Client()
-        clients.append(client)
-        return client
-
-    backend = RedisLeaseBackend("redis://unused", factory=factory)
+    backend, clients = make_backend()
 
     async def first():
         assert await backend.acquire("key", "owner", 10) == 1
@@ -49,14 +42,7 @@ def test_lease_backend_replaces_closed_loop_client_and_closes_each():
 
 
 async def test_lease_backend_closes_superseded_client_on_running_owner_loop():
-    clients = []
-
-    def factory():
-        client = Client()
-        clients.append(client)
-        return client
-
-    backend = RedisLeaseBackend("redis://unused", factory=factory)
+    backend, clients = make_backend()
     with running_loop() as owner:
         await asyncio.wait_for(
             asyncio.wrap_future(
@@ -152,7 +138,6 @@ async def test_third_loop_can_await_pending_client_retirement():
     from simple_module_test import wait_for
 
     entered, resume = Event(), Future()
-    clients = []
 
     class SlowCloseClient(Client):
         async def aclose(self):
@@ -160,12 +145,7 @@ async def test_third_loop_can_await_pending_client_retirement():
             await asyncio.wrap_future(resume)
             await super().aclose()
 
-    def factory():
-        client = Client() if clients else SlowCloseClient()
-        clients.append(client)
-        return client
-
-    backend = RedisLeaseBackend("redis://unused", factory=factory)
+    backend, clients = make_backend(SlowCloseClient)
     with running_loop() as second_loop:
         # First client belongs to an already-closed loop.
         await asyncio.to_thread(asyncio.run, backend.acquire("one", "owner", 10))
@@ -189,7 +169,6 @@ async def test_third_loop_can_await_pending_client_retirement():
 
 @pytest.mark.parametrize("acquire_before_close", [False, True])
 async def test_retirement_retries_when_host_closes_before_completion(acquire_before_close):
-    clients = []
     entered = asyncio.Event()
 
     class InterruptedCloseClient(Client):
@@ -202,12 +181,7 @@ async def test_retirement_retries_when_host_closes_before_completion(acquire_bef
                 await asyncio.Event().wait()
             await super().aclose()
 
-    def factory():
-        client = Client() if clients else InterruptedCloseClient()
-        clients.append(client)
-        return client
-
-    backend = RedisLeaseBackend("redis://unused", factory=factory)
+    backend, clients = make_backend(InterruptedCloseClient)
 
     async def second():
         assert await backend.acquire("two", "owner", 10) == 1
