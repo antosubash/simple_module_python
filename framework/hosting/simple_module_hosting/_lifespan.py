@@ -38,26 +38,42 @@ logger = logging.getLogger(__name__)
 
 
 _TRACKERS: set[weakref.ref[_LeaseTracker]] = set()
+_LEASE_OWNERS: dict[int, int] = {}
+_LEASE_OWNERS_LOCK = threading.Lock()
 
 
 class _LeaseTracker:
-    """Tracks lease backends seen during lifespan with fork-safe locking."""
+    """Owns one reference per observed backend, shared across app lifespans."""
 
     def __init__(self, initial: object) -> None:
         self.lock = threading.Lock()
-        self.tracked: list[object] = [initial]
-        self.seen: set[int] = {id(initial)}
+        self.tracked: list[object] = []
+        self.seen: set[int] = set()
         _TRACKERS.add(weakref.ref(self, _TRACKERS.discard))
+        self.track(initial)
 
     def track(self, backend: object) -> None:
         with self.lock:
             if id(backend) not in self.seen:
                 self.tracked.append(backend)
                 self.seen.add(id(backend))
+                with _LEASE_OWNERS_LOCK:
+                    _LEASE_OWNERS[id(backend)] = _LEASE_OWNERS.get(id(backend), 0) + 1
 
-    def snapshot(self) -> list[object]:
-        with self.lock:
-            return list(self.tracked)
+    def release(self) -> list[object]:
+        """Return only backends whose final lifespan owner has exited."""
+        with self.lock, _LEASE_OWNERS_LOCK:
+            unowned = []
+            for backend in self.tracked:
+                remaining = _LEASE_OWNERS[id(backend)] - 1
+                if remaining:
+                    _LEASE_OWNERS[id(backend)] = remaining
+                else:
+                    del _LEASE_OWNERS[id(backend)]
+                    unowned.append(backend)
+            self.tracked.clear()
+            self.seen.clear()
+            return unowned
 
     def reset_after_fork(self) -> None:
         self.lock = threading.Lock()
@@ -65,6 +81,8 @@ class _LeaseTracker:
 
 
 def _reset_forked_trackers() -> None:
+    global _LEASE_OWNERS_LOCK
+    _LEASE_OWNERS_LOCK = threading.Lock()
     for ref in tuple(_TRACKERS):
         tracker = ref()
         if tracker is not None:
@@ -102,14 +120,14 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
         async with AsyncExitStack() as cleanup:
             if dispose_database:
                 cleanup.push_async_callback(app.state.sm.db.engine.dispose)
-            tracker = _LeaseTracker(get_leases())
+            tracker = _LeaseTracker(getattr(app.state, "_lease_backend", get_leases()))
             track = tracker.track
 
             async def close_backends() -> None:
                 _remove_lease_listener(track)
                 track(get_leases())
                 async with AsyncExitStack() as resource_cleanup:
-                    for backend in tracker.snapshot():
+                    for backend in tracker.release():
                         resource_cleanup.push_async_callback(_close_resource, backend)
                     resource_cleanup.push_async_callback(
                         _close_resource, getattr(app.state.sm, "rate_limit_store", None)
