@@ -54,7 +54,7 @@ async def test_new_manifest_reloads_visits_from_previous_build(tmp_path, layout,
         app.state.inertia_dependency(request)
     stale = await inertia_version_conflict_exception_handler(request, exc.value)
     assert stale.status_code == 409
-    assert stale.headers["X-Inertia-Location"] == "http://test/page"
+    assert stale.headers["X-Inertia-Location"] == "/page"
     request.scope["headers"] = [
         (b"x-inertia", b"true"),
         (b"x-inertia-version", new_version.encode()),

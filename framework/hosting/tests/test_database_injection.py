@@ -77,19 +77,19 @@ async def test_default_database_is_created_and_disposed(database_app, database_u
     assert state.engine.pool is not pool
 
 
-async def test_host_builder_passes_database_factory(database_app, tmp_path, monkeypatch):
+async def test_host_builder_passes_database_factory(database_app, isolated_host_root, monkeypatch):
     import sys
 
     from simple_module_hosting.host import build_host_app
 
     state = init_db("sqlite+aiosqlite:///:memory:")
     monkeypatch.setattr(sys, "path", sys.path.copy())
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.chdir(isolated_host_root)
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(isolated_host_root))
     monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda: database_app)
     monkeypatch.setattr("simple_module_hosting.logging.setup_logging", lambda **kwargs: None)
     try:
-        app = build_host_app(tmp_path / "main.py", database=lambda settings: state)
+        app = build_host_app(isolated_host_root / "main.py", database=lambda settings: state)
         assert app.state.sm.db is state
     finally:
         await state.engine.dispose()

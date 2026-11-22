@@ -90,7 +90,7 @@ async def test_a_stale_get_is_a_409_pointing_at_the_same_url(client, version) ->
         headers["X-Inertia-Version"] = version
     resp = await client.get("/users", headers=headers)
     assert resp.status_code == 409
-    assert resp.headers["X-Inertia-Location"].endswith("/users")
+    assert resp.headers["X-Inertia-Location"] == "/users"
     assert resp.headers["X-Inertia-Version"] == "v1"
 
 

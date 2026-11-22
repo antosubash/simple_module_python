@@ -204,6 +204,7 @@ def test_real_tool_emits_paths(importable: Path, require_cli_asset) -> None:
 
 
 def test_cli_refuses_a_module_outside_the_project(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "templates").mkdir()
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'x.db'}")
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     result = CliRunner().invoke(app, ["openapi", "gen-types", "--module", "feature_flags"])
@@ -212,6 +213,7 @@ def test_cli_refuses_a_module_outside_the_project(tmp_path: Path, monkeypatch) -
 
 
 def test_cli_without_opted_in_modules_says_so(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "templates").mkdir()
     monkeypatch.setenv("SM_DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'x.db'}")
     monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     result = CliRunner().invoke(app, ["openapi", "gen-types"])

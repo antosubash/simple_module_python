@@ -51,25 +51,27 @@ async def run_deferred_startup(app: FastAPI) -> None:
     committed. Compatibility checks run first and still raise: an incompatible
     security state must keep the setup gate closed.
     """
-    await persist_pending_secret_key(app)
-    pending_checks = getattr(app.state, "deferred_data_compatibility", None)
-    if pending_checks:
-        await check_data_compatibility(app, pending_checks)
-        await add_table_coverage(app, pending_checks)
-        app.state.deferred_data_compatibility = []
-    deferred = get_deferred_startup(app)
-    if not deferred:
-        return
     lock = get_deferred_startup_lock(app)
     if lock is None:  # no await between check and set, so this cannot race
         lock = app.state.deferred_startup_lock = asyncio.Lock()
     async with lock:
-        if not deferred:
+        if getattr(app.state, "deferred_startup_complete", False):
             return
+        await persist_pending_secret_key(app)
+        pending_checks = getattr(app.state, "deferred_data_compatibility", None)
+        if pending_checks:
+            await check_data_compatibility(app, pending_checks)
+            await add_table_coverage(app, pending_checks)
+            app.state.deferred_data_compatibility = []
         await hydrate_settings_from_db(app)
+        deferred = get_deferred_startup(app)
         while deferred:
             mod = deferred.pop(0)
             try:
                 await mod.on_startup(app)
+                started = getattr(app.state, "started_modules", None)
+                if started is not None:
+                    started.append(mod)
             except Exception:
                 logger.exception("Deferred on_startup of %s failed after migrations", mod.meta.name)
+        app.state.deferred_startup_complete = True

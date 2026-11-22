@@ -83,7 +83,7 @@ def fallback_modules(monkeypatch, tmp_path):
     monkeypatch.setattr(first, "spa_mounts", lambda: [SpaMount("/legacy", spa)])
     modules = [LaterSlugModule(), PrefixedSlugModule(), first, UsersModule(), AuthModule()]
     monkeypatch.setattr(app_builder, "discover_modules", lambda **kwargs: modules)
-    monkeypatch.setattr(app_builder, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
     return modules
 
 

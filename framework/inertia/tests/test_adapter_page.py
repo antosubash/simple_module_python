@@ -29,6 +29,24 @@ class TestToRelativeUrl:
     def test_keeps_only_path_and_query(self, absolute: str, expected: str) -> None:
         assert to_relative_url(absolute) == expected
 
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("//evil.example/path", "/path"),
+            ("///evil.example/path", "/%2F/evil.example/path"),
+            ("//[invalid", "/"),
+            (" \\\\evil.example/path", "%5C\\evil.example/path"),
+            ("/\t\\evil.example/path", "/%5Cevil.example/path"),
+            ("/%2Fevil.example/path", "/%2Fevil.example/path"),
+            (r"/\evil.example/path", "/%5Cevil.example/path"),
+            (r"\evil.example/path", "%5Cevil.example/path"),
+            ("https://good.example//evil.example/path?q=1", "/%2Fevil.example/path?q=1"),
+            (r"https://good.example/\evil.example/path", "/%5Cevil.example/path"),
+        ],
+    )
+    def test_external_looking_paths_stay_relative(self, url, expected):
+        assert to_relative_url(url) == expected
+
     @pytest.mark.parametrize("relative", ["/", "/admin/users/", "/files?q=1"])
     def test_a_relative_url_is_unchanged(self, relative: str) -> None:
         assert to_relative_url(relative) == relative

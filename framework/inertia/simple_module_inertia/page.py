@@ -19,6 +19,8 @@ from fastapi.encoders import jsonable_encoder
 from simple_module_inertia._json_snapshot import JsonSnapshot
 from simple_module_inertia.resolve import JSON_SCALARS, ResolvedProps
 
+_URL_LEADING_CONTROLS = "".join(chr(code) for code in range(33))
+
 
 class PropEncodingError(ValueError):
     """A prop could not be serialised; ``prop_path`` names it."""
@@ -29,15 +31,24 @@ class PropEncodingError(ValueError):
 
 
 def to_relative_url(url: str) -> str:
-    """Path-and-query only. Already-relative input is returned unchanged."""
+    """Strip origins and escape path prefixes browsers could treat as an origin."""
+    # Match browser preprocessing before checking leading path separators.
+    url = url.lstrip(_URL_LEADING_CONTROLS).replace("\t", "").replace("\r", "").replace("\n", "")
     try:
         parts = urlsplit(url)
-    except ValueError:  # pragma: no cover - urlsplit is near-total
-        return url
-    if not parts.scheme and not parts.netloc:
-        return url
-    relative = parts.path or "/"
-    return f"{relative}?{parts.query}" if parts.query else relative
+    except ValueError:  # malformed authorities cannot be useful local targets
+        return "/"
+    if parts.scheme or parts.netloc:
+        relative = parts.path or "/"
+        if parts.query:
+            relative += f"?{parts.query}"
+    else:
+        relative = url
+    if relative.startswith(("//", "/\\")):
+        relative = "/" + ("%2F" if relative[1] == "/" else "%5C") + relative[2:]
+    elif relative.startswith("\\"):
+        relative = "%5C" + relative[1:]
+    return relative
 
 
 def build_page(

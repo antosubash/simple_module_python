@@ -115,6 +115,10 @@ class RedisWindowStore:
         await self._fallback.reset(key)
         await self._eval(_RESET_LUA, key)
 
+    async def aclose(self) -> None:
+        close = getattr(self._client, "aclose", None) or self._client.close
+        await close()
+
 
 def build_store(redis_url: str | None) -> WindowStore:
     """Redis when configured and importable, else per-process counters."""

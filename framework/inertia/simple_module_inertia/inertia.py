@@ -14,7 +14,7 @@ from simple_module_inertia.config import InertiaConfig, resolved_version
 from simple_module_inertia.errors import InertiaVersionConflictException
 from simple_module_inertia.head import HEAD_PROP, Head, SiteInfo, head_tags
 from simple_module_inertia.manifest import entry_assets
-from simple_module_inertia.page import build_page, encode_page
+from simple_module_inertia.page import build_page, encode_page, to_relative_url
 from simple_module_inertia.request import InertiaRequest
 from simple_module_inertia.resolve import resolve_props
 from simple_module_inertia.response import (
@@ -40,7 +40,8 @@ class Inertia:
         self._clear_history = False
         self._preserve_fragment = False
         if self._is_stale():
-            raise InertiaVersionConflictException(url=str(request.url), version=self._version)
+            target = to_relative_url(str(request.url))
+            raise InertiaVersionConflictException(url=target, version=self._version)
 
     # -- request state ----------------------------------------------------
 
@@ -93,6 +94,8 @@ class Inertia:
     # -- render -----------------------------------------------------------
 
     def _pop_session(self, key: str, default: Any) -> Any:
+        if "session" not in self._request.scope:
+            return default
         session = self._request.session
         return session.pop(key) if key in session else default
 

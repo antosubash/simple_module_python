@@ -14,11 +14,16 @@ can still reach the database.
 from __future__ import annotations
 
 import logging
+import os
+import threading
+import weakref
 from collections.abc import AsyncGenerator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
+from simple_module_core.leases import _add_lease_listener, _remove_lease_listener, get_leases
+from simple_module_core.module import ModuleBase
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._dev_boot import print_boot_diagnostics
@@ -32,6 +37,63 @@ from simple_module_hosting.setup_gate import is_first_run
 logger = logging.getLogger(__name__)
 
 
+_TRACKERS: set[weakref.ref[_LeaseTracker]] = set()
+
+
+class _LeaseTracker:
+    """Tracks lease backends seen during lifespan with fork-safe locking."""
+
+    def __init__(self, initial: object) -> None:
+        self.lock = threading.Lock()
+        self.tracked: list[object] = [initial]
+        self.seen: set[int] = {id(initial)}
+        _TRACKERS.add(weakref.ref(self, _TRACKERS.discard))
+
+    def track(self, backend: object) -> None:
+        with self.lock:
+            if id(backend) not in self.seen:
+                self.tracked.append(backend)
+                self.seen.add(id(backend))
+
+    def snapshot(self) -> list[object]:
+        with self.lock:
+            return list(self.tracked)
+
+    def reset_after_fork(self) -> None:
+        self.lock = threading.Lock()
+        self.seen = {id(item) for item in self.tracked}
+
+
+def _reset_forked_trackers() -> None:
+    for ref in tuple(_TRACKERS):
+        tracker = ref()
+        if tracker is not None:
+            tracker.reset_after_fork()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_forked_trackers)
+
+
+async def _shutdown_modules(
+    app: FastAPI, modules: Sequence[ModuleBase], started: list[ModuleBase]
+) -> None:
+    started_ids = {id(mod) for mod in started}
+    ordered = [mod for mod in modules if id(mod) in started_ids]
+    async with AsyncExitStack() as cleanup:
+        for mod in ordered:
+            cleanup.push_async_callback(mod.on_shutdown, app)
+
+
+async def _close_resource(resource: object) -> None:
+    close = getattr(resource, "aclose", None)
+    if close is not None:
+        try:
+            await close()
+        except Exception as exc:
+            logger.warning("Could not close %s (%s)", type(resource).__name__, type(exc).__name__)
+
+
 def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Callable:
     """Return the ``lifespan`` context manager for an app over *modules*."""
 
@@ -40,6 +102,25 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
         async with AsyncExitStack() as cleanup:
             if dispose_database:
                 cleanup.push_async_callback(app.state.sm.db.engine.dispose)
+            tracker = _LeaseTracker(get_leases())
+            track = tracker.track
+
+            async def close_backends() -> None:
+                _remove_lease_listener(track)
+                track(get_leases())
+                async with AsyncExitStack() as resource_cleanup:
+                    for backend in tracker.snapshot():
+                        resource_cleanup.push_async_callback(_close_resource, backend)
+                    resource_cleanup.push_async_callback(
+                        _close_resource, getattr(app.state.sm, "rate_limit_store", None)
+                    )
+
+            _add_lease_listener(track)
+            track(get_leases())
+            cleanup.push_async_callback(close_backends)
+            started: list[ModuleBase] = []
+            app.state.started_modules = started
+            cleanup.push_async_callback(_shutdown_modules, app, modules, started)
             # Report first, decide second. On a genuinely fresh install a
             # behind-head database must still boot far enough to serve the wizard —
             # running the migrations is one of the things that wizard does, and
@@ -72,6 +153,7 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
             # here is deferred and replayed once the wizard has applied the
             # migrations (run_deferred_startup) rather than aborting the process.
             app.state.deferred_startup = []
+            app.state.deferred_startup_complete = False
             tolerate = not migration["is_current"]
             for mod in modules:
                 try:
@@ -86,7 +168,8 @@ def build_lifespan(modules: Sequence, *, dispose_database: bool = True) -> Calla
                         exc_info=True,
                     )
                     app.state.deferred_startup.append(mod)
-                cleanup.push_async_callback(mod.on_shutdown, app)
+                else:
+                    started.append(mod)
             # Here rather than in create_app: the host includes its own routers
             # after create_app returns, and those should be guarded too.
             finalize_fallback_routes(app)

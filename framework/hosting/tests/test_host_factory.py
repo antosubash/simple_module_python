@@ -209,14 +209,14 @@ def test_existing_package_exports_are_preserved():
         _ = simple_module_hosting.not_an_export
 
 
-def test_factory_builds_the_same_runtime_as_create_app(tmp_path, monkeypatch, settings):
+def test_factory_builds_the_same_runtime_as_create_app(isolated_host_root, monkeypatch, settings):
     from fastapi import APIRouter
     from simple_module_hosting import create_app
     from simple_module_hosting.host import build_host_app
 
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.chdir(isolated_host_root)
     monkeypatch.setattr(sys, "path", sys.path.copy())
-    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(isolated_host_root))
     monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda: settings)
     monkeypatch.setattr("simple_module_hosting.logging.setup_logging", lambda **kwargs: None)
     expected = create_app(settings)
@@ -230,7 +230,7 @@ def test_factory_builds_the_same_runtime_as_create_app(tmp_path, monkeypatch, se
         assert "/api/factory-only" in app.openapi()["paths"]
         app.state.sm.public_routes.remove("/setup", kind="exact")
 
-    actual = build_host_app(tmp_path / "main.py", routers=(router,), customize=customize)
+    actual = build_host_app(isolated_host_root / "main.py", routers=(router,), customize=customize)
     assert expected.state.sm.public_routes.matches("GET", "/setup")
     assert not actual.state.sm.public_routes.matches("GET", "/setup")
     assert actual.state.sm.settings is settings
