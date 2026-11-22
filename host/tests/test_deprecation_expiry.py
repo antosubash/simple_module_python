@@ -106,26 +106,17 @@ def _is_alias_shim_source(text: str) -> bool:
 def _layout_shims() -> list[str]:
     """Old import paths left behind by module/framework layout moves."""
     found: list[str] = []
-    # Module package sources only: ``modules/<m>/<m>/``.
-    for path in sorted(_MODULES_DIR.glob("*/*/**/*.py")):
-        rel_parts = path.relative_to(_MODULES_DIR).parts
-        if rel_parts[0] != rel_parts[1] or any(p in _NON_SOURCE_PARTS for p in rel_parts):
-            continue
-        if _is_alias_shim_source(path.read_text(encoding="utf-8")):
-            rel = path.relative_to(_MODULES_DIR).with_suffix("").parts[1:]
-            found.append(".".join(rel))
-    # Framework package sources only: ``framework/<proj>/simple_module_<pkg>/``.
-    for path in sorted(_FRAMEWORK_DIR.glob("*/*/**/*.py")):
-        rel_parts = path.relative_to(_FRAMEWORK_DIR).parts
-        if (
-            len(rel_parts) < 3
-            or not rel_parts[1].startswith("simple_module_")
-            or any(p in _NON_SOURCE_PARTS for p in rel_parts)
-        ):
-            continue
-        if _is_alias_shim_source(path.read_text(encoding="utf-8")):
-            rel = path.relative_to(_FRAMEWORK_DIR).with_suffix("").parts[1:]
-            found.append(".".join(rel))
+    roots = (
+        (_MODULES_DIR, lambda parts: parts[0] == parts[1]),
+        (_FRAMEWORK_DIR, lambda parts: len(parts) >= 3 and parts[1].startswith("simple_module_")),
+    )
+    for base_dir, matches_package in roots:
+        for path in sorted(base_dir.glob("*/*/**/*.py")):
+            rel_parts = path.relative_to(base_dir).parts
+            if not matches_package(rel_parts) or any(p in _NON_SOURCE_PARTS for p in rel_parts):
+                continue
+            if _is_alias_shim_source(path.read_text(encoding="utf-8")):
+                found.append(".".join(path.relative_to(base_dir).with_suffix("").parts[1:]))
     return found
 
 
