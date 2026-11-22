@@ -166,8 +166,8 @@ export function startSpaLinkInterception(options: { exclude?: SpaLinkExclude } =
     };
 
     router.visit(url, {
+      // Cached prefetches replay onFinish before handling the response, so it cannot clear here.
       onSuccess: clear,
-      onFinish: clear,
       onCancel: clear,
       onError: clear,
       onHttpException: () => {

@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
 - Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
 - Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
 - Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).
