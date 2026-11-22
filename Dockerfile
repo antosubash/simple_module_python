@@ -94,6 +94,7 @@ COPY --from=builder /app/docker /app/docker
 COPY --from=builder /app/framework /app/framework
 COPY --from=builder /app/modules /app/modules
 COPY --from=builder /app/host /app/host
+COPY --from=builder /app/skills /app/skills
 
 # Keep the filesystem backend's default ./uploads on the data volume too.
 RUN mkdir -p /app/data/uploads \

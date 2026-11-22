@@ -32,7 +32,7 @@ def runtime_instructions(path):
         (
             "Dockerfile",
             "app",
-            {".venv", "pyproject.toml", "docker", "framework", "modules", "host"},
+            {".venv", "pyproject.toml", "docker", "framework", "modules", "host", "skills"},
         ),
         (
             "docker/worker.Dockerfile",
@@ -117,11 +117,27 @@ def test_healthcheck_shell_only_pings_workers(tmp_path, role, ping_status):
 
 
 @pytest.mark.parametrize("role", ["worker", "beat"])
-def test_compose_uses_one_redis_url_and_direct_celery_commands(role):
+def test_compose_uses_one_redis_url_and_direct_celery_commands(monkeypatch, role):
+    from background_tasks.core.settings import BackgroundTasksSettings
+
     service = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"][role]
     environment = service["environment"]
-    assert environment["SM_REDIS_URL"] == "${SM_REDIS_URL:-redis://redis:6379/4}"
+    assert environment["SM_REDIS_URL"] == "redis://redis:6379/4"
     assert "SM_BG_TASKS_BROKER_URL" not in environment
     assert "SM_BG_TASKS_RESULT_BACKEND" not in environment
     assert service["command"][:4] == ["celery", "-A", "scripts.run_worker:celery", role]
     assert "appdata:/app/data" in service["volumes"]
+
+    # Container environment must win cleanly over a host-style SM_REDIS_URL and resolve cleanly.
+    monkeypatch.setenv("SM_REDIS_URL", environment["SM_REDIS_URL"])
+    monkeypatch.delenv("SM_BG_TASKS_BROKER_URL", raising=False)
+    monkeypatch.delenv("SM_BG_TASKS_RESULT_BACKEND", raising=False)
+    settings = BackgroundTasksSettings()
+    assert settings.broker_url == "redis://redis:6379/4"
+    assert settings.result_backend == "redis://redis:6379/4"
+
+
+def test_cli_skills_symlink_resolves_to_copied_runtime_skills_dir():
+    cli_skills = ROOT / "framework/cli/simple_module_cli/skills"
+    assert cli_skills.resolve() == (ROOT / "skills").resolve()
+    assert any(cli_skills.rglob("SKILL.md"))
