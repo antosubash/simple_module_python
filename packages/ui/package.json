@@ -82,7 +82,7 @@
     "input-otp": "^1.5.0",
     "lucide-react": "^1.43.0",
     "openapi-fetch": "^0.17.0",
-    "radix-ui": "^1.6.7",
+    "radix-ui": "^1.8.1",
     "react-day-picker": "^10.0.2",
     "react-resizable-panels": "^4.18.1",
     "recharts": "^3.10.1",
