@@ -22,6 +22,10 @@ All notable changes to this project are documented in this file. The format is b
 
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
 
+### Deprecated
+
+- `simple_module_inertia.response` is deprecated in favor of `simple_module_inertia.protocol.response` (and package-root `simple_module_inertia.InertiaResponse`); the compatibility shim emits `DeprecationWarning` on import and will be removed in `0.0.52`.
+
 ### Security
 
 - Mask JSON-encoded secret settings (embedded URL credentials and sensitive dict keys) consistently in `conceals_secret`, `Setting.__audit_redact_row__`, and Settings API `is_secret` discovery (#1064).
