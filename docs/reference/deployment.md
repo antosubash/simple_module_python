@@ -50,6 +50,12 @@ jobs are the `worker` / `beat` services in `docker-compose.yml`
 belong. Drop that flag and set `SM_REDIS_URL` to the Redis service URL to
 put tasks back in the web image.
 
+The repo's worker and beat services use shared Redis on `devnet`. They pin
+`SM_REDIS_URL`, `SM_BG_TASKS_BROKER_URL` and `SM_BG_TASKS_RESULT_BACKEND` to
+`redis://redis:6379/4` so legacy localhost values loaded from the host `.env`
+cannot take precedence. The standalone `app` service does not load that env file
+and needs no Redis connection.
+
 ### Scaffolded apps
 
 **Every `smpy new` scaffold ships its own Docker assets** — you don't write these by hand:
