@@ -11,7 +11,7 @@ from typing import Any
 from simple_module_core.app_state import get_inertia_shared_providers, get_services
 from simple_module_core.i18n import Translator
 from simple_module_inertia import always, is_inertia_request
-from simple_module_inertia.props import Prop
+from simple_module_inertia.rendering.props import Prop
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import Scope

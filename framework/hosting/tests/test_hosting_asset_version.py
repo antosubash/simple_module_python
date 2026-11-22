@@ -11,7 +11,7 @@ from simple_module_inertia import (
     InertiaVersionConflictException,
     inertia_version_conflict_exception_handler,
 )
-from simple_module_inertia.config import resolved_version
+from simple_module_inertia.protocol.config import resolved_version
 from starlette.requests import Request
 
 

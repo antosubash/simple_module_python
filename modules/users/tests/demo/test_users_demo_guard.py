@@ -7,6 +7,7 @@ boundary: every test here is a way the guard could fail open.
 from __future__ import annotations
 
 import httpx
+import pytest
 from users.core.constants import ADMIN_ROLE_NAME, SESSION_USER_ID_KEY, USER_ROLE_NAME
 from users.demo import SESSION_DEMO_KEY
 from users.demo.guard import DEMO_READ_ONLY_DETAIL
@@ -86,7 +87,11 @@ async def test_an_unstamped_session_on_a_demo_account_still_blocks(demo_app):
     assert res.status_code == 403
 
 
-async def test_an_inertia_write_gets_a_hard_redirect_not_a_raw_403(demo_client):
+@pytest.mark.parametrize(
+    ("referer", "location"),
+    [("http://testserver/users/me", "/users/me"), ("http://[", "/")],
+)
+async def test_an_inertia_write_gets_a_hard_redirect_not_a_raw_403(demo_client, referer, location):
     """Inertia renders a non-Inertia body as a modal — on a showcase instance
     that reads as a crash. The protocol's own answer is 409 + Location."""
     await demo_client.post(_demo_route(ADMIN_ROLE_NAME))
@@ -94,11 +99,11 @@ async def test_an_inertia_write_gets_a_hard_redirect_not_a_raw_403(demo_client):
     res = await demo_client.patch(
         "/api/users/me",
         json={"full_name": "Owned"},
-        headers={"X-Inertia": "true", "Referer": "http://testserver/users/me"},
+        headers={"X-Inertia": "true", "Referer": referer},
     )
 
     assert res.status_code == 409
-    assert res.headers["X-Inertia-Location"] == "/users/me"
+    assert res.headers["X-Inertia-Location"] == location
 
 
 # ── it leaves everyone else alone ───────────────────────────────────────────
@@ -178,7 +183,15 @@ async def test_demo_sessions_stay_read_only_after_demo_mode_is_switched_off(demo
     assert res.json()["detail"] == DEMO_READ_ONLY_DETAIL
 
 
-def test_inertia_refusal_uses_only_safe_referer():
+@pytest.mark.parametrize(
+    ("referer", "location"),
+    [
+        (b"https://evil.test/trap", "/"),
+        (b"https://app.test/dashboard?tab=1", "/dashboard?tab=1"),
+        (b"http://[", "/"),
+    ],
+)
+def test_inertia_refusal_uses_only_safe_referer(referer, location):
     from users.demo.guard import _refusal
 
     scope = {
@@ -190,9 +203,9 @@ def test_inertia_refusal_uses_only_safe_referer():
         "headers": [
             (b"host", b"app.test"),
             (b"x-inertia", b"true"),
-            (b"referer", b"https://evil.test/trap"),
+            (b"referer", referer),
         ],
     }
-    assert _refusal(scope).headers["X-Inertia-Location"] == "/"
-    scope["headers"][-1] = (b"referer", b"https://app.test/dashboard?tab=1")
-    assert _refusal(scope).headers["X-Inertia-Location"] == "/dashboard?tab=1"
+    response = _refusal(scope)
+    assert response.status_code == 409
+    assert response.headers["X-Inertia-Location"] == location

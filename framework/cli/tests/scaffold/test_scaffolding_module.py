@@ -1,0 +1,279 @@
+"""Tests for `smpy create-module` scaffolding: module package, CI, static bundling."""
+
+from __future__ import annotations
+
+import pytest
+
+
+class TestCreateModule:
+    async def test_creates_expected_module_files(self, tmp_path):
+        """create_module writes a PyPI-ready module package."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+
+        for relpath in [
+            "pyproject.toml",
+            "my_feature/__init__.py",
+            "my_feature/module.py",
+            "my_feature/web/endpoints/__init__.py",
+            "my_feature/web/endpoints/api.py",
+            "tests/core/module/test_my_feature_module.py",
+            ".gitignore",
+            "README.md",
+        ]:
+            assert (dest / relpath).is_file(), f"missing: {relpath}"
+
+        assert not list((dest / "tests").rglob("__init__.py"))
+        assert not list((dest / "tests").glob("test_*.py"))
+
+        # `tests/__init__.py` is intentionally NOT shipped: under
+        # `--import-mode=importlib`, having one in two modules makes
+        # pytest try to register `tests.conftest` as a plugin twice.
+        assert not (dest / "tests" / "__init__.py").exists()
+
+    async def test_generated_test_uses_effective_route_paths(self, tmp_path):
+        """#431: app.routes hides lazily-included routers on FastAPI >= 0.137."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        text = (dest / "tests" / "core" / "module" / "test_my_feature_module.py").read_text()
+        assert "effective_route_paths(app)" in text
+        assert "app.routes" not in text.replace("``app.routes``", "")
+
+    async def test_test_file_basename_is_unique_per_module(self, tmp_path):
+        """Scaffolds keep descriptive module prefixes even though importlib permits repeats."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        alpha = create_module(tmp_path / "alpha", name="Alpha")
+        beta = create_module(tmp_path / "beta", name="Beta")
+
+        alpha_tests = [p.name for p in (alpha / "tests").rglob("test_*.py")]
+        beta_tests = [p.name for p in (beta / "tests").rglob("test_*.py")]
+
+        assert sorted(alpha_tests) == [
+            "test_alpha_crud.py",
+            "test_alpha_module.py",
+            "test_alpha_schemas.py",
+        ]
+        assert sorted(beta_tests) == [
+            "test_beta_crud.py",
+            "test_beta_module.py",
+            "test_beta_schemas.py",
+        ]
+        assert not set(alpha_tests) & set(beta_tests)
+
+    async def test_pyproject_declares_entry_point_and_deps(self, tmp_path):
+        """pyproject.toml sets the entry_point and pins the framework API range."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+
+        assert 'name = "simple_module_my_feature"' in pyproject
+        assert "[project.entry-points.simple_module]" in pyproject
+        assert "my_feature = " in pyproject
+        assert "simple_module_core" in pyproject
+
+    async def test_module_py_subclasses_module_base(self, tmp_path):
+        """The generated module.py has a ModuleBase subclass with the right Meta."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-my-feature"
+        create_module(dest, name="MyFeature")
+        module_py = (dest / "my_feature" / "module.py").read_text(encoding="utf-8")
+
+        assert "class MyFeatureModule(ModuleBase)" in module_py
+        assert 'name="MyFeature"' in module_py
+        assert "requires_framework=" in module_py
+
+    async def test_snake_case_derivation(self, tmp_path):
+        """Module names with dashes, spaces, or camel case convert to snake_case packages."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-order-tracker"
+        create_module(dest, name="OrderTracker")
+        assert (dest / "order_tracker" / "module.py").is_file()
+
+    async def test_refuses_existing_non_empty_dir(self, tmp_path):
+        """create_module aborts rather than clobber an existing directory."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "existing"
+        dest.mkdir()
+        (dest / "sentinel").write_text("keep me", encoding="utf-8")
+        with pytest.raises(FileExistsError):
+            create_module(dest, name="MyFeature")
+
+    async def test_cli_create_module_runs_end_to_end(self, tmp_path):
+        """The Click `smpy create-module` command produces a working scaffold."""
+        from simple_module_cli.cli import app
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        dest = tmp_path / "simple-module-smoke"
+        result = runner.invoke(
+            app,
+            ["create-module", "Smoke", "--dest", str(dest)],
+        )
+        assert result.exit_code == 0, result.output
+        assert (dest / "smoke" / "module.py").is_file()
+        assert "class SmokeModule(ModuleBase)" in (dest / "smoke" / "module.py").read_text(
+            encoding="utf-8"
+        )
+
+    async def test_create_module_pins_framework_deps_when_version_given(self, tmp_path):
+        """Regression #195: create_module(..., framework_version=X) rewrites the
+        template's >=1.0,<2.0 ranges to ==X so `uv add ./modules/<name>` resolves
+        against the framework version that created the module (pre-1.0 dists
+        don't satisfy >=1.0,<2.0)."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders", framework_version="0.0.17")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+
+        for pkg in ("simple_module_core", "simple_module_db", "simple_module_hosting"):
+            assert f"{pkg}==0.0.17" in pyproject
+            assert f"{pkg}>=1.0,<2.0" not in pyproject
+        # The dev extra's simple_module_test is pinned too (was >=0.1,<1.0).
+        assert "simple_module_test==0.0.17" in pyproject
+        # Non-framework deps are left untouched.
+        assert "pydantic-settings>=2.0" in pyproject
+
+    async def test_create_module_keeps_ranges_without_version(self, tmp_path):
+        """Without framework_version the publishable template ranges are kept."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert "simple_module_core>=1.0,<2.0" in pyproject
+
+    async def test_create_module_treats_star_as_skip_not_a_pin(self, tmp_path):
+        """The ``"*"`` sentinel keeps the template ranges (same as ``None``) — it
+        must NOT render the invalid PEP 508 specifier ``==*``. Guards the
+        harmonized pin rule shared with create_host."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-orders"
+        create_module(dest, name="Orders", framework_version="*")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        assert "simple_module_core>=1.0,<2.0" in pyproject
+        assert "==*" not in pyproject
+
+    async def test_cli_create_module_pins_to_framework_version(self, tmp_path):
+        """The `smpy create-module` command pins framework deps so `uv add`
+        resolves into the app that created it (#195)."""
+        from simple_module_cli.cli import app
+        from simple_module_cli.scaffold.scaffolding import resolve_framework_version
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        dest = tmp_path / "simple-module-orders"
+        result = runner.invoke(app, ["create-module", "Orders", "--dest", str(dest)])
+        assert result.exit_code == 0, result.output
+
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+        version = resolve_framework_version()
+        assert f"simple_module_core=={version}" in pyproject
+        assert "simple_module_core>=1.0,<2.0" not in pyproject
+
+    async def test_scaffold_ships_github_workflows(self, tmp_path):
+        """Gap 8: scaffolded modules include publish.yml + ci.yml."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+
+        publish = dest / ".github" / "workflows" / "publish.yml"
+        ci = dest / ".github" / "workflows" / "ci.yml"
+        assert publish.is_file(), "publish.yml missing"
+        assert ci.is_file(), "ci.yml missing"
+
+    async def test_publish_workflow_uses_trusted_publishing(self, tmp_path):
+        """publish.yml must request OIDC token and use pypa/gh-action-pypi-publish."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        publish = (dest / ".github" / "workflows" / "publish.yml").read_text(encoding="utf-8")
+
+        # Trusted publishing requires these two knobs — without them the
+        # workflow falls back to API-token auth, which defeats the point.
+        assert "id-token: write" in publish
+        assert "pypa/gh-action-pypi-publish" in publish
+        assert "PYPI_API_TOKEN" not in publish
+
+    async def test_publish_workflow_triggers_on_version_tag(self, tmp_path):
+        """publish.yml fires only on tag push, not every commit to main."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        publish = (dest / ".github" / "workflows" / "publish.yml").read_text(encoding="utf-8")
+        assert "tags:" in publish
+
+    async def test_workflows_parse_as_valid_yaml(self, tmp_path):
+        """Both workflow files must be parseable YAML — catches template substitution bugs."""
+        import yaml
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+
+        for wf in ("publish.yml", "ci.yml"):
+            path = dest / ".github" / "workflows" / wf
+            parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+            assert isinstance(parsed, dict), f"{wf} did not parse to a mapping"
+            assert "jobs" in parsed, f"{wf} has no jobs: key"
+
+    async def test_scaffold_has_pages_dir(self, tmp_path):
+        """Gap 2b: modules ship a pages/ dir with a working sample page from day one."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        pages_dir = dest / "widget" / "pages"
+        assert pages_dir.is_dir()
+        assert (pages_dir / "Browse.tsx").is_file()
+
+    async def test_pyproject_ships_static_dist_when_present(self, tmp_path):
+        """Gap 2b: pyproject.toml must ship <pkg>/static/dist/ inside the wheel.
+
+        Declared via hatch ``artifacts`` (not force-include): the built JS is
+        gitignored so it needs an explicit directive, but the directory must be
+        allowed to not exist yet — force-include fails the editable build on a
+        fresh scaffold/clone, which broke `uv sync` before any bundle is built.
+        """
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        pyproject = (dest / "pyproject.toml").read_text(encoding="utf-8")
+
+        assert 'artifacts = ["widget/static/dist/"]' in pyproject
+        assert "widget/static/dist" in pyproject
+
+    async def test_module_py_mounts_static_dist_conditionally(self, tmp_path):
+        """Generated module.py exposes static_mounts() that tolerates a missing dist/."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        module_py = (dest / "widget" / "module.py").read_text(encoding="utf-8")
+
+        assert "static_mounts" in module_py
+        assert "/modules/widget/static" in module_py
+
+    async def test_gitignore_excludes_built_assets(self, tmp_path):
+        """Built JS lives in source control's blind spot; only wheels carry it."""
+        from simple_module_cli.scaffold.scaffolding import create_module
+
+        dest = tmp_path / "simple-module-widget"
+        create_module(dest, name="Widget")
+        gitignore = (dest / ".gitignore").read_text(encoding="utf-8")
+        assert "static/dist" in gitignore

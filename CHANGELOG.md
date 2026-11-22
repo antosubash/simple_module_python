@@ -20,7 +20,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- **Behaviour change:** mail exposes DB-backed `smtp_tls_mode` (`auto`, `starttls`, `implicit`); `auto` retains implicit TLS on 465 and STARTTLS elsewhere. Deployments that previously used implicit TLS on custom ports must select `implicit`; `smtp_tls=false` disables TLS in every mode (#1099).
 - **Behaviour change:** worker images use a separate non-root runtime without build tools or uv; web and worker images copy only their runtime artifacts (#1088).
+
+### Deprecated
+
+- `simple_module_inertia.response` is deprecated in favor of `simple_module_inertia.protocol.response` (and package-root `simple_module_inertia.InertiaResponse`); the compatibility shim emits `DeprecationWarning` on import and will be removed in `0.0.52`.
 
 ### Security
 
@@ -31,6 +36,12 @@ All notable changes to this project are documented in this file. The format is b
 ### Fixed
 
 - Plain SPA links to prefetched non-Inertia HTML pages perform a full page navigation instead of showing Inertia's invalid-response modal; retain the fallback through prefetched callback replay (#1101, #1094).
+- Downloads preserve validated RFC 9110 quoted MIME parameters, including quoted charsets, for full, ranged and presigned responses while inline-content checks stay strict (#1100).
+- Module settings updates and field resets acquire the same per-package PostgreSQL transaction advisory lock before reading overrides, keeping validation and writes serialized through commit (#1103).
+- Repo Compose worker and beat explicitly pin the legacy broker and result-backend variables alongside `SM_REDIS_URL` to `redis://redis:6379/4`, overriding host `.env` localhost values and restoring upgrade compatibility after #1095 (#1097).
+- Malformed Referer URLs fall back to `/`, including demo-guard Inertia refusals, instead of raising a server error (#1098).
+- Overlapping app lifespans share ownership of process-global lease backends, closing each backend only after its last active owner exits while preserving replacement cleanup and engine disposal (#1102).
+- Rebuild lease ownership after a fork, and skip closing a backend that a lifespan started during another app's shutdown has re-acquired (#1102).
 - Clear `_AUDIT_PENDING_KEY` before flush and on `after_soft_rollback` so rolled-back savepoints never leak phantom audit records to a subsequent flush (#1066).
 - Forward all active custom `ScopeFilter.bypass_option` flags during `bulk_audit._prefetch_ids` (#1067).
 - Honor `__audit_exclude__` when logging hard-delete events (`db.entity.deleted`) (#1068).

@@ -48,9 +48,10 @@ services:
       - path: .env
         required: false
     environment:
-      # Override host .env (localhost) so containers reach shared Compose Redis;
-      # leave legacy SM_BG_TASKS_BROKER_URL/_RESULT_BACKEND unset in .env.
+      # Pin legacy overrides too: host .env values otherwise beat SM_REDIS_URL.
       SM_REDIS_URL: redis://redis:6379/4
+      SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
+      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/4
       SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
     networks: [devnet]
     volumes:
@@ -72,9 +73,10 @@ services:
       - path: .env
         required: false
     environment:
-      # Override host .env (localhost) so containers reach shared Compose Redis;
-      # leave legacy SM_BG_TASKS_BROKER_URL/_RESULT_BACKEND unset in .env.
+      # Pin legacy overrides too: host .env values otherwise beat SM_REDIS_URL.
       SM_REDIS_URL: redis://redis:6379/4
+      SM_BG_TASKS_BROKER_URL: redis://redis:6379/4
+      SM_BG_TASKS_RESULT_BACKEND: redis://redis:6379/4
       SM_DATABASE_URL: ${SM_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/simple_module_python}
     depends_on:
       worker:

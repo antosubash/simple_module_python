@@ -6,6 +6,8 @@ secret-field pattern (``simple_module_core.secret_fields.is_secret_field``).
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import SettingsConfigDict
 from simple_module_core.settings_base import DbBackedSettings
@@ -29,3 +31,8 @@ class MailSettings(DbBackedSettings):
     smtp_password: str = ""
     smtp_from: str = c.DEFAULT_FROM
     smtp_tls: bool = True
+    smtp_tls_mode: Literal["auto", "starttls", "implicit"] = Field(
+        default=c.SMTP_TLS_AUTO,
+        description="auto: implicit TLS on 465, STARTTLS elsewhere; starttls or implicit: "
+        "force that mode on any port. Ignored when smtp_tls is false.",
+    )

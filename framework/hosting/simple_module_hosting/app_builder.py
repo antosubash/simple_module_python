@@ -14,6 +14,7 @@ from simple_module_core.events import EventBus
 from simple_module_core.feature_flags import FeatureFlagRegistry
 from simple_module_core.health import HealthRegistry
 from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.leases import get_leases
 from simple_module_core.menu import MenuRegistry
 from simple_module_core.permissions import PermissionRegistry
 from simple_module_core.principals import build_principal_registry
@@ -225,6 +226,7 @@ def create_app(
 
     # ── Phase 6: Initialize database ───────────────────────
     db_state = init_database(settings, health_registry, database)
+    app.state._lease_backend = get_leases()
     principals = build_principal_registry(modules, settings, permissions=perm_registry)
     principals.directory = get_user_directory(app)
     bind_principal_registry(db_state.session_factory, principals)

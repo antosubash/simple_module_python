@@ -38,6 +38,7 @@ def _smtp(settings: Any, log_bodies: bool) -> MailSender:
         password=settings.smtp_password,
         from_address=settings.smtp_from,
         use_tls=settings.smtp_tls,
+        tls_mode=settings.smtp_tls_mode,
     )
 
 

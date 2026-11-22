@@ -10,8 +10,8 @@ from simple_module_core.permissions import PermissionRegistry
 from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from simple_module_hosting.middleware import InertiaLayoutDataMiddleware
-from simple_module_inertia.request import InertiaRequest
-from simple_module_inertia.resolve import resolve_props
+from simple_module_inertia.protocol.request import InertiaRequest
+from simple_module_inertia.rendering.resolve import resolve_props
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse

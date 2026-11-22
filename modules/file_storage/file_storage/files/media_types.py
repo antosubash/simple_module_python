@@ -21,7 +21,10 @@ from file_storage.files.thumbnails import base_type
 
 # RFC 9110 ``token`` characters, on both sides of a single "/".
 _MEDIA_TYPE = re.compile(r"[a-z0-9!#$%&'*+.^_`|~-]+/[a-z0-9!#$%&'*+.^_`|~-]+")
-_SAFE_PARAM = re.compile(r"[A-Za-z0-9!#$%&'*+.^_`|~-]+=[A-Za-z0-9!#$%&'*+.^_`|~=-]+")
+_TOKEN = r"[A-Za-z0-9!#$%&'*+.^_`|~-]+"
+# RFC 9110 quoted-string / quoted-pair, with control chars excluded below.
+_QUOTED = r'"(?:[\x20-\x21\x23-\x5b\x5d-\x7e\x80-\xff]|\\[\x20-\x7e\x80-\xff])*"'
+_RESPONSE_PARAM = re.compile(rf"(?:; *)+({_TOKEN}=(?:{_TOKEN}|{_QUOTED})) *")
 
 
 def normalise_media_type(content_type: str | None) -> str | None:
@@ -43,17 +46,24 @@ def normalise_media_type(content_type: str | None) -> str | None:
 
 def safe_media_type(content_type: str | None) -> str:
     """Return a validated media type preserving safe MIME parameters, else fallback."""
-    base = normalise_media_type(content_type)
-    if base is None:
+    if not content_type or any(
+        ord(c) < 0x20 or ord(c) == 0x7F or ord(c) > 0xFF for c in content_type
+    ):
         return "application/octet-stream"
-    assert content_type is not None
-    if ";" not in content_type:
-        return base
-    _, tail = content_type.split(";", 1)
-    params = [p.strip() for p in tail.split(";") if p.strip()]
-    if params and all(_SAFE_PARAM.fullmatch(p) for p in params):
-        return f"{base}; {'; '.join(params)}"
-    return base
+    head, sep, tail = content_type.partition(";")
+    base = head.strip().lower()
+    if not _MEDIA_TYPE.fullmatch(base):
+        return "application/octet-stream"
+    remaining = sep + tail
+    params = []
+    while remaining.strip("; "):
+        match = _RESPONSE_PARAM.match(remaining)
+        if match is None:
+            # Never echo malformed quotes or a second header value.
+            return "application/octet-stream" if any(c in remaining for c in ',"') else base
+        params.append(match[1])
+        remaining = remaining[match.end() :]
+    return f"{base}; {'; '.join(params)}" if params else base
 
 
 def is_active_content(content_type: str | None) -> bool:

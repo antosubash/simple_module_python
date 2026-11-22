@@ -19,6 +19,7 @@ from simple_module_core.deprecation import (
     expired_deprecations,
     registered_deprecations,
 )
+from simple_module_test.layout import is_layout_shim
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (
@@ -55,21 +56,74 @@ _EXPECTED = {
 }
 
 
-_MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_MODULES_DIR = _REPO_ROOT / "modules"
+_FRAMEWORK_DIR = _REPO_ROOT / "framework"
+_NON_SOURCE_PARTS = frozenset(
+    {"tests", "templates", "skills", "__pycache__", "node_modules", ".venv"}
+)
 
 
 def _layout_shims() -> list[str]:
-    """Old import paths left behind by module-layout moves (docs/module-layout.md)."""
-    found = []
-    # Package sources only: ``modules/<m>/<m>/``, not tests or node_modules.
-    for path in sorted(_MODULES_DIR.glob("*/*/**/*.py")):
-        if path.relative_to(_MODULES_DIR).parts[0] != path.relative_to(_MODULES_DIR).parts[1]:
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "deprecated_module(" in text and "sys.modules[__name__]" in text:
-            rel = path.relative_to(_MODULES_DIR).with_suffix("").parts[1:]
-            found.append(".".join(rel))
+    """Old import paths left behind by module/framework layout moves."""
+    found: list[str] = []
+    roots = (
+        (_MODULES_DIR, lambda parts: parts[0] == parts[1]),
+        (_FRAMEWORK_DIR, lambda parts: len(parts) >= 3 and parts[1].startswith("simple_module_")),
+    )
+    for base_dir, matches_package in roots:
+        for path in sorted(base_dir.glob("*/*/**/*.py")):
+            rel_parts = path.relative_to(base_dir).parts
+            if not matches_package(rel_parts) or any(p in _NON_SOURCE_PARTS for p in rel_parts):
+                continue
+            if is_layout_shim(path):
+                mod_parts = path.relative_to(base_dir).with_suffix("").parts[1:]
+                if mod_parts and mod_parts[-1] == "__init__":
+                    mod_parts = mod_parts[:-1]
+                found.append(".".join(mod_parts))
     return found
+
+
+def test_layout_shims_discovers_framework_and_ignores_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    modules_dir = tmp_path / "modules"
+    fw_dir = tmp_path / "framework"
+    core_pkg = fw_dir / "core" / "simple_module_core"
+    core_pkg.mkdir(parents=True)
+    (core_pkg / "old_mod.py").write_text(
+        'deprecated_module("simple_module_core.old_mod")\n'
+        'sys.modules[__name__] = import_module("simple_module_core.eventing.old_mod")\n',
+        encoding="utf-8",
+    )
+    pkg_shim = core_pkg / "migration_support"
+    pkg_shim.mkdir()
+    (pkg_shim / "__init__.py").write_text(
+        'deprecated_module("simple_module_core.migration_support")\n'
+        'sys.modules[__name__] = import_module("simple_module_core.migrations.support")\n',
+        encoding="utf-8",
+    )
+    inertia_pkg = fw_dir / "inertia" / "simple_module_inertia"
+    inertia_pkg.mkdir(parents=True)
+    (inertia_pkg / "response.py").write_text(
+        'warnings.warn("deprecated", category=DeprecationWarning, stacklevel=2)\n'
+        'sys.modules[__name__] = import_module("simple_module_inertia.protocol.response")\n',
+        encoding="utf-8",
+    )
+    fw_tests = fw_dir / "core" / "tests"
+    fw_tests.mkdir(parents=True)
+    (fw_tests / "test_fake_shim.py").write_text(
+        'deprecated_module("ignored")\nsys.modules[__name__] = object()\n',
+        encoding="utf-8",
+    )
+    modules_dir.mkdir(parents=True)
+    monkeypatch.setitem(globals(), "_MODULES_DIR", modules_dir)
+    monkeypatch.setitem(globals(), "_FRAMEWORK_DIR", fw_dir)
+    assert _layout_shims() == [
+        "simple_module_core.migration_support",
+        "simple_module_core.old_mod",
+        "simple_module_inertia.response",
+    ]
 
 
 def _register_all() -> None:
@@ -79,6 +133,11 @@ def _register_all() -> None:
             importlib.import_module(name)
     # CLI alias registers on use so the standalone scaffolder needs no core dependency (#984).
     deprecate("smpy package-update", remove_in="0.0.50", use="uv run smpy update")
+    deprecate(
+        "simple_module_inertia.response",
+        remove_in="0.0.52",
+        use="simple_module_inertia.protocol.response",
+    )
 
 
 def test_every_known_shim_is_registered() -> None:

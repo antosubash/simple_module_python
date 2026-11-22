@@ -25,7 +25,14 @@ DB-backed (`MailSettings`, package `mail`), hot-reloaded without a restart.
 | `smtp_username` | `""` | blank means no authentication |
 | `smtp_password` | `""` | masked in the settings UI |
 | `smtp_from` | `no-reply@localhost` | |
-| `smtp_tls` | `true` | implicit TLS (`use_tls`) on port 465; mandatory STARTTLS (`start_tls`) on other ports including 587; `false` disables both |
+| `smtp_tls` | `true` | enables TLS using `smtp_tls_mode`; `false` disables both implicit TLS and STARTTLS regardless of the mode |
+| `smtp_tls_mode` | `auto` | `auto`: implicit TLS on port 465 and mandatory STARTTLS elsewhere; `starttls`: mandatory STARTTLS on any port; `implicit`: implicit TLS on any port, including custom or mapped ports such as 1465 |
+
+Both delivery and **Test connection** use the same TLS mode. For an implicit-TLS
+server mapped to port 1465, keep `smtp_tls=true` and select `smtp_tls_mode=implicit`.
+The default `auto` preserves port-based selection introduced in #1092. Earlier
+versions used implicit TLS on every port when `smtp_tls=true`; those custom-port
+deployments must now select `implicit` explicitly (#1099).
 
 Earlier versions kept these under `users` (`users.mailer`, `users.smtp_*`). A data migration renames the stored keys to `mail.backend` and `mail.smtp_*`; an existing `mail.*` row wins, and the downgrade reverses it.
 
