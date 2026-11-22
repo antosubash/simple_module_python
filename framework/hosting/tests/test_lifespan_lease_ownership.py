@@ -1,14 +1,12 @@
 """Overlapping apps share ownership of process-global lease backends (#1102)."""
 
 import asyncio
-import os
-import subprocess
-import sys
 from contextlib import AsyncExitStack
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from backend_cleanup_helpers import run_fork_probe
 from fastapi import FastAPI
 from simple_module_core.leases import InProcessLeaseBackend, configure_leases, lease
 from simple_module_hosting import _lifespan
@@ -104,19 +102,22 @@ async def test_lifespan_started_during_another_shutdown_keeps_the_backend(monkey
     first_cm = _lifespan.build_lifespan([], dispose_database=False)(first)
     await first_cm.__aenter__()
     shutdown = asyncio.create_task(first_cm.__aexit__(None, None, None))
-    await closing.wait()
-
-    async with _lifespan.build_lifespan([], dispose_database=False)(second):
+    try:
+        await asyncio.wait_for(closing.wait(), timeout=5)
+        async with _lifespan.build_lifespan([], dispose_database=False)(second):
+            resume.set()
+            await asyncio.wait_for(shutdown, timeout=5)
+            assert backend.close_count == 0
+            async with lease("second-app", ttl=10, blocking=False):
+                pass
+    finally:
         resume.set()
-        await shutdown
-        assert backend.close_count == 0
-        async with lease("second-app", ttl=10, blocking=False):
-            pass
+        if not shutdown.done():
+            await asyncio.wait_for(shutdown, timeout=5)
 
     assert backend.close_count == 1
 
 
-@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires os.fork")
 def test_fork_during_owner_registration_still_closes_all_backends():
     probe = """
 import asyncio, os, signal, threading
@@ -180,4 +181,4 @@ async def main():
 
 asyncio.run(main())
 """
-    subprocess.run([sys.executable, "-c", probe], check=True, timeout=10)
+    run_fork_probe(probe, timeout=10)
