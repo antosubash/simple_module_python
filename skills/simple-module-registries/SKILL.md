@@ -134,7 +134,7 @@ role-name permission mappings work for Users, OIDC and Keycloak.
 
 `register_permissions` runs once at boot to declare the static catalog. The registry caches its computed views (`all_permissions`, `role_map`) and **invalidates them on every mutation** (`add_group`, `add`, `map_role`, `revoke_role`, overlay updates), so it is safe to mutate after boot — the Permissions module uses separate role overlays for persisted grants at startup and whenever an admin edits a role. Don't roll your own caching of these views; read them fresh.
 
-To check inside an endpoint, depend on `RequiresPermission(Permissions.VIEW)` (from `simple_module_hosting.permissions`), not by reading the registry by hand. The dependency handles wildcard expansion and the 401-vs-403 distinction.
+To check inside an endpoint, depend on `RequiresPermission(Permissions.VIEW)` (from `simple_module_hosting.auth.permissions`), not by reading the registry by hand. The dependency handles wildcard expansion and the 401-vs-403 distinction.
 
 ## Feature flags — `register_feature_flags(registry: FeatureFlagRegistry)`
 

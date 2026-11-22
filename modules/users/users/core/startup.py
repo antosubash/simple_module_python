@@ -49,7 +49,7 @@ async def run_startup(module: UsersModule, app: FastAPI) -> None:
     _build_limiters(state, s)
     _build_oauth_clients(app)
 
-    from simple_module_hosting.auth_policy import session_cookie_is_secure
+    from simple_module_hosting.auth.auth_policy import session_cookie_is_secure
 
     reconfigure_cookie_transport(
         auth_backend, s, cookie_secure=session_cookie_is_secure(app.state.sm.settings)
@@ -89,7 +89,7 @@ def _build_mailer(app: FastAPI, state, s) -> None:
         name = getattr(getattr(branding, "settings", None), "app_name", None)
         return name or default_app_name()
 
-    from simple_module_hosting.public_urls import public_origin
+    from simple_module_hosting.pipeline.public_urls import public_origin
 
     def origin() -> str:
         host = getattr(getattr(app.state, "host", None), "settings", None)

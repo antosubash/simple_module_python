@@ -1,7 +1,7 @@
 """Per-request SQL statement counting.
 
 Development hosts install this on their engine and expose the totals in a
-``Server-Timing`` header (see ``simple_module_hosting._server_timing``), so a
+``Server-Timing`` header (see ``simple_module_hosting.pipeline._server_timing``), so a
 page that issues one query per row shows up in the browser's network panel and
 in the page-perf audit instead of only under load.
 

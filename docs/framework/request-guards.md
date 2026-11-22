@@ -141,7 +141,7 @@ For a single handler, use the dependency (same store and key resolution; `429`
 with `Retry-After`):
 
 ```python
-from simple_module_hosting.rate_limit_deps import RateLimit
+from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
 
 @router.post("/send", dependencies=[Depends(RateLimit("10/minute", key="user"))])
 ```
@@ -210,5 +210,5 @@ the shared store instead (see [Sharing the store](#sharing-the-store)).
 
 - `simple_module_core.web.body_limits.BodyLimitRegistry`, `simple_module_core.web.rate_limit`
   (rate parsing, in-process store), `PublicRoute.rate`
-- `simple_module_hosting._body_limit`, `_rate_limit`, `_request_guard_responses`
+- `simple_module_hosting.pipeline._body_limit`, `_rate_limit`, `_request_guard_responses`
 - Wiring: `_middleware_pipeline.install_middleware`; registry on `app.state.body_limits`

@@ -27,7 +27,7 @@ from simple_module_core.eventing.invalidation import Invalidation, InvalidationB
 from simple_module_core.modules.app_state import get_services
 from simple_module_core.runtime.singleflight import MISS, SingleFlight, fill
 from simple_module_db import is_valid_tenant_id
-from simple_module_hosting.middleware import TenantResolution
+from simple_module_hosting.pipeline.middleware import TenantResolution
 from starlette.requests import Request
 
 from tenants.contracts.schemas import MyTenantView

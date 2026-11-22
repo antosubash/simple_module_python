@@ -5,8 +5,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from simple_module_core import ModuleBase
 from simple_module_core.modules.discovery import discover_modules, get_module_package_name
-from simple_module_hosting._module_routes import wire_module_routes
-from simple_module_hosting._route_paths import app_route_paths
+from simple_module_hosting.boot._module_routes import wire_module_routes
+from simple_module_hosting.pipeline._route_paths import app_route_paths
 
 # Captured before replacing built-in overrides with the package defaults.
 EXPECTED = {

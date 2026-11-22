@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_hosting.bootstrap_settings import BootstrapSettings
-from simple_module_hosting.host_settings import HostSettings
+from simple_module_hosting.config.bootstrap_settings import BootstrapSettings
+from simple_module_hosting.config.host_settings import HostSettings
 
 
 def test_bootstrap_reads_from_env(monkeypatch):
@@ -88,5 +88,7 @@ async def test_host_settings_registered_as_host_package(app):
     assert registry.get("host").__name__ == "HostSettings"
     assert isinstance(
         app.state.host.settings,
-        __import__("simple_module_hosting.host_settings", fromlist=["HostSettings"]).HostSettings,
+        __import__(
+            "simple_module_hosting.config.host_settings", fromlist=["HostSettings"]
+        ).HostSettings,
     )

@@ -23,7 +23,7 @@ from settings.core.constants import PERM_TENANT_EDIT
 from settings.core.service import SettingService
 from settings.core.tenant_scope import active_tenant
 from settings.web.deps import get_setting_service
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 from branding.assets.images import store_image, validate_image
 from branding.assets.reaper import schedule_reap

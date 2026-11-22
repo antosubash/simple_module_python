@@ -11,8 +11,8 @@ from __future__ import annotations
 from keycloak.identity.directory import KeycloakDirectory
 from simple_module_core.access.role_directory import MappedRoleDirectory, get_role_directory
 from simple_module_core.access.user_directory import get_user_directory
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.boot.app_builder import create_app
+from simple_module_hosting.config.settings import Settings
 
 
 def _settings(environment: str, modules_enabled: list[str] | None = None) -> Settings:
@@ -42,7 +42,7 @@ def test_directories_come_from_keycloak():
 def test_development_does_not_warn_about_permissions(monkeypatch, caplog):
     # The dev-boot pass writes the frontend's generated files into the source
     # tree; with this module set that would clobber the workspace's copies.
-    import simple_module_hosting.app_builder as app_builder
+    import simple_module_hosting.boot.app_builder as app_builder
 
     monkeypatch.setattr(app_builder, "run_dev_boot", lambda *a, **kw: None)
     app = create_app(_settings("development"))

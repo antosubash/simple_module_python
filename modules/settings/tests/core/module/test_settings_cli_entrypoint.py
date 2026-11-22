@@ -31,8 +31,8 @@ def test_python_module_runs_without_developer_cli(tmp_path, args):
 import runpy
 import sys
 sys.modules["simple_module_cli"] = None
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.boot.app_builder import create_app
+from simple_module_hosting.config.settings import Settings
 create_app(Settings(environment="testing", modules_enabled=["ep:settings"],
     database_url="sqlite+aiosqlite:///:memory:", secret_key="unit-test-key"))
 sys.argv = ["settings", "import-from-env", "--help"]

@@ -8,7 +8,7 @@ wiring. Not named ``test_*`` so pytest does not collect it.
 from __future__ import annotations
 
 import httpx
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from users.core.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 
 ALICE = "alice@example.com"
@@ -36,7 +36,7 @@ async def _setup_app_db(application) -> None:
     """Create all tables and stamp alembic version so migration check passes."""
 
     from simple_module_db.models.base import all_module_bases
-    from simple_module_hosting.migrations import resolve_head_revisions
+    from simple_module_hosting.boot.migrations import resolve_head_revisions
     from sqlalchemy import text
 
     # Plural: each module's first migration sets its own branch_labels, so a
@@ -155,7 +155,7 @@ async def _build_users_app(
     ``database_url`` lets several apps share one SQLite file, standing in for
     workers of one deployment; ``overrides`` adds ``UsersSettings`` rows.
     """
-    from simple_module_hosting.app_builder import create_app
+    from simple_module_hosting.boot.app_builder import create_app
 
     settings = Settings(
         database_url=database_url,

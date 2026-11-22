@@ -1,6 +1,6 @@
 """SimpleModule Host — entry point."""
 
-from simple_module_hosting.host import build_host_app
+from simple_module_hosting.boot.host import build_host_app
 
 app = build_host_app(__file__, routers=("host.routes:router",))
 

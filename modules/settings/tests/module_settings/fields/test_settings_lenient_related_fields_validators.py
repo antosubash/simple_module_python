@@ -13,7 +13,7 @@ from keycloak.core.settings import KeycloakSettings
 from pydantic import ValidationError
 from simple_module_core.settings.settings_hydrate import RELATED_FIELDS_CTX, build_settings
 from simple_module_core.settings.stored_settings import construct_leniently
-from simple_module_hosting.host_settings import HostSettings
+from simple_module_hosting.config.host_settings import HostSettings
 from site_lock.core.settings import SiteLockSettings
 from users.core.settings import UsersSettings
 

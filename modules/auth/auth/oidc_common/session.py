@@ -9,8 +9,8 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
 from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY, safe_next_or_none
-from simple_module_hosting.csrf import rotate_csrf_token
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
+from simple_module_hosting.auth.csrf import rotate_csrf_token
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY, sign_in_preserved_keys
 from starlette.responses import RedirectResponse
 
 from auth.core.constants import SESSION_AUTHORITY_KEY, SESSION_ID_KEY

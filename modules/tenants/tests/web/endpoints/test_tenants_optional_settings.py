@@ -1,7 +1,7 @@
 """Organisation settings are available only with the optional Settings module."""
 
 import pytest
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 
 
 @pytest.fixture(params=[False, True], ids=["without-settings", "with-settings"])

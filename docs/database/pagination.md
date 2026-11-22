@@ -5,7 +5,7 @@ or a page past the end means.
 
 ```python
 from simple_module_db import PageParams, paginate
-from simple_module_hosting.pagination import page_params
+from simple_module_hosting.frontend.pagination import page_params
 
 
 # JSON API: page < 1 or per_page outside 1..200 is a 422.
@@ -20,7 +20,7 @@ async def list_orders(
 
 - `PageParams(page, per_page)` lives in `simple_module_db` (no FastAPI import).
   It normalises on construction (`page >= 1`, `1 <= per_page <= 200`), so
-  `.offset` is never negative. `simple_module_hosting.pagination` builds it from
+  `.offset` is never negative. `simple_module_hosting.frontend.pagination` builds it from
   the query string: `page_params(n)` is strict (422), `lenient_page_params(n)` /
   `LenientPageParamsDep` clamp garbage instead, for Inertia views reached from
   bookmarked URLs.

@@ -82,7 +82,7 @@ Behind a TLS-terminating proxy this is **recommended**: without it the app belie
 
 It used to be load-bearing for the UI too, because Inertia's page url was absolute and its cross-scheme `pushState` threw a `SecurityError` on every page (GH #223). The page url is root-relative now, so that failure mode is gone whether or not this is set.
 
-It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/web/endpoints/api.py`) and the locale cookie's `secure` flag (`simple_module_hosting/i18n_routes.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
+It is still load-bearing for anything else that reads `request.url.scheme` or calls `request.url_for(...)` to build an absolute url — OAuth/OIDC's `callback_url` (`modules/users/users/oauth/api.py`, `modules/keycloak/keycloak/web/endpoints/api.py`) and the locale cookie's `secure` flag (`simple_module_hosting/i18n/i18n_routes.py`) among them. Left unset behind a TLS-terminating proxy, an OAuth redirect_uri is built as `http://…` and most providers reject it as a mismatch against the `https://…` one registered in their console.
 
 Set it to a comma-separated list of proxy IPs/CIDRs, or `*` to trust any peer — correct when the container is only reachable through one proxy, wrong when anything else can connect.
 
@@ -95,7 +95,7 @@ Installed only when **both** `SM_TRUSTED_PROXY` and the `forwarded_host_allowlis
 Reads the `X-Correlation-ID` header (or generates a UUID4 hex) and makes the value available three ways:
 
 - `request.state.correlation_id` — for handlers that already hold the `Request`.
-- The `simple_module_hosting.logging.correlation_id` `ContextVar` — for code (services, background tasks spawned from a request) that doesn't.
+- The `simple_module_hosting.observability.logging.correlation_id` `ContextVar` — for code (services, background tasks spawned from a request) that doesn't.
 - An `X-Correlation-ID` response header — so clients can cross-reference their request with server-side logs.
 
 Every record emitted via the stdlib `logging` setup configured by `setup_logging()` already carries the ID under the `correlation_id` field, thanks to `_CorrelationIdFilter` reading the contextvar. For **structlog**, add a tiny processor that copies the framework's `ContextVar` into structlog's event dict:
@@ -103,7 +103,7 @@ Every record emitted via the stdlib `logging` setup configured by `setup_logging
 ```python
 # anywhere during app startup (e.g. main.py)
 import structlog
-from simple_module_hosting.logging import correlation_id
+from simple_module_hosting.observability.logging import correlation_id
 
 
 def add_correlation_id(_, __, event_dict):
@@ -167,7 +167,7 @@ page's `frame-ancestors 'none'` is only weaker in browsers without CSP level 2.
 
 ### `SessionMiddleware`
 
-The framework's wrapper around Starlette's signed-cookie sessions. Cookie name is `session`; attributes are `HttpOnly`, `SameSite=Lax`. `SameSite=Lax` is the baseline CSRF defence: browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form submission from another origin is unauthenticated. Modules wanting defence in depth opt into the session-bound token check in `simple_module_hosting.csrf` — `RequiresCsrf` as a router dependency, `get_csrf_token(request)` exposed as a view prop, and callers echoing it as `X-CSRF-Token` on unsafe methods.
+The framework's wrapper around Starlette's signed-cookie sessions. Cookie name is `session`; attributes are `HttpOnly`, `SameSite=Lax`. `SameSite=Lax` is the baseline CSRF defence: browsers don't attach the cookie to cross-site POST/PUT/DELETE, so a forged form submission from another origin is unauthenticated. Modules wanting defence in depth opt into the session-bound token check in `simple_module_hosting.auth.csrf` — `RequiresCsrf` as a router dependency, `get_csrf_token(request)` exposed as a view prop, and callers echoing it as `X-CSRF-Token` on unsafe methods.
 
 ### `TenantMiddleware` *(opt-in)*
 
@@ -200,7 +200,7 @@ When a page needs layout data, populates `request.state.inertia_shared` with:
 - `menus` — grouped by `MenuSection`, filtered by the current user's permissions
 - `i18n` — `{ locale, audience, supportedLocales, messages }` for the resolved locale
 
-Inertia responses pick these up automatically via `InertiaDep` from `simple_module_hosting.inertia_deps`.
+Inertia responses pick these up automatically via `InertiaDep` from `simple_module_hosting.frontend.inertia_deps`.
 
 ### Cache protection in `InertiaMiddleware`
 
@@ -307,8 +307,8 @@ storage and accepts the original constructor options:
 
 ```python
 from simple_module_hosting import disable_middleware, replace_middleware
-from simple_module_hosting.host import build_host_app
-from simple_module_hosting.session import SessionMiddleware
+from simple_module_hosting.boot.host import build_host_app
+from simple_module_hosting.pipeline.session import SessionMiddleware
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
 

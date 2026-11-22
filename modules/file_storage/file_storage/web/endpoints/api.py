@@ -22,9 +22,9 @@ from fastapi.responses import RedirectResponse
 from simple_module_core.eventing.events import EventBus
 from simple_module_db.engine.callbacks import register_on_commit
 from simple_module_db.queries.pagination import PageParams
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.pagination import page_params
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.pagination import page_params
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 from file_storage.contracts.events import FileDeleted, FileUploaded
 from file_storage.contracts.schemas import (

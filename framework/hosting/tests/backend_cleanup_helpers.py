@@ -7,7 +7,7 @@ import sys
 from contextlib import contextmanager
 from threading import Event, Thread
 
-from simple_module_hosting._lease_redis import RedisLeaseBackend
+from simple_module_hosting.locking._lease_redis import RedisLeaseBackend
 
 
 @contextmanager

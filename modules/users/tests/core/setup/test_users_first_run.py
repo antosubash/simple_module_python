@@ -7,9 +7,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.migrations import migration_status
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.boot.app_builder import create_app
+from simple_module_hosting.boot.migrations import migration_status
+from simple_module_hosting.pipeline.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard.migrate import apply_migrations
 from simple_module_test.setup_wizard import post_step, wizard_client, wizard_headers
 from sqlalchemy import select
@@ -119,7 +119,7 @@ async def test_existing_history_keeps_separate_steps(fresh_app, monkeypatch):
     async def still_behind(*args, **kwargs):
         return dict(behind)
 
-    monkeypatch.setattr("simple_module_hosting.migrations.migration_status", still_behind)
+    monkeypatch.setattr("simple_module_hosting.boot.migrations.migration_status", still_behind)
     fresh_app.state.migration = dict(behind)
     async with wizard_client(fresh_app) as client:
         page = await client.get("/setup", headers={"X-Inertia": "true"})

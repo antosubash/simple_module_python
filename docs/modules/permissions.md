@@ -6,7 +6,7 @@ The permissions module decouples role-based and per-user permission grants from 
 - An admin UI to edit them.
 - A grant source that feeds direct user grants into the framework's permission resolution.
 
-There is one `RequiresPermission`, in `simple_module_hosting.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. Import the dependency directly from hosting.
+There is one `RequiresPermission`, in `simple_module_hosting.auth.permissions`. With this module installed it honours direct user grants as well as roles, and so does everything else that reads the resolved set: `resolved_permissions_for`, the menu filter, and the frontend's `auth.permissions`. Import the dependency directly from hosting.
 
 ## ModuleMeta
 
@@ -63,7 +63,7 @@ for unavailable modules are preserved. See [delegated permission editing](/frame
 
 ```python
 from fastapi import APIRouter, Depends
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 router = APIRouter()
 

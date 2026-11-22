@@ -12,9 +12,9 @@ import asyncio
 
 from fastapi import Request
 
-from simple_module_hosting._db_health import CHECK_DATABASE
-from simple_module_hosting.health import run_health_check
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.boot._db_health import CHECK_DATABASE
+from simple_module_hosting.boot.health import run_health_check
+from simple_module_hosting.pipeline.setup_gate import STEP_MIGRATIONS
 
 # A health-check *name*, not an import: the check exists only when the
 # background_tasks module registered it, and is skipped otherwise.

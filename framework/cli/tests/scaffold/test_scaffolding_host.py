@@ -166,7 +166,7 @@ class TestCreateHost:
         dest = tmp_path / "demo"
         create_host(dest, name="demo", modules=[])
         env_py = (dest / "migrations" / "env.py").read_text(encoding="utf-8")
-        assert "from simple_module_hosting.migrations_env import run_migrations" in env_py
+        assert "from simple_module_hosting.boot.migrations_env import run_migrations" in env_py
         assert "run_migrations(context)" in env_py
 
     async def test_cli_create_host_runs_end_to_end(self, tmp_path):

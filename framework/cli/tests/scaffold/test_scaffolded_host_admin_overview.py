@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 
 from simple_module_hosting.admin_overview import PAGE_OVERVIEW, PAGES_NAME, pages_dir
-from simple_module_hosting.manifest import write_module_pages_manifest
+from simple_module_hosting.frontend.manifest import write_module_pages_manifest
 
 
 def test_scaffold_carries_no_admin_code_and_resolves_the_overview(tmp_path) -> None:

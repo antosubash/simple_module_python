@@ -1,0 +1,128 @@
+"""ASGI middlewares for correlation IDs and structured request logging."""
+
+from __future__ import annotations
+
+import logging
+import re
+import time
+import uuid
+
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from simple_module_hosting.observability.logging import correlation_id
+from simple_module_hosting.pipeline.path_matching import matches_path, validated_prefixes
+
+_LOGGER_NAME = "simple_module.request"
+_request_logger = logging.getLogger(_LOGGER_NAME)
+
+_SCOPE_HTTP = "http"
+_MSG_RESPONSE_START = "http.response.start"
+_EVENT_REQUEST_STARTED = "request.started"
+_EVENT_REQUEST_COMPLETED = "request.completed"
+
+# Paths that produce noisy, low-value log entries
+_QUIET_EXACT = ("/health",)
+_QUIET_PREFIXES = validated_prefixes("/health/", "/static/")
+_MAX_CORRELATION_ID_LENGTH = 128
+_VALID_CORRELATION_ID = re.compile(r"^[A-Za-z0-9._:/-]+$")
+
+
+def _validated_correlation_id(raw: str | None) -> str:
+    """Return *raw* when bounded and free of control/whitespace chars, else a fresh UUID."""
+    if raw and len(raw) <= _MAX_CORRELATION_ID_LENGTH and _VALID_CORRELATION_ID.fullmatch(raw):
+        return raw
+    return uuid.uuid4().hex
+
+
+class CorrelationIdMiddleware:
+    """Generate or propagate a correlation ID for every request.
+
+    Reads the incoming ``X-Correlation-ID`` header (or generates a UUID4) and:
+
+    * stores it in the ``simple_module_hosting.observability.logging.correlation_id``
+      ContextVar so the stdlib logging filter (or a user-supplied structlog
+      processor — see ``docs/framework/middleware.md``) picks it up with no
+      per-handler plumbing;
+    * exposes it on ``request.state.correlation_id`` for handlers that
+      prefer the request object over the contextvar;
+    * echoes the value back as the ``X-Correlation-ID`` response header so
+      clients can cross-reference their request with server-side logs.
+    """
+
+    HEADER = "X-Correlation-ID"
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != _SCOPE_HTTP:
+            await self.app(scope, receive, send)
+            return
+
+        cid = _validated_correlation_id(Headers(scope=scope).get(self.HEADER))
+        # Skip allocating a Request wrapper — downstream Request(scope).state reads this same dict.
+        scope.setdefault("state", {})["correlation_id"] = cid
+
+        async def send_with_header(message: Message) -> None:
+            if message["type"] == _MSG_RESPONSE_START:
+                headers = MutableHeaders(scope=message)
+                headers[self.HEADER] = cid
+            await send(message)
+
+        token = correlation_id.set(cid)
+        try:
+            await self.app(scope, receive, send_with_header)
+        finally:
+            correlation_id.reset(token)
+
+
+class RequestLoggingMiddleware:
+    """Log every request/response pair with timing and status information."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != _SCOPE_HTTP:
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
+        if matches_path(path, exact=_QUIET_EXACT, prefixes=_QUIET_PREFIXES):
+            await self.app(scope, receive, send)
+            return
+
+        method = scope["method"]
+        client = scope.get("client")
+        client_ip = client[0] if client else "unknown"
+
+        _request_logger.debug(
+            _EVENT_REQUEST_STARTED,
+            extra={"method": method, "path": path, "client_ip": client_ip},
+        )
+
+        status_code: int | None = None
+        start = time.perf_counter()
+
+        async def send_capture(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == _MSG_RESPONSE_START:
+                status_code = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_capture)
+        finally:
+            # Log completion even when the inner app raises, so 500s are observable.
+            duration_ms = round((time.perf_counter() - start) * 1000, 2)
+            _request_logger.info(
+                _EVENT_REQUEST_COMPLETED,
+                extra={
+                    "method": method,
+                    "path": path,
+                    "status_code": status_code,
+                    "duration_ms": duration_ms,
+                    "client_ip": client_ip,
+                },
+            )

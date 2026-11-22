@@ -24,7 +24,7 @@ NAME = "drift_posts"
 
 @pytest.mark.skipif(not LOCAL_TOOL.is_file(), reason="needs `npm install` (openapi-typescript)")
 def test_template_types_match_generated(tmp_path: Path, monkeypatch) -> None:
-    import simple_module_hosting.app_builder as app_builder
+    import simple_module_hosting.boot.app_builder as app_builder
     from simple_module_core import ModuleBase
     from simple_module_hosting import create_app, merge_host_settings
 

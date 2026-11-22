@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from simple_module_core.modules.module import ModuleBase, ModuleMeta
 from simple_module_core.settings.module_settings import register_module_settings
-from simple_module_hosting.session import preserve_across_sign_in
+from simple_module_hosting.pipeline.session import preserve_across_sign_in
 
 from site_lock.core import constants as c
 

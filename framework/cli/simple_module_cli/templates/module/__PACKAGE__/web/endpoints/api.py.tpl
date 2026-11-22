@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 from {{PACKAGE_NAME}}.contracts.schemas import (
     {{SINGULAR_CLASS}}Create,

@@ -101,8 +101,8 @@ def test_role_mapping_cannot_grant_tenant_roles(caplog):
 def test_the_host_wires_the_provider_to_the_live_settings():
     """A save or the boot hydration replaces ``app.state.keycloak.settings``;
     the provider must read through to it, not keep the boot-time object."""
-    from simple_module_hosting.app_builder import create_app
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.boot.app_builder import create_app
+    from simple_module_hosting.config.settings import Settings
 
     app = create_app(
         Settings(

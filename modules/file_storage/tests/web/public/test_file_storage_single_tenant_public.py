@@ -5,7 +5,7 @@ import io
 import pytest
 from file_storage.core import constants
 from PIL import Image
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 
 
 @pytest.fixture

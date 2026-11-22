@@ -15,7 +15,7 @@ description: Use when adding or debugging an Inertia.js page in a simple_module_
 | Module page (snake-case dir) | `inertia.render("BlogPosts/Index", ...)` | `<module_pkg>/blog_posts/pages/Index.tsx` |
 | Host page | `inertia.render("Landing", ...)` | `<host>/client_app/pages/Landing.tsx` |
 
-The namespace is **`ModuleMeta.name`** — by default the PascalCase of the module's directory name (the scaffolder runs `to_pascal_case`), not the file system path. Directory `blog_posts` → `BlogPosts`. The manifest generator keys each module's glob by `meta.name` (`compute_module_pages` in `simple_module_hosting/manifest.py`), and `smpy host gen-pages` wires up Vite's `import.meta.glob` so the resolver (`host/client_app/pages.ts`) maps `"<meta.name>/<PageName>"` → the page module. A `.tsx` under a subdirectory of `pages/` is keyed by its relative path (`pages/admin/Edit.tsx` → `"<meta.name>/admin/Edit"`).
+The namespace is **`ModuleMeta.name`** — by default the PascalCase of the module's directory name (the scaffolder runs `to_pascal_case`), not the file system path. Directory `blog_posts` → `BlogPosts`. The manifest generator keys each module's glob by `meta.name` (`compute_module_pages` in `simple_module_hosting/frontend/manifest.py`), and `smpy host gen-pages` wires up Vite's `import.meta.glob` so the resolver (`host/client_app/pages.ts`) maps `"<meta.name>/<PageName>"` → the page module. A `.tsx` under a subdirectory of `pages/` is keyed by its relative path (`pages/admin/Edit.tsx` → `"<meta.name>/admin/Edit"`).
 
 After adding or renaming a `.tsx`, regenerate the manifest:
 
@@ -58,7 +58,7 @@ the last registration, so hosts can register after modules to choose replacement
 
 ## Shared props (no setup needed)
 
-`InertiaLayoutDataMiddleware` prepares these for every page render (lazily: a JSON `/api` call never builds them; code that renders outside `InertiaDep` awaits `resolve_inertia_shared(request)` from `simple_module_hosting.inertia_deps`):
+`InertiaLayoutDataMiddleware` prepares these for every page render (lazily: a JSON `/api` call never builds them; code that renders outside `InertiaDep` awaits `resolve_inertia_shared(request)` from `simple_module_hosting.frontend.inertia_deps`):
 
 | Prop | Shape | Populated from |
 |---|---|---|
@@ -90,12 +90,12 @@ class AuthModule(ModuleBase):
 
 ## Endpoint pattern
 
-Use `InertiaDep` from `simple_module_hosting.inertia_deps` — it injects an `Inertia` instance with shared props already attached:
+Use `InertiaDep` from `simple_module_hosting.frontend.inertia_deps` — it injects an `Inertia` instance with shared props already attached:
 
 ```python
 # orders/web/endpoints/views.py
 from fastapi import APIRouter
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 
 router = APIRouter()
 

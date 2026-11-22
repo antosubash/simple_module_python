@@ -16,7 +16,7 @@ from typing import Annotated
 import typer
 from simple_module_core import discover_modules, resolve_auth_provider, select_auth_provider
 
-from simple_module_hosting.manifest import (
+from simple_module_hosting.frontend.manifest import (
     collect_module_js_deps,
     repo_root_from_client_app,
     write_module_pages_manifest,
@@ -76,8 +76,8 @@ def typecheck(
     ] = False,
 ) -> None:
     """Check the host and installed modules, honouring optional module tsconfigs."""
-    from simple_module_hosting.assets import compute_module_assets, framework_assets
-    from simple_module_hosting.module_tsconfig import run_typecheck
+    from simple_module_hosting.frontend.assets import compute_module_assets, framework_assets
+    from simple_module_hosting.frontend.module_tsconfig import run_typecheck
 
     if not host_dir.is_dir():
         typer.echo(f"ERROR: client_app directory not found at {host_dir}", err=True)
@@ -113,23 +113,23 @@ def gen_i18n(
     repo also retains its central compatibility exports. Installed npm packages
     are never rewritten. Requires an i18n install unless --skip-if-missing is set.
     """
-    from simple_module_hosting._project_root import resolve_project_root
-    from simple_module_hosting.i18n_manifest import (
+    from simple_module_hosting.boot._project_root import resolve_project_root
+    from simple_module_hosting.config.settings import Settings
+    from simple_module_hosting.i18n.i18n_manifest import (
         NamespaceRemovalError,
         emit_frontend_types_for_modules,
     )
-    from simple_module_hosting.settings import Settings
 
     project_root = resolve_project_root()
     if skip_if_missing:
-        from simple_module_hosting._i18n_target import resolve_i18n_types_dir
+        from simple_module_hosting.i18n._i18n_target import resolve_i18n_types_dir
 
         target, _ = resolve_i18n_types_dir(project_root)
         if target is None:
             typer.echo("Skipping gen-i18n: @simple-module-py/i18n not found.")
             return
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
-    logging.getLogger("simple_module_hosting.i18n_manifest").setLevel(logging.INFO)
+    logging.getLogger("simple_module_hosting.i18n.i18n_manifest").setLevel(logging.INFO)
     settings = Settings()
     modules = discover_modules(enabled=settings.modules_enabled, strict=not settings.is_development)
     try:

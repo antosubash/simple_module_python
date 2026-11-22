@@ -16,7 +16,7 @@ from typing import Any
 from auth.contracts.schemas import UserContext
 from auth.contracts.tokens import is_api_token, parse_bearer
 from auth.core.constants import SESSION_ID_KEY
-from simple_module_hosting.session import (
+from simple_module_hosting.pipeline.session import (
     SESSION_COOKIE_MAX_AGE,
     SESSION_EXPIRES_AT_KEY,
     SESSION_REMEMBER_KEY,

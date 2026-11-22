@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 import httpx
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY
 from starlette.requests import Request
 
 from auth.contracts.schemas import UserContext

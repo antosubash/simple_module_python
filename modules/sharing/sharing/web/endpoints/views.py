@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, Request
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.user_directory import get_user_directory
 from simple_module_db import TenantIsolationError, paginate
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.pagination import LenientPageParamsDep
-from simple_module_hosting.permissions import RequiresPermission
-from simple_module_hosting.resource_deps import resource_principal
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.auth.resource_deps import resource_principal
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.pagination import LenientPageParamsDep
 from simple_module_inertia import InertiaResponse
 from sqlmodel import col, select
 from starlette.responses import RedirectResponse

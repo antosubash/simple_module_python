@@ -1,0 +1,118 @@
+"""Verify InertiaLayoutDataMiddleware merges module-registered shared-prop providers.
+
+Modules contribute layout-wide Inertia shared props (e.g. branding) without the
+framework importing the plugin — mirroring the ``principal_serializer`` precedent.
+Providers are registered on ``app.state.inertia_shared_providers`` and merged into
+the ``shared`` dict for every request.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.web.menu import MenuRegistry
+from simple_module_hosting.frontend._inertia_shared import resolve_inertia_shared
+from simple_module_hosting.frontend.shared_props import register_inertia_shared_provider
+from simple_module_hosting.pipeline.middleware import InertiaLayoutDataMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+
+def _build_app() -> FastAPI:
+    app = FastAPI()
+
+    @app.get("/shared")
+    async def shared(request: Request) -> JSONResponse:
+        return JSONResponse(await resolve_inertia_shared(request))
+
+    app.add_middleware(
+        InertiaLayoutDataMiddleware,
+        menu_registry=MenuRegistry(),
+        permission_registry=PermissionRegistry(),
+    )
+    app.add_middleware(SessionMiddleware, secret_key="test-secret")
+    return app
+
+
+async def test_registered_provider_dict_merged_into_shared() -> None:
+    app = _build_app()
+    register_inertia_shared_provider(app, lambda _req: {"branding": {"appName": "Acme"}})
+
+    body = (
+        await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get("/shared")
+    ).json()
+
+    assert body["branding"] == {"appName": "Acme"}
+    # Built-in blocks still present.
+    assert "auth" in body
+    assert "menus" in body
+
+
+async def test_provider_that_raises_is_skipped_not_fatal(caplog) -> None:
+    app = _build_app()
+
+    def boom(_req: Request) -> dict:
+        raise RuntimeError("provider blew up")
+
+    register_inertia_shared_provider(app, boom)
+    register_inertia_shared_provider(app, lambda _req: {"branding": {"appName": "Acme"}})
+
+    with caplog.at_level(logging.WARNING, logger="simple_module_hosting.pipeline.middleware"):
+        resp = await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get(
+            "/shared"
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    # The good provider still applied; the failing one was skipped.
+    assert body["branding"] == {"appName": "Acme"}
+    assert "auth" in body
+    assert any("shared-prop" in rec.message.lower() for rec in caplog.records)
+
+
+async def test_no_providers_leaves_shared_unchanged() -> None:
+    body = (
+        await AsyncClient(transport=ASGITransport(app=_build_app()), base_url="http://test").get(
+            "/shared"
+        )
+    ).json()
+    assert "branding" not in body
+    assert "auth" in body and "menus" in body
+
+
+async def test_provider_cannot_clobber_framework_keys(caplog) -> None:
+    app = _build_app()
+    # A misbehaving provider tries to overwrite the framework-owned auth block.
+    register_inertia_shared_provider(
+        app, lambda _req: {"auth": "HIJACKED", "branding": {"ok": True}}
+    )
+
+    with caplog.at_level(logging.WARNING, logger="simple_module_hosting.pipeline.middleware"):
+        body = (
+            await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get(
+                "/shared"
+            )
+        ).json()
+
+    # auth stays the framework's dict; only the non-reserved key is added.
+    assert isinstance(body["auth"], dict)
+    assert body["branding"] == {"ok": True}
+    assert any("reserved shared-prop" in rec.message for rec in caplog.records)
+
+
+async def test_async_provider_is_awaited() -> None:
+    """A provider may be async — branding resolves the request's tenant (#373)."""
+    app = _build_app()
+
+    async def provider(_req: Request) -> dict:
+        return {"branding": {"appName": "Tenant"}}
+
+    register_inertia_shared_provider(app, provider)
+
+    assert (
+        await AsyncClient(transport=ASGITransport(app=app), base_url="http://test").get("/shared")
+    ).json()["branding"] == {"appName": "Tenant"}

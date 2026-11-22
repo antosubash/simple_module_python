@@ -20,7 +20,7 @@ async def startup(app: FastAPI, module_name: str) -> None:
     """Build the Celery app, install signal handlers, hand-off to worker."""
     import asyncio
 
-    from simple_module_hosting.log_sinks import redact
+    from simple_module_hosting.observability.log_sinks import redact
 
     from background_tasks.core.db_settings import worker_database_options
     from background_tasks.core.sync_db import configure_database, set_database_url
@@ -128,7 +128,7 @@ async def start_invalidation_transport(app: FastAPI) -> None:
     documented cross-process limit as ``bind_event_bus`` above: a task that
     invalidates a cache should do it through an API call or accept the TTL.
     """
-    from simple_module_hosting.installation import ensure_installation_id
+    from simple_module_hosting.config.installation import ensure_installation_id
 
     from background_tasks.core.constants import DEFAULT_INVALIDATION_CHANNEL
     from background_tasks.core.invalidation import RedisInvalidationTransport

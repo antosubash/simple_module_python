@@ -1,0 +1,1 @@
+"""Hosting rate limit area."""

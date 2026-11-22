@@ -19,7 +19,7 @@ import time
 
 import httpx
 import pytest
-from simple_module_hosting.session import (
+from simple_module_hosting.pipeline.session import (
     SESSION_EXPIRES_AT_KEY,
     SESSION_REMEMBER_KEY,
     SESSION_SIGNATURE_MAX_AGE,

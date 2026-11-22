@@ -1,13 +1,13 @@
-"""Exact paths and directory prefixes for framework request gates."""
+"""Deprecated alias for simple_module_hosting.pipeline.path_matching."""
 
+import sys
+from importlib import import_module
 
-def validated_prefixes(*prefixes: str) -> tuple[str, ...]:
-    """Validate directory boundaries once when building a gate's prefixes."""
-    if any(not prefix.endswith("/") for prefix in prefixes):
-        raise ValueError("Path prefixes must end with '/'.")
-    return prefixes
+from simple_module_core.runtime.deprecation import deprecated_module
 
-
-def matches_path(path: str, *, exact: tuple[str, ...] = (), prefixes: tuple[str, ...] = ()) -> bool:
-    """Match exact paths or directory prefixes built with ``validated_prefixes``."""
-    return path in exact or path.startswith(prefixes)
+deprecated_module(
+    "simple_module_hosting.path_matching",
+    remove_in="0.0.52",
+    use="simple_module_hosting.pipeline.path_matching",
+)
+sys.modules[__name__] = import_module("simple_module_hosting.pipeline.path_matching")

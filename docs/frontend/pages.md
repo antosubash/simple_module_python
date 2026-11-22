@@ -37,7 +37,7 @@ Both fire at app boot.
 
 ## The generation pipeline
 
-`make gen-pages` (invoked automatically by `make dev` before starting Vite) runs `smpy host gen-pages --host-dir=host/client_app` (`simple_module_hosting.manifest.write_module_pages_manifest`). It:
+`make gen-pages` (invoked automatically by `make dev` before starting Vite) runs `smpy host gen-pages --host-dir=host/client_app` (`simple_module_hosting.frontend.manifest.write_module_pages_manifest`). It:
 
 1. Discovers every installed module's page directory.
 2. Emits one `import.meta.glob` call per module, keyed by the module's `meta.name`.

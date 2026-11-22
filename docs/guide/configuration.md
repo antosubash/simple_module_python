@@ -9,7 +9,7 @@ Most deployments only need `SM_DATABASE_URL` in the environment — everything e
 
 ## Framework env vars (bootstrap)
 
-Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hosting.bootstrap_settings.BootstrapSettings` (pydantic) at startup — they're needed to open the DB, sign cookies, or configure the process, so they can't live in the DB-backed store.
+Prefix is always `SM_`. These are the pre-DB knobs read by `simple_module_hosting.config.bootstrap_settings.BootstrapSettings` (pydantic) at startup — they're needed to open the DB, sign cookies, or configure the process, so they can't live in the DB-backed store.
 
 | Variable | Default | Notes |
 |---|---|---|

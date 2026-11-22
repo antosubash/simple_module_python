@@ -50,7 +50,7 @@ Helpers: `has_role(role)` / `has_any_role(roles)` for in-handler role checks; `h
 
 ```python
 from auth.web.deps import CurrentUser, get_current_user
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 ```
 
 The old `auth.deps`, `auth.constants`, `auth.state` and `auth.middleware` import paths were removed in 0.0.46; import from `auth.web.deps`, `auth.core.*` and `auth.web.middleware`.
@@ -66,7 +66,7 @@ The old `auth.deps`, `auth.constants`, `auth.state` and `auth.middleware` import
 ```python
 from fastapi import APIRouter, Depends
 from auth.web.deps import CurrentUser
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 router = APIRouter()
 

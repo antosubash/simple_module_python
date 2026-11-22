@@ -1,7 +1,7 @@
 """Offset pagination: one place that clamps, counts and slices.
 
 ``PageParams`` is a plain value (no FastAPI import, so the DB package stays
-web-free); ``simple_module_hosting.pagination`` builds it from query strings.
+web-free); ``simple_module_hosting.frontend.pagination`` builds it from query strings.
 ``paginate`` counts the *same statement* as a subquery, so soft-delete and
 tenant filters apply to the count exactly as they do to the rows.
 """

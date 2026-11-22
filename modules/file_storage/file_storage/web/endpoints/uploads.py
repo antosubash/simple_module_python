@@ -15,8 +15,8 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from simple_module_core.eventing.events import EventBus
 from simple_module_db.engine.callbacks import register_on_commit
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 from file_storage.contracts.events import FileUploaded
 from file_storage.contracts.schemas import (

@@ -163,7 +163,7 @@ async def test_validates_candidates_together_with_existing_overrides(importer):
 async def test_filtered_batch_cannot_borrow_unselected_environment(
     importer, monkeypatch, tmp_path, source
 ):
-    from simple_module_hosting.host_settings import HostSettings
+    from simple_module_hosting.config.host_settings import HostSettings
 
     api, store = importer
     module_settings_registry(api).register("host", HostSettings)
@@ -179,7 +179,7 @@ async def test_filtered_batch_cannot_borrow_unselected_environment(
 
 
 async def test_skips_variables_outside_db_settings_registry(importer, capsys):
-    from simple_module_hosting.host_settings import HostSettings
+    from simple_module_hosting.config.host_settings import HostSettings
 
     api, store = importer
     module_settings_registry(api).register("host", HostSettings)
@@ -228,8 +228,8 @@ def cli_importer(importer, monkeypatch):
         yield store
 
     api.state.sm = SimpleNamespace(db=SimpleNamespace(session_factory=session_factory))
-    monkeypatch.setattr("simple_module_hosting.settings.Settings", lambda: None)
-    monkeypatch.setattr("simple_module_hosting.app_builder.create_app", lambda _: api)
+    monkeypatch.setattr("simple_module_hosting.config.settings.Settings", lambda: None)
+    monkeypatch.setattr("simple_module_hosting.boot.app_builder.create_app", lambda _: api)
     monkeypatch.setattr("settings.core.service.SettingService", lambda session: session)
     monkeypatch.setattr("settings.cli.SettingsStore", lambda service: service)
     # Supply only this test's env instead of inheriting the workstation environment.

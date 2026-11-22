@@ -13,7 +13,7 @@ from simple_module_cli.commands.gen_cmd import _sync_deps as original_sync_deps
 def project(tmp_path, monkeypatch, request):
     from simple_module_cli.commands import gen_cmd
     from simple_module_core import ModuleBase, ModuleMeta
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.config.settings import Settings
 
     root = tmp_path
     workspace = request.param == "workspace"
@@ -156,7 +156,7 @@ def test_allowlist_keeps_installed_catalogs_and_dependency_graph(project, monkey
 
 def test_discovery_for_generation_includes_disabled_modules(monkeypatch):
     from simple_module_cli.commands import gen_cmd
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.config.settings import Settings
 
     settings = Settings(modules_enabled=[])
     monkeypatch.setattr("simple_module_hosting.merge_host_settings", lambda **kw: settings)
@@ -218,8 +218,8 @@ def test_legacy_generators_register_keys_in_either_order(project):
     import shutil
 
     from simple_module_cli.commands.gen_cmd import _settings_and_modules, run_generation
-    from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
-    from simple_module_hosting.manifest import write_module_pages_manifest
+    from simple_module_hosting.frontend.manifest import write_module_pages_manifest
+    from simple_module_hosting.i18n.i18n_manifest import emit_frontend_types_for_modules
 
     root, client, _, _ = project
     run_generation(root)

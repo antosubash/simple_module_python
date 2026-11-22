@@ -155,8 +155,8 @@ def import_from_env(
     ] = None,
 ) -> None:
     """Validate and import selected SM_<PREFIX>_<FIELD> variables into the DB."""
-    from simple_module_hosting.app_builder import create_app
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.boot.app_builder import create_app
+    from simple_module_hosting.config.settings import Settings
 
     from settings.core.service import SettingService
 

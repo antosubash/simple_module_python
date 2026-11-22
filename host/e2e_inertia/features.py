@@ -5,7 +5,7 @@ from time import time
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import always, deep_merge, defer, merge, once, optional, prepend, scroll
 from starlette.responses import RedirectResponse
 

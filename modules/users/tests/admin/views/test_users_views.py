@@ -131,7 +131,7 @@ class TestLoginPage:
         Assigning the attribute here would bypass pydantic and test nothing,
         so this goes through the real path.
         """
-        from simple_module_hosting.host_settings import HostSettings
+        from simple_module_hosting.config.host_settings import HostSettings
 
         app = anon_client._transport.app
         app.state.host.settings = HostSettings(login_redirect_url="")
@@ -285,7 +285,7 @@ async def test_login_redirect_fallback_without_dashboard(users_app):
     settings.login_redirect_url = "/dashboard/"
     object.__setattr__(sm, "modules", no_dash)
     try:
-        from simple_module_hosting.auth_policy import login_redirect_url
+        from simple_module_hosting.auth.auth_policy import login_redirect_url
 
         url = login_redirect_url(users_app, "Users")
         assert url != "/", "must not fall back to / (may 404)"

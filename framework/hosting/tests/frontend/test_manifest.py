@@ -1,0 +1,213 @@
+"""Tests for ``simple_module_hosting.frontend.manifest`` helpers."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+from simple_module_core import ModuleBase, ModuleMeta
+from simple_module_hosting.frontend.manifest import (
+    _glob_pattern_for,
+    collect_module_js_deps,
+    read_module_package_json,
+    repo_root_from_client_app,
+)
+
+
+def test_repo_root_finds_workspace_root_in_framework_layout(tmp_path: Path) -> None:
+    """``host/client_app/`` shape: walk up to the workspace package.json."""
+    workspace = tmp_path / "ws"
+    (workspace / "host" / "client_app").mkdir(parents=True)
+    (workspace / "package.json").write_text(
+        json.dumps({"name": "ws", "workspaces": ["host/client_app", "modules/*"]})
+    )
+    (workspace / "host" / "package.json").write_text(json.dumps({"name": "ws-host"}))
+
+    assert repo_root_from_client_app(workspace / "host" / "client_app") == workspace.resolve()
+
+
+def test_repo_root_finds_root_in_flat_scaffold_layout(tmp_path: Path) -> None:
+    """Flat scaffold: ``client_app/`` directly under the host root."""
+    host = tmp_path / "my-app"
+    (host / "client_app").mkdir(parents=True)
+    (host / "package.json").write_text(json.dumps({"name": "my-app"}))
+
+    assert repo_root_from_client_app(host / "client_app") == host.resolve()
+
+
+def test_repo_root_prefers_workspace_package_json_over_nearer_one(tmp_path: Path) -> None:
+    """When a non-workspace package.json sits between client_app and the
+    workspace root, the workspace one wins so npm install runs at the right cwd."""
+    workspace = tmp_path / "ws"
+    (workspace / "host" / "client_app").mkdir(parents=True)
+    (workspace / "package.json").write_text(
+        json.dumps({"name": "ws", "workspaces": ["host/client_app"]})
+    )
+    (workspace / "host" / "package.json").write_text(json.dumps({"name": "ws-host"}))
+
+    assert repo_root_from_client_app(workspace / "host" / "client_app") == workspace.resolve()
+
+
+def test_repo_root_falls_back_to_nearest_package_json(tmp_path: Path) -> None:
+    """No workspaces field anywhere — settle on the nearest package.json found."""
+    root = tmp_path / "root"
+    (root / "client_app").mkdir(parents=True)
+    (root / "package.json").write_text(json.dumps({"name": "root"}))
+
+    assert repo_root_from_client_app(root / "client_app") == root.resolve()
+
+
+def test_repo_root_falls_back_to_two_levels_up_if_no_package_json(tmp_path: Path) -> None:
+    """No package.json exists yet — preserve the legacy two-up behaviour so
+    framework-internal callers still get a path before any npm setup."""
+    deep = tmp_path / "outer" / "inner" / "client_app"
+    deep.mkdir(parents=True)
+
+    assert repo_root_from_client_app(deep) == (tmp_path / "outer").resolve()
+
+
+@pytest.fixture
+def fake_module_factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Build a fake installed module with a configurable on-disk layout.
+
+    Returns a callable that takes a ``layout`` ∈ {"wheel", "source"} plus
+    optional ``dependencies`` and ``peer_dependencies`` maps, lays the
+    files down under ``tmp_path``, registers the package in ``sys.modules``,
+    and returns a ``ModuleBase`` subclass pinned to it.
+    """
+    counter = {"n": 0}
+
+    def _build(
+        layout: str,
+        dependencies: dict[str, str] | None = None,
+        peer_dependencies: dict[str, str] | None = None,
+    ) -> type[ModuleBase]:
+        counter["n"] += 1
+        pkg_name = f"fake_module_{counter['n']}"
+        if layout == "wheel":
+            # Wheel: <pkg>/ contains code + package.json (Hatch force-include).
+            pkg_root = tmp_path / pkg_name
+            pkg_root.mkdir()
+            pkg_json_path = pkg_root / "package.json"
+        elif layout == "source":
+            # Source-tree / editable: package.json sits above the Python pkg.
+            module_root = tmp_path / f"{pkg_name}_repo"
+            module_root.mkdir()
+            pkg_root = module_root / pkg_name
+            pkg_root.mkdir()
+            pkg_json_path = module_root / "package.json"
+        else:
+            raise ValueError(f"unknown layout: {layout}")
+        init_py = pkg_root / "__init__.py"
+        init_py.write_text("")
+        pkg_json: dict[str, object] = {
+            "name": f"@fake/{pkg_name}",
+            "dependencies": dependencies or {},
+        }
+        if peer_dependencies is not None:
+            pkg_json["peerDependencies"] = peer_dependencies
+        pkg_json_path.write_text(json.dumps(pkg_json))
+
+        # Register the package with a real importlib spec so that
+        # importlib.resources.files() can locate the on-disk pkg_root.
+        spec = importlib.util.spec_from_file_location(
+            pkg_name, init_py, submodule_search_locations=[str(pkg_root)]
+        )
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        monkeypatch.setitem(sys.modules, pkg_name, mod)
+
+        class FakeMod(ModuleBase):
+            meta = ModuleMeta(name=pkg_name.title().replace("_", ""))
+
+        FakeMod.__module__ = pkg_name
+        return FakeMod
+
+    return _build
+
+
+def test_read_module_package_json_finds_wheel_layout(fake_module_factory) -> None:
+    """Wheel install: package.json sits next to the Python package."""
+    fake_cls = fake_module_factory(
+        "wheel",
+        {"dep-a": "^1.0.0"},
+        peer_dependencies={"@host/peer": "^2.0.0"},
+    )
+    pkg = read_module_package_json(fake_cls())
+    assert pkg is not None
+    assert pkg["dependencies"] == {"dep-a": "^1.0.0"}
+    # The TS-side vite.config.ts also reads peerDependencies for its
+    # optimizeDeps walk — make sure the raw dict surfaces both blocks.
+    assert pkg["peerDependencies"] == {"@host/peer": "^2.0.0"}
+
+
+def test_read_module_package_json_finds_source_layout(fake_module_factory) -> None:
+    """Source-tree / workspace: package.json sits at the module repo root."""
+    fake_cls = fake_module_factory("source", {"dep-b": "^2.0.0"})
+    pkg = read_module_package_json(fake_cls())
+    assert pkg is not None
+    assert pkg["dependencies"] == {"dep-b": "^2.0.0"}
+
+
+def test_collect_module_js_deps_aggregates_across_layouts(fake_module_factory) -> None:
+    """Mixed-layout modules all contribute their declared deps."""
+    wheel_cls = fake_module_factory("wheel", {"cmdk": "^1.0.0"})
+    source_cls = fake_module_factory("source", {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"})
+    empty_cls = fake_module_factory("wheel", {})
+
+    deps = collect_module_js_deps([wheel_cls(), source_cls(), empty_cls()])
+    # Empty deps are dropped; both populated modules appear by their meta.name.
+    assert empty_cls.meta.name not in deps
+    assert deps[wheel_cls.meta.name] == {"cmdk": "^1.0.0"}
+    assert deps[source_cls.meta.name] == {"maplibre-gl": "^4.7.0", "pmtiles": "^3.2.0"}
+
+
+class TestPageGlobsExcludeTestFiles:
+    """A ``*.test.tsx`` beside a page is a test, not a page.
+
+    ``pages/**/*.tsx`` matched them, with two consequences: the resolver
+    registered a phantom page (``Error.test``), and Vite followed the import
+    into the production bundle — shipping the test file *and* dragging
+    ``@testing-library`` into a vendor chunk for every visitor to download.
+    """
+
+    def test_module_glob_excludes_test_files(self, tmp_path: Path) -> None:
+        pages = tmp_path / "modules" / "demo" / "demo" / "pages"
+        pages.mkdir(parents=True)
+        output = tmp_path / "host" / "client_app"
+        output.mkdir(parents=True)
+
+        patterns = _glob_pattern_for(pages, output)
+
+        assert isinstance(patterns, list), "must emit include + exclusions"
+        assert patterns[0].endswith("/pages/**/*.tsx")
+        assert any(p.startswith("!") and p.endswith("*.test.tsx") for p in patterns)
+        assert any(p.startswith("!") and p.endswith("*.spec.tsx") for p in patterns)
+
+    def test_module_glob_keeps_the_include_relative_to_the_output_file(
+        self, tmp_path: Path
+    ) -> None:
+        """The exclusions must be anchored the same way as the include, or Vite
+        matches them against a different base and silently keeps the test file."""
+        pages = tmp_path / "modules" / "demo" / "demo" / "pages"
+        pages.mkdir(parents=True)
+        output = tmp_path / "host" / "client_app"
+        output.mkdir(parents=True)
+
+        include, *excludes = _glob_pattern_for(pages, output)
+
+        assert include.startswith("../../modules/demo/demo/pages")
+        for pattern in excludes:
+            assert pattern[1:].startswith("../../modules/demo/demo/pages"), pattern
+
+
+def test_host_page_glob_excludes_test_files() -> None:
+    """The host's own glob lives in a checked-in .ts file, not the generator."""
+    pages_ts = Path(__file__).resolve().parents[4] / "host" / "client_app" / "pages.ts"
+    source = pages_ts.read_text(encoding="utf-8")
+    assert "'!./pages/**/*.test.tsx'" in source, source
+    assert "'!./pages/**/*.spec.tsx'" in source, source

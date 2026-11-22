@@ -12,7 +12,7 @@ from auth.contracts.schemas import UserContext
 from auth.web.deps import get_current_user
 from fastapi import Depends, HTTPException
 from simple_module_core.localization.i18n import I18nRegistry, Translator
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 
 def _translator() -> Translator:
@@ -111,7 +111,7 @@ class TestRequirePermissionAdvanced:
 def test_requires_permission_is_a_token_gate():
     """``token_guard`` admits API tokens on a route gated by ``RequiresPermission``."""
     from fastapi import FastAPI
-    from simple_module_hosting.token_guard import route_admits_tokens
+    from simple_module_hosting.auth.token_guard import route_admits_tokens
 
     app = FastAPI()
 

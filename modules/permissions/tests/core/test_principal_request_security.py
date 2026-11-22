@@ -9,8 +9,8 @@ from simple_module_db import MultiTenantMixin, create_module_base, tenant_contex
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.principals import principal_for
 from simple_module_db.queries.resource_policy import OwnedResourcePolicy
-from simple_module_hosting.permissions import RequiresPermission
-from simple_module_hosting.resource_deps import RequiresResource, resource_principal
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.auth.resource_deps import RequiresResource, resource_principal
 from sqlalchemy import delete
 from sqlmodel import Field, select
 from tenants.models import Membership, Tenant

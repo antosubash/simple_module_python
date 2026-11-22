@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from settings.module_settings.discovery import _build_view
-from simple_module_hosting.host_settings import HostSettings
+from simple_module_hosting.config.host_settings import HostSettings
 
 
 @pytest.mark.parametrize(

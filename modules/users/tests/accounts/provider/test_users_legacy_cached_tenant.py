@@ -12,7 +12,7 @@ import time
 
 import pytest
 from auth.contracts.schemas import UserContext
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY
 from sqlalchemy import select
 from starlette.requests import Request
 from users.accounts.provider import UsersAuthProvider

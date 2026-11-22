@@ -45,7 +45,7 @@ class TestTheCommandReportsWhatHappened:
         package directory unwritable, which would leave the tree broken if the
         assertion failed.
         """
-        from simple_module_hosting import i18n_manifest
+        from simple_module_hosting.i18n import i18n_manifest
 
         def explode(*args: object, **kwargs: object) -> None:
             raise OSError("disk full")
@@ -58,7 +58,7 @@ class TestTheCommandReportsWhatHappened:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The other half of the same flag — a live boot must not raise."""
-        from simple_module_hosting import i18n_manifest
+        from simple_module_hosting.i18n import i18n_manifest
 
         def explode(*args: object, **kwargs: object) -> None:
             raise OSError("disk full")
@@ -85,7 +85,7 @@ class TestItRefusesToDropANamespace:
         return src
 
     def test_strict_raises_naming_the_namespace_and_count(self, tmp_path: Path) -> None:
-        from simple_module_hosting import i18n_manifest
+        from simple_module_hosting.i18n import i18n_manifest
 
         src = self._tree(tmp_path)
         before = (src / "generated-resources.ts").read_text()
@@ -99,7 +99,7 @@ class TestItRefusesToDropANamespace:
         assert (src / "generated-resources.ts").read_text() == before
 
     def test_allow_removals_writes(self, tmp_path: Path) -> None:
-        from simple_module_hosting import i18n_manifest
+        from simple_module_hosting.i18n import i18n_manifest
 
         src = self._tree(tmp_path)
 
@@ -110,7 +110,7 @@ class TestItRefusesToDropANamespace:
     def test_boot_path_warns_and_skips_without_raising(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        from simple_module_hosting import i18n_manifest
+        from simple_module_hosting.i18n import i18n_manifest
 
         src = self._tree(tmp_path)
         before = (src / "generated-resources.ts").read_text()
@@ -122,7 +122,7 @@ class TestItRefusesToDropANamespace:
         assert (src / "generated-resources.ts").read_text() == before
 
     def test_adding_a_namespace_is_not_a_removal(self, tmp_path: Path) -> None:
-        from simple_module_hosting import i18n_manifest
+        from simple_module_hosting.i18n import i18n_manifest
 
         src = self._tree(tmp_path)
         reg = _registry()

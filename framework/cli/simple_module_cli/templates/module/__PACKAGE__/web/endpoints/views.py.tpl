@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 

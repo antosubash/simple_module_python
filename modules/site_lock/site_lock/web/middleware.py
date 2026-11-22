@@ -20,7 +20,7 @@ from urllib.parse import quote
 
 from simple_module_core.modules.app_state import get_auth_provider
 from simple_module_core.web.redirect_safety import safe_next
-from simple_module_hosting.path_matching import matches_path, validated_prefixes
+from simple_module_hosting.pipeline.path_matching import matches_path, validated_prefixes
 from starlette.requests import Request
 from starlette.responses import (
     HTMLResponse,

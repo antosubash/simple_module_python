@@ -129,6 +129,6 @@ def test_a_bare_engine_without_a_sink_is_not_audited():
 
 
 def test_hosting_reexports_the_core_correlation_id():
-    from simple_module_hosting.logging import correlation_id as hosting_cid
+    from simple_module_hosting.observability.logging import correlation_id as hosting_cid
 
     assert hosting_cid is correlation_id

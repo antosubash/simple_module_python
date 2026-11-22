@@ -5,7 +5,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from simple_module_hosting.migrations import ALEMBIC_DATABASE_URL_ATTRIBUTE
+from simple_module_hosting.boot.migrations import ALEMBIC_DATABASE_URL_ATTRIBUTE
 
 
 def test_one_revision_downgrade_preserves_descending_browse_index(tmp_path):

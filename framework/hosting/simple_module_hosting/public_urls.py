@@ -1,10 +1,13 @@
-"""Trusted public origins for links, independent of the inbound Host header."""
+"""Deprecated alias for simple_module_hosting.pipeline.public_urls."""
 
-from __future__ import annotations
+import sys
+from importlib import import_module
 
-from simple_module_hosting.host_settings import HostSettings
+from simple_module_core.runtime.deprecation import deprecated_module
 
-
-def public_origin(settings: HostSettings | None, override: str = "") -> str:
-    """Explicit module origin → host origin → relative links (fresh installs)."""
-    return (override.strip() or (settings.public_base_url if settings else "")).rstrip("/")
+deprecated_module(
+    "simple_module_hosting.public_urls",
+    remove_in="0.0.52",
+    use="simple_module_hosting.pipeline.public_urls",
+)
+sys.modules[__name__] = import_module("simple_module_hosting.pipeline.public_urls")

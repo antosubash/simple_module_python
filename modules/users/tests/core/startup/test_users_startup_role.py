@@ -7,8 +7,8 @@ import uuid
 import httpx
 import pytest
 from _users_app_builders import _make_admin_user, _seed_users_settings, _setup_app_db
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.boot.app_builder import create_app
+from simple_module_hosting.config.settings import Settings
 from sqlalchemy import select
 from users.core.constants import ADMIN_ROLE_ID, USER_ROLE_ID
 from users.models import Role, User, UserRole

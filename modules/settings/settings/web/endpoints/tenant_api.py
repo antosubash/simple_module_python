@@ -13,7 +13,7 @@ would otherwise read ``current`` as a tenant id.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 from settings.contracts.schemas import SettingOut, SettingScope, SettingUpsert
 from settings.core.constants import (

@@ -185,7 +185,7 @@ The marker names the revision so you can target it (for example `alembic upgrade
 
 ```python
 from alembic import context
-from simple_module_hosting.migrations_env import run_migrations
+from simple_module_hosting.boot.migrations_env import run_migrations
 
 run_migrations(context)
 ```
@@ -204,7 +204,7 @@ runs use the same hooks:
 The runner reads `Settings().database_url`, converts async drivers to sync drivers,
 and logs the target with its password masked. A URL supplied in
 `config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE]` (from
-`simple_module_hosting.migrations`) takes precedence, so the setup wizard migrates
+`simple_module_hosting.boot.migrations`) takes precedence, so the setup wizard migrates
 its locked database. Relative SQLite URLs retain settings' project-root anchoring.
 Module extensions are emitted offline or committed before online revisions.
 Alembic logging keeps existing application loggers enabled for in-process runs.
@@ -215,7 +215,7 @@ customizations separately. Revision files and Alembic configuration stay in the 
 
 ## Boot-time migration check
 
-On startup, `migration_status()` in `simple_module_hosting.migrations`
+On startup, `migration_status()` in `simple_module_hosting.boot.migrations`
 compares the stamps in `alembic_version` to **every** head.
 
 - **Every environment:** a database behind head fails the boot (`Database is N revision(s) behind … Run: make migrate`), except a never-migrated first run, which boots far enough to serve the `/setup` wizard. The result is stored on `app.state.migration`.

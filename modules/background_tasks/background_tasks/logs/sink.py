@@ -17,7 +17,7 @@ from typing import Any
 
 from celery.signals import worker_process_init
 from simple_module_db import current_tenant_id
-from simple_module_hosting.log_sinks import (
+from simple_module_hosting.observability.log_sinks import (
     QueueSinkHandler,
     install_sink,
     standard_extra_attrs,

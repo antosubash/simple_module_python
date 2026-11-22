@@ -43,7 +43,7 @@ def test_settings_are_optional(tmp_path, with_settings, framework_repo):
                     "from fastapi import FastAPI",
                     "from settings_probe.module import SettingsProbeModule",
                     "from simple_module_core.diagnostics import run_diagnostics",
-                    "from simple_module_hosting._settings_registration import "
+                    "from simple_module_hosting.config._settings_registration import "
                     "check_settings_registration",
                     "app = FastAPI()",
                     "module = SettingsProbeModule()",

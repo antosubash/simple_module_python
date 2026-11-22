@@ -64,7 +64,7 @@ Main-thread CPU for the heavy endpoints: `/admin/users/` 17.5 ms,
    holds ~35 of them (one API and one view router per module), and none
    filters on its prefix, so a request regex-tested nearly all ~190 routes. It
    also re-walked each subtree's route version and ran `_match` twice on the
-   router that matched. `simple_module_hosting._route_guard` gives each
+   router that matched. `simple_module_hosting.pipeline._route_guard` gives each
    top-level include a prefix guard derived from its effective route paths and
    re-derived when FastAPI's route version changes. Saves ~0.5 ms per request.
 2. **Cold start.** The first request to reach a router builds every one of its

@@ -39,7 +39,7 @@ is open. The DSN is never logged.
 
 `send_default_pii` is off and local variables are not attached to stack frames
 (they hold the ASGI scope). The SDK's own scrubber matches exact key names
-only, so `simple_module_hosting.sentry_scrub` runs a stricter pass from both
+only, so `simple_module_hosting.observability.sentry_scrub` runs a stricter pass from both
 `before_send` and `before_send_transaction`:
 
 - After targeted passes, *every* event field (tags, `server_name`, threads,

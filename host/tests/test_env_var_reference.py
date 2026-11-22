@@ -6,9 +6,9 @@ from pathlib import Path
 
 from background_tasks.core import config_guards
 from background_tasks.core.settings import BackgroundTasksSettings
-from simple_module_hosting.bootstrap_settings import BootstrapSettings
-from simple_module_hosting.host_settings import HostSettings
-from simple_module_hosting.sentry import SentrySettings
+from simple_module_hosting.config.bootstrap_settings import BootstrapSettings
+from simple_module_hosting.config.host_settings import HostSettings
+from simple_module_hosting.observability.sentry import SentrySettings
 from users.core.bootstrap import BOOTSTRAP_ENV_KEYS
 
 

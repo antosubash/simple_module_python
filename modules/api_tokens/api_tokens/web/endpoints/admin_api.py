@@ -11,9 +11,9 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from simple_module_db import TenantIsolationError
-from simple_module_hosting.csrf import RequiresCsrf
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.csrf import RequiresCsrf
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 from api_tokens.contracts.schemas import CreatedToken, ServiceKeyCreate, TokenView
 from api_tokens.core.constants import FORBIDDEN_SERVICE_ROLES, Permissions, TokenKind

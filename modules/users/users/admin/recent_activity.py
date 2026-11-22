@@ -24,7 +24,7 @@ from typing import Any
 from fastapi import Request
 from simple_module_core.access.activity_feed import get_activity_feed
 from simple_module_core.localization.i18n import Translator
-from simple_module_hosting.permissions import resolved_permissions_for
+from simple_module_hosting.auth.permissions import resolved_permissions_for
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)

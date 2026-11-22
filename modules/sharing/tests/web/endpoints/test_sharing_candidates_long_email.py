@@ -11,7 +11,7 @@ from sharing.core.service import SharingService
 from sharing.web.deps import get_sharing_service
 from sharing.web.endpoints.api import share_candidates
 from simple_module_core.access.resources import ResourcePrincipal, ResourceTypeRegistry
-from simple_module_hosting.resource_deps import resource_principal
+from simple_module_hosting.auth.resource_deps import resource_principal
 from sqlalchemy import create_engine
 from users.core.directory import UsersDirectory
 from users.models import User

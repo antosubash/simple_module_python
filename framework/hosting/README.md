@@ -27,7 +27,7 @@ Minimal `main.py`:
 
 ```python
 from simple_module_hosting import create_app
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 
 settings = Settings()  # reads SM_* env vars
 app = create_app(settings)  # discovers + registers every installed module

@@ -2,7 +2,7 @@
 
 import pytest
 from auth.contracts.schemas import UserContext
-from simple_module_hosting.permissions import apply_scope_cap, resolve_permissions
+from simple_module_hosting.auth.permissions import apply_scope_cap, resolve_permissions
 from users.admin.safety import check_role_assignment
 from users.core.exceptions import AdminPermissionError
 

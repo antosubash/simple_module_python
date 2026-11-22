@@ -16,9 +16,9 @@ from keycloak.identity.jwks import JWKSCache
 from keycloak.identity.provider import KeycloakAuthProvider
 from keycloak.identity.tokens import open_refresh_token
 from keycloak.web.endpoints import api
-from simple_module_hosting.csrf import get_csrf_token
-from simple_module_hosting.host_settings import HostSettings
-from simple_module_hosting.session import preserve_across_sign_in
+from simple_module_hosting.auth.csrf import get_csrf_token
+from simple_module_hosting.config.host_settings import HostSettings
+from simple_module_hosting.pipeline.session import preserve_across_sign_in
 from starlette.requests import Request
 
 
@@ -212,7 +212,7 @@ async def test_keycloak_callback_validates_signed_id_token(
 
 async def test_keycloak_realistic_session_cookie_fits(callback, monkeypatch):
     import httpx
-    from simple_module_hosting.session import SessionMiddleware
+    from simple_module_hosting.pipeline.session import SessionMiddleware
     from starlette.responses import Response
 
     request, claims, id_claims = callback

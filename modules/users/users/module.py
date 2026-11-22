@@ -101,7 +101,7 @@ class UsersModule(ModuleBase):
         # The public shell renders a "Sign up" link only when signup is open —
         # /users/register 404s otherwise. Registered here (not in the view
         # layer) so it is set before the first request is served.
-        from simple_module_hosting.shared_props import register_inertia_shared_provider
+        from simple_module_hosting.frontend.shared_props import register_inertia_shared_provider
 
         from users.web.shared_props import users_shared_props
 

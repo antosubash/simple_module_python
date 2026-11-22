@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from jinja2.utils import htmlsafe_json_dumps
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_hosting.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import (
     InertiaConfig,
     defer,

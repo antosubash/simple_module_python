@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from dashboard.core.constants import PERM_VIEW
 from dashboard.web.stats import invalidate_stats_cache
-from simple_module_hosting.settings import Settings
+from simple_module_hosting.config.settings import Settings
 from simple_module_test.tenant_client import session_client
 
 _STATS = "/api/dashboard/stats"

@@ -41,17 +41,20 @@ def _sync_deps(client: Path, deps: dict[str, dict[str, str]]) -> None:
 def run_generation(project_root: Path | None = None) -> list[str]:
     from simple_module_core import discover_modules, get_module_package_name, select_auth_provider
     from simple_module_core.settings.dotenv import load_dotenv_into_environ
-    from simple_module_hosting._i18n_modules import module_key_outputs
-    from simple_module_hosting._i18n_target import app_i18n_dir, resolve_i18n_types_dir
-    from simple_module_hosting.admin_surfaces import render_admin_surfaces
-    from simple_module_hosting.assets import (
+    from simple_module_hosting.frontend.admin_surfaces import render_admin_surfaces
+    from simple_module_hosting.frontend.assets import (
         compute_module_assets,
         framework_assets,
         render_assets_json,
     )
+    from simple_module_hosting.frontend.manifest import (
+        collect_module_js_deps,
+        write_module_pages_manifest,
+    )
     from simple_module_hosting.host_cli import _declares_workspaces
-    from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
-    from simple_module_hosting.manifest import collect_module_js_deps, write_module_pages_manifest
+    from simple_module_hosting.i18n._i18n_modules import module_key_outputs
+    from simple_module_hosting.i18n._i18n_target import app_i18n_dir, resolve_i18n_types_dir
+    from simple_module_hosting.i18n.i18n_manifest import emit_frontend_types_for_modules
 
     from simple_module_cli.commands import openapi_cmd
     from simple_module_cli.commands.openapi_cmd import _build_app
@@ -95,10 +98,10 @@ def run_generation(project_root: Path | None = None) -> list[str]:
             "locales": [settings.i18n_default_locale, settings.i18n_supported_locales],
             "generator": file_hashes(
                 [
-                    hosting / "i18n_manifest.py",
-                    hosting / "_i18n_build.py",
-                    hosting / "_i18n_target.py",
-                    hosting / "_i18n_modules.py",
+                    hosting / "i18n/i18n_manifest.py",
+                    hosting / "i18n/_i18n_build.py",
+                    hosting / "i18n/_i18n_target.py",
+                    hosting / "i18n/_i18n_modules.py",
                 ]
             ),
         },
@@ -126,12 +129,12 @@ def run_generation(project_root: Path | None = None) -> list[str]:
             "sources": sorted(str(p) for p in page_sources),
             "generator": file_hashes(
                 [
-                    hosting / "manifest.py",
-                    hosting / "assets.py",
-                    hosting / "_asset_sources.py",
-                    hosting / "page_globs.py",
-                    hosting / "admin_surfaces.py",
-                    hosting / "frontend_extensions.py",
+                    hosting / "frontend/manifest.py",
+                    hosting / "frontend/assets.py",
+                    hosting / "frontend/_asset_sources.py",
+                    hosting / "frontend/page_globs.py",
+                    hosting / "frontend/admin_surfaces.py",
+                    hosting / "frontend/frontend_extensions.py",
                 ]
             ),
         },
@@ -156,7 +159,7 @@ def run_generation(project_root: Path | None = None) -> list[str]:
         lambda: {
             "dependencies": deps,
             "manifests": file_hashes(manifests),
-            "generator": file_hashes([hosting / "host_cli.py", hosting / "manifest.py"]),
+            "generator": file_hashes([hosting / "host_cli.py", hosting / "frontend/manifest.py"]),
         },
         dep_files,
         lambda: _sync_deps(client, deps),

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from fastapi import Request
 from pydantic import ValidationError
-from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
+from simple_module_hosting.frontend.inertia_utils import (
+    redirect_back_with_errors,
+    validation_errors_to_dict,
+)
 from starlette.responses import RedirectResponse
 
 from settings.contracts.schemas import SettingCreate, SettingScope

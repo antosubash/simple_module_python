@@ -26,8 +26,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from simple_module_hosting.inertia_deps import is_inertia_request
-from simple_module_hosting.redirects import safe_referer_or_root
+from simple_module_hosting.frontend.inertia_deps import is_inertia_request
+from simple_module_hosting.pipeline.redirects import safe_referer_or_root
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send

@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi import HTTPException, Request
-from simple_module_hosting.csrf import get_csrf_token
+from simple_module_hosting.auth.csrf import get_csrf_token
 from users.auth_local.browser_guard import require_browser_csrf
 
 

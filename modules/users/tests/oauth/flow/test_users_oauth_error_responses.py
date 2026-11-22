@@ -95,7 +95,7 @@ async def test_login_view_filters_oauth_error_codes(code):
     from users.core.settings import UsersSettings
 
     app = FastAPI()
-    from simple_module_hosting.host_settings import HostSettings
+    from simple_module_hosting.config.host_settings import HostSettings
 
     app.state.host = SimpleNamespace(settings=HostSettings(login_redirect_url="/home/"))
     app.state.users = SimpleNamespace(settings=UsersSettings(), oauth_providers=[])

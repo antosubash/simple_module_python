@@ -1,0 +1,167 @@
+"""A drifted schema must fail the boot unless the install is genuinely new.
+
+Two situations both leave ``host.migrations`` outstanding, and they need
+opposite handling:
+
+- a fresh deployment, where the wizard should run the migrations;
+- a configured install whose schema fell behind, where serving traffic is the
+  failure ``SM010`` exists to prevent — and where ``/setup``'s unauthenticated
+  migration endpoint would become reachable on a live system.
+
+Gating the boot check on "is setup complete" cannot tell them apart, because
+the behind-head schema is itself one of the incomplete steps. This pins the
+distinction ``_is_first_run`` draws instead.
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+from fastapi import FastAPI
+from simple_module_core.modules.app_state import get_migration_status
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
+from simple_module_hosting.boot._lifespan import build_lifespan
+from simple_module_hosting.pipeline.setup_gate import (
+    STEP_MIGRATIONS,
+    _database_migrated,
+    is_first_run,
+)
+
+pytestmark = pytest.mark.anyio
+
+
+def _step(step_id: str, done: bool) -> SetupStep:
+    async def is_complete(_app) -> bool:
+        return done
+
+    return SetupStep(id=step_id, title=step_id, is_complete=is_complete)
+
+
+def _app(registry, revision=None) -> SimpleNamespace:
+    return SimpleNamespace(
+        state=SimpleNamespace(
+            sm=SimpleNamespace(setup_registry=registry),
+            migration={"is_current": False, "current_revision": revision},
+        )
+    )
+
+
+async def _is_first_run(app) -> bool:
+    return await is_first_run(app, get_migration_status(app))
+
+
+async def test_fresh_install_is_first_run() -> None:
+    """Nothing configured: the wizard should get a chance to migrate."""
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(_step("users.administrator", done=False))
+
+    assert await _is_first_run(_app(registry)) is True
+
+
+async def test_configured_install_with_drift_is_not_first_run() -> None:
+    """Administrators exist and only the schema is behind — fail the boot.
+
+    This is the case the old "is setup complete" gate got wrong: the schema
+    being behind made setup incomplete, so the check could never fire.
+    """
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(_step("users.administrator", done=True))
+
+    assert await _is_first_run(_app(registry, "abc123")) is False
+
+
+async def test_no_registry_is_not_first_run() -> None:
+    """An app assembled outside create_app has no steps to reason about, so
+    the older, louder behaviour is the safer default."""
+    app = SimpleNamespace(state=SimpleNamespace(sm=SimpleNamespace()))
+
+    assert await _is_first_run(app) is False
+
+
+async def test_migration_step_with_history_is_not_first_run() -> None:
+    """An existing migration revision distinguishes a later upgrade."""
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+
+    assert await _is_first_run(_app(registry, "abc123")) is False
+
+
+async def test_a_raising_step_still_counts_as_first_run() -> None:
+    """The real-world case ``test_fresh_install_is_first_run`` idealises away.
+
+    ``users.administrator`` queries a table migrations create, so on a
+    genuinely fresh database — before any migration has ever run — that
+    query raises rather than cleanly returning ``False``.
+    ``SetupRegistry.incomplete()`` treats a raising predicate as *complete*
+    (right for the steady-state gate, wrong here), so delegating to it would
+    make this indistinguishable from a configured install with a merely
+    drifted schema and fail the boot on the very first deploy. A raising
+    required step must count as pending, the same as one that returns
+    ``False`` cleanly.
+    """
+
+    async def is_complete(_app) -> bool:
+        raise RuntimeError("no such table: users_user")
+
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(SetupStep(id="users.administrator", title="admin", is_complete=is_complete))
+
+    assert await _is_first_run(_app(registry)) is True
+
+
+async def test_pending_administrator_with_history_is_not_first_run() -> None:
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(_step("users.administrator", done=False))
+    assert await _is_first_run(_app(registry, "abc123")) is False
+
+
+async def test_migrations_only_without_history_is_first_run() -> None:
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    assert await _is_first_run(_app(registry)) is True
+
+
+async def test_missing_migration_snapshot_is_not_first_run() -> None:
+    registry = SetupRegistry()
+    registry.add(_step("users.administrator", done=False))
+    app = _app(registry)
+    del app.state.migration
+    assert await _is_first_run(app) is False
+
+
+@pytest.mark.parametrize("environment", ["development", "production"])
+async def test_boot_with_missing_config(tmp_path, monkeypatch, caplog, environment) -> None:
+    monkeypatch.setenv("SM_PROJECT_ROOT", str(tmp_path))
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    app = FastAPI()
+    app.state.sm = SimpleNamespace(
+        setup_registry=registry,
+        settings=SimpleNamespace(environment=environment),
+        db=SimpleNamespace(engine=SimpleNamespace(dispose=AsyncMock())),
+    )
+
+    lifespan = build_lifespan([])
+    if environment == "development":
+        async with lifespan(app):
+            assert await _database_migrated(app) is False
+        assert "SM010" in caplog.text
+        assert "No Alembic config" in caplog.text
+    else:
+        with pytest.raises(RuntimeError, match="No Alembic config"):
+            async with lifespan(app):
+                pytest.fail("Boot accepted an unknown migration state")
+
+
+async def test_never_migrated_database_with_data_is_not_first_run() -> None:
+    """No alembic_version but accounts exist (create_all): not empty, so boot fails closed."""
+    registry = SetupRegistry()
+    registry.add(_step(STEP_MIGRATIONS, done=False))
+    registry.add(_step("users.administrator", done=True))
+    assert await _is_first_run(_app(registry)) is False

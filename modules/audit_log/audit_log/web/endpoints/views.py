@@ -9,9 +9,9 @@ from simple_module_core.access.user_directory import get_user_directory
 from simple_module_core.web.audit_links import AuditLinkRegistry
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import PageParams, clamp_page
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.auth.permissions import RequiresPermission, resolved_permissions_for
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_inertia import InertiaResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 

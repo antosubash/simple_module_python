@@ -44,11 +44,11 @@ role mappings are unchanged.
 
 ## Enforcing at endpoints
 
-Use the `RequiresPermission` dependency from `simple_module_hosting.permissions`:
+Use the `RequiresPermission` dependency from `simple_module_hosting.auth.permissions`:
 
 ```python
 from fastapi import APIRouter, Depends
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 router = APIRouter()
 
@@ -76,7 +76,7 @@ async def export_orders(...): ...
 Roles are named collections of permissions stored in the `users_role` table (owned by the `users` module). The mapping from role to permissions lives in `DEFAULT_ROLE_PERMISSIONS` (framework default) + per-role overrides in the DB.
 
 ```python
-# simple_module_hosting.permissions
+# simple_module_hosting.auth.permissions
 DEFAULT_ROLE_PERMISSIONS = {
     "admin": ["*"],
 }
@@ -299,14 +299,14 @@ The active auth provider (`users`, `keycloak` or `oidc`) owns extraction from th
 A principal with `UserContext.scopes` set — an [`api_tokens`](/modules/api_tokens)
 personal access token or service key — has its permission set capped at those
 scopes. Because the cap can only constrain a route that asks for a permission,
-`simple_module_hosting.token_guard` (installed by `create_app` as an app-wide
+`simple_module_hosting.auth.token_guard` (installed by `create_app` as an app-wide
 dependency) applies a fail-closed rule to every route:
 
 - a route whose dependency tree contains `RequiresPermission(...)` admits
   tokens — the gate decides;
 - a page (a module view router, or any route depending on `InertiaDep`)
   refuses tokens with 403, gated or not;
-- `Depends(TokenAllowed())` from `simple_module_hosting.token_guard` admits
+- `Depends(TokenAllowed())` from `simple_module_hosting.auth.token_guard` admits
   tokens explicitly, without a permission;
 - `Depends(Authenticated())` marks "any signed-in user may call this" (401 with
   no principal). It satisfies diagnostic `SM031` and the OpenAPI export but is

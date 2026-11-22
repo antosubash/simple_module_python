@@ -11,7 +11,7 @@ from keycloak.core.settings import KeycloakSettings
 from keycloak.identity.provider import KeycloakAuthProvider
 from oidc.core.settings import OidcSettings
 from oidc.identity.provider import OidcAuthProvider
-from simple_module_hosting.session import SessionMiddleware
+from simple_module_hosting.pipeline.session import SessionMiddleware
 from starlette.requests import Request
 
 

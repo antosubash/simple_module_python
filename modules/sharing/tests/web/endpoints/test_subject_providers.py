@@ -13,7 +13,7 @@ from _sharing_support import (
 from fastapi import Depends
 from simple_module_core.access.resources import ResourcePrincipal
 from simple_module_core.access.tenancy import TenantRole
-from simple_module_hosting.resource_deps import resource_principal
+from simple_module_hosting.auth.resource_deps import resource_principal
 from sqlmodel import select
 
 PATH = "/api/sharing"

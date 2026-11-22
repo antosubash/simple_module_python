@@ -48,7 +48,7 @@ def _alembic_heads() -> tuple[str, ...]:
     test app behind the setup gate.
     """
     global _heads_cache
-    from simple_module_hosting.migrations import resolve_head_revisions
+    from simple_module_hosting.boot.migrations import resolve_head_revisions
 
     if _heads_cache is None:
         heads = resolve_head_revisions()

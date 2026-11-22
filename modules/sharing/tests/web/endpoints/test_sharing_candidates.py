@@ -137,7 +137,7 @@ async def test_daily_budget_is_per_user_and_resets_after_a_day():
     from fastapi import HTTPException
     from sharing.web.endpoints.api import router
     from simple_module_core.web.rate_limit import InProcessWindowStore
-    from simple_module_hosting.rate_limit_deps import RateLimit
+    from simple_module_hosting.rate_limit.rate_limit_deps import RateLimit
     from starlette.requests import Request
 
     route = next(route for route in router.routes if route.path == "/candidates")

@@ -1,12 +1,13 @@
-"""Shared method-aware public access through the module registry."""
+"""Deprecated alias for simple_module_hosting.pipeline.public_access."""
 
-from __future__ import annotations
+import sys
+from importlib import import_module
 
-from fastapi import FastAPI
-from simple_module_core.modules.app_state import get_public_routes
+from simple_module_core.runtime.deprecation import deprecated_module
 
-
-def is_public(app: FastAPI, method: str, path: str) -> bool:
-    """Whether the public-route registry opens this concrete path."""
-    registry = get_public_routes(app)
-    return registry is not None and registry.matches(method, path)
+deprecated_module(
+    "simple_module_hosting.public_access",
+    remove_in="0.0.52",
+    use="simple_module_hosting.pipeline.public_access",
+)
+sys.modules[__name__] = import_module("simple_module_hosting.pipeline.public_access")

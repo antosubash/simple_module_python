@@ -1,0 +1,1 @@
+"""Hosting auth area."""

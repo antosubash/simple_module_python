@@ -16,9 +16,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_users import exceptions as fu_exceptions
 from simple_module_db import RequestSession
 from simple_module_db.engine.deps import get_db
-from simple_module_hosting.auth_policy import session_cookie_is_secure
-from simple_module_hosting.session import SESSION_REMEMBER_KEY
-from simple_module_hosting.token_guard import Authenticated
+from simple_module_hosting.auth.auth_policy import session_cookie_is_secure
+from simple_module_hosting.auth.token_guard import Authenticated
+from simple_module_hosting.pipeline.session import SESSION_REMEMBER_KEY
 
 from users.accounts.backend import cookie_login_response
 from users.accounts.credentials import revoke_all_credentials

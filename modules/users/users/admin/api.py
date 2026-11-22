@@ -11,8 +11,8 @@ from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession
 from simple_module_db.engine.deps import get_db
 from simple_module_db.queries.pagination import PageParams
-from simple_module_hosting.pagination import page_params
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.pagination import page_params
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from users.admin.events import publish_admin_event

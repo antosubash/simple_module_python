@@ -16,7 +16,7 @@ from typing import Any
 
 from simple_module_core.access.tenancy import TenancyMode, tenant_member_ids
 from simple_module_db.scoping.tenancy import current_tenant_id
-from simple_module_hosting.tenancy import tenancy_mode
+from simple_module_hosting.pipeline.tenancy import tenancy_mode
 
 
 class Audience:

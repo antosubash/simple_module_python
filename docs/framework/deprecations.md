@@ -31,7 +31,7 @@ in [the changelog](https://github.com/antosubash/simple_module_python/blob/main/
 for every removed name and its replacement.
 
 - Use framework settings registration/hydration and the settings module's area paths.
-- Use `simple_module_hosting.permissions.RequiresPermission`: multiple keys have
+- Use `simple_module_hosting.auth.permissions.RequiresPermission`: multiple keys have
   **any-of** semantics. `PermissionService.set_user_permissions` owns invalidation.
 - Declare anonymous routes through `register_public_routes`; providers no longer
   contribute `get_public_paths`.
@@ -43,7 +43,7 @@ for every removed name and its replacement.
 `ModuleMeta.requires_framework=None` permanently means **no version constraint**;
 only its deprecation was removed. A declared range is still checked at boot.
 
-`simple_module_hosting.settings.Settings`, `simple_module_hosting._registrations`,
+`simple_module_hosting.config.settings.Settings`, `simple_module_hosting.boot._registrations`,
 `simple_module_core.web.public_routes`, `simple_module_core.modules.versioning` and
 `simple_module_core.access.resources` are live implementations, not import-path shims.
 They remain; only their deprecated compatibility paths were removed.

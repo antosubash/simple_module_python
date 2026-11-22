@@ -9,7 +9,7 @@ as ``X-CSRF-Token``.
 from __future__ import annotations
 
 import httpx
-from simple_module_hosting.csrf import CSRF_HEADER
+from simple_module_hosting.auth.csrf import CSRF_HEADER
 
 from simple_module_test.inertia import inertia_headers
 

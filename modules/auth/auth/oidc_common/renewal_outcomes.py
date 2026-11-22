@@ -11,7 +11,7 @@ from typing import Any
 
 from simple_module_core.runtime.leases import lease
 from simple_module_db import independent_session
-from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
+from simple_module_hosting.pipeline.session import SESSION_EXPIRES_AT_KEY
 from sqlalchemy import delete, or_
 from sqlmodel import col
 

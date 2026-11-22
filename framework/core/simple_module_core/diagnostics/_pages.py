@@ -90,7 +90,7 @@ def _iter_render_components(tree: ast.Module, consts: dict[str, str]) -> list[st
 
 
 #: A ``*.test.tsx``/``*.spec.tsx`` beside a page is a test, not a page —
-#: mirrors ``simple_module_hosting.page_globs.TEST_FILE_SUFFIXES``, which
+#: mirrors ``simple_module_hosting.frontend.page_globs.TEST_FILE_SUFFIXES``, which
 #: excludes the same files from the Vite glob. Duplicated rather than
 #: imported: ``simple_module_hosting`` depends on ``simple_module_core``,
 #: not the other way around, so importing it here would invert the package

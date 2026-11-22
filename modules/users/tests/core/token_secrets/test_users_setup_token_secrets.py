@@ -12,10 +12,10 @@ from alembic import command
 from fastapi import Request
 from fastapi_users.jwt import decode_jwt
 from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
-from simple_module_hosting._preapp_config import merge_host_settings
-from simple_module_hosting.app_builder import create_app
-from simple_module_hosting.bootstrap_settings import BootstrapSettings
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS, _database_migrated
+from simple_module_hosting.boot.app_builder import create_app
+from simple_module_hosting.config._preapp_config import merge_host_settings
+from simple_module_hosting.config.bootstrap_settings import BootstrapSettings
+from simple_module_hosting.pipeline.setup_gate import STEP_MIGRATIONS, _database_migrated
 from simple_module_hosting.setup_wizard.migrate import apply_migrations
 from users.accounts.manager import UserManager
 from users.core.token_secrets import resolve_token_secrets

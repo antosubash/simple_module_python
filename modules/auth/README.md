@@ -40,7 +40,7 @@ Routes that need a specific permission use `RequiresPermission` from hosting:
 ```python
 from fastapi import Depends
 
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
 
 from .constants import PERM_PRODUCTS_CREATE
 

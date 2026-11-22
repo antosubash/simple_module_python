@@ -127,7 +127,7 @@ Never hand-edit the `.generated.*` files — they are overwritten on the next `u
 Both flat and workspace scaffolds use the same framework-owned boot sequence:
 
 ```python
-from simple_module_hosting.host import build_host_app
+from simple_module_hosting.boot.host import build_host_app
 
 app = build_host_app(__file__, routers=("routes:router",))
 ```

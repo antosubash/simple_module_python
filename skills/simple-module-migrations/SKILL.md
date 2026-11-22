@@ -34,7 +34,7 @@ The host's `host/migrations/env.py` (scaffolded by `smpy create-host`) calls:
 
 ```python
 from alembic import context
-from simple_module_hosting.migrations_env import run_migrations
+from simple_module_hosting.boot.migrations_env import run_migrations
 
 run_migrations(context)
 ```
@@ -42,12 +42,12 @@ run_migrations(context)
 The public runner owns metadata discovery, async-to-sync URL conversion, offline
 and online execution, module extensions, logging and all autogenerate hooks.
 It honors `config.attributes[ALEMBIC_DATABASE_URL_ATTRIBUTE]` from
-`simple_module_hosting.migrations` before settings (the setup wizard's locked
+`simple_module_hosting.boot.migrations` before settings (the setup wizard's locked
 connection target). Replace older copied environments with this call to receive
 framework fixes; keep revisions and application customizations in the host.
 
 The matching host entry point uses `build_host_app(__file__, routers=("routes:router",))`
-from `simple_module_hosting.host`. It publishes the project root and loads dotenv
+from `simple_module_hosting.boot.host`. It publishes the project root and loads dotenv
 before importing settings, then calls `merge_host_settings()`, configures logging
 and builds the app. Use router import strings to preserve that ordering; do not
 replace the merged settings with `Settings()` when customizing host boot.

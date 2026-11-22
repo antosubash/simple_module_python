@@ -106,7 +106,7 @@ async def test_lifetime_is_capped_by_the_setting(app, actor):
 async def test_permission_gate_caps_admin_tokens():
     """An admin session passes; the same admin's token is capped at its scopes."""
     from auth.contracts.schemas import UserContext
-    from simple_module_hosting.permissions import RequiresPermission
+    from simple_module_hosting.auth.permissions import RequiresPermission
 
     check = RequiresPermission("x.write")
 

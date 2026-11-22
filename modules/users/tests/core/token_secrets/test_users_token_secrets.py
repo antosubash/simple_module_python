@@ -55,8 +55,8 @@ def test_placeholders_and_empty_env_values_use_derived_keys(monkeypatch, padding
 
 def test_module_registration_uses_resolved_root_before_services_exist():
     from auth.module import AuthModule
-    from simple_module_hosting._app_boot import build_fastapi_app
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.boot._app_boot import build_fastapi_app
+    from simple_module_hosting.config.settings import Settings
     from users.module import UsersModule
 
     settings = Settings(_env_file=None, environment="testing", secret_key="resolved-root")
@@ -80,8 +80,8 @@ def test_existing_manager_uses_current_services_root(monkeypatch, legacy):
     from types import SimpleNamespace
 
     from auth.module import AuthModule
-    from simple_module_hosting._app_boot import build_fastapi_app
-    from simple_module_hosting.settings import Settings
+    from simple_module_hosting.boot._app_boot import build_fastapi_app
+    from simple_module_hosting.config.settings import Settings
     from users.accounts.manager import UserManager
     from users.core.settings import UsersSettings
     from users.module import UsersModule

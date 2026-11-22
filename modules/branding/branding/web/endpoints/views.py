@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from simple_module_core.modules.app_state import get_design_packs
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
 from simple_module_inertia import InertiaResponse
 
 from branding.core import constants

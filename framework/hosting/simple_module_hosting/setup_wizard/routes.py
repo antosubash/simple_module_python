@@ -1,7 +1,7 @@
 """The first-run setup wizard's HTTP surface.
 
 Served while any required :class:`SetupStep` is incomplete — see
-``simple_module_hosting.setup_gate``. Unauthenticated by necessity: it exists
+``simple_module_hosting.pipeline.setup_gate``. Unauthenticated by necessity: it exists
 precisely when no account exists yet.
 
 Two gates, deliberately of different widths:
@@ -31,10 +31,10 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from simple_module_inertia import InertiaResponse
 
-from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.setup_gate import STEP_MIGRATIONS
+from simple_module_hosting.auth.csrf import RequiresCsrf, get_csrf_token
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
+from simple_module_hosting.pipeline.setup_gate import STEP_MIGRATIONS
 from simple_module_hosting.setup_wizard.composition import migration_follow_up, run_follow_up
 from simple_module_hosting.setup_wizard.payloads import connection_status, steps_payload
 

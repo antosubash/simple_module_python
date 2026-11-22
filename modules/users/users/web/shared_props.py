@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from simple_module_hosting.auth_policy import login_redirect_url
+from simple_module_hosting.auth.auth_policy import login_redirect_url
 
 from users.demo.guard import is_demo_session
 

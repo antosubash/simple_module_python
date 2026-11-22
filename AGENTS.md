@@ -255,7 +255,7 @@ RequestLogging → (ServerTiming, development only) → CORS → BodyLimit → G
 SecurityHeaders → <before_session> → Session → InertiaMiddleware → <default module middleware> →
 (Tenant: multi_tenant, or fixed to default_tenant) → Locale → <after_tenant> → InertiaLayoutData →
 RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
-(`framework/hosting/tests/test_middleware_order.py` pins it). Rules that follow:
+(`framework/hosting/tests/pipeline/test_middleware_order.py` pins it). Rules that follow:
 
 - Modules at the same dependency tier: the one that sorts later wraps outermost.
   Use `depends_on` to order, never names.
@@ -273,7 +273,7 @@ RateLimit → Setup → Maintenance → CommitBeforeResponse → app`
   traffic to public routes. Per-route budgets: `register_rate_limits` rules
   (`RateLimitRule(rate, key="user"|"ip"|"user_or_ip"|"tenant")`) or the
   `RateLimit("10/minute", key="user")` dependency from
-  `simple_module_hosting.rate_limit_deps`.
+  `simple_module_hosting.rate_limit.rate_limit_deps`.
 - Request bodies over `max_request_body_bytes` (10 MiB) are refused before any
   module sees them; per-path overrides via `register_body_limits`.
 - CORS is opt-in per path (`register_cors_policies`, most specific match wins).
@@ -296,7 +296,7 @@ with `simple_module_hosting`; `/api/*` paths never move.
 **Inertia.** `inertia.render("<MetaName>/<Page>")` maps to
 `modules/<pkg>/<pkg>/pages/<Page>.tsx`; host pages under
 `host/client_app/pages/` use the bare name. Mismatches fire `SM003`/`SM004`.
-Use `InertiaDep` from `simple_module_hosting.inertia_deps`; `InertiaResponse`
+Use `InertiaDep` from `simple_module_hosting.frontend.inertia_deps`; `InertiaResponse`
 and prop factories (`optional`, `always`, `defer`, `merge`, `once`, `scroll`)
 come from `simple_module_inertia`. Shared props `auth`, `menus`, `i18n` are set
 by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
@@ -308,7 +308,7 @@ by `InertiaLayoutDataMiddleware`; `auth.user` is null unless
 
 **CSRF.** Baseline is `SameSite=Lax` on the session cookie, so a same-site
 request needs no token. For defence in depth, declare the `RequiresCsrf` router
-dependency (`simple_module_hosting.csrf`). Signed-in Inertia pages share the
+dependency (`simple_module_hosting.auth.csrf`). Signed-in Inertia pages share the
 current `csrfToken`, including partial reloads; the generated `api` client
 echoes it as `X-CSRF-Token` on same-origin mutations. No per-page token props or
 manual headers are needed. Anonymous auth forms explicitly expose their token.
@@ -387,7 +387,7 @@ The session cookie is `Secure` outside development and testing.
   `SM_ENVIRONMENT`/`SM_DEBUG`/`SM_VITE_DEV_URL` describe the process. Do not
   add new configuration as env vars. Host settings: precedence
   **env → DB → default**, and env must keep winning. `host/main.py` uses
-  `build_host_app()` from `simple_module_hosting.host`, which calls
+  `build_host_app()` from `simple_module_hosting.boot.host`, which calls
   `merge_host_settings()`, not `Settings()`: `create_app` reads some fields
   before the lifespan opens the DB, and every such field is marked
   restart-required (`test_build_time_settings_marked.py`). `SM_SECRET_KEY` is

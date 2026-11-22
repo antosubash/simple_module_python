@@ -35,14 +35,14 @@ def test_plugin_ignores_project_dotenv_before_conftest_and_in_fixtures(tmp_path)
         "SM_TEST_DOTENV_LEAK=leaked\n"
     )
     (tmp_path / "conftest.py").write_text(
-        "from simple_module_hosting.settings import Settings\n"
+        "from simple_module_hosting.config.settings import Settings\n"
         "assert Settings().vite_dev_url == 'http://localhost:5050'\n"
     )
     (tmp_path / "test_settings.py").write_text(
         "import os\n"
         "import pytest\n"
         "from simple_module_core.settings.dotenv import load_dotenv_into_environ\n"
-        "from simple_module_hosting.settings import Settings\n"
+        "from simple_module_hosting.config.settings import Settings\n"
         "def test_settings(settings, monkeypatch, tmp_path):\n"
         "    load_dotenv_into_environ()\n"
         "    assert 'SM_TEST_DOTENV_LEAK' not in os.environ\n"

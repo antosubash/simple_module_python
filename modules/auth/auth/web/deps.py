@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
-from simple_module_hosting.i18n_deps import TranslatorDep
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 
 from auth.contracts.schemas import UserContext
 

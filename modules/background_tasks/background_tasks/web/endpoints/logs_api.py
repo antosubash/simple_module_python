@@ -6,8 +6,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from simple_module_db.queries.pagination import PageParams
-from simple_module_hosting.pagination import page_params
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.pagination import page_params
 
 from background_tasks.contracts.logs import LogListResponse
 from background_tasks.core.constants import (

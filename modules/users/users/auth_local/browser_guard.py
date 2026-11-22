@@ -1,7 +1,7 @@
 """Session-bound validation for browser auth mutations."""
 
 from fastapi import Request
-from simple_module_hosting.csrf import CSRF_HEADER, RequiresCsrf, require_browser_origin
+from simple_module_hosting.auth.csrf import CSRF_HEADER, RequiresCsrf, require_browser_origin
 
 __all__ = ["require_browser_csrf", "require_browser_origin"]
 

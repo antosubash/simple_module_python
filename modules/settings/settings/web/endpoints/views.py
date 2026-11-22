@@ -14,10 +14,13 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
 from simple_module_db.queries.pagination import clamp_page
-from simple_module_hosting.i18n_deps import TranslatorDep
-from simple_module_hosting.inertia_deps import InertiaDep
-from simple_module_hosting.inertia_utils import redirect_back_with_errors, validation_errors_to_dict
-from simple_module_hosting.permissions import RequiresPermission
+from simple_module_hosting.auth.permissions import RequiresPermission
+from simple_module_hosting.frontend.inertia_deps import InertiaDep
+from simple_module_hosting.frontend.inertia_utils import (
+    redirect_back_with_errors,
+    validation_errors_to_dict,
+)
+from simple_module_hosting.i18n.i18n_deps import TranslatorDep
 from simple_module_inertia import InertiaResponse
 from starlette.responses import RedirectResponse
 

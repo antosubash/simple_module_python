@@ -8,8 +8,8 @@ from fastapi import Depends
 from permissions.grants import source as grants
 from permissions.models import RolePermission, UserPermission
 from simple_module_core.access.resources import ResourcePrincipal
-from simple_module_hosting import middleware
-from simple_module_hosting.resource_deps import resource_principal
+from simple_module_hosting.auth.resource_deps import resource_principal
+from simple_module_hosting.pipeline import middleware
 from sqlalchemy import delete, event
 from tenants.models import Membership, Tenant
 from tenants.resolution.resolver import forget
