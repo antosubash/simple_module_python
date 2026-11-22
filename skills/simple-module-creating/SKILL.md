@@ -19,7 +19,7 @@ make new-module name=orders
 make gen
 
 # if you added SQLModel tables, autogenerate + apply a migration
-make migration msg="add orders module"
+make migration LABEL=orders msg="add orders module"
 make migrate
 ```
 
