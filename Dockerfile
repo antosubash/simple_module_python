@@ -66,8 +66,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN /app/.venv/bin/smpy host gen-pages --host-dir=host/client_app
 RUN npm run build
 
-# node_modules is a build-time artifact only; the runtime serves static files.
-RUN rm -rf node_modules host/client_app/node_modules
+# host/client_app/node_modules is a build-time artifact; the runtime COPY list drops root node_modules too.
+RUN rm -rf host/client_app/node_modules
 
 FROM python:3.12-slim-bookworm AS runtime
 
