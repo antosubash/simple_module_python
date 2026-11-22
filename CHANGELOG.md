@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Repo Compose worker and beat explicitly pin the legacy broker and result-backend variables alongside `SM_REDIS_URL` to `redis://redis:6379/4`, overriding host `.env` localhost values and restoring upgrade compatibility after #1095 (#1097).
 - Malformed Referer URLs fall back to `/`, including demo-guard Inertia refusals, instead of raising a server error (#1098).
 - Overlapping app lifespans share ownership of process-global lease backends, closing each backend only after its last active owner exits while preserving replacement cleanup and engine disposal (#1102).
 - Rebuild lease ownership after a fork, and skip closing a backend that a lifespan started during another app's shutdown has re-acquired (#1102).

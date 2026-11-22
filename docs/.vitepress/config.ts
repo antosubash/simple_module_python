@@ -107,6 +107,7 @@ export default defineConfig({
             },
             { text: "Module authoring", link: "/module-authoring" },
             { text: "Module layout", link: "/module-layout" },
+            { text: "Framework layout", link: "/framework-layout" },
             { text: "E2E testing", link: "/e2e-testing" },
             { text: "Release playbook", link: "/release" },
           ],
