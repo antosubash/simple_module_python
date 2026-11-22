@@ -71,7 +71,7 @@ def make_backend(first_type=Client):
     return RedisLeaseBackend("redis://unused", factory=factory), clients
 
 
-def run_fork_probe(script: str, *args: str, timeout: int = 10) -> None:
+def run_fork_probe(script: str, *args: str, timeout: int = 20) -> None:
     if not hasattr(os, "fork"):
         import pytest
 

@@ -72,7 +72,7 @@ if pid == 0:
                 raise AssertionError("expected stdlib fork fd closed")
         new_a, new_b = socket.socketpair()
         try:
-            if mode != "running_stdlib":
+            if mode == "uvloop":
                 owner.close()
             new_a.send(b"ok")
             assert new_b.recv(2) == b"ok"
