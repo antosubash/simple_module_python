@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 from concurrent.futures import Future
 from contextlib import suppress
 from typing import Any
@@ -62,17 +63,35 @@ def _close_selector_socket(target: Any, transport: Any, loop: Any) -> None:
         transport._closed = True
 
 
-async def _abort_on_running_loop(loop: Any, transport: Any) -> bool:
+def _transport_closed(transport: Any, target: Any) -> bool:
+    return not any(_fd_open(_transport_fileno(item)) for item in (target, transport))
+
+
+async def _abort_on_running_loop(loop: Any, transport: Any, target: Any) -> bool:
     done: Future[None] = Future()
+    state = {"abandoned": False}
+    lock = threading.Lock()
+
+    def finish() -> None:
+        with lock:
+            if state["abandoned"] or done.done():
+                return
+            if _transport_closed(transport, target):
+                done.set_result(None)
+                return
+            try:
+                loop.call_soon(finish)
+            except RuntimeError:
+                done.cancel()
 
     def run_abort() -> None:
-        if not done.set_running_or_notify_cancel():
-            return
+        with lock:
+            if state["abandoned"] or done.done():
+                return
         try:
             transport.abort()
         finally:
-            if not done.done():
-                done.set_result(None)
+            finish()
 
     try:
         loop.call_soon_threadsafe(run_abort)
@@ -85,10 +104,16 @@ async def _abort_on_running_loop(loop: Any, transport: Any) -> bool:
             await asyncio.wait({wrapped}, timeout=_POLL_SECONDS)
             if done.done():
                 break
-            if (loop.is_closed() or not loop.is_running()) and done.cancel():
-                return False
+            if loop.is_closed() or not loop.is_running():
+                with lock:
+                    if not done.done():
+                        state["abandoned"] = True
+                        done.cancel()
+                        return False
     except asyncio.CancelledError:
-        done.cancel()
+        with lock:
+            state["abandoned"] = True
+            done.cancel()
         raise
     return not done.cancelled()
 
@@ -123,7 +148,7 @@ async def _abort_transport(transport: Any, *, owner_loop: Any = None, forked: bo
 
     loop = getattr(target, "_loop", None) or owner_loop
     while loop is not None and not loop.is_closed() and loop.is_running():
-        if await _abort_on_running_loop(loop, transport):
+        if await _abort_on_running_loop(loop, transport, target):
             return
     if hasattr(target, "_sock"):
         _close_selector_socket(target, transport, loop)
@@ -137,7 +162,7 @@ async def _abort_transport(transport: Any, *, owner_loop: Any = None, forked: bo
             await asyncio.to_thread(loop.run_until_complete, _noop())
         except RuntimeError:
             if loop.is_running():
-                await _abort_on_running_loop(loop, transport)
+                await _abort_on_running_loop(loop, transport, target)
         if _fd_open(fd):
             raise RuntimeError("Foreign Redis transport close still pending owner")
 

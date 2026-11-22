@@ -221,14 +221,15 @@ def test_real_fork_closes_child_fd_without_breaking_parent_selector(mode):
     run_fork_probe(_FORK_PROBE, mode)
 
 
-def test_owner_resumes_then_stops_before_abort_runs_still_closes_socket():
+@pytest.mark.parametrize("stop_when", ["before_abort", "after_abort"])
+def test_owner_resumes_then_stops_during_abort_still_closes_socket(stop_when):
     from threading import Event, Thread
 
     backend, _created, attach_stream, s1, s2 = _pooled_socket_backend()
     owner = asyncio.new_event_loop()
     loop_errors = []
     owner.set_exception_handler(lambda loop, ctx: loop_errors.append(ctx))
-    block_entered, release_blocker = Event(), Event()
+    block_entered, release_blocker, aborted = Event(), Event(), Event()
     thread = None
 
     def block_in_owner():
@@ -257,14 +258,28 @@ def test_owner_resumes_then_stops_before_abort_runs_still_closes_socket():
         thread.start()
         assert block_entered.wait(2)
         await asyncio.wait_for(abort_queued.wait(), 2)
-        owner.stop()
+        if stop_when == "before_abort":
+            owner.stop()
         release_blocker.set()
         thread.join(timeout=2)
         assert not thread.is_alive()
+        if stop_when == "after_abort":
+            assert aborted.is_set()
         await asyncio.wait_for(close_task, 2)
 
     try:
-        owner.run_until_complete(attach_stream())
+        conn = owner.run_until_complete(attach_stream())
+        if stop_when == "after_abort":
+            orig_abort = conn._writer.transport.abort
+
+            def abort_and_stop():
+                try:
+                    orig_abort()
+                    owner.stop()
+                finally:
+                    aborted.set()
+
+            conn._writer.transport.abort = abort_and_stop
         asyncio.run(exercise())
         assert backend._records == []
         assert s1.fileno() == -1
