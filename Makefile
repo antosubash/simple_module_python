@@ -74,7 +74,7 @@ test-py:
 	uv run pytest -n $(PYTEST_WORKERS) --dist loadgroup
 
 # The Python suite on Postgres (#343). Needs an empty database the tests may
-# drop and recreate `public` in. `-p no:anyio`: tests marked
+# drop and recreate `public` in. pyproject.toml addopts disables anyio: tests marked
 # `@pytest.mark.anyio` would otherwise run on anyio's event loop while the
 # async fixtures ran on pytest-asyncio's, and an asyncpg connection cannot
 # cross loops (aiosqlite's thread hides this on SQLite). asyncio_mode=auto
@@ -84,7 +84,7 @@ test-py:
 # PYTEST_WORKERS=0 uses the named database itself.
 SM_TEST_DATABASE_URL ?= postgresql+asyncpg://postgres:postgres@localhost:5432/sm_test
 test-py-pg:
-	SM_TEST_DATABASE_URL='$(SM_TEST_DATABASE_URL)' uv run pytest -p no:anyio -n $(PYTEST_WORKERS) --dist loadgroup
+	SM_TEST_DATABASE_URL='$(SM_TEST_DATABASE_URL)' uv run pytest -n $(PYTEST_WORKERS) --dist loadgroup
 
 test-js:
 	npm test

@@ -59,7 +59,7 @@ uv run smpy new my_app --no-install
 
 `--preset` only accepts `minimal`, `standard`, or `full`. **`custom` is wizard-only** — there's no `--preset custom`; to hand-pick modules non-interactively, start from any preset and add the rest with `--with`.
 
-`--with` accepts a comma-separated list of catalog keys (`auth, users, permissions, dashboard, settings, feature_flags, file_storage, background_tasks`). Transitive `requires` are auto-added; the wizard prints `Added X (required by Y)` so you can see what got pulled in. An unknown key fails fast with the available list (so `--with=does_not_exist` is self-correcting). Note the catalog is a curated subset — repo modules like `products`, `keycloak`, and `audit_log` are **not** catalog keys; add those to an existing host by installing the package (see the pitfall below).
+`--with` accepts a comma-separated list of catalog keys (`auth, users, permissions, dashboard, settings, feature_flags, file_storage, background_tasks`). Transitive `requires` are auto-added; the wizard prints `Added X (required by Y)` so you can see what got pulled in. An unknown key fails fast with the available list (so `--with=does_not_exist` is self-correcting). Note the catalog is a curated subset — repo modules like `keycloak`, `audit_log`, and `branding` are **not** catalog keys; add those to an existing host by installing the package (see the pitfall below).
 
 Selecting `background_tasks` also runs its post-scaffold **recipe**: it drops `docker-compose.yml`, `scripts/run_worker.py`, a shared app/worker Dockerfile, an `SM_REDIS_URL` entry in `.env.example`, and Celery `make` targets. App, worker and beat share that one Redis URL; `uv run smpy docker add-worker` copies it. Keep `SM_BG_TASKS_BROKER_URL` / `SM_BG_TASKS_RESULT_BACKEND` for per-field overrides such as non-Redis transports. The closing "Next steps" then reminds you to run `docker compose up -d redis worker beat` for the worker/beat processes.
 
@@ -86,7 +86,7 @@ uv run smpy create-host MyApp --with Auth,Products  # declare module deps in pyp
 uv run smpy create-host MyApp --dest ./apps/myapp   # custom destination
 ```
 
-`--with` takes **PascalCase module names** (matching `ModuleMeta.name`), not catalog keys — each is lowercased into a `simple_module_<name>` dependency in `pyproject.toml`. Unlike `uv run smpy new`, the names are **not** checked against the scaffolder catalog, so any published module works (e.g. `--with Products` → `simple_module_products`). No deps are installed and no transitive `requires` are resolved; you drive `uv sync` and migrations yourself. Use this when you want to wire the build by hand rather than via `uv run smpy new`'s wizard.
+`--with` takes **PascalCase module names** (matching `ModuleMeta.name`), not catalog keys — each is lowercased into a `simple_module_<name>` dependency in `pyproject.toml`. Unlike `uv run smpy new`, the names are **not** checked against the scaffolder catalog, so any published module works (e.g. `--with Products` → `simple_module_products`). Products above is an example published module, not a module in this monorepo. No deps are installed and no transitive `requires` are resolved; you drive `uv sync` and migrations yourself. Use this when you want to wire the build by hand rather than via `uv run smpy new`'s wizard.
 
 ## `uv run smpy create-module <name>` — module package
 
@@ -250,8 +250,8 @@ Don't bake `--password` literals into a script you commit; use a secrets store a
 - **`uv run smpy` warns that the app uses another framework version, or `uv run smpy doctor` says the CLI is not installed in the project's venv.** The app CLI is missing; run `uv sync --all-packages` so the app's own CLI is installed, then `uv run smpy …`.
 - **Editing `locales/*.json` doesn't reload `make dev`** in an app made before 0.0.47: add `--reload-include '*locales/*.json'` to the `uvicorn` line of `dev-api`.
 - **A module added while `make dev` runs logs "installed but … cannot be imported in this process".** The reload keeps the import path the server started with; restart `make dev`.
-- **Calling `uv run smpy create-admin` before migrations have run.** The users tables don't exist yet; the command will error. Run `alembic upgrade head` first (or use `uv run smpy new` which does it for you when `--no-install` isn't set).
-- **Expecting `--with products` (or `keycloak` / `audit_log`) to work on `uv run smpy new`.** Those modules exist in the monorepo but aren't scaffolder-catalog keys, so `uv run smpy new --with products` errors. Either scaffold without them and `pip install simple_module_products` into the host afterward, or use `uv run smpy create-host --with Products` (which doesn't validate against the catalog).
+- **Calling `uv run smpy users create-admin` before migrations have run.** The users tables don't exist yet; the command will error. Run `alembic upgrade heads` first (or use `uv run smpy new` which does it for you when `--no-install` isn't set).
+- **Expecting `--with keycloak` (or `audit_log` / `branding`) to work on `uv run smpy new`.** Those modules exist in the monorepo but aren't scaffolder-catalog keys, so `uv run smpy new --with keycloak` errors. Either scaffold without them and `pip install simple_module_keycloak` into the host afterward, or use `uv run smpy create-host MyApp --with Keycloak` (which doesn't validate against the catalog).
 - **Port 5050 already taken when starting a scaffolded app.** Use `uv run smpy dev`: it selects a free Vite port automatically. Pin with `--vite-port 5310` only when needed; change the API with `--port 8010`.
 - **`uv run smpy update` "did nothing" for a workspace dep.** Deps sourced from a `[tool.uv.sources]` workspace/path/URL entry are intentionally skipped (their version isn't on PyPI) — they show up in the output as `skipped`, not updated. Git refs update separately; the command also installs and generates.
 
@@ -259,4 +259,4 @@ Don't bake `--password` literals into a script you commit; use a secrets store a
 
 - **simple-module-creating** — what `uv run smpy create-module` produces and the post-scaffold contract
 - **simple-module-inertia-pages** — what `uv run smpy host gen-pages` regenerates and why
-- **simple-module-migrations** — the migration step `uv run smpy new` runs (`make migration` + `make migrate`, or `alembic upgrade head` directly)
+- **simple-module-migrations** — the migration step `uv run smpy new` runs (`make migration` + `make migrate`, or `alembic upgrade heads` directly)

@@ -294,17 +294,20 @@ When you autogenerate a migration for a freshly-added module, autogenerate write
 The `db_session` fixture stamps `alembic_version` at head on a fresh in-memory DB, which validates that `build_module_metadata()` + your migrations produce a schema the tables can operate against. That said, integration tests don't run every Alembic op — if you want to exercise the migrations explicitly:
 
 ```python
-@pytest.mark.asyncio
-async def test_migration_up_then_down(tmp_path):
+def test_migration_up_then_down(tmp_path, monkeypatch):
     from alembic.config import Config
     from alembic import command
 
     db_url = f"sqlite:///{tmp_path}/migrate_test.db"
+    monkeypatch.setenv("SM_DATABASE_URL", db_url)
     cfg = Config("host/alembic.ini")
-    cfg.set_main_option("sqlalchemy.url", db_url)
 
     command.upgrade(cfg, "heads")
     command.downgrade(cfg, "base")
 ```
 
 That catches the common "autogenerate wrote a broken downgrade" class of bugs.
+The migration environment reads `SM_DATABASE_URL` through settings, overriding
+`cfg.set_main_option("sqlalchemy.url", ...)`; set the environment variable so
+the test migrates only its temporary database. Alembic's command API is
+synchronous, so the test needs no async marker.
