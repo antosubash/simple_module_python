@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users.password import PasswordHelper
-from simple_module_core.rate_limit import InProcessWindowStore
+from simple_module_core.web.rate_limit import InProcessWindowStore
 from simple_module_db import init_db
 from sqlalchemy import func, select
 from starlette.requests import Request

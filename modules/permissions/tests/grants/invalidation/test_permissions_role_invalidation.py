@@ -5,8 +5,8 @@ import uuid
 import pytest
 from permissions.core.service import PermissionService
 from permissions.models import RolePermission
-from simple_module_core.invalidation import Invalidation
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.eventing.invalidation import Invalidation
 from simple_module_db.transaction import finalize_session, rollback_session
 from users.core.directory import UsersDirectory
 from users.models import Role

@@ -15,7 +15,7 @@ import pytest
 from background_tasks.core import invalidation as bg_invalidation
 from background_tasks.core.invalidation import RedisInvalidationTransport
 from background_tasks.core.settings import BackgroundTasksSettings
-from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
 
 
 class _FakePubSub:

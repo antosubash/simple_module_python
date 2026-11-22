@@ -11,7 +11,7 @@ from __future__ import annotations
 from urllib.parse import urlsplit
 
 from fastapi import Request
-from simple_module_core.redirect_safety import safe_next
+from simple_module_core.web.redirect_safety import safe_next
 
 
 def safe_referer_or_root(request: Request) -> str:
@@ -19,7 +19,7 @@ def safe_referer_or_root(request: Request) -> str:
 
     Only honors references that (a) resolve to the same scheme+host as the
     current request, or (b) are relative paths. Either way the result is run
-    through :func:`~simple_module_core.redirect_safety.safe_next`, which is the
+    through :func:`~simple_module_core.web.redirect_safety.safe_next`, which is the
     single owner of what counts as a safe same-site target.
     """
     referer = request.headers.get("referer")

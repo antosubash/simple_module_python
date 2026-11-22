@@ -1,6 +1,6 @@
 # Leases and semaphores
 
-`simple_module_core.leases` gives every process the same two primitives ([#539](https://github.com/antosubash/simple_module_python/issues/539)):
+`simple_module_core.runtime.leases` gives every process the same two primitives ([#539](https://github.com/antosubash/simple_module_python/issues/539)):
 
 - **`lease(name, ttl)`**: an exclusive lock that expires on its own. Use it to deduplicate work ("only one worker imports dataset 42") or to debounce.
 - **`semaphore(name, slots, ttl)`**: at most `slots` concurrent holders, for example at most 4 downloads per remote host across every web and Celery worker.
@@ -10,7 +10,7 @@ Both are *leases*: whoever acquires one gets a random `token`, and only that tok
 ## Usage
 
 ```python
-from simple_module_core.leases import LeaseNotAcquiredError, lease, semaphore
+from simple_module_core.runtime.leases import LeaseNotAcquiredError, lease, semaphore
 
 # Exclusive. Waits up to 5 s for the current holder, then raises.
 async with lease("import:42", ttl=60, wait=5) as held:

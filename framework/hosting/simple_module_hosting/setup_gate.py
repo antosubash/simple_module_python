@@ -2,7 +2,7 @@
 
 A fresh deployment has no administrator, so without this every route either
 redirects to a login nobody can pass or fails outright. While any required
-:class:`~simple_module_core.setup_steps.SetupStep` reports incomplete, this
+:class:`~simple_module_core.web.setup_steps.SetupStep` reports incomplete, this
 redirects to ``/setup``.
 
 Sits inside ``InertiaMiddleware`` in the middleware pipeline so its redirect is
@@ -16,7 +16,7 @@ import asyncio
 import logging
 import time
 
-from simple_module_core.app_state import get_migration_status, get_services
+from simple_module_core.modules.app_state import get_migration_status, get_services
 from simple_module_inertia import is_inertia_request
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -150,7 +150,7 @@ def register_migration_step(registry) -> None:
     Host-owned rather than module-owned because no module owns the schema as a
     whole — it is the union of whatever modules are installed.
     """
-    from simple_module_core.setup_steps import SetupAction, SetupStep
+    from simple_module_core.web.setup_steps import SetupAction, SetupStep
 
     from simple_module_hosting.setup_wizard.migrate import apply_migrations
 

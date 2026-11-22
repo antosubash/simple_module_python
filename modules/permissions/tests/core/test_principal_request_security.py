@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 from fastapi import Depends, Request
-from simple_module_core.resources import ACTION_VIEW, ResourcePrincipal
+from simple_module_core.access.resources import ACTION_VIEW, ResourcePrincipal
 from simple_module_db import MultiTenantMixin, create_module_base, tenant_context
 from simple_module_db.deps import get_db
 from simple_module_db.principals import principal_for

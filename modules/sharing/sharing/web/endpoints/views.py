@@ -5,8 +5,8 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Request
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.user_directory import get_user_directory
 from simple_module_db import TenantIsolationError, paginate
 from simple_module_hosting.inertia_deps import InertiaDep
 from simple_module_hosting.pagination import LenientPageParamsDep

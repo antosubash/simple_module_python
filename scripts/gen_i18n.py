@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 from simple_module_hosting.i18n_manifest import (
     NamespaceRemovalError,
     emit_frontend_types_for_modules,

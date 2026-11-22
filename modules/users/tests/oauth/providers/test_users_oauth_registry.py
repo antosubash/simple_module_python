@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from httpx_oauth.clients.github import GitHubOAuth2
 from settings.contracts.events import SettingsReloaded
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_test import inertia_page
 from starlette.requests import Request
 from users.core.settings import UsersSettings

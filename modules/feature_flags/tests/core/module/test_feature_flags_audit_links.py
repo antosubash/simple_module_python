@@ -24,7 +24,7 @@ from feature_flags.core.constants import (
 from feature_flags.models import FeatureFlagOverride
 from feature_flags.module import FeatureFlagsModule
 from feature_flags.web.endpoints.views import _audit_log_url
-from simple_module_core.audit_links import AuditLinkRegistry
+from simple_module_core.web.audit_links import AuditLinkRegistry
 
 
 def _request_with_modules(*names: str):

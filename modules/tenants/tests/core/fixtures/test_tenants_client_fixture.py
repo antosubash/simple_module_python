@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 
 
 @pytest.mark.parametrize("role", list(TenantRole))

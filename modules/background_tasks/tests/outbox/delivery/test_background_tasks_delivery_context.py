@@ -6,8 +6,8 @@ from dataclasses import dataclass
 import pytest
 from background_tasks.outbox.claim import OutboxPolicy
 from background_tasks.outbox.dispatch import dispatch
-from simple_module_core import durable_events
-from simple_module_core.events import Event
+from simple_module_core.eventing import durable_events
+from simple_module_core.eventing.events import Event
 
 pytestmark = pytest.mark.usefixtures("_stub_celery")
 

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from cachetools import TTLCache
 from fastapi import FastAPI
-from simple_module_core.singleflight import MAX_FILL_ATTEMPTS
+from simple_module_core.runtime.singleflight import MAX_FILL_ATTEMPTS
 from tenants.core.service import TenantService
 from tenants.resolution import resolver
 

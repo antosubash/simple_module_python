@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from simple_module_core.i18n import I18nRegistry, Translator
+from simple_module_core.localization.i18n import I18nRegistry, Translator
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.i18n_middleware import LocaleMiddleware
 from starlette.testclient import TestClient

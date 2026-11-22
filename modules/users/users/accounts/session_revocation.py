@@ -5,7 +5,7 @@ the cache file stays a cache — no framework imports, no notion of other
 processes — and so the one security-relevant question ("who else still honours
 the sessions this revocation was meant to strand?") is answered in one place.
 
-Before the framework grew an :class:`~simple_module_core.invalidation.InvalidationBus`,
+Before the framework grew an :class:`~simple_module_core.eventing.invalidation.InvalidationBus`,
 a revocation dropped the cached counter in the worker that performed it and
 nowhere else: every other worker kept admitting the revoked sessions until its
 own entry expired (GH #318). Publishing on the bus closes that window wherever a
@@ -20,14 +20,14 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
-from simple_module_core.app_state import get_services
+from simple_module_core.modules.app_state import get_services
 
 from users.accounts.session_version_cache import clear_session_version_cache, forget_session_version
 from users.models import User
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.invalidation import Invalidation, InvalidationBus
+    from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)

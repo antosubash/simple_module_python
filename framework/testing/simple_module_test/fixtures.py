@@ -25,7 +25,7 @@ from collections.abc import AsyncGenerator, Iterator
 
 import httpx
 import pytest
-from simple_module_core.discovery import DEFAULT_AUTH_PROVIDER
+from simple_module_core.modules.discovery import DEFAULT_AUTH_PROVIDER
 from simple_module_db.session import DatabaseState, init_db
 from simple_module_hosting.settings import Settings
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession

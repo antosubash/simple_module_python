@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
-from simple_module_core.settings_hydrate import build_settings, env_supplied_fields
+from simple_module_core.settings.settings_hydrate import build_settings, env_supplied_fields
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting.bootstrap_settings import BootstrapSettings
 from simple_module_hosting.host_settings import HostSettings

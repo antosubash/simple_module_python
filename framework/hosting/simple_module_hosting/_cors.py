@@ -12,7 +12,7 @@ still carries the CORS headers the browser needs to read it.
 
 from __future__ import annotations
 
-from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
+from simple_module_core.web.cors import CorsPolicy, CorsPolicyRegistry
 from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 

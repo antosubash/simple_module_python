@@ -13,7 +13,7 @@ from functools import partial
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db.callbacks import register_on_commit
 from simple_module_hosting.i18n_deps import TranslatorDep
 from simple_module_hosting.permissions import RequiresPermission

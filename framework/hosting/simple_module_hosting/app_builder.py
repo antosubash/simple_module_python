@@ -7,22 +7,26 @@ from collections.abc import Callable, Iterable
 
 from fastapi import APIRouter, FastAPI
 from simple_module_core import CspSourceRegistry
-from simple_module_core.audit_links import AuditLinkRegistry
-from simple_module_core.design_packs import DesignPackRegistry
-from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
-from simple_module_core.events import EventBus
-from simple_module_core.feature_flags import FeatureFlagRegistry
-from simple_module_core.health import HealthRegistry
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.leases import get_leases
-from simple_module_core.menu import MenuRegistry
-from simple_module_core.permissions import PermissionRegistry
-from simple_module_core.principals import build_principal_registry
-from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.resources import ResourceTypeRegistry
-from simple_module_core.services import DiagnosticsState, Services
-from simple_module_core.setup_steps import SetupRegistry
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.access.principals import build_principal_registry
+from simple_module_core.access.resources import ResourceTypeRegistry
+from simple_module_core.access.user_directory import get_user_directory
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.eventing.invalidation import InvalidationBus
+from simple_module_core.modules.discovery import (
+    discover_modules,
+    select_auth_provider,
+    topological_sort,
+)
+from simple_module_core.modules.services import DiagnosticsState, Services
+from simple_module_core.runtime.leases import get_leases
+from simple_module_core.web.audit_links import AuditLinkRegistry
+from simple_module_core.web.design_packs import DesignPackRegistry
+from simple_module_core.web.feature_flags import FeatureFlagRegistry
+from simple_module_core.web.health import HealthRegistry
+from simple_module_core.web.menu import MenuRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
+from simple_module_core.web.setup_steps import SetupRegistry
 from simple_module_db.principals import bind_principal_registry
 from simple_module_db.session import DatabaseState
 from simple_module_db.tenant_cleanup import register_tenant_cleanup

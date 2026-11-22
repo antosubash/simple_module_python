@@ -11,7 +11,7 @@ import pytest
 from alembic import command
 from fastapi import Request
 from fastapi_users.jwt import decode_jwt
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 from simple_module_hosting._preapp_config import merge_host_settings
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.bootstrap_settings import BootstrapSettings

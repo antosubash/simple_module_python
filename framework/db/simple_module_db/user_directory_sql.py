@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Any
 
-from simple_module_core.user_directory import DirectoryUser, chunked, parse_user_ids
+from simple_module_core.access.user_directory import DirectoryUser, chunked, parse_user_ids
 from sqlalchemy import or_
 from sqlalchemy.sql.elements import ColumnElement
 

@@ -146,7 +146,7 @@ class TestItRefusesToDropANamespace:
 
 
 def _registry():
-    from simple_module_core.i18n import I18nRegistry
+    from simple_module_core.localization.i18n import I18nRegistry
 
     reg = I18nRegistry(default_locale="en", supported_locales=["en"])
     reg._messages = {"en": {"host.landing.title": "Hello"}}

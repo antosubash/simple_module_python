@@ -7,10 +7,10 @@ import httpx
 import pytest
 from fastapi import Depends
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.events import Event
-from simple_module_core.rate_limit import RateLimitRule
-from simple_module_core.resources import ResourceType
-from simple_module_core.setup_steps import SetupRegistry
+from simple_module_core.access.resources import ResourceType
+from simple_module_core.eventing.events import Event
+from simple_module_core.web.rate_limit import RateLimitRule
+from simple_module_core.web.setup_steps import SetupRegistry
 from simple_module_hosting import app_builder, shared_props
 from simple_module_hosting._inertia_shared import resolve_inertia_shared
 from simple_module_hosting.permissions import RequiresPermission

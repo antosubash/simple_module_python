@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col

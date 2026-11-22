@@ -11,10 +11,10 @@ import os
 
 from pydantic import Field, model_validator
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.dotenv import env_str
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
-from simple_module_core.settings_base import DbBackedSettings
-from simple_module_core.stored_settings import field_error
+from simple_module_core.settings.dotenv import env_str
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.stored_settings import field_error
 
 from oidc.core.presets import get_preset
 

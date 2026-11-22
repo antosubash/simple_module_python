@@ -30,8 +30,8 @@ from settings.core.constants import VIEW_PREFIX
 from settings.core.exceptions import InternalKeyError
 
 if TYPE_CHECKING:
-    from simple_module_core.invalidation import InvalidationBus
-    from simple_module_core.module_settings import ModuleSettingsRegistry
+    from simple_module_core.eventing.invalidation import InvalidationBus
+    from simple_module_core.settings.module_settings import ModuleSettingsRegistry
 
     from settings.contracts.registry import SettingsRegistry
 

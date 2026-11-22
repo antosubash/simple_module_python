@@ -7,7 +7,7 @@ import logging
 import sys
 from datetime import UTC, datetime
 
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 
 
 class _CorrelationIdFilter(logging.Filter):

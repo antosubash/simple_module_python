@@ -103,7 +103,7 @@ async def test_raw_asyncpg_connect_outage_is_normalized(monkeypatch, error_type)
     import socket
 
     import asyncpg
-    from simple_module_core.leases import Lease
+    from simple_module_core.runtime.leases import Lease
     from sqlalchemy.ext.asyncio import create_async_engine
 
     error = socket.gaierror("DNS unavailable") if error_type == "dns" else ConnectionRefusedError()
@@ -126,7 +126,7 @@ async def test_raw_asyncpg_connect_outage_is_normalized(monkeypatch, error_type)
 @pytest.mark.parametrize("error_name", ["ProgrammingError", "IntegrityError", "DataError"])
 async def test_database_bugs_propagate_unchanged(monkeypatch, error_name):
     import sqlalchemy.exc
-    from simple_module_core.leases import Lease
+    from simple_module_core.runtime.leases import Lease
     from sqlalchemy import event
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -148,7 +148,7 @@ async def test_database_bugs_propagate_unchanged(monkeypatch, error_name):
 async def test_missing_lease_table_is_a_schema_error():
     import sqlite3
 
-    from simple_module_core.leases import Lease
+    from simple_module_core.runtime.leases import Lease
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -238,7 +238,7 @@ async def test_postgres_resource_exhaustion_fails_nonblocking_acquire(
     monkeypatch, wrapped, error_name
 ):
     import asyncpg
-    from simple_module_core.leases import Lease
+    from simple_module_core.runtime.leases import Lease
     from sqlalchemy.exc import DBAPIError
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -263,7 +263,7 @@ async def test_postgres_resource_exhaustion_fails_nonblocking_acquire(
 async def test_real_sqlite_full_fails_nonblocking_acquire():
     import sqlite3
 
-    from simple_module_core.leases import Lease
+    from simple_module_core.runtime.leases import Lease
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 

@@ -9,7 +9,7 @@ happens to be — from ``host/`` the same URL silently pointed at
 The settings layer now anchors relative sqlite paths on the project root
 (``SM_PROJECT_ROOT``, else the directory of the discovered ``.env``), and
 discovers the ``.env`` by walking up from the cwd — via the shared
-``simple_module_core.dotenv.find_env_file``, so ``parse_dotenv`` consumers
+``simple_module_core.settings.dotenv.find_env_file``, so ``parse_dotenv`` consumers
 (diagnostics CLI, worker entrypoints, users bootstrap) resolve the same file
 — so subdirectory invocations see the same database as the app.
 """
@@ -19,7 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file
+from simple_module_core.settings.dotenv import absolutize_sqlite_url, find_env_file
 
 
 class TestAbsolutize:

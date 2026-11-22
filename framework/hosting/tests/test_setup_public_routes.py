@@ -15,7 +15,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_hosting._phase_helpers import attach_public_routes
 
 

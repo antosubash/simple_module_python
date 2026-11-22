@@ -18,7 +18,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from simple_module_core.resources import ResourcePrincipal
+from simple_module_core.access.resources import ResourcePrincipal
 from sqlalchemy import String, cast, func, inspect, or_
 from sqlmodel import exists, select
 

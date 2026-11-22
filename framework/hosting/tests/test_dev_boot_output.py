@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from simple_module_core import ModuleBase, ModuleMeta
 from simple_module_core import __main__ as doctor
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel, _runner
-from simple_module_core.services import DiagnosticsState
+from simple_module_core.modules.services import DiagnosticsState
 from simple_module_hosting import _dev_boot
 from simple_module_hosting._lifespan import build_lifespan
 

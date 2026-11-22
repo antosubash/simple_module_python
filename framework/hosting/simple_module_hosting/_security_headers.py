@@ -11,7 +11,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from simple_module_hosting._csp_dynamic import DynamicCsp
 
 if TYPE_CHECKING:
-    from simple_module_core.csp import CspSourceRegistry
+    from simple_module_core.web.csp import CspSourceRegistry
 
 _SCOPE_HTTP = "http"
 _MSG_RESPONSE_START = "http.response.start"

@@ -1,7 +1,7 @@
 """Stable identifiers for the dashboard module."""
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
 
 PERM_GROUP = "Dashboard"
 

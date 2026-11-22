@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
-from simple_module_core.audit_links import AuditLinkRegistry
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.user_directory import get_user_directory
+from simple_module_core.web.audit_links import AuditLinkRegistry
 from simple_module_db.deps import get_db
 from simple_module_db.pagination import PageParams, clamp_page
 from simple_module_hosting.i18n_deps import TranslatorDep

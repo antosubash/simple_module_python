@@ -11,8 +11,8 @@ import pytest
 from fastapi import Depends
 from feature_flags.core.constants import PERM_FEATURE_FLAGS_MANAGE, PERM_FEATURE_FLAGS_VIEW
 from feature_flags.core.service import FeatureFlagService
-from simple_module_core.feature_flags import FeatureFlagRegistry, require_flag
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
+from simple_module_core.web.feature_flags import FeatureFlagRegistry, require_flag
 
 FLAG = "file_storage.public_uploads"  # default off
 SYSTEM = f"/api/feature_flags/{FLAG}"

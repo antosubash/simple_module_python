@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from simple_module_core.events import Event
+from simple_module_core.eventing.events import Event
 from simple_module_core.user_events import UserDeleted
 
 __all__ = [

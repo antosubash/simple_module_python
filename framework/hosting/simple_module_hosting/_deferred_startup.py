@@ -6,8 +6,8 @@ import asyncio
 import logging
 
 from fastapi import FastAPI
-from simple_module_core.app_state import get_deferred_startup, get_deferred_startup_lock
-from simple_module_core.module_settings import get_module_settings_registry
+from simple_module_core.modules.app_state import get_deferred_startup, get_deferred_startup_lock
+from simple_module_core.settings.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import SessionOverrideSource, settings_table_exists
 
 from simple_module_hosting._hydrate_step import hydrate_all

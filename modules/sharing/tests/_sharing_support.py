@@ -7,8 +7,8 @@ from collections.abc import Collection
 from typing import Any
 
 from sharing.core.policy import share_exists_for
-from simple_module_core.resources import ResourceType, ResourceTypeRegistry
-from simple_module_core.user_directory import DirectoryUser
+from simple_module_core.access.resources import ResourceType, ResourceTypeRegistry
+from simple_module_core.access.user_directory import DirectoryUser
 from simple_module_db.resource_policy import OwnedResourcePolicy, select_by_id
 from sqlmodel import Field, SQLModel
 

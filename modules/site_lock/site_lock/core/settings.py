@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from pydantic import model_validator
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
-from simple_module_core.stored_settings import field_error
+from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.settings.stored_settings import field_error
 
 _BLANK_PASSWORD_MSG = "password must be set before enabling the site lock"
 

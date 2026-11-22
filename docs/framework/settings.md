@@ -154,7 +154,7 @@ settings with any runtime singletons, then registers both from
 ```python
 # modules/orders/orders/settings.py
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 
 class OrdersSettings(DbBackedSettings):
@@ -165,7 +165,7 @@ class OrdersSettings(DbBackedSettings):
 
 ```python
 # modules/orders/orders/module.py
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.settings.module_settings import register_module_settings
 
 
 class OrdersModule(ModuleBase):
@@ -190,9 +190,9 @@ reload and the generic key/value API on top.
 
 | What | Import from |
 |---|---|
-| `register_module_settings`, `ModuleSettingsRegistry`, `module_settings_registry(app)` | `simple_module_core.module_settings` |
-| `hydrate_settings`, `build_settings`, `OverrideSource`, `RELATED_FIELDS_CTX`, field helpers | `simple_module_core.settings_hydrate` |
-| Secret-field masking (`conceals_secret`, `mask`, ...) | `simple_module_core.secret_fields` |
+| `register_module_settings`, `ModuleSettingsRegistry`, `module_settings_registry(app)` | `simple_module_core.settings.module_settings` |
+| `hydrate_settings`, `build_settings`, `OverrideSource`, `RELATED_FIELDS_CTX`, field helpers | `simple_module_core.settings.settings_hydrate` |
+| Secret-field masking (`conceals_secret`, `mask`, ...) | `simple_module_core.settings.secret_fields` |
 | `Setting` model, scope/table constants, `get_overrides_sync`, `hydrate_settings_sync` | `simple_module_db.stored_settings` |
 
 Import directly from the framework locations above. The settings plugin keeps
@@ -272,7 +272,7 @@ This reads the current environment, looks up keys the settings service knows abo
 
 ## Framework state (`app.state.sm`)
 
-Framework singletons — not settings, but long-lived services — live on `app.state.sm`, a frozen `Services` dataclass (defined in `simple_module_core.services`) populated once at boot:
+Framework singletons — not settings, but long-lived services — live on `app.state.sm`, a frozen `Services` dataclass (defined in `simple_module_core.modules.services`) populated once at boot:
 
 ```python
 @dataclass(frozen=True, slots=True)

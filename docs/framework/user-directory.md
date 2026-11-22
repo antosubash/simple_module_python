@@ -4,14 +4,14 @@ Which module holds the user accounts depends on the auth provider: `users`
 keeps them in `users_user`; `keycloak` and `oidc` keep caches of everyone who has signed
 in. A module that only needs to *name* a user, look a few up, search them or
 count them reads them through the **user directory**, a protocol in
-`simple_module_core.user_directory`, and never imports `users.models`. That
+`simple_module_core.access.user_directory`, and never imports `users.models`. That
 keeps it working under any provider instead of silently querying an empty
 table on a Keycloak install (GH #501).
 
 ## Reading users
 
 ```python
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.user_directory import get_user_directory
 
 directory = get_user_directory(request.app)
 found = await directory.get_many(db, ["3f0c…", "celery-worker"])  # {id: DirectoryUser}
@@ -72,7 +72,7 @@ keep working.
 
 ## Role directory
 
-Use `get_role_directory(app)` from `simple_module_core.role_directory` to read
+Use `get_role_directory(app)` from `simple_module_core.access.role_directory` to read
 roles without importing an auth provider's tables (#953). Providers register
 with `set_role_directory(app, directory)` in `register_settings`, just like the
 user directory.
@@ -105,10 +105,10 @@ claim roles through the shared principal builder as before.
 The users edit page shows what an account did lately. That comes from the
 audit log, but `users` and `audit_log` must not import each other (each is
 optional to the other, and importing both ways was a cycle). So
-`simple_module_core.activity_feed` defines an `ActivityFeed` protocol:
+`simple_module_core.access.activity_feed` defines an `ActivityFeed` protocol:
 
 ```python
-from simple_module_core.activity_feed import get_activity_feed
+from simple_module_core.access.activity_feed import get_activity_feed
 
 feed = get_activity_feed(request.app)  # None: nothing records activity
 items = await feed.recent_for_actor(db, user_id, limit=6, permissions=granted)

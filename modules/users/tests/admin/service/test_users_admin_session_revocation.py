@@ -2,7 +2,7 @@
 
 import pytest
 from _users_app_builders import user_row
-from simple_module_core.invalidation import InvalidationBus
+from simple_module_core.eventing.invalidation import InvalidationBus
 from users.accounts.session_revocation import subscribe
 from users.accounts.session_version_cache import (
     clear_session_version_cache,

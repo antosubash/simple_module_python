@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import simple_module_hosting.app_builder as app_builder
 from _resacc_models import POLICY, ResaccDoc
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.resources import ResourceType, ResourceTypeRegistry
+from simple_module_core.access.resources import ResourceType, ResourceTypeRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 from simple_module_db.resource_policy import select_by_id
 from simple_module_hosting.app_builder import create_app
 

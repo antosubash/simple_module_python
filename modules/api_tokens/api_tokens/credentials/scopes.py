@@ -12,8 +12,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from fastapi import Request
-from simple_module_core.permissions import WILDCARD
-from simple_module_core.tenancy import is_tenant_role
+from simple_module_core.access.permissions import WILDCARD
+from simple_module_core.access.tenancy import is_tenant_role
 from simple_module_hosting.permissions import ensure_resolved_permissions
 
 from api_tokens.core.constants import FORBIDDEN_SERVICE_ROLES

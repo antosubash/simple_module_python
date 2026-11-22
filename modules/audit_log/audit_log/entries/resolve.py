@@ -23,9 +23,9 @@ import uuid
 from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
-from simple_module_core.audit_links import AuditLinkRegistry
-from simple_module_core.permissions import grants
-from simple_module_core.user_directory import UserDirectory, resolve_user_labels
+from simple_module_core.access.permissions import grants
+from simple_module_core.access.user_directory import UserDirectory, resolve_user_labels
+from simple_module_core.web.audit_links import AuditLinkRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from audit_log.models import AuditEntry

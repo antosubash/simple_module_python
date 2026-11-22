@@ -14,7 +14,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core.app_state import get_principal_serializer
+from simple_module_core.modules.app_state import get_principal_serializer
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -40,8 +40,8 @@ from simple_module_hosting.permissions import expand_permissions, resolve_reques
 from simple_module_hosting.token_guard import is_token_principal
 
 if TYPE_CHECKING:
-    from simple_module_core.menu import MenuRegistry
-    from simple_module_core.permissions import PermissionRegistry
+    from simple_module_core.access.permissions import PermissionRegistry
+    from simple_module_core.web.menu import MenuRegistry
 
 logger = logging.getLogger(__name__)
 

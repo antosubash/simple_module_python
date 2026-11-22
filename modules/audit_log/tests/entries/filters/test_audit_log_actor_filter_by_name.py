@@ -165,7 +165,7 @@ class TestActorSearchIsNotTruncated:
         """No directory can say who is called that, so the box falls back to
         an id match (a worker name) instead of silently matching nobody."""
         from audit_log.entries.resolve import actor_filter
-        from simple_module_core.user_directory import NullUserDirectory
+        from simple_module_core.access.user_directory import NullUserDirectory
 
         rendered = str(actor_filter(NullUserDirectory(), "celery-worker-1"))
 

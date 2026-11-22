@@ -1,6 +1,6 @@
 """Mail fixtures: capture what the app sends, and never leak a sender between tests.
 
-The process mail sender (``simple_module_core.mail``) is module-level state that
+The process mail sender (``simple_module_core.mailer.mail``) is module-level state that
 an app's ``mail`` module installs on startup, so a test that boots an app would
 otherwise hand its SMTP sender to the next test in the same worker.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from simple_module_core.mail import MailMessage, install_mail_sender
+from simple_module_core.mailer.mail import MailMessage, install_mail_sender
 
 
 class CapturedMail:

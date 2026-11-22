@@ -12,8 +12,8 @@ import os
 import uuid
 
 from pydantic import Field, field_validator, model_validator
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 from users.core._signup_role import _validate_signup_role
 

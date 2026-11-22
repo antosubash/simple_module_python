@@ -15,7 +15,7 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from kombu.utils.json import loads
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession, all_tenants, tenant_context
 from sqlalchemy import Select, func, select, update
 from sqlmodel import col

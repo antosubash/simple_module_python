@@ -16,7 +16,7 @@ from settings.contracts.schemas import SettingScope, SettingUpsert, SettingValue
 from settings.core.constants import INVALIDATION_CHANNEL, PERM_TENANT_EDIT
 from settings.core.service import SettingService
 from settings.web.deps import SettingsDep
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 
 CURRENT = "/api/settings/tenant/current"
 KEY = "demo.greeting"

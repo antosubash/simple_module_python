@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
-from simple_module_core.feature_flags import FeatureFlagRegistry
-from simple_module_core.tenancy import tenant_exists
+from simple_module_core.access.tenancy import tenant_exists
+from simple_module_core.web.feature_flags import FeatureFlagRegistry
 from simple_module_db.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 

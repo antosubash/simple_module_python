@@ -12,13 +12,13 @@ orders = "orders.module:OrdersModule"
 ```
 
 - The **key** (`orders`) is the entry-point name. The explicit selector `ep:orders` can select the module before import; the framework's authoritative name remains `ModuleMeta.name`.
-- The **value** is `<import_path>:<class_name>`. The class must inherit from `simple_module_core.module.ModuleBase` and declare a non-null `meta = ModuleMeta(...)` class attribute.
+- The **value** is `<import_path>:<class_name>`. The class must inherit from `simple_module_core.modules.module.ModuleBase` and declare a non-null `meta = ModuleMeta(...)` class attribute.
 
 Entry points are registered **at install time**, not at import time. After editing a module's `pyproject.toml`, re-run `uv sync --all-packages` (or `make install`) so the installer writes the new metadata to the venv's `*.dist-info/entry_points.txt`.
 
 ## Discovery algorithm
 
-`simple_module_core.discovery.discover_modules()`:
+`simple_module_core.modules.discovery.discover_modules()`:
 
 1. Sorts `importlib.metadata.entry_points(group="simple_module")` by distribution name (empty when unavailable), entry-point name and target value before loading anything.
 2. If every allowlist item is an explicit `ep:<entry_point_name>` selector (case-insensitive), excludes unselected entry points **before** calling `.load()` or constructing anything. An empty list imports nothing. An unqualified metadata name requires loading all candidates, including in mixed lists (see [Disabling modules](#disabling-modules-at-runtime)).
@@ -39,7 +39,7 @@ Failures:
 ## ModuleMeta
 
 ```python
-from simple_module_core.module import ModuleMeta
+from simple_module_core.modules.module import ModuleMeta
 
 meta = ModuleMeta(
     name="Orders",  # PascalCase, globally unique

@@ -10,8 +10,8 @@ import typer
 from fastapi import FastAPI
 from pydantic import Field, field_validator, model_validator
 from settings.cli import app, import_from_env_impl
-from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.module_settings import module_settings_registry
+from simple_module_core.settings.settings_base import DbBackedSettings
 from typer.testing import CliRunner
 from users.core.settings import UsersSettings
 

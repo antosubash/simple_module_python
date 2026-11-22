@@ -19,7 +19,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import RedirectResponse
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db.callbacks import register_on_commit
 from simple_module_db.pagination import PageParams
 from simple_module_hosting.i18n_deps import TranslatorDep

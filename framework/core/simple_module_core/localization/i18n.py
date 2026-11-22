@@ -1,0 +1,198 @@
+"""Internationalization registry and translator."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Mapping
+from pathlib import Path
+from types import MappingProxyType
+
+from simple_module_core.localization._i18n_flatten import flatten_messages, read_catalog
+from simple_module_core.localization._i18n_translator import Translator
+from simple_module_core.localization.i18n_overrides import apply_overrides, load_overrides
+
+__all__ = ["PLURAL_CATEGORIES", "I18nRegistry", "Translator", "flatten_messages"]
+
+logger = logging.getLogger(__name__)
+
+#: CLDR plural categories, in spec order. Used both for runtime resolution and
+#: as the exhaustive suffix set when tools (e.g. the frontend-types emitter)
+#: need to detect plural-variant keys.
+PLURAL_CATEGORIES: tuple[str, ...] = ("zero", "one", "two", "few", "many", "other")
+
+
+class I18nRegistry:
+    """Merged view of all module locale JSON files, keyed by locale.
+
+    Usage::
+
+        registry = I18nRegistry(default_locale="en", supported_locales=["en", "es"])
+        registry.add_source("products", Path("modules/products/products/locales"))
+        registry.load()
+        registry.messages("en")  # {"products.browse.title": "Products", ...}
+    """
+
+    def __init__(self, default_locale: str, supported_locales: list[str]) -> None:
+        self.default_locale = default_locale
+        self.supported_locales = list(supported_locales)
+        self._sources: list[tuple[str, Path, str]] = []
+        self._messages: dict[str, dict[str, str]] = {}
+        # Immutable views into ``_messages`` — handed out by ``messages()`` to
+        # avoid a per-call dict copy. Rebuilt whenever ``load()`` runs.
+        self._message_views: dict[str, MappingProxyType[str, str]] = {}
+        # Plain-dict snapshots for JSON-serializing callers (e.g. Inertia shared
+        # props). Built once per load; handing the same dict out on every request
+        # avoids per-request dict copies that used to dominate allocations on the
+        # Inertia render path.
+        self._message_snapshots: dict[str, dict[str, str]] = {}
+        self._public_snapshots: dict[str, dict[str, str]] = {}
+        self._available_locales: tuple[str, ...] = ()
+        self._available_locales_list: list[str] = []
+        self._empty_view: MappingProxyType[str, str] = MappingProxyType({})
+        self._empty_snapshot: dict[str, str] = {}
+        self._override_dirs: list[Path] = []
+        #: locale -> override keys that matched no catalog key (set by ``load()``).
+        self.unknown_override_keys: dict[str, list[str]] = {}
+        self._loaded = False
+
+    def add_overrides(self, overrides_dir: Path) -> None:
+        """Queue a host directory of ``<locale>.json`` overrides, applied last by ``load()``."""
+        self._override_dirs.append(Path(overrides_dir))
+
+    def add_source(self, namespace: str, locale_dir: Path, *, audience: str = "public") -> None:
+        """Queue a module's locale directory for loading under a namespace.
+
+        ``audience="admin"`` keeps the namespace out of the public snapshot
+        (:meth:`messages_snapshot` with ``include_admin=False``) so catalogs
+        for login-gated UI aren't shipped to anonymous visitors. Server-side
+        lookups (:meth:`messages`) always see every namespace.
+        """
+        self._sources.append((namespace, Path(locale_dir), audience))
+
+    def load(self) -> None:
+        """Read and flatten all registered JSON files.
+
+        Missing <locale>.json files for declared supported_locales log a
+        warning but do not raise. Malformed JSON raises ValueError.
+        """
+        self._messages = {locale: {} for locale in self.supported_locales}
+        public_messages: dict[str, dict[str, str]] = {
+            locale: {} for locale in self.supported_locales
+        }
+
+        for namespace, locale_dir, audience in self._sources:
+            for locale in self.supported_locales:
+                path = locale_dir / f"{locale}.json"
+                if not path.is_file():
+                    logger.warning(
+                        "Missing locale file for namespace '%s': %s",
+                        namespace,
+                        path,
+                    )
+                    continue
+                flat = flatten_messages(read_catalog(path), prefix=namespace)
+                self._messages[locale].update(flat)
+                if audience != "admin":
+                    public_messages[locale].update(flat)
+
+        self.unknown_override_keys = {}
+        for overrides_dir in self._override_dirs:
+            for locale in self.supported_locales:
+                skipped = apply_overrides(
+                    load_overrides(overrides_dir, locale),
+                    self._messages[locale],
+                    public_messages[locale],
+                    default_messages=self._messages.get(self.default_locale),
+                    default_public=public_messages.get(self.default_locale),
+                )
+                if skipped:
+                    self.unknown_override_keys.setdefault(locale, []).extend(skipped)
+                    logger.warning(
+                        "Ignoring host overrides for unknown keys (%s): %s", locale, skipped
+                    )
+
+        # Cache the derived views now that loading is complete. Downstream
+        # (middleware, translator, switcher) reads these on every request.
+        self._message_views = {
+            locale: MappingProxyType(msgs) for locale, msgs in self._messages.items()
+        }
+        # Plain-dict snapshots for serialization callers. ``dict(msgs)`` runs
+        # once here rather than on every Inertia render. The public variant
+        # (admin namespaces excluded) is what anonymous visitors receive.
+        #
+        # Each non-default locale layers over the default one, so a key it has
+        # not translated yet resolves to the default language instead of
+        # reaching the browser missing. The client cannot recover on its own:
+        # i18next is initialised with ``fallbackLng`` equal to the active
+        # locale, so an absent key renders as the raw dotted key — a partially
+        # translated locale would put "dashboard.home.health" on screen. The
+        # server-side ``Translator`` has always fallen back this way; this
+        # makes the payload behave the same, and makes partial translations a
+        # safe, incremental state to be in.
+        self._message_snapshots = self._layered_snapshots(self._messages)
+        self._public_snapshots = self._layered_snapshots(public_messages)
+        self._available_locales = tuple(locale for locale, msgs in self._messages.items() if msgs)
+        self._available_locales_list = list(self._available_locales)
+        self._loaded = True
+
+    def available_locales(self) -> list[str]:
+        """Locales that have at least one loaded message.
+
+        The list is cached at ``load()`` time; if ``load()`` hasn't run but
+        tests populated ``_messages`` directly, a one-off scan returns the
+        derived list without caching it (the test is outside the normal flow).
+        """
+        if self._loaded:
+            return self._available_locales_list
+        return [locale for locale, msgs in self._messages.items() if msgs]
+
+    def _layered_snapshots(self, messages: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
+        """Snapshot per locale, each layered over the default locale's."""
+        base = messages.get(self.default_locale, {})
+        return {
+            locale: dict(msgs)
+            if locale == self.default_locale
+            else {**base, **msgs}  # translated entries win; the rest read as default
+            for locale, msgs in messages.items()
+        }
+
+    def messages(self, locale: str) -> Mapping[str, str]:
+        """Flat dotted-key map for the given locale. Empty mapping if unknown.
+
+        Returns an immutable view (``MappingProxyType``) into the cached
+        message dict — zero-copy. Callers that JSON-serialize the result
+        should use :meth:`messages_snapshot` instead.
+        """
+        view = self._message_views.get(locale)
+        if view is not None:
+            return view
+        # Fallback: ``load()`` wasn't called (tests may populate _messages
+        # directly). Expose the raw dict as a proxy so Translator still works.
+        raw = self._messages.get(locale)
+        if raw is None:
+            return self._empty_view
+        return MappingProxyType(raw)
+
+    def messages_snapshot(self, locale: str, *, include_admin: bool = True) -> dict[str, str]:
+        """Plain-dict snapshot for callers that JSON-serialize the result.
+
+        Built once at :meth:`load` time and handed out by reference on every
+        call. Callers must treat it as read-only — mutating the returned dict
+        corrupts subsequent responses. Used by the Inertia shared-props builder
+        where it sits on the request hot path; prior to this method,
+        ``dict(messages(locale))`` per request was the top own-code allocator.
+
+        ``include_admin=False`` returns the variant without ``audience="admin"``
+        namespaces — what anonymous visitors are served.
+        """
+        pool = self._message_snapshots if include_admin else self._public_snapshots
+        snapshot = pool.get(locale)
+        if snapshot is not None:
+            return snapshot
+        # Fallback for tests that skip ``load()``: synthesize the snapshot on
+        # demand from whatever ``_messages`` holds (audience information only
+        # exists for sources that went through ``load()``).
+        raw = self._messages.get(locale)
+        if raw is None:
+            return self._empty_snapshot
+        return dict(raw)

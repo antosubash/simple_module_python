@@ -9,7 +9,7 @@ so sorting ``BackgroundTasks`` ahead of ``Users`` changes nothing.
 from __future__ import annotations
 
 from background_tasks.module import BackgroundTasksModule
-from simple_module_core.discovery import topological_sort
+from simple_module_core.modules.discovery import topological_sort
 from users.accounts.session_revocation import CHANNEL
 from users.module import UsersModule
 

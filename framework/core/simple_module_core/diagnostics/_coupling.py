@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 FRAMEWORK_PACKAGES = ("simple_module_core", "simple_module_hosting", "simple_module_db")
 

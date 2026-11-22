@@ -7,8 +7,8 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from permissions.grants.source import CHANNEL, direct_grant_source, subscribe
 from permissions.models import Base, UserPermission
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.eventing.invalidation import InvalidationBus
 from simple_module_db.session import init_db
 from simple_module_hosting.permissions import RequiresPermission
 from sqlalchemy import delete

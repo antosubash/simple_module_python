@@ -1,4 +1,4 @@
-"""Redis :class:`~simple_module_core.leases.LeaseBackend` (GH #539).
+"""Redis :class:`~simple_module_core.runtime.leases.LeaseBackend` (GH #539).
 
 A lease uses ``SET key token NX PX ttl`` with token-checked Lua scripts;
 a semaphore uses a sorted set scored by Redis ``TIME``. Unavailable Redis raises

@@ -17,7 +17,7 @@ tile on the dashboard's per-module health strip — those are keyed by
 
 from __future__ import annotations
 
-from simple_module_core.health import HealthCheck, HealthCheckResult, HealthStatus
+from simple_module_core.web.health import HealthCheck, HealthCheckResult, HealthStatus
 from sqlalchemy import text
 
 CHECK_DATABASE = "host.database"

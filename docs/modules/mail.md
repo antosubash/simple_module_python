@@ -1,6 +1,6 @@
 # mail
 
-Outgoing mail for the app. The module owns a registry of transports, including SMTP through `aiosmtplib` and a `console` backend that logs each message. Sending modules use `simple_module_core.mail`, which works whether or not this module is installed. Transport-provider modules depend on `Mail` and register through `mail.contracts`.
+Outgoing mail for the app. The module owns a registry of transports, including SMTP through `aiosmtplib` and a `console` backend that logs each message. Sending modules use `simple_module_core.mailer.mail`, which works whether or not this module is installed. Transport-provider modules depend on `Mail` and register through `mail.contracts`.
 
 ## ModuleMeta
 
@@ -66,10 +66,10 @@ from types import SimpleNamespace
 import httpx
 from mail.contracts import register_mail_transport
 from pydantic import SecretStr
-from simple_module_core.mail import MailMessage, validate_mail_headers
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.mailer.mail import MailMessage, validate_mail_headers
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 MODULE_MAIL = "Mail"
 PACKAGE = "http_mail"
@@ -145,7 +145,7 @@ both senders, leaving `resolve_mail_sender(db)` to use the installed resolver.
 ## Sending mail from a module
 
 ```python
-from simple_module_core.mail import MailMessage, current_mail_sender
+from simple_module_core.mailer.mail import MailMessage, current_mail_sender
 
 sender = current_mail_sender()
 await sender.send(MailMessage(to="a@example.com", subject="Hi", text="Plain body"))
@@ -243,7 +243,7 @@ Pass a list or tuple of `MailAttachment` SQLModel DTOs. For example, attach an
 iCalendar event to a registration confirmation:
 
 ```python
-from simple_module_core.mail import MailAttachment, MailMessage, current_mail_sender
+from simple_module_core.mailer.mail import MailAttachment, MailMessage, current_mail_sender
 
 calendar = (
     "BEGIN:VCALENDAR\r\n"
@@ -274,7 +274,7 @@ await current_mail_sender().send(
 `filename` must be nonempty and cannot contain `/`, `\`, control characters, or
 be `.` or `..`. `content_type` must be a MIME `type/subtype` without parameters;
 structured `message/*` and `multipart/*` types are not supported.
-Content is bytes; `MAX_ATTACHMENT_BYTES` in `simple_module_core.mail` caps the
+Content is bytes; `MAX_ATTACHMENT_BYTES` in `simple_module_core.mailer.mail` caps the
 combined raw attachment content at **10 MiB** per message. Invalid metadata or
 an oversized total raises `ValueError` at construction. The attachment DTO is
 frozen and the message copies its attachments into a tuple.

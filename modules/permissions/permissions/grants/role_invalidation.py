@@ -1,8 +1,8 @@
 """Reload committed role grants in every worker, preserving code-registered mappings."""
 
 from fastapi import FastAPI
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.invalidation_refresh import InvalidationRefresh
+from simple_module_core.eventing.invalidation import InvalidationBus
+from simple_module_core.eventing.invalidation_refresh import InvalidationRefresh
 
 from permissions.core.service import PermissionService
 

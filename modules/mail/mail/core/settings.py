@@ -1,7 +1,7 @@
 """Mail module settings — DB-backed via ``register_module_settings``.
 
 ``smtp_password`` is masked by the settings UI because its name matches the
-secret-field pattern (``simple_module_core.secret_fields.is_secret_field``).
+secret-field pattern (``simple_module_core.settings.secret_fields.is_secret_field``).
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import SettingsConfigDict
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.settings.settings_base import DbBackedSettings
 
 from mail.core import constants as c
 from mail.core.transports import TRANSPORT_NAMES

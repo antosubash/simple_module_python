@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.tenancy import TenantRole
 
 CSRF = "csrf-test-token"
 CSRF_HEADERS = {"X-CSRF-Token": CSRF}

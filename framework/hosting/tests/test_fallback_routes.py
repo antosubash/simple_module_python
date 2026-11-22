@@ -11,7 +11,7 @@ import pytest
 from fastapi import APIRouter, Depends, Request
 from fastapi.routing import iter_route_contexts
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.spa_mount import SpaMount
+from simple_module_core.web.spa_mount import SpaMount
 from simple_module_db.tenancy import current_tenant_id
 from simple_module_hosting import app_builder
 from simple_module_hosting.csrf import RequiresCsrf, get_csrf_token

@@ -10,15 +10,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, FastAPI
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.web.public_routes import PublicRouteRegistry
 
 from branding.core import constants
 from branding.core.constants import MENU_URL
 
 if TYPE_CHECKING:
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
 
 
 class BrandingModule(ModuleBase):
@@ -35,7 +35,7 @@ class BrandingModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from simple_module_core.module_settings import register_module_settings
+        from simple_module_core.settings.module_settings import register_module_settings
 
         from branding.core.services import BrandingServices
         from branding.core.settings import BrandingSettings

@@ -9,8 +9,13 @@ from __future__ import annotations
 
 import pytest
 from fastapi import Request
-from simple_module_core.permissions import ADMIN_ROLE, WILDCARD
-from simple_module_core.tenancy import TENANT_ROLE_PREFIX, TenantRole, is_tenant_role, tenant_role
+from simple_module_core.access.permissions import ADMIN_ROLE, WILDCARD
+from simple_module_core.access.tenancy import (
+    TENANT_ROLE_PREFIX,
+    TenantRole,
+    is_tenant_role,
+    tenant_role,
+)
 from simple_module_hosting.permissions import resolved_permissions_for
 from tenants.core.constants import ROLE_PERMISSIONS
 from users.models import Role

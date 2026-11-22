@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from simple_module_core.permissions import grants
-from simple_module_core.resources import ACTION_VIEW
+from simple_module_core.access.permissions import grants
+from simple_module_core.access.resources import ACTION_VIEW
 from simple_module_db import RequestSession, current_tenant_id
 from simple_module_db.deps import get_db
 from simple_module_db.resource_policy import load_authorized

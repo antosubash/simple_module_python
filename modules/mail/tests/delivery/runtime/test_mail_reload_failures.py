@@ -10,12 +10,12 @@ from mail.core.state import MailState
 from mail.module import MailModule
 from settings.contracts.events import SettingsReloaded
 from settings.core.invalidation import reload_package
-from simple_module_core import mail as core_mail
-from simple_module_core.events import EventBus
-from simple_module_core.health import HealthStatus
-from simple_module_core.invalidation import InvalidationBus
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.settings_base import DbBackedSettings
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.eventing.invalidation import InvalidationBus
+from simple_module_core.mailer import mail as core_mail
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.settings.settings_base import DbBackedSettings
+from simple_module_core.web.health import HealthStatus
 from simple_module_test.mail import CapturedMail
 
 

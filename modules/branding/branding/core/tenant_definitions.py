@@ -29,7 +29,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
-from simple_module_core.app_state import get_design_packs
+from simple_module_core.modules.app_state import get_design_packs
 
 from branding.core.constants import (
     IMAGE_KEY_GENERIC_WRITE_ERROR,

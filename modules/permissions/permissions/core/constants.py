@@ -7,8 +7,8 @@ permissions should use Permissions members rather than duplicating the string.
 
 from __future__ import annotations
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
 
 PERMISSION_GROUP = "Permissions"
 

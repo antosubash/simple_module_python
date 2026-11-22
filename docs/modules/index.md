@@ -19,7 +19,7 @@ simple_module_python ships with seventeen first-party modules. Each is a regular
 | [`dashboard`](/modules/dashboard) | `users` | Authenticated landing page with system overview (user counts, module list, health checks). |
 | [`tenants`](/modules/tenants) | `auth`, `settings` | SaaS organisations: tenants, many-to-many memberships with per-tenant roles, invitations, the membership-validated tenant resolver, and the entitlement/lifecycle seams billing plugs into. |
 | [`site_lock`](/modules/site_lock) | `settings`, `auth` | Optional site-wide shared-password gate for staging / pre-launch sites. Off by default. |
-| [`mail`](/modules/mail) | `settings` | Outgoing mail transport: SMTP (aiosmtplib) or a logging console backend, DB-backed settings, live reload, `mail.mailer` connection check. Other modules send through `simple_module_core.mail`. |
+| [`mail`](/modules/mail) | `settings` | Outgoing mail transport: SMTP (aiosmtplib) or a logging console backend, DB-backed settings, live reload, `mail.mailer` connection check. Other modules send through `simple_module_core.mailer.mail`. |
 | [`sharing`](/modules/sharing) | — | Optional generic share table for [resource-scoped access](/framework/resource-access): grant a user `view` / `edit` on one row of another module, with expiry; grant/revoke API and an admin page. |
 
 ## How modules are wired in
@@ -31,7 +31,7 @@ Every module declares an entry point in its `pyproject.toml`:
 users = "users.module:UsersModule"
 ```
 
-At boot, `simple_module_core.discovery.discover_modules()` loads them, sorts them topologically by `ModuleMeta.depends_on`, and the host invokes their lifecycle hooks in order — see [discovery](/framework/discovery) and [lifecycle hooks](/framework/lifecycle).
+At boot, `simple_module_core.modules.discovery.discover_modules()` loads them, sorts them topologically by `ModuleMeta.depends_on`, and the host invokes their lifecycle hooks in order — see [discovery](/framework/discovery) and [lifecycle hooks](/framework/lifecycle).
 
 ## What each page covers
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from simple_module_core.user_directory import GET_MANY_CHUNK, get_user_directory
+from simple_module_core.access.user_directory import GET_MANY_CHUNK, get_user_directory
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.core.directory import UsersDirectory
 from users.models import Role, User, UserRole

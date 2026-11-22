@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-from simple_module_core.module_settings import register_module_settings
+from simple_module_core.settings.module_settings import register_module_settings
 
 from simple_module_hosting._host_services import _HostServices
 from simple_module_hosting._preapp_config import HOST_PACKAGE

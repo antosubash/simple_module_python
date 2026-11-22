@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 
-from simple_module_core.setup_steps import SetupAction, SetupField, SetupStep
+from simple_module_core.web.setup_steps import SetupAction, SetupField, SetupStep
 from sqlalchemy import select
 
 from users.models import User

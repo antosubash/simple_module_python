@@ -18,7 +18,7 @@ from sharing.contracts.schemas import ShareGrant
 from sharing.core.constants import PERM_MANAGE
 from sharing.core.service import SharingError, SharingService
 from sharing.models import ResourceShare
-from simple_module_core.resources import (
+from simple_module_core.access.resources import (
     ACTION_EDIT,
     ACTION_SHARE,
     ACTION_VIEW,

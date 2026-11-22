@@ -30,9 +30,9 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 from pydantic_settings import BaseSettings
-from simple_module_core.dotenv import parse_dotenv
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
-from simple_module_core.stored_settings import construct_leniently, parse_stored_value
+from simple_module_core.settings.dotenv import parse_dotenv
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.stored_settings import construct_leniently, parse_stored_value
 from simple_module_db.provider import detect_provider
 from simple_module_db.stored_settings import (
     COL_KEY,

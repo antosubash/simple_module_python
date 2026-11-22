@@ -17,7 +17,7 @@ def default_api_version() -> str:
     import tomllib
     from importlib.metadata import PackageNotFoundError, version
 
-    from simple_module_core.dotenv import find_env_file
+    from simple_module_core.settings.dotenv import find_env_file
 
     try:
         return version("simple-module-host")

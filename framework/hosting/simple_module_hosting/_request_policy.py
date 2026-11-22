@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from simple_module_core.cors import CorsPolicy
-from simple_module_core.rate_limit import RateSpec, parse_rate
+from simple_module_core.web.cors import CorsPolicy
+from simple_module_core.web.rate_limit import RateSpec, parse_rate
 from starlette.types import Scope
 
 from simple_module_hosting.host_settings import HostSettings

@@ -24,25 +24,25 @@ import os
 import sys
 from pathlib import Path
 
-from simple_module_core._data_doctor import data_compatibility_diagnostics
-from simple_module_core._migration_doctor import migration_diagnostics
 from simple_module_core.diagnostics import (
     Diagnostic,
     DiagnosticLevel,
     print_diagnostics,
     run_diagnostics,
 )
+from simple_module_core.diagnostics._data_doctor import data_compatibility_diagnostics
 from simple_module_core.diagnostics._dependencies import CODE as MISSING_DEPENDENCY_CODE
 from simple_module_core.diagnostics._expression_index import sqlite_file_index_names
 from simple_module_core.diagnostics._i18n import unknown_overrides_for
-from simple_module_core.discovery import (
+from simple_module_core.diagnostics._migration_doctor import migration_diagnostics
+from simple_module_core.modules.discovery import (
     discover_modules,
     resolve_auth_provider,
     select_auth_provider,
     topological_sort,
 )
-from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file, parse_dotenv
-from simple_module_core.exceptions import InvalidModuleError
+from simple_module_core.runtime.exceptions import InvalidModuleError
+from simple_module_core.settings.dotenv import absolutize_sqlite_url, find_env_file, parse_dotenv
 
 
 def _load_i18n_settings_from_env() -> tuple[list[str] | None, str]:

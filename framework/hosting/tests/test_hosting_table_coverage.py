@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 import sqlalchemy as sa
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-from simple_module_core.services import DiagnosticsState
+from simple_module_core.modules.services import DiagnosticsState
 from simple_module_hosting import _table_coverage
 from simple_module_hosting._table_coverage import add_table_coverage
 from sqlalchemy.ext.asyncio import create_async_engine

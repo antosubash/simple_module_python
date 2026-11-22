@@ -208,7 +208,7 @@ async def test_first_administrator_refreshes_the_roles_cache(setup_pending_app) 
 
 async def test_roles_changed_empties_every_subscribed_cache(setup_pending_app) -> None:
     """Another worker's cache is emptied through the bus, then refills lazily."""
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
     from users.core import roles_cache
 
     await roles_cache.refresh_roles_cache(setup_pending_app)

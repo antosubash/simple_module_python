@@ -25,7 +25,7 @@ import logging
 import threading
 from typing import Any
 
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import init_db
 from simple_module_db.listeners import attach_session_listeners
 from simple_module_db.principals import bind_principal_registry
@@ -114,7 +114,7 @@ def use_bus(bus: EventBus | None) -> None:
 
 def build_worker_bus() -> EventBus:
     """An ``EventBus`` carrying every installed module's subscriptions."""
-    from simple_module_core.discovery import discover_modules, topological_sort
+    from simple_module_core.modules.discovery import discover_modules, topological_sort
 
     bus = EventBus()
     register_tenant_cleanup(bus)

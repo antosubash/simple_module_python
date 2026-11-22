@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from simple_module_core.leases import InProcessLeaseBackend, LeaseBackend, configure_leases
+from simple_module_core.runtime.leases import InProcessLeaseBackend, LeaseBackend, configure_leases
 from simple_module_db.leases import DbLeaseBackend
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.pool import NullPool

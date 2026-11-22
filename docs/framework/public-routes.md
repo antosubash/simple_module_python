@@ -144,7 +144,7 @@ want the exemption to travel with the module that owns the route.
 
 ## Where it lives
 
-- `PublicRoute` / `PublicRouteRegistry` — `simple_module_core.public_routes`
+- `PublicRoute` / `PublicRouteRegistry` — `simple_module_core.web.public_routes`
 - The hook — `ModuleBase.register_public_routes`
 - Wiring — `simple_module_hosting.app_builder.create_app` populates the
   registry and publishes it at `app.state.public_routes` (also

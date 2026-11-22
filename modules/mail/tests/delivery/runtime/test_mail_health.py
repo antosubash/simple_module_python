@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from mail.delivery.runtime import check_smtp
 from mail.delivery.sender import SmtpMailSender
-from simple_module_core import mail as core_mail
-from simple_module_core.health import HealthStatus
-from simple_module_core.mail import ConsoleMailSender
+from simple_module_core.mailer import mail as core_mail
+from simple_module_core.mailer.mail import ConsoleMailSender
+from simple_module_core.web.health import HealthStatus
 
 
 async def test_console_is_healthy_without_a_connection() -> None:

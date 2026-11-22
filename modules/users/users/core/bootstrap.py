@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from fastapi import FastAPI
 from fastapi_users.password import PasswordHelper
-from simple_module_core.dotenv import parse_dotenv
+from simple_module_core.settings.dotenv import parse_dotenv
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col

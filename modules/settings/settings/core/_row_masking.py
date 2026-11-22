@@ -2,14 +2,15 @@
 
 Split out of ``service`` so the "is this a secret, and is this write the mask
 being echoed back?" question lives in one file, next to the field-level rules in
-``simple_module_core.secret_fields`` that it delegates to. ``service`` imports these; nothing else
+``simple_module_core.settings.secret_fields`` that it delegates to.
+``service`` imports these; nothing else
 should need to, because the point of funnelling every read through ``out`` is
 that there is no second way to serialize a row.
 """
 
 from __future__ import annotations
 
-from simple_module_core.secret_fields import conceals_secret
+from simple_module_core.settings.secret_fields import conceals_secret
 from simple_module_db.stored_settings import Setting
 
 from settings.contracts.schemas import SettingOut

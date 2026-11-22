@@ -218,7 +218,7 @@ def package_update(
     from simple_module_cli.commands.update_cmd import run_update as update
 
     try:
-        from simple_module_core.deprecation import deprecate
+        from simple_module_core.runtime.deprecation import deprecate
     except ImportError:
         import warnings
 

@@ -21,8 +21,8 @@ from typing import NamedTuple
 
 from fastapi import FastAPI
 from fastapi.routing import iter_route_contexts
-from simple_module_core.app_state import get_openapi_url
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
+from simple_module_core.modules.app_state import get_openapi_url
 
 from simple_module_hosting.public_access import is_public
 from simple_module_hosting.token_guard import (

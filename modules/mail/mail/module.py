@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core.health import HealthCheck, HealthRegistry
-from simple_module_core.mail import install_mail_resolver, install_mail_sender
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.mailer.mail import install_mail_resolver, install_mail_sender
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.health import HealthCheck, HealthRegistry
 
 from mail.core import constants as c
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.data_compatibility import DataCompatibilityIssue
-    from simple_module_core.events import EventBus
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
+    from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
 
 
 class MailModule(ModuleBase):
@@ -25,7 +25,7 @@ class MailModule(ModuleBase):
     )
 
     def register_settings(self, app: FastAPI) -> None:
-        from simple_module_core.module_settings import register_module_settings
+        from simple_module_core.settings.module_settings import register_module_settings
 
         from mail.core.settings import MailSettings
         from mail.core.state import MailState
@@ -76,7 +76,7 @@ class MailModule(ModuleBase):
 
     def register_invalidations(self, bus: InvalidationBus, app: FastAPI) -> None:
         from settings.core.invalidation import CHANNEL
-        from simple_module_core.invalidation_refresh import InvalidationRefresh
+        from simple_module_core.eventing.invalidation_refresh import InvalidationRefresh
 
         from mail.delivery.runtime import install_app_sender
 

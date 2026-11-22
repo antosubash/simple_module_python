@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from branding.core.constants import MENU_URL
 from branding.module import BrandingModule
-from simple_module_core.menu import MenuRegistry, MenuSection
+from simple_module_core.web.menu import MenuRegistry, MenuSection
 
 
 def test_branding_menu_item_is_in_admin_sidebar() -> None:

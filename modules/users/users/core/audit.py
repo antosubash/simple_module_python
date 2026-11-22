@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from simple_module_core.audit_links import AuditLink
-from simple_module_core.user_directory import resolve_user_labels as _labels_via
+from simple_module_core.access.user_directory import resolve_user_labels as _labels_via
+from simple_module_core.web.audit_links import AuditLink
 
 from users.core.constants import Permissions
 from users.core.directory import UsersDirectory

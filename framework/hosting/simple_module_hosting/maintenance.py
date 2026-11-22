@@ -12,8 +12,8 @@ is flipped must still be able to sign in.
 
 from __future__ import annotations
 
-from simple_module_core.app_state import get_host_services
-from simple_module_core.permissions import is_admin_principal
+from simple_module_core.access.permissions import is_admin_principal
+from simple_module_core.modules.app_state import get_host_services
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send

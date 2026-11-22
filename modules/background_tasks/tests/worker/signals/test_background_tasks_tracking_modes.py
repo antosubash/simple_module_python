@@ -177,7 +177,7 @@ def test_db_hydration_and_frozen_publish_settings(monkeypatch):
     from background_tasks.core.settings import BackgroundTasksSettings
     from background_tasks.worker import _signal_support, celery_app
     from celery import current_app
-    from simple_module_core.settings_hydrate import build_settings, env_supplied_fields
+    from simple_module_core.settings.settings_hydrate import build_settings, env_supplied_fields
 
     monkeypatch.setenv("SM_BG_TASKS_EXECUTION_TRACKING", "off")
     monkeypatch.setenv("SM_BG_TASKS_TRACK_PUBLISH", "true")

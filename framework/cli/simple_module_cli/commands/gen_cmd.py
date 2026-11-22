@@ -40,7 +40,7 @@ def _sync_deps(client: Path, deps: dict[str, dict[str, str]]) -> None:
 
 def run_generation(project_root: Path | None = None) -> list[str]:
     from simple_module_core import discover_modules, get_module_package_name, select_auth_provider
-    from simple_module_core.dotenv import load_dotenv_into_environ
+    from simple_module_core.settings.dotenv import load_dotenv_into_environ
     from simple_module_hosting._i18n_modules import module_key_outputs
     from simple_module_hosting._i18n_target import app_i18n_dir, resolve_i18n_types_dir
     from simple_module_hosting.admin_surfaces import render_admin_surfaces

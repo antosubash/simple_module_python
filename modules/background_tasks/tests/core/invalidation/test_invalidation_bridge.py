@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from background_tasks.core.invalidation import RedisInvalidationTransport
-from simple_module_core.invalidation import Invalidation, InvalidationBus
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
 from simple_module_test import wait_for
 
 

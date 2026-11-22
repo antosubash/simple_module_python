@@ -9,8 +9,8 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
-from simple_module_core.module_settings import get_module_settings_registry
-from simple_module_core.secret_fields import conceals_secret, mask
+from simple_module_core.settings.module_settings import get_module_settings_registry
+from simple_module_core.settings.secret_fields import conceals_secret, mask
 
 
 def _from_definition(definition) -> dict[str, Any]:

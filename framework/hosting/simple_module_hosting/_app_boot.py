@@ -7,12 +7,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
-from simple_module_core.design_packs import DesignPackRegistry
-from simple_module_core.feature_flags import FeatureFlagRegistry
-from simple_module_core.health import HealthRegistry
-from simple_module_core.menu import MenuRegistry
-from simple_module_core.permissions import PermissionRegistry
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.web.design_packs import DesignPackRegistry
+from simple_module_core.web.feature_flags import FeatureFlagRegistry
+from simple_module_core.web.health import HealthRegistry
+from simple_module_core.web.menu import MenuRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_db.listeners import register_listeners
 from simple_module_db.query_stats import install_query_stats
 from simple_module_db.session import DatabaseState, init_db

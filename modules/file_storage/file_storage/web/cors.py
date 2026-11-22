@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from simple_module_core.cors import WILDCARD, CorsPolicy, CorsPolicyRegistry
+from simple_module_core.web.cors import WILDCARD, CorsPolicy, CorsPolicyRegistry
 
 from file_storage.core import constants
 from file_storage.web.cookieless import PUBLIC_PATH_PATTERN

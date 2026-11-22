@@ -152,7 +152,7 @@ class TestRecentActivity:
         The card reads the core activity feed that ``audit_log`` installs
         (GH #501); an app built without the module has none.
         """
-        from simple_module_core.activity_feed import get_activity_feed, set_activity_feed
+        from simple_module_core.access.activity_feed import get_activity_feed, set_activity_feed
 
         feed = get_activity_feed(users_app)
         assert feed is not None, "audit_log installed no feed, so this proves nothing"

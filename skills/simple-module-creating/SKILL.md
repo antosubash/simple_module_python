@@ -102,7 +102,7 @@ orders = "orders.module:OrdersModule"
 
 ```python
 # modules/orders/orders/module.py
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 
 
 class OrdersModule(ModuleBase):
@@ -148,7 +148,7 @@ In execution order — defaults discover conventional routers and register `Modu
 
 | Hook | Use it for |
 |---|---|
-| `register_settings(app)` | `register_module_settings(app, "<pkg>", SettingsCls, factory)` (from `simple_module_core.module_settings`): DB-hydrated settings on `app.state.<lower_name>` |
+| `register_settings(app)` | `register_module_settings(app, "<pkg>", SettingsCls, factory)` (from `simple_module_core.settings.module_settings`): DB-hydrated settings on `app.state.<lower_name>` |
 | `register_menu_items(registry)` | Sidebar / navbar entries |
 | `register_permissions(registry)` | Defaults to the `PermissionCatalogue` on `permissions`; overrides extend with `super()` |
 | `register_feature_flags(registry)` | `FeatureFlagDefinition` constants |

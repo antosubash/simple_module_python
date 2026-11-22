@@ -2,8 +2,12 @@
 
 from typing import Any
 
-from simple_module_core.discovery import discover_modules, select_auth_provider, topological_sort
-from simple_module_core.principals import PrincipalRegistry, build_principal_registry
+from simple_module_core.access.principals import PrincipalRegistry, build_principal_registry
+from simple_module_core.modules.discovery import (
+    discover_modules,
+    select_auth_provider,
+    topological_sort,
+)
 
 _host_settings: Any = None
 _app_registry: PrincipalRegistry | None = None

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Final
 
-from simple_module_core.deprecation import deprecate
-from simple_module_core.permissions import PermissionCatalogue
+from simple_module_core.access.permissions import PermissionCatalogue
+from simple_module_core.runtime.deprecation import deprecate
 
 # Re-exported (#500): these now live with the table in the framework.
 from simple_module_db.stored_settings import (  # noqa: F401
@@ -48,7 +48,7 @@ LOCALE_NAMESPACE: Final = MODULE_PACKAGE
 ALL_SCOPES: Final = (SCOPE_SYSTEM, SCOPE_TENANT, SCOPE_USER)
 
 # ── Secrets ──────────────────────────────────────────────────────────
-# The sensitive-key allowlist lives in ``simple_module_core.secret_fields``.
+# The sensitive-key allowlist lives in ``simple_module_core.settings.secret_fields``.
 SENSITIVE_PLACEHOLDER: Final = "********"
 
 # ── Routing ──────────────────────────────────────────────────────────

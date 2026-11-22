@@ -16,7 +16,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import exceptions as fu_exceptions
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
 from simple_module_db.deps import get_db
 from simple_module_db.transaction import rollback_session
 from simple_module_hosting.auth_policy import session_cookie_is_secure

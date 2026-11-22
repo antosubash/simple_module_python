@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from jinja2 import Environment, FileSystemLoader
-from simple_module_core.csp import CspSourceRegistry
+from simple_module_core.web.csp import CspSourceRegistry
 from simple_module_hosting.middleware import SecurityHeadersMiddleware
 from simple_module_inertia.assets.templating import InertiaContext, InertiaExtension
 from starlette.applications import Starlette

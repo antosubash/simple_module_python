@@ -28,7 +28,7 @@ import time
 from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
-from simple_module_core.correlation import correlation_id
+from simple_module_core.runtime.correlation import correlation_id
 
 from simple_module_hosting.sentry_scrub import REDACTED, is_sensitive_key, scrub, scrub_text
 

@@ -3,8 +3,8 @@
 import pytest
 from feature_flags.core.service import FeatureFlagService
 from feature_flags.models import FeatureFlagOverride
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
-from simple_module_core.invalidation import Invalidation
+from simple_module_core.eventing.invalidation import Invalidation
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 from simple_module_db.transaction import finalize_session, rollback_session
 
 

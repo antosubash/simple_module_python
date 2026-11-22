@@ -39,14 +39,14 @@ checkers, not a framework runtime lookup.
 | `__init__.py` | Python package import; `framework/hosting/simple_module_hosting/assets.py:117` uses `importlib.resources.files(pkg_name)` to find it. |
 | `__main__.py` | Optional Python module entry point for `python -m <package>` administration commands. |
 | `py.typed` | PEP 561 consumers; `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:33` selects the whole package for the wheel, including this marker. |
-| `module.py` | `framework/core/simple_module_core/discovery.py:80` loads the `simple_module` entry point; the scaffold declares its target in `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:15`. |
+| `module.py` | `framework/core/simple_module_core/modules/discovery.py:80` loads the `simple_module` entry point; the scaffold declares its target in `framework/cli/simple_module_cli/templates/module/pyproject.toml.tpl:15`. |
 | `models.py` or `models/` | `framework/db/simple_module_db/migrations.py:74` imports the module's models for metadata; `framework/core/simple_module_core/diagnostics/_tenancy.py:94` and `framework/core/simple_module_core/diagnostics/_expression_index.py:52` do the same. A `models/` package must load its tables. |
 | `tasks.py` | `modules/background_tasks/background_tasks/worker/celery_app.py:215` autodiscovers with `related_name="tasks"`; `framework/core/simple_module_core/diagnostics/_heavy_task_imports.py:65` checks this root file (SM028). |
 | `task_config.py` | `modules/background_tasks/background_tasks/worker/task_routing.py:46` imports `<package>.task_config` for a module's Celery routes and beat schedule. |
 | `contracts/` | Public imports for sibling modules; the scaffold consumer is `framework/cli/simple_module_cli/templates/module/__PACKAGE__/web/service.py.tpl:15`. Keep public SQLModel DTOs, events and real extension contracts here. |
 | `pages/` | `framework/hosting/simple_module_hosting/manifest.py:97` discovers pages; `framework/hosting/simple_module_hosting/page_globs.py:34` emits their Vite glob; `framework/core/simple_module_core/diagnostics/_pages.py:170` checks page names. |
 | `pages/api.generated.ts` | `framework/cli/simple_module_cli/tooling/openapi_types.py` selects the root pages directory and generates API types plus the `api` client. Optional `pages/api.ts` holds custom client logic only. |
-| `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
+| `locales/` | The default `ModuleBase.locale_dirs()` in `framework/core/simple_module_core/modules/module.py` discovers the root directory automatically; scaffolds emit locale JSON without a hook override. |
 | `theme.css`, `styles.css` | `framework/hosting/simple_module_hosting/assets.py:126` discovers both; `framework/core/simple_module_core/diagnostics/_css.py:171` and `framework/core/simple_module_core/diagnostics/_css.py:193` check their different cascade rules (SM022/SM023). |
 | `cli.py` | Only when a declared entry point targets it: `framework/cli/simple_module_cli/commands/plugins.py:41` loads CLI plugins. |
 
@@ -147,7 +147,7 @@ JS tests stay in `tests-js/`, not in package `ui/`.
 
 Inventory old import paths used outside the module, both in this repository
 and downstream. Every such old path becomes a shim using
-`simple_module_core.deprecation.deprecated_module`, with `remove_in` set two
+`simple_module_core.runtime.deprecation.deprecated_module`, with `remove_in` set two
 releases ahead of the one that ships the move.
 Update internal imports to the new path; do not make new code depend on shims.
 A shim built as the `sys.modules` alias below is discovered automatically by
@@ -166,7 +166,7 @@ from __future__ import annotations
 import importlib
 import sys
 
-from simple_module_core.deprecation import deprecated_module
+from simple_module_core.runtime.deprecation import deprecated_module
 
 deprecated_module("orders.service", remove_in="0.0.48", use="orders.web.service")
 sys.modules[__name__] = importlib.import_module("orders.web.service")

@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from simple_module_core.body_limits import BodyLimitRegistry
-from simple_module_core.cors import CorsPolicyRegistry
-from simple_module_core.rate_limit import RateLimitRegistry
-from simple_module_core.resources import ResourceTypeRegistry
+from simple_module_core.access.resources import ResourceTypeRegistry
+from simple_module_core.web.body_limits import BodyLimitRegistry
+from simple_module_core.web.cors import CorsPolicyRegistry
+from simple_module_core.web.rate_limit import RateLimitRegistry
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

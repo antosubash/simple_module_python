@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from _users_app_builders import ALICE, _build_users_app, _login, _make_standard_user, user_row
-from simple_module_core.rate_limit import InProcessWindowStore
+from simple_module_core.web.rate_limit import InProcessWindowStore
 from users.accounts.manager import UserManager
 from users.auth_local import lockout
 

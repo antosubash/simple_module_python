@@ -8,7 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 
 
 def _step(step_id: str, done: bool, *, required: bool = True, order: int = 100) -> SetupStep:

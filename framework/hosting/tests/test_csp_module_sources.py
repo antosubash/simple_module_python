@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from simple_module_core import ModuleBase, ModuleMeta
-from simple_module_core.csp import CspSourceRegistry
+from simple_module_core.web.csp import CspSourceRegistry
 from simple_module_hosting._phase_helpers import build_csp
 from simple_module_hosting._registrations import RequestRegistries, run_module_registrations
 from simple_module_hosting.settings import Settings

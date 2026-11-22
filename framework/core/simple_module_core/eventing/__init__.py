@@ -1,0 +1,1 @@
+"""Core eventing area."""

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from simple_module_core import ModuleBase
-from simple_module_core.i18n import PLURAL_CATEGORIES, I18nRegistry
+from simple_module_core.localization.i18n import PLURAL_CATEGORIES, I18nRegistry
 
 from simple_module_hosting._i18n_build import build_i18n_registry
 from simple_module_hosting._i18n_target import (

@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from simple_module_core.migration_support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
+from simple_module_core.migrations.support import NO_ALEMBIC_CONFIG, resolve_alembic_ini
 
 if TYPE_CHECKING:
     from alembic.script import ScriptDirectory

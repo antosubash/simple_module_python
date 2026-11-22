@@ -160,7 +160,7 @@ class TestCreateApp:
         self, monkeypatch: pytest.MonkeyPatch, isolated_host_root
     ) -> None:
         """create_app populates app.state.sm with a Services instance."""
-        from simple_module_core.services import Services
+        from simple_module_core.modules.services import Services
 
         monkeypatch.setenv("SM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
         monkeypatch.setenv("SM_SECRET_KEY", "x" * 48)

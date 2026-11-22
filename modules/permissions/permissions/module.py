@@ -5,10 +5,10 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
-from simple_module_core.audit_links import AuditLink, AuditLinkRegistry
-from simple_module_core.menu import MenuItem, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.web.audit_links import AuditLink, AuditLinkRegistry
+from simple_module_core.web.menu import MenuItem, MenuSection
 from simple_module_db import independent_session
 
 from permissions.core.constants import (
@@ -20,8 +20,8 @@ from permissions.core.constants import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.events import EventBus
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
     from sqlalchemy.ext.asyncio import AsyncSession
 
 

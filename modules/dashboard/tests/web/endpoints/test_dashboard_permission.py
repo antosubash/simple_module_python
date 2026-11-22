@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from dashboard.core.constants import PERM_VIEW
 from dashboard.web.stats import invalidate_stats_cache
-from simple_module_core.tenancy import TenantRole, tenant_role
+from simple_module_core.access.tenancy import TenantRole, tenant_role
 
 _STATS = "/api/dashboard/stats"
 _INERTIA = {"X-Inertia": "true", "Accept": "application/json"}

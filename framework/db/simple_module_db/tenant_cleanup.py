@@ -1,7 +1,7 @@
 """Durable teardown of framework-owned tenant settings, including branding."""
 
-from simple_module_core.durable_events import DurableContext
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.durable_events import DurableContext
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from sqlmodel import col, delete
 

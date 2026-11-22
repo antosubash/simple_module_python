@@ -1,6 +1,6 @@
 """Durable cleanup of tenant-scoped feature flag overrides."""
 
-from simple_module_core.durable_events import DurableContext
+from simple_module_core.eventing.durable_events import DurableContext
 from simple_module_core.tenant_events import TenantDeleted
 from sqlmodel import col, delete
 

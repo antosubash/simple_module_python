@@ -10,7 +10,7 @@ lives on ``app.state.sm.diagnostics`` with a ``rerun()`` that re-invokes the
 from __future__ import annotations
 
 from simple_module_core.diagnostics import Diagnostic, DiagnosticLevel
-from simple_module_core.services import DiagnosticsState
+from simple_module_core.modules.services import DiagnosticsState
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 

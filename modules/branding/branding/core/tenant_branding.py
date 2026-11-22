@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from cachetools import TTLCache
 from pydantic import ValidationError
-from simple_module_core.app_state import get_services
+from simple_module_core.modules.app_state import get_services
 
 from branding.core.constants import PACKAGE, TENANT_CACHE_TTL_SECONDS, TENANT_FIELDS
 from branding.core.settings import BrandingSettings
@@ -36,7 +36,7 @@ from branding.core.settings import BrandingSettings
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from settings.core.service import SettingService
-    from simple_module_core.invalidation import Invalidation, InvalidationBus
+    from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
     from starlette.requests import Request
 
 logger = logging.getLogger(__name__)

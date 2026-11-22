@@ -11,8 +11,8 @@ from _sharing_support import (
     register_note_type,
 )
 from fastapi import Depends
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.tenancy import TenantRole
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.tenancy import TenantRole
 from simple_module_hosting.resource_deps import resource_principal
 from sqlmodel import select
 

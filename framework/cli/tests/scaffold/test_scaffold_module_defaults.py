@@ -5,8 +5,8 @@ import sys
 
 import pytest
 from simple_module_cli.scaffold.scaffolding import create_module
-from simple_module_core.menu import MenuRegistry
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.web.menu import MenuRegistry
 
 
 @pytest.mark.parametrize("with_settings", [False, True])

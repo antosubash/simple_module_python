@@ -1,6 +1,6 @@
 """Compat shims must not outlive their ``remove_in`` release (#515).
 
-Every shim registers with ``simple_module_core.deprecation``; this imports them
+Every shim registers with ``simple_module_core.runtime.deprecation``; this imports them
 all and fails once the installed framework version reaches a registered
 ``remove_in``. Reaching it forces a decision: delete the shim (and this entry's
 import), or consciously move its date.
@@ -14,7 +14,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 import pytest
-from simple_module_core.deprecation import (
+from simple_module_core.runtime.deprecation import (
     deprecate,
     expired_deprecations,
     registered_deprecations,
@@ -23,7 +23,7 @@ from simple_module_test.layout import is_layout_shim
 
 # Modules whose import registers a deprecation (shim modules and call-site shims).
 _SHIM_MODULES: tuple[str, ...] = (
-    "simple_module_core._auth_providers",
+    "simple_module_core.modules._auth_providers",
     "users.core.token_secrets",
     "api_tokens.core.constants",
     "audit_log.core.constants",

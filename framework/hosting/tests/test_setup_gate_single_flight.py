@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from simple_module_core.setup_steps import SetupRegistry, SetupStep
+from simple_module_core.web.setup_steps import SetupRegistry, SetupStep
 
 
 def _scope() -> dict:

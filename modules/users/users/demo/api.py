@@ -19,7 +19,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi_users import exceptions as fu_exceptions
-from simple_module_core.redirect_safety import SESSION_NEXT_KEY
+from simple_module_core.web.redirect_safety import SESSION_NEXT_KEY
 
 from users.accounts.manager import UserManager
 from users.auth_local.rate_limit import enforce_auth_throughput_limit

@@ -2,8 +2,8 @@
 
 Runs before any module ``on_startup`` hook so startup code sees DB-backed
 values. Everything it needs lives in the framework (#500): the registry in
-``simple_module_core.module_settings``, the hydrator in
-``simple_module_core.settings_hydrate``; the caller supplies the override
+``simple_module_core.settings.module_settings``, the hydrator in
+``simple_module_core.settings.settings_hydrate``; the caller supplies the override
 source, so this works with the ``settings`` plugin disabled.
 """
 
@@ -13,8 +13,8 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI
-from simple_module_core.module_settings import get_module_settings_registry
-from simple_module_core.settings_hydrate import OverrideSource, hydrate_settings
+from simple_module_core.settings.module_settings import get_module_settings_registry
+from simple_module_core.settings.settings_hydrate import OverrideSource, hydrate_settings
 
 logger = logging.getLogger(__name__)
 

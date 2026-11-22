@@ -9,7 +9,7 @@ import secrets
 import time
 from typing import Any
 
-from simple_module_core.leases import lease
+from simple_module_core.runtime.leases import lease
 from simple_module_db import independent_session
 from simple_module_hosting.session import SESSION_EXPIRES_AT_KEY
 from sqlalchemy import delete, or_

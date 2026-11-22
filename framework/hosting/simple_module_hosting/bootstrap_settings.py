@@ -22,8 +22,8 @@ from typing import Any
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from simple_module_core.dotenv import absolutize_sqlite_url, find_env_file
-from simple_module_core.environments import NON_PROD_ENVIRONMENTS
+from simple_module_core.settings.dotenv import absolutize_sqlite_url, find_env_file
+from simple_module_core.settings.environments import NON_PROD_ENVIRONMENTS
 
 PLACEHOLDER_SECRET_KEY = "change-me-in-production"
 

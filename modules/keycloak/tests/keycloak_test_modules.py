@@ -8,7 +8,7 @@ role directory), but the filter stays for out-of-tree modules that do.
 
 from __future__ import annotations
 
-from simple_module_core.discovery import discover_modules
+from simple_module_core.modules.discovery import discover_modules
 
 _USERS = "Users"
 

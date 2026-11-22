@@ -21,8 +21,8 @@ from background_tasks.models import OutboxMessage, TaskExecution
 from background_tasks.outbox.claim import OutboxPolicy, claim
 from background_tasks.outbox.dispatch import deliver_one, dispatch
 from simple_module_core import DurableContext
-from simple_module_core.durable_events import event_key, serialize_event
-from simple_module_core.events import Event, EventBus
+from simple_module_core.eventing.durable_events import event_key, serialize_event
+from simple_module_core.eventing.events import Event, EventBus
 from simple_module_db import init_db
 from simple_module_db.listeners import register_listeners
 from simple_module_test import wait_for

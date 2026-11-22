@@ -1,28 +1,13 @@
-"""The 403 raised when a principal lacks a named permission."""
+"""Deprecated alias for simple_module_core.access.permission_denied."""
 
-from __future__ import annotations
+import sys
+from importlib import import_module
 
-from fastapi import HTTPException
+from simple_module_core.runtime.deprecation import deprecated_module
 
-__all__ = ["PERMISSION_DENIED_PREFIX", "PermissionDenied"]
-
-PERMISSION_DENIED_PREFIX = "Permission required: "
-"""How the default 403 message spells the missing permission (human text only).
-
-Nothing parses it: handlers read :attr:`PermissionDenied.permission`.
-"""
-
-
-class PermissionDenied(HTTPException):
-    """A 403 that knows which permission was missing.
-
-    ``detail`` is a human message; the 403 error page and any other consumer
-    read :attr:`permission` rather than parsing that text.
-    """
-
-    def __init__(self, permission: str, detail: str | None = None) -> None:
-        super().__init__(
-            status_code=403,
-            detail=detail if detail is not None else f"{PERMISSION_DENIED_PREFIX}{permission}",
-        )
-        self.permission = permission
+deprecated_module(
+    "simple_module_core.permission_denied",
+    remove_in="0.0.52",
+    use="simple_module_core.access.permission_denied",
+)
+sys.modules[__name__] = import_module("simple_module_core.access.permission_denied")

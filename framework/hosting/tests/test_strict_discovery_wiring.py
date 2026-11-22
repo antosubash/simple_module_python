@@ -7,7 +7,7 @@ silently restore the old "drop a broken module and keep booting" behaviour in
 production, which is exactly what AGENTS.md says must not happen.
 
 Reuses the ``_FakeEntryPoint`` and ``_patch_entry_points`` helpers from
-``framework/core/tests/test_discovery.py`` (the canonical location for the
+``framework/core/tests/modules/test_discovery.py`` (the canonical location for the
 entry-point stubbing pattern) rather than redeclaring the same shim here.
 """
 
@@ -18,13 +18,13 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-from simple_module_core.exceptions import InvalidModuleError
+from simple_module_core.runtime.exceptions import InvalidModuleError
 from simple_module_hosting.app_builder import create_app
 from simple_module_hosting.settings import Settings
 
 
 def _load_discovery_helpers():
-    """Side-load ``framework/core/tests/test_discovery.py`` without mutating ``sys.path``.
+    """Side-load ``framework/core/tests/modules/test_discovery.py`` without mutating ``sys.path``.
 
     The core-tests directory isn't a package (no ``__init__.py``), and adding
     it to ``sys.path`` would expose every ``test_*`` module in there as a
@@ -32,7 +32,9 @@ def _load_discovery_helpers():
     ``spec_from_file_location`` loads just the one file we need into a
     private namespace.
     """
-    discovery_path = Path(__file__).resolve().parents[2] / "core" / "tests" / "test_discovery.py"
+    discovery_path = (
+        Path(__file__).resolve().parents[2] / "core" / "tests" / "modules" / "test_discovery.py"
+    )
     spec = importlib.util.spec_from_file_location("_core_test_discovery_helpers", discovery_path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)

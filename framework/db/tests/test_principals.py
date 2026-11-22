@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from simple_module_core.principals import PRINCIPALS_KEY, PrincipalRegistry
-from simple_module_core.user_directory import DirectoryUser, NullUserDirectory
+from simple_module_core.access.principals import PRINCIPALS_KEY, PrincipalRegistry
+from simple_module_core.access.user_directory import DirectoryUser, NullUserDirectory
 from simple_module_db.principals import principal_for
 from simple_module_db.tenancy import all_tenants, current_tenant_id, is_all_tenants, tenant_context
 

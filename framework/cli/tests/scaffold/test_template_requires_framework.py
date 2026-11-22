@@ -7,7 +7,7 @@ from pathlib import Path
 
 import simple_module_cli
 from packaging.specifiers import SpecifierSet
-from simple_module_core.versioning import FRAMEWORK_API_VERSION
+from simple_module_core.modules.versioning import FRAMEWORK_API_VERSION
 
 TEMPLATE = (
     Path(simple_module_cli.__file__).parent

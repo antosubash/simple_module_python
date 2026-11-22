@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
-from simple_module_core.leases import configure_leases
+from simple_module_core.runtime.leases import configure_leases
 from simple_module_hosting import _lifespan
 
 
@@ -164,7 +164,7 @@ import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from fastapi import FastAPI
-from simple_module_core.leases import configure_leases
+from simple_module_core.runtime.leases import configure_leases
 from simple_module_hosting import _lifespan
 
 closed = []

@@ -9,8 +9,8 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request
-from simple_module_core.resources import ResourcePrincipal
-from simple_module_core.user_directory import get_user_directory
+from simple_module_core.access.resources import ResourcePrincipal
+from simple_module_core.access.user_directory import get_user_directory
 from simple_module_hosting.permissions import RequiresPermission
 from simple_module_hosting.rate_limit_deps import RateLimit
 from simple_module_hosting.resource_deps import resource_principal

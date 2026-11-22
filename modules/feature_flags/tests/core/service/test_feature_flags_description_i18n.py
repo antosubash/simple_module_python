@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from feature_flags.core.service import FeatureFlagService
-from simple_module_core.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
-from simple_module_core.i18n import Translator
+from simple_module_core.localization.i18n import Translator
+from simple_module_core.web.feature_flags import FeatureFlagDefinition, FeatureFlagRegistry
 
 PUBLIC_UPLOADS = "file_storage.public_uploads"
 

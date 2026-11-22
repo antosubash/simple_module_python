@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
-from simple_module_core.i18n import I18nRegistry, flatten_messages
-from simple_module_core.i18n_overrides import load_overrides
+from simple_module_core.localization.i18n import I18nRegistry, flatten_messages
+from simple_module_core.localization.i18n_overrides import load_overrides
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 
 class I18nDiagnostics:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from simple_module_core.app_state import get_host_services
+from simple_module_core.modules.app_state import get_host_services
 from simple_module_hosting.public_urls import public_origin
 from starlette.requests import Request
 

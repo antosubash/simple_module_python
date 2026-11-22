@@ -6,8 +6,8 @@ so host and module settings still come from the DB without the admin UI.
 
 from __future__ import annotations
 
-from simple_module_core.discovery import discover_modules
-from simple_module_core.module_settings import get_module_settings_registry
+from simple_module_core.modules.discovery import discover_modules
+from simple_module_core.settings.module_settings import get_module_settings_registry
 from simple_module_db.stored_settings import Setting
 
 # Settings itself, plus the modules that hard-depend on it.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from simple_module_core.i18n import I18nRegistry
+from simple_module_core.localization.i18n import I18nRegistry
 from simple_module_hosting.i18n_manifest import (
     emit_frontend_types,
     resolve_i18n_types_dir,

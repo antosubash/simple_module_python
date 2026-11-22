@@ -7,7 +7,7 @@ import logging
 import random
 from collections.abc import Callable
 
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 
 from background_tasks.core.services import BackgroundTasksServices
 from background_tasks.outbox.claim import OutboxPolicy, SessionFactory

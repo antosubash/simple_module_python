@@ -23,11 +23,11 @@ import logging
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any
 
-from simple_module_core._module_conventions import get_module_package_name
 from simple_module_core.diagnostics._types import Diagnostic, DiagnosticLevel
+from simple_module_core.modules._module_conventions import get_module_package_name
 
 if TYPE_CHECKING:
-    from simple_module_core.module import ModuleBase
+    from simple_module_core.modules.module import ModuleBase
 
 logger = logging.getLogger(__name__)
 

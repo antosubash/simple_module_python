@@ -29,7 +29,7 @@ from simple_module_hosting.i18n_manifest import emit_frontend_types_for_modules
 
 if TYPE_CHECKING:
     from simple_module_core import ModuleBase
-    from simple_module_core.services import DiagnosticsState
+    from simple_module_core.modules.services import DiagnosticsState
 
     from simple_module_hosting.settings import Settings
 

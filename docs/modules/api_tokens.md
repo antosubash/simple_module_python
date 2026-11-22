@@ -59,7 +59,7 @@ list, and:
   with the scopes. An admin's wildcard expands to the scope list only.
 - `RequiresPermission` skips its admin-role shortcut.
 - Role-only admin gates (`/admin`, the Doctor page, the maintenance bypass) use
-  `simple_module_core.permissions.is_admin_principal`, which is `False` for any
+  `simple_module_core.access.permissions.is_admin_principal`, which is `False` for any
   token.
 
 So an admin's token with scope `feature_flags.view` can `GET /api/feature_flags/`

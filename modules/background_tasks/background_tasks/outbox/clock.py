@@ -22,8 +22,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from simple_module_core.datetimes import aware as _aware
-from simple_module_core.datetimes import utcnow
+from simple_module_core.runtime.datetimes import aware as _aware
+from simple_module_core.runtime.datetimes import utcnow
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 

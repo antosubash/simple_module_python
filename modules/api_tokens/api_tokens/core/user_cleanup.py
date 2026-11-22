@@ -1,6 +1,6 @@
 """Durable cleanup of a deleted user's personal tokens."""
 
-from simple_module_core.durable_events import DurableContext
+from simple_module_core.eventing.durable_events import DurableContext
 from simple_module_core.user_events import UserDeleted
 from simple_module_db.tenancy import all_tenants
 from sqlmodel import col, delete

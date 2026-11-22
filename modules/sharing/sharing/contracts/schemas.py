@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from simple_module_core.resources import ACTION_VIEW
+from simple_module_core.access.resources import ACTION_VIEW
 from sqlmodel import Field, SQLModel
 
 from sharing.core.constants import (

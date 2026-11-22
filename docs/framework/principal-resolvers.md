@@ -83,7 +83,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from auth import PrincipalResolver, UserContext
-from simple_module_core.module import ModuleBase, ModuleMeta
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
 from starlette.requests import Request
 
 if TYPE_CHECKING:

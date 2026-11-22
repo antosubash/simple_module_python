@@ -22,7 +22,7 @@ from typing import Any, Literal
 from alembic.operations.ops import CreateIndexOp, CreateTableOp, DropIndexOp, DropTableOp
 from simple_module_core import ModuleBase
 from simple_module_core.diagnostics._expression_index import index_is_expression_based
-from simple_module_core.discovery import discover_modules, get_module_package_name
+from simple_module_core.modules.discovery import discover_modules, get_module_package_name
 from sqlalchemy import Index, MetaData
 from sqlalchemy.exc import NoReferenceError
 from sqlalchemy.schema import SchemaItem

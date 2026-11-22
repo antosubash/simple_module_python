@@ -1,4 +1,4 @@
-"""Database-backed :class:`~simple_module_core.leases.LeaseBackend` (GH #539).
+"""Database-backed :class:`~simple_module_core.runtime.leases.LeaseBackend` (GH #539).
 
 The ``sm_lease`` table holds one row per ``(name, slot)``: a lease uses slot 0,
 a semaphore slots ``0..n-1``, and slot ``-1`` keeps a semaphore's fence

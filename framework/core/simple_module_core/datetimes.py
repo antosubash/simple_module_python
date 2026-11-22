@@ -1,12 +1,11 @@
-"""UTC timestamps and normalization of legacy naive database values."""
+"""Deprecated alias for simple_module_core.runtime.datetimes."""
 
-from datetime import UTC, datetime
+import sys
+from importlib import import_module
 
+from simple_module_core.runtime.deprecation import deprecated_module
 
-def utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
-def aware(value: datetime) -> datetime:
-    """Interpret a naive value as UTC; preserve an existing timezone."""
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+deprecated_module(
+    "simple_module_core.datetimes", remove_in="0.0.52", use="simple_module_core.runtime.datetimes"
+)
+sys.modules[__name__] = import_module("simple_module_core.runtime.datetimes")

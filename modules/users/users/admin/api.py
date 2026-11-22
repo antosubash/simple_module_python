@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 from fastapi_users import exceptions as fa_exceptions
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_db import RequestSession
 from simple_module_db.deps import get_db
 from simple_module_db.pagination import PageParams

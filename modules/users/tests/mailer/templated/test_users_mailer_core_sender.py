@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from simple_module_core.mail import install_mail_sender
+from simple_module_core.mailer.mail import install_mail_sender
 from simple_module_test.mail import CapturedMail
 
 _BULK = "/api/users/admin/invite/bulk"

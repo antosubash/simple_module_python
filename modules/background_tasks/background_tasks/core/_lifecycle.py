@@ -60,7 +60,7 @@ async def startup(app: FastAPI, module_name: str) -> None:
     # Registered here, not in register_health_checks: the Celery app does
     # not exist until this hook builds it, and the check must follow later
     # settings changes rather than pinning the boot-time instance.
-    from simple_module_core.health import HealthCheck
+    from simple_module_core.web.health import HealthCheck
 
     from background_tasks.core.health import CHECK_REDIS, build_redis_check
 
@@ -87,7 +87,7 @@ async def startup(app: FastAPI, module_name: str) -> None:
 
 def install_durable_transport(app: FastAPI) -> None:
     """Make ``bus.publish_durable`` write to this module's outbox (GH #459)."""
-    from simple_module_core.principals import PRINCIPALS_KEY
+    from simple_module_core.access.principals import PRINCIPALS_KEY
 
     from background_tasks.core.constants import OutboxMode
     from background_tasks.outbox.sweep import start_sweep

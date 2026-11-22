@@ -82,7 +82,7 @@ def stop_children(children: list[subprocess.Popen]) -> None:
 
 
 def run_dev(root: Path, *, port: int = 8000, vite_port: int | None = None) -> int:
-    from simple_module_core.dotenv import load_dotenv_into_environ
+    from simple_module_core.settings.dotenv import load_dotenv_into_environ
 
     root = root.resolve()
     client = client_app_dir(root)

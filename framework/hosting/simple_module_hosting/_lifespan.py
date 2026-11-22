@@ -22,8 +22,12 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from simple_module_core.diagnostics._migration import MIGRATION_DRIFT_CODE
-from simple_module_core.leases import _add_lease_listener, _remove_lease_listener, get_leases
-from simple_module_core.module import ModuleBase
+from simple_module_core.modules.module import ModuleBase
+from simple_module_core.runtime.leases import (
+    _add_lease_listener,
+    _remove_lease_listener,
+    get_leases,
+)
 
 from simple_module_hosting._deferred_startup import hydrate_settings_from_db
 from simple_module_hosting._dev_boot import print_boot_diagnostics

@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 def _build_app(supported: list[str]) -> FastAPI:
     from types import SimpleNamespace
 
-    from simple_module_core.i18n import I18nRegistry
+    from simple_module_core.localization.i18n import I18nRegistry
 
     app = FastAPI()
     registry = I18nRegistry(

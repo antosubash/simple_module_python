@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from simple_module_core.permissions import PermissionGroup, PermissionRegistry
+from simple_module_core.access.permissions import PermissionGroup, PermissionRegistry
 
 from permissions.contracts.schemas import PermissionGroupOut
 

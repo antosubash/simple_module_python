@@ -3,11 +3,11 @@
 import httpx
 from fastapi import FastAPI, Request
 from settings.core.invalidation import reload_package
-from simple_module_core.body_limits import BodyLimitRegistry
-from simple_module_core.cors import CorsPolicy, CorsPolicyRegistry
-from simple_module_core.events import EventBus
-from simple_module_core.module_settings import module_settings_registry
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.eventing.events import EventBus
+from simple_module_core.settings.module_settings import module_settings_registry
+from simple_module_core.web.body_limits import BodyLimitRegistry
+from simple_module_core.web.cors import CorsPolicy, CorsPolicyRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_hosting._body_limit import BodyLimitMiddleware
 from simple_module_hosting._cors import CorsMiddleware
 from simple_module_hosting._host_services import _HostServices
@@ -134,7 +134,7 @@ async def test_all_cors_fields_reload_together():
 
 
 async def test_authenticated_rate_and_registered_rule_survive_reload():
-    from simple_module_core.rate_limit import RateLimitRegistry, RateLimitRule
+    from simple_module_core.web.rate_limit import RateLimitRegistry, RateLimitRule
 
     app = build()
     app.state.rate_limit_rules = RateLimitRegistry()

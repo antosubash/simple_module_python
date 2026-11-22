@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from simple_module_core.rate_limit import InProcessWindowStore, RateSpec
-from simple_module_core.services import Services
+from simple_module_core.modules.services import Services
+from simple_module_core.web.rate_limit import InProcessWindowStore, RateSpec
 from simple_module_hosting._rate_limit import RateLimitMiddleware
 from simple_module_hosting._rate_limit_store import RedisWindowStore
 

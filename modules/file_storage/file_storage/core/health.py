@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import FastAPI
-from simple_module_core.health import HealthCheckResult, HealthStatus
+from simple_module_core.web.health import HealthCheckResult, HealthStatus
 
 CHECK_BACKEND = "file_storage.backend"
 

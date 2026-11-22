@@ -1,0 +1,1 @@
+"""Core access area."""

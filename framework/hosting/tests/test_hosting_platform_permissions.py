@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
-from simple_module_core.permissions import PermissionRegistry
+from simple_module_core.access.permissions import PermissionRegistry
 from simple_module_hosting.permissions import resolve_principal_permissions
 
 

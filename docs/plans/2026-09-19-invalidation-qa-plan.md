@@ -5,7 +5,7 @@
 > for current imports, permission gates, public routes and required event-hook arguments.
 
 **Date:** 2026-09-19
-**Under test:** PR #330 / issue #318 — `simple_module_core.invalidation`,
+**Under test:** PR #330 / issue #318 — `simple_module_core.eventing.invalidation`,
 `background_tasks.invalidation`, `users.session_revocation`, and the boot wiring
 that connects them.
 **Baseline:** `claude/github-issues-8yxn4q` @ 398a5af (CI green, 3073 passed).
@@ -54,7 +54,7 @@ reason rather than quietly shedding every real-broker and two-process test.
 
 Legend: ✅ covered before this plan · 🆕 added by this plan · ⬜ deliberately not tested.
 
-### The bus (`simple_module_core.invalidation`)
+### The bus (`simple_module_core.eventing.invalidation`)
 
 | # | Claim | Status |
 |---|---|---|

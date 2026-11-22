@@ -92,7 +92,7 @@ Each one is reproduced with a failing test first. Kept only if the test fails be
 
 ## PR 2: Durable outbox (#459)
 
-### Core (`simple_module_core.events`)
+### Core (`simple_module_core.eventing.events`)
 - `bus.subscribe_durable(EventType, handler, *, name=None)`. `name` defaults to `f"{handler.__module__}.{handler.__qualname__}"` and must be stable, because delivery state is keyed by it.
 - `await bus.publish_durable(event, db)` hands off to `bus.durable_transport`, a `DurableTransport` protocol with `async enqueue(event, handler_names, db)`. If no transport is installed it raises `DurableDeliveryUnavailable`.
 - `publish` and `publish_nowait` are unchanged.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from simple_module_core.public_routes import PublicRouteRegistry
+from simple_module_core.web.public_routes import PublicRouteRegistry
 from simple_module_hosting.maintenance import MaintenanceMiddleware
 from simple_module_inertia import InertiaMiddleware
 from starlette.applications import Starlette
@@ -189,7 +189,7 @@ class TestModulePublicRoutes:
     """
 
     async def test_module_public_route_stays_open(self) -> None:
-        from simple_module_core.public_routes import PublicRouteRegistry
+        from simple_module_core.web.public_routes import PublicRouteRegistry
 
         registry = PublicRouteRegistry()
         registry.add_exact("/api/branding/logo", methods=["GET"])
@@ -199,7 +199,7 @@ class TestModulePublicRoutes:
 
     async def test_uncovered_path_still_gates(self) -> None:
         """A path with no matching rule at all is not exempted by an unrelated one."""
-        from simple_module_core.public_routes import PublicRouteRegistry
+        from simple_module_core.web.public_routes import PublicRouteRegistry
 
         registry = PublicRouteRegistry()
         registry.add_exact("/api/branding/logo", methods=["GET"])
@@ -209,7 +209,7 @@ class TestModulePublicRoutes:
 
     async def test_wrong_method_on_a_covered_path_still_gates(self) -> None:
         """The rule is GET-only — a POST to the same path must not bypass."""
-        from simple_module_core.public_routes import PublicRouteRegistry
+        from simple_module_core.web.public_routes import PublicRouteRegistry
 
         registry = PublicRouteRegistry()
         registry.add_exact("/api/branding/logo", methods=["GET"])

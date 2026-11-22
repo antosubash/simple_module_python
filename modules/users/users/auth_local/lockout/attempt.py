@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from simple_module_core.rate_limit import RateSpec, WindowStore
+from simple_module_core.web.rate_limit import RateSpec, WindowStore
 
 if TYPE_CHECKING:
     from users.core.settings import UsersSettings

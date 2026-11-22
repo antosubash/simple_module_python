@@ -13,8 +13,8 @@ import re
 from pathlib import Path
 
 import pytest
-from simple_module_core.discovery import discover_modules
-from simple_module_core.menu import MenuRegistry
+from simple_module_core.modules.discovery import discover_modules
+from simple_module_core.web.menu import MenuRegistry
 
 _NAV_ICON = Path(__file__).resolve().parents[2] / "packages/ui/src/components/NavIcon.tsx"
 

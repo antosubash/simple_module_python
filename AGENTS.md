@@ -130,7 +130,7 @@ it is not in `pr-checks`. e2e-smoke and perf-guards enable a hardcoded
 
 **Discovery.** Modules declare `[project.entry-points.simple_module]` pointing
 at a `ModuleBase` subclass with `meta = ModuleMeta(...)`.
-`simple_module_core.discovery.discover_modules()` loads them, topologically sorts
+`simple_module_core.modules.discovery.discover_modules()` loads them, topologically sorts
 by `ModuleMeta.depends_on` (plus `optional_depends_on`, ordering only, may be
 absent), and the host calls each `register_*` hook in that order
 (`docs/framework/discovery.md`). Outside development a missing `depends_on`
@@ -239,8 +239,8 @@ Rules that go with them:
   `await bus.publish_durable(event, db)` inside the request transaction; a
   durable handler must not commit `ctx.db`. `docs/framework/events.md`.
 - Users: read accounts through `get_user_directory(app)`
-  (`simple_module_core.user_directory`), never `users.models` outside `users`.
-  Read roles through `get_role_directory(app)` (`simple_module_core.role_directory`);
+  (`simple_module_core.access.user_directory`), never `users.models` outside `users`.
+  Read roles through `get_role_directory(app)` (`simple_module_core.access.role_directory`);
   `editable` describes local role assignment, not permission mapping edits.
   `DirectoryUser.roles is None` means unknown (Keycloak), not none. Recent
   activity: `get_activity_feed(app)`. `docs/framework/user-directory.md`.
@@ -345,7 +345,7 @@ The session cookie is `Secure` outside development and testing.
   Unique keys on tenant tables must include `tenant_id` (`SM024`). Tenant-level
   routes act on the *active* tenant, never a tenant id from the URL. The `tenants`
   module owns memberships and `app.state.tenant_resolver` (`SM025` if missing). Map tenant
-  roles with `tenant_role(TenantRole.MEMBER)` from `simple_module_core.tenancy`,
+  roles with `tenant_role(TenantRole.MEMBER)` from `simple_module_core.access.tenancy`,
   never by importing `tenants`. `docs/framework/multi-tenancy.md`.
 - **Migrations** live in `host/migrations/versions/`, never in module packages.
   `host/migrations/env.py` builds metadata from every installed module. The
@@ -395,10 +395,10 @@ The session cookie is `Secure` outside development and testing.
   copied into the DB. A pre-app read failure is not a fresh install: outside
   development it refuses to boot (`HostSettingsUnavailableError` /
   `SecretKeyUnavailableError`); only a missing settings table falls back to
-  defaults. Stored values parse through `simple_module_core.stored_settings`; an
+  defaults. Stored values parse through `simple_module_core.settings.stored_settings`; an
   invalid row is dropped with a WARNING. Module settings are a
   `DbBackedSettings` subclass registered in `register_settings` through
-  `simple_module_core.module_settings.register_module_settings(app, package,
+  `simple_module_core.settings.module_settings.register_module_settings(app, package,
   SettingsCls, services_factory)`, which mounts the services object on
   `app.state.<package>` (`SM012`); this works with the `settings` plugin
   disabled. The exceptions that read env are secrets and process wiring
@@ -408,7 +408,7 @@ The session cookie is `Secure` outside development and testing.
   imports from `modules/`; the framework exposes registries and callbacks
   instead. A module may import the modules it lists in `depends_on` directly.
 - **Deprecations carry a removal release.** A compat shim uses
-  `simple_module_core.deprecation` (`deprecated`, `deprecated_module`, `deprecate`)
+  `simple_module_core.runtime.deprecation` (`deprecated`, `deprecated_module`, `deprecate`)
   with `remove_in`, and is added to `host/tests/test_deprecation_expiry.py`, which
   fails once the framework version reaches it. No undated "back-compat" shims.
   `docs/framework/deprecations.md`.
@@ -416,7 +416,7 @@ The session cookie is `Secure` outside development and testing.
   heavy imports (`torch`, `cv2`, …) inside the task body (`SM028`). Enqueue from
   a transaction with `background_tasks.enqueue_after_commit(db, task, …)`, never
   `.delay()`. Long tasks call `heartbeat()`. `docs/modules/background_tasks.md`.
-- **Mail**: build a `MailMessage` and send through `simple_module_core.mail`
+- **Mail**: build a `MailMessage` and send through `simple_module_core.mailer.mail`
   (`current_mail_sender()` in request code, `await resolve_mail_sender(db)` in
   durable handlers). Without the `mail` module the sender only logs. Tests use
   the `captured_mail` fixture.

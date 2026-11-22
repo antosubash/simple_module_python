@@ -1,8 +1,8 @@
 """Re-read flag overrides after commit or a remote invalidation."""
 
 from fastapi import FastAPI
-from simple_module_core.invalidation import Invalidation, InvalidationBus
-from simple_module_core.invalidation_refresh import InvalidationRefresh
+from simple_module_core.eventing.invalidation import Invalidation, InvalidationBus
+from simple_module_core.eventing.invalidation_refresh import InvalidationRefresh
 from simple_module_core.tenant_events import TENANT_DELETED_CHANNEL
 
 from feature_flags.core.service import FeatureFlagService

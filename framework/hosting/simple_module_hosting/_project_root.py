@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from simple_module_core.migration_support import resolve_project_root as _resolve_project_root
+from simple_module_core.migrations.support import resolve_project_root as _resolve_project_root
 
 
 def resolve_project_root() -> Path:

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 from file_storage.core import constants
 from file_storage.core.tenant_deletion import register_tenant_deletion
 from file_storage.models import StoredFile, UploadSession
-from simple_module_core.events import EventBus
+from simple_module_core.eventing.events import EventBus
 from simple_module_core.tenant_events import TenantDeleted
 from simple_module_db import tenant_context
 from simple_module_db.transaction import finalize_session

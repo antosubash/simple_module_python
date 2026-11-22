@@ -6,21 +6,21 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends
 from simple_module_core import AdminSurface
-from simple_module_core.audit_links import AuditLinkRegistry
-from simple_module_core.menu import MenuItem, MenuRegistry, MenuSection
-from simple_module_core.module import ModuleBase, ModuleMeta
-from simple_module_core.module_settings import register_module_settings
-from simple_module_core.permissions import PermissionRegistry
-from simple_module_core.public_routes import PublicRouteRegistry
-from simple_module_core.setup_steps import SetupRegistry
+from simple_module_core.access.permissions import PermissionRegistry
+from simple_module_core.modules.module import ModuleBase, ModuleMeta
+from simple_module_core.settings.module_settings import register_module_settings
+from simple_module_core.web.audit_links import AuditLinkRegistry
+from simple_module_core.web.menu import MenuItem, MenuRegistry, MenuSection
+from simple_module_core.web.public_routes import PublicRouteRegistry
+from simple_module_core.web.setup_steps import SetupRegistry
 
 from users.core.constants import ADMIN_ROLE_NAME, PUBLIC_PATH_PREFIXES, USER_ROLE_NAME, Permissions
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
-    from simple_module_core.data_compatibility import DataCompatibilityIssue
-    from simple_module_core.events import EventBus
-    from simple_module_core.invalidation import InvalidationBus
+    from simple_module_core.eventing.events import EventBus
+    from simple_module_core.eventing.invalidation import InvalidationBus
+    from simple_module_core.migrations.data_compatibility import DataCompatibilityIssue
 
 _MODULE_DEPENDENCY_AUTH = "Auth"
 # Sorted after Settings for its SettingsReloaded event. Registering this
@@ -89,8 +89,8 @@ class UsersModule(ModuleBase):
 
         # Other modules read accounts through the directory, never
         # ``users.models`` (GH #501).
-        from simple_module_core.role_directory import set_role_directory
-        from simple_module_core.user_directory import set_user_directory
+        from simple_module_core.access.role_directory import set_role_directory
+        from simple_module_core.access.user_directory import set_user_directory
 
         from users.core.directory import UsersDirectory
 
