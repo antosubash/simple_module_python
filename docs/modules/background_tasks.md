@@ -25,11 +25,6 @@ per-field overrides for non-Redis transports (for example AMQP and a SQL result
 backend) or separate connections. They take precedence over `SM_REDIS_URL`;
 Redis deployments using them receive a deprecation warning.
 
-This repo's `docker-compose.yml` pins all three connection variables to
-`redis://redis:6379/4` for worker and beat, overriding legacy localhost values
-in the host `.env`. Its standalone web image excludes background tasks and
-needs no Redis connection.
-
 ## Writing a task
 
 ```python
