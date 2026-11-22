@@ -12,8 +12,6 @@ type ModuleAsset = {
   package_name: string;
   package: string;
   npm_name?: string | null;
-  components?: string | null;
-  ui?: string | null;
 };
 
 export type Alias = { find: string; replacement: string };

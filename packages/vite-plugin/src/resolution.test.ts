@@ -17,13 +17,7 @@ it.each([true, false])(
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'smpy-resolve-'));
     dirs.push(root);
     const wheel = path.join(root, 'external/widget');
-    fs.mkdirSync(path.join(root, 'node_modules/host-dep'), { recursive: true });
     fs.mkdirSync(wheel, { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'node_modules/host-dep/package.json'),
-      '{"name":"host-dep","exports":"./index.js"}',
-    );
-    fs.writeFileSync(path.join(root, 'node_modules/host-dep/index.js'), 'export const value = 1;');
     if (withPages) {
       fs.writeFileSync(
         path.join(root, 'modules.manifest.json'),
@@ -42,7 +36,7 @@ it.each([true, false])(
         },
       }),
     );
-    for (const dependency of ['@simple-module-py/ui', '@simple-module-py/i18n']) {
+    for (const dependency of ['host-dep', '@simple-module-py/ui', '@simple-module-py/i18n']) {
       const directory = path.join(root, 'node_modules', dependency);
       fs.mkdirSync(directory, { recursive: true });
       fs.writeFileSync(
