@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import tomllib
 from collections.abc import Collection
 from pathlib import Path
@@ -29,21 +30,114 @@ ALLOWED_ROOT = frozenset(
 )
 
 
-def _is_layout_shim(path: Path) -> bool:
+def is_docstring_only_init(init_path: Path) -> bool:
+    """Return True when an initializer has at most a module docstring."""
+    try:
+        tree = ast.parse(init_path.read_text(encoding="utf-8"), filename=str(init_path))
+    except SyntaxError:
+        return False
+    if not tree.body:
+        return True
+    if len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr):
+        val = tree.body[0].value
+        return isinstance(val, ast.Constant) and isinstance(val.value, str)
+    return False
+
+
+def _is_deprecation_warning_arg(node: ast.expr) -> bool:
+    return (isinstance(node, ast.Name) and node.id == "DeprecationWarning") or (
+        isinstance(node, ast.Attribute) and node.attr == "DeprecationWarning"
+    )
+
+
+def _is_deprecation_call(call: ast.Call) -> bool:
+    fn = call.func
+    name = fn.id if isinstance(fn, ast.Name) else (fn.attr if isinstance(fn, ast.Attribute) else "")
+    if name == "deprecated_module":
+        return True
+    if name != "warn":
+        return False
+    pos_dep = len(call.args) >= 2 and _is_deprecation_warning_arg(call.args[1])
+    kw_dep = any(
+        kw.arg == "category" and _is_deprecation_warning_arg(kw.value) for kw in call.keywords
+    )
+    return pos_dep or kw_dep
+
+
+def _is_sys_modules_target(target: ast.expr) -> bool:
+    return (
+        isinstance(target, ast.Subscript)
+        and isinstance(target.value, ast.Attribute)
+        and isinstance(target.value.value, ast.Name)
+        and target.value.value.id == "sys"
+        and target.value.attr == "modules"
+        and isinstance(target.slice, ast.Name)
+        and target.slice.id == "__name__"
+    )
+
+
+def is_layout_shim_source(text: str, *, filename: str = "<string>") -> bool:
+    """Return True when top-level statements declare a deprecation and sys.modules alias."""
+    try:
+        tree = ast.parse(text, filename=filename)
+    except SyntaxError:
+        return False
+    has_dep = False
+    has_alias = False
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+            if _is_deprecation_call(stmt.value):
+                has_dep = True
+        elif isinstance(stmt, ast.Assign) and any(
+            _is_sys_modules_target(target) for target in stmt.targets
+        ):
+            has_alias = True
+    return has_dep and has_alias
+
+
+def is_layout_shim(path: Path) -> bool:
     """A moved module's old path: a deprecated alias, allowed until its remove_in."""
-    text = path.read_text(encoding="utf-8")
-    return "deprecated_module(" in text and "sys.modules[__name__]" in text
+    return is_layout_shim_source(path.read_text(encoding="utf-8"), filename=str(path))
 
 
-def _only_bytecode(path: Path) -> bool:
-    """A directory an older checkout left behind holding only ``__pycache__``."""
-    return all(child.name == "__pycache__" for child in path.iterdir())
+def only_bytecode(path: Path) -> bool:
+    """A non-empty directory holding only ``__pycache__`` subtrees."""
+    children = list(path.iterdir())
+    if not children:
+        return False
+    for child in children:
+        if child.is_symlink() or not child.is_dir():
+            return False
+        if child.name != "__pycache__" and not only_bytecode(child):
+            return False
+    return True
 
 
-def _is_shim_package(path: Path) -> bool:
-    """An old package path kept only for its aliases: shims plus a docstring __init__."""
-    files = [f for f in path.glob("*.py") if f.name != "__init__.py"]
-    return bool(files) and all(_is_layout_shim(f) for f in files)
+def is_shim_package(path: Path) -> bool:
+    """An old package path kept only for aliases and optional docstring initializers."""
+    has_shim = False
+    for child in path.iterdir():
+        if child.is_symlink():
+            return False
+        if child.is_dir():
+            if child.name == "__pycache__" or only_bytecode(child):
+                continue
+            if not is_shim_package(child):
+                return False
+            has_shim = True
+            continue
+        if not child.is_file() or child.suffix != ".py":
+            return False
+        if child.name == "__init__.py":
+            if is_layout_shim(child):
+                has_shim = True
+            elif not is_docstring_only_init(child):
+                return False
+        elif is_layout_shim(child):
+            has_shim = True
+        else:
+            return False
+    return has_shim
 
 
 def assert_module_layout(
@@ -63,12 +157,12 @@ def assert_module_layout(
     entries = {
         p.name
         for p in package.iterdir()
-        if (p.suffix == ".py" and not _is_layout_shim(p))
+        if (p.is_file() and p.suffix == ".py" and not is_layout_shim(p))
         or (
             p.is_dir()
             and p.name != "__pycache__"
-            and not _only_bytecode(p)
-            and not _is_shim_package(p)
+            and not only_bytecode(p)
+            and not is_shim_package(p)
         )
     }
     deprecated = frozenset(deprecated_root)
