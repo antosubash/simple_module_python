@@ -75,7 +75,7 @@ def deprecated(
                 entry.warn(stacklevel=2)
                 original_init(self, *args, **kwargs)
 
-            obj.__init__ = init
+            obj.__init__ = init  # ty: ignore[invalid-assignment]  # dynamic __init__ wrap on arbitrary class
             return obj
 
         @functools.wraps(cast("Callable[..., Any]", obj))
